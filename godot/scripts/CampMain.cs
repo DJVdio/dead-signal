@@ -15,7 +15,8 @@ namespace DeadSignal.Godot;
 /// 遮挡物用抬起的立体块（顶面平铺 + 前向左右立面做假 3D，见 <see cref="IsoTilePanel"/>），长墙/大建筑
 /// 切小块各自 YSort 修 B0 擦身错序。屋顶常态 50% 半透、角色进入 80% 透（<see cref="RoofFade"/>）。
 ///
-/// 角色仍用 B0 占位菱形标记（人形留 B2）。与 <see cref="Main"/> 刻意不抽公共基类（避免动战斗侧）。
+/// 角色视觉由 B2 的 ActorSprite 承担（Actor 自行经 "iso_layer" group 挂到 IsoLayer）。
+/// 与 <see cref="Main"/> 刻意不抽公共基类（避免动战斗侧）。
 /// </summary>
 public sealed partial class CampMain : Node2D
 {
