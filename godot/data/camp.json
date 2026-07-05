@@ -4,6 +4,15 @@
   "navInset": 20,
   "cameraCenter": [800, 650],
 
+  "_heightsComment": "iso 立面/屋顶抬升高度（屏幕像素），全为拟定待调占位。",
+  "heights": {
+    "wall": 46,
+    "mountain": 96,
+    "fence": 26,
+    "post": 40,
+    "prop": 20
+  },
+
   "ground": { "color": [0.20, 0.23, 0.18], "tile": 34, "jitter": 0.05 },
 
   "mountains": [
@@ -29,7 +38,7 @@
       "name": "住宅",
       "rect": [300, 300, 300, 220],
       "wallThickness": 20,
-      "door": { "side": "south", "gapStart": 120, "gapWidth": 64 },
+      "door": { "side": "south", "gapStart": 110, "gapWidth": 100 },
       "wallColor": [0.55, 0.50, 0.42],
       "roof": true,
       "roofColor": [0.50, 0.26, 0.22]
@@ -38,7 +47,7 @@
       "name": "仓库",
       "rect": [960, 300, 300, 210],
       "wallThickness": 20,
-      "door": { "side": "south", "gapStart": 118, "gapWidth": 64 },
+      "door": { "side": "south", "gapStart": 100, "gapWidth": 100 },
       "wallColor": [0.50, 0.48, 0.46],
       "roof": true,
       "roofColor": [0.32, 0.34, 0.40]
@@ -47,7 +56,7 @@
       "name": "空牛棚",
       "rect": [1010, 760, 320, 240],
       "wallThickness": 20,
-      "door": { "side": "west", "gapStart": 100, "gapWidth": 72 },
+      "door": { "side": "west", "gapStart": 84, "gapWidth": 100 },
       "wallColor": [0.48, 0.42, 0.32],
       "roof": true,
       "roofColor": [0.45, 0.34, 0.20]

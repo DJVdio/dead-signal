@@ -4,15 +4,18 @@ namespace DeadSignal.Godot;
 
 /// <summary>
 /// 屋顶淡出触发区：覆盖建筑室内的 Area2D，检测幸存者进入/离开，
-/// 让绑定的屋顶 CanvasItem 在「不透明」与「90% 透明」之间平滑过渡。
+/// 让绑定的屋顶 CanvasItem 在「常态半透」与「进入更透」之间平滑过渡。
+///
+/// 规则（用户反馈第 2 条）：屋顶**常态就 50% 半透**（<see cref="ClearAlpha"/>=0.5），
+/// 好让玩家一眼看到屋内布局与门口；角色**进入屋檐后 80% 透明**（<see cref="OccupiedAlpha"/>=0.2）。
 ///
 /// 关键：淡入淡出用 <see cref="Time.GetTicksMsec"/> 算真实 delta（不吃 Engine.TimeScale），
 /// 于是战术暂停下走进屋檐，屋顶也照常渐隐——与 CameraController 同一手法。
 /// </summary>
 public sealed partial class RoofFade : Area2D
 {
-    private const float OccupiedAlpha = 0.1f;   // 有人在屋檐下：90% 透明
-    private const float ClearAlpha = 1.0f;      // 无人：完全不透明
+    private const float OccupiedAlpha = 0.2f;   // 有人在屋檐下：80% 透明
+    private const float ClearAlpha = 0.5f;      // 常态：50% 半透（能看到屋内/门）
     private const float FadeSpeed = 6.0f;       // 每秒 alpha 变化速率
 
     private CanvasItem _roof = null!;
