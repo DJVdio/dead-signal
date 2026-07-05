@@ -8,11 +8,16 @@ namespace DeadSignal.Godot;
 /// <summary>
 /// 幸存者营地主场景（初级地图）：山凹里的农庄，三面环山、一面栅栏+大门，易守难攻。
 ///
-/// 与 <see cref="Main"/>（战斗 demo）并列——复用同一套基础设施（相机、昼夜 CanvasModulate、
-/// 导航烘焙、RimWorld 式选中/指派操控），但世界改造为纯可探索营地：地形/建筑/碰撞/屋顶淡出，
-/// 不接战斗与丧尸。布局数据化（data/camp.json），像素观感由 <see cref="PixelPanel"/> 程序生成。
+/// 【等距重构 Batch 0（伪等距 / faux-iso，PZ 做法）】
+/// 逻辑/物理/寻路/碰撞/camp.json 全不动，只在渲染层做投影 + YSort。场景拆两个兄弟层：
+///  - <b>LogicLayer</b>（Visible=false，无视觉）：全部 StaticBody2D 墙、CharacterBody2D actors、
+///    RoofFade Area2D，坐标 = camp.json 的 cartesian 像素，物理/导航全在此平面，原封不动。
+///  - <b>IsoLayer</b>（YSortEnabled）：全部视觉节点，坐标 = <see cref="Iso.Project"/>(cartesian)。
+/// 静态世界投影一次；每帧把 actor 的 cartesian GlobalPosition 推给 IsoLayer 里的占位标记。
+/// 鼠标：<see cref="Godot.Node2D.GetGlobalMousePosition"/> 现返回 iso 屏幕坐标，右键/点选先
+/// <see cref="Iso.Unproject"/> 回 cartesian 再和 actor 逻辑位置比对；框选反过来把 actor 投到屏幕比。
 ///
-/// 注意：本场景刻意不与 Main 抽公共基类（那会改动战斗侧文件），初期直接平行实现。
+/// 角色 B0 只用占位菱形标记（人形留 B2）。与 <see cref="Main"/> 刻意不抽公共基类（避免动战斗侧）。
 /// </summary>
 public sealed partial class CampMain : Node2D
 {
@@ -25,20 +30,31 @@ public sealed partial class CampMain : Node2D
     private readonly List<Pawn> _survivors = new();
     private readonly HashSet<Pawn> _selected = new();
 
+    // actor → iso 占位标记（body 菱形 + 选中环），每帧同步位置。
+    private readonly Dictionary<Pawn, (Node2D node, Line2D ring)> _markers = new();
+
     private CombatEngine _combat = null!;
     private GameClock _clock = null!;
     private CameraController _camera = null!;
     private CanvasModulate _ambient = null!;
     private Hud _hud = null!;
-    private Node2D _actorLayer = null!;
+
+    private Node2D _logicLayer = null!;  // 物理/导航平面（cartesian，不可见）
+    private Node2D _isoLayer = null!;     // 视觉层（iso，YSort）
+    private Node2D _actorLayer = null!;   // actors（LogicLayer 下）
 
     private CampConfig _cfg = new();
 
-    // 框选状态。
+    // 框选状态。_dragStartWorldIso = 按下时的 iso 屏幕世界坐标（框选用），点选另行反投影。
     private bool _dragging;
     private Vector2 _dragStartScreen;
-    private Vector2 _dragStartWorld;
+    private Vector2 _dragStartWorldIso;
     private const float DragThreshold = 6f;
+
+    // z 分层：地面恒底 → 世界遮挡物/角色同层交给 YSort → 屋顶恒顶。
+    private const int ZGround = -10;
+    private const int ZWorld = 0;
+    private const int ZRoof = 20;
 
     public override void _Ready()
     {
@@ -47,6 +63,13 @@ public sealed partial class CampMain : Node2D
         _mapBounds = ToRect(_cfg.mapBounds) ?? _mapBounds;
         _navInset = _cfg.navInset > 0 ? (float)_cfg.navInset : _navInset;
         _cameraCenter = ToVec(_cfg.cameraCenter) ?? _mapBounds.GetCenter();
+
+        VerifyIsoRoundtrip();
+
+        _isoLayer = new Node2D { Name = "IsoLayer", YSortEnabled = true };
+        AddChild(_isoLayer);
+        _logicLayer = new Node2D { Name = "LogicLayer", Visible = false };
+        AddChild(_logicLayer);
 
         BuildWorld();
         BuildNavigation();
@@ -58,9 +81,10 @@ public sealed partial class CampMain : Node2D
         _ambient = new CanvasModulate();
         AddChild(_ambient);
 
-        _camera = new CameraController { Position = _cameraCenter };
-        _camera.SetBounds(new Rect2(_mapBounds.Position + new Vector2(120, 120),
-            _mapBounds.Size - new Vector2(240, 240)));
+        // 相机在 iso 屏幕空间平移/缩放：中心与边界都投影到 iso。
+        Rect2 isoBounds = Iso.ProjectBounds(_mapBounds);
+        _camera = new CameraController { Position = Iso.Project(_cameraCenter) };
+        _camera.SetBounds(isoBounds.Grow(-120));
         AddChild(_camera);
         _camera.MakeCurrent();
 
@@ -70,21 +94,40 @@ public sealed partial class CampMain : Node2D
         SpawnActors();
     }
 
+    /// <summary>反投影正确性自检：一批 cartesian 点 project→unproject 应精确还原（误差 ~0）。</summary>
+    private void VerifyIsoRoundtrip()
+    {
+        Vector2[] samples =
+        {
+            new(0, 0), _mapBounds.End, _cameraCenter,
+            new(560, 720), new(320, 300), new(1259, 999), new(801, 1119),
+        };
+        float maxErr = 0f;
+        foreach (Vector2 s in samples)
+        {
+            maxErr = Mathf.Max(maxErr, s.DistanceTo(Iso.Unproject(Iso.Project(s))));
+        }
+        GD.Print($"[Iso] project↔unproject 往返最大误差 = {maxErr:0.######} px（期望 ~0，验证鼠标反投影正确性）");
+    }
+
     // ---------------- 建图 ----------------
 
     private void BuildWorld()
     {
         _actorLayer = new Node2D { Name = "Actors" };
 
-        // 地面（程序像素土地）。
-        var groundStyle = _cfg.ground ?? new PixelStyle { color = new[] { 0.20, 0.23, 0.18 }, tile = 34, jitter = 0.05 };
-        var ground = MakePixelPanel(_mapBounds, groundStyle, seed: 1, zIndex: -20);
-        AddChild(ground);
+        // 地面（iso 菱形块，恒底层）。仅视觉，无碰撞。
+        var groundStyle = _cfg.ground ?? new PixelStyle { color = new[] { 0.20, 0.23, 0.18 }, jitter = 0.05 };
+        _isoLayer.AddChild(new IsoTilePanel
+        {
+            FootprintCart = _mapBounds,
+            Style = groundStyle,
+            Seed = 1,
+            Cell = 96f,
+            ZIndex = ZGround,
+        });
 
-        // 网格线，增强俯视空间感。
-        AddChild(new GridLines { Bounds = _mapBounds, ZIndex = -19 });
-
-        // 地图边界墙（纯碰撞，防走出世界；被山体盖住，视觉上不显）。
+        // 地图边界墙（纯碰撞，防走出世界；山体已覆盖，无视觉）。
         float t = 20f;
         AddBorderWall(new Rect2(0, 0, _mapBounds.Size.X, t));
         AddBorderWall(new Rect2(0, _mapBounds.Size.Y - t, _mapBounds.Size.X, t));
@@ -92,40 +135,30 @@ public sealed partial class CampMain : Node2D
         AddBorderWall(new Rect2(_mapBounds.Size.X - t, 0, t, _mapBounds.Size.Y));
 
         // 三面环山。
-        var mtnStyle = _cfg.mountainStyle ?? new PixelStyle { color = new[] { 0.27, 0.32, 0.27 }, tile = 22, jitter = 0.14 };
+        var mtnStyle = _cfg.mountainStyle ?? new PixelStyle { color = new[] { 0.27, 0.32, 0.27 }, jitter = 0.14 };
         foreach (RectSpec m in _cfg.mountains ?? System.Array.Empty<RectSpec>())
         {
             if (ToRect(m.rect) is { } r)
             {
-                AddSolid(r, mtnStyle, seed: 7, zIndex: -6);
+                AddSolid(r, mtnStyle, seed: 7);
             }
         }
 
-        // 一面栅栏 + 大门缺口。
-        var fenceStyle = _cfg.fenceStyle ?? new PixelStyle { color = new[] { 0.40, 0.30, 0.19 }, tile = 12, jitter = 0.12 };
+        // 一面栅栏 + 大门缺口（门柱亦实心）。
+        var fenceStyle = _cfg.fenceStyle ?? new PixelStyle { color = new[] { 0.40, 0.30, 0.19 }, jitter = 0.12 };
         foreach (RectSpec f in _cfg.fences ?? System.Array.Empty<RectSpec>())
         {
             if (ToRect(f.rect) is { } r)
             {
-                AddSolid(r, fenceStyle, seed: 11, zIndex: -5);
+                AddSolid(r, fenceStyle, seed: 11);
             }
         }
         foreach (RectSpec p in _cfg.gatePosts ?? System.Array.Empty<RectSpec>())
         {
             if (ToRect(p.rect) is { } r)
             {
-                AddSolid(r, fenceStyle, seed: 13, zIndex: -4);
+                AddSolid(r, fenceStyle, seed: 13);
             }
-        }
-        if (_cfg.gateMarker is { } gm && ToRect(gm.rect) is { } gmr)
-        {
-            // 门槛纯装饰色带，不参与碰撞/导航。
-            AddChild(new Polygon2D
-            {
-                Polygon = RectPoints(gmr),
-                Color = ToColor(gm.color, new Color(0.35f, 0.28f, 0.18f)),
-                ZIndex = -18,
-            });
         }
 
         // 建筑（墙留门洞 + 屋顶淡出）。
@@ -139,12 +172,12 @@ public sealed partial class CampMain : Node2D
         {
             if (ToRect(pr.rect) is { } r)
             {
-                var style = new PixelStyle { color = pr.color, tile = pr.tile > 0 ? pr.tile : 12, jitter = pr.jitter };
-                AddSolid(r, style, seed: 17, zIndex: -3);
+                var style = new PixelStyle { color = pr.color, jitter = pr.jitter };
+                AddSolid(r, style, seed: 17);
             }
         }
 
-        AddChild(_actorLayer);
+        _logicLayer.AddChild(_actorLayer);
     }
 
     /// <summary>建筑：沿 footprint 生成四面墙（门侧留缺口），室内可寻路进入；带屋顶则加淡出触发。</summary>
@@ -155,26 +188,26 @@ public sealed partial class CampMain : Node2D
             return;
         }
         float wt = b.wallThickness > 0 ? (float)b.wallThickness : 18f;
-        var wallStyle = new PixelStyle { color = b.wallColor, tile = 12, jitter = 0.10 };
+        var wallStyle = new PixelStyle { color = b.wallColor, jitter = 0.10 };
 
         foreach (Rect2 seg in WallSegments(foot, wt, b.door))
         {
-            AddSolid(seg, wallStyle, seed: 23, zIndex: -5);
+            AddSolid(seg, wallStyle, seed: 23);
         }
 
         if (b.roof)
         {
-            var roofStyle = new PixelStyle { color = b.roofColor, tile = 14, jitter = 0.09 };
-            // 屋顶盖住整个 footprint，ZIndex 高于角色。
-            PixelPanel roof = MakePixelPanel(foot, roofStyle, seed: 29, zIndex: 50);
-            AddChild(roof);
+            // 屋顶视觉在 iso 层（恒顶层，盖住角色）。
+            var roofStyle = new PixelStyle { color = b.roofColor, jitter = 0.09 };
+            var roof = new IsoTilePanel { FootprintCart = foot, Style = roofStyle, Seed = 29, Cell = 48f, ZIndex = ZRoof };
+            _isoLayer.AddChild(roof);
 
-            // 淡出触发区：覆盖室内（footprint 内缩一堵墙厚），角色进入即渐隐屋顶。
+            // 淡出触发区（Area2D）在 logic 层，cartesian 平面探测幸存者进入，跨层淡出 iso 屋顶。
             var fade = new RoofFade { Position = foot.Position + foot.Size / 2 };
             Rect2 interiorLocal = new(
                 -foot.Size / 2 + new Vector2(wt, wt),
                 foot.Size - new Vector2(wt * 2, wt * 2));
-            AddChild(fade);
+            _logicLayer.AddChild(fade);
             fade.Setup(roof, interiorLocal);
         }
     }
@@ -230,45 +263,39 @@ public sealed partial class CampMain : Node2D
         if (bottom.Size.Y > 1) segs.Add(bottom);
     }
 
-    /// <summary>加一堵实心矩形：StaticBody2D（墙层，挡角色）+ 程序像素外观，并登记为导航洞。</summary>
-    private void AddSolid(Rect2 rect, PixelStyle style, int seed, int zIndex)
+    /// <summary>
+    /// 加一堵实心矩形：LogicLayer 里放 StaticBody2D（墙层，cartesian，挡角色 + 导航挖洞），
+    /// IsoLayer 里放对应的 iso 菱形块视觉。二者解耦、坐标各自平面。
+    /// </summary>
+    private void AddSolid(Rect2 rect, PixelStyle style, int seed)
     {
         var body = new StaticBody2D { Position = rect.Position + rect.Size / 2 };
         body.CollisionLayer = 0b0100; // 层 3 = 墙（Actor 只与此层碰撞）
         body.CollisionMask = 0;
         body.AddChild(new CollisionShape2D { Shape = new RectangleShape2D { Size = rect.Size } });
+        _logicLayer.AddChild(body);
 
-        var panel = new PixelPanel
+        _isoLayer.AddChild(new IsoTilePanel
         {
-            Area = new Rect2(-rect.Size / 2, rect.Size),
+            FootprintCart = rect,
             Style = style,
             Seed = seed,
-            ZIndex = zIndex,
-        };
-        body.AddChild(panel);
+            Cell = 48f,
+            ZIndex = ZWorld,
+        });
 
-        AddChild(body);
         _navHoles.Add(rect);
     }
 
-    /// <summary>纯碰撞的边界墙（不画、不登记导航洞——它就压在地图边缘，山体已覆盖）。</summary>
+    /// <summary>纯碰撞的边界墙（LogicLayer，无视觉、不登记导航洞——压在地图边缘，山体已覆盖）。</summary>
     private void AddBorderWall(Rect2 rect)
     {
         var body = new StaticBody2D { Position = rect.Position + rect.Size / 2 };
         body.CollisionLayer = 0b0100;
         body.CollisionMask = 0;
         body.AddChild(new CollisionShape2D { Shape = new RectangleShape2D { Size = rect.Size } });
-        AddChild(body);
+        _logicLayer.AddChild(body);
     }
-
-    private PixelPanel MakePixelPanel(Rect2 worldRect, PixelStyle style, int seed, int zIndex) => new()
-    {
-        Position = worldRect.Position,
-        Area = new Rect2(Vector2.Zero, worldRect.Size),
-        Style = style,
-        Seed = seed,
-        ZIndex = zIndex,
-    };
 
     private void BuildNavigation()
     {
@@ -287,6 +314,7 @@ public sealed partial class CampMain : Node2D
 
         NavigationServer2D.BakeFromSourceGeometryData(navPoly, new NavigationMeshSourceGeometryData2D());
         region.NavigationPolygon = navPoly;
+        // 导航区直接挂根节点（cartesian 平面），避开 LogicLayer 不可见性的任何耦合顾虑。
         AddChild(region);
     }
 
@@ -296,13 +324,15 @@ public sealed partial class CampMain : Node2D
     {
         foreach (SpawnSpec s in _cfg.spawns ?? System.Array.Empty<SpawnSpec>())
         {
-            var p = Pawn.Create(s.name ?? "幸存者", s.pistol, ToColor(s.color, new Color(0.5f, 0.7f, 0.9f)));
+            Color color = ToColor(s.color, new Color(0.5f, 0.7f, 0.9f));
+            var p = Pawn.Create(s.name ?? "幸存者", s.pistol, color);
             if (ToVec(s.pos) is { } pos)
             {
-                p.Position = pos;
+                p.Position = pos; // cartesian
             }
             AddActor(p);
             _survivors.Add(p);
+            AddMarker(p, color);
         }
     }
 
@@ -310,7 +340,52 @@ public sealed partial class CampMain : Node2D
     {
         actor.Inject(_combat, _clock);
         actor.Died += OnActorDied;
-        _actorLayer.AddChild(actor);
+        _actorLayer.AddChild(actor); // LogicLayer 下（不可见，仅物理/寻路）
+    }
+
+    /// <summary>为一名幸存者建 iso 占位标记：菱形身体 + 选中环（B2 换人形）。</summary>
+    private void AddMarker(Pawn p, Color color)
+    {
+        var node = new Node2D { ZIndex = ZWorld };
+
+        var body = new Polygon2D { Polygon = IsoDiamond(p.Radius), Color = color };
+        node.AddChild(body);
+        var outline = new Line2D
+        {
+            Points = IsoDiamondLoop(p.Radius),
+            Width = 1.5f,
+            DefaultColor = new Color(0, 0, 0, 0.6f),
+        };
+        node.AddChild(outline);
+
+        var ring = new Line2D
+        {
+            Points = IsoDiamondLoop(p.Radius + 5f),
+            Width = 2f,
+            DefaultColor = new Color(0.4f, 1f, 0.5f),
+            Visible = false,
+        };
+        node.AddChild(ring);
+
+        node.Position = Iso.Project(p.GlobalPosition);
+        _isoLayer.AddChild(node);
+        _markers[p] = (node, ring);
+    }
+
+    // 以 cartesian 圆（半径 r）的四个基点投影出的 iso 菱形。
+    private static Vector2[] IsoDiamond(float r) => new[]
+    {
+        Iso.Project(new Vector2(0, -r)),
+        Iso.Project(new Vector2(r, 0)),
+        Iso.Project(new Vector2(0, r)),
+        Iso.Project(new Vector2(-r, 0)),
+    };
+
+    // 闭合折线（首点重复）用于描边/选中环。
+    private static Vector2[] IsoDiamondLoop(float r)
+    {
+        Vector2[] d = IsoDiamond(r);
+        return new[] { d[0], d[1], d[2], d[3], d[0] };
     }
 
     private void OnActorDied(Actor actor)
@@ -319,6 +394,10 @@ public sealed partial class CampMain : Node2D
         {
             _survivors.Remove(p);
             _selected.Remove(p);
+            if (_markers.Remove(p, out var m))
+            {
+                m.node.QueueFree();
+            }
         }
     }
 
@@ -329,8 +408,19 @@ public sealed partial class CampMain : Node2D
         _ambient.Color = _clock.CurrentAmbientColor();
         string phase = _clock.IsNight ? "夜" : "昼";
         _hud.SetStatus(
-            $"营地  第 {_clock.Day} 天  {_clock.ClockString()}  [{phase}]   速度 {_clock.SpeedLabel()}   " +
+            $"营地[等距]  第 {_clock.Day} 天  {_clock.ClockString()}  [{phase}]   速度 {_clock.SpeedLabel()}   " +
             $"幸存者 {_survivors.Count}");
+
+        // 把 actor 的 cartesian 逻辑位置每帧投影同步到 iso 占位标记。
+        foreach ((Pawn p, (Node2D node, Line2D ring)) in _markers)
+        {
+            if (!GodotObject.IsInstanceValid(p))
+            {
+                continue;
+            }
+            node.Position = Iso.Project(p.GlobalPosition);
+            ring.Visible = _selected.Contains(p);
+        }
     }
 
     // ---------------- 输入：选中 / 指令 / 时间 ----------------
@@ -381,7 +471,7 @@ public sealed partial class CampMain : Node2D
             {
                 _dragging = true;
                 _dragStartScreen = mb.Position;
-                _dragStartWorld = GetGlobalMousePosition();
+                _dragStartWorldIso = GetGlobalMousePosition(); // iso 屏幕世界坐标
             }
             else if (_dragging)
             {
@@ -392,7 +482,8 @@ public sealed partial class CampMain : Node2D
         }
         else if (mb is { ButtonIndex: MouseButton.Right, Pressed: true })
         {
-            IssueMove(GetGlobalMousePosition());
+            // 右键落点在 iso 地面 → 反投影回 cartesian 再下移动指令。
+            IssueMove(Iso.Unproject(GetGlobalMousePosition()));
         }
     }
 
@@ -416,18 +507,21 @@ public sealed partial class CampMain : Node2D
 
         if (isBox)
         {
-            Vector2 endWorld = GetGlobalMousePosition();
-            Rect2 world = RectFrom(_dragStartWorld, endWorld);
-            foreach (Pawn p in _survivors.Where(p => world.HasPoint(p.GlobalPosition)))
+            // 框选：拖拽矩形在 iso 屏幕空间；把每个 actor 的 cartesian 位置 Project 到 iso 再判包含。
+            Vector2 endIso = GetGlobalMousePosition();
+            Rect2 boxIso = RectFrom(_dragStartWorldIso, endIso);
+            foreach (Pawn p in _survivors.Where(p => boxIso.HasPoint(Iso.Project(p.GlobalPosition))))
             {
                 Select(p);
             }
         }
         else
         {
+            // 点选：落点反投影回 cartesian，和 actor 逻辑位置按半径比对。
+            Vector2 cart = Iso.Unproject(_dragStartWorldIso);
             Pawn? hit = _survivors
-                .Where(p => p.GlobalPosition.DistanceTo(_dragStartWorld) <= p.Radius + 6)
-                .OrderBy(p => p.GlobalPosition.DistanceTo(_dragStartWorld))
+                .Where(p => p.GlobalPosition.DistanceTo(cart) <= p.Radius + 8)
+                .OrderBy(p => p.GlobalPosition.DistanceTo(cart))
                 .FirstOrDefault();
             if (hit != null)
             {
@@ -436,13 +530,13 @@ public sealed partial class CampMain : Node2D
         }
     }
 
-    private void IssueMove(Vector2 worldPos)
+    private void IssueMove(Vector2 cartPos)
     {
         if (_selected.Count == 0)
         {
             return;
         }
-        // 多人移动时环形散开，避免堆叠。
+        // 多人移动时环形散开，避免堆叠（cartesian 平面）。
         var list = _selected.ToList();
         for (int i = 0; i < list.Count; i++)
         {
@@ -452,15 +546,14 @@ public sealed partial class CampMain : Node2D
                 float ang = Mathf.Tau * i / list.Count;
                 offset = new Vector2(Mathf.Cos(ang), Mathf.Sin(ang)) * 26f;
             }
-            list[i].CommandMoveTo(worldPos + offset);
+            list[i].CommandMoveTo(cartPos + offset);
         }
     }
 
     private void Select(Pawn p)
     {
         _selected.Add(p);
-        p.Selected = true;
-        p.QueueRedraw();
+        p.Selected = true; // actor 自身 _Draw 不可见，选中环由 iso 标记表现
     }
 
     private void ClearSelection()
@@ -468,7 +561,6 @@ public sealed partial class CampMain : Node2D
         foreach (Pawn p in _selected)
         {
             p.Selected = false;
-            p.QueueRedraw();
         }
         _selected.Clear();
     }
