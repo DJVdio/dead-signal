@@ -1,0 +1,8 @@
+{
+  "dayLengthSeconds": 720,
+  "nightLengthSeconds": 480,
+  "startAtNight": false,
+  "dayColor": [1.0, 0.98, 0.92],
+  "nightColor": [0.18, 0.22, 0.38],
+  "twilightFraction": 0.12
+}

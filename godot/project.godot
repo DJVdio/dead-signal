@@ -1,0 +1,19 @@
+; Engine configuration file.
+; Dead Signal — 最小可玩原型（RimWorld 式操控）。
+
+config_version=5
+
+[application]
+
+config/name="Dead Signal"
+run/main_scene="res://scenes/Main.tscn"
+config/features=PackedStringArray("4.7", "C#", "Forward Plus")
+config/icon="res://icon.svg"
+
+[dotnet]
+
+project/assembly_name="DeadSignal.Godot"
+
+[rendering]
+
+environment/defaults/default_clear_color=Color(0.08, 0.09, 0.11, 1)
