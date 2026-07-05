@@ -1,0 +1,71 @@
+{
+  "_comment": "山凹农庄营地布局。所有坐标/尺寸为像素，均为拟定待调占位。rect = [x, y, w, h]。",
+  "mapBounds": [0, 0, 1600, 1200],
+  "navInset": 20,
+  "cameraCenter": [800, 650],
+
+  "ground": { "color": [0.20, 0.23, 0.18], "tile": 34, "jitter": 0.05 },
+
+  "mountains": [
+    { "rect": [0, 0, 1600, 180] },
+    { "rect": [0, 0, 180, 1200] },
+    { "rect": [1420, 0, 180, 1200] }
+  ],
+  "mountainStyle": { "color": [0.27, 0.32, 0.27], "tile": 22, "jitter": 0.14 },
+
+  "fences": [
+    { "rect": [180, 1120, 545, 22] },
+    { "rect": [875, 1120, 545, 22] }
+  ],
+  "gatePosts": [
+    { "rect": [700, 1108, 26, 46] },
+    { "rect": [874, 1108, 26, 46] }
+  ],
+  "gateMarker": { "rect": [726, 1132, 148, 8], "color": [0.35, 0.28, 0.18] },
+  "fenceStyle": { "color": [0.40, 0.30, 0.19], "tile": 12, "jitter": 0.12 },
+
+  "buildings": [
+    {
+      "name": "住宅",
+      "rect": [300, 300, 300, 220],
+      "wallThickness": 20,
+      "door": { "side": "south", "gapStart": 120, "gapWidth": 64 },
+      "wallColor": [0.55, 0.50, 0.42],
+      "roof": true,
+      "roofColor": [0.50, 0.26, 0.22]
+    },
+    {
+      "name": "仓库",
+      "rect": [960, 300, 300, 210],
+      "wallThickness": 20,
+      "door": { "side": "south", "gapStart": 118, "gapWidth": 64 },
+      "wallColor": [0.50, 0.48, 0.46],
+      "roof": true,
+      "roofColor": [0.32, 0.34, 0.40]
+    },
+    {
+      "name": "空牛棚",
+      "rect": [1010, 760, 320, 240],
+      "wallThickness": 20,
+      "door": { "side": "west", "gapStart": 100, "gapWidth": 72 },
+      "wallColor": [0.48, 0.42, 0.32],
+      "roof": true,
+      "roofColor": [0.45, 0.34, 0.20]
+    }
+  ],
+
+  "props": [
+    {
+      "name": "工作台",
+      "rect": [360, 800, 120, 74],
+      "color": [0.42, 0.34, 0.22],
+      "tile": 12,
+      "jitter": 0.10
+    }
+  ],
+
+  "spawns": [
+    { "name": "山姆", "pos": [560, 720], "pistol": true, "color": [0.40, 0.65, 0.95] },
+    { "name": "诺蒂", "pos": [640, 770], "pistol": false, "color": [0.55, 0.82, 0.60] }
+  ]
+}
