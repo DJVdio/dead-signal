@@ -3,15 +3,6 @@ using Godot;
 
 namespace DeadSignal.Godot;
 
-/// <summary>
-/// 昼夜循环 + 时间档位 + 战术暂停的中枢。
-///
-/// 时间档位与暂停统一用 <see cref="Engine.TimeScale"/> 实现：
-/// 档位 1x/3x/8x 直接设 TimeScale；暂停设 0（_Process/_PhysicsProcess 仍被调用但 delta=0，
-/// 于是移动、AI、昼夜全部冻结，而 _Input/_UnhandledInput 不受 TimeScale 影响 —— 暂停中照常下指令）。
-///
-/// 因此本类所有推进都吃 <c>_Process(delta)</c> 的已缩放 delta，无需自管 tick 倍率。
-/// </summary>
 public sealed partial class GameClock : Node
 {
     public struct Config
@@ -21,94 +12,155 @@ public sealed partial class GameClock : Node
         public bool StartAtNight;
         public Color DayColor;
         public Color NightColor;
-        /// <summary>昼夜切换的过渡带占各自时段的比例（用于颜色渐变）。</summary>
         public double TwilightFraction;
+        public double TravelTimeSeconds;
+        public double WarningBufferSeconds;
     }
 
     private Config _cfg;
 
-    // 时间档位（暂停时保留，恢复即回到该档）。
     private static readonly double[] Speeds = { 1.0, 3.0, 8.0 };
     public int SpeedIndex { get; private set; } = 0;
-    public bool Paused { get; private set; } = false;
+
+    public bool Paused => Engine.TimeScale == 0;
+
+    private bool _userPaused;
 
     public int Day { get; private set; } = 1;
-    public bool IsNight { get; private set; }
+    public bool IsNight => CurrentPhase is DayPhase.NightPrep or DayPhase.NightAct;
 
-    /// <summary>当前时段内已流逝秒数。</summary>
+    public DayPhase CurrentPhase { get; private set; } = DayPhase.DayPrep;
+
     private double _phaseElapsed;
+    private double _travelElapsed;
 
-    /// <summary>昼→夜切换时触发（bool = 切换后是否为夜晚）。</summary>
-    public event Action<bool>? PhaseChanged;
+    public event Action<DayPhase>? OnPhaseChanged;
 
     public double CurrentSpeed => Speeds[SpeedIndex];
 
     public void Configure(Config cfg)
     {
         _cfg = cfg;
-        IsNight = cfg.StartAtNight;
+        _cfg.TravelTimeSeconds = cfg.TravelTimeSeconds > 0 ? cfg.TravelTimeSeconds : 120;
         _phaseElapsed = 0;
-        ApplyTimeScale();
+        _travelElapsed = 0;
+        _userPaused = false;
+        CurrentPhase = DayPhase.DayPrep;
+        Day = 1;
+        Engine.TimeScale = 0;
     }
 
-    public override void _Ready() => ApplyTimeScale();
+    public void TransitionTo(DayPhase phase)
+    {
+        CurrentPhase = phase;
+
+        switch (phase)
+        {
+            case DayPhase.DayTravel:
+                _travelElapsed = 0;
+                break;
+            case DayPhase.NightPrep:
+                _phaseElapsed = 0;
+                break;
+            case DayPhase.DayPrep:
+                _phaseElapsed = 0;
+                Day += 1;
+                break;
+        }
+
+        OnPhaseChanged?.Invoke(phase);
+        ApplyPhaseTimeScale();
+    }
+
+    public override void _Ready() => ApplyPhaseTimeScale();
 
     public override void _Process(double delta)
     {
-        // delta 已被 Engine.TimeScale 缩放：暂停时为 0，8x 时为 8 倍。
-        double phaseLen = IsNight ? _cfg.NightLengthSeconds : _cfg.DayLengthSeconds;
-        _phaseElapsed += delta;
-        while (_phaseElapsed >= phaseLen && phaseLen > 0)
+        if (delta <= 0)
+            return;
+
+        switch (CurrentPhase)
         {
-            _phaseElapsed -= phaseLen;
-            AdvancePhase();
-            phaseLen = IsNight ? _cfg.NightLengthSeconds : _cfg.DayLengthSeconds;
+            case DayPhase.DayTravel:
+                _travelElapsed += delta;
+                _phaseElapsed += delta;
+                if (_travelElapsed >= _cfg.TravelTimeSeconds)
+                    TransitionTo(DayPhase.DayExplore);
+                break;
+
+            case DayPhase.DayExplore:
+                _phaseElapsed += delta;
+                if (_phaseElapsed >= _cfg.DayLengthSeconds)
+                    TransitionTo(DayPhase.DayReturn);
+                break;
+
+            case DayPhase.NightAct:
+                _phaseElapsed += delta;
+                if (_phaseElapsed >= _cfg.NightLengthSeconds)
+                    TransitionTo(DayPhase.DayPrep);
+                break;
         }
     }
 
-    private void AdvancePhase()
-    {
-        if (IsNight)
-        {
-            // 夜尽入昼，进入新的一天。
-            IsNight = false;
-            Day += 1;
-        }
-        else
-        {
-            IsNight = true;
-        }
-        PhaseChanged?.Invoke(IsNight);
-    }
-
-    /// <summary>Debug：直接跳到当前时段结束，触发一次昼夜切换。</summary>
     public void DebugSkipToPhaseEnd()
     {
-        _phaseElapsed = 0;
-        AdvancePhase();
+        switch (CurrentPhase)
+        {
+            case DayPhase.DayPrep:
+                TransitionTo(DayPhase.DayExplore);
+                break;
+            case DayPhase.DayTravel:
+                TransitionTo(DayPhase.DayExplore);
+                break;
+            case DayPhase.DayExplore:
+                TransitionTo(DayPhase.DayReturn);
+                break;
+            case DayPhase.DayReturn:
+                TransitionTo(DayPhase.NightPrep);
+                break;
+            case DayPhase.NightPrep:
+                TransitionTo(DayPhase.NightAct);
+                break;
+            case DayPhase.NightAct:
+                TransitionTo(DayPhase.DayPrep);
+                break;
+        }
     }
-
-    // ---- 时间档位 / 暂停 ----
 
     public void TogglePause()
     {
-        Paused = !Paused;
-        ApplyTimeScale();
+        if (CurrentPhase is DayPhase.DayPrep or DayPhase.DayReturn or DayPhase.NightPrep)
+            return;
+        _userPaused = !_userPaused;
+        ApplyPhaseTimeScale();
     }
 
     public void SetSpeedIndex(int index)
     {
         SpeedIndex = Mathf.Clamp(index, 0, Speeds.Length - 1);
-        // 选速度档隐含恢复运行。
-        Paused = false;
-        ApplyTimeScale();
+        if (CurrentPhase is DayPhase.DayPrep or DayPhase.DayReturn or DayPhase.NightPrep)
+            return;
+        _userPaused = false;
+        ApplyPhaseTimeScale();
     }
 
-    private void ApplyTimeScale() => Engine.TimeScale = Paused ? 0.0 : Speeds[SpeedIndex];
+    private void ApplyPhaseTimeScale()
+    {
+        if (CurrentPhase is DayPhase.DayPrep or DayPhase.DayReturn or DayPhase.NightPrep)
+        {
+            Engine.TimeScale = 0;
+            return;
+        }
 
-    // ---- 表现辅助 ----
+        if (_userPaused)
+        {
+            Engine.TimeScale = 0;
+            return;
+        }
 
-    /// <summary>当前应显示的环境色（昼夜之间在过渡带内线性渐变）。</summary>
+        Engine.TimeScale = CurrentPhase == DayPhase.DayTravel ? 8.0 : Speeds[SpeedIndex];
+    }
+
     public Color CurrentAmbientColor()
     {
         double phaseLen = IsNight ? _cfg.NightLengthSeconds : _cfg.DayLengthSeconds;
@@ -121,30 +173,26 @@ public sealed partial class GameClock : Node
         double tw = Mathf.Clamp((float)_cfg.TwilightFraction, 0.01f, 0.49f);
 
         Color baseColor = IsNight ? _cfg.NightColor : _cfg.DayColor;
-        Color otherStart = IsNight ? _cfg.DayColor : _cfg.NightColor; // 上一时段末尾色
-        Color otherEnd = IsNight ? _cfg.DayColor : _cfg.NightColor;   // 下一时段开头色
+        Color otherStart = IsNight ? _cfg.DayColor : _cfg.NightColor;
+        Color otherEnd = IsNight ? _cfg.DayColor : _cfg.NightColor;
 
         if (frac < tw)
         {
-            // 刚切入本时段：从上一时段色渐入本时段色。
             float t = (float)(frac / tw);
             return otherStart.Lerp(baseColor, t);
         }
         if (frac > 1 - tw)
         {
-            // 时段末尾：从本时段色渐出到下一时段色。
             float t = (float)((frac - (1 - tw)) / tw);
             return baseColor.Lerp(otherEnd, t);
         }
         return baseColor;
     }
 
-    /// <summary>形如 "06:30" 的时刻串。白天从 06:00 起，夜晚从 18:00 起，各自占满本时段。</summary>
     public string ClockString()
     {
         double phaseLen = IsNight ? _cfg.NightLengthSeconds : _cfg.DayLengthSeconds;
         double frac = phaseLen > 0 ? _phaseElapsed / phaseLen : 0;
-        // 白天覆盖 06:00–18:00（12h），夜晚覆盖 18:00–06:00（12h）。
         double startHour = IsNight ? 18.0 : 6.0;
         double hourOfDay = (startHour + frac * 12.0) % 24.0;
         int h = (int)hourOfDay;
