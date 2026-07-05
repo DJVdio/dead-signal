@@ -24,4 +24,9 @@
     <ProjectReference Include="..\..\src\DeadSignal.Combat\DeadSignal.Combat.csproj" />
   </ItemGroup>
 
+  <!-- Godot 消费层（纯 C#、无 Godot 依赖）以 Link 编入单测，验证 CombatEngine 接 Body 的行为。 -->
+  <ItemGroup>
+    <Compile Include="..\..\godot\scripts\CombatData.cs" Link="Consumed\CombatData.cs" />
+  </ItemGroup>
+
 </Project>

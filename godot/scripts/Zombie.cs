@@ -29,14 +29,12 @@ public sealed partial class Zombie : Actor
         };
         z.Faction = Faction.Zombie;
         z.Radius = 13f;
-        z.MaxHp = 60;
-        z.Hp = 60;
         z.MoveSpeed = 55f;
+        z.Body = CombatData.NewHumanoidBody();
         z.AttackWeapon = CombatData.ZombieClaw();
         z.AttackRange = 24f;
         z.AttackCooldown = 1.3;
         z.DefenderArmor = CombatData.ZombieHide();
-        z.DefenderParts = CombatData.HumanoidParts();
         return z;
     }
 

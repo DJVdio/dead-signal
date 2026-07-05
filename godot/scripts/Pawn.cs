@@ -19,18 +19,16 @@ public sealed partial class Pawn : Actor
         };
         p.Faction = Faction.Survivor;
         p.Radius = 12f;
-        p.MaxHp = 100;
-        p.Hp = 100;
         p.MoveSpeed = 95f;
+        p.Body = CombatData.NewHumanoidBody();
         p.DefenderArmor = CombatData.SurvivorArmor();
-        p.DefenderParts = CombatData.HumanoidParts();
 
         if (usePistol)
         {
             p.AttackWeapon = CombatData.Pistol();
             p.AttackRange = 260f;   // 中距离
             p.AttackCooldown = 1.1;
-            p.IsRanged = true;      // 直线弹道占位（无散布/命中率）
+            p.IsRanged = true;      // 锥形散布弹道（误差角来自武器 BaseSpreadDegrees）
         }
         else
         {
