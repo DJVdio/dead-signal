@@ -64,6 +64,13 @@ public sealed partial class ActorSprite : Node2D
         }
 
         QueueRedraw();
+
+        if (_actor is Pawn pawn)
+        {
+            Modulate = pawn.Role == PawnRole.Sleeping
+                ? new Color(1, 1, 1, 0.35f)
+                : Colors.White;
+        }
     }
 
     private void SyncToActor() => Position = Iso.Project(_actor.GlobalPosition);
@@ -76,10 +83,56 @@ public sealed partial class ActorSprite : Node2D
         }
 
         float r = _actor.Radius;
-        Vector2 f = Vector2.FromAngle(_drawAngle);   // iso 屏幕空间前向（单位）
-        var p = new Vector2(-f.Y, f.X);              // 侧向（肩线方向）
+        Vector2 f = Vector2.FromAngle(_drawAngle);
+        var p = new Vector2(-f.Y, f.X);
 
         Color tint = _actor.BodyTint;
+
+        float headCY = -r * 2.78f;
+        float headR = r * 0.62f;
+
+        DrawColoredPolygon(Ellipse(new Vector2(0, -r * 0.12f), r * 1.2f, r * 0.55f), new Color(0, 0, 0, 0.28f));
+
+        if (_actor.Selected)
+        {
+            Vector2[] ring = Ellipse(new Vector2(0, -r * 0.12f), r * 1.45f, r * 0.66f, 28);
+            DrawPolyline(Close(ring), new Color(0.4f, 1f, 0.55f), 2f, true);
+        }
+
+        if (_actor is Pawn { SleepingVisual: true })
+        {
+            DrawSleeping(r, tint);
+        }
+        else
+        {
+            DrawStanding(r, tint, f, p);
+        }
+
+        float barW = r * 2.4f;
+        float barH = 4f;
+        var barPos = new Vector2(-barW / 2f, headCY - headR - 8f);
+        float frac = _actor.HealthFraction;
+        DrawRect(new Rect2(barPos, new Vector2(barW, barH)), new Color(0.1f, 0.1f, 0.1f, 0.85f));
+        Color hp = frac > 0.5f ? new Color(0.4f, 0.85f, 0.4f)
+            : frac > 0.25f ? new Color(0.9f, 0.8f, 0.3f)
+            : new Color(0.9f, 0.35f, 0.3f);
+        DrawRect(new Rect2(barPos, new Vector2(barW * frac, barH)), hp);
+
+        if (_actor is Pawn rp && rp.Role != PawnRole.Idle)
+        {
+            Color dot = rp.Role switch
+            {
+                PawnRole.Sleeping => new Color(0.3f, 0.5f, 0.9f, 0.7f),
+                PawnRole.Guard => new Color(0.9f, 0.7f, 0.2f, 0.8f),
+                PawnRole.Expedition => new Color(0.3f, 0.8f, 0.4f, 0.8f),
+                _ => Colors.Transparent,
+            };
+            DrawCircle(new Vector2(r * 1.5f, headCY - headR - 4f), 3f, dot);
+        }
+    }
+
+    private void DrawStanding(float r, Color tint, Vector2 f, Vector2 p)
+    {
         Color torso = tint;
         Color torsoDark = tint.Darkened(0.42f);
         Color torsoLight = tint.Lightened(0.28f);
@@ -88,7 +141,6 @@ public sealed partial class ActorSprite : Node2D
         Color headShade = headCol.Darkened(0.35f);
         var outline = new Color(0.05f, 0.05f, 0.07f, 0.9f);
 
-        // 关键高度（屏幕上为负 Y）。
         float feetY = 0f;
         float hipY = -r * 1.15f;
         float torsoCY = -r * 1.72f;
@@ -96,17 +148,6 @@ public sealed partial class ActorSprite : Node2D
         float headCY = -r * 2.78f;
         float headR = r * 0.62f;
 
-        // 1) 投影阴影（贴地、压扁）。
-        DrawColoredPolygon(Ellipse(new Vector2(0, -r * 0.12f), r * 1.2f, r * 0.55f), new Color(0, 0, 0, 0.28f));
-
-        // 2) 选中环（脚下 iso 椭圆）。
-        if (_actor.Selected)
-        {
-            Vector2[] ring = Ellipse(new Vector2(0, -r * 0.12f), r * 1.45f, r * 0.66f, 28);
-            DrawPolyline(Close(ring), new Color(0.4f, 1f, 0.55f), 2f, true);
-        }
-
-        // 3) 双腿（髋→脚，粗线）。侧向分开、略含前后错步。
         Vector2 hipL = new Vector2(0, hipY) + p * r * 0.28f;
         Vector2 hipR = new Vector2(0, hipY) - p * r * 0.28f;
         Vector2 footL = p * r * 0.42f + f * r * 0.10f + new Vector2(0, feetY);
@@ -116,32 +157,27 @@ public sealed partial class ActorSprite : Node2D
         DrawLine(hipL, footL, legCol, r * 0.42f);
         DrawLine(hipR, footR, legCol, r * 0.42f);
 
-        // 4) 躯干（椭圆 + 明暗）：底暗、上前缘提亮。
         Vector2 torsoC = new Vector2(0, torsoCY);
         DrawColoredPolygon(Ellipse(torsoC, r * 0.78f + 1.2f, r * 1.05f + 1.2f), outline);
         DrawColoredPolygon(Ellipse(torsoC, r * 0.78f, r * 1.05f), torso);
         DrawColoredPolygon(Ellipse(torsoC + new Vector2(0, r * 0.35f), r * 0.6f, r * 0.7f), torsoDark);
         DrawColoredPolygon(Ellipse(torsoC + f * r * 0.18f - new Vector2(0, r * 0.32f), r * 0.42f, r * 0.5f), torsoLight);
 
-        // 5) 双臂（肩→手，粗线）。持械手向前伸。
         Vector2 shoulderC = new Vector2(0, shoulderY);
         Vector2 shoulderL = shoulderC + p * r * 0.72f;
         Vector2 shoulderR = shoulderC - p * r * 0.72f;
         Vector2 handOff = new Vector2(0, r * 0.95f);
         Vector2 handL = shoulderL + handOff + f * r * 0.18f;
-        Vector2 handR = shoulderR + new Vector2(0, r * 0.78f) + f * r * 0.62f; // 持械手前伸
+        Vector2 handR = shoulderR + new Vector2(0, r * 0.78f) + f * r * 0.62f;
         DrawLine(shoulderL, handL, torsoDark, r * 0.34f);
         DrawLine(shoulderR, handR, torsoDark, r * 0.34f);
 
-        // 6) 肩线（横过躯干上缘，最直接的朝向线索——垂直于前向）。
         DrawLine(shoulderL, shoulderR, torsoDark, r * 0.30f);
 
-        // 7) 头（椭圆）+ 面朝标（前额略深的一小块，指示正脸方向）。
         DrawColoredPolygon(Ellipse(new Vector2(0, headCY), headR + 1.2f, headR + 1.2f), outline);
         DrawColoredPolygon(Ellipse(new Vector2(0, headCY), headR, headR), headCol);
         DrawColoredPolygon(Ellipse(new Vector2(0, headCY) + f * headR * 0.5f, headR * 0.42f, headR * 0.42f), headShade);
 
-        // 8) 持械指示：远程=枪管（沿前向伸出）；近战=短刃。
         if (_actor.RangedArmed)
         {
             var gun = new Color(0.2f, 0.22f, 0.26f);
@@ -152,17 +188,23 @@ public sealed partial class ActorSprite : Node2D
             var blade = new Color(0.72f, 0.75f, 0.82f);
             DrawLine(handR, handR + f * r * 0.82f, blade, r * 0.16f);
         }
+    }
 
-        // 9) 血条（头顶）。
-        float barW = r * 2.4f;
-        float barH = 4f;
-        var barPos = new Vector2(-barW / 2f, headCY - headR - 8f);
-        float frac = _actor.HealthFraction;
-        DrawRect(new Rect2(barPos, new Vector2(barW, barH)), new Color(0.1f, 0.1f, 0.1f, 0.85f));
-        Color hp = frac > 0.5f ? new Color(0.4f, 0.85f, 0.4f)
-            : frac > 0.25f ? new Color(0.9f, 0.8f, 0.3f)
-            : new Color(0.9f, 0.35f, 0.3f);
-        DrawRect(new Rect2(barPos, new Vector2(barW * frac, barH)), hp);
+    private void DrawSleeping(float r, Color tint)
+    {
+        Color headCol = tint.Lightened(0.40f);
+        var outline = new Color(0.05f, 0.05f, 0.07f, 0.9f);
+
+        float bodyLen = r * 2.2f;
+        float bodyH = r * 0.65f;
+        Vector2 bodyC = new Vector2(0, -r * 1.1f);
+        DrawColoredPolygon(Ellipse(bodyC, bodyLen / 2, bodyH), outline);
+        DrawColoredPolygon(Ellipse(bodyC, bodyLen / 2 - 1, bodyH - 1), tint);
+
+        Vector2 headC = bodyC + new Vector2(bodyLen / 2 + r * 0.25f, -r * 0.08f);
+        float hr = r * 0.48f;
+        DrawColoredPolygon(Ellipse(headC, hr + 1, hr + 1), outline);
+        DrawColoredPolygon(Ellipse(headC, hr, hr), headCol);
     }
 
     private static Vector2[] Ellipse(Vector2 c, float rx, float ry, int seg = 22)

@@ -29,7 +29,7 @@ public sealed partial class Hud : CanvasLayer
         _helpLabel.AddThemeFontSizeOverride("font_size", 13);
         _helpLabel.Modulate = new Color(1, 1, 1, 0.75f);
         _helpLabel.Text =
-            "左键选中/拖拽框选  右键移动或攻击  空格暂停  1/2/3 速度档  WASD/边缘平移相机  滚轮缩放  T 快进昼夜";
+            "左键选中/拖拽框选  右键移动或攻击  空格暂停  1/2/3 速度档  WASD/边缘平移相机  滚轮缩放";
         AddChild(_helpLabel);
     }
 

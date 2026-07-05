@@ -33,21 +33,32 @@ public sealed partial class GameClock : Node
 
     private double _phaseElapsed;
     private double _travelElapsed;
+    private bool _warningFired;
 
     public event Action<DayPhase>? OnPhaseChanged;
+    public event Action? OnExploreWarning;
 
     public double CurrentSpeed => Speeds[SpeedIndex];
+
+    public double GetExploreTimeRemaining()
+    {
+        if (CurrentPhase != DayPhase.DayExplore)
+            return 0;
+        return Math.Max(0, _cfg.DayLengthSeconds - _phaseElapsed);
+    }
 
     public void Configure(Config cfg)
     {
         _cfg = cfg;
         _cfg.TravelTimeSeconds = cfg.TravelTimeSeconds > 0 ? cfg.TravelTimeSeconds : 120;
+        _cfg.WarningBufferSeconds = cfg.WarningBufferSeconds > 0 ? cfg.WarningBufferSeconds : 300;
         _phaseElapsed = 0;
         _travelElapsed = 0;
+        _warningFired = false;
         _userPaused = false;
-        CurrentPhase = DayPhase.DayPrep;
+        CurrentPhase = DayPhase.DayExplore;
         Day = 1;
-        Engine.TimeScale = 0;
+        Engine.TimeScale = 1;
     }
 
     public void TransitionTo(DayPhase phase)
@@ -58,6 +69,9 @@ public sealed partial class GameClock : Node
         {
             case DayPhase.DayTravel:
                 _travelElapsed = 0;
+                break;
+            case DayPhase.DayExplore:
+                _warningFired = false;
                 break;
             case DayPhase.NightPrep:
                 _phaseElapsed = 0;
@@ -89,10 +103,18 @@ public sealed partial class GameClock : Node
                 break;
 
             case DayPhase.DayExplore:
+            {
                 _phaseElapsed += delta;
-                if (_phaseElapsed >= _cfg.DayLengthSeconds)
+                double remaining = _cfg.DayLengthSeconds - _phaseElapsed;
+                if (!_warningFired && remaining <= _cfg.WarningBufferSeconds && _cfg.WarningBufferSeconds > 0)
+                {
+                    _warningFired = true;
+                    OnExploreWarning?.Invoke();
+                }
+                if (remaining <= 0)
                     TransitionTo(DayPhase.DayReturn);
                 break;
+            }
 
             case DayPhase.NightAct:
                 _phaseElapsed += delta;

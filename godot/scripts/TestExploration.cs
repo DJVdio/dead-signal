@@ -1,0 +1,225 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using Godot;
+
+namespace DeadSignal.Godot;
+
+public sealed partial class TestExploration : ExplorationLevel
+{
+    private const float LevelW = 2400f;
+    private const float LevelH = 1600f;
+    private const float WallT = 20f;
+
+    private CameraController _camera = null!;
+    private readonly List<Zombie> _zombies = new();
+    private readonly Dictionary<Actor, Node2D> _markers = new();
+    private readonly List<Rect2> _obstructions = new();
+    private Area2D _returnZone = null!;
+    private Node2D _actorLayer = null!;
+
+    public override void Initialize()
+    {
+        BuildTerrain();
+        BuildNavigation();
+        SetupCamera();
+        SetupReturnZone();
+        PlaceTeam();
+        SpawnZombies();
+    }
+
+    public override void Cleanup()
+    {
+        foreach (var z in _zombies)
+        {
+            if (IsInstanceValid(z))
+                z.QueueFree();
+        }
+        _zombies.Clear();
+
+        foreach (var kv in _markers)
+        {
+            if (IsInstanceValid(kv.Value))
+                kv.Value.QueueFree();
+        }
+        _markers.Clear();
+    }
+
+    private void BuildTerrain()
+    {
+        var ground = new Polygon2D
+        {
+            Polygon = Quad(Vector2.Zero, new Vector2(LevelW, LevelH)),
+            Color = new Color(0.22f, 0.25f, 0.20f),
+            ZIndex = -20,
+        };
+        AddChild(ground);
+
+        AddWall(new Rect2(0, 0, LevelW, WallT), border: true);
+        AddWall(new Rect2(0, LevelH - WallT, LevelW, WallT), border: true);
+        AddWall(new Rect2(0, 0, WallT, LevelH), border: true);
+        AddWall(new Rect2(LevelW - WallT, 0, WallT, LevelH), border: true);
+
+        (Vector2 pos, Vector2 size)[] boxes =
+        {
+            (new Vector2(400, 300), new Vector2(80, 80)),
+            (new Vector2(800, 600), new Vector2(100, 60)),
+            (new Vector2(1400, 400), new Vector2(70, 90)),
+            (new Vector2(1800, 700), new Vector2(90, 70)),
+            (new Vector2(600, 1000), new Vector2(80, 80)),
+            (new Vector2(1600, 1100), new Vector2(100, 60)),
+        };
+        foreach (var (pos, sz) in boxes)
+            AddWall(new Rect2(pos, sz), border: false, color: new Color(0.38f, 0.34f, 0.26f));
+
+        _actorLayer = new Node2D { Name = "Actors" };
+        AddChild(_actorLayer);
+    }
+
+    private void AddWall(Rect2 rect, bool border, Color? color = null)
+    {
+        Color c = color ?? (border ? new Color(0.10f, 0.11f, 0.12f) : new Color(0.38f, 0.34f, 0.26f));
+
+        var body = new StaticBody2D { Position = rect.Position + rect.Size / 2 };
+        body.CollisionLayer = 0b0100u;
+        body.CollisionMask = 0u;
+        body.AddChild(new CollisionShape2D { Shape = new RectangleShape2D { Size = rect.Size } });
+
+        var vis = new Polygon2D
+        {
+            Polygon = Quad(-rect.Size / 2, rect.Size),
+            Color = c,
+            ZIndex = -5,
+        };
+        body.AddChild(vis);
+        AddChild(body);
+
+        if (!border)
+            _obstructions.Add(rect);
+    }
+
+    private void BuildNavigation()
+    {
+        var region = new NavigationRegion2D();
+        var navPoly = new NavigationPolygon { AgentRadius = 14f };
+        var src = new NavigationMeshSourceGeometryData2D();
+
+        float inset = 22f;
+        Rect2 outer = new(inset, inset, LevelW - inset * 2, LevelH - inset * 2);
+        src.AddTraversableOutline(Quad(outer.Position, outer.Size));
+
+        foreach (Rect2 obs in _obstructions)
+            src.AddObstructionOutline(Quad(obs.Position, obs.Size).Select(v => v).ToArray());
+
+        NavigationServer2D.BakeFromSourceGeometryData(navPoly, src);
+        region.NavigationPolygon = navPoly;
+        AddChild(region);
+    }
+
+    private void SetupCamera()
+    {
+        _camera = new CameraController { Position = new Vector2(LevelW / 2, LevelH / 2) };
+        _camera.SetBounds(new Rect2(0, 0, LevelW, LevelH));
+        AddChild(_camera);
+        _camera.MakeCurrent();
+    }
+
+    private void SetupReturnZone()
+    {
+        Vector2 pos = new(LevelW / 2 - 40, LevelH - 120);
+
+        var visual = new Polygon2D
+        {
+            Polygon = Quad(Vector2.Zero, new Vector2(80, 80)),
+            Color = new Color(0.2f, 0.8f, 0.2f, 0.5f),
+            Position = pos,
+            ZIndex = 10,
+        };
+        AddChild(visual);
+
+        var arrow = new Polygon2D
+        {
+            Polygon = new Vector2[]
+            {
+                new(40, -50), new(60, -20), new(48, -20),
+                new(48, 0), new(32, 0), new(32, -20),
+                new(20, -20),
+            },
+            Color = new Color(0.3f, 0.9f, 0.3f),
+            Position = pos,
+            ZIndex = 11,
+        };
+        AddChild(arrow);
+
+        _returnZone = new Area2D { Position = pos + new Vector2(40, 40) };
+        var shape = new CollisionShape2D { Shape = new RectangleShape2D { Size = new Vector2(80, 80) } };
+        _returnZone.AddChild(shape);
+        _returnZone.CollisionMask = 0b0001u;
+        AddChild(_returnZone);
+        _returnZone.BodyEntered += OnReturnZoneBodyEntered;
+    }
+
+    private void OnReturnZoneBodyEntered(Node2D body)
+    {
+        if (body is Pawn)
+            Callable.From(ReturnToCamp).CallDeferred();
+    }
+
+    private void PlaceTeam()
+    {
+        Vector2 spawn = new(200, LevelH - 200);
+        float stepX = 40f;
+        for (int i = 0; i < ExpeditionTeam.Count; i++)
+        {
+            Pawn p = ExpeditionTeam[i];
+            p.Position = spawn + new Vector2(i * stepX, 0);
+            p.Reparent(_actorLayer, keepGlobalTransform: false);
+            _markers[p] = CreateActorMarker(p, p.BodyTint);
+        }
+    }
+
+    private void SpawnZombies()
+    {
+        Vector2[] spots =
+        {
+            new(LevelW * 0.25f, LevelH * 0.3f),
+            new(LevelW * 0.5f, LevelH * 0.25f),
+            new(LevelW * 0.75f, LevelH * 0.3f),
+            new(LevelW * 0.35f, LevelH * 0.6f),
+            new(LevelW * 0.7f, LevelH * 0.55f),
+        };
+        var wander = new Rect2(WallT + 40, WallT + 40, LevelW - WallT * 2 - 80, LevelH - WallT * 2 - 80);
+
+        foreach (Vector2 spot in spots)
+        {
+            var z = Zombie.Create(wander, () => ExpeditionTeam.Where(a => a.Alive).Cast<Actor>());
+            z.Position = spot;
+            _actorLayer.AddChild(z);
+            _zombies.Add(z);
+            _markers[z] = CreateActorMarker(z, new Color(0.45f, 0.6f, 0.35f));
+        }
+    }
+
+    private static Node2D CreateActorMarker(Actor actor, Color color)
+    {
+        var marker = new Polygon2D
+        {
+            Polygon = new Vector2[]
+            {
+                new(0, -10), new(10, 0), new(0, 10), new(-10, 0),
+            },
+            Color = color,
+            ZIndex = 10,
+        };
+        actor.AddChild(marker);
+        return marker;
+    }
+
+    private static Vector2[] Quad(Vector2 pos, Vector2 size) => new[]
+    {
+        pos,
+        new Vector2(pos.X + size.X, pos.Y),
+        pos + size,
+        new Vector2(pos.X, pos.Y + size.Y),
+    };
+}

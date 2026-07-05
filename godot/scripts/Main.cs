@@ -320,9 +320,6 @@ public sealed partial class Main : Node2D
             case Key.Key3:
                 _clock.SetSpeedIndex(2);
                 break;
-            case Key.T:
-                _clock.DebugSkipToPhaseEnd();
-                break;
         }
     }
 

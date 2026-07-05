@@ -15,9 +15,12 @@ public sealed partial class CameraController : Camera2D
     private const float ZoomStep = 0.1f;
     private const float ZoomMin = 0.45f;
     private const float ZoomMax = 2.2f;
+    private const float DragSensitivity = 1f;
 
     private ulong _lastTick;
     private Rect2 _bounds;
+    private bool _isDragging;
+    private Vector2 _dragStartMouse;
 
     public void SetBounds(Rect2 bounds) => _bounds = bounds;
 
@@ -58,8 +61,17 @@ public sealed partial class CameraController : Camera2D
 
     public override void _UnhandledInput(InputEvent @event)
     {
-        if (@event is InputEventMouseButton { Pressed: true } mb)
+        if (@event is InputEventMouseButton mb)
         {
+            if (mb.ButtonIndex == MouseButton.Middle)
+            {
+                _isDragging = mb.Pressed;
+                _dragStartMouse = mb.Position;
+                return;
+            }
+
+            if (!mb.Pressed) return;
+
             if (mb.ButtonIndex == MouseButton.WheelUp)
             {
                 SetZoom(Zoom.X + ZoomStep);
@@ -67,6 +79,16 @@ public sealed partial class CameraController : Camera2D
             else if (mb.ButtonIndex == MouseButton.WheelDown)
             {
                 SetZoom(Zoom.X - ZoomStep);
+            }
+        }
+        else if (@event is InputEventMouseMotion mm && _isDragging)
+        {
+            Vector2 delta = mm.Position - _dragStartMouse;
+            if (delta != Vector2.Zero)
+            {
+                Position -= delta * DragSensitivity / Zoom.X;
+                ClampToBounds();
+                _dragStartMouse = mm.Position;
             }
         }
     }

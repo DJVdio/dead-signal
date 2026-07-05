@@ -8,7 +8,33 @@ namespace DeadSignal.Godot;
 /// </summary>
 public sealed partial class Pawn : Actor
 {
+    private static int _nextId;
+    public int Id { get; } = _nextId++;
     public string DisplayName { get; private set; } = "幸存者";
+
+    public PawnRole Role { get; set; } = PawnRole.Idle;
+    public bool IsControllable => Role == PawnRole.Idle;
+    protected override bool CanAct => Role != PawnRole.Sleeping;
+
+    protected override void Think(double delta)
+    {
+        switch (Role)
+        {
+            case PawnRole.Sleeping:
+                CancelOrders();
+                break;
+            case PawnRole.Guard:
+                if (HasMoveOrder)
+                    CancelOrders();
+                if (CurrentAttackTarget is { Alive: true } tgt)
+                {
+                    float dist = GlobalPosition.DistanceTo(tgt.GlobalPosition);
+                    if (dist > AttackRange + Radius + tgt.Radius)
+                        CancelOrders();
+                }
+                break;
+        }
+    }
 
     public static Pawn Create(string name, bool usePistol, Color color)
     {

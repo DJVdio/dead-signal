@@ -35,10 +35,21 @@ public sealed partial class CampMain : Node2D
 
     private CombatEngine _combat = null!;
     private GameClock _clock = null!;
+    private ExplorationLevel? _currentLevel;
+    private Node? _levelRoot;
+    private NavigationRegion2D _campNavRegion = null!;
+    private PawnRoleManager _roleManager = null!;
     private CameraController _camera = null!;
     private CanvasModulate _ambient = null!;
     private Hud _hud = null!;
     private CharacterPanel _characterPanel = null!;  // 角色检视面板（挂 HUD CanvasLayer，不随相机移动）
+
+    private WorldMapPanel _worldMapPanel = null!;
+    private ExpeditionPanel _expeditionPanel = null!;
+    private GuardPanel _guardPanel = null!;
+    private ReturnWarningPopup _returnWarningPopup = null!;
+    private string _pendingDestination = "";
+    private int _pendingTravelTime;
 
     private Node2D _logicLayer = null!;  // 物理/导航平面（cartesian，不可见）
     private Node2D _isoLayer = null!;     // 视觉层（iso，YSort）
@@ -52,6 +63,12 @@ public sealed partial class CampMain : Node2D
     private Vector2 _dragStartScreen;
     private Vector2 _dragStartWorldIso;
     private const float DragThreshold = 6f;
+
+    private static readonly Vector2[] SleepPositions =
+    {
+        new(450, 410),
+        new(1110, 405),
+    };
 
     // z 分层：地面 → 建筑地基/门槛 → 立体遮挡物/角色(YSort) → 屋顶。
     private const int ZGround = -20;
@@ -89,6 +106,30 @@ public sealed partial class CampMain : Node2D
         _clock = new GameClock();
         AddChild(_clock);
         _clock.Configure(LoadDayNightConfig());
+        _clock.OnPhaseChanged += OnGamePhaseChanged;
+
+        _worldMapPanel = new WorldMapPanel();
+        AddChild(_worldMapPanel);
+        _worldMapPanel.Visible = false;
+        _worldMapPanel.DestinationSelected += OnWorldMapDestinationSelected;
+        _worldMapPanel.Cancelled += () => _worldMapPanel.Visible = false;
+
+        _expeditionPanel = new ExpeditionPanel();
+        AddChild(_expeditionPanel);
+        _expeditionPanel.Visible = false;
+        _expeditionPanel.SelectDestinationRequested += () => _worldMapPanel.Visible = true;
+        _expeditionPanel.ExpeditionConfirmed += OnExpeditionConfirmed;
+
+        _guardPanel = new GuardPanel();
+        AddChild(_guardPanel);
+        _guardPanel.Visible = false;
+        _guardPanel.GuardConfirmed += OnGuardConfirmed;
+
+        _returnWarningPopup = new ReturnWarningPopup();
+        AddChild(_returnWarningPopup);
+        _returnWarningPopup.Visible = false;
+        _returnWarningPopup.ReturnNow += OnReturnNow;
+        _clock.OnExploreWarning += OnExploreWarning;
 
         _ambient = new CanvasModulate();
         AddChild(_ambient);
@@ -110,6 +151,11 @@ public sealed partial class CampMain : Node2D
         _characterPanel.CloseRequested += _characterPanel.HidePanel;
 
         SpawnActors();
+
+        _roleManager = new PawnRoleManager(_survivors, _clock);
+        _roleManager.RolesChanged += OnRolesChanged;
+
+        CallDeferred(nameof(StartFirstDay));
     }
 
     /// <summary>反投影正确性自检：一批 cartesian 点 project→unproject 应精确还原（误差 ~0）。</summary>
@@ -427,6 +473,7 @@ public sealed partial class CampMain : Node2D
         region.NavigationPolygon = navPoly;
         // 导航区直接挂根节点（cartesian 平面），避开 LogicLayer 不可见性的任何耦合顾虑。
         AddChild(region);
+        _campNavRegion = region;
     }
 
     /// <summary>
@@ -510,10 +557,13 @@ public sealed partial class CampMain : Node2D
     public override void _Process(double delta)
     {
         _ambient.Color = _clock.CurrentAmbientColor();
-        string phase = _clock.IsNight ? "夜" : "昼";
+        bool exploring = _currentLevel != null;
         _hud.SetStatus(
-            $"营地[等距]  第 {_clock.Day} 天  {_clock.ClockString()}  [{phase}]   速度 {_clock.SpeedLabel()}   " +
-            $"幸存者 {_survivors.Count}");
+            $"{(exploring ? "探索" : "营地")}  第 {_clock.Day} 天  {_clock.ClockString()}  [{_clock.CurrentPhase}]   速度 {_clock.SpeedLabel()}   " +
+            $"幸存者 {_survivors.Count(s => s.Alive)}");
+
+        if (_returnWarningPopup.Visible && _clock.CurrentPhase == DayPhase.DayExplore)
+            _returnWarningPopup.SetRemainingTime(_clock.GetExploreTimeRemaining());
 
         // 导航图首帧就绪后跑一次门缝连通性自检。
         if (!_navTested)
@@ -560,9 +610,6 @@ public sealed partial class CampMain : Node2D
                 break;
             case Key.Key3:
                 _clock.SetSpeedIndex(2);
-                break;
-            case Key.T:
-                _clock.DebugSkipToPhaseEnd();
                 break;
         }
     }
@@ -614,7 +661,7 @@ public sealed partial class CampMain : Node2D
             // 框选：拖拽矩形在 iso 屏幕空间；把每个 actor 的 cartesian 位置 Project 到 iso 再判包含。
             Vector2 endIso = GetGlobalMousePosition();
             Rect2 boxIso = RectFrom(_dragStartWorldIso, endIso);
-            foreach (Pawn p in _survivors.Where(p => boxIso.HasPoint(Iso.Project(p.GlobalPosition))))
+            foreach (Pawn p in _survivors.Where(p => p.IsControllable && boxIso.HasPoint(Iso.Project(p.GlobalPosition))))
             {
                 Select(p);
             }
@@ -625,7 +672,7 @@ public sealed partial class CampMain : Node2D
             // 点选：落点反投影回 cartesian，和 actor 逻辑位置按半径比对。
             Vector2 cart = Iso.Unproject(_dragStartWorldIso);
             Pawn? hit = _survivors
-                .Where(p => p.GlobalPosition.DistanceTo(cart) <= p.Radius + 8)
+                .Where(p => p.IsControllable && p.GlobalPosition.DistanceTo(cart) <= p.Radius + 8)
                 .OrderBy(p => p.GlobalPosition.DistanceTo(cart))
                 .FirstOrDefault();
             if (hit != null)
@@ -673,6 +720,252 @@ public sealed partial class CampMain : Node2D
             p.Selected = false;
         }
         _selected.Clear();
+    }
+
+    private void OnRolesChanged()
+    {
+        foreach (Pawn p in _selected.Where(p => !p.IsControllable).ToList())
+        {
+            p.Selected = false;
+            _selected.Remove(p);
+        }
+        if (_selected.Count == 0)
+            _characterPanel.HidePanel();
+    }
+
+    private async void StartSleepTransition()
+    {
+        var sleepers = _survivors.Where(p => p.Role == PawnRole.Expedition).ToList();
+        if (sleepers.Count == 0)
+        {
+            _clock.TransitionTo(DayPhase.NightPrep);
+            return;
+        }
+
+        Engine.TimeScale = 1;
+
+        for (int i = 0; i < sleepers.Count; i++)
+        {
+            Vector2 spot = SleepPositions[i % SleepPositions.Length];
+            sleepers[i].CommandMoveTo(spot);
+        }
+
+        while (sleepers.Any(p => !p.IsNavigationFinished()))
+        {
+            await ToSignal(GetTree().CreateTimer(0.25f), "timeout");
+        }
+
+        foreach (var p in sleepers)
+        {
+            p.Role = PawnRole.Sleeping;
+            p.SetSleeping(true);
+        }
+
+        _clock.TransitionTo(DayPhase.NightPrep);
+    }
+
+    private async void StartWakeTransition()
+    {
+        foreach (var p in _survivors)
+        {
+            p.SetSleeping(false);
+            if (p.Role == PawnRole.Guard)
+                p.Role = PawnRole.Idle;
+        }
+
+        await ToSignal(GetTree().CreateTimer(0.5f), "timeout");
+        _clock.TransitionTo(DayPhase.DayPrep);
+    }
+
+    // ---------------- 面板状态机 ----------------
+
+    private void StartFirstDay() => _clock.TransitionTo(DayPhase.DayPrep);
+
+    private void OnGamePhaseChanged(DayPhase phase)
+    {
+        _expeditionPanel.Visible = false;
+        _worldMapPanel.Visible = false;
+        _guardPanel.Visible = false;
+        _returnWarningPopup.Visible = false;
+
+        switch (phase)
+        {
+            case DayPhase.DayPrep:
+                foreach (var p in _survivors)
+                    p.SetSleeping(false);
+                PopulateExpeditionPanel();
+                _expeditionPanel.Visible = true;
+                break;
+            case DayPhase.DayTravel:
+                break;
+            case DayPhase.DayExplore:
+                LoadExplorationLevel(_pendingDestination);
+                break;
+            case DayPhase.DayReturn:
+                _returnWarningPopup.CancelDelay();
+                _returnWarningPopup.Visible = false;
+                UnloadExplorationLevel();
+                CallDeferred(nameof(StartSleepTransition));
+                break;
+            case DayPhase.NightPrep:
+                PopulateGuardPanel();
+                _guardPanel.Visible = true;
+                break;
+            case DayPhase.NightAct:
+                StartWakeTransition();
+                break;
+        }
+    }
+
+    private void PopulateExpeditionPanel()
+    {
+        var entries = new List<ExpeditionPanel.PawnEntry>();
+        for (int i = 0; i < _survivors.Count; i++)
+        {
+            var insp = _survivors[i].Inspect();
+            entries.Add(new ExpeditionPanel.PawnEntry
+            {
+                Id = i,
+                Name = insp.DisplayName,
+                WeaponSummary = insp.Weapon?.Name ?? "徒手",
+                ArmorSummary = string.Join(", ", insp.Armor.Select(a => a.Name)),
+            });
+        }
+        _expeditionPanel.SetPawns(entries);
+        if (!string.IsNullOrEmpty(_pendingDestination))
+            _expeditionPanel.SetDestination(_pendingDestination, _pendingTravelTime);
+    }
+
+    private void PopulateGuardPanel()
+    {
+        var posts = new List<GuardPanel.GuardPostDef>
+        {
+            new() { PostId = 0, Name = "大门岗" },
+            new() { PostId = 1, Name = "东侧围墙" },
+            new() { PostId = 2, Name = "西侧围墙" },
+        };
+        _guardPanel.SetupPosts(posts);
+
+        var pawnOptions = new List<GuardPanel.PawnOption>();
+        for (int i = 0; i < _survivors.Count; i++)
+        {
+            var insp = _survivors[i].Inspect();
+            pawnOptions.Add(new GuardPanel.PawnOption
+            {
+                Id = i,
+                Name = insp.DisplayName,
+                EquipmentSummary = insp.Weapon?.Name ?? "徒手",
+            });
+        }
+        _guardPanel.SetPawns(pawnOptions);
+    }
+
+    private void OnExpeditionConfirmed(int[] pawnIds, string destination)
+    {
+        var ids = new HashSet<int>();
+        foreach (int idx in pawnIds)
+        {
+            if (idx >= 0 && idx < _survivors.Count)
+                ids.Add(_survivors[idx].Id);
+        }
+        _roleManager.SetExpeditionIds(ids);
+        _clock.TransitionTo(DayPhase.DayTravel);
+    }
+
+    private void OnWorldMapDestinationSelected(string name, int travelTime)
+    {
+        _pendingDestination = name;
+        _pendingTravelTime = travelTime;
+        _worldMapPanel.Visible = false;
+        _expeditionPanel.SetDestination(name, travelTime);
+    }
+
+    private void OnExploreWarning()
+    {
+        if (_clock.CurrentPhase != DayPhase.DayExplore)
+            return;
+        _returnWarningPopup.ResetWarning();
+        _returnWarningPopup.Visible = true;
+    }
+
+    private void OnReturnNow()
+    {
+        _returnWarningPopup.CancelDelay();
+        _returnWarningPopup.Visible = false;
+        _clock.TransitionTo(DayPhase.DayReturn);
+    }
+
+    private void OnExplorationReturn()
+    {
+        if (_clock.CurrentPhase == DayPhase.DayExplore)
+            _clock.TransitionTo(DayPhase.DayReturn);
+    }
+
+    private void LoadExplorationLevel(string destinationName)
+    {
+        if (_levelRoot != null)
+            return;
+
+        var levelScene = GD.Load<PackedScene>("res://scenes/TestExploration.tscn");
+        _levelRoot = levelScene.Instantiate();
+        _currentLevel = (ExplorationLevel)_levelRoot;
+
+        _currentLevel.Clock = _clock;
+        _currentLevel.ExpeditionTeam = _survivors.Where(s => s.Role == PawnRole.Expedition).ToList();
+
+        _currentLevel.OnReturnToCamp += OnExplorationReturn;
+
+        ClearSelection();
+        _campNavRegion.Enabled = false;
+
+        GetTree().Root.AddChild(_levelRoot);
+        SetCampVisible(false);
+
+        _currentLevel.Initialize();
+    }
+
+    private void UnloadExplorationLevel()
+    {
+        if (_levelRoot == null)
+            return;
+
+        _currentLevel!.OnReturnToCamp -= OnExplorationReturn;
+        _currentLevel!.Cleanup();
+
+        foreach (Pawn p in _survivors.Where(s => s.Role == PawnRole.Expedition))
+        {
+            if (_levelRoot.IsAncestorOf(p))
+            {
+                p.Reparent(_actorLayer, keepGlobalTransform: false);
+                p.Position = _cameraCenter;
+            }
+        }
+
+        _currentLevel = null;
+        GetTree().Root.RemoveChild(_levelRoot);
+        _levelRoot.QueueFree();
+        _levelRoot = null;
+
+        _campNavRegion.Enabled = true;
+        _camera.MakeCurrent();
+        SetCampVisible(true);
+    }
+
+    private void SetCampVisible(bool visible)
+    {
+        _isoLayer.Visible = visible;
+    }
+
+    private void OnGuardConfirmed(Dictionary<int, int> posts)
+    {
+        var assignments = new Dictionary<int, int>();
+        foreach (var kv in posts)
+        {
+            if (kv.Value >= 0 && kv.Value < _survivors.Count)
+                assignments[kv.Key] = _survivors[kv.Value].Id;
+        }
+        _roleManager.SetGuardAssignments(assignments);
+        _clock.TransitionTo(DayPhase.NightAct);
     }
 
     // ---------------- 工具 ----------------
@@ -755,6 +1048,8 @@ public sealed partial class CampMain : Node2D
             DayColor = ToColor(raw.dayColor, new Color(1, 0.98f, 0.92f)),
             NightColor = ToColor(raw.nightColor, new Color(0.18f, 0.22f, 0.38f)),
             TwilightFraction = raw.twilightFraction <= 0 ? 0.12 : raw.twilightFraction,
+            TravelTimeSeconds = raw.travelTimeSeconds,
+            WarningBufferSeconds = raw.warningBufferSeconds,
         };
     }
 
@@ -852,6 +1147,8 @@ public sealed partial class CampMain : Node2D
     {
         public double dayLengthSeconds { get; set; }
         public double nightLengthSeconds { get; set; }
+        public double travelTimeSeconds { get; set; }
+        public double warningBufferSeconds { get; set; }
         public bool startAtNight { get; set; }
         public double[]? dayColor { get; set; }
         public double[]? nightColor { get; set; }
@@ -861,6 +1158,8 @@ public sealed partial class CampMain : Node2D
         {
             dayLengthSeconds = 720,
             nightLengthSeconds = 480,
+            travelTimeSeconds = 120,
+            warningBufferSeconds = 300,
             startAtNight = false,
             twilightFraction = 0.12,
         };

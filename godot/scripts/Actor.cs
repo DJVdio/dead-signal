@@ -34,6 +34,7 @@ public abstract partial class Actor : CharacterBody2D
 
     protected Color BodyColor = Colors.White;
     protected float MoveSpeed = 90f;
+    protected virtual bool CanAct => true;
 
     // ---- 供 ActorSprite 读取的视觉数据（Actor 自身不再绘制人形）----
     /// <summary>面朝方向（cartesian 弧度）。移动时=速度方向；攻击时=指向目标；空闲保持上一次。
@@ -184,6 +185,13 @@ public abstract partial class Actor : CharacterBody2D
         }
 
         Think(delta);
+
+        if (!CanAct)
+        {
+            Velocity = Vector2.Zero;
+            MoveAndSlide();
+            return;
+        }
 
         if (_attackTimer > 0)
         {
@@ -359,6 +367,23 @@ public abstract partial class Actor : CharacterBody2D
     // ---- 表现 ----
     /// <summary>是否被玩家选中（sprite 据此画选中环）。</summary>
     public bool Selected { get; set; }
+
+    public bool SleepingVisual { get; private set; }
+
+    public void SetSleeping(bool sleeping)
+    {
+        SleepingVisual = sleeping;
+        if (sleeping)
+        {
+            CancelOrders();
+            Velocity = Vector2.Zero;
+        }
+    }
+
+    public bool IsNavigationFinished()
+    {
+        return _agent == null || _agent.IsNavigationFinished();
+    }
 
     // 人形/血条/选中环已全部移交 ActorSprite（iso 层、YSort）。本节点在不可见 LogicLayer 下，
     // 不再 _Draw；sprite 每帧读上面暴露的数据自绘。
