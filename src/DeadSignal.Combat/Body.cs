@@ -59,6 +59,7 @@ public sealed class Body
     private readonly HashSet<string> _destroyed = new();
     private readonly HashSet<string> _disabled = new();
     private readonly HashSet<string> _bleeding = new();
+    private readonly HashSet<string> _fractured = new();
 
     public Body(IEnumerable<BodyPart> parts, double bloodMax = 100)
     {
@@ -151,6 +152,16 @@ public sealed class Body
         LoseBlood(loss);
         return loss;
     }
+
+    // ---- 骨折持久态（供角色面板"健康页签"查询；第一版只进不出、不做治疗/时间恢复）----
+
+    public IReadOnlyCollection<string> FracturedParts => _fractured;
+
+    /// <summary>标记某部位已骨折（由效果结算在触发骨折时调用）。持久保留。</summary>
+    public void MarkFractured(string part) => _fractured.Add(part);
+
+    /// <summary>某部位当前是否处于骨折状态（持久，供健康页签展示）。</summary>
+    public bool IsFractured(string partName) => _fractured.Contains(partName);
 
     public IReadOnlyDictionary<string, BodyPart> Parts => _parts;
 

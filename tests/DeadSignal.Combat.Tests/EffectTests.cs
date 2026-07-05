@@ -197,6 +197,34 @@ public class EffectTests
     }
 
     [Fact]
+    public void Fracture_PersistsOnBody_ForHealthPanelQuery()
+    {
+        // 用户拍板：骨折要落到 Body 持久态，供角色面板"健康页签"查询（狠辣向健康展示，非平衡问题）。
+        // 复现：一次会触发骨折的天然钝器命中后，Body 应能持久查询该部位已骨折。
+        var body = HumanBody.NewBody();
+        var res = Hit(body, HumanBody.LeftLeg, dmg: 11, DamageType.Blunt, initialRoll: 12); // p=0.4
+        var rng = new SequenceRandomSource(0.3); // 0.3<0.4 → 触发骨折
+
+        Assert.False(body.IsFractured(HumanBody.LeftLeg)); // 命中前未骨折
+
+        var outcome = new CombatEffectResolver(rng).Apply(body, BluntW, res);
+
+        Assert.Contains(outcome.Effects, e => e.Kind == DamageEffectKind.Fracture);
+        Assert.True(body.IsFractured(HumanBody.LeftLeg)); // 结算后持久标记
+    }
+
+    [Fact]
+    public void Fracture_NotMarked_WhenRollAboveProbability()
+    {
+        var body = HumanBody.NewBody();
+        var res = Hit(body, HumanBody.LeftLeg, dmg: 11, DamageType.Blunt, initialRoll: 12); // p=0.4
+        var rng = new SequenceRandomSource(0.99); // 0.99>=0.4 → 不触发
+        var outcome = new CombatEffectResolver(rng).Apply(body, BluntW, res);
+        Assert.DoesNotContain(outcome.Effects, e => e.Kind == DamageEffectKind.Fracture);
+        Assert.False(body.IsFractured(HumanBody.LeftLeg));
+    }
+
+    [Fact]
     public void Fracture_SkippedWhenNoDamage()
     {
         var body = HumanBody.NewBody();

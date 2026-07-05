@@ -186,6 +186,7 @@ public sealed class CombatEffectResolver
             if (_rng.Range(0, 1) < p)
             {
                 effects.Add(new DamageEffect { Kind = DamageEffectKind.Fracture, PartName = partName, Severity = p });
+                body.MarkFractured(partName); // 落到 Body 持久态，供健康页签查询
             }
         }
 
