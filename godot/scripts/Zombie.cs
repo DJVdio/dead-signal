@@ -52,13 +52,11 @@ public sealed partial class Zombie : Actor
             {
                 // 入昼：休眠，站住不动。
                 CancelOrders();
-                BodyColor = new Color(0.4f, 0.5f, 0.32f); // 休眠偏暗
-                QueueRedraw();
+                BodyColor = new Color(0.4f, 0.5f, 0.32f); // 休眠偏暗（ActorSprite 每帧取 BodyTint 自动跟随）
             }
             else
             {
                 BodyColor = new Color(0.5f, 0.68f, 0.38f); // 夜间活跃偏亮
-                QueueRedraw();
             }
         }
 
