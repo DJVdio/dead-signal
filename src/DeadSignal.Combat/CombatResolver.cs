@@ -41,12 +41,17 @@ public sealed class CombatResolver
         double carriedDamage = 0;
         bool terminated = false;
         int penetrated = 0;
+        double initialAttackRoll = 0;
 
         for (int i = 0; i < layers.Count; i++)
         {
             ArmorLayer layer = layers[i];
 
             double atk = _rng.Range(atkMin, atkMax);
+            if (i == 0)
+            {
+                initialAttackRoll = atk;
+            }
             double applicableDef = layer.DefenseFor(currentType);
             double defMax = Math.Max(0, applicableDef * (1 - currentPen));
             double def = _rng.Range(0, defMax);
@@ -118,6 +123,7 @@ public sealed class CombatResolver
         {
             // 无甲直击：武器伤害直接作用到部位。
             rawDamage = _rng.Range(weapon.DamageMin, weapon.DamageMax);
+            initialAttackRoll = rawDamage;
             finalDamage = CeilMin1(rawDamage);
         }
         else
@@ -135,6 +141,7 @@ public sealed class CombatResolver
             Terminated = terminated,
             Layers = log,
             LayersPenetrated = penetrated,
+            InitialAttackRoll = initialAttackRoll,
         };
     }
 

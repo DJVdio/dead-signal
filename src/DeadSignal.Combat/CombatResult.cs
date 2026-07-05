@@ -62,4 +62,10 @@ public sealed class CombatResult
 
     /// <summary>穿透（Full 或 Half）的层数。无甲为 0。</summary>
     public int LayersPenetrated { get; init; }
+
+    /// <summary>
+    /// 攻方本次的初始武器伤害 roll（打最外层那一发的原始力量值；无甲时即直击 roll）。
+    /// 供震荡判定使用——契合"钝器隔甲生效"，与最终穿透伤害解耦。
+    /// </summary>
+    public double InitialAttackRoll { get; init; }
 }
