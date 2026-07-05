@@ -29,6 +29,10 @@ public sealed partial class Main : Node2D
     private Hud _hud = null!;
     private Node2D _actorLayer = null!;
 
+    // 寻路连通性自检：跨墙探针（起点/终点分居某堵墙两侧），导航就绪后跑一次。
+    private bool _navTested;
+    private int _navWarmupFrames;
+
     // 框选状态。
     private bool _dragging;
     private Vector2 _dragStartScreen;
@@ -126,26 +130,76 @@ public sealed partial class Main : Node2D
     private void BuildNavigation()
     {
         var region = new NavigationRegion2D();
-        var navPoly = new NavigationPolygon();
-        navPoly.AgentRadius = 14f;
+        var navPoly = new NavigationPolygon { AgentRadius = 14f };
 
         // 外框（可行走区域，从边界内缩进）。
         Rect2 outer = new(
             MapBounds.Position + new Vector2(NavInset, NavInset),
             MapBounds.Size - new Vector2(NavInset * 2, NavInset * 2));
-        navPoly.AddOutline(RectPoints(outer));
 
-        // 每堵内部墙作为洞（略微外扩，给一点缓冲）。
+        // 导航洞修复（与 CampMain/B1 同款根因）：旧代码用 navPoly.AddOutline(墙洞) + 空 source geometry
+        // 烘焙——**AddOutline 的洞被 BakeFromSourceGeometryData 忽略**，整张地图是一块无洞网格，
+        // 寻路走直线穿墙、agent 撞 StaticBody 卡死。正解：把可行走区作 traversable outline、
+        // 每堵墙作 obstruction outline 喂给 source geometry，再烘焙——真正在网格里挖出墙洞。
+        var src = new NavigationMeshSourceGeometryData2D();
+        src.AddTraversableOutline(RectPoints(outer));
         foreach (Rect2 w in _wallRects)
         {
-            Rect2 grown = w.Grow(4f);
-            navPoly.AddOutline(RectPoints(grown));
+            src.AddObstructionOutline(RectPoints(w.Grow(4f))); // 外扩 4px 缓冲，agent 不贴墙
         }
 
-        // 空 source geometry：仅用 outline 三角化出可行走网格（外框减去墙洞）。
-        NavigationServer2D.BakeFromSourceGeometryData(navPoly, new NavigationMeshSourceGeometryData2D());
+        NavigationServer2D.BakeFromSourceGeometryData(navPoly, src);
         region.NavigationPolygon = navPoly;
         AddChild(region);
+    }
+
+    /// <summary>
+    /// 跨墙寻路连通性自检：几组起点/终点分居某堵内墙两侧，直线必穿墙。求路后既查能否抵达终点，
+    /// 又沿路径密集采样验证**不穿墙**。穿墙 = 导航洞没生效（寻路走直线撞墙卡死，正是 B1 那个 bug）。
+    /// </summary>
+    private void VerifyNavConnectivity()
+    {
+        // 探针：(名称, 起点, 终点)，均在可行走区内、分居某堵内墙两侧（直线连线必穿该墙）。
+        (string Name, Vector2 Start, Vector2 End)[] probes =
+        {
+            ("竖墙#1(400,280,40,420)", new Vector2(300, 500), new Vector2(600, 500)),
+            ("竖墙#3(900,720,40,380)", new Vector2(850, 900), new Vector2(1050, 900)),
+            ("竖墙#5(1150,480,40,300)", new Vector2(1080, 600), new Vector2(1300, 600)),
+        };
+
+        Rid map = GetWorld2D().NavigationMap;
+        foreach ((string name, Vector2 start, Vector2 end) in probes)
+        {
+            Vector2[] path = NavigationServer2D.MapGetPath(map, start, end, true);
+            float endDist = path.Length > 0 ? path[^1].DistanceTo(end) : -1f;
+            bool reaches = path.Length > 0 && endDist < 40f;
+            bool crossesWall = PathCrossesWall(path);
+            bool ok = reaches && !crossesWall;
+            GD.Print($"[Nav] 跨墙连通 {name}: {(ok ? "OK" : "FAIL")}  终点距 {endDist:0.0}px，" +
+                     $"路径点 {path.Length}，穿墙 {(crossesWall ? "是(导航洞失效!)" : "否")}");
+        }
+    }
+
+    /// <summary>沿折线密集采样，任一采样点落在内墙矩形内 → 路径穿墙（导航洞未生效）。</summary>
+    private bool PathCrossesWall(Vector2[] path)
+    {
+        for (int i = 0; i + 1 < path.Length; i++)
+        {
+            Vector2 a = path[i], b = path[i + 1];
+            int steps = Mathf.Max(1, (int)(a.DistanceTo(b) / 8f));
+            for (int s = 0; s <= steps; s++)
+            {
+                Vector2 pt = a.Lerp(b, (float)s / steps);
+                foreach (Rect2 w in _wallRects)
+                {
+                    if (w.HasPoint(pt))
+                    {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
     }
 
     // ---------------- 生成单位 ----------------
@@ -201,6 +255,26 @@ public sealed partial class Main : Node2D
     }
 
     // ---------------- 每帧刷新 ----------------
+
+    // 导航烘焙完成后跑一次跨墙连通性自检（走物理帧：headless 下 idle _Process 可能不被 pump）。
+    public override void _PhysicsProcess(double delta)
+    {
+        if (_navTested)
+        {
+            return;
+        }
+        Rid map = GetWorld2D().NavigationMap;
+        if (NavigationServer2D.MapGetIterationId(map) != 0)
+        {
+            // 迭代 id 非 0 后再多等几帧，确保 region 网格已同步进 map（否则求路会得空路径）。
+            if (++_navWarmupFrames < 5)
+            {
+                return;
+            }
+            VerifyNavConnectivity();
+            _navTested = true;
+        }
+    }
 
     public override void _Process(double delta)
     {
