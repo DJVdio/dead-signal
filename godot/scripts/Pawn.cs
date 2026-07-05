@@ -38,4 +38,11 @@ public sealed partial class Pawn : Actor
         }
         return p;
     }
+
+    /// <summary>
+    /// 拍一份只读检视快照给"角色面板 UI"读取。内部就地读自身 Body/AttackWeapon/DefenderArmor
+    /// （皆为受保护的可变引擎对象），构造纯数据 <see cref="PawnInspection"/> —— UI 只拿死数据、改不坏战斗。
+    /// </summary>
+    public PawnInspection Inspect() =>
+        PawnInspection.FromBody(Body, AttackWeapon, DefenderArmor, DisplayName);
 }
