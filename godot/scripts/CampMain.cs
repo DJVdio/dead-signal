@@ -38,6 +38,7 @@ public sealed partial class CampMain : Node2D
     private CameraController _camera = null!;
     private CanvasModulate _ambient = null!;
     private Hud _hud = null!;
+    private CharacterPanel _characterPanel = null!;  // 角色检视面板（挂 HUD CanvasLayer，不随相机移动）
 
     private Node2D _logicLayer = null!;  // 物理/导航平面（cartesian，不可见）
     private Node2D _isoLayer = null!;     // 视觉层（iso，YSort）
@@ -101,6 +102,12 @@ public sealed partial class CampMain : Node2D
 
         _hud = new Hud();
         AddChild(_hud);
+
+        // 角色面板挂到 HUD 这层 CanvasLayer（UI 层，不随相机变换）；初始隐藏，关闭按钮 → 收起。
+        _characterPanel = GD.Load<PackedScene>("res://scenes/CharacterPanel.tscn").Instantiate<CharacterPanel>();
+        _hud.AddChild(_characterPanel);
+        _characterPanel.HidePanel();
+        _characterPanel.CloseRequested += _characterPanel.HidePanel;
 
         SpawnActors();
     }
@@ -611,6 +618,7 @@ public sealed partial class CampMain : Node2D
             {
                 Select(p);
             }
+            _characterPanel.HidePanel();  // 框选（含多选）不看单人检视，收起面板。
         }
         else
         {
@@ -623,6 +631,11 @@ public sealed partial class CampMain : Node2D
             if (hit != null)
             {
                 Select(hit);
+                _characterPanel.ShowFor(hit.Inspect());  // 命中单人 → 打开/刷新面板（重复调用即切换）。
+            }
+            else
+            {
+                _characterPanel.HidePanel();  // 点空白未命中 → 收起。
             }
         }
     }
