@@ -34,3 +34,4 @@
 - 战斗/玩法规则含糊处**必须上抛询问用户**，不许自行引申（转述口径用原话，引申要标注"待确认"）。
 - 切除率高致残、结局黑暗向等"狠辣"设定是**有意为之**，不要当平衡问题"修复"。
 - 待办清单在 `docs/TODO.md`（完成一项删一项）。
+- 本机 Clash 代理（env 7897）会导致 git 访问 github.com 报 SSL_ERROR_SYSCALL：push/fetch 前清代理 `env -u HTTPS_PROXY -u https_proxy -u HTTP_PROXY -u http_proxy git ...`，直连是通的。
