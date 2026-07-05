@@ -1,0 +1,27 @@
+# ---- .NET ----
+bin/
+obj/
+*.user
+*.suo
+*.userprefs
+.vs/
+[Dd]ebug/
+[Rr]elease/
+artifacts/
+*.nupkg
+
+# ---- Godot 4 ----
+.godot/
+.import/
+export.cfg
+export_presets.cfg
+*.translation
+# Godot / mono build artifacts
+.mono/
+data_*/
+
+# ---- OS / editor ----
+.DS_Store
+*.swp
+.idea/
+.vscode/
