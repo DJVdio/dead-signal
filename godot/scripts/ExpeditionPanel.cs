@@ -58,8 +58,7 @@ public sealed partial class ExpeditionPanel : CanvasLayer
         panel.AddChild(listBg);
 
         var scroll = new ScrollContainer();
-        scroll.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-        scroll.Size = new Vector2(552, 240);
+        scroll.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
         scroll.MouseFilter = Control.MouseFilterEnum.Pass;
         listBg.AddChild(scroll);
 
