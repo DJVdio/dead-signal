@@ -24,34 +24,16 @@ string outPath = args.Length > 0
     ? args[0]
     : "docs/research/2026-07-05-combat-sim-v2.md";
 
-// ---- 武器表（伤害区间/防御为拟定值待调；穿透/类型来自设计文档第 5 节）----
-var weapons = new List<Weapon>
-{
-    new() { Name = "匕首",   DamageMin = 4,  DamageMax = 14, Penetration = 0.09, DamageType = DamageType.Sharp },
-    new() { Name = "短剑",   DamageMin = 6,  DamageMax = 20, Penetration = 0.12, DamageType = DamageType.Sharp },
-    new() { Name = "长剑",   DamageMin = 10, DamageMax = 30, Penetration = 0.18, DamageType = DamageType.Sharp },
-    new() { Name = "重剑",   DamageMin = 14, DamageMax = 40, Penetration = 0.24, DamageType = DamageType.Sharp },
-    new() { Name = "棍棒",   DamageMin = 7,  DamageMax = 9,  Penetration = 0.03, DamageType = DamageType.Blunt },
-    new() { Name = "尖头锤", DamageMin = 12, DamageMax = 16, Penetration = 0.05, DamageType = DamageType.Blunt },
-    new() { Name = "破甲锤", DamageMin = 20, DamageMax = 28, Penetration = 0.20, DamageType = DamageType.Blunt },
-    new() { Name = "土制枪", DamageMin = 8,  DamageMax = 16, Penetration = 0.10, DamageType = DamageType.Sharp, IsRanged = true, BaseSpreadDegrees = 8, AttackInterval = 2.5 },
-    new() { Name = "手枪",   DamageMin = 12, DamageMax = 20, Penetration = 0.15, DamageType = DamageType.Sharp, IsRanged = true, BaseSpreadDegrees = 3, AttackInterval = 0.5 },
-    new() { Name = "冲锋枪", DamageMin = 10, DamageMax = 18, Penetration = 0.18, DamageType = DamageType.Sharp, IsRanged = true, BaseSpreadDegrees = 6, AttackInterval = 0.1 },
-    new() { Name = "步枪",   DamageMin = 20, DamageMax = 35, Penetration = 0.21, DamageType = DamageType.Sharp, IsRanged = true, BaseSpreadDegrees = 2, AttackInterval = 0.8 },
-    new() { Name = "狙击枪", DamageMin = 40, DamageMax = 70, Penetration = 0.70, DamageType = DamageType.Sharp, IsRanged = true, BaseSpreadDegrees = 0.5, AttackInterval = 1.5 },
-};
+// ---- 武器表（权威数据源 WeaponTable；穿透/类型来自设计文档第 5 节，伤害区间拟定待调）----
+var weapons = WeaponTable.Arsenal().ToList();
 
-// ---- 护甲层（防御为拟定值：锐防≈2×钝防，板甲比例更高）----
-ArmorLayer Cloth() => new() { Name = "布衣", Slot = ArmorSlot.Skin, SharpDefense = 4, BluntDefense = 2, Weight = 1 };
-ArmorLayer Leather() => new() { Name = "皮甲", Slot = ArmorSlot.Outer, SharpDefense = 12, BluntDefense = 6, Weight = 4 };
-ArmorLayer Plate() => new() { Name = "板甲", Slot = ArmorSlot.Plate, SharpDefense = 34, BluntDefense = 11, Weight = 12 };
-
+// ---- 护甲层（权威数据源 ArmorTable；锐防≈2×钝防，板甲比例更高）----
 var combos = new List<(string Name, ArmorLayer[] Layers)>
 {
     ("无甲", Array.Empty<ArmorLayer>()),
-    ("布衣", new[] { Cloth() }),
-    ("皮甲+布衣", new[] { Leather(), Cloth() }),
-    ("板甲+皮甲+布衣", new[] { Plate(), Leather(), Cloth() }),
+    ("布衣", new[] { ArmorTable.Cloth() }),
+    ("皮甲+布衣", new[] { ArmorTable.Leather(), ArmorTable.Cloth() }),
+    ("板甲+皮甲+布衣", new[] { ArmorTable.Plate(), ArmorTable.Leather(), ArmorTable.Cloth() }),
 };
 
 var bodyParts = HumanBody.Parts();

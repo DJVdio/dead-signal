@@ -14,63 +14,22 @@ namespace DeadSignal.Godot;
 /// </summary>
 public static class CombatData
 {
-    // ---- 武器 ----
+    // ---- 武器/护甲（权威数据源为 DeadSignal.Combat.WeaponTable / ArmorTable，本层仅转发）----
 
     /// <summary>手枪：中距离锐器，穿透 15%（文档：手枪 15%）。远程有误差角。</summary>
-    public static Weapon Pistol() => new()
-    {
-        Name = "手枪",
-        DamageMin = 8,
-        DamageMax = 14,
-        Penetration = 0.15,
-        DamageType = DamageType.Sharp,
-        TwoHanded = false,
-        CanDualWield = true,
-        IsRanged = true,
-        BaseSpreadDegrees = 3,   // 拟定待调（Sim 手枪基线 3°）
-        AttackInterval = 0.5,    // 拟定待调（秒/次；实时层攻速可另调）
-    };
+    public static Weapon Pistol() => WeaponTable.Pistol();
 
     /// <summary>匕首：近战锐器，穿透 9%（文档：匕首 9%）。</summary>
-    public static Weapon Dagger() => new()
-    {
-        Name = "匕首",
-        DamageMin = 4,
-        DamageMax = 10,
-        Penetration = 0.09,
-        DamageType = DamageType.Sharp,
-        TwoHanded = false,
-        CanDualWield = true,
-        AttackInterval = 0.7,    // 拟定待调
-    };
+    public static Weapon Dagger() => WeaponTable.Dagger();
 
     /// <summary>丧尸爪击：近战钝器，穿透 3%（文档：棍棒级 3%）。天然钝器逐层保留自身穿透。</summary>
-    public static Weapon ZombieClaw() => new()
-    {
-        Name = "爪击",
-        DamageMin = 3,
-        DamageMax = 9,
-        Penetration = 0.03,
-        DamageType = DamageType.Blunt,
-        TwoHanded = false,
-        CanDualWield = false,
-        AttackInterval = 1.3,    // 拟定待调
-    };
-
-    // ---- 护甲（从外到内已排序，Resolve 前仍会经 OrderOuterToInner 归一） ----
+    public static Weapon ZombieClaw() => WeaponTable.ZombieClaw();
 
     /// <summary>幸存者：外套 + 贴身布衣两层。</summary>
-    public static IReadOnlyList<ArmorLayer> SurvivorArmor() => new[]
-    {
-        new ArmorLayer { Name = "皮夹克", SharpDefense = 6, BluntDefense = 3, Weight = 3, Slot = ArmorSlot.Outer },
-        new ArmorLayer { Name = "贴身布衣", SharpDefense = 2, BluntDefense = 1, Weight = 1, Slot = ArmorSlot.Skin },
-    };
+    public static IReadOnlyList<ArmorLayer> SurvivorArmor() => ArmorTable.SurvivorArmor();
 
     /// <summary>丧尸：一层腐烂硬皮（对钝器略韧）。</summary>
-    public static IReadOnlyList<ArmorLayer> ZombieHide() => new[]
-    {
-        new ArmorLayer { Name = "腐皮", SharpDefense = 1.5, BluntDefense = 3, Weight = 0, Slot = ArmorSlot.Skin },
-    };
+    public static IReadOnlyList<ArmorLayer> ZombieHide() => ArmorTable.ZombieHide();
 
     // ---- 部位（接入引擎细部位表：15 细部位，含 MaxHp/Region/Category/树形父子） ----
 

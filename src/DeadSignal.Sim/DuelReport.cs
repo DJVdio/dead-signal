@@ -9,18 +9,17 @@ using DeadSignal.Combat;
 /// </summary>
 public static class DuelReport
 {
-    // ---- 武器（含攻速 AttackInterval，拟定待调）----
-    private static Weapon Dagger() => new() { Name = "匕首", DamageMin = 4, DamageMax = 14, Penetration = 0.09, DamageType = DamageType.Sharp, AttackInterval = 0.7 };
-    private static Weapon Longsword() => new() { Name = "长剑", DamageMin = 10, DamageMax = 30, Penetration = 0.18, DamageType = DamageType.Sharp, AttackInterval = 1.1 };
-    private static Weapon Club() => new() { Name = "棍棒", DamageMin = 7, DamageMax = 9, Penetration = 0.03, DamageType = DamageType.Blunt, AttackInterval = 0.9 };
-    private static Weapon Warhammer() => new() { Name = "破甲锤", DamageMin = 20, DamageMax = 28, Penetration = 0.20, DamageType = DamageType.Blunt, AttackInterval = 1.8 };
-    private static Weapon Pistol() => new() { Name = "手枪", DamageMin = 12, DamageMax = 20, Penetration = 0.15, DamageType = DamageType.Sharp, IsRanged = true, BaseSpreadDegrees = 3, AttackInterval = 0.5, CanDualWield = true };
-    private static Weapon ZombieClaw() => new() { Name = "尸爪", DamageMin = 3, DamageMax = 9, Penetration = 0.05, DamageType = DamageType.Sharp, AttackInterval = 1.2 };
+    // ---- 武器/护甲（权威数据源 WeaponTable / ArmorTable，本处仅转发）----
+    private static Weapon Dagger() => WeaponTable.Dagger();
+    private static Weapon Longsword() => WeaponTable.Longsword();
+    private static Weapon Club() => WeaponTable.Club();
+    private static Weapon Warhammer() => WeaponTable.Warhammer();
+    private static Weapon Pistol() => WeaponTable.Pistol();
+    private static Weapon ZombieClaw() => WeaponTable.ZombieClaw();
 
-    // ---- 护甲 ----
-    private static ArmorLayer Cloth() => new() { Name = "布衣", Slot = ArmorSlot.Skin, SharpDefense = 4, BluntDefense = 2, Weight = 1 };
-    private static ArmorLayer Leather() => new() { Name = "皮甲", Slot = ArmorSlot.Outer, SharpDefense = 12, BluntDefense = 6, Weight = 4 };
-    private static ArmorLayer Plate() => new() { Name = "板甲", Slot = ArmorSlot.Plate, SharpDefense = 34, BluntDefense = 11, Weight = 12 };
+    private static ArmorLayer Cloth() => ArmorTable.Cloth();
+    private static ArmorLayer Leather() => ArmorTable.Leather();
+    private static ArmorLayer Plate() => ArmorTable.Plate();
 
     // ---- 装备名映射（部位→掉落物名，供切除战报）----
     private static Dictionary<string, string> Kit(string sleeve, string glove, string legwear) => new()
