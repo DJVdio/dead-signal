@@ -34,36 +34,11 @@ public sealed partial class GuardPanel : CanvasLayer
 
     public override void _Ready()
     {
-        _root = new Control { Name = "GuardPanel" };
-        _root.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-        _root.MouseFilter = Control.MouseFilterEnum.Pass;
-        AddChild(_root);
-
-        var overlay = new ColorRect();
-        overlay.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-        overlay.Color = new Color(0, 0, 0, 0.6f);
-        overlay.MouseFilter = Control.MouseFilterEnum.Ignore;
-        _root.AddChild(overlay);
-
-        var panel = new Panel();
-        panel.SetAnchorsPreset(Control.LayoutPreset.Center);
-        panel.Size = new Vector2(520, 400);
-        panel.Position = new Vector2(-260, -200);
-        panel.MouseFilter = Control.MouseFilterEnum.Pass;
-        _root.AddChild(panel);
-
-        var bg = new StyleBoxFlat();
-        bg.BgColor = new Color(0.08f, 0.08f, 0.1f, 0.95f);
-        bg.BorderColor = new Color(0.25f, 0.22f, 0.18f);
-        bg.BorderWidthLeft = 2;
-        bg.BorderWidthRight = 2;
-        bg.BorderWidthTop = 2;
-        bg.BorderWidthBottom = 2;
-        bg.CornerRadiusTopLeft = 8;
-        bg.CornerRadiusTopRight = 8;
-        bg.CornerRadiusBottomLeft = 8;
-        bg.CornerRadiusBottomRight = 8;
-        panel.AddThemeStyleboxOverride("panel", bg);
+        var panel = UiStyle.BuildModalShell(
+            this, out _root, "GuardPanel",
+            overlayAlpha: 0.6f,
+            panelSize: new Vector2(520, 400),
+            borderColor: new Color(0.25f, 0.22f, 0.18f));
 
         var title = new Label();
         title.Text = "夜晚岗哨配置";
@@ -99,7 +74,7 @@ public sealed partial class GuardPanel : CanvasLayer
         _confirmBtn.Position = new Vector2(340, 340);
         _confirmBtn.Size = new Vector2(140, 36);
         _confirmBtn.Pressed += OnConfirm;
-        StyleButton(_confirmBtn, new Color(0.3f, 0.6f, 0.3f));
+        UiStyle.StyleButton(_confirmBtn, new Color(0.3f, 0.6f, 0.3f));
         panel.AddChild(_confirmBtn);
 
         _cancelBtn = new Button();
@@ -107,7 +82,7 @@ public sealed partial class GuardPanel : CanvasLayer
         _cancelBtn.Position = new Vector2(180, 340);
         _cancelBtn.Size = new Vector2(120, 36);
         _cancelBtn.Pressed += () => Cancelled?.Invoke();
-        StyleButton(_cancelBtn, new Color(0.5f, 0.3f, 0.2f));
+        UiStyle.StyleButton(_cancelBtn, new Color(0.5f, 0.3f, 0.2f));
         panel.AddChild(_cancelBtn);
     }
 
@@ -117,7 +92,7 @@ public sealed partial class GuardPanel : CanvasLayer
         _posts.AddRange(posts);
         _dropdowns.Clear();
         _equipLabels.Clear();
-        ClearChildren(_postContainer);
+        UiStyle.ClearChildren(_postContainer);
 
         foreach (var post in _posts)
         {
@@ -202,54 +177,5 @@ public sealed partial class GuardPanel : CanvasLayer
                 map[_posts[i].PostId] = pawnId;
         }
         GuardConfirmed?.Invoke(map);
-    }
-
-    private static void ClearChildren(Node node)
-    {
-        foreach (var child in node.GetChildren())
-            node.RemoveChild(child);
-    }
-
-    private static void StyleButton(Button btn, Color accent)
-    {
-        btn.AddThemeColorOverride("font_color", new Color(0.95f, 0.95f, 0.9f));
-        var normal = new StyleBoxFlat();
-        normal.BgColor = new Color(0.15f, 0.15f, 0.17f);
-        normal.BorderColor = accent;
-        normal.BorderWidthLeft = 1;
-        normal.BorderWidthRight = 1;
-        normal.BorderWidthTop = 1;
-        normal.BorderWidthBottom = 1;
-        normal.CornerRadiusTopLeft = 4;
-        normal.CornerRadiusTopRight = 4;
-        normal.CornerRadiusBottomLeft = 4;
-        normal.CornerRadiusBottomRight = 4;
-        btn.AddThemeStyleboxOverride("normal", normal);
-
-        var hover = new StyleBoxFlat();
-        hover.BgColor = accent * new Color(1, 1, 1, 0.3f);
-        hover.BorderColor = accent;
-        hover.BorderWidthLeft = 1;
-        hover.BorderWidthRight = 1;
-        hover.BorderWidthTop = 1;
-        hover.BorderWidthBottom = 1;
-        hover.CornerRadiusTopLeft = 4;
-        hover.CornerRadiusTopRight = 4;
-        hover.CornerRadiusBottomLeft = 4;
-        hover.CornerRadiusBottomRight = 4;
-        btn.AddThemeStyleboxOverride("hover", hover);
-
-        var disabled = new StyleBoxFlat();
-        disabled.BgColor = new Color(0.08f, 0.08f, 0.1f);
-        disabled.BorderColor = new Color(0.2f, 0.2f, 0.2f);
-        disabled.BorderWidthLeft = 1;
-        disabled.BorderWidthRight = 1;
-        disabled.BorderWidthTop = 1;
-        disabled.BorderWidthBottom = 1;
-        disabled.CornerRadiusTopLeft = 4;
-        disabled.CornerRadiusTopRight = 4;
-        disabled.CornerRadiusBottomLeft = 4;
-        disabled.CornerRadiusBottomRight = 4;
-        btn.AddThemeStyleboxOverride("disabled", disabled);
     }
 }

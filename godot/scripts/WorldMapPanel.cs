@@ -24,6 +24,7 @@ public sealed partial class WorldMapPanel : CanvasLayer
 
     private Control _root = null!;
     private Control _mapContainer = null!;
+    private WorldMapDraw _mapDraw = null!;
     private Button _confirmBtn = null!;
     private Button _cancelBtn = null!;
     private int _selectedIndex = -1;
@@ -33,36 +34,11 @@ public sealed partial class WorldMapPanel : CanvasLayer
 
     public override void _Ready()
     {
-        _root = new Control { Name = "WorldMapPanel" };
-        _root.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-        _root.MouseFilter = Control.MouseFilterEnum.Pass;
-        AddChild(_root);
-
-        var overlay = new ColorRect();
-        overlay.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-        overlay.Color = new Color(0, 0, 0, 0.7f);
-        overlay.MouseFilter = Control.MouseFilterEnum.Ignore;
-        _root.AddChild(overlay);
-
-        var panel = new Panel();
-        panel.SetAnchorsPreset(Control.LayoutPreset.Center);
-        panel.Size = new Vector2(640, 500);
-        panel.Position = new Vector2(-320, -250);
-        panel.MouseFilter = Control.MouseFilterEnum.Pass;
-        _root.AddChild(panel);
-
-        var bg = new StyleBoxFlat();
-        bg.BgColor = new Color(0.08f, 0.08f, 0.1f, 0.95f);
-        bg.BorderColor = new Color(0.25f, 0.22f, 0.18f);
-        bg.BorderWidthLeft = 2;
-        bg.BorderWidthRight = 2;
-        bg.BorderWidthTop = 2;
-        bg.BorderWidthBottom = 2;
-        bg.CornerRadiusTopLeft = 8;
-        bg.CornerRadiusTopRight = 8;
-        bg.CornerRadiusBottomLeft = 8;
-        bg.CornerRadiusBottomRight = 8;
-        panel.AddThemeStyleboxOverride("panel", bg);
+        var panel = UiStyle.BuildModalShell(
+            this, out _root, "WorldMapPanel",
+            overlayAlpha: 0.7f,
+            panelSize: new Vector2(640, 500),
+            borderColor: new Color(0.25f, 0.22f, 0.18f));
 
         var title = new Label();
         title.Text = "选择目的地";
@@ -90,12 +66,12 @@ public sealed partial class WorldMapPanel : CanvasLayer
             _mapContainer.AddChild(markerLabel);
         }
 
-        var mapDraw = new WorldMapDraw();
-        mapDraw.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-        mapDraw.MouseFilter = Control.MouseFilterEnum.Pass;
-        mapDraw.Destinations = Destinations;
-        mapDraw.Clicked += OnMapClick;
-        _mapContainer.AddChild(mapDraw);
+        _mapDraw = new WorldMapDraw();
+        _mapDraw.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        _mapDraw.MouseFilter = Control.MouseFilterEnum.Pass;
+        _mapDraw.Destinations = Destinations;
+        _mapDraw.Clicked += OnMapClick;
+        _mapContainer.AddChild(_mapDraw);
 
         _confirmBtn = new Button();
         _confirmBtn.Text = "确认前往";
@@ -103,7 +79,7 @@ public sealed partial class WorldMapPanel : CanvasLayer
         _confirmBtn.Size = new Vector2(140, 38);
         _confirmBtn.Disabled = true;
         _confirmBtn.Pressed += OnConfirm;
-        StyleButton(_confirmBtn, new Color(0.3f, 0.6f, 0.3f));
+        UiStyle.StyleButton(_confirmBtn, new Color(0.3f, 0.6f, 0.3f));
         panel.AddChild(_confirmBtn);
 
         _cancelBtn = new Button();
@@ -116,7 +92,7 @@ public sealed partial class WorldMapPanel : CanvasLayer
             _confirmBtn.Disabled = true;
             Cancelled?.Invoke();
         };
-        StyleButton(_cancelBtn, new Color(0.5f, 0.3f, 0.2f));
+        UiStyle.StyleButton(_cancelBtn, new Color(0.5f, 0.3f, 0.2f));
         panel.AddChild(_cancelBtn);
     }
 
@@ -124,11 +100,8 @@ public sealed partial class WorldMapPanel : CanvasLayer
     {
         _selectedIndex = index;
         _confirmBtn.Disabled = false;
-        if (_mapContainer.GetChild(_mapContainer.GetChildCount() - 1) is WorldMapDraw draw)
-        {
-            draw.SelectedIndex = index;
-            draw.QueueRedraw();
-        }
+        _mapDraw.SelectedIndex = index;
+        _mapDraw.QueueRedraw();
     }
 
     private void OnConfirm()
@@ -137,49 +110,6 @@ public sealed partial class WorldMapPanel : CanvasLayer
             return;
         var d = Destinations[_selectedIndex];
         DestinationSelected?.Invoke(d.Name, d.TravelTimeSeconds);
-    }
-
-    private static void StyleButton(Button btn, Color accent)
-    {
-        btn.AddThemeColorOverride("font_color", new Color(0.95f, 0.95f, 0.9f));
-        var normal = new StyleBoxFlat();
-        normal.BgColor = new Color(0.15f, 0.15f, 0.17f);
-        normal.BorderColor = accent;
-        normal.BorderWidthLeft = 1;
-        normal.BorderWidthRight = 1;
-        normal.BorderWidthTop = 1;
-        normal.BorderWidthBottom = 1;
-        normal.CornerRadiusTopLeft = 4;
-        normal.CornerRadiusTopRight = 4;
-        normal.CornerRadiusBottomLeft = 4;
-        normal.CornerRadiusBottomRight = 4;
-        btn.AddThemeStyleboxOverride("normal", normal);
-
-        var hover = new StyleBoxFlat();
-        hover.BgColor = accent * new Color(1, 1, 1, 0.3f);
-        hover.BorderColor = accent;
-        hover.BorderWidthLeft = 1;
-        hover.BorderWidthRight = 1;
-        hover.BorderWidthTop = 1;
-        hover.BorderWidthBottom = 1;
-        hover.CornerRadiusTopLeft = 4;
-        hover.CornerRadiusTopRight = 4;
-        hover.CornerRadiusBottomLeft = 4;
-        hover.CornerRadiusBottomRight = 4;
-        btn.AddThemeStyleboxOverride("hover", hover);
-
-        var disabled = new StyleBoxFlat();
-        disabled.BgColor = new Color(0.08f, 0.08f, 0.1f);
-        disabled.BorderColor = new Color(0.2f, 0.2f, 0.2f);
-        disabled.BorderWidthLeft = 1;
-        disabled.BorderWidthRight = 1;
-        disabled.BorderWidthTop = 1;
-        disabled.BorderWidthBottom = 1;
-        disabled.CornerRadiusTopLeft = 4;
-        disabled.CornerRadiusTopRight = 4;
-        disabled.CornerRadiusBottomLeft = 4;
-        disabled.CornerRadiusBottomRight = 4;
-        btn.AddThemeStyleboxOverride("disabled", disabled);
     }
 
     private sealed partial class WorldMapDraw : Control
