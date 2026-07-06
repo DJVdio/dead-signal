@@ -249,8 +249,12 @@ public abstract partial class Actor : CharacterBody2D
         {
             FacingAngle = dir.Angle(); // 移动：面朝前进方向
         }
+        // 残疾移动惩罚：移动能力 = 1 − MobilityPenalty（断腿/断趾净值，Body.RecalculatePenalties 实时重算）。
+        // 惩罚 0.5 → 半速；能力 ≤0（惩罚 ≥1，如断双腿）→ 完全无法移动（期望速度归零）。
+        double mobility = 1.0 - Body.DisabilityModifiers.MobilityPenalty;
+        Vector2 desired = mobility > 0 ? dir * MoveSpeed * (float)mobility : Vector2.Zero;
         // 把期望速度交给避障；OnVelocityComputed 收到安全速度后再 MoveAndSlide。
-        _agent.Velocity = dir * MoveSpeed;
+        _agent.Velocity = desired;
     }
 
     /// <summary>避障算出的安全速度回调：真正驱动位移。未开避障时不会触发。</summary>
@@ -288,7 +292,15 @@ public abstract partial class Actor : CharacterBody2D
         {
             return;
         }
-        _attackTimer = AttackCooldown;
+        // 残疾操作惩罚：操作能力 = 1 − OperationPenalty（断手/断指净值，实时重算）。对齐 Duel.EffectiveInterval 口径：
+        // 有效间隔 = 基础 / 操作能力（惩罚 0.5 → 间隔翻倍）；能力 ≤0（惩罚 ≥1，如断双手）→ 无法出手，跳过本次攻击、
+        // 计时器不动（避免除零变 NaN/负值），下帧再判。
+        double operation = 1.0 - Body.DisabilityModifiers.OperationPenalty;
+        if (operation <= 0)
+        {
+            return;
+        }
+        _attackTimer = AttackCooldown / operation;
 
         if (IsRanged)
         {
