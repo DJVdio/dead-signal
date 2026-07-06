@@ -337,37 +337,14 @@ public abstract partial class Actor : CharacterBody2D
         {
             return;
         }
-        // 伤害/流血/切除/致死已在此调用内施加到 Body；下方仅做表现。
+        // 伤害/流血/切除/致死已在此调用内施加到 Body；下方仅发布到表现总线（飘字②③④各自订阅）。
         AttackOutcome hit = combat.ResolveHit(weapon, DefenderArmor, Body);
-        ShowOutcome(hit);
+        CombatFeed.Publish(this, hit);
 
         if (!Alive)
         {
             Die();
         }
-    }
-
-    private void ShowOutcome(AttackOutcome hit)
-    {
-        Color txtColor;
-        string text;
-        if (hit.Blocked)
-        {
-            // 被甲挡下 —— 也给一条战报，体现"护甲不是绝对保险"的手感。
-            text = $"挡下·{hit.PartName}";
-            txtColor = new Color(0.75f, 0.78f, 0.85f);
-        }
-        else
-        {
-            string typeTag = hit.FinalType == DamageType.Blunt ? "钝" : "锐";
-            string fx = hit.Severed ? " 断!" : hit.Fractured ? " 骨折" : hit.Concussed ? " 震荡" : hit.Bled ? " 流血" : "";
-            text = $"-{hit.Damage} {hit.PartName}({typeTag}){fx}";
-            txtColor = Faction == Faction.Survivor
-                ? new Color(1f, 0.5f, 0.45f)
-                : new Color(1f, 0.85f, 0.4f);
-        }
-
-        FloatingText.Spawn(GetParent(), GlobalPosition + new Vector2(0, -Radius - 10), text, txtColor);
     }
 
     private void Die()
