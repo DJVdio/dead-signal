@@ -688,7 +688,8 @@ public sealed partial class CampMain : Node2D
             if (hit != null)
             {
                 Select(hit);
-                _characterPanel.ShowFor(hit.Inspect());  // 命中单人 → 打开/刷新面板（重复调用即切换）。
+                // 命中单人 → 打开/刷新面板（重复调用即切换）；附装假肢入口：面板空槽装假肢即时恢复能力。
+                _characterPanel.ShowFor(hit.Inspect(), (region, grade) => hit.EquipProsthetic(region, grade));
             }
             else
             {

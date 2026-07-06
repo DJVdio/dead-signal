@@ -1,4 +1,5 @@
 using Godot;
+using DeadSignal.Combat;
 
 namespace DeadSignal.Godot;
 
@@ -96,4 +97,24 @@ public sealed partial class Pawn : Actor
     /// </summary>
     public PawnInspection Inspect() =>
         PawnInspection.FromBody(Body, AttackWeapon, DefenderArmor, DisplayName, (int)Hunger, Hunger.Label());
+
+    /// <summary>
+    /// 给某个空槽（被切除的手/腿）装一副某等级的成品假肢：本轮直接给（调试/掉落来源，不做制作/搜刮/交易链），
+    /// 走已有的 <see cref="Body.AttachProsthetic"/> 恢复能力并即时重算净惩罚。返回装后新快照供面板刷新。
+    /// </summary>
+    /// <param name="replacesRegion">取代区域：<see cref="BodyRegion.Hand"/>=手（恢复操作）/ <see cref="BodyRegion.Leg"/>=腿（恢复移动）。</param>
+    public PawnInspection EquipProsthetic(BodyRegion replacesRegion, ProstheticGrade grade)
+    {
+        Body.AttachProsthetic(Prosthetic.OfGrade(grade, replacesRegion, ProstheticDisplayName(grade)));
+        return Inspect();
+    }
+
+    /// <summary>假肢等级中文显示名（木制/简易/仿生）。</summary>
+    private static string ProstheticDisplayName(ProstheticGrade grade) => grade switch
+    {
+        ProstheticGrade.Wooden => "木制假肢",
+        ProstheticGrade.Simple => "简易假肢",
+        ProstheticGrade.Bionic => "仿生假肢",
+        _ => "假肢",
+    };
 }

@@ -30,6 +30,15 @@ public sealed partial class CharacterPanel : PanelContainer
     [Signal]
     public delegate void CloseRequestedEventHandler();
 
+    /// <summary>
+    /// 装假肢请求处理器：把某等级假肢装到指定取代区域（<see cref="BodyRegion.Hand"/>/<see cref="BodyRegion.Leg"/>）的空槽，
+    /// 装完返回装后的新快照供面板刷新。由持有 live Pawn 的一侧（如 CampMain）提供闭包；
+    /// 面板本身仍只读快照、不持可变战斗对象。为 null 时面板不显示装备入口（功能休眠）。
+    /// </summary>
+    public delegate PawnInspection ProstheticEquipHandler(BodyRegion replacesRegion, ProstheticGrade grade);
+
+    private ProstheticEquipHandler? _onEquip;
+
     /// <summary>true 时在 _Ready 用一份手工快照自测布局；发布保持默认 false。</summary>
     [Export]
     private bool _debugPreview = false;
@@ -49,13 +58,30 @@ public sealed partial class CharacterPanel : PanelContainer
 
         if (_debugPreview)
         {
-            ShowFor(PawnInspection.FromBody(HumanBody.NewBody(), null, null, "预览·测试对象"));
+            // 自测：切左手 + 切右腿造两个空槽，配一个就地改 Body 的装配闭包，编辑器里可点按钮验证恢复。
+            var body = HumanBody.NewBody();
+            body.Sever(HumanBody.LeftHand);
+            body.Sever(HumanBody.RightLeg);
+            body.RecalculatePenalties();
+            ShowFor(
+                PawnInspection.FromBody(body, null, null, "预览·测试对象"),
+                (region, grade) =>
+                {
+                    body.AttachProsthetic(Prosthetic.OfGrade(grade, region, grade.ToString()));
+                    return PawnInspection.FromBody(body, null, null, "预览·测试对象");
+                });
         }
     }
 
-    /// <summary>显示面板并用快照填充；重复调用即切换到新幸存者刷新内容。</summary>
-    public void ShowFor(PawnInspection insp)
+    /// <summary>显示面板并用快照填充（无装假肢入口）；重复调用即切换到新幸存者刷新内容。</summary>
+    public void ShowFor(PawnInspection insp) => ShowFor(insp, null);
+
+    /// <summary>
+    /// 显示面板并用快照填充，同时接入装假肢入口 <paramref name="onEquip"/>（为 null 则不显示入口）。
+    /// </summary>
+    public void ShowFor(PawnInspection insp, ProstheticEquipHandler? onEquip)
     {
+        _onEquip = onEquip;
         _nameLabel.Text = insp.DisplayName;
         _statusLabel.Text = HealthSummary(insp);
         _statusLabel.AddThemeColorOverride("font_color", insp.IsDead ? ColSevered : ColText);
@@ -162,6 +188,9 @@ public sealed partial class CharacterPanel : PanelContainer
         _overviewBox.AddChild(AbilityRow("操作能力", 1.0 - insp.OperationPenalty));
         _overviewBox.AddChild(AbilityRow("移动能力", 1.0 - insp.MobilityPenalty));
 
+        // —— 义肢：仅当有被切除的手/腿槽时显示（装上恢复能力）——
+        FillProsthetics(insp);
+
         _overviewBox.AddChild(new Control { CustomMinimumSize = new Vector2(0, 6) });
         _overviewBox.AddChild(SectionTitle("武器"));
         if (insp.Weapon is { } w)
@@ -192,6 +221,102 @@ public sealed partial class CharacterPanel : PanelContainer
             }
         }
     }
+
+    // ———————————————————————————— 义肢 ————————————————————————————
+
+    /// <summary>
+    /// 列出被切除的手/腿槽：已装假肢显示等级标；空槽（<see cref="ProstheticSlot.CanEquip"/>）在有装备入口时
+    /// 给出木制/简易/仿生三个按钮，点击 → 装假肢闭包 → 拿新快照重填面板（能力条即时反映恢复）。
+    /// </summary>
+    private void FillProsthetics(PawnInspection insp)
+    {
+        var slots = insp.ProstheticSlots.Where(s => s.IsAmputated).ToList();
+        if (slots.Count == 0)
+        {
+            return; // 四肢俱全，不显示义肢区
+        }
+
+        _overviewBox.AddChild(new Control { CustomMinimumSize = new Vector2(0, 6) });
+        _overviewBox.AddChild(SectionTitle("义肢"));
+
+        foreach (var slot in slots)
+        {
+            var row = new HBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+            row.AddThemeConstantOverride("separation", 6);
+
+            var name = new Label
+            {
+                Text = SlotLabel(slot),
+                CustomMinimumSize = new Vector2(96, 0),
+            };
+            name.AddThemeFontSizeOverride("font_size", 13);
+            name.AddThemeColorOverride("font_color", ColText);
+            name.VerticalAlignment = VerticalAlignment.Center;
+            row.AddChild(name);
+
+            if (slot.HasProsthetic)
+            {
+                row.AddChild(MarkTag(slot.ProstheticName ?? GradeLabel(slot.Grade), ColDisabled));
+            }
+            else if (_onEquip is not null)
+            {
+                // 空槽：三个等级按钮，点击即装。
+                foreach (var grade in new[] { ProstheticGrade.Wooden, ProstheticGrade.Simple, ProstheticGrade.Bionic })
+                {
+                    row.AddChild(EquipButton(slot, grade));
+                }
+            }
+            else
+            {
+                row.AddChild(Line("空槽", ColMuted, 13));
+            }
+
+            _overviewBox.AddChild(row);
+        }
+    }
+
+    /// <summary>一个装假肢按钮：点击调用装备闭包，用返回的新快照重填面板（连同装备入口一起保留）。</summary>
+    private Button EquipButton(ProstheticSlot slot, ProstheticGrade grade)
+    {
+        var b = new Button
+        {
+            Text = GradeLabel(grade),
+            CustomMinimumSize = new Vector2(0, 26),
+        };
+        b.AddThemeFontSizeOverride("font_size", 12);
+        b.TooltipText = $"给{SlotLabel(slot)}装{GradeLabel(grade)}假肢";
+        var handler = _onEquip;
+        b.Pressed += () =>
+        {
+            if (handler is null)
+            {
+                return;
+            }
+            PawnInspection updated = handler(slot.ReplacesRegion, grade);
+            ShowFor(updated, handler); // 重填：能力条/义肢区即时反映恢复
+        };
+        return b;
+    }
+
+    /// <summary>槽位展示名：手直接用部位名；脚（腿假肢）用侧别 + "腿"。</summary>
+    private static string SlotLabel(ProstheticSlot slot)
+    {
+        if (slot.ReplacesRegion == BodyRegion.Hand)
+        {
+            return slot.UnitPartName; // 如 "左手"
+        }
+        // 脚部单位映射到"腿"槽（腿假肢）：左脚→左腿 / 右脚→右腿。
+        var side = slot.UnitPartName.StartsWith("左") ? "左" : slot.UnitPartName.StartsWith("右") ? "右" : "";
+        return $"{side}腿";
+    }
+
+    private static string GradeLabel(ProstheticGrade? grade) => grade switch
+    {
+        ProstheticGrade.Wooden => "木制",
+        ProstheticGrade.Simple => "简易",
+        ProstheticGrade.Bionic => "仿生",
+        _ => "假肢",
+    };
 
     // ———————————————————————————— 健康页 ————————————————————————————
 

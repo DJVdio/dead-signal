@@ -53,6 +53,35 @@ public sealed class ArmorInfo
 }
 
 /// <summary>
+/// 一个"可装假肢的肢体槽位"快照：对应一只手（操作单位）或一只脚（移动单位）。
+/// 只有被切除/损毁（<see cref="IsAmputated"/>）且尚未被假肢覆盖（<see cref="HasProsthetic"/>）的槽才是空槽（<see cref="CanEquip"/>）。
+/// 覆盖判定复刻引擎的贪心分配（同区高等级假肢优先抵扣一个失去的单位），故与净惩罚口径一致。
+/// </summary>
+public sealed class ProstheticSlot
+{
+    /// <summary>判定切除的单位部位名（手=手掌本体，腿=脚掌本体；如 "左手" / "左脚"）。</summary>
+    public string UnitPartName { get; init; } = "";
+
+    /// <summary>装假肢时传给 <see cref="Prosthetic.OfGrade"/> 的取代区域（手→Hand / 腿→Leg）。</summary>
+    public BodyRegion ReplacesRegion { get; init; }
+
+    /// <summary>该单位是否已失去（切除/损毁，含切腿连带脚）。空槽前提。</summary>
+    public bool IsAmputated { get; init; }
+
+    /// <summary>该失去单位是否已被一个假肢覆盖。</summary>
+    public bool HasProsthetic { get; init; }
+
+    /// <summary>已装假肢的等级（未装为 null）。</summary>
+    public ProstheticGrade? Grade { get; init; }
+
+    /// <summary>已装假肢的显示名（未装为 null）。</summary>
+    public string? ProstheticName { get; init; }
+
+    /// <summary>可装假肢：已失去且未被覆盖。</summary>
+    public bool CanEquip => IsAmputated && !HasProsthetic;
+}
+
+/// <summary>
 /// 一个战斗单位对外的只读检视快照。UI 只读它、永远拿不到可变的引擎对象引用。
 /// 通过 <see cref="FromBody"/> 静态工厂由 live Body/Weapon/Armor 拍成，构造后即与源脱钩。
 /// </summary>
@@ -80,6 +109,9 @@ public sealed class PawnInspection
     public string HungerLabel { get; init; } = "正常";
 
     public IReadOnlyList<PartStatus> Parts { get; init; } = Array.Empty<PartStatus>();
+
+    /// <summary>可装假肢的肢体槽（两手 + 两脚，共 4 个）；UI 据此为空槽提供装假肢入口。</summary>
+    public IReadOnlyList<ProstheticSlot> ProstheticSlots { get; init; } = Array.Empty<ProstheticSlot>();
 
     /// <summary>持械信息，无武器时为 null。</summary>
     public WeaponInfo? Weapon { get; init; }
@@ -133,6 +165,11 @@ public sealed class PawnInspection
             Slot = a.Slot,
         }).ToList();
 
+        var prostheticSlots = new List<ProstheticSlot>();
+        // 操作单位=手（假肢取代 Hand）；移动单位=脚（假肢取代 Leg，切腿连带脚 gone → 该腿槽算空）。
+        AddProstheticSlots(body, BodyRegion.Hand, BodyRegion.Hand, prostheticSlots);
+        AddProstheticSlots(body, BodyRegion.Foot, BodyRegion.Leg, prostheticSlots);
+
         return new PawnInspection
         {
             DisplayName = name,
@@ -146,8 +183,50 @@ public sealed class PawnInspection
             HungerStage = hungerStage,
             HungerLabel = hungerLabel ?? "正常",
             Parts = parts,
+            ProstheticSlots = prostheticSlots,
             Weapon = weaponInfo,
             Armor = armorInfos,
         };
+    }
+
+    /// <summary>
+    /// 组装某类肢体的假肢槽。<paramref name="unitRegion"/> 为惩罚单位（Hand/Foot），
+    /// <paramref name="replacesRegion"/> 为假肢取代区域（Hand/Leg）。按 <see cref="Body.Parts"/> 的迭代序
+    /// 遍历单位（与引擎 <see cref="Body.RecalculatePenalties"/> 同序），对失去的单位贪心分配同区假肢
+    /// （高等级优先，与引擎一致），使"哪个槽被覆盖/哪个仍空"与净惩罚口径吻合。
+    /// </summary>
+    private static void AddProstheticSlots(
+        Body body, BodyRegion unitRegion, BodyRegion replacesRegion, List<ProstheticSlot> outSlots)
+    {
+        var gradesForGone = body.Prosthetics
+            .Where(pr => pr.ReplacesRegion == replacesRegion)
+            .OrderByDescending(pr => pr.RestoreRatio)
+            .ToList();
+        int coverIdx = 0;
+
+        foreach (var unit in body.Parts.Values.Where(p => p.Region == unitRegion))
+        {
+            bool amputated = body.IsGone(unit.Name);
+            bool covered = false;
+            ProstheticGrade? grade = null;
+            string? name = null;
+            if (amputated && coverIdx < gradesForGone.Count)
+            {
+                covered = true;
+                grade = gradesForGone[coverIdx].Grade;
+                name = gradesForGone[coverIdx].Name;
+                coverIdx++;
+            }
+
+            outSlots.Add(new ProstheticSlot
+            {
+                UnitPartName = unit.Name,
+                ReplacesRegion = replacesRegion,
+                IsAmputated = amputated,
+                HasProsthetic = covered,
+                Grade = grade,
+                ProstheticName = name,
+            });
+        }
     }
 }
