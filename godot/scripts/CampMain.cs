@@ -911,6 +911,9 @@ public sealed partial class CampMain : Node2D
         _currentLevel = (ExplorationLevel)_levelRoot;
 
         _currentLevel.Clock = _clock;
+        // 关卡里新建的丧尸要拿到与营地单位相同的战斗引擎实例（否则 Inject 缺失、首帧 Think 崩）。
+        if (_currentLevel is TestExploration testLevel)
+            testLevel.Combat = _combat;
         _currentLevel.ExpeditionTeam = _survivors.Where(s => s.Role == PawnRole.Expedition).ToList();
 
         _currentLevel.OnReturnToCamp += OnExplorationReturn;

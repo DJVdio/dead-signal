@@ -18,6 +18,10 @@ public sealed partial class TestExploration : ExplorationLevel
     private Area2D _returnZone = null!;
     private Node2D _actorLayer = null!;
 
+    // 战斗引擎依赖：与营地单位共用同一实例（由 CampMain 在 Initialize 前注入），
+    // 关卡新建的丧尸经 Actor.Inject(Combat, Clock) 拿到它——缺则丧尸首帧 Think 解引用 Clock 崩。
+    public CombatEngine Combat { get; set; } = null!;
+
     public override void Initialize()
     {
         BuildTerrain();
@@ -109,7 +113,7 @@ public sealed partial class TestExploration : ExplorationLevel
         src.AddTraversableOutline(Quad(outer.Position, outer.Size));
 
         foreach (Rect2 obs in _obstructions)
-            src.AddObstructionOutline(Quad(obs.Position, obs.Size).Select(v => v).ToArray());
+            src.AddObstructionOutline(Quad(obs.Position, obs.Size));
 
         NavigationServer2D.BakeFromSourceGeometryData(navPoly, src);
         region.NavigationPolygon = navPoly;
@@ -193,6 +197,7 @@ public sealed partial class TestExploration : ExplorationLevel
         foreach (Vector2 spot in spots)
         {
             var z = Zombie.Create(wander, () => ExpeditionTeam.Where(a => a.Alive).Cast<Actor>());
+            z.Inject(Combat, Clock); // 与营地单位相同的 combat+clock，务必在入树/首个物理帧 Think 前完成
             z.Position = spot;
             _actorLayer.AddChild(z);
             _zombies.Add(z);
