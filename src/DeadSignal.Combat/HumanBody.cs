@@ -38,6 +38,18 @@ public static class HumanBody
     public const string RightRing = "右手无名指";
     public const string RightPinky = "右手小指";
 
+    // 五趾部位名（左右脚各 拇/二/三/四/五趾）。切除按"该脚累计移动惩罚"结算，见 Body.RecalculatePenalties。
+    public const string LeftBigToe = "左脚拇趾";
+    public const string LeftToe2 = "左脚二趾";
+    public const string LeftToe3 = "左脚三趾";
+    public const string LeftToe4 = "左脚四趾";
+    public const string LeftToe5 = "左脚五趾";
+    public const string RightBigToe = "右脚拇趾";
+    public const string RightToe2 = "右脚二趾";
+    public const string RightToe3 = "右脚三趾";
+    public const string RightToe4 = "右脚四趾";
+    public const string RightToe5 = "右脚五趾";
+
     /// <summary>返回全套人类部位定义（不可变模板）。数值拟定待调。</summary>
     public static IReadOnlyList<BodyPart> Parts() => new[]
     {
@@ -68,11 +80,21 @@ public static class HumanBody
         new BodyPart { Name = RightMiddle, VolumeWeight = 0.3, MaxHp = 3, Region = BodyRegion.Finger, MacroRegion = BodyMacroRegion.Hand, Category = BodyPartCategory.Limb, Parent = RightHand },
         new BodyPart { Name = RightRing, VolumeWeight = 0.3, MaxHp = 3, Region = BodyRegion.Finger, MacroRegion = BodyMacroRegion.Hand, Category = BodyPartCategory.Limb, Parent = RightHand },
         new BodyPart { Name = RightPinky, VolumeWeight = 0.25, MaxHp = 2, Region = BodyRegion.Finger, MacroRegion = BodyMacroRegion.Hand, Category = BodyPartCategory.Limb, Parent = RightHand },
-        // 下肢 → 脚
+        // 下肢 → 脚（脚掌本体占脚部大部分权重）→ 五趾（低 HP 低权重，独立部位）
         new BodyPart { Name = LeftLeg, VolumeWeight = 12, MaxHp = 22, Region = BodyRegion.Leg, MacroRegion = BodyMacroRegion.Leg, Category = BodyPartCategory.Limb, Parent = Torso },
         new BodyPart { Name = LeftFoot, VolumeWeight = 3, MaxHp = 10, Region = BodyRegion.Foot, MacroRegion = BodyMacroRegion.Foot, Category = BodyPartCategory.Limb, Parent = LeftLeg },
+        new BodyPart { Name = LeftBigToe, VolumeWeight = 0.3, MaxHp = 3, Region = BodyRegion.Toe, MacroRegion = BodyMacroRegion.Foot, Category = BodyPartCategory.Limb, Parent = LeftFoot },
+        new BodyPart { Name = LeftToe2, VolumeWeight = 0.2, MaxHp = 2, Region = BodyRegion.Toe, MacroRegion = BodyMacroRegion.Foot, Category = BodyPartCategory.Limb, Parent = LeftFoot },
+        new BodyPart { Name = LeftToe3, VolumeWeight = 0.2, MaxHp = 2, Region = BodyRegion.Toe, MacroRegion = BodyMacroRegion.Foot, Category = BodyPartCategory.Limb, Parent = LeftFoot },
+        new BodyPart { Name = LeftToe4, VolumeWeight = 0.2, MaxHp = 2, Region = BodyRegion.Toe, MacroRegion = BodyMacroRegion.Foot, Category = BodyPartCategory.Limb, Parent = LeftFoot },
+        new BodyPart { Name = LeftToe5, VolumeWeight = 0.15, MaxHp = 2, Region = BodyRegion.Toe, MacroRegion = BodyMacroRegion.Foot, Category = BodyPartCategory.Limb, Parent = LeftFoot },
         new BodyPart { Name = RightLeg, VolumeWeight = 12, MaxHp = 22, Region = BodyRegion.Leg, MacroRegion = BodyMacroRegion.Leg, Category = BodyPartCategory.Limb, Parent = Torso },
         new BodyPart { Name = RightFoot, VolumeWeight = 3, MaxHp = 10, Region = BodyRegion.Foot, MacroRegion = BodyMacroRegion.Foot, Category = BodyPartCategory.Limb, Parent = RightLeg },
+        new BodyPart { Name = RightBigToe, VolumeWeight = 0.3, MaxHp = 3, Region = BodyRegion.Toe, MacroRegion = BodyMacroRegion.Foot, Category = BodyPartCategory.Limb, Parent = RightFoot },
+        new BodyPart { Name = RightToe2, VolumeWeight = 0.2, MaxHp = 2, Region = BodyRegion.Toe, MacroRegion = BodyMacroRegion.Foot, Category = BodyPartCategory.Limb, Parent = RightFoot },
+        new BodyPart { Name = RightToe3, VolumeWeight = 0.2, MaxHp = 2, Region = BodyRegion.Toe, MacroRegion = BodyMacroRegion.Foot, Category = BodyPartCategory.Limb, Parent = RightFoot },
+        new BodyPart { Name = RightToe4, VolumeWeight = 0.2, MaxHp = 2, Region = BodyRegion.Toe, MacroRegion = BodyMacroRegion.Foot, Category = BodyPartCategory.Limb, Parent = RightFoot },
+        new BodyPart { Name = RightToe5, VolumeWeight = 0.15, MaxHp = 2, Region = BodyRegion.Toe, MacroRegion = BodyMacroRegion.Foot, Category = BodyPartCategory.Limb, Parent = RightFoot },
     };
 
     /// <summary>新建一个满血人类 <see cref="Body"/>。</summary>

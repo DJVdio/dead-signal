@@ -349,33 +349,41 @@ public sealed class Body
     /// -7%/指（该手上限 -50%，断手 -50% 覆盖手指累加）；手部失去时手指一并消失、不计额外。
     /// 假肢按等级恢复"单肢能力 × RestoreRatio"（即全局 -50% × RestoreRatio），逐个抵扣一只失去的对应肢体。
     /// </summary>
+    private const double FingerPenalty = 0.07; // 每根手指 -7%（该手累加）。
+    private const double ToePenalty = 0.02;     // 每根脚趾 -2%（该脚累加）。
+
     public void RecalculatePenalties()
     {
+        // 操作：以手为单位（假肢=手），未失去的手按失去手指累加 -7%/指。
         DisabilityModifiers.OperationPenalty =
-            LimbPenalty(BodyRegion.Hand, BodyRegion.Finger);
+            LimbPenalty(BodyRegion.Hand, BodyRegion.Hand, BodyRegion.Finger, FingerPenalty);
+        // 移动：以脚为单位（脚趾挂脚下，切/毁腿连带脚 gone → 该侧 0.5），假肢作用于整腿（ReplacesRegion=Leg）。
+        // 未失去的脚按失去脚趾累加 -2%/趾。
         DisabilityModifiers.MobilityPenalty =
-            LimbPenalty(BodyRegion.Leg, null);
+            LimbPenalty(BodyRegion.Foot, BodyRegion.Leg, BodyRegion.Toe, ToePenalty);
     }
 
     /// <summary>
-    /// 计算某类肢体（手/腿）净能力惩罚。<paramref name="digitRegion"/> 非 null 时（手→手指）：
-    /// 未失去的肢体按其失去子部位累加 -7%/个（该肢上限 -50%）。假肢按 RestoreRatio 抵扣失去的肢体。
+    /// 计算某能力净惩罚。以 <paramref name="unitRegion"/> 部位为单位（手/脚）：该单位失去（切除/损毁）→ -50%；
+    /// 未失去时按其失去子部位 <paramref name="digitRegion"/> 累加 <paramref name="digitPenalty"/>/个（该单位上限 -50%，
+    /// 单位失去覆盖子部位累加）。假肢按 <paramref name="restoreRegion"/> 匹配（手→Hand / 脚→Leg），
+    /// 恢复 = 单肢能力(50%) × RestoreRatio，逐个抵扣一个失去的单位。总上限锁 100%。
     /// </summary>
-    private double LimbPenalty(BodyRegion limbRegion, BodyRegion? digitRegion)
+    private double LimbPenalty(BodyRegion unitRegion, BodyRegion restoreRegion, BodyRegion digitRegion, double digitPenalty)
     {
-        var limbs = _parts.Values.Where(p => p.Region == limbRegion).ToList();
+        var units = _parts.Values.Where(p => p.Region == unitRegion).ToList();
         var restores = _prosthetics
-            .Where(p => p.ReplacesRegion == limbRegion)
+            .Where(p => p.ReplacesRegion == restoreRegion)
             .Select(p => p.RestoreRatio)
-            .OrderByDescending(r => r) // 优先用高等级假肢抵扣，抵扣结果与顺序无关（净惩罚上限锁 0）
+            .OrderByDescending(r => r) // 优先用高等级假肢抵扣，抵扣结果与顺序无关（净惩罚下限锁 0）
             .ToList();
         int restoreIdx = 0;
 
         double total = 0;
-        foreach (var limb in limbs)
+        foreach (var unit in units)
         {
             double penalty;
-            if (IsGone(limb.Name))
+            if (IsGone(unit.Name))
             {
                 penalty = SingleLimbPenalty;
                 if (restoreIdx < restores.Count)
@@ -385,20 +393,16 @@ public sealed class Body
                     restoreIdx++;
                 }
             }
-            else if (digitRegion is BodyRegion dr)
-            {
-                int digitsGone = _parts.Values.Count(p =>
-                    p.Region == dr && p.Parent == limb.Name && IsGone(p.Name));
-                penalty = Math.Min(SingleLimbPenalty, digitsGone * 0.07); // 断手 -50% 覆盖手指累加
-            }
             else
             {
-                penalty = 0;
+                int digitsGone = _parts.Values.Count(p =>
+                    p.Region == digitRegion && p.Parent == unit.Name && IsGone(p.Name));
+                penalty = Math.Min(SingleLimbPenalty, digitsGone * digitPenalty); // 单位失去 -50% 覆盖子部位累加
             }
 
             total += penalty;
         }
 
-        return Math.Min(1.0, total); // 两肢全失 = -100%，上限锁 100%。
+        return Math.Min(1.0, total); // 两侧全失 = -100%，上限锁 100%。
     }
 }

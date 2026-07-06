@@ -131,6 +131,93 @@ public class AmputationTests
         Assert.Equal(0.375, body.DisabilityModifiers.MobilityPenalty, 9);
     }
 
+    // ---- 移动单元：以脚为单位（脚趾二级判定），切/毁腿连带脚 gone → 该侧 0.5；脚趾 -2%/根（该脚累加）----
+
+    [Fact]
+    public void SeverFoot_LegIntact_SideMobility50()
+    {
+        var body = HumanBody.NewBody();
+        body.Sever(HumanBody.LeftFoot); // 整只脚没了 → 该侧 0.5
+        body.RecalculatePenalties();
+        Assert.Equal(0.5, body.DisabilityModifiers.MobilityPenalty, 9);
+    }
+
+    [Fact]
+    public void SeverLeg_TakesFootAsSide50()
+    {
+        var body = HumanBody.NewBody();
+        body.Sever(HumanBody.LeftLeg); // 连带左脚（及脚趾）移除 → 该侧 0.5，不叠加
+        body.RecalculatePenalties();
+        Assert.Equal(0.5, body.DisabilityModifiers.MobilityPenalty, 9);
+    }
+
+    [Fact]
+    public void SeverFootAndOppositeLeg_Mobility100()
+    {
+        var body = HumanBody.NewBody();
+        body.Sever(HumanBody.LeftFoot);
+        body.Sever(HumanBody.RightLeg); // 连带右脚
+        body.RecalculatePenalties();
+        Assert.Equal(1.0, body.DisabilityModifiers.MobilityPenalty, 9);
+    }
+
+    [Fact]
+    public void SeverOneToe_Mobility002_AccumulatesOnThatFoot()
+    {
+        var body = HumanBody.NewBody();
+        body.Sever(HumanBody.LeftBigToe);
+        body.RecalculatePenalties();
+        Assert.Equal(0.02, body.DisabilityModifiers.MobilityPenalty, 9);
+    }
+
+    [Fact]
+    public void SeverAllFiveToesSameFoot_FootIntact_Mobility010()
+    {
+        var body = HumanBody.NewBody();
+        body.Sever(HumanBody.LeftBigToe);
+        body.Sever(HumanBody.LeftToe2);
+        body.Sever(HumanBody.LeftToe3);
+        body.Sever(HumanBody.LeftToe4);
+        body.Sever(HumanBody.LeftToe5);
+        body.RecalculatePenalties();
+        Assert.Equal(0.10, body.DisabilityModifiers.MobilityPenalty, 9);
+    }
+
+    [Fact]
+    public void FiveToesOneFoot_PlusWholeOtherFoot_Mobility060()
+    {
+        var body = HumanBody.NewBody();
+        body.Sever(HumanBody.LeftBigToe);
+        body.Sever(HumanBody.LeftToe2);
+        body.Sever(HumanBody.LeftToe3);
+        body.Sever(HumanBody.LeftToe4);
+        body.Sever(HumanBody.LeftToe5); // 左脚 5 趾 → 0.10（脚本体在）
+        body.Sever(HumanBody.RightFoot); // 右脚整只 → 0.5
+        body.RecalculatePenalties();
+        Assert.Equal(0.60, body.DisabilityModifiers.MobilityPenalty, 9);
+    }
+
+    [Fact]
+    public void SeverFootAfterToes_FootOverridesTo50()
+    {
+        var body = HumanBody.NewBody();
+        body.Sever(HumanBody.LeftBigToe);
+        body.Sever(HumanBody.LeftToe2);
+        body.Sever(HumanBody.LeftFoot); // 断脚覆盖脚趾累加，锁 -50%
+        body.RecalculatePenalties();
+        Assert.Equal(0.5, body.DisabilityModifiers.MobilityPenalty, 9);
+    }
+
+    [Fact]
+    public void FootRegionAndToesShareMacroRegion_Foot()
+    {
+        var parts = HumanBody.Parts();
+        var toe = parts.First(p => p.Name == HumanBody.LeftBigToe);
+        var sole = parts.First(p => p.Name == HumanBody.LeftFoot);
+        Assert.Equal(BodyMacroRegion.Foot, toe.MacroRegion);
+        Assert.Equal(BodyMacroRegion.Foot, sole.MacroRegion);
+    }
+
     [Fact]
     public void HandRegionAndFingersShareMacroRegion_Hand()
     {

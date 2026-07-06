@@ -101,6 +101,9 @@ public enum BodyRegion
 
     /// <summary>手指（手部细部位，切除按"该手累计操作惩罚"结算）。</summary>
     Finger,
+
+    /// <summary>脚趾（脚部细部位，切除按"该脚累计移动惩罚"结算）。</summary>
+    Toe,
 }
 
 /// <summary>
