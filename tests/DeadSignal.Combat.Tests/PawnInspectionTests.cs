@@ -27,9 +27,9 @@ public class PawnInspectionTests
         Assert.False(snap.IsFullyBlind);
         Assert.Equal(BloodLossTier.None, snap.BloodTier);
         Assert.Equal(1.0, snap.BloodRatio, 3);
-        // 满员人体细部位数 = 15。
+        // 满员人体细部位数 = 27（含两级命中新增：左右耳 2 + 十指 10）。
         Assert.Equal(body.Parts.Count, snap.Parts.Count);
-        Assert.Equal(15, snap.Parts.Count);
+        Assert.Equal(27, snap.Parts.Count);
     }
 
     [Fact]

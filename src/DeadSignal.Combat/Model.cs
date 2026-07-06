@@ -95,6 +95,91 @@ public enum BodyRegion
     Foot,
     Eye,
     Face,
+
+    /// <summary>耳（头部细部位，归零仅毁容、无系统后果）。</summary>
+    Ear,
+
+    /// <summary>手指（手部细部位，切除按"该手累计操作惩罚"结算）。</summary>
+    Finger,
+}
+
+/// <summary>
+/// 两级命中判定的"大区域"层：先按大区域体积权重选区域，再在区域内按子部位体积权重选子部位。
+/// 每个 <see cref="BodyPart"/> 归属一个大区域；大区域体积权重 = 其成员子部位体积权重之和。
+/// </summary>
+public enum BodyMacroRegion
+{
+    /// <summary>躯干（枚举默认值；未显式标注大区域的部位归此）。</summary>
+    Torso = 0,
+    Neck,
+    Head,
+    Arm,
+    Hand,
+    Leg,
+    Foot,
+}
+
+/// <summary>假肢等级。恢复比例见 <see cref="Prosthetic.RestoreRatio"/>（相对单肢能力）。</summary>
+public enum ProstheticGrade
+{
+    /// <summary>木制假肢：恢复单肢能力的 25%。</summary>
+    Wooden,
+
+    /// <summary>简易假肢：恢复单肢能力的 50%。</summary>
+    Simple,
+
+    /// <summary>仿生假肢：恢复单肢能力的 75%。</summary>
+    Bionic,
+}
+
+/// <summary>
+/// 假肢数据模型。装在被切除肢体的空槽位上（取代该部位），假肢无 HP、不可再被切除（暂定）。
+/// 恢复是**相对单肢能力**的比例：单肢 = 全局能力的 50%，恢复值（占全局）= <see cref="RestoreRatio"/> × 50%。
+/// </summary>
+public sealed class Prosthetic
+{
+    public string Name { get; init; } = "";
+
+    public ProstheticGrade Grade { get; init; }
+
+    /// <summary>取代的肢体区域（<see cref="BodyRegion.Hand"/> 恢复操作能力 / <see cref="BodyRegion.Leg"/> 恢复移动能力）。</summary>
+    public BodyRegion ReplacesRegion { get; init; }
+
+    /// <summary>恢复比例，相对于单肢能力（手=50%，腿=50%）。值域 0.0~1.0。木 0.25 / 简易 0.5 / 仿生 0.75。</summary>
+    public double RestoreRatio { get; init; }
+
+    /// <summary>按等级构造假肢（等级→恢复比例：木 0.25 / 简易 0.5 / 仿生 0.75，拟定待调）。</summary>
+    public static Prosthetic OfGrade(ProstheticGrade grade, BodyRegion replaces, string? name = null)
+    {
+        double ratio = grade switch
+        {
+            ProstheticGrade.Wooden => 0.25,
+            ProstheticGrade.Simple => 0.50,
+            ProstheticGrade.Bionic => 0.75,
+            _ => 0.0,
+        };
+        return new Prosthetic
+        {
+            Name = name ?? grade.ToString(),
+            Grade = grade,
+            ReplacesRegion = replaces,
+            RestoreRatio = ratio,
+        };
+    }
+}
+
+/// <summary>
+/// 能力惩罚（残疾净值）。值域 0.0~1.0：0 = 无惩罚，1.0 = 完全丧失该能力。
+/// 由 <see cref="Body.RecalculatePenalties"/> 依"切除部位 + 假肢"重算净值。
+/// 操作能力：影响攻速/生产/开锁修理等精细操作；移动能力：影响移速/闪避走位。
+/// </summary>
+public sealed class DisabilityModifiers
+{
+    /// <summary>操作能力惩罚，0.0~1.0（一只手 -50%，两手 -100%）。</summary>
+    public double OperationPenalty { get; set; }
+
+    /// <summary>移动能力惩罚，0.0~1.0（一条腿 -50%，两腿 -100%）。</summary>
+    public double MobilityPenalty { get; set; }
 }
 
 /// <summary>
@@ -132,6 +217,9 @@ public sealed class BodyPart
     public double MaxHp { get; init; }
 
     public BodyRegion Region { get; init; }
+
+    /// <summary>所属大区域（两级命中判定第一级）。默认 <see cref="BodyMacroRegion.Torso"/>。</summary>
+    public BodyMacroRegion MacroRegion { get; init; }
 
     public BodyPartCategory Category { get; init; }
 

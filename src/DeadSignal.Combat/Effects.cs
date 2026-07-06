@@ -190,6 +190,12 @@ public sealed class CombatEffectResolver
             }
         }
 
+        // 切除/损毁使肢体或手指消失 → 重算残疾净惩罚（操作/移动）。幂等，仅在有部位移除时触发。
+        if (severed || destroyedParts.Count > 0)
+        {
+            body.RecalculatePenalties();
+        }
+
         return new EffectOutcome
         {
             Damage = change,
