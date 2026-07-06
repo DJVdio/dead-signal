@@ -118,9 +118,10 @@ public sealed partial class GameClock : Node
             }
 
             case DayPhase.NightAct:
+                // 夜晚实时流逝 NightLengthSeconds，到时进入黎明聚餐（再由聚餐结束绕回 DayPrep、Day+1）。
                 _phaseElapsed += delta;
                 if (_phaseElapsed >= _cfg.NightLengthSeconds)
-                    TransitionTo(DayPhase.DayPrep);
+                    TransitionTo(DayPhase.DawnMeal);
                 break;
         }
     }

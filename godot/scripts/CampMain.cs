@@ -774,20 +774,6 @@ public sealed partial class CampMain : Node2D
         _clock.TransitionTo(DayPhase.NightPrep);
     }
 
-    private async void StartWakeTransition()
-    {
-        foreach (var p in _survivors)
-        {
-            p.SetSleeping(false);
-            if (p.Role == PawnRole.Guard)
-                p.Role = PawnRole.Idle;
-        }
-
-        await ToSignal(GetTree().CreateTimer(0.5f), "timeout");
-        // 唤醒后先进黎明聚餐（全员用餐 + 气泡），聚餐结束再进 DayPrep（编队面板）。
-        _clock.TransitionTo(DayPhase.DawnMeal);
-    }
-
     // ---------------- 聚餐 ----------------
 
     private void EnterDuskMeal() => _clock.TransitionTo(DayPhase.DuskMeal);
@@ -850,7 +836,7 @@ public sealed partial class CampMain : Node2D
         switch (phase)
         {
             case DayPhase.DawnMeal:
-                // 黎明聚餐：唤醒由 StartWakeTransition 已完成，此处结算食物 + 气泡交流。
+                // 黎明聚餐：全员已在 NightAct 起唤醒并度过实时夜晚，此处结算食物 + 气泡交流，结束进 DayPrep。
                 RunMeal("黎明聚餐", "dawn");
                 break;
             case DayPhase.DayPrep:
@@ -879,7 +865,10 @@ public sealed partial class CampMain : Node2D
                 _guardPanel.Visible = true;
                 break;
             case DayPhase.NightAct:
-                StartWakeTransition();
+                // 夜晚开始：唤醒全员（含白天留守者），守卫上岗由 PawnRoleManager 按站岗分配置 Guard。
+                // 之后夜晚由 GameClock 实时流逝 NightLengthSeconds，到时自动 → DawnMeal（不再瞬跳）。
+                foreach (var p in _survivors)
+                    p.SetSleeping(false);
                 break;
         }
     }
