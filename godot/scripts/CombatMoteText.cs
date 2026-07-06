@@ -80,6 +80,8 @@ public static class CombatMoteText
         if (hit.Fractured) s += " 骨折";
         if (hit.Concussed) s += " 震荡";
         if (hit.Bled) s += " 流血";
+        // 致命标志排在末位：钝黄锐红配色不变，仅在文本收尾追加"毙"。
+        if (hit.Died) s += " 毙";
         return s;
     }
 }

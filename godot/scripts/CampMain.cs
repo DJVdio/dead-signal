@@ -160,6 +160,9 @@ public sealed partial class CampMain : Node2D
         _characterPanel.HidePanel();
         _characterPanel.CloseRequested += _characterPanel.HidePanel;
 
+        // 战斗日志面板挂到 HUD 层（E③）：自订阅 CombatFeed，_ExitTree 自退订。
+        _hud.AddChild(new CombatLogPanel());
+
         SpawnActors();
 
         _roleManager = new PawnRoleManager(_survivors, _clock);

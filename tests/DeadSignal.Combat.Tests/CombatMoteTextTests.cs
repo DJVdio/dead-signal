@@ -117,6 +117,30 @@ public class CombatMoteTextTests
     }
 
     [Fact]
+    public void Died_ShowsFatalFlag()
+    {
+        // 死亡飘字：致命命中在效果后缀追加致命标志"毙"，配色仍随伤害类型（此处锐红）。
+        var mote = CombatMoteText.Build(Hit(40, "头部", DamageType.Sharp, died: true));
+        Assert.Contains("毙", mote.Text);
+        Assert.Equal(CombatMoteText.SharpColor, mote.Color);
+    }
+
+    [Fact]
+    public void Died_FatalFlagComesAfterOtherEffects()
+    {
+        // 致命标志排在其它效果之后（断!→…→流血→毙）。
+        var mote = CombatMoteText.Build(Hit(40, "颈部", DamageType.Sharp, bled: true, died: true));
+        Assert.True(mote.Text.IndexOf("流血") < mote.Text.IndexOf("毙"));
+    }
+
+    [Fact]
+    public void NotDied_HasNoFatalFlag()
+    {
+        var mote = CombatMoteText.Build(Hit(5, "腹部", DamageType.Sharp));
+        Assert.DoesNotContain("毙", mote.Text);
+    }
+
+    [Fact]
     public void Blocked_UsesNeutralColor_AndBlockedText()
     {
         var mote = CombatMoteText.Build(Hit(0, "胸部", DamageType.Sharp, blocked: true));
