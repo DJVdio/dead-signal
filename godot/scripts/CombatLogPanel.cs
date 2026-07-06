@@ -66,7 +66,9 @@ public sealed partial class CombatLogPanel : Control
         Actor target = e.Target;
         // 承伤方可能已在本帧销毁（如致死）——守一手后兜底名。
         string name = GodotObject.IsInstanceValid(target) ? ResolveName(target) : "某人";
-        AppendLine(CombatLogFormatter.Format(name, e.Hit));
+        // 攻击方可为 null（环境伤害/无源）或本帧失效——传 null，Formatter 优雅退回承伤方视角、不凭空归属。
+        string? attackerName = e.Attacker is { } atk && GodotObject.IsInstanceValid(atk) ? ResolveName(atk) : null;
+        AppendLine(CombatLogFormatter.Format(attackerName, name, e.Hit));
     }
 
     private void AppendLine(string text)

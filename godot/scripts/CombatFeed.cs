@@ -23,12 +23,15 @@ public static class CombatFeed
     /// <summary>一次命中的表现载荷。用 struct 便于日后加字段而不破坏订阅者签名。</summary>
     public readonly struct Event
     {
+        /// <summary>发起攻击的一方（攻击者）。可能为 <c>null</c>（环境伤害/无源）。战斗日志用它做归属。</summary>
+        public readonly Actor? Attacker;
         /// <summary>被击中的一方（承伤者）。表现层由它取世界坐标/父节点/阵营。</summary>
         public readonly Actor Target;
         public readonly AttackOutcome Hit;
 
-        public Event(Actor target, AttackOutcome hit)
+        public Event(Actor? attacker, Actor target, AttackOutcome hit)
         {
+            Attacker = attacker;
             Target = target;
             Hit = hit;
         }
@@ -43,10 +46,10 @@ public static class CombatFeed
         Published += ShowFloatingText;
     }
 
-    /// <summary>发布一次命中结果。<paramref name="target"/> 为承伤方。</summary>
-    public static void Publish(Actor target, AttackOutcome hit)
+    /// <summary>发布一次命中结果。<paramref name="attacker"/> 为攻击方（可 <c>null</c>），<paramref name="target"/> 为承伤方。</summary>
+    public static void Publish(Actor? attacker, Actor target, AttackOutcome hit)
     {
-        Published?.Invoke(new Event(target, hit));
+        Published?.Invoke(new Event(attacker, target, hit));
     }
 
     /// <summary>安全阀：场景整体重载时清空全部订阅，防止残留死节点引用。清空后重挂内置 presenter。</summary>

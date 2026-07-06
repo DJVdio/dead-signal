@@ -87,7 +87,7 @@ public sealed partial class Projectile : Node2D
                     continue;
                 }
 
-                victim.ReceiveAttack(_weapon, _combat);
+                victim.ReceiveAttack(_shooter, _weapon, _combat);
             }
 
             // 命中体（敌方/远处友军/墙）即终止：命中已结算，撞墙则落空。

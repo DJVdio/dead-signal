@@ -317,7 +317,7 @@ public abstract partial class Actor : CharacterBody2D
         }
         else
         {
-            target.ReceiveAttack(AttackWeapon, Combat);
+            target.ReceiveAttack(this, AttackWeapon, Combat);
         }
     }
 
@@ -394,13 +394,16 @@ public abstract partial class Actor : CharacterBody2D
         }
         else
         {
-            target.ReceiveAttack(AttackWeapon, Combat);
+            target.ReceiveAttack(this, AttackWeapon, Combat);
         }
         return true;
     }
 
-    /// <summary>作为防御方承受一次攻击：用自身护甲跑逐层结算 + 效果结算，施加到自身躯体。近战与子弹共用。</summary>
-    public void ReceiveAttack(Weapon weapon, CombatEngine combat)
+    /// <summary>
+    /// 作为防御方承受一次攻击：用自身护甲跑逐层结算 + 效果结算，施加到自身躯体。近战与子弹共用。
+    /// <paramref name="attacker"/> 为攻击方（用于战斗日志归属），可为 <c>null</c>（环境伤害/无源）。
+    /// </summary>
+    public void ReceiveAttack(Actor? attacker, Weapon weapon, CombatEngine combat)
     {
         if (!Alive)
         {
@@ -408,7 +411,7 @@ public abstract partial class Actor : CharacterBody2D
         }
         // 伤害/流血/切除/致死已在此调用内施加到 Body；下方仅发布到表现总线（飘字②③④各自订阅）。
         AttackOutcome hit = combat.ResolveHit(weapon, DefenderArmor, Body);
-        CombatFeed.Publish(this, hit);
+        CombatFeed.Publish(attacker, this, hit);
 
         if (!Alive)
         {
