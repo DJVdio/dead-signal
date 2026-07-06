@@ -16,6 +16,31 @@ public sealed partial class Pawn : Actor
     public bool IsControllable => Role == PawnRole.Idle;
     protected override bool CanAct => Role != PawnRole.Sleeping;
 
+    /// <summary>当前饥饿级别（见 <see cref="HungerLevel"/>）。本版只记状态，各级效果 TODO 后续。</summary>
+    public HungerLevel Hunger { get; private set; } = HungerLevel.Sated;
+
+    /// <summary>
+    /// 本餐吃到饭：向正常方向恢复一级（对称于错餐前进一级；具体恢复速率拟定待调，
+    /// 亦可改为直接回正常）。<see cref="HungerLevel.Starved"/> 为终态，进食不复活。
+    /// </summary>
+    public void Feed()
+    {
+        if (Hunger == HungerLevel.Starved)
+            return; // 饿死是终态，不因进食恢复
+        if (Hunger > HungerLevel.Sated)
+            Hunger -= 1;
+    }
+
+    /// <summary>
+    /// 本餐没吃上饭：向饿死方向前进一级（封顶 <see cref="HungerLevel.Starved"/>）。
+    /// 本版只推进状态，不接具体掉血/致死后果（TODO: 饥饿各级实际效果后续）。
+    /// </summary>
+    public void Starve()
+    {
+        if (Hunger < HungerLevel.Starved)
+            Hunger += 1;
+    }
+
     protected override void Think(double delta)
     {
         switch (Role)

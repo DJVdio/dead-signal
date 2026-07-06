@@ -792,13 +792,32 @@ public sealed partial class CampMain : Node2D
 
     private void EnterDuskMeal() => _clock.TransitionTo(DayPhase.DuskMeal);
 
-    /// <summary>一次聚餐：全员用餐扣食物（不足则士气下降）+ 触发气泡，弹出模态面板。</summary>
+    /// <summary>
+    /// 一次聚餐：全员用餐扣食物（不足则士气下降）+ 触发气泡，弹出模态面板。
+    /// 食物不足时，排在供餐份数之后的存活者没吃上饭 → 饥饿级别向饿死方向前进一级；
+    /// 吃到饭者向正常方向恢复一级（本版只记状态，各级实际效果 TODO 后续）。
+    /// </summary>
     private void RunMeal(string title, string phaseTag)
     {
-        int diners = _survivors.Count(s => s.Alive);
-        MealOutcome outcome = _resources.ConsumeMeal(diners);
+        var diners = _survivors.Where(s => s.Alive).ToList();
+        MealOutcome outcome = _resources.ConsumeMeal(diners.Count);
+
+        var hungerNotes = new List<string>();
+        for (int i = 0; i < diners.Count; i++)
+        {
+            if (i < outcome.Served)
+            {
+                diners[i].Feed();
+            }
+            else
+            {
+                diners[i].Starve();
+                hungerNotes.Add($"{diners[i].DisplayName}（{diners[i].Hunger.Label()}）");
+            }
+        }
+
         var bubbles = _bubblePool.Pick(phaseTag, 3);
-        _mealPanel.ShowMeal(title, outcome, bubbles);
+        _mealPanel.ShowMeal(title, outcome, bubbles, hungerNotes);
     }
 
     private void OnMealContinued()

@@ -34,7 +34,7 @@ public sealed partial class MealPanel : CanvasLayer
 
         _summary = new Label();
         _summary.Position = new Vector2(24, 58);
-        _summary.Size = new Vector2(472, 30);
+        _summary.Size = new Vector2(472, 40);
         _summary.AddThemeFontSizeOverride("font_size", 15);
         _summary.AddThemeColorOverride("font_color", new Color(0.85f, 0.82f, 0.75f));
         _summary.AutowrapMode = TextServer.AutowrapMode.Arbitrary;
@@ -64,16 +64,20 @@ public sealed partial class MealPanel : CanvasLayer
         _panel.AddChild(continueBtn);
     }
 
-    /// <summary>填充并显示：标题 + 本餐食物/士气结算 + 气泡对话。</summary>
-    public void ShowMeal(string title, MealOutcome outcome, IReadOnlyList<MealBubble> bubbles)
+    /// <summary>填充并显示：标题 + 本餐食物/士气结算 + 饥饿加深名单 + 气泡对话。</summary>
+    public void ShowMeal(string title, MealOutcome outcome, IReadOnlyList<MealBubble> bubbles,
+        IReadOnlyList<string>? hungerNotes = null)
     {
         _title.Text = title;
 
         string shortNote = outcome.Missing > 0
             ? $"　食物不足 {outcome.Missing} 份，士气 {outcome.MoraleDelta:0.#}（现 {outcome.Morale:0})"
             : "";
+        string hungerNote = hungerNotes is { Count: > 0 }
+            ? $"\n饥饿加深：{string.Join("、", hungerNotes)}"
+            : "";
         _summary.Text =
-            $"用餐 {outcome.Diners} 人，消耗食物 {outcome.Served} 份，剩余 {outcome.FoodRemaining}。{shortNote}";
+            $"用餐 {outcome.Diners} 人，消耗食物 {outcome.Served} 份，剩余 {outcome.FoodRemaining}。{shortNote}{hungerNote}";
 
         UiStyle.ClearChildren(_bubbleBox);
         if (bubbles.Count == 0)
