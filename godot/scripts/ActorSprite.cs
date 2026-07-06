@@ -21,6 +21,17 @@ public sealed partial class ActorSprite : Node2D
 
     private const float TurnRate = 16f; // 朝向平滑速率（越大越跟手）
 
+    // ---- 受击表现（Flash 闪色 / Shake 抖动，由 CombatFeed 订阅驱动）----
+    private bool _subscribed;
+    private readonly RandomNumberGenerator _rng = new();
+    private float _flashTime;           // 剩余闪色时长
+    private float _flashDur;            // 本次闪色总时长
+    private float _flashPeak;           // 闪色峰值强度 0..1
+    private Color _flashColor = Colors.White;
+    private float _shakeTime;           // 剩余抖动时长
+    private float _shakeDur;            // 本次抖动总时长
+    private float _shakeAmp;            // 抖动峰值幅度（iso 屏幕像素）
+
     /// <summary>绑定所表现的 Actor，并把绘制朝向初始化到其当前朝向（避免出生瞬间甩头）。</summary>
     public void Bind(Actor actor)
     {
@@ -29,6 +40,82 @@ public sealed partial class ActorSprite : Node2D
         ZIndex = 0;
         SyncToActor();
         QueueRedraw();
+
+        // 订阅受击总线：只处理"自己是承伤方"的命中。总线是 static event——
+        // 必须在 _ExitTree 退订（E 地基硬约定），否则悬挂已 QueueFree 的死节点。
+        if (!_subscribed)
+        {
+            CombatFeed.Published += OnCombatEvent;
+            _subscribed = true;
+        }
+    }
+
+    public override void _ExitTree()
+    {
+        if (_subscribed)
+        {
+            CombatFeed.Published -= OnCombatEvent;
+            _subscribed = false;
+        }
+    }
+
+    /// <summary>受击闪色：modulate 向 <paramref name="color"/> 偏移、按 <paramref name="peak"/> 强度，随后 tween 恢复。</summary>
+    public void Flash(Color color, float peak, float duration = 0.32f)
+    {
+        _flashColor = color;
+        _flashPeak = Mathf.Clamp(peak, 0f, 1f);
+        _flashDur = duration;
+        _flashTime = duration;
+    }
+
+    /// <summary>受击抖动：精灵短促抖动 <paramref name="amplitude"/> 像素，衰减回原位。</summary>
+    public void Shake(float amplitude, float duration = 0.22f)
+    {
+        _shakeAmp = amplitude;
+        _shakeDur = duration;
+        _shakeTime = duration;
+    }
+
+    /// <summary>
+    /// 受击总线回调：仅当本 sprite 所属 Actor 是承伤方时反馈。命中越重（伤害大/断肢）闪抖越猛、
+    /// 溅血越浓；被甲挡下走轻微中性反馈且不溅血。承伤方本帧可能已致死——用 IsInstanceValid 守一手。
+    /// </summary>
+    private void OnCombatEvent(CombatFeed.Event e)
+    {
+        if (!_bound || !GodotObject.IsInstanceValid(_actor) || e.Target != _actor)
+        {
+            return;
+        }
+
+        AttackOutcome hit = e.Hit;
+        Node parent = GetParent();
+
+        if (hit.Blocked || hit.Damage <= 0)
+        {
+            // 被甲挡下：偏白的清脆"叮"闪 + 极轻抖，不溅血。
+            Flash(new Color(0.92f, 0.96f, 1f), 0.45f, 0.18f);
+            Shake(2f, 0.14f);
+            return;
+        }
+
+        // 伤害强度归一（拟定待调）：常规伤害约 0~30 铺满 0..1，断肢直接拉满。
+        float sev = Mathf.Clamp(hit.Damage / 30f, 0f, 1f);
+        if (hit.Severed)
+        {
+            sev = 1f;
+        }
+
+        // 断肢=偏白骨裂闪，普通=血红闪；强度随 sev。
+        Color flashCol = hit.Severed ? new Color(1f, 0.9f, 0.9f) : new Color(1f, 0.25f, 0.22f);
+        Flash(flashCol, 0.45f + 0.55f * sev);
+        Shake(3f + 9f * sev);
+
+        // 溅血：脚点（本 sprite 的 node 位置）落血贴花；断肢/大流血更浓（heavy）。
+        if (parent != null)
+        {
+            float bloodSev = hit.Bled ? Mathf.Max(sev, 0.6f) : sev;
+            BloodDecal.Spawn(parent, Position, bloodSev, hit.Severed || hit.Bled);
+        }
     }
 
     public override void _Process(double delta)
@@ -63,14 +150,27 @@ public sealed partial class ActorSprite : Node2D
             }
         }
 
+        // 受击抖动：在基准脚点位置上叠加衰减随机偏移，衰减尽头精确回原位。
+        if (_shakeTime > 0f)
+        {
+            _shakeTime -= (float)delta;
+            float k = Mathf.Clamp(_shakeTime / _shakeDur, 0f, 1f);
+            Position += new Vector2(_rng.RandfRange(-1f, 1f), _rng.RandfRange(-1f, 1f)) * (_shakeAmp * k);
+        }
+
         QueueRedraw();
 
-        if (_actor is Pawn pawn)
+        // 基准染色：睡眠半透，其余全白；受击闪色在其上叠加（向闪色 Lerp，随时间衰减回基准）。
+        Color baseMod = _actor is Pawn { Role: PawnRole.Sleeping }
+            ? new Color(1, 1, 1, 0.35f)
+            : Colors.White;
+        if (_flashTime > 0f)
         {
-            Modulate = pawn.Role == PawnRole.Sleeping
-                ? new Color(1, 1, 1, 0.35f)
-                : Colors.White;
+            _flashTime -= (float)delta;
+            float k = Mathf.Clamp(_flashTime / _flashDur, 0f, 1f) * _flashPeak;
+            baseMod = baseMod.Lerp(_flashColor, k);
         }
+        Modulate = baseMod;
     }
 
     private void SyncToActor() => Position = Iso.Project(_actor.GlobalPosition);
