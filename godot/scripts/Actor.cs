@@ -75,6 +75,9 @@ public abstract partial class Actor : CharacterBody2D
     private ActorSprite? _sprite;
     private int _spriteRetries;
 
+    // ---- 头顶状态图标条（E④）：与 sprite 同挂 iso_layer（Actor 本体在不可见 LogicLayer，做子节点会不可见）----
+    private StatusIconStrip? _statusStrip;
+
     public event Action<Actor>? Died;
 
     public void Inject(CombatEngine combat, GameClock clock)
@@ -277,6 +280,12 @@ public abstract partial class Actor : CharacterBody2D
             _sprite = new ActorSprite();
             layer.AddChild(_sprite);
             _sprite.Bind(this);
+
+            // 头顶状态图标条（E④）：只读自身 Body 拍出的 PawnInspection 快照——就地捕获受保护的
+            // Body/武器/护甲构造委托（strip 拿不到可变引擎对象，改不坏战斗）。名字/饥饿对状态图标无关，省略。
+            _statusStrip = new StatusIconStrip();
+            layer.AddChild(_statusStrip);
+            _statusStrip.Bind(this, () => PawnInspection.FromBody(Body, AttackWeapon, DefenderArmor, ""));
         }
         else if (_spriteRetries == 120)
         {
