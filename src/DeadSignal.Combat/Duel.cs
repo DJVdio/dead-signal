@@ -244,10 +244,12 @@ public sealed class DuelEngine
             }
 
             bool handAlive = !rt.Body.IsGone(HumanBody.LeftHand) || !rt.Body.IsGone(HumanBody.RightHand);
+            // 操作能力尽失（断双手/等效残疾使净惩罚 ≥1）→ 无法进行任何武器攻击（含天生武器）。
+            bool canOperate = rt.Body.DisabilityModifiers.OperationPenalty < 1.0;
             for (int i = 0; i < rt.Def.Weapons.Count; i++)
             {
                 var m = rt.Def.Weapons[i];
-                if (m.RequiresHand && !handAlive)
+                if ((m.RequiresHand && !handAlive) || !canOperate)
                 {
                     continue;
                 }
@@ -272,8 +274,18 @@ public sealed class DuelEngine
         double baseInterval = mount.Weapon.AttackInterval > 0 ? mount.Weapon.AttackInterval : 1.0;
         double dual = rt.Def.DualWielding ? DualWield.AttackSpeedFactor : 1.0;
         double blood = BloodSpeedFactor(rt.Body.BloodTier);
-        double factor = Math.Max(_cfg.MinSpeedMult, dual * rt.SpeedMult * blood);
-        return baseInterval / factor;
+        // 瞬态减益（双持/震荡/手骨折/失血）叠乘，锁下限 MinSpeedMult。
+        double transient = Math.Max(_cfg.MinSpeedMult, dual * rt.SpeedMult * blood);
+        // 残疾操作能力（断手/断指/假肢净惩罚，用户口径）另行叠乘、不吃 MinSpeedMult 下限：
+        // 有效出手间隔 = 基础 / (瞬态系数 × 操作能力)，操作能力 = 1 − OperationPenalty。
+        // 惩罚 0.5 → 间隔翻倍；操作能力 ≤0（惩罚 ≥1）→ 无法出手（间隔视为无穷，除零保护）。
+        double operation = 1.0 - rt.Body.DisabilityModifiers.OperationPenalty;
+        if (operation <= 0)
+        {
+            return double.PositiveInfinity;
+        }
+
+        return baseInterval / (transient * operation);
     }
 
     private double BloodSpeedFactor(BloodLossTier tier) => tier switch
