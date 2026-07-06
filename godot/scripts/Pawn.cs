@@ -95,5 +95,5 @@ public sealed partial class Pawn : Actor
     /// （皆为受保护的可变引擎对象），构造纯数据 <see cref="PawnInspection"/> —— UI 只拿死数据、改不坏战斗。
     /// </summary>
     public PawnInspection Inspect() =>
-        PawnInspection.FromBody(Body, AttackWeapon, DefenderArmor, DisplayName);
+        PawnInspection.FromBody(Body, AttackWeapon, DefenderArmor, DisplayName, (int)Hunger, Hunger.Label());
 }

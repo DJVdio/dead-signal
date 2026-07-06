@@ -152,6 +152,17 @@ public sealed partial class CharacterPanel : PanelContainer
     {
         ClearChildren(_overviewBox);
 
+        // —— 状态：饥饿等级（一行，随等级加深配色）——
+        _overviewBox.AddChild(SectionTitle("状态"));
+        _overviewBox.AddChild(Line($"饥饿：{insp.HungerLabel}", HungerColor(insp.HungerStage), 15));
+
+        // —— 能力：操作 / 移动（能力 = 1 − 惩罚净值）——
+        _overviewBox.AddChild(new Control { CustomMinimumSize = new Vector2(0, 6) });
+        _overviewBox.AddChild(SectionTitle("能力"));
+        _overviewBox.AddChild(AbilityRow("操作能力", 1.0 - insp.OperationPenalty));
+        _overviewBox.AddChild(AbilityRow("移动能力", 1.0 - insp.MobilityPenalty));
+
+        _overviewBox.AddChild(new Control { CustomMinimumSize = new Vector2(0, 6) });
         _overviewBox.AddChild(SectionTitle("武器"));
         if (insp.Weapon is { } w)
         {
@@ -310,6 +321,60 @@ public sealed partial class CharacterPanel : PanelContainer
 
         return string.Join(" · ", parts) + $"　血量 {insp.BloodRatio * 100:0}%";
     }
+
+    /// <summary>一条能力条：名称 + 百分比进度条 + 数值（沿用健康页 HP 行的条形风格）。ability∈[0,1]。</summary>
+    private static HBoxContainer AbilityRow(string label, double ability)
+    {
+        var pct = Mathf.Clamp((float)ability, 0f, 1f);
+
+        var row = new HBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        row.AddThemeConstantOverride("separation", 6);
+
+        var name = new Label { Text = label, CustomMinimumSize = new Vector2(72, 0) };
+        name.AddThemeFontSizeOverride("font_size", 13);
+        name.AddThemeColorOverride("font_color", ColText);
+        row.AddChild(name);
+
+        var bar = new ProgressBar
+        {
+            MinValue = 0,
+            MaxValue = 1,
+            Value = pct,
+            ShowPercentage = false,
+            SizeFlagsHorizontal = SizeFlags.ExpandFill,
+            CustomMinimumSize = new Vector2(96, 16),
+        };
+        bar.AddThemeStyleboxOverride("fill", new StyleBoxFlat { BgColor = AbilityColor(pct) });
+        bar.AddThemeStyleboxOverride("background", new StyleBoxFlat { BgColor = new Color(0.16f, 0.17f, 0.2f) });
+        row.AddChild(bar);
+
+        var val = new Label { Text = $"{pct * 100:0}%", CustomMinimumSize = new Vector2(52, 0) };
+        val.AddThemeFontSizeOverride("font_size", 12);
+        val.AddThemeColorOverride("font_color", ColMuted);
+        val.HorizontalAlignment = HorizontalAlignment.Right;
+        row.AddChild(val);
+
+        return row;
+    }
+
+    /// <summary>能力条配色：高=绿、低=红（与 HP 条同一绿→黄→红梯度）。ability∈[0,1]。</summary>
+    private static Color AbilityColor(float ability)
+    {
+        return ability > 0.5f
+            ? new Color(Mathf.Lerp(0.85f, 0.35f, (ability - 0.5f) * 2f), 0.78f, 0.28f)
+            : new Color(0.85f, Mathf.Lerp(0.25f, 0.78f, ability * 2f), 0.22f);
+    }
+
+    /// <summary>饥饿配色：正常=柔绿，逐级向红加深，饿死=切除红。stage 0=正常…5=饿死。</summary>
+    private static Color HungerColor(int stage) => stage switch
+    {
+        <= 0 => new Color(0.55f, 0.82f, 0.45f), // 正常
+        1 => new Color(0.80f, 0.85f, 0.40f),    // 有点饿
+        2 => new Color(0.92f, 0.75f, 0.30f),    // 饥饿
+        3 => new Color(0.95f, 0.55f, 0.22f),    // 非常饿
+        4 => new Color(0.93f, 0.35f, 0.20f),    // 营养不良
+        _ => ColSevered,                        // 饿死（终态）
+    };
 
     private static Color HpColor(PartStatus p)
     {
