@@ -1,0 +1,8 @@
+[
+  { "speaker": "克莉丝汀", "text": "金手指帮还在那儿……我们迟早得清了他们。", "phase": "any" },
+  { "speaker": "蒂诺", "text": "要是有张像样的书桌，我能读得更快些。", "phase": "any" },
+  { "speaker": "蒂诺", "text": "昨晚又翻了几页……这电台的接线图，越看越不对劲。", "phase": "dusk" },
+  { "speaker": "克莉丝汀", "text": "天亮了。至少我们都还活着。", "phase": "dawn" },
+  { "speaker": null, "text": "锅里见了底，气氛有些沉。", "phase": "any" },
+  { "speaker": null, "text": "有人低声说起了外面的传闻。", "phase": "dusk" }
+]

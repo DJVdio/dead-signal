@@ -42,6 +42,12 @@ public sealed class PawnRoleManager
 
     private void ApplyPhase(DayPhase phase)
     {
+        // 聚餐为过渡模态，不重排角色：保留前一相位的探险队/守卫身份。
+        // 尤其 DuskMeal 夹在 DayReturn 与睡眠过渡之间，若在此清空 Expedition 身份，
+        // 聚餐后的 CampMain.StartSleepTransition 就筛不到探险队、无人走床位。
+        if (phase is DayPhase.DawnMeal or DayPhase.DuskMeal)
+            return;
+
         foreach (var p in _allPawns)
             p.Role = PawnRole.Idle;
 

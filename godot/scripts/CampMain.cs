@@ -48,6 +48,9 @@ public sealed partial class CampMain : Node2D
     private ExpeditionPanel _expeditionPanel = null!;
     private GuardPanel _guardPanel = null!;
     private ReturnWarningPopup _returnWarningPopup = null!;
+    private MealPanel _mealPanel = null!;
+    private CampResources _resources = null!;
+    private MealBubblePool _bubblePool = null!;
     private string _pendingDestination = "";
     private int _pendingTravelTime;
 
@@ -130,6 +133,13 @@ public sealed partial class CampMain : Node2D
         _returnWarningPopup.Visible = false;
         _returnWarningPopup.ReturnNow += OnReturnNow;
         _clock.OnExploreWarning += OnExploreWarning;
+
+        _resources = LoadCampResources();
+        _bubblePool = LoadMealBubbles();
+        _mealPanel = new MealPanel();
+        AddChild(_mealPanel);
+        _mealPanel.Visible = false;
+        _mealPanel.Continued += OnMealContinued;
 
         _ambient = new CanvasModulate();
         AddChild(_ambient);
@@ -774,7 +784,36 @@ public sealed partial class CampMain : Node2D
         }
 
         await ToSignal(GetTree().CreateTimer(0.5f), "timeout");
-        _clock.TransitionTo(DayPhase.DayPrep);
+        // 唤醒后先进黎明聚餐（全员用餐 + 气泡），聚餐结束再进 DayPrep（编队面板）。
+        _clock.TransitionTo(DayPhase.DawnMeal);
+    }
+
+    // ---------------- 聚餐 ----------------
+
+    private void EnterDuskMeal() => _clock.TransitionTo(DayPhase.DuskMeal);
+
+    /// <summary>一次聚餐：全员用餐扣食物（不足则士气下降）+ 触发气泡，弹出模态面板。</summary>
+    private void RunMeal(string title, string phaseTag)
+    {
+        int diners = _survivors.Count(s => s.Alive);
+        MealOutcome outcome = _resources.ConsumeMeal(diners);
+        var bubbles = _bubblePool.Pick(phaseTag, 3);
+        _mealPanel.ShowMeal(title, outcome, bubbles);
+    }
+
+    private void OnMealContinued()
+    {
+        _mealPanel.Visible = false;
+        switch (_clock.CurrentPhase)
+        {
+            case DayPhase.DawnMeal:
+                _clock.TransitionTo(DayPhase.DayPrep);
+                break;
+            case DayPhase.DuskMeal:
+                // 黄昏聚餐结束，交回原睡眠过渡（探险队走到床位就寝 → NightPrep）。
+                CallDeferred(nameof(StartSleepTransition));
+                break;
+        }
     }
 
     // ---------------- 面板状态机 ----------------
@@ -787,9 +826,14 @@ public sealed partial class CampMain : Node2D
         _worldMapPanel.Visible = false;
         _guardPanel.Visible = false;
         _returnWarningPopup.Visible = false;
+        _mealPanel.Visible = false;
 
         switch (phase)
         {
+            case DayPhase.DawnMeal:
+                // 黎明聚餐：唤醒由 StartWakeTransition 已完成，此处结算食物 + 气泡交流。
+                RunMeal("黎明聚餐", "dawn");
+                break;
             case DayPhase.DayPrep:
                 foreach (var p in _survivors)
                     p.SetSleeping(false);
@@ -802,10 +846,14 @@ public sealed partial class CampMain : Node2D
                 LoadExplorationLevel(_pendingDestination);
                 break;
             case DayPhase.DayReturn:
+                // 探索队已返回，卸载关卡后进入黄昏聚餐（睡眠过渡推迟到聚餐结束）。
                 _returnWarningPopup.CancelDelay();
                 _returnWarningPopup.Visible = false;
                 UnloadExplorationLevel();
-                CallDeferred(nameof(StartSleepTransition));
+                CallDeferred(nameof(EnterDuskMeal));
+                break;
+            case DayPhase.DuskMeal:
+                RunMeal("黄昏聚餐", "dusk");
                 break;
             case DayPhase.NightPrep:
                 PopulateGuardPanel();
@@ -1056,6 +1104,50 @@ public sealed partial class CampMain : Node2D
         };
     }
 
+    private CampResources LoadCampResources()
+    {
+        CampResourcesRaw raw = CampResourcesRaw.Default();
+        const string path = "res://data/camp_resources.json";
+        if (FileAccess.FileExists(path))
+        {
+            using FileAccess f = FileAccess.Open(path, FileAccess.ModeFlags.Read);
+            if (f != null)
+            {
+                try
+                {
+                    raw = JsonSerializer.Deserialize<CampResourcesRaw>(f.GetAsText());
+                }
+                catch (JsonException e)
+                {
+                    GD.PushWarning($"camp_resources.json 解析失败，用默认值：{e.Message}");
+                }
+            }
+        }
+        return new CampResources(raw.initialFood, raw.initialMorale, raw.moralePenaltyPerMissingMeal, raw.moraleMax);
+    }
+
+    private MealBubblePool LoadMealBubbles()
+    {
+        MealBubble[]? bubbles = null;
+        const string path = "res://data/meal_bubbles.json";
+        if (FileAccess.FileExists(path))
+        {
+            using FileAccess f = FileAccess.Open(path, FileAccess.ModeFlags.Read);
+            if (f != null)
+            {
+                try
+                {
+                    bubbles = JsonSerializer.Deserialize<MealBubble[]>(f.GetAsText());
+                }
+                catch (JsonException e)
+                {
+                    GD.PushWarning($"meal_bubbles.json 解析失败，气泡池为空：{e.Message}");
+                }
+            }
+        }
+        return new MealBubblePool(bubbles);
+    }
+
     // ---------------- JSON 映射（字段名对应 camp.json/daynight.json，故意小写） ----------------
 
     private sealed class CampConfig
@@ -1144,6 +1236,22 @@ public sealed partial class CampMain : Node2D
         public double[]? pos { get; set; }
         public bool pistol { get; set; }
         public double[]? color { get; set; }
+    }
+
+    private struct CampResourcesRaw
+    {
+        public int initialFood { get; set; }
+        public double initialMorale { get; set; }
+        public double moraleMax { get; set; }
+        public double moralePenaltyPerMissingMeal { get; set; }
+
+        public static CampResourcesRaw Default() => new()
+        {
+            initialFood = 12,
+            initialMorale = 80,
+            moraleMax = 100,
+            moralePenaltyPerMissingMeal = 4,
+        };
     }
 
     private struct DayNightRaw

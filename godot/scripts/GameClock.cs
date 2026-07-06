@@ -127,7 +127,8 @@ public sealed partial class GameClock : Node
 
     public void TogglePause()
     {
-        if (CurrentPhase is DayPhase.DayPrep or DayPhase.DayReturn or DayPhase.NightPrep)
+        if (CurrentPhase is DayPhase.DayPrep or DayPhase.DayReturn or DayPhase.NightPrep
+            or DayPhase.DawnMeal or DayPhase.DuskMeal)
             return;
         _userPaused = !_userPaused;
         ApplyPhaseTimeScale();
@@ -136,7 +137,8 @@ public sealed partial class GameClock : Node
     public void SetSpeedIndex(int index)
     {
         SpeedIndex = Mathf.Clamp(index, 0, Speeds.Length - 1);
-        if (CurrentPhase is DayPhase.DayPrep or DayPhase.DayReturn or DayPhase.NightPrep)
+        if (CurrentPhase is DayPhase.DayPrep or DayPhase.DayReturn or DayPhase.NightPrep
+            or DayPhase.DawnMeal or DayPhase.DuskMeal)
             return;
         _userPaused = false;
         ApplyPhaseTimeScale();
@@ -144,7 +146,9 @@ public sealed partial class GameClock : Node
 
     private void ApplyPhaseTimeScale()
     {
-        if (CurrentPhase is DayPhase.DayPrep or DayPhase.DayReturn or DayPhase.NightPrep)
+        // DawnMeal / DuskMeal 与三个编排/过渡相位同属强制暂停模态（聚餐气泡交流期间冻结世界）。
+        if (CurrentPhase is DayPhase.DayPrep or DayPhase.DayReturn or DayPhase.NightPrep
+            or DayPhase.DawnMeal or DayPhase.DuskMeal)
         {
             Engine.TimeScale = 0;
             return;
