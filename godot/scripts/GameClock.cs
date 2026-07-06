@@ -26,7 +26,7 @@ public sealed partial class GameClock : Node
 
     private bool _userPaused;
 
-    public int Day { get; private set; } = 1;
+    public int Day { get; private set; } = 0;
     public bool IsNight => CurrentPhase is DayPhase.NightPrep or DayPhase.NightAct;
 
     public DayPhase CurrentPhase { get; private set; } = DayPhase.DayPrep;
@@ -57,7 +57,8 @@ public sealed partial class GameClock : Node
         _warningFired = false;
         _userPaused = false;
         CurrentPhase = DayPhase.DayExplore;
-        Day = 1;
+        // 首个 DayPrep 相位会 Day += 1 —— 起始置 0 使首日显示"第 1 天"（修 #3 off-by-one）
+        Day = 0;
         Engine.TimeScale = 1;
     }
 
@@ -120,31 +121,6 @@ public sealed partial class GameClock : Node
                 _phaseElapsed += delta;
                 if (_phaseElapsed >= _cfg.NightLengthSeconds)
                     TransitionTo(DayPhase.DayPrep);
-                break;
-        }
-    }
-
-    public void DebugSkipToPhaseEnd()
-    {
-        switch (CurrentPhase)
-        {
-            case DayPhase.DayPrep:
-                TransitionTo(DayPhase.DayExplore);
-                break;
-            case DayPhase.DayTravel:
-                TransitionTo(DayPhase.DayExplore);
-                break;
-            case DayPhase.DayExplore:
-                TransitionTo(DayPhase.DayReturn);
-                break;
-            case DayPhase.DayReturn:
-                TransitionTo(DayPhase.NightPrep);
-                break;
-            case DayPhase.NightPrep:
-                TransitionTo(DayPhase.NightAct);
-                break;
-            case DayPhase.NightAct:
-                TransitionTo(DayPhase.DayPrep);
                 break;
         }
     }
