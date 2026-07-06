@@ -58,6 +58,25 @@ public sealed partial class CampMain : Node2D
     private Node2D _isoLayer = null!;     // 视觉层（iso，YSort）
     private Node2D _actorLayer = null!;   // actors（LogicLayer 下）
 
+    // ---------------- D 守卫防御战 ----------------
+    // 已建岗位（含预置 + 调试放置）。哨塔/屋顶=实心结构；暗哨=非碰撞站位标记。
+    private readonly List<GuardPostInstance> _guardPosts = new();
+    private readonly List<Zombie> _raidZombies = new();  // 当前袭营波次（存活）
+    private readonly List<Pawn> _raidGuards = new();       // 本夜上岗守卫（存活）
+    private bool _raidActive;
+    private float _raidIntensity = 1f;
+    private GuardPostKind _debugPlaceKind = GuardPostKind.Watchtower; // 调试放置轮换类型
+    private const float BreachRadius = 280f;  // 破防线：丧尸摸进营心此半径内 = 破防（拟定待调）
+
+    /// <summary>单个已建岗位：类型 + 属性 + 守卫驻守站位（cartesian，须可寻路）。</summary>
+    private sealed class GuardPostInstance
+    {
+        public GuardPostKind Kind;
+        public GuardPostStats Stats;
+        public Vector2 StandPos;
+        public string Name = "";
+    }
+
     private CampConfig _cfg = new();
     private Heights _heights;
 
@@ -254,8 +273,98 @@ public sealed partial class CampMain : Node2D
             }
         }
 
+        // 守卫岗位（预置点，读 camp.json guardPosts）。哨塔/屋顶=实心结构进 _navHoles（随首次烘焙生效）；暗哨=非碰撞标记。
+        BuildGuardPosts();
+
         _logicLayer.AddChild(_actorLayer);
     }
+
+    // ---------------- D1 岗位建造/放置 ----------------
+
+    /// <summary>读 camp.json 预置岗位一次性建起（首次导航烘焙前，实心结构随之进 _navHoles）。</summary>
+    private void BuildGuardPosts()
+    {
+        _guardPosts.Clear();
+        foreach (GuardPostSpec spec in _cfg.guardPosts ?? System.Array.Empty<GuardPostSpec>())
+        {
+            if (ToVec(spec.stand) is { } stand)
+            {
+                PlaceGuardPost(ParseKind(spec.kind), stand, rebake: false);
+            }
+        }
+    }
+
+    /// <summary>
+    /// 放置一个岗位：实心类型（哨塔/屋顶平台）在站位南侧（朝大门侧）建实心结构块——挡路+挖导航洞+立体视觉，
+    /// 站位本身留空地可寻路；非碰撞类型（暗哨）只落一个矮标记，不挡路。<paramref name="rebake"/> 用于运行时放置后重烘焙。
+    /// </summary>
+    private void PlaceGuardPost(GuardPostKind kind, Vector2 stand, bool rebake)
+    {
+        GuardPostStats stats = GuardPostStats.For(kind);
+        var post = new GuardPostInstance
+        {
+            Kind = kind,
+            Stats = stats,
+            StandPos = stand,
+            Name = $"{stats.DisplayName}{Circled(_guardPosts.Count + 1)}",
+        };
+
+        if (stats.IsSolid)
+        {
+            // 结构块偏移到站位南侧，避免困住守卫站位（站位保持可寻路）。
+            Rect2 structRect = new(stand.X - 24f, stand.Y + 30f, 48f, 48f);
+            var style = new PixelStyle
+            {
+                color = kind == GuardPostKind.Watchtower
+                    ? new[] { 0.34, 0.30, 0.24 }
+                    : new[] { 0.30, 0.32, 0.36 },
+                jitter = 0.10,
+            };
+            AddSolid(structRect, style, seed: 53, (float)_heights.wall, cell: 48f);
+        }
+        else
+        {
+            AddHiddenPostMarker(stand);
+        }
+
+        _guardPosts.Add(post);
+
+        // 运行时放置改了 _navHoles（仅实心岗位）→ 必须重烘焙，否则新障碍不挡寻路（已知隐坑）。
+        if (rebake && stats.IsSolid)
+        {
+            RebakeNavigation();
+        }
+    }
+
+    /// <summary>暗哨站位标记：非碰撞、不挖洞的矮地面标记（纯视觉，深色小块）。</summary>
+    private void AddHiddenPostMarker(Vector2 stand)
+    {
+        var style = new PixelStyle { color = new[] { 0.22, 0.20, 0.16 }, jitter = 0.15 };
+        var marker = new Rect2(stand.X - 16f, stand.Y - 16f, 32f, 32f);
+        _isoLayer.AddChild(new IsoTilePanel
+        {
+            FootprintCart = marker, Style = style, Seed = 59, Cell = 32f, ZIndex = ZThreshold,
+        });
+    }
+
+    /// <summary>调试放置：把当前轮换类型的岗位放到鼠标反投影落点，随后类型轮换（B 键触发）。</summary>
+    private void PlaceGuardPostAtMouse()
+    {
+        Vector2 cart = Iso.Unproject(GetGlobalMousePosition());
+        PlaceGuardPost(_debugPlaceKind, cart, rebake: true);
+        GD.Print($"[Raid] 调试放置岗位 {_debugPlaceKind} @ {cart:0}（下次轮换）。");
+        _debugPlaceKind = (GuardPostKind)(((int)_debugPlaceKind + 1) % 3);
+    }
+
+    private static GuardPostKind ParseKind(string? s) => s switch
+    {
+        "roof" or "roofPlatform" => GuardPostKind.RoofPlatform,
+        "hidden" or "hiddenPost" => GuardPostKind.HiddenPost,
+        _ => GuardPostKind.Watchtower,
+    };
+
+    private static string Circled(int n) =>
+        n is >= 1 and <= 9 ? ((char)('①' + n - 1)).ToString() : n.ToString();
 
     /// <summary>建筑：地基菱形 + 四面墙立面（门侧留缺口，室内可寻路）+ 门框门槛 + 屋顶淡出。</summary>
     private void BuildBuilding(BuildingSpec b)
@@ -463,6 +572,15 @@ public sealed partial class CampMain : Node2D
     private void BuildNavigation()
     {
         var region = new NavigationRegion2D();
+        region.NavigationPolygon = BakeNavPoly();
+        // 导航区直接挂根节点（cartesian 平面），避开 LogicLayer 不可见性的任何耦合顾虑。
+        AddChild(region);
+        _campNavRegion = region;
+    }
+
+    /// <summary>由当前 _navHoles 烘焙一张导航网格（挖墙洞）。初次建图与运行时放置岗位后重烘焙共用。</summary>
+    private NavigationPolygon BakeNavPoly()
+    {
         var navPoly = new NavigationPolygon { AgentRadius = 14f };
 
         Rect2 outer = new(
@@ -483,10 +601,17 @@ public sealed partial class CampMain : Node2D
         }
 
         NavigationServer2D.BakeFromSourceGeometryData(navPoly, src);
-        region.NavigationPolygon = navPoly;
-        // 导航区直接挂根节点（cartesian 平面），避开 LogicLayer 不可见性的任何耦合顾虑。
-        AddChild(region);
-        _campNavRegion = region;
+        return navPoly;
+    }
+
+    /// <summary>
+    /// 运行时放置实心岗位改了 _navHoles 后重烘焙导航（已知隐坑：不重烘焙则新障碍不挡寻路）。
+    /// nav region 同步有一帧滞后，_navTested 复位以在下个就绪帧重跑连通性自检。
+    /// </summary>
+    private void RebakeNavigation()
+    {
+        _campNavRegion.NavigationPolygon = BakeNavPoly();
+        _navTested = false;
     }
 
     /// <summary>
@@ -562,6 +687,7 @@ public sealed partial class CampMain : Node2D
         {
             _survivors.Remove(p);
             _selected.Remove(p);
+            _raidGuards.Remove(p); // 守卫阵亡：移出上岗名单（结算据存活数判守卫全倒）
         }
     }
 
@@ -577,6 +703,9 @@ public sealed partial class CampMain : Node2D
 
         if (_returnWarningPopup.Visible && _clock.CurrentPhase == DayPhase.DayExplore)
             _returnWarningPopup.SetRemainingTime(_clock.GetExploreTimeRemaining());
+
+        if (_raidActive)
+            UpdateRaid(delta);
 
         // 导航图首帧就绪后跑一次门缝连通性自检。
         if (!_navTested)
@@ -623,6 +752,14 @@ public sealed partial class CampMain : Node2D
                 break;
             case Key.Key3:
                 _clock.SetSpeedIndex(2);
+                break;
+            case Key.B:
+                // 调试：在鼠标落点放置岗位（类型轮换 哨塔→屋顶平台→暗哨），实心岗位自动重烘焙导航。
+                PlaceGuardPostAtMouse();
+                break;
+            case Key.R:
+                // 调试：手动触发一波袭营（仅 NightAct 生效），把防御战跑通；正式由叙事事件调 TriggerRaid。
+                TriggerRaid(_raidIntensity);
                 break;
         }
     }
@@ -841,6 +978,7 @@ public sealed partial class CampMain : Node2D
         {
             case DayPhase.DawnMeal:
                 // 黎明聚餐：全员已在 NightAct 起唤醒并度过实时夜晚，此处结算食物 + 气泡交流，结束进 DayPrep。
+                EndRaid(); // 夜晚结束：清残留丧尸、守卫下岗
                 RunMeal("黎明聚餐", "dawn");
                 break;
             case DayPhase.DayPrep:
@@ -873,6 +1011,7 @@ public sealed partial class CampMain : Node2D
                 // 之后夜晚由 GameClock 实时流逝 NightLengthSeconds，到时自动 → DawnMeal（不再瞬跳）。
                 foreach (var p in _survivors)
                     p.SetSleeping(false);
+                StationGuards(); // D2：守卫走向各自岗位站位并挂上岗位加成
                 break;
         }
     }
@@ -898,12 +1037,12 @@ public sealed partial class CampMain : Node2D
 
     private void PopulateGuardPanel()
     {
-        var posts = new List<GuardPanel.GuardPostDef>
+        // 岗位来自已建岗位（预置 + 调试放置）。PostId = 岗位在 _guardPosts 中的下标。
+        var posts = new List<GuardPanel.GuardPostDef>();
+        for (int i = 0; i < _guardPosts.Count; i++)
         {
-            new() { PostId = 0, Name = "大门岗" },
-            new() { PostId = 1, Name = "东侧围墙" },
-            new() { PostId = 2, Name = "西侧围墙" },
-        };
+            posts.Add(new GuardPanel.GuardPostDef { PostId = i, Name = _guardPosts[i].Name });
+        }
         _guardPanel.SetupPosts(posts);
 
         var pawnOptions = new List<GuardPanel.PawnOption>();
@@ -1029,6 +1168,171 @@ public sealed partial class CampMain : Node2D
         }
         _roleManager.SetGuardAssignments(assignments);
         _clock.TransitionTo(DayPhase.NightAct);
+    }
+
+    // ---------------- D2 驻守 AI + 岗位加成 ----------------
+
+    /// <summary>
+    /// 夜晚上岗：按 PawnRoleManager 的岗位分配（postId→pawnId），让每个守卫走向岗位站位并挂上岗位加成。
+    /// 走向岗位靠 Stationing 令 Pawn.Think Guard 分支放行移动令；抵达即回原地驻守。
+    /// </summary>
+    private void StationGuards()
+    {
+        _raidGuards.Clear();
+        foreach (var kv in _roleManager.GuardAssignments)
+        {
+            int postId = kv.Key, pawnId = kv.Value;
+            if (postId < 0 || postId >= _guardPosts.Count)
+                continue;
+            Pawn? guard = _survivors.FirstOrDefault(p => p.Id == pawnId && p.Alive);
+            if (guard == null)
+                continue;
+
+            GuardPostInstance post = _guardPosts[postId];
+            guard.ApplyGuardPost(post.Stats);
+            guard.Stationing = true;
+            guard.CommandMoveTo(post.StandPos);
+            _raidGuards.Add(guard);
+        }
+    }
+
+    // ---------------- D3 袭营触发/生成 ----------------
+
+    /// <summary>
+    /// 公共袭营触发钩子——供未来叙事事件脚本调用（如某夜剧情事件 <c>TriggerRaid(1.5f)</c>）。
+    /// 仅 NightAct 生效；波次规模随天数/营地规模递增（<see cref="RaidWave"/>），乘强度系数。
+    /// </summary>
+    public void TriggerRaid(float intensity = 1f)
+    {
+        if (_clock.CurrentPhase != DayPhase.NightAct)
+        {
+            GD.Print("[Raid] 非 NightAct 相位，忽略袭营触发。");
+            return;
+        }
+        if (_raidActive)
+            return;
+
+        _raidIntensity = intensity;
+        int campSize = _survivors.Count(s => s.Alive);
+        int count = RaidWave.ZombieCount(_clock.Day, campSize, intensity);
+        SpawnCampZombies(count);
+        _raidActive = true;
+        GD.Print($"[Raid] 第 {_clock.Day} 天袭营：强度 {intensity:0.0}，{count} 只丧尸自大门涌入，上岗守卫 {_raidGuards.Count} 人。");
+    }
+
+    /// <summary>照 TestExploration 模板在大门缺口外生成一波丧尸：Inject(_combat,_clock)、挂 _actorLayer、涌入营地。</summary>
+    private void SpawnCampZombies(int count)
+    {
+        // 游荡范围 = 营地内部（丧尸从门外向营心推进，被守卫/破防线拦截）。
+        Rect2 wander = new(
+            _mapBounds.Position + new Vector2(200, 200),
+            _mapBounds.Size - new Vector2(400, 400));
+
+        for (int i = 0; i < count; i++)
+        {
+            // 门外错峰生成：大门缺口 x∈[730,870]，y 在栅栏(1120)与地图下边界(1180)之间。
+            float gx = 730f + (i * 37f) % 140f;
+            float gy = 1152f + (i % 3) * 12f;
+
+            var z = Zombie.Create(wander, () => _survivors.Where(a => a.Alive).Cast<Actor>());
+            z.Inject(_combat, _clock); // 与营地单位同一 combat+clock，务必首帧 Think 前完成
+            z.Position = new Vector2(gx, gy);
+            _actorLayer.AddChild(z);
+            z.Died += OnRaidZombieDied;
+            _raidZombies.Add(z);
+        }
+    }
+
+    private void OnRaidZombieDied(Actor a)
+    {
+        if (a is Zombie z)
+            _raidZombies.Remove(z);
+    }
+
+    // ---------------- D4 结算 ----------------
+
+    /// <summary>
+    /// 袭营实时推进（仅 _raidActive 时逐帧调用）：守卫巡防锁敌（暗哨触发一次性首发）+ 破防/胜负检测。
+    /// </summary>
+    private void UpdateRaid(double delta)
+    {
+        // 守卫巡防：无目标时取侦测半径内最近丧尸交战（是否真正开火由 Pawn.Think Guard 的射程判定裁决）。
+        foreach (Pawn g in _raidGuards)
+        {
+            if (!g.Alive || g.HasActiveTarget)
+                continue;
+            Zombie? nearest = null;
+            float best = g.GuardSightRadius;
+            foreach (Zombie z in _raidZombies)
+            {
+                if (!z.Alive)
+                    continue;
+                float d = g.GlobalPosition.DistanceTo(z.GlobalPosition);
+                if (d < best)
+                {
+                    best = d;
+                    nearest = z;
+                }
+            }
+            if (nearest != null)
+            {
+                g.TryFirstStrike(nearest); // 暗哨首发（一次性）
+                g.CommandAttack(nearest);
+            }
+        }
+
+        // 破防线：任一丧尸摸进营心 BreachRadius 内 = 破防。
+        bool breached = _raidZombies.Any(z => z.Alive && z.GlobalPosition.DistanceTo(_cameraCenter) < BreachRadius);
+        int zombiesRemaining = _raidZombies.Count(z => z.Alive);
+        int guardsAlive = _raidGuards.Count(g => g.Alive);
+
+        RaidEvaluation eval = RaidResolution.Evaluate(zombiesRemaining, guardsAlive, breached);
+        if (eval.State != RaidState.Ongoing)
+            FinishRaid(eval);
+    }
+
+    /// <summary>结算收口：守住无损失；被攻破按 <see cref="RaidResolution.ConsequenceFor"/> 扣食物/士气。</summary>
+    private void FinishRaid(RaidEvaluation eval)
+    {
+        _raidActive = false;
+        RaidConsequence cons = RaidResolution.ConsequenceFor(eval);
+        if (eval.State == RaidState.Overrun)
+        {
+            _resources.ApplyRaidLoss(cons.FoodLoss, cons.MoraleLoss);
+            GD.Print($"[Raid] 防御战失败（{eval.Reason}）：损食物 {cons.FoodLoss}、士气 {cons.MoraleLoss}。伤亡在实时战斗中自然产生。");
+        }
+        else
+        {
+            GD.Print("[Raid] 防御战守住：丧尸全灭。");
+        }
+        // 残留丧尸（破防/守卫全倒时仍在场者）清场，避免拖到黎明。
+        foreach (Zombie z in _raidZombies)
+        {
+            if (IsInstanceValid(z))
+                z.QueueFree();
+        }
+        _raidZombies.Clear();
+    }
+
+    /// <summary>夜晚结束：清残留丧尸、守卫下岗撤销加成（DawnMeal 调用）。</summary>
+    private void EndRaid()
+    {
+        _raidActive = false;
+        foreach (Zombie z in _raidZombies)
+        {
+            if (IsInstanceValid(z))
+                z.QueueFree();
+        }
+        _raidZombies.Clear();
+        foreach (Pawn g in _raidGuards)
+        {
+            if (IsInstanceValid(g) && g.Alive)
+            {
+                g.ClearGuardPost();
+                g.Stationing = false;
+            }
+        }
+        _raidGuards.Clear();
     }
 
     // ---------------- 工具 ----------------
@@ -1178,6 +1482,14 @@ public sealed partial class CampMain : Node2D
         public BuildingSpec[]? buildings { get; set; }
         public PropSpec[]? props { get; set; }
         public SpawnSpec[]? spawns { get; set; }
+        public GuardPostSpec[]? guardPosts { get; set; }
+    }
+
+    /// <summary>预置守卫岗位：kind = watchtower/roofPlatform/hidden；stand = 守卫驻守站位 [x,y]（cartesian，须可寻路）。</summary>
+    private struct GuardPostSpec
+    {
+        public string? kind { get; set; }
+        public double[]? stand { get; set; }
     }
 
     /// <summary>iso 立面/屋顶抬升高度（屏幕像素）。缺省用向后兼容默认值。</summary>

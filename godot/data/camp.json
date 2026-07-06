@@ -76,5 +76,12 @@
   "spawns": [
     { "name": "山姆", "pos": [560, 720], "pistol": true, "color": [0.40, 0.65, 0.95] },
     { "name": "诺蒂", "pos": [640, 770], "pistol": false, "color": [0.55, 0.82, 0.60] }
+  ],
+
+  "_guardPostsComment": "预置守卫岗位（D 守卫防御战）。kind=watchtower(哨塔/+射程)/roofPlatform(屋顶平台/+视野)/hidden(暗哨/首发)。stand=守卫驻守站位[x,y]，须在空地可寻路。实心岗位会在站位南侧自动生成结构块。坐标全为拟定待调占位。",
+  "guardPosts": [
+    { "kind": "watchtower", "stand": [1200, 620] },
+    { "kind": "roofPlatform", "stand": [420, 650] },
+    { "kind": "hidden", "stand": [800, 1000] }
   ]
 }

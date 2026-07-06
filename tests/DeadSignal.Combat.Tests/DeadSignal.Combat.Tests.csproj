@@ -30,6 +30,11 @@
     <Compile Include="..\..\godot\scripts\CombatMoteText.cs" Link="Consumed\CombatMoteText.cs" />
     <Compile Include="..\..\godot\scripts\CombatLogFormatter.cs" Link="Consumed\CombatLogFormatter.cs" />
     <Compile Include="..\..\godot\scripts\PawnInspection.cs" Link="Consumed\PawnInspection.cs" />
+    <!-- D 守卫防御战纯逻辑（无 Godot 依赖）：岗位属性/波次规模/胜负结算/物资失血。 -->
+    <Compile Include="..\..\godot\scripts\GuardPost.cs" Link="Consumed\GuardPost.cs" />
+    <Compile Include="..\..\godot\scripts\RaidWave.cs" Link="Consumed\RaidWave.cs" />
+    <Compile Include="..\..\godot\scripts\RaidResolution.cs" Link="Consumed\RaidResolution.cs" />
+    <Compile Include="..\..\godot\scripts\CampResources.cs" Link="Consumed\CampResources.cs" />
   </ItemGroup>
 
 </Project>

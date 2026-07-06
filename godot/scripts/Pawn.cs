@@ -17,6 +17,12 @@ public sealed partial class Pawn : Actor
     public bool IsControllable => Role == PawnRole.Idle;
     protected override bool CanAct => Role != PawnRole.Sleeping;
 
+    /// <summary>
+    /// 驻守途中（D 守卫防御战）：守卫正走向岗位站位。为 true 时 Guard 分支放行移动令
+    /// （不当作杂散指令取消），抵达即自动清除、回到原地驻守。
+    /// </summary>
+    public bool Stationing { get; set; }
+
     /// <summary>当前饥饿级别（见 <see cref="HungerLevel"/>）。本版只记状态，各级效果 TODO 后续。</summary>
     public HungerLevel Hunger { get; private set; } = HungerLevel.Sated;
 
@@ -50,7 +56,10 @@ public sealed partial class Pawn : Actor
                 CancelOrders();
                 break;
             case PawnRole.Guard:
-                if (HasMoveOrder)
+                // 驻守途中放行移动令（走向岗位）；抵达即恢复原地驻守。非驻守时沿用原逻辑取消杂散移动令。
+                if (Stationing && IsNavigationFinished())
+                    Stationing = false;
+                if (HasMoveOrder && !Stationing)
                     CancelOrders();
                 if (CurrentAttackTarget is { Alive: true } tgt)
                 {

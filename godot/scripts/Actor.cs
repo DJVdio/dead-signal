@@ -339,6 +339,66 @@ public abstract partial class Actor : CharacterBody2D
             AttackRange * 1.25f, AttackWeapon, Combat, this);
     }
 
+    // ---- 守卫岗位加成（D 守卫防御战）：只读取岗位属性作用到战斗参数，不改既有攻防逻辑 ----
+    private const float GuardBaseSightRadius = 200f; // 守卫巡防基础锁敌半径下限（拟定待调）
+    private float _postEngageBonus; // 岗位有效交战距离加成（哨塔射程 + 屋顶视野，均延长开火距离）
+    private bool _firstStrikeAvailable;
+
+    /// <summary>是否有存活的攻击目标（供 CampMain 巡防锁敌判定是否需补目标）。</summary>
+    public bool HasActiveTarget => CurrentAttackTarget is { Alive: true };
+
+    /// <summary>
+    /// 守卫有效锁敌半径 = max(基础下限, 有效射程 AttackRange)。屋顶平台把视野折进射程后，
+    /// 锁敌半径随之覆盖延长的开火距离，确保远射目标能被锁定并真正开火（而非锁到却打不着）。
+    /// </summary>
+    public float GuardSightRadius => Mathf.Max(GuardBaseSightRadius, AttackRange);
+
+    /// <summary>上岗：把岗位属性叠加到本 Actor 的战斗参数。哨塔射程 + 屋顶视野均折进有效交战距离；暗哨挂首发。</summary>
+    public void ApplyGuardPost(GuardPostStats stats)
+    {
+        ClearGuardPost();
+        _postEngageBonus = stats.EngageRangeBonus; // = RangeBonus + SightBonus
+        AttackRange += _postEngageBonus;           // 登高远射：视野也真正延长开火距离
+        _firstStrikeAvailable = stats.FirstStrike; // 暗哨：首发一击
+    }
+
+    /// <summary>下岗：撤销岗位加成，恢复原始战斗参数。</summary>
+    public void ClearGuardPost()
+    {
+        AttackRange -= _postEngageBonus;
+        _postEngageBonus = 0;
+        _firstStrikeAvailable = false;
+    }
+
+    /// <summary>
+    /// 暗哨首发：驻守后对首个来袭目标立即无冷却打一击（一次性，打完清标记）。
+    /// **只在目标进入武器射程内才触发**（口径对齐 <see cref="_PhysicsProcess"/> 的命中判定），
+    /// 射程外不凭空先手、也不消耗首发标记。复用既有 <see cref="FireProjectile"/>/<see cref="ReceiveAttack"/>，不改战斗规则。返回是否触发。
+    /// </summary>
+    public bool TryFirstStrike(Actor target)
+    {
+        if (!_firstStrikeAvailable || !Alive || target is not { Alive: true })
+        {
+            return false;
+        }
+        // 射程门：超出武器可及距离则不触发（也不消耗标记），等目标真正逼近再打这记先手。
+        float reach = AttackRange + Radius + target.Radius;
+        if (GlobalPosition.DistanceTo(target.GlobalPosition) > reach)
+        {
+            return false;
+        }
+        _firstStrikeAvailable = false;
+        if (IsRanged)
+        {
+            FireProjectile(target);
+        }
+        else
+        {
+            target.ReceiveAttack(AttackWeapon, Combat);
+        }
+        return true;
+    }
+
     /// <summary>作为防御方承受一次攻击：用自身护甲跑逐层结算 + 效果结算，施加到自身躯体。近战与子弹共用。</summary>
     public void ReceiveAttack(Weapon weapon, CombatEngine combat)
     {

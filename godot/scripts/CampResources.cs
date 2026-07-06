@@ -42,6 +42,16 @@ public sealed class CampResources
 
         return new MealOutcome(diners, served, missing, moraleDelta, Food, Morale);
     }
+
+    /// <summary>
+    /// 防御战失败后果落点（D 守卫防御战）：扣食物份数 + 扣士气（各自不越界）。
+    /// 数值由 <see cref="RaidResolution.ConsequenceFor"/> 给出"拟定待调"建议值。
+    /// </summary>
+    public void ApplyRaidLoss(int foodLoss, double moraleLoss)
+    {
+        Food = Math.Max(0, Food - Math.Max(0, foodLoss));
+        Morale = Math.Clamp(Morale - Math.Max(0, moraleLoss), 0, _moraleMax);
+    }
 }
 
 /// <summary>单次聚餐结算明细（只读快照）。</summary>
