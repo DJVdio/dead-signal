@@ -21,8 +21,9 @@ public sealed partial class Projectile : Node2D
     private CombatEngine _combat = null!;
     private Actor _shooter = null!;
 
-    // 命中掩码：墙(层3=0b100) + 幸存者(层1) + 丧尸(层2)。
-    private const uint HitMask = 0b0111;
+    // 命中掩码：墙(层3=0b0100) + 幸存者(层1) + 丧尸(层2) + 劫掠者(层4=0b1000)——覆盖全阵营层，
+    // 弹道能命中任意阵营；具体是否结算由下方 Factions.IsHostile + 架肩豁免裁定（异阵营命中、同阵营豁免）。
+    private const uint HitMask = 0b1111;
 
     /// <summary>架肩豁免的额外间距余量（像素，拟定待调）。叠加在两者碰撞半径之和上。</summary>
     private const float ShoulderGraceMargin = 6f;
@@ -77,11 +78,11 @@ public sealed partial class Projectile : Node2D
                     continue;
                 }
 
-                bool sameFaction = victim.Faction == _shooter.Faction;
+                bool hostile = Factions.IsHostile(_shooter.Faction, victim.Faction);
                 float grace = _shooter.Radius + victim.Radius + ShoulderGraceMargin; // 拟定待调：肩宽量级
                 double dist = victim.GlobalPosition.DistanceTo(_shooter.GlobalPosition);
 
-                if (FriendlyFire.Resolve(sameFaction, dist, grace) == ProjectileContact.PassThrough)
+                if (FriendlyFire.Resolve(hostile, dist, grace) == ProjectileContact.PassThrough)
                 {
                     excluded.Add(victim.GetRid()); // 架肩豁免：穿过这个紧贴队友继续飞
                     continue;

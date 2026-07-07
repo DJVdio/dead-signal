@@ -48,28 +48,28 @@ public enum ProjectileContact
 }
 
 /// <summary>
-/// 友军误伤判定（纯函数）。用户口径（拍板）：允许友军误伤，但当队友与射手**紧贴**
-/// （在架肩间距阈值内）时视作架在其肩上射击、不造成友伤——弹道穿过该队友继续飞。
-/// 敌对阵营正常命中；同阵营在紧贴阈值之外可被击中（真实向友伤）。
-/// 阈值本身（像素/肩宽量级）由空间层给出，本函数只做纯比较，便于单测。
+/// 友军误伤判定（纯函数）。用户口径（拍板）：敌对阵营正常命中；**非敌对**（同阵营/未来的盟友）默认友伤，
+/// 但当其与射手**紧贴**（在架肩间距阈值内）时视作架在其肩上射击、不造成友伤——弹道穿过继续飞；
+/// 紧贴阈值之外的非敌对单位仍可被击中（真实向友伤）。敌我由调用方经 <see cref="Factions.IsHostile"/> 裁定后传入，
+/// 本函数只做纯比较，便于单测。阈值本身（像素/肩宽量级）由空间层给出。
 /// </summary>
 public static class FriendlyFire
 {
     /// <summary>
     /// 决定弹道命中某 Actor 时的处理。
     /// </summary>
-    /// <param name="sameFaction">被命中者是否与射手同阵营。</param>
+    /// <param name="hostile">被命中者是否与射手敌对（<see cref="Factions.IsHostile"/> 的结果）。</param>
     /// <param name="distanceToShooter">被命中者与射手的间距（与阈值同单位）。</param>
-    /// <param name="shoulderGraceDistance">架肩豁免间距阈值（含）；≤ 此距离的同阵营队友被穿过。</param>
+    /// <param name="shoulderGraceDistance">架肩豁免间距阈值（含）；≤ 此距离的非敌对单位被穿过。</param>
     public static ProjectileContact Resolve(
-        bool sameFaction, double distanceToShooter, double shoulderGraceDistance)
+        bool hostile, double distanceToShooter, double shoulderGraceDistance)
     {
-        if (!sameFaction)
+        if (hostile)
         {
             return ProjectileContact.Hit; // 敌对：正常命中
         }
 
-        // 同阵营：紧贴（架肩）豁免则穿过，否则友伤命中。
+        // 非敌对（同阵营/盟友）：紧贴（架肩）豁免则穿过，否则友伤命中。
         return distanceToShooter <= shoulderGraceDistance
             ? ProjectileContact.PassThrough
             : ProjectileContact.Hit;

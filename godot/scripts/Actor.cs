@@ -5,11 +5,7 @@ using Godot;
 
 namespace DeadSignal.Godot;
 
-public enum Faction
-{
-    Survivor,
-    Zombie,
-}
+// 阵营枚举 Faction 与敌对矩阵 Factions.IsHostile 见 Factions.cs（纯 C#、可入单测）。
 
 /// <summary>
 /// 幸存者与丧尸的共同基类：带寻路的躯体，能被结算伤害。
@@ -131,23 +127,52 @@ public abstract partial class Actor : CharacterBody2D
         // 避障会算出安全速度经此信号回吐，我们据此 MoveAndSlide（未连信号则 SetVelocity 无效）。
         _agent.VelocityComputed += OnVelocityComputed;
 
-        // 碰撞层：幸存者层1(0b0001)/丧尸层2(0b0010)/墙层3(0b0100)。既作点选命中区，也作物理体。
-        // 互撞（用户反馈#4：角色不再穿透）：
-        //   幸存者 mask = 墙 + 幸存者 → 幸存者之间会互挤开、仍可穿过丧尸（近战靠射程结算、不必贴身）。
-        //   丧尸   mask = 墙 + 丧尸   → 丧尸之间不再重叠堆成一坨（拟定默认；靠避障免互顶死）。
-        // 碰撞形状保持 cartesian 圆（不改菱形/椭圆）——伪等距下物理仍 top-down，PZ 标准做法。
-        if (Faction == Faction.Survivor)
-        {
-            CollisionLayer = 0b0001u;
-            CollisionMask = 0b0101u;
-        }
-        else
-        {
-            CollisionLayer = 0b0010u;
-            CollisionMask = 0b0110u;
-        }
+        ApplyFactionCollision();
 
         OnReady();
+    }
+
+    // 碰撞层位：幸存者层1(0b0001)/丧尸层2(0b0010)/墙层3(0b0100)/劫掠者层4(0b1000)。
+    // 既作点选命中区，也作物理体。命中（弹道）靠 Projectile 的射线 HitMask 覆盖全阵营层 + 墙，
+    // 敌我由 Factions.IsHostile 裁定；这里的物理 mask 只管"移动分离"（同阵营互挤开、穿过异阵营）。
+    private const uint LayerSurvivor = 0b0001u;
+    private const uint LayerZombie = 0b0010u;
+    private const uint LayerWall = 0b0100u;
+    private const uint LayerRaider = 0b1000u;
+
+    /// <summary>
+    /// 按当前 <see cref="Faction"/> 设定碰撞层与 mask。<c>_Ready</c> 与运行时 <see cref="SetFaction"/> 共用，
+    /// 保证切阵营后碰撞立即生效。物理 mask 口径（用户反馈#4：角色不穿透）：mask = 墙 + 本阵营层
+    /// → 同阵营互挤开、不重叠堆一坨，仍可穿过异阵营（近战靠射程结算、不必贴身）。碰撞形状仍 cartesian 圆（PZ 做法）。
+    /// </summary>
+    private void ApplyFactionCollision()
+    {
+        switch (Faction)
+        {
+            case Faction.Survivor:
+                CollisionLayer = LayerSurvivor;
+                CollisionMask = LayerWall | LayerSurvivor; // 0b0101
+                break;
+            case Faction.Zombie:
+                CollisionLayer = LayerZombie;
+                CollisionMask = LayerWall | LayerZombie;   // 0b0110
+                break;
+            case Faction.Raider:
+                CollisionLayer = LayerRaider;
+                CollisionMask = LayerWall | LayerRaider;   // 0b1100
+                break;
+        }
+    }
+
+    /// <summary>
+    /// 运行时改阵营（如克莉丝汀反水）：改字段并**立即重设碰撞层/mask**，使新的敌我分离即刻生效。
+    /// 命中/友伤走 <see cref="Factions.IsHostile"/>，无需缓存。节点未入树（_Ready 前）调用也安全——属性可预设，
+    /// _Ready 会再走一次 <see cref="ApplyFactionCollision"/>。
+    /// </summary>
+    public void SetFaction(Faction faction)
+    {
+        Faction = faction;
+        ApplyFactionCollision();
     }
 
     /// <summary>子类初始化钩子（在基类节点搭好后调用）。</summary>

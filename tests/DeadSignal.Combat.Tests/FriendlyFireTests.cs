@@ -14,30 +14,30 @@ public class FriendlyFireTests
     [Fact]
     public void Enemy_AlwaysHit_RegardlessOfDistance()
     {
-        Assert.Equal(ProjectileContact.Hit, FriendlyFire.Resolve(sameFaction: false, distanceToShooter: 0, Grace));
-        Assert.Equal(ProjectileContact.Hit, FriendlyFire.Resolve(sameFaction: false, distanceToShooter: 5, Grace));
-        Assert.Equal(ProjectileContact.Hit, FriendlyFire.Resolve(sameFaction: false, distanceToShooter: 999, Grace));
+        Assert.Equal(ProjectileContact.Hit, FriendlyFire.Resolve(hostile: true, distanceToShooter: 0, Grace));
+        Assert.Equal(ProjectileContact.Hit, FriendlyFire.Resolve(hostile: true, distanceToShooter: 5, Grace));
+        Assert.Equal(ProjectileContact.Hit, FriendlyFire.Resolve(hostile: true, distanceToShooter: 999, Grace));
     }
 
     [Fact]
     public void FriendlyAdjacent_PassesThrough()
     {
         // 紧贴（阈值内）：架肩射击，穿过不误伤。
-        Assert.Equal(ProjectileContact.PassThrough, FriendlyFire.Resolve(sameFaction: true, distanceToShooter: 0, Grace));
-        Assert.Equal(ProjectileContact.PassThrough, FriendlyFire.Resolve(sameFaction: true, distanceToShooter: Grace * 0.5, Grace));
+        Assert.Equal(ProjectileContact.PassThrough, FriendlyFire.Resolve(hostile: false, distanceToShooter: 0, Grace));
+        Assert.Equal(ProjectileContact.PassThrough, FriendlyFire.Resolve(hostile: false, distanceToShooter: Grace * 0.5, Grace));
     }
 
     [Fact]
     public void FriendlyFar_TakesFriendlyFire()
     {
         // 紧贴阈值之外的队友：可被击中（真实向友伤）。
-        Assert.Equal(ProjectileContact.Hit, FriendlyFire.Resolve(sameFaction: true, distanceToShooter: Grace * 2, Grace));
+        Assert.Equal(ProjectileContact.Hit, FriendlyFire.Resolve(hostile: false, distanceToShooter: Grace * 2, Grace));
     }
 
     [Fact]
     public void FriendlyAtThreshold_IsExempt_InclusiveBoundary()
     {
         // 边界含阈值本身（≤ 视作紧贴）。
-        Assert.Equal(ProjectileContact.PassThrough, FriendlyFire.Resolve(sameFaction: true, distanceToShooter: Grace, Grace));
+        Assert.Equal(ProjectileContact.PassThrough, FriendlyFire.Resolve(hostile: false, distanceToShooter: Grace, Grace));
     }
 }
