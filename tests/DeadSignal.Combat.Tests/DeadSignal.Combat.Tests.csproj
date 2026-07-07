@@ -38,6 +38,10 @@
     <Compile Include="..\..\godot\scripts\RaidWave.cs" Link="Consumed\RaidWave.cs" />
     <Compile Include="..\..\godot\scripts\RaidResolution.cs" Link="Consumed\RaidResolution.cs" />
     <Compile Include="..\..\godot\scripts\CampResources.cs" Link="Consumed\CampResources.cs" />
+    <!-- 条件驱动气泡框架纯逻辑（无 Godot 依赖）：剧情 flag / 条件求值 / 选择器 v2 / 去重。 -->
+    <Compile Include="..\..\godot\scripts\StoryFlags.cs" Link="Consumed\StoryFlags.cs" />
+    <Compile Include="..\..\godot\scripts\MealCondition.cs" Link="Consumed\MealCondition.cs" />
+    <Compile Include="..\..\godot\scripts\MealBubbles.cs" Link="Consumed\MealBubbles.cs" />
   </ItemGroup>
 
 </Project>

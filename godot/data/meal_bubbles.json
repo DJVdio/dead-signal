@@ -4,5 +4,43 @@
   { "speaker": "蒂诺", "text": "昨晚又翻了几页……这电台的接线图，越看越不对劲。", "phase": "dusk" },
   { "speaker": "克莉丝汀", "text": "天亮了。至少我们都还活着。", "phase": "dawn" },
   { "speaker": null, "text": "锅里见了底，气氛有些沉。", "phase": "any" },
-  { "speaker": null, "text": "有人低声说起了外面的传闻。", "phase": "dusk" }
+  { "speaker": null, "text": "有人低声说起了外面的传闻。", "phase": "dusk" },
+
+  { "speaker": null, "text": "锅碗磕碰了几声，一天就这么将就着开始了。", "phase": "any" },
+  { "speaker": null, "text": "外头风把窗板吹得咯吱响，谁也没抬头。", "phase": "any" },
+  { "speaker": null, "text": "勺子刮着碗底，屋里没什么话。", "phase": "any" },
+  { "speaker": null, "text": "天光刚亮，屋里还留着夜里的凉气。", "phase": "dawn" },
+  { "speaker": null, "text": "暮色压下来，吃完这口就该歇了。", "phase": "dusk" },
+  { "speaker": null, "text": "有人打了个哈欠，念叨昨晚没睡踏实。", "phase": "any" },
+
+  { "speaker": null, "text": "席间有人盯着那截空荡荡的袖管，没人说话。", "phase": "any", "weight": 2.0,
+    "condition": { "all": [ { "type": "any_pawn_state", "value": "severed_hand" } ] } },
+  { "speaker": null, "text": "有人的空袖管垂在桌边，谁也没提。", "phase": "any", "weight": 2.0,
+    "condition": { "all": [ { "type": "any_pawn_state", "value": "severed" } ] } },
+  { "speaker": null, "text": "有道伤口还在渗血，谁也没动勺子。", "phase": "any", "weight": 2.5,
+    "condition": { "all": [ { "type": "any_pawn_state", "value": "heavy_blood_loss" } ] } },
+  { "speaker": null, "text": "有人的手不太听使唤，勺子掉了两回。", "phase": "any", "weight": 1.5,
+    "condition": { "all": [ { "type": "any_pawn_state", "value": "disabled" } ] } },
+  { "speaker": null, "text": "桌边空出一个位子，那份饭没人去碰。", "phase": "any", "weight": 3.0,
+    "condition": { "all": [ { "type": "any_pawn_state", "value": "dead" } ] } },
+
+  { "speaker": null, "text": "有人念叨着肚子有点空。", "phase": "any", "weight": 1.0,
+    "condition": { "all": [ { "type": "hunger", "stage": 4 } ] } },
+  { "speaker": null, "text": "饿意压在桌上，话都少了。", "phase": "any", "weight": 1.5,
+    "condition": { "all": [ { "type": "hunger", "stage": 3 } ] } },
+  { "speaker": null, "text": "有人盯着空碗，手指在桌下攥得发白。", "phase": "any", "weight": 2.0,
+    "condition": { "all": [ { "type": "hunger", "stage": 2 } ] } },
+  { "speaker": null, "text": "有人脸色发青，撑着一口气没倒下。", "phase": "any", "weight": 3.0,
+    "condition": { "all": [ { "type": "hunger", "stage": 1 } ] } },
+
+  { "speaker": null, "text": "米袋见了底，得盘算下一顿从哪儿来。", "phase": "any", "weight": 2.0,
+    "condition": { "all": [ { "type": "food", "op": "lte", "amount": 2 } ] } },
+  { "speaker": null, "text": "有人小声算着还剩多少口粮，越算越沉。", "phase": "any", "weight": 1.5,
+    "condition": { "all": [ { "type": "food", "op": "lt", "amount": 4 } ] } },
+  { "speaker": null, "text": "屋里气氛闷得化不开，有人重重叹了口气。", "phase": "any", "weight": 2.0,
+    "condition": { "all": [ { "type": "morale", "op": "lt", "amount": 20 } ] } },
+
+  { "speaker": null, "text": "席间提起了一件搁了很久没说的事。", "phase": "dusk",
+    "condition": { "all": [ { "type": "flag", "key": "example_story_flag" } ] },
+    "triggers": [ { "key": "example_story_flag_told", "value": "true" } ] }
 ]

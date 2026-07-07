@@ -51,6 +51,12 @@ public sealed partial class CampMain : Node2D
     private MealPanel _mealPanel = null!;
     private CampResources _resources = null!;
     private MealBubblePool _bubblePool = null!;
+    // 剧情/世界 flag 存储：condition 谓词只读它、气泡 triggers 写它，推动用户手写剧情走向。
+    // 内容（哪些 flag、取什么值）全部来自 meal_bubbles.json 里用户填的数据；此处仅持有存储实例。
+    private readonly StoryFlags _storyFlags = new StoryFlags();
+    // 近期已故名单：死者已从 _survivors 移除，这里另存**死亡当刻拍的快照**供聚餐气泡"死亡反应"读取（dead 谓词命中）。
+    // 死时即拍（不持 Pawn 引用，避免节点被回收后 Inspect 失效）；每餐结算末清空——死亡只在紧随其后的一餐被提及（"近期"）。
+    private readonly List<PawnSnapshot> _recentlyDeceased = new();
     private string _pendingDestination = "";
     private int _pendingTravelTime;
 
@@ -688,6 +694,8 @@ public sealed partial class CampMain : Node2D
             _survivors.Remove(p);
             _selected.Remove(p);
             _raidGuards.Remove(p); // 守卫阵亡：移出上岗名单（结算据存活数判守卫全倒）
+            // 只**追加**一份死亡当刻快照供下一餐"死亡反应"气泡；不改上面 _survivors/_selected/_raidGuards 的既有清理语义。
+            _recentlyDeceased.Add(PawnSnapshot.FromInspection(p.Inspect()));
         }
     }
 
@@ -955,7 +963,26 @@ public sealed partial class CampMain : Node2D
             starved.StarveToDeath();
         }
 
-        var bubbles = _bubblePool.Pick(phaseTag, 3);
+        // 构造"世界只读快照"喂条件驱动选择器：相位 + 当前 flags + 存活者真实状态 + 食物/士气。
+        // 角色状态只读引擎真实状态（经 Inspect→PawnSnapshot），不发明新状态、不做关系/性格。
+        // 在场存活者 + 近期已故者的快照都放进 Pawns：前者供伤/饥饿谓词，后者供 dead 死亡反应谓词。
+        var pawnSnapshots = _survivors.Where(s => s.Alive)
+                                      .Select(s => PawnSnapshot.FromInspection(s.Inspect()))
+                                      .Concat(_recentlyDeceased) // 近期已故快照（死时已拍好）
+                                      .ToList();
+        var context = new MealWorldContext
+        {
+            Phase = phaseTag,
+            Flags = _storyFlags,
+            Pawns = pawnSnapshots,
+            Food = _resources.Food,
+            Morale = _resources.Morale,
+        };
+        var bubbles = _bubblePool.Pick(context, 3);
+        // 应用选中气泡的 triggers（改 flags）——推动剧情；选择器不隐式改 flag，故独立成步。
+        MealBubblePool.ApplyTriggers(bubbles, _storyFlags);
+        _recentlyDeceased.Clear(); // 死亡只在紧随其后的一餐被提及，之后归入历史不再复播
+
         _mealPanel.ShowMeal(title, outcome, bubbles, hungerNotes);
     }
 
