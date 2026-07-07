@@ -110,6 +110,7 @@ public sealed partial class CombatLogPanel : Control
     private static string ResolveName(Actor a)
     {
         if (a is Pawn p) return p.DisplayName;
+        if (a is Raider r) return r.DisplayName;
         if (a.Faction == Faction.Zombie) return "丧尸";
         return string.IsNullOrEmpty(a.Name) ? "某人" : a.Name;
     }
