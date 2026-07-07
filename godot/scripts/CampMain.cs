@@ -28,6 +28,7 @@ public sealed partial class CampMain : Node2D
     private readonly List<Rect2> _navHoles = new();
     private readonly List<Pawn> _survivors = new();
     private readonly HashSet<Pawn> _selected = new();
+    private bool _gameOver; // 全灭防重入：game-over 只触发一次。
 
     // 门缝连通性自检目标（建筑名 + 室内中心 cartesian），首个可用导航帧跑一次。
     private readonly List<(string name, Vector2 target)> _navTargets = new();
@@ -703,6 +704,14 @@ public sealed partial class CampMain : Node2D
             _raidGuards.Remove(p); // 守卫阵亡：移出上岗名单（结算据存活数判守卫全倒）
             // 只**追加**一份死亡当刻快照供下一餐"死亡反应"气泡；不改上面 _survivors/_selected/_raidGuards 的既有清理语义。
             _recentlyDeceased.Add(PawnSnapshot.FromInspection(p.Inspect()));
+
+            // 玩家幸存者移出名单**之后**判全灭：无一存活 → game-over（只触发一次）。
+            // 只玩家幸存者（_survivors 里的 Pawn）算数——盟友反水者/劫掠者/丧尸不进此判定。
+            if (!_gameOver && GameOverCondition.AllSurvivorsDead(_survivors.Count(s => s.Alive)))
+            {
+                _gameOver = true;
+                GameOverPanel.Show(_hud);
+            }
         }
     }
 
