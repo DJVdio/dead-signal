@@ -102,7 +102,7 @@ public sealed class PawnInspection
     /// <summary>移动能力惩罚净值 0~1（1 = 完全丧失）。UI 显示"移动能力 = (1−此值)×100%"。</summary>
     public double MobilityPenalty { get; init; }
 
-    /// <summary>饥饿阶梯序号（0=正常 … 5=饿死），即拍照时 HungerLevel 的枚举序号。</summary>
+    /// <summary>饥饿刻度序号（0=饿死 … 5=正常 … 6=吃撑），即拍照时 <see cref="HungerLevel"/> 的枚举序号。</summary>
     public int HungerStage { get; init; }
 
     /// <summary>饥饿等级中文名（拍照时 HungerLevel 的显示名）。纯字符串快照，UI 直接显示。</summary>
@@ -122,11 +122,11 @@ public sealed class PawnInspection
     /// 由 live 战斗对象拍出一份只读快照。遍历 <see cref="Body.Parts"/> 逐部位取当前 HP/上限/
     /// 区域/分类/父名 + 切除/损毁/失能/骨折/流血标记；武器/护甲摊平字段。
     /// </summary>
-    /// <param name="hungerStage">饥饿阶梯序号（0=正常…5=饿死），由调用方从 Pawn.Hunger 取。</param>
+    /// <param name="hungerStage">饥饿刻度序号（0=饿死…5=正常…6=吃撑），由调用方从 Pawn.Hunger 取；默认正常(5)。</param>
     /// <param name="hungerLabel">饥饿等级中文名，由调用方从 Pawn.Hunger 取；null 视为"正常"。</param>
     public static PawnInspection FromBody(
         Body body, Weapon? weapon, IReadOnlyList<ArmorLayer>? armor, string name,
-        int hungerStage = 0, string? hungerLabel = null)
+        int hungerStage = (int)HungerLevel.Sated, string? hungerLabel = null)
     {
         // 出血伤口按部位名登记（断口即使部位被移除仍会持续出血）——直接命中部位名即在流血。
         var bleeding = new HashSet<string>(body.BleedingWounds);

@@ -920,27 +920,39 @@ public sealed partial class CampMain : Node2D
     private void EnterDuskMeal() => _clock.TransitionTo(DayPhase.DuskMeal);
 
     /// <summary>
-    /// 一次聚餐：全员用餐扣食物（不足则士气下降）+ 触发气泡，弹出模态面板。
-    /// 食物不足时，排在供餐份数之后的存活者没吃上饭 → 饥饿级别向饿死方向前进一级；
-    /// 吃到饭者向正常方向恢复一级（本版只记状态，各级实际效果 TODO 后续）。
+    /// 一次聚餐（发生在昼夜相位切换点，一天两次）：全员用餐扣食物（不足则士气下降）+ 触发气泡，弹出模态面板。
+    /// 饥饿模型（净零）：本次切换全员饥饿刻度无条件 -1；吃到饭者 +1（clamp 到各自上限）——吃满两餐即维持。
+    /// 结算后：按各存活者刻度累加饥饿士气下降；刻度归 0 者饿死（走统一死亡路径）。
     /// </summary>
     private void RunMeal(string title, string phaseTag)
     {
         var diners = _survivors.Where(s => s.Alive).ToList();
         MealOutcome outcome = _resources.ConsumeMeal(diners.Count);
 
+        // 昼夜切换净结算：一次性施加"无条件 -1，吃到再 +1"（吃满两餐净零维持）。
+        // 用 ResolvePhase 一步算净变化 + clamp，避免旧两步"1→0 途中 Feed 被短路"的跨 0 误杀。
         var hungerNotes = new List<string>();
         for (int i = 0; i < diners.Count; i++)
         {
-            if (i < outcome.Served)
+            bool ate = i < outcome.Served;
+            diners[i].ResolveHungerPhase(ate);
+            if (!ate && diners[i].Hunger.Level < HungerLevel.Sated)
             {
-                diners[i].Feed();
+                hungerNotes.Add($"{diners[i].DisplayName}（{diners[i].Hunger.Level.Label()}）");
             }
-            else
-            {
-                diners[i].Starve();
-                hungerNotes.Add($"{diners[i].DisplayName}（{diners[i].Hunger.Label()}）");
-            }
+        }
+
+        // 饥饿士气下降（越饿越重，阶梯见 HungerState.MoraleFor）：按结算后各存活者刻度累加一次扣减。
+        double hungerMorale = diners.Sum(d => d.Hunger.MoralePenaltyPerPhase);
+        if (hungerMorale > 0)
+        {
+            _resources.ApplyHungerMorale(hungerMorale);
+        }
+
+        // 饿死：刻度归 0 者走统一死亡路径（Died 事件会改 _survivors，先收集再逐个处理）。
+        foreach (var starved in diners.Where(d => d.IsStarvedToDeath).ToList())
+        {
+            starved.StarveToDeath();
         }
 
         var bubbles = _bubblePool.Pick(phaseTag, 3);

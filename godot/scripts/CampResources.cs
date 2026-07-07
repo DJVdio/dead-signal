@@ -44,6 +44,16 @@ public sealed class CampResources
     }
 
     /// <summary>
+    /// 饥饿士气下降落点：本次昼夜切换全员饥饿造成的士气总扣减（越饿越重，阶梯见 <see cref="HungerState.MoraleFor"/>）。
+    /// <paramref name="penalty"/> 为各存活者当前刻度士气惩罚之和；非正数视为 0（clamp 不越界）。返回结算后士气。
+    /// </summary>
+    public double ApplyHungerMorale(double penalty)
+    {
+        Morale = Math.Clamp(Morale - Math.Max(0, penalty), 0, _moraleMax);
+        return Morale;
+    }
+
+    /// <summary>
     /// 防御战失败后果落点（D 守卫防御战）：扣食物份数 + 扣士气（各自不越界）。
     /// 数值由 <see cref="RaidResolution.ConsequenceFor"/> 给出"拟定待调"建议值。
     /// </summary>

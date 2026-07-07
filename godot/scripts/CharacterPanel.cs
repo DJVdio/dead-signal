@@ -490,15 +490,15 @@ public sealed partial class CharacterPanel : PanelContainer
             : new Color(0.85f, Mathf.Lerp(0.25f, 0.78f, ability * 2f), 0.22f);
     }
 
-    /// <summary>饥饿配色：正常=柔绿，逐级向红加深，饿死=切除红。stage 0=正常…5=饿死。</summary>
+    /// <summary>饥饿配色：正常/吃撑=柔绿，逐级向红加深，饿死=切除红。stage 0=饿死…5=正常…6=吃撑。</summary>
     private static Color HungerColor(int stage) => stage switch
     {
-        <= 0 => new Color(0.55f, 0.82f, 0.45f), // 正常
-        1 => new Color(0.80f, 0.85f, 0.40f),    // 有点饿
-        2 => new Color(0.92f, 0.75f, 0.30f),    // 饥饿
-        3 => new Color(0.95f, 0.55f, 0.22f),    // 非常饿
-        4 => new Color(0.93f, 0.35f, 0.20f),    // 营养不良
-        _ => ColSevered,                        // 饿死（终态）
+        <= 0 => ColSevered,                     // 0 饿死（终态）
+        1 => new Color(0.93f, 0.35f, 0.20f),    // 营养不良
+        2 => new Color(0.95f, 0.55f, 0.22f),    // 极度饥饿
+        3 => new Color(0.92f, 0.75f, 0.30f),    // 饥饿
+        4 => new Color(0.80f, 0.85f, 0.40f),    // 有点饿
+        _ => new Color(0.55f, 0.82f, 0.45f),    // 正常 / 吃撑
     };
 
     private static Color HpColor(PartStatus p)

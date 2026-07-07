@@ -29,8 +29,32 @@ public abstract partial class Actor : CharacterBody2D
     /// <summary>防御方躯体（细部位 HP/切除/损毁/失血）。由子类工厂在 Create 时装配。</summary>
     protected Body Body = null!;
 
-    /// <summary>存活 = 躯体未死（致死部位归零/斩首/开膛/失血致死皆算死）。</summary>
-    public bool Alive => Body is { IsDead: false };
+    /// <summary>非战斗致死标记（如饿死）：绕过 Body 战斗死亡表示，走统一死亡路径。</summary>
+    private bool _nonCombatDead;
+
+    /// <summary>存活 = 躯体未死（致死部位归零/斩首/开膛/失血致死皆算死）且未被非战斗死因（饿死）判亡。</summary>
+    public bool Alive => Body is { IsDead: false } && !_nonCombatDead;
+
+    /// <summary>
+    /// 饥饿对战斗能力的惩罚净值 0~1（1=完全丧失）。基类（丧尸等无饥饿单位）恒为 0；
+    /// <see cref="Pawn"/> 覆盖返回其饥饿刻度惩罚，在攻速/移速消费点与残疾惩罚经
+    /// <see cref="HungerState.CombineCapability"/> 合并（不覆盖、不改残疾数学）。
+    /// </summary>
+    protected virtual double HungerAbilityPenalty => 0.0;
+
+    /// <summary>
+    /// 非战斗致死（如饿死）：标记本 Actor 已亡并走统一死亡路径（触发 Died 事件 + QueueFree），
+    /// 不写 Body 的战斗死亡状态（那是战斗引擎语义）。已死则幂等无操作。
+    /// </summary>
+    protected void KillNonCombat()
+    {
+        if (!Alive)
+        {
+            return;
+        }
+        _nonCombatDead = true;
+        Die();
+    }
 
     protected Color BodyColor = Colors.White;
     protected float MoveSpeed = 90f;
@@ -254,7 +278,9 @@ public abstract partial class Actor : CharacterBody2D
         }
         // 残疾移动惩罚：移动能力 = 1 − MobilityPenalty（断腿/断趾净值，Body.RecalculatePenalties 实时重算）。
         // 惩罚 0.5 → 半速；能力 ≤0（惩罚 ≥1，如断双腿）→ 完全无法移动（期望速度归零）。
-        double mobility = 1.0 - Body.DisabilityModifiers.MobilityPenalty;
+        // 再乘饥饿因子：有效能力 = (1−残疾) × (1−饥饿)，饿越狠移动越慢（丧尸 HungerAbilityPenalty=0，等价原样）。
+        double mobility = HungerState.CombineCapability(
+            Body.DisabilityModifiers.MobilityPenalty, HungerAbilityPenalty);
         Vector2 desired = mobility > 0 ? dir * MoveSpeed * (float)mobility : Vector2.Zero;
         // 把期望速度交给避障；OnVelocityComputed 收到安全速度后再 MoveAndSlide。
         _agent.Velocity = desired;
@@ -304,7 +330,9 @@ public abstract partial class Actor : CharacterBody2D
         // 残疾操作惩罚：操作能力 = 1 − OperationPenalty（断手/断指净值，实时重算）。对齐 Duel.EffectiveInterval 口径：
         // 有效间隔 = 基础 / 操作能力（惩罚 0.5 → 间隔翻倍）；能力 ≤0（惩罚 ≥1，如断双手）→ 无法出手，跳过本次攻击、
         // 计时器不动（避免除零变 NaN/负值），下帧再判。
-        double operation = 1.0 - Body.DisabilityModifiers.OperationPenalty;
+        // 再乘饥饿因子：有效能力 = (1−残疾) × (1−饥饿)，饿越狠出手越慢（丧尸 HungerAbilityPenalty=0，等价原样）。
+        double operation = HungerState.CombineCapability(
+            Body.DisabilityModifiers.OperationPenalty, HungerAbilityPenalty);
         if (operation <= 0)
         {
             return;
