@@ -74,6 +74,13 @@ public sealed partial class CampMain : Node2D
     private GuardPostKind _debugPlaceKind = GuardPostKind.Watchtower; // 调试放置轮换类型
     private const float BreachRadius = 280f;  // 破防线：丧尸摸进营心此半径内 = 破防（拟定待调）
 
+    // ---------------- 教学关：克莉丝汀反水（第 2 夜脚本人类袭击，自成一路，与丧尸袭营互斥）----------------
+    private readonly List<Raider> _tutorialRaiders = new();  // 场上普通劫掠者（不含克莉丝汀）
+    private Raider? _christine;                              // 克莉丝汀（Raider 实例；反水前敌、反水后友、招募后转 Pawn 移除）
+    private bool _tutorialActive;                            // 教学关战斗进行中（逐帧 UpdateCristineTutorial）
+    private bool _christineTurned;                           // 克莉丝汀是否已反水（切 Survivor 阵营）
+    private const int TutorialRaiderCount = 2;               // 固定生成 2 个劫掠者（不走 RaidWave 概率）
+
     /// <summary>单个已建岗位：类型 + 属性 + 守卫驻守站位（cartesian，须可寻路）。</summary>
     private sealed class GuardPostInstance
     {
@@ -715,6 +722,9 @@ public sealed partial class CampMain : Node2D
         if (_raidActive)
             UpdateRaid(delta);
 
+        if (_tutorialActive)
+            UpdateCristineTutorial(delta);
+
         // 导航图首帧就绪后跑一次门缝连通性自检。
         if (!_navTested)
         {
@@ -1051,6 +1061,10 @@ public sealed partial class CampMain : Node2D
                 foreach (var p in _survivors)
                     p.SetSleeping(false);
                 StationGuards(); // D2：守卫走向各自岗位站位并挂上岗位加成
+                // 教学关：第 2 夜一次性触发克莉丝汀反水关（StoryFlag 防重入）。这一晚是脚本人类袭击，
+                // 不叠加丧尸袭营（TriggerRaid 会因 _tutorialActive 早退）。
+                if (_clock.Day == 2 && !_storyFlags.Has("tutorial_raider_started"))
+                    BeginCristineTutorial();
                 break;
         }
     }
@@ -1250,6 +1264,11 @@ public sealed partial class CampMain : Node2D
         }
         if (_raidActive)
             return;
+        if (_tutorialActive)
+        {
+            GD.Print("[Raid] 教学关（克莉丝汀反水）进行中，忽略丧尸袭营，避免两种袭击叠加。");
+            return;
+        }
 
         _raidIntensity = intensity;
         int campSize = _survivors.Count(s => s.Alive);
@@ -1372,6 +1391,238 @@ public sealed partial class CampMain : Node2D
             }
         }
         _raidGuards.Clear();
+
+        // 极端情况：夜晚耗尽仍未分胜负（教学关战斗未收口）→ 天亮统一清场，防止拖入白天。
+        if (_tutorialActive || _tutorialRaiders.Count > 0 || _christine != null)
+            CleanupCristineTutorial();
+    }
+
+    // ---------------- 教学关：克莉丝汀反水编排 ----------------
+
+    /// <summary>
+    /// 第 2 夜脚本化开场：门外固定生成 2 个劫掠者 + 克莉丝汀（皆 Raider 阵营、起手打幸存者）。
+    /// 不走 <see cref="RaidWave"/> 概率。生成模板沿用 <see cref="SpawnCampZombies"/>（门缝错峰、Inject、挂 _actorLayer）。
+    /// </summary>
+    private void BeginCristineTutorial()
+    {
+        _storyFlags.Set("tutorial_raider_started", "true");
+        _tutorialActive = true;
+        _christineTurned = false;
+        _tutorialRaiders.Clear();
+
+        // 无目标时的门外游荡范围（与丧尸同款：向营心推进被守卫/破防线拦截）。
+        Rect2 wander = new(
+            _mapBounds.Position + new Vector2(200, 200),
+            _mapBounds.Size - new Vector2(400, 400));
+
+        // 2 个普通劫掠者：目标池含幸存者 + 克莉丝汀（反水后克莉丝汀变 Survivor，IsHostile 自动让劫掠者也打她）。
+        for (int i = 0; i < TutorialRaiderCount; i++)
+        {
+            var r = Raider.Create(wander, TutorialRaiderTargets, usePistol: true);
+            r.Inject(_combat, _clock); // 首帧 Think 前完成注入
+            r.Position = new Vector2(760f + i * 48f, 1152f + (i % 2) * 10f);
+            _actorLayer.AddChild(r);
+            r.Died += OnTutorialRaiderDied;
+            _tutorialRaiders.Add(r);
+        }
+
+        // 克莉丝汀：起手 Faction=Raider、targetProvider=幸存者池（打幸存者），与两名同伙一致。
+        _christine = Raider.Create(
+            wander,
+            () => _survivors.Where(a => a.Alive).Cast<Actor>(),
+            usePistol: true,
+            displayName: "克莉丝汀");
+        _christine.Inject(_combat, _clock);
+        _christine.Position = new Vector2(830f, 1160f);
+        _actorLayer.AddChild(_christine);
+        _christine.Died += OnChristineDied;
+
+        GD.Print($"[教学关] 第 {_clock.Day} 夜：{TutorialRaiderCount} 名劫掠者 + 克莉丝汀自大门袭击营地。");
+    }
+
+    /// <summary>劫掠者的择敌候选池：存活幸存者 + 克莉丝汀（反水后她变敌对，无需另改劫掠者）。</summary>
+    private IEnumerable<Actor> TutorialRaiderTargets()
+    {
+        foreach (Pawn s in _survivors)
+            if (s.Alive)
+                yield return s;
+        if (_christine is { Alive: true })
+            yield return _christine;
+    }
+
+    private void OnTutorialRaiderDied(Actor a)
+    {
+        if (a is Raider r)
+            _tutorialRaiders.Remove(r);
+    }
+
+    private void OnChristineDied(Actor a)
+    {
+        // 克莉丝汀战死（Actor.Die 会随后 QueueFree 本节点）：立即置空引用，避免后续帧 use-after-free。
+        // 若死在结算前 → 支线不触发（黑暗向，有意为之），FinishCristineTutorial 据 _christine==null 不弹抉择。
+        _christine = null;
+        GD.Print("[教学关] 克莉丝汀战死。");
+    }
+
+    /// <summary>
+    /// 逐帧推进教学关：反水监测（未反水时）+ 胜负复用判定。仅 <see cref="_tutorialActive"/> 时调用。
+    /// </summary>
+    private void UpdateCristineTutorial(double delta)
+    {
+        // ① 反水监测：任一劫掠者受伤较重 或 克莉丝汀自己受伤 → 翻转。
+        if (!_christineTurned && _christine is { Alive: true })
+        {
+            IEnumerable<float> raiderHps = _tutorialRaiders.Where(r => r.Alive).Select(r => r.HealthFraction);
+            if (TutorialRaidLogic.ShouldTurncoat(raiderHps, _christine.HealthFraction))
+                TurnChristine();
+        }
+
+        // ② 胜负：复用 RaidResolution，把"敌方剩余数"（劫掠者 + 未反水的克莉丝汀）当"敌人数"喂入。
+        //    守卫全倒沿用"幸存者存活数"（全灭 = 负）；破防线沿用 BreachRadius。
+        bool christineHostile = _christine is { Alive: true } && !_christineTurned;
+        int raidersAlive = _tutorialRaiders.Count(r => r.Alive);
+        int enemiesRemaining = TutorialRaidLogic.EnemiesRemaining(raidersAlive, christineHostile);
+        int defendersAlive = _survivors.Count(s => s.Alive);
+        bool breached = _tutorialRaiders.Any(r => r.Alive && r.GlobalPosition.DistanceTo(_cameraCenter) < BreachRadius)
+                        || (christineHostile && _christine!.GlobalPosition.DistanceTo(_cameraCenter) < BreachRadius);
+
+        RaidEvaluation eval = RaidResolution.Evaluate(enemiesRemaining, defendersAlive, breached);
+        if (eval.State != RaidState.Ongoing)
+            FinishCristineTutorial(eval);
+    }
+
+    /// <summary>
+    /// 反水：头顶飘台词 + 切 Survivor 阵营 + 换目标池为劫掠者 → 她变**盟友 AI**（自动打劫掠者，玩家不可控）。
+    /// 劫掠者目标池（<see cref="TutorialRaiderTargets"/>）已含她，切阵营后 IsHostile 自动令双方互为敌。
+    /// </summary>
+    private void TurnChristine()
+    {
+        _christineTurned = true;
+        FloatingText.Spawn(_actorLayer, _christine!.GlobalPosition,
+            "杀死这些劫掠者！我是好人！", new Color(1f, 0.9f, 0.4f));
+        _christine.SetFaction(Faction.Survivor);
+        _christine.SetTargetProvider(() => _tutorialRaiders.Where(r => r.Alive).Cast<Actor>());
+        _christine.CancelOrders(); // 立即丢弃"打幸存者"的旧指令，下一帧 Think 重新对劫掠者择敌
+        GD.Print("[教学关] 克莉丝汀反水：切换 Survivor 阵营，转而攻击劫掠者。");
+    }
+
+    /// <summary>
+    /// 战斗收口：清残留劫掠者、置 done flag、被攻破按 RaidResolution 后果扣资源。
+    /// **仅击退(Defended)且克莉丝汀存活**才弹抉择面板；失利(Overrun，含她独活)或她战死 → 支线不触发，直接收尾。
+    /// </summary>
+    private void FinishCristineTutorial(RaidEvaluation eval)
+    {
+        _tutorialActive = false;
+        foreach (Raider r in _tutorialRaiders)
+            if (IsInstanceValid(r))
+                r.QueueFree();
+        _tutorialRaiders.Clear();
+        _storyFlags.Set("tutorial_raider_done", "true");
+
+        if (eval.State == RaidState.Overrun)
+        {
+            RaidConsequence cons = RaidResolution.ConsequenceFor(eval);
+            _resources.ApplyRaidLoss(cons.FoodLoss, cons.MoraleLoss);
+            GD.Print($"[教学关] 袭击失利（{eval.Reason}）：损食物 {cons.FoodLoss}、士气 {cons.MoraleLoss}。");
+        }
+        else
+        {
+            GD.Print("[教学关] 击退劫掠者。");
+        }
+
+        // 仅"击退劫掠者(Defended) 且 克莉丝汀存活"才弹抉择。失利(Overrun，向空营/败局收留无意义)
+        // 或她战死 → 不弹，直接收尾。
+        if (eval.State == RaidState.Defended && _christine is { Alive: true })
+        {
+            PromptCristineChoice();
+        }
+        else
+        {
+            // 失利或战死：支线不触发（黑暗向）。她若失利仍存活，清掉残留节点，不留孤儿单位。
+            if (_christine != null && IsInstanceValid(_christine))
+                _christine.QueueFree();
+            _christine = null;
+        }
+    }
+
+    /// <summary>战后暂停（TimeScale=0）弹收留/放逐/处决三选一。</summary>
+    private void PromptCristineChoice()
+    {
+        double prevScale = Engine.TimeScale;
+        Engine.TimeScale = 0;
+
+        var panel = new ChoicePanel();
+        AddChild(panel);
+        panel.ForCristine(
+            "劫掠者已被清剿。克莉丝汀瘫坐在血泊边，抬头望向你：\n" +
+            "「我不是他们一伙的……是他们逼我带路的。求你，让我留下——我能帮上忙。」");
+        panel.Confirmed += v =>
+        {
+            Engine.TimeScale = prevScale <= 0 ? 1 : prevScale;
+            HandleCristineChoice((CristineChoice)v);
+            panel.QueueFree();
+        };
+    }
+
+    private void HandleCristineChoice(CristineChoice choice)
+    {
+        _storyFlags.Set("tutorial_raider_done", "true");
+        if (_christine == null || !IsInstanceValid(_christine))
+        {
+            _christine = null;
+            return;
+        }
+
+        switch (choice)
+        {
+            case CristineChoice.Recruit:
+                RecruitChristine();
+                break;
+            case CristineChoice.Exile:
+                _christine.QueueFree();
+                _christine = null;
+                GD.Print("[教学关] 放逐克莉丝汀：她离开了营地。");
+                break;
+            case CristineChoice.Execute:
+                _christine.QueueFree();
+                _christine = null;
+                GD.Print("[教学关] 处决克莉丝汀。");
+                break;
+        }
+    }
+
+    /// <summary>
+    /// 收留：把克莉丝汀从 Raider-AI 实例转成玩家可控 Pawn 入营——在她原位移除 Raider、
+    /// <see cref="Pawn.Create"/> 一个同名 Pawn，走 <see cref="AddActor"/>（Inject + Died 订阅 + 挂 _actorLayer）+ 加入 _survivors。
+    /// 置 <c>christine_recruited</c> flag，供气泡框架接后续请求台词（本单不做那部分）。
+    /// </summary>
+    private void RecruitChristine()
+    {
+        Vector2 pos = _christine!.GlobalPosition;
+        _christine.QueueFree();
+        _christine = null;
+
+        var pawn = Pawn.Create("克莉丝汀", usePistol: true, new Color(0.85f, 0.55f, 0.75f));
+        pawn.Position = pos; // cartesian，原地入营
+        AddActor(pawn);
+        _survivors.Add(pawn);
+
+        _storyFlags.Set("christine_recruited", "true");
+        GD.Print("[教学关] 收留克莉丝汀：转为可控幸存者入营。");
+    }
+
+    /// <summary>教学关未收口时的天亮兜底清场：移除双方残留、复位标志、置 done flag。</summary>
+    private void CleanupCristineTutorial()
+    {
+        _tutorialActive = false;
+        foreach (Raider r in _tutorialRaiders)
+            if (IsInstanceValid(r))
+                r.QueueFree();
+        _tutorialRaiders.Clear();
+        if (_christine != null && IsInstanceValid(_christine))
+            _christine.QueueFree();
+        _christine = null;
+        _storyFlags.Set("tutorial_raider_done", "true");
     }
 
     // ---------------- 工具 ----------------
