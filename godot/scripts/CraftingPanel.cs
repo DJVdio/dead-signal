@@ -50,7 +50,7 @@ public sealed partial class CraftingPanel : CanvasLayer
     private WorkbenchState _workbench = new();
     private IReadOnlyList<Pawn> _crafters = Array.Empty<Pawn>();
     private InventoryStore _inventory = new();
-    private Func<string, bool> _isBookRead = _ => false;
+    private Func<Pawn, string, bool> _hasReadBook = (_, _) => false;
 
     // ---- 面板自身瞬态 ----
     private Page _page = Page.Craft;
@@ -165,20 +165,20 @@ public sealed partial class CraftingPanel : CanvasLayer
     }
 
     /// <summary>
-    /// 打开面板：传入只读依赖（工作台工具态、可控幸存者作制作者候选、营地共享库存、书已读谓词），刷新两页数据。
-    /// <paramref name="isBookRead"/> 按书 id 查该书是否已读（配方书门槛判据；来源为 CampMain 持有的活 <see cref="BookData"/> 态，
-    /// 面板拿不到全局书表故由外部注入，沿用 <see cref="StashPanel.ShowStash"/> 的 isBookRead 范式）。
+    /// 打开面板：传入只读依赖（工作台工具态、可控幸存者作制作者候选、营地共享库存、"某人是否读完某书"谓词），刷新两页数据。
+    /// <paramref name="hasReadBook"/> 按 (制作者, 书 id) 查该幸存者本人是否读完（配方书门槛判据，按**制作者**判定；
+    /// 面板对当前选中 crafter 求值喂给 <see cref="CraftingLogic.CanCraft"/>，切换制作者时重算）。
     /// </summary>
     public void ShowFor(
         WorkbenchState workbench,
         IReadOnlyList<Pawn> crafters,
         InventoryStore inventory,
-        Func<string, bool> isBookRead)
+        Func<Pawn, string, bool> hasReadBook)
     {
         _workbench = workbench ?? new WorkbenchState();
         _crafters = crafters ?? Array.Empty<Pawn>();
         _inventory = inventory ?? new InventoryStore();
-        _isBookRead = isBookRead ?? (_ => false);
+        _hasReadBook = hasReadBook ?? ((_, _) => false);
 
         // 制作者候选：保留已选（若仍在名单），否则取第一个。
         if (_selectedCrafter is null || !_crafters.Contains(_selectedCrafter))
@@ -285,7 +285,7 @@ public sealed partial class CraftingPanel : CanvasLayer
             recipe,
             key => CraftingPanelFormat.MaterialCount(_inventory, key),
             skill => _selectedCrafter!.SkillLevelOf(skill),
-            _isBookRead,
+            bookId => _hasReadBook(_selectedCrafter!, bookId), // 书门槛按当前选中制作者本人已读
             installed);
 
         var card = new VBoxContainer();
@@ -383,7 +383,7 @@ public sealed partial class CraftingPanel : CanvasLayer
         foreach (string bookId in recipe.RequiredBookIds)
         {
             string title = BookTitles.TryGetValue(bookId, out string? t) ? t : bookId;
-            parts.Add($"{Check(_isBookRead(bookId))}读《{title}》");
+            parts.Add($"{Check(_hasReadBook(_selectedCrafter!, bookId))}读《{title}》");
         }
         if (parts.Count == 0) return null;
 

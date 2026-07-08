@@ -2438,14 +2438,22 @@ public sealed partial class CampMain : Node2D
         Engine.TimeScale = _prevStashTimeScale <= 0 ? 1 : _prevStashTimeScale;
     }
 
-    /// <summary>库存里点某本书的「阅读」：置已读 + 记配方桩，弹阅读面板（叠在库存之上）。</summary>
+    /// <summary>
+    /// 库存里点某本书的「阅读」：把这次阅读**归属到某个读者幸存者**（标其个人已读集，配方书门槛按此判定），
+    /// 同时置全局已读（库存"已读"标记等营地视角仍读全局），弹阅读面板（叠在库存之上）。
+    /// 读者 = 当前选中的可控幸存者（同"装备"入口的选人口径）；无选中时退化到首个可控幸存者，保证阅读始终可用。
+    /// </summary>
     private void OnBookOpenRequested(string bookId)
     {
         if (!_bookRegistry.TryGetValue(bookId, out BookData? bd))
         {
             return;
         }
-        bd.MarkRead();
+        // 归属读者：优先当前选中的可控幸存者，否则首个可控幸存者（MVP：库存无"读者槽"，复用选中口径）。
+        Pawn? reader = _selected.FirstOrDefault(p => p.IsControllable)
+            ?? _survivors.FirstOrDefault(p => p.Alive && p.IsControllable);
+        reader?.MarkBookRead(bookId);
+        bd.MarkRead(); // 全局已读保留（库存已读标记 / 其它营地视角消费点仍读它）
         if (bd.GrantsRecipeStub != null)
         {
             GD.Print($"[阅读] 读完《{bd.Title}》，获得配方（桩，配方系统后续接）：{bd.GrantsRecipeStub}");
@@ -2469,7 +2477,7 @@ public sealed partial class CampMain : Node2D
 
     // ---------------- 配方 / 制作（工作台接入） ----------------
 
-    /// <summary>打开（或刷新）工作台制作面板：首次打开冻结时标。制作者=当前可控幸存者；书已读态用全局 <see cref="IsBookRead"/>。</summary>
+    /// <summary>打开（或刷新）工作台制作面板：首次打开冻结时标。制作者=当前可控幸存者；书门槛按制作者本人已读（<see cref="Pawn.HasReadBook"/>）。</summary>
     private void OpenCrafting()
     {
         if (!_craftingOpen)
@@ -2484,7 +2492,8 @@ public sealed partial class CampMain : Node2D
 
     /// <summary>重刷制作面板数据（制作/改装后调，反映扣掉的材料、新入库产物、升级后的技能）。</summary>
     private void RefreshCrafting()
-        => _craftingPanel.ShowFor(_workbench, ControllableCrafters(), _inventory, IsBookRead);
+        => _craftingPanel.ShowFor(_workbench, ControllableCrafters(), _inventory,
+            (pawn, id) => pawn.HasReadBook(id)); // 书门槛按制作者本人已读（非营地全局）
 
     /// <summary>当前可作制作者的幸存者（存活且空闲可控）。</summary>
     private List<Pawn> ControllableCrafters()
@@ -2513,7 +2522,8 @@ public sealed partial class CampMain : Node2D
         }
 
         CraftResult result = CraftingService.Craft(
-            recipe, crafter.Skills, IsBookRead, _workbench, _inventory, 1, CraftOutputFactory.Create);
+            recipe, crafter.Skills, id => crafter.HasReadBook(id), // 书门槛按制作者本人已读
+            _workbench, _inventory, 1, CraftOutputFactory.Create);
 
         if (!result.Success)
         {

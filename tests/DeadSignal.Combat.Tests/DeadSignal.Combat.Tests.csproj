@@ -72,6 +72,8 @@
     <Compile Include="..\..\godot\scripts\ApparelSlots.cs" Link="Consumed\ApparelSlots.cs" />
     <!-- 幸存者技能系统纯逻辑（无 Godot 依赖）：技能项/等级/门槛查询/经验成长升级/authored 初始分布。 -->
     <Compile Include="..\..\godot\scripts\SkillSet.cs" Link="Consumed\SkillSet.cs" />
+    <!-- 幸存者个人已读书集纯逻辑（无 Godot 依赖）：配方书门槛按制作者本人已读判定。 -->
+    <Compile Include="..\..\godot\scripts\ReadBookSet.cs" Link="Consumed\ReadBookSet.cs" />
     <!-- 配方系统核心纯逻辑（无 Godot 依赖）：工作台三工具槽 + RecipeData/RecipeBook 草稿表 + CanCraft 四门槛判定 + Resolve 产出契约。 -->
     <Compile Include="..\..\godot\scripts\Workbench.cs" Link="Consumed\Workbench.cs" />
     <Compile Include="..\..\godot\scripts\Recipe.cs" Link="Consumed\Recipe.cs" />

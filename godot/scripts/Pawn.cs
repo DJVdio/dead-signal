@@ -48,6 +48,18 @@ public sealed partial class Pawn : Actor
     /// <summary>本 Pawn 某技能当前等级（未掌握 = <see cref="SkillLevel.None"/>），供配方/UI 读取。</summary>
     public SkillLevel SkillLevelOf(SkillType skill) => Skills.LevelOf(skill);
 
+    /// <summary>
+    /// 幸存者个人已读书集（见 <see cref="ReadBookSet"/>，纯逻辑）。配方书门槛按"制作者本人已读"判定 —— 消费本对象，
+    /// 不再走营地全局已读（<see cref="BookData.IsRead"/> 仍供库存"已读"标记等营地视角点使用）。丧尸/Raider 不涉。
+    /// </summary>
+    private readonly ReadBookSet _readBooks = new();
+
+    /// <summary>本 Pawn 是否读完某书（按 book id）。配方书门槛的权威判据（按制作者）。</summary>
+    public bool HasReadBook(string bookId) => _readBooks.HasRead(bookId);
+
+    /// <summary>标记本 Pawn 读完某书（幂等）。阅读结算按读者调用。</summary>
+    public void MarkBookRead(string bookId) => _readBooks.MarkRead(bookId);
+
     // ---- §6 装备两模型：穿戴槽（护甲/穿戴品）+ 持械（左右手武器）----
     // Pawn 是唯一持有者与生效点：两模型只管"穿在哪/持在哪"的槽位规则（定稿、纯逻辑），
     // 由 Pawn 把它们的结果**投影**回 Actor 的战斗消费字段（AttackWeapon / DefenderArmor / IsRanged /
