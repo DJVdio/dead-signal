@@ -3,16 +3,18 @@ namespace DeadSignal.Godot;
 // 注意：本文件为**纯 C# 逻辑**，不得引入任何 Godot 类型
 // （与 StoryFlags.cs / BookData.cs / ContainerLoot.cs 一样被 DeadSignal.Combat.Tests 以 Link 方式编入单测）。
 //
-// 金手指帮根据地「发现点」的纯逻辑：把探索队走到某个发现点触发的 discoveryId，
+// 探索「发现点」的纯逻辑：把探索队走到某个发现点触发的 discoveryId，
 // 解析成 (剧情 flag / 掉落书 id / 环境叙事标题+正文)。已发现（flag 已置）则返回 null 不重复。
+// 两处发现分属异地（用户拍板）：克莉丝汀尸体+日记A 在金手指帮根据地；哥顿上吊尸（门口树上）+日记B 在守望者森林小屋。
+// 本类按 discoveryId 解析、与目的地无关（目的地→发现点的分流在 TestExploration）。
 // 克莉丝汀尸体的叙事措辞按其支线 flag 分支（去复仇而死 vs 通用），衔接 §7 时限失败态。
-// ★台词/叙事皆占位草稿，最终由用户手写；本类只保证"读值→判定→出叙事"可跑、可测，不碰 Godot、不写 flag。
+// 叙事为 draft 草稿，最终由用户优化；本类只保证"读值→判定→出叙事"可跑、可测，不碰 Godot、不写 flag。
 
 /// <summary>一次发现的落地结果：置哪个 flag、给哪本书、弹什么环境叙事（标题 + 正文）。</summary>
 public readonly record struct DiscoveryResult(string StoryFlag, string BookId, string Title, string Narrative);
 
 /// <summary>
-/// 金手指帮根据地发现点解析。<see cref="Resolve"/> 由 CampMain 在探索队触发发现点时调用：
+/// 探索发现点解析（金手指帮根据地 / 守望者森林小屋两地共用）。<see cref="Resolve"/> 由 CampMain 在探索队触发发现点时调用：
 /// 返回 <see cref="DiscoveryResult"/> 则 CampMain 负责置 flag、经 <c>LootApplication</c> 入库该书、弹叙事面板；
 /// 返回 <c>null</c> 表示未知 id 或已发现过（flag 已置），什么都不做。
 /// </summary>
@@ -72,7 +74,7 @@ public static class GoldfingerDiscovery
     private const string ChristineCorpseTitle = "废墟深处的一具遗体";
 
     // draft 待用户改
-    private const string GordonHangedTitle = "梁上的尸体";
+    private const string GordonHangedTitle = "小屋门口，树上的尸体";
 
     /// <summary>克莉丝汀尸体环境叙事：她去复仇而死→点名措辞；否则通用无名遗体措辞。</summary>
     private static string ChristineNarrative(StoryFlags? flags)
@@ -97,9 +99,11 @@ public static class GoldfingerDiscovery
             "遗体旁散落着一本卷了边的日记。";
     }
 
-    // draft 待用户改 —— 哥顿上吊尸环境叙事
+    // draft 待用户改 —— 哥顿上吊尸环境叙事（守望者森林小屋，门口老树上）
     private const string GordonNarrative =
-        "一具男尸吊在房梁上，绳子早已勒进发黑的皮肉，看样子死了有些日子了。\n\n" +
-        "没有挣扎的痕迹，没有被丧尸啃噬的伤口。他是自己走上去的。\n\n" +
-        "脚边的桌上，一本硬壳笔记本摊开着，最后一页的字迹格外用力。";
+        "林子深处，一栋孤零零的守望者小屋。门口那棵老树的横枝上，吊着一具男尸——" +
+        "绳子早已勒进发黑的皮肉，风一过，尸身便轻轻转上半圈。他在这儿挂了有些日子了。\n\n" +
+        "没有挣扎的痕迹，没有被丧尸啃噬的伤口。脚下没有可供踩踏的东西——" +
+        "他是自己爬上去，自己松的手。\n\n" +
+        "树根旁的草丛里，一本硬壳笔记本摊开着，被露水泡得发胀，最后一页的字迹却格外用力。";
 }

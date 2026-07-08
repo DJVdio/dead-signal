@@ -44,14 +44,16 @@
     "condition": { "all": [ { "type": "flag", "key": "example_story_flag" } ] },
     "triggers": [ { "key": "example_story_flag_told", "value": "true" } ] },
 
-  { "comment": "克莉丝汀请求线（收留后）：按 christine_req 精确值门控三条递进请求，说出即置 christine_req_pending，那餐结束弹抉择面板。台词 draft 待用户改。",
-    "speaker": "克莉丝汀", "text": "draft 待用户改：那伙金手指……我逃出来那天就发过誓，总有一天要回去把他们清了。你们的枪，能不能借我一用？", "phase": "any", "weight": 6.0,
+  { "comment": "克莉丝汀请求线（收留后）：按 christine_req 精确值门控三条递进请求，说出即置 christine_req_pending，那餐结束弹抉择面板。三条 text 为 draft 草稿，待用户优化。",
+    "speaker": "克莉丝汀", "text": "有件事我一直没跟你们说全。金手指帮……我是从那儿爬出来的，身上留下的东西，这辈子洗不掉了。总有一天，我要带人回去把那个窝端了——你们的枪，肯借我一次吗？", "phase": "any", "weight": 6.0,
     "condition": { "all": [ { "type": "flag", "key": "christine_req", "value": "0" } ] },
     "triggers": [ { "key": "christine_req_pending", "value": "true" } ] },
-  { "speaker": "克莉丝汀", "text": "draft 待用户改：我不是要逼你……可他们还逍遥在那儿，我一闭眼就是那几张脸。出趟兵，把那窝端了吧。", "phase": "any", "weight": 6.0,
+  { "comment": "请求 2（draft 待用户优化）：更急、失眠噩梦，压着不逼人。",
+    "speaker": "克莉丝汀", "text": "我不是要逼你，真的。可他们还好端端地在那儿，还在拿别的女人当牲口……我一闭眼就是那几张脸、那间屋子。求你了，出趟兵，趁我还没被这口气熬垮之前。", "phase": "any", "weight": 6.0,
     "condition": { "all": [ { "type": "flag", "key": "christine_req", "value": "1" } ] },
     "triggers": [ { "key": "christine_req_pending", "value": "true" } ] },
-  { "speaker": "克莉丝汀", "text": "draft 待用户改：这是我最后一次开口求你了。你若还是不肯出手，那这仇……我只能自己去了断。", "phase": "any", "weight": 6.0,
+  { "comment": "请求 3（draft 待用户优化）：最后通牒，衔接三拒后独走复仇。",
+    "speaker": "克莉丝汀", "text": "这是我最后一次开口了。我懂——你们有你们要护的人，这仗不该由你们来打。那就当我没求过。可这笔账我记了太久，压不住了。你若还是不肯，那这仇，我自己去了。", "phase": "any", "weight": 6.0,
     "condition": { "all": [ { "type": "flag", "key": "christine_req", "value": "2" } ] },
     "triggers": [ { "key": "christine_req_pending", "value": "true" } ] }
 ]

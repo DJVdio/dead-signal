@@ -2022,6 +2022,9 @@ public sealed partial class CampMain : Node2D
         _survivors.Remove(christine);
         _selected.Remove(christine);
         _raidGuards.Remove(christine);
+        // draft 待用户改：三拒后独走复仇的离别台词（决绝，呼应反水时"我是好人！"）。
+        FloatingText.Spawn(_actorLayer, christine.GlobalPosition,
+            "杀死这些劫掠者……这一次，我一个人也去。", new Color(0.9f, 0.5f, 0.4f));
         WalkOutAndDespawn(christine);
         // 置"独自去复仇"flag：日后在金手指帮根据地发现其尸体时，环境叙事据此点名措辞（衔接 §7 时限失败态）。
         _storyFlags.Set(GoldfingerDiscovery.ChristineLeftForRevengeFlag, "true");

@@ -16,6 +16,9 @@ public sealed partial class WorldMapPanel : CanvasLayer
     /// <summary>金手指帮根据地目的地名（CampMain / 探索关按此名分流发现点，务必一致）。</summary>
     public const string GoldfingerBaseName = "金手指帮根据地";
 
+    /// <summary>守望者森林小屋目的地名（哥顿上吊尸+日记B 所在，与金手指帮根据地异地；按此名分流发现点，务必一致）。</summary>
+    public const string WatchersCabinName = "守望者森林小屋";
+
     private static readonly Destination[] Destinations =
     {
         new() { Name = "超市", Position = new Vector2(140, 120), TravelTimeSeconds = 300 },
@@ -24,6 +27,8 @@ public sealed partial class WorldMapPanel : CanvasLayer
         new() { Name = "住宅区", Position = new Vector2(100, 340), TravelTimeSeconds = 240 },
         new() { Name = "加油站", Position = new Vector2(460, 220), TravelTimeSeconds = 420 },
         new() { Name = GoldfingerBaseName, Position = new Vector2(210, 210), TravelTimeSeconds = 540 },
+        // 森林深处、远离城镇：坐标落在城镇方框（80,60,440,260）之外的右侧林地，行程最长（拟定待调）。
+        new() { Name = WatchersCabinName, Position = new Vector2(545, 150), TravelTimeSeconds = 600 },
     };
 
     private Control _root = null!;

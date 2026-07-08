@@ -18,7 +18,7 @@ public sealed partial class TestExploration : ExplorationLevel
     private Area2D _returnZone = null!;
     private Node2D _actorLayer = null!;
 
-    // 金手指帮根据地发现点：本关内已触发过的 discoveryId（防同一关内重复上报；跨关持久去重由 CampMain 的 flag 负责）。
+    // 探索发现点：本关内已触发过的 discoveryId（防同一关内重复上报；跨关持久去重由 CampMain 的 flag 负责）。
     private readonly HashSet<string> _firedDiscoveries = new();
 
     // 战斗引擎依赖：与营地单位共用同一实例（由 CampMain 在 Initialize 前注入），
@@ -34,10 +34,13 @@ public sealed partial class TestExploration : ExplorationLevel
         PlaceTeam();
         SpawnZombies();
 
-        // 金手指帮根据地：叠加两处发现点（克莉丝汀尸体+日记A / 哥顿上吊尸+日记B）。
-        // MVP 复用本测试关场景，仅按目的地名叠触发点；其余目的地无发现点，行为不变。
+        // 按目的地叠加对应发现点（MVP 复用本测试关场景，仅换触发点；其余目的地无发现点，行为不变）：
+        //   金手指帮根据地 → 克莉丝汀尸体 + 日记A；守望者森林小屋 → 哥顿上吊尸（门口树上）+ 日记B。
+        // 哥顿与克莉丝汀异地（用户拍板），不再同关叠出。
         if (DestinationName == WorldMapPanel.GoldfingerBaseName)
-            SetupDiscoveries();
+            SetupChristineCorpseDiscovery();
+        else if (DestinationName == WorldMapPanel.WatchersCabinName)
+            SetupGordonHangedDiscovery();
     }
 
     public override void Cleanup()
@@ -213,20 +216,21 @@ public sealed partial class TestExploration : ExplorationLevel
         }
     }
 
-    // ---------------- 金手指帮根据地发现点 ----------------
+    // ---------------- 探索发现点 ----------------
 
-    /// <summary>
-    /// 铺设两处发现点（仿返回区 Area2D+BodyEntered）：探索队踏入即上报 discoveryId，
-    /// 由 CampMain 置 flag / 入库日记 / 弹环境叙事。位置避开出生点、返回区与障碍箱。
-    /// </summary>
-    private void SetupDiscoveries()
+    /// <summary>金手指帮根据地：克莉丝汀尸体 + 日记A 发现点（仿返回区 Area2D+BodyEntered，避开出生点/返回区/障碍箱）。</summary>
+    private void SetupChristineCorpseDiscovery()
     {
         AddDiscoveryPoint(
             GoldfingerDiscovery.ChristineCorpseId,
             new Vector2(1150, 350),
             markerColor: new Color(0.7f, 0.2f, 0.2f),
             label: "遗体");
+    }
 
+    /// <summary>守望者森林小屋：哥顿上吊尸（门口树上）+ 日记B 发现点。与金手指帮根据地异地，独立一处。</summary>
+    private void SetupGordonHangedDiscovery()
+    {
         AddDiscoveryPoint(
             GoldfingerDiscovery.GordonHangedId,
             new Vector2(2000, 1220),
