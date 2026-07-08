@@ -54,10 +54,12 @@
     <Compile Include="..\..\godot\scripts\MealBubbles.cs" Link="Consumed\MealBubbles.cs" />
     <!-- 克莉丝汀请求线状态机纯逻辑（无 Godot 依赖）：收留开线/递进请求门控/答应停播/累计拒绝离开。 -->
     <Compile Include="..\..\godot\scripts\ChristineRequestLogic.cs" Link="Consumed\ChristineRequestLogic.cs" />
-    <!-- 物品模型 + 营地共享库存纯数据地基（无 Godot 依赖）：Item 四类值对象 / BookData 已读+配方桩 / InventoryStore 增删查。 -->
+    <!-- 物品模型 + 营地共享库存纯数据地基（无 Godot 依赖）：Item 五类值对象 / BookData 已读+配方桩 / InventoryStore 增删查。 -->
     <Compile Include="..\..\godot\scripts\Item.cs" Link="Consumed\Item.cs" />
     <Compile Include="..\..\godot\scripts\BookData.cs" Link="Consumed\BookData.cs" />
     <Compile Include="..\..\godot\scripts\InventoryStore.cs" Link="Consumed\InventoryStore.cs" />
+    <!-- 材料目录纯数据（无 Godot 依赖，配方波地基之一）：MaterialCategory / MaterialDef→Item / Materials 目录 All/Find/Has/InCategory。 -->
+    <Compile Include="..\..\godot\scripts\Materials.cs" Link="Consumed\Materials.cs" />
     <!-- 营地容器搜刮纯逻辑（无 Godot 依赖）：掉落登记 + 一次性搜刮语义 + 掉落落地到库存/食物/书登记。 -->
     <Compile Include="..\..\godot\scripts\ContainerLoot.cs" Link="Consumed\ContainerLoot.cs" />
     <!-- 金手指帮根据地发现点纯逻辑（无 Godot 依赖）：discoveryId → flag/日记书/环境叙事；克莉丝汀尸体按支线 flag 分支措辞。 -->
