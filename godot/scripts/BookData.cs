@@ -29,12 +29,19 @@ public sealed class BookData
     /// <summary>是否已读（运行时可变；<see cref="MarkRead"/> 置位）。</summary>
     public bool IsRead { get; private set; }
 
-    public BookData(string id, string title, string body, string? grantsRecipeStub = null)
+    /// <summary>
+    /// 读完本书所需的游戏内小时（<c>draft</c>）：读书为耗时活动，读者按 <see cref="ReadingProgress"/> 累计到此值即读完。
+    /// 技术工具书篇幅长（读得久）、纯 lore 日记短（读得快）。默认 12h。
+    /// </summary>
+    public double ReadHours { get; }
+
+    public BookData(string id, string title, string body, string? grantsRecipeStub = null, double readHours = 12)
     {
         Id = id;
         Title = title;
         Body = body;
         GrantsRecipeStub = grantsRecipeStub;
+        ReadHours = readHours;
     }
 
     /// <summary>标记为已读（幂等，重复调用无副作用）。W3 阅读结算时调用。</summary>
@@ -55,28 +62,32 @@ public static class BookLibrary
         id: "wilderness_survival_guide",
         title: "野外生存指南",
         body: WildernessSurvivalGuideBody,
-        grantsRecipeStub: "recipe:wilderness_trap"); // 桩：配方系统后续接
+        grantsRecipeStub: "recipe:wilderness_trap", // 桩：配方系统后续接
+        readHours: 24); // draft：技术工具书，读得久
 
     /// <summary>《农场主的一百个问题》——读完给"作物种植"配方（桩）。</summary>
     public static BookData FarmerHundredQuestions() => new(
         id: "farmer_hundred_questions",
         title: "农场主的一百个问题",
         body: FarmerHundredQuestionsBody,
-        grantsRecipeStub: "recipe:crop_planting"); // 桩：配方系统后续接
+        grantsRecipeStub: "recipe:crop_planting", // 桩：配方系统后续接
+        readHours: 24); // draft：技术工具书，读得久
 
     /// <summary>《裁缝手记》（纺织书，draft）——读过它的制作者解锁粗布背心一类缝纫配方。</summary>
     public static BookData TailorsNotes() => new(
         id: "tailors_notes",
         title: "裁缝手记",
         body: TailorsNotesBody,
-        grantsRecipeStub: "recipe:cloth_vest"); // 桩：书门槛已实装（RecipeBook.RequiredBookIds），此仅作叙事标记
+        grantsRecipeStub: "recipe:cloth_vest", // 桩：书门槛已实装（RecipeBook.RequiredBookIds），此仅作叙事标记
+        readHours: 20); // draft：技术手记，读得较久
 
     /// <summary>《土法化学笔记》（化学书，draft）——读过它的制作者解锁火药 / 鞣制药水一类化学配方。</summary>
     public static BookData FolkChemistryNotes() => new(
         id: "folk_chemistry_notes",
         title: "土法化学笔记",
         body: FolkChemistryNotesBody,
-        grantsRecipeStub: "recipe:gunpowder"); // 桩：书门槛已实装（RecipeBook.RequiredBookIds），此仅作叙事标记
+        grantsRecipeStub: "recipe:gunpowder", // 桩：书门槛已实装（RecipeBook.RequiredBookIds），此仅作叙事标记
+        readHours: 20); // draft：技术笔记，读得较久
 
     /// <summary>
     /// 日记A（金手指帮根据地，克莉丝汀尸旁）——两个普通帮众视角：灾后互助、参与暴行、"金手指帮"命名由来。
@@ -86,7 +97,8 @@ public static class BookLibrary
         id: "goldfinger_diary_a",
         title: "一本卷边的日记（其一）",
         body: GoldfingerDiaryABody,
-        grantsRecipeStub: null); // 无配方，纯 lore
+        grantsRecipeStub: null, // 无配方，纯 lore
+        readHours: 6); // draft：纯 lore 日记，读得快
 
     /// <summary>
     /// 日记B（哥顿上吊尸旁，守望者森林小屋，与日记A 异地）——金手指帮文化起源 + 帮主哥顿身世/自杀。
@@ -96,7 +108,8 @@ public static class BookLibrary
         id: "goldfinger_diary_b",
         title: "一本硬壳笔记（其二）",
         body: GoldfingerDiaryBBody,
-        grantsRecipeStub: null); // 无配方，纯 lore
+        grantsRecipeStub: null, // 无配方，纯 lore
+        readHours: 6); // draft：纯 lore 日记，读得快
 
     /// <summary>全部内置书的全新实例（每次调用新建，已读态不共享）。</summary>
     public static IReadOnlyList<BookData> All() => new[]

@@ -78,6 +78,9 @@
     <Compile Include="..\..\godot\scripts\HealthConditions.cs" Link="Consumed\HealthConditions.cs" />
     <!-- 幸存者个人已读书集纯逻辑（无 Godot 依赖）：配方书门槛按制作者本人已读判定。 -->
     <Compile Include="..\..\godot\scripts\ReadBookSet.cs" Link="Consumed\ReadBookSet.cs" />
+    <!-- 每角色 authored 专属效果 + 读书进度纯逻辑（无 Godot 依赖）：书虫样板(累计阅读时间跨阈值升级/各级读速/L3 全营加成) + 按(读者,书)累计跨夜进度 + 有效读速合成。 -->
+    <Compile Include="..\..\godot\scripts\SurvivorPerks.cs" Link="Consumed\SurvivorPerks.cs" />
+    <Compile Include="..\..\godot\scripts\ReadingProgress.cs" Link="Consumed\ReadingProgress.cs" />
     <!-- 配方系统核心纯逻辑（无 Godot 依赖）：工作台三工具槽 + RecipeData/RecipeBook 草稿表 + CanCraft 四门槛判定 + Resolve 产出契约。 -->
     <Compile Include="..\..\godot\scripts\Workbench.cs" Link="Consumed\Workbench.cs" />
     <Compile Include="..\..\godot\scripts\Recipe.cs" Link="Consumed\Recipe.cs" />
