@@ -4,7 +4,7 @@ namespace DeadSignal.Combat.Tests;
 
 /// <summary>
 /// 饥饿系统 v2 纯逻辑单测：刻度 0-6 数值化、每昼夜切换 -1/吃一餐 +1 的净零模型、
-/// 上限 clamp（含"大胃袋"6）、到 0 饿死、各级能力惩罚与士气阶梯、以及"饥饿×残疾"能力合并。
+/// 上限 clamp（含"大胃袋"6）、到 0 饿死、各级能力惩罚、以及"饥饿×残疾"能力合并。
 /// 数值皆"拟定待调"，测试锁的是规则形态与当前拟定值。
 /// </summary>
 public class HungerStateTests
@@ -145,18 +145,6 @@ public class HungerStateTests
     {
         var h = new HungerState(value: (int)level, cap: HungerState.MaxCap);
         Assert.Equal(expected, h.AbilityPenalty, 3);
-    }
-
-    [Theory]
-    [InlineData(HungerLevel.Sated, 0.0)]
-    [InlineData(HungerLevel.Peckish, 0.0)]
-    [InlineData(HungerLevel.Hungry, 1.0)]
-    [InlineData(HungerLevel.Ravenous, 3.0)]
-    [InlineData(HungerLevel.Malnourished, 6.0)]
-    public void MoralePenalty_LaddersByLevel(HungerLevel level, double expected)
-    {
-        var h = new HungerState(value: (int)level, cap: HungerState.MaxCap);
-        Assert.Equal(expected, h.MoralePenaltyPerPhase, 3);
     }
 
     [Fact]

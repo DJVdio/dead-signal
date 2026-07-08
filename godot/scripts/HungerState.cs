@@ -4,7 +4,7 @@ namespace DeadSignal.Godot;
 
 // 注意：本文件为**纯 C# 逻辑**，不得引入任何 Godot 类型
 // （与 CampResources.cs 一样被 DeadSignal.Combat.Tests 以 Link 方式编入单测）。
-// 承载饥饿刻度的全部规则：衰减/进食/上限 clamp/到 0 饿死/各级能力惩罚与士气阶梯，
+// 承载饥饿刻度的全部规则：衰减/进食/上限 clamp/到 0 饿死/各级能力惩罚，
 // 以及"饥饿惩罚 × 残疾惩罚"的合并算法。Pawn 只持有本对象并转发，战斗消费点读其惩罚。
 
 /// <summary>
@@ -80,9 +80,6 @@ public sealed class HungerState
     /// </summary>
     public double AbilityPenalty => PenaltyFor(Value);
 
-    /// <summary>本角色本次昼夜切换给营地士气造成的下降量（拟定待调，越饿越重，从"饥饿(3)"开始）。</summary>
-    public double MoralePenaltyPerPhase => MoraleFor(Value);
-
     /// <summary>某刻度的能力惩罚阶梯（拟定待调）。</summary>
     public static double PenaltyFor(int value) => value switch
     {
@@ -90,16 +87,6 @@ public sealed class HungerState
         (int)HungerLevel.Malnourished => 0.45,     // 1 营养不良
         (int)HungerLevel.Ravenous => 0.25,         // 2 极度饥饿
         (int)HungerLevel.Hungry => 0.10,           // 3 饥饿
-        _ => 0.0,                                  // 4 有点饿 / 5 正常 / 6 吃撑
-    };
-
-    /// <summary>某刻度对营地士气的每昼夜切换下降阶梯（拟定待调）。</summary>
-    public static double MoraleFor(int value) => value switch
-    {
-        <= (int)HungerLevel.Starved => 0.0,        // 0 饿死（当次结算另计死亡，不再叠士气）
-        (int)HungerLevel.Malnourished => 6.0,      // 1 营养不良
-        (int)HungerLevel.Ravenous => 3.0,          // 2 极度饥饿
-        (int)HungerLevel.Hungry => 1.0,            // 3 饥饿
         _ => 0.0,                                  // 4 有点饿 / 5 正常 / 6 吃撑
     };
 

@@ -64,14 +64,14 @@ public sealed partial class MealPanel : CanvasLayer
         _panel.AddChild(continueBtn);
     }
 
-    /// <summary>填充并显示：标题 + 本餐食物/士气结算 + 饥饿加深名单 + 气泡对话。</summary>
+    /// <summary>填充并显示：标题 + 本餐食物结算 + 饥饿加深名单 + 气泡对话。</summary>
     public void ShowMeal(string title, MealOutcome outcome, IReadOnlyList<MealBubble> bubbles,
         IReadOnlyList<string>? hungerNotes = null)
     {
         _title.Text = title;
 
         string shortNote = outcome.Missing > 0
-            ? $"　食物不足 {outcome.Missing} 份，士气 {outcome.MoraleDelta:0.#}（现 {outcome.Morale:0})"
+            ? $"　食物不足 {outcome.Missing} 份，{outcome.Missing} 人没吃上饭"
             : "";
         string hungerNote = hungerNotes is { Count: > 0 }
             ? $"\n饥饿加深：{string.Join("、", hungerNotes)}"

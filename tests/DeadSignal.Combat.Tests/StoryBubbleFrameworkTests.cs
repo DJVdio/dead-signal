@@ -41,14 +41,13 @@ public class StoryBubbleFrameworkTests
 
     private static MealWorldContext Ctx(
         string phase = "dusk", StoryFlags? flags = null,
-        IEnumerable<PawnSnapshot>? pawns = null, int food = 10, double morale = 50) =>
+        IEnumerable<PawnSnapshot>? pawns = null, int food = 10) =>
         new MealWorldContext
         {
             Phase = phase,
             Flags = flags ?? new StoryFlags(),
             Pawns = (pawns ?? Enumerable.Empty<PawnSnapshot>()).ToList(),
             Food = food,
-            Morale = morale,
         };
 
     [Fact]
@@ -97,15 +96,15 @@ public class StoryBubbleFrameworkTests
     }
 
     [Fact]
-    public void Predicate_Food_Morale_Comparisons()
+    public void Predicate_Food_Comparisons()
     {
         var lowFood = new BubblePredicate { type = "food", op = "lt", amount = 5 };
         Assert.True(lowFood.Eval(Ctx(food: 3)));
         Assert.False(lowFood.Eval(Ctx(food: 8)));
 
-        var highMorale = new BubblePredicate { type = "morale", op = "gte", amount = 60 };
-        Assert.True(highMorale.Eval(Ctx(morale: 70)));
-        Assert.False(highMorale.Eval(Ctx(morale: 40)));
+        var highFood = new BubblePredicate { type = "food", op = "gte", amount = 60 };
+        Assert.True(highFood.Eval(Ctx(food: 70)));
+        Assert.False(highFood.Eval(Ctx(food: 40)));
     }
 
     [Fact]
@@ -156,15 +155,15 @@ public class StoryBubbleFrameworkTests
             any = new List<BubblePredicate>
             {
                 new BubblePredicate { type = "food", op = "lt", amount = 5 },
-                new BubblePredicate { type = "morale", op = "lt", amount = 20 },
+                new BubblePredicate { type = "food", op = "gte", amount = 90 },
             },
         };
-        // all 满足 + any 中士气低满足
-        Assert.True(cond.IsSatisfied(Ctx(phase: "dusk", flags: flags, food: 99, morale: 10)));
-        // any 全不满足
-        Assert.False(cond.IsSatisfied(Ctx(phase: "dusk", flags: flags, food: 99, morale: 99)));
+        // all 满足 + any 中"食物充足"满足
+        Assert.True(cond.IsSatisfied(Ctx(phase: "dusk", flags: flags, food: 99)));
+        // any 全不满足（食物既非 <5 也非 ≥90）
+        Assert.False(cond.IsSatisfied(Ctx(phase: "dusk", flags: flags, food: 50)));
         // all 中相位不满足
-        Assert.False(cond.IsSatisfied(Ctx(phase: "dawn", flags: flags, food: 1, morale: 10)));
+        Assert.False(cond.IsSatisfied(Ctx(phase: "dawn", flags: flags, food: 99)));
     }
 
     [Fact]

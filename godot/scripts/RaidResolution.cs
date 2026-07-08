@@ -24,13 +24,12 @@ public readonly struct RaidEvaluation
 }
 
 /// <summary>
-/// 防御战后果（拟定待调占位）：损失食物/士气/伤亡数。守住则全 0。
+/// 防御战后果（拟定待调占位）：损失食物份数。守住则为 0。
 /// 由 CampMain 施加到 <c>CampResources</c>；伤亡在实时战斗里自然产生，此处只记建议值。
 /// </summary>
 public readonly struct RaidConsequence
 {
     public int FoodLoss { get; init; }
-    public double MoraleLoss { get; init; }
 }
 
 /// <summary>
@@ -66,15 +65,15 @@ public static class RaidResolution
     public static RaidConsequence ConsequenceFor(RaidEvaluation eval)
     {
         if (eval.State != RaidState.Overrun)
-            return new RaidConsequence { FoodLoss = 0, MoraleLoss = 0 };
+            return new RaidConsequence { FoodLoss = 0 };
 
         return eval.Reason switch
         {
-            // 破防：丧尸翻箱倒柜 + 全营惊惧，损失更重。
-            OverrunReason.Breached => new RaidConsequence { FoodLoss = 4, MoraleLoss = 20 },
-            // 守卫全倒：防线失守，士气重挫。
-            OverrunReason.GuardsFell => new RaidConsequence { FoodLoss = 2, MoraleLoss = 15 },
-            _ => new RaidConsequence { FoodLoss = 2, MoraleLoss = 10 },
+            // 破防：丧尸翻箱倒柜，损失更重。
+            OverrunReason.Breached => new RaidConsequence { FoodLoss = 4 },
+            // 守卫全倒：防线失守。
+            OverrunReason.GuardsFell => new RaidConsequence { FoodLoss = 2 },
+            _ => new RaidConsequence { FoodLoss = 2 },
         };
     }
 }

@@ -185,7 +185,6 @@ public sealed class GuardDefenseTests
         var c = RaidResolution.ConsequenceFor(
             RaidResolution.Evaluate(0, 2, false));
         Assert.Equal(0, c.FoodLoss);
-        Assert.Equal(0, c.MoraleLoss);
     }
 
     [Fact]
@@ -195,25 +194,22 @@ public sealed class GuardDefenseTests
             new RaidEvaluation { State = RaidState.Overrun, Reason = OverrunReason.Breached });
         var fell = RaidResolution.ConsequenceFor(
             new RaidEvaluation { State = RaidState.Overrun, Reason = OverrunReason.GuardsFell });
-        Assert.True(breach.FoodLoss >= fell.FoodLoss);
-        Assert.True(breach.MoraleLoss > fell.MoraleLoss);
+        Assert.True(breach.FoodLoss > fell.FoodLoss);
     }
 
     [Fact]
     public void CampResources_ApplyRaidLoss_deducts_and_clamps()
     {
-        var res = new CampResources(food: 3, morale: 10, moralePenaltyPerMissingMeal: 4, moraleMax: 100);
-        res.ApplyRaidLoss(foodLoss: 5, moraleLoss: 25); // 均超过当前值，应夹到 0
+        var res = new CampResources(food: 3);
+        res.ApplyRaidLoss(foodLoss: 5); // 超过当前值，应夹到 0
         Assert.Equal(0, res.Food);
-        Assert.Equal(0, res.Morale);
     }
 
     [Fact]
     public void CampResources_ApplyRaidLoss_partial()
     {
-        var res = new CampResources(food: 10, morale: 80, moralePenaltyPerMissingMeal: 4, moraleMax: 100);
-        res.ApplyRaidLoss(foodLoss: 4, moraleLoss: 20);
+        var res = new CampResources(food: 10);
+        res.ApplyRaidLoss(foodLoss: 4);
         Assert.Equal(6, res.Food);
-        Assert.Equal(60, res.Morale);
     }
 }

@@ -26,7 +26,7 @@ public sealed partial class Pawn : Actor
     public bool Stationing { get; set; }
 
     /// <summary>
-    /// 饥饿刻度状态机（见 <see cref="HungerState"/>，数值化 0-6）。全部规则（衰减/进食/上限/惩罚/士气）
+    /// 饥饿刻度状态机（见 <see cref="HungerState"/>，数值化 0-6）。全部规则（衰减/进食/上限/惩罚）
     /// 归纯逻辑对象；Pawn 只持有并在昼夜切换/聚餐时驱动，并把能力惩罚经钩子喂给战斗消费点。
     /// 普通幸存者上限 5；"大胃袋"特质将来可传 6（本轮所有 Pawn 默认 5）。
     /// </summary>

@@ -1,6 +1,3 @@
 {
-  "initialFood": 12,
-  "initialMorale": 80,
-  "moraleMax": 100,
-  "moralePenaltyPerMissingMeal": 4
+  "initialFood": 12
 }

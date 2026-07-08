@@ -31,7 +31,7 @@
     <Compile Include="..\..\godot\scripts\CombatMoteText.cs" Link="Consumed\CombatMoteText.cs" />
     <Compile Include="..\..\godot\scripts\CombatLogFormatter.cs" Link="Consumed\CombatLogFormatter.cs" />
     <Compile Include="..\..\godot\scripts\PawnInspection.cs" Link="Consumed\PawnInspection.cs" />
-    <!-- 饥饿系统 v2 纯逻辑（无 Godot 依赖）：刻度枚举 + 衰减/进食/上限/惩罚/士气/合并算法。 -->
+    <!-- 饥饿系统 v2 纯逻辑（无 Godot 依赖）：刻度枚举 + 衰减/进食/上限/惩罚/合并算法。 -->
     <Compile Include="..\..\godot\scripts\HungerLevel.cs" Link="Consumed\HungerLevel.cs" />
     <Compile Include="..\..\godot\scripts\HungerState.cs" Link="Consumed\HungerState.cs" />
     <!-- D 守卫防御战纯逻辑（无 Godot 依赖）：岗位属性/波次规模/胜负结算/物资失血。 -->

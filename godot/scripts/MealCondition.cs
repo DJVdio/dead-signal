@@ -9,7 +9,7 @@ namespace DeadSignal.Godot;
 // （与 HungerState.cs 一样被 DeadSignal.Combat.Tests 以 Link 方式编入单测）。
 //
 // 「按条件播放用户写的台词」框架的**条件层**：
-//   · MealWorldContext —— 喂给选择器的"世界只读快照"（相位/flags/角色状态/食物/士气）。
+//   · MealWorldContext —— 喂给选择器的"世界只读快照"（相位/flags/角色状态/食物）。
 //   · PawnSnapshot     —— 单个角色供条件求值的**纯数据**状态（只读引擎真实状态，不发明新状态）。
 //   · BubblePredicate / BubbleCondition —— json 里用户写的谓词与与/或组合。
 //   · BubbleTrigger    —— 说完一句后要改的 flag。
@@ -107,9 +107,6 @@ public sealed class MealWorldContext
     /// <summary>营地食物存量。</summary>
     public int Food { get; init; }
 
-    /// <summary>营地士气。</summary>
-    public double Morale { get; init; }
-
     /// <summary>按名字找角色快照（不区分大小写）；找不到返回 null。</summary>
     public PawnSnapshot? PawnNamed(string? name) =>
         name is null ? null : Pawns.FirstOrDefault(p => string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase));
@@ -123,7 +120,6 @@ public sealed class MealWorldContext
 ///   · "any_pawn_state"  —— 存在某角色处于 <see cref="value"/> 状态（severed_hand/disabled/dead/…）。
 ///   · "pawn_state"      —— 具名角色 <see cref="name"/> 处于 <see cref="value"/> 状态。
 ///   · "food"            —— 食物 与 <see cref="amount"/> 按 <see cref="op"/> 比较（lt/lte/eq/gte/gt）。
-///   · "morale"          —— 士气 与 <see cref="amount"/> 按 <see cref="op"/> 比较。
 ///   · "hunger"          —— 角色饥饿刻度 ≤ <see cref="stage"/>（<see cref="name"/> 省略=存在任一角色满足）。
 /// 无法识别的 type 恒为假（保守，避免误播）。
 /// </summary>
@@ -144,7 +140,6 @@ public sealed class BubblePredicate
         "any_pawn_state" => ctx.Pawns.Any(p => p.HasState(value)),
         "pawn_state" => ctx.PawnNamed(name)?.HasState(value) ?? false,
         "food" => Compare(ctx.Food, op, amount),
-        "morale" => Compare(ctx.Morale, op, amount),
         "hunger" => EvalHunger(ctx),
         _ => false,
     };

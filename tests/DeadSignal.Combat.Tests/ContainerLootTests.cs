@@ -135,7 +135,7 @@ public class ContainerLootTests
     [Fact]
     public void AddFood_accumulates_and_clamps_negative_to_zero()
     {
-        var res = new CampResources(food: 5, morale: 80, moralePenaltyPerMissingMeal: 4);
+        var res = new CampResources(food: 5);
         res.AddFood(4);
         Assert.Equal(9, res.Food);
         res.AddFood(-10); // 负数当 0，不减食物

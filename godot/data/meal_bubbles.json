@@ -37,8 +37,6 @@
     "condition": { "all": [ { "type": "food", "op": "lte", "amount": 2 } ] } },
   { "speaker": null, "text": "有人小声算着还剩多少口粮，越算越沉。", "phase": "any", "weight": 1.5,
     "condition": { "all": [ { "type": "food", "op": "lt", "amount": 4 } ] } },
-  { "speaker": null, "text": "屋里气氛闷得化不开，有人重重叹了口气。", "phase": "any", "weight": 2.0,
-    "condition": { "all": [ { "type": "morale", "op": "lt", "amount": 20 } ] } },
 
   { "speaker": null, "text": "席间提起了一件搁了很久没说的事。", "phase": "dusk",
     "condition": { "all": [ { "type": "flag", "key": "example_story_flag" } ] },

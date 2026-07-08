@@ -1268,9 +1268,9 @@ public sealed partial class CampMain : Node2D
     private void EnterDuskMeal() => _clock.TransitionTo(DayPhase.DuskMeal);
 
     /// <summary>
-    /// 一次聚餐（发生在昼夜相位切换点，一天两次）：全员用餐扣食物（不足则士气下降）+ 触发气泡，弹出模态面板。
+    /// 一次聚餐（发生在昼夜相位切换点，一天两次）：全员用餐扣食物（不足则未进食者饥饿加深）+ 触发气泡，弹出模态面板。
     /// 饥饿模型（净零）：本次切换全员饥饿刻度无条件 -1；吃到饭者 +1（clamp 到各自上限）——吃满两餐即维持。
-    /// 结算后：按各存活者刻度累加饥饿士气下降；刻度归 0 者饿死（走统一死亡路径）。
+    /// 结算后：刻度归 0 者饿死（走统一死亡路径）。
     /// </summary>
     private void RunMeal(string title, string phaseTag)
     {
@@ -1280,7 +1280,7 @@ public sealed partial class CampMain : Node2D
         var dinerInputs = living.Select(ToDiner).ToList();
         RationOutcome ration = FoodEconomy.Allocate(_resources.Food, dinerInputs, _rationStrategy);
 
-        // 食物扣减 + 士气：续用 ConsumeMeal——每份=1 时其消耗/缺口与分粮结算完全一致，
+        // 食物扣减：续用 ConsumeMeal——每份=1 时其消耗/缺口与分粮结算完全一致，
         // 仅"谁吃到"从原序改由 ration.Fed 决定（见下逐人喂食）。
         MealOutcome outcome = _resources.ConsumeMeal(living.Count);
 
@@ -1298,20 +1298,13 @@ public sealed partial class CampMain : Node2D
             }
         }
 
-        // 饥饿士气下降（越饿越重，阶梯见 HungerState.MoraleFor）：按结算后各存活者刻度累加一次扣减。
-        double hungerMorale = living.Sum(d => d.Hunger.MoralePenaltyPerPhase);
-        if (hungerMorale > 0)
-        {
-            _resources.ApplyHungerMorale(hungerMorale);
-        }
-
         // 饿死：刻度归 0 者走统一死亡路径（Died 事件会改 _survivors，先收集再逐个处理）。
         foreach (var starved in living.Where(d => d.IsStarvedToDeath).ToList())
         {
             starved.StarveToDeath();
         }
 
-        // 构造"世界只读快照"喂条件驱动选择器：相位 + 当前 flags + 存活者真实状态 + 食物/士气。
+        // 构造"世界只读快照"喂条件驱动选择器：相位 + 当前 flags + 存活者真实状态 + 食物。
         // 角色状态只读引擎真实状态（经 Inspect→PawnSnapshot），不发明新状态、不做关系/性格。
         // 在场存活者 + 近期已故者的快照都放进 Pawns：前者供伤/饥饿谓词，后者供 dead 死亡反应谓词。
         var pawnSnapshots = _survivors.Where(s => s.Alive)
@@ -1324,7 +1317,6 @@ public sealed partial class CampMain : Node2D
             Flags = _storyFlags,
             Pawns = pawnSnapshots,
             Food = _resources.Food,
-            Morale = _resources.Morale,
         };
         var bubbles = _bubblePool.Pick(context, 3);
         // 应用选中气泡的 triggers（改 flags）——推动剧情；选择器不隐式改 flag，故独立成步。
@@ -1782,15 +1774,15 @@ public sealed partial class CampMain : Node2D
             FinishRaid(eval);
     }
 
-    /// <summary>结算收口：守住无损失；被攻破按 <see cref="RaidResolution.ConsequenceFor"/> 扣食物/士气。</summary>
+    /// <summary>结算收口：守住无损失；被攻破按 <see cref="RaidResolution.ConsequenceFor"/> 扣食物。</summary>
     private void FinishRaid(RaidEvaluation eval)
     {
         _raidActive = false;
         RaidConsequence cons = RaidResolution.ConsequenceFor(eval);
         if (eval.State == RaidState.Overrun)
         {
-            _resources.ApplyRaidLoss(cons.FoodLoss, cons.MoraleLoss);
-            GD.Print($"[Raid] 防御战失败（{eval.Reason}）：损食物 {cons.FoodLoss}、士气 {cons.MoraleLoss}。伤亡在实时战斗中自然产生。");
+            _resources.ApplyRaidLoss(cons.FoodLoss);
+            GD.Print($"[Raid] 防御战失败（{eval.Reason}）：损食物 {cons.FoodLoss}。伤亡在实时战斗中自然产生。");
         }
         else
         {
@@ -1957,8 +1949,8 @@ public sealed partial class CampMain : Node2D
         if (eval.State == RaidState.Overrun)
         {
             RaidConsequence cons = RaidResolution.ConsequenceFor(eval);
-            _resources.ApplyRaidLoss(cons.FoodLoss, cons.MoraleLoss);
-            GD.Print($"[教学关] 袭击失利（{eval.Reason}）：损食物 {cons.FoodLoss}、士气 {cons.MoraleLoss}。");
+            _resources.ApplyRaidLoss(cons.FoodLoss);
+            GD.Print($"[教学关] 袭击失利（{eval.Reason}）：损食物 {cons.FoodLoss}。");
         }
         else
         {
@@ -2705,7 +2697,7 @@ public sealed partial class CampMain : Node2D
                 }
             }
         }
-        return new CampResources(raw.initialFood, raw.initialMorale, raw.moralePenaltyPerMissingMeal, raw.moraleMax);
+        return new CampResources(raw.initialFood);
     }
 
     private MealBubblePool LoadMealBubbles()
@@ -2850,16 +2842,10 @@ public sealed partial class CampMain : Node2D
     private struct CampResourcesRaw
     {
         public int initialFood { get; set; }
-        public double initialMorale { get; set; }
-        public double moraleMax { get; set; }
-        public double moralePenaltyPerMissingMeal { get; set; }
 
         public static CampResourcesRaw Default() => new()
         {
             initialFood = 12,
-            initialMorale = 80,
-            moraleMax = 100,
-            moralePenaltyPerMissingMeal = 4,
         };
     }
 
