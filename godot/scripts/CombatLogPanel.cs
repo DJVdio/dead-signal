@@ -17,6 +17,7 @@ public sealed partial class CombatLogPanel : Control
     private const int MaxLines = 8;
     private const float LineWidth = 300f;
 
+    private PanelContainer _panel = null!;
     private VBoxContainer _lines = null!;
     private readonly Queue<Label> _queue = new();
 
@@ -27,6 +28,7 @@ public sealed partial class CombatLogPanel : Control
         MouseFilter = MouseFilterEnum.Ignore;
 
         var panel = new PanelContainer();
+        _panel = panel;
         panel.SetAnchorsPreset(LayoutPreset.BottomRight);
         panel.GrowHorizontal = GrowDirection.Begin;
         panel.GrowVertical = GrowDirection.Begin;
@@ -45,6 +47,9 @@ public sealed partial class CombatLogPanel : Control
             CornerRadiusBottomLeft = 4,
             CornerRadiusBottomRight = 4,
         });
+        // 空态（尚无任何战报，如刚进 NightAct）不显示——否则 PanelContainer 的黑底 stylebox 会缩成
+        // 一小块半透明黑块钉在右下角，看似残留占位。有第一条日志时再现（AppendLine 里点亮）。
+        panel.Visible = false;
         AddChild(panel);
 
         _lines = new VBoxContainer();
@@ -85,6 +90,7 @@ public sealed partial class CombatLogPanel : Control
         label.AddThemeColorOverride("font_outline_color", new Color(0, 0, 0, 0.9f));
         label.AddThemeConstantOverride("outline_size", 3);
         _lines.AddChild(label);
+        _panel.Visible = true;
 
         _queue.Enqueue(label);
         while (_queue.Count > MaxLines)
