@@ -54,6 +54,14 @@ public sealed class CampResources
     }
 
     /// <summary>
+    /// 入库食物份数（营地搜刮落点）：搜到的食物不长留库存，直接累加到食物份数（clamp 到 ≥0，负数当 0）。
+    /// </summary>
+    public void AddFood(int portions)
+    {
+        Food = Math.Max(0, Food + Math.Max(0, portions));
+    }
+
+    /// <summary>
     /// 防御战失败后果落点（D 守卫防御战）：扣食物份数 + 扣士气（各自不越界）。
     /// 数值由 <see cref="RaidResolution.ConsequenceFor"/> 给出"拟定待调"建议值。
     /// </summary>

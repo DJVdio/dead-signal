@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
@@ -52,6 +53,30 @@ public sealed partial class CampMain : Node2D
     private MealPanel _mealPanel = null!;
     private CampResources _resources = null!;
     private MealBubblePool _bubblePool = null!;
+
+    // ---------------- 营地搜刮 / 共享库存 / 阅读（W3a） ----------------
+    // 背包=营地共享库存（用户口径）：所有搜到的武器/护甲/书进这里，食物进 _resources.Food。
+    private readonly InventoryStore _inventory = new();
+    // loot 容器（衣柜/展示柜/草垛）的一次性搜刮登记；storage 容器（柜子）不入此表，其藏物开局即入库存。
+    private readonly ContainerLoot _containerLoot = new();
+    // 书 id → 同一 BookData 实例（阅读面板 MarkRead 后已读态共享，故必须持同一实例）。
+    private readonly Dictionary<string, BookData> _bookRegistry = new();
+    private Func<string, BookData?> _bookResolver = _ => null;
+    // 场上可点击容器（cartesian rect + 角色 + 藏物），点击命中据此存取/搜刮。
+    private readonly List<ContainerRef> _containers = new();
+    private StashPanel _stashPanel = null!;
+    private ReaderPanel _readerPanel = null!;
+    private bool _stashOpen;             // 库存面板是否开着（时标冻结的唯一持有者）
+    private double _prevStashTimeScale;  // 开库存前的时标（关闭时恢复）
+
+    /// <summary>场上一个可点击容器：名字（稳定标识）+ cartesian 命中矩形 + 角色（storage/loot）+ 藏物清单。</summary>
+    private sealed class ContainerRef
+    {
+        public string Name = "";
+        public Rect2 Rect;
+        public string Role = "";
+        public List<LootItem> Loot = new();
+    }
     // 剧情/世界 flag 存储：condition 谓词只读它、气泡 triggers 写它，推动用户手写剧情走向。
     // 内容（哪些 flag、取什么值）全部来自 meal_bubbles.json 里用户填的数据；此处仅持有存储实例。
     private readonly StoryFlags _storyFlags = new StoryFlags();
@@ -176,6 +201,24 @@ public sealed partial class CampMain : Node2D
         _mealPanel.Visible = false;
         _mealPanel.Continued += OnMealContinued;
 
+        // 营地搜刮/库存/阅读（W3a）。书解析器取 BookLibrary 的**单一快照实例**（每 id 一份，已读态共享）。
+        var bookSnapshot = BookLibrary.All().ToDictionary(b => b.Id);
+        _bookResolver = id => bookSnapshot.TryGetValue(id, out BookData? b) ? b : null;
+
+        _stashPanel = new StashPanel { Layer = 20 };
+        AddChild(_stashPanel);
+        _stashPanel.Visible = false;
+        _stashPanel.BookOpenRequested += OnBookOpenRequested;
+        _stashPanel.Closed += CloseStash;
+
+        _readerPanel = new ReaderPanel { Layer = 21 }; // 叠在库存面板之上
+        AddChild(_readerPanel);
+        _readerPanel.Visible = false;
+        _readerPanel.Closed += OnReaderClosed;
+
+        // storage 容器（住宅柜子）的开局藏物：食物入 _resources.Food、书/武器/护甲入共享库存。
+        ApplyStorageInitialStock();
+
         _ambient = new CanvasModulate();
         AddChild(_ambient);
 
@@ -279,13 +322,14 @@ public sealed partial class CampMain : Node2D
             BuildBuilding(b);
         }
 
-        // 道具（工作台等实心障碍，矮立体块）。
+        // 道具（工作台等实心障碍，矮立体块）。带 role 的道具（storage/loot）另登记为可点击容器。
         foreach (PropSpec pr in _cfg.props ?? System.Array.Empty<PropSpec>())
         {
             if (ToRect(pr.rect) is { } r)
             {
                 var style = new PixelStyle { color = pr.color, jitter = pr.jitter };
                 AddSolid(r, style, seed: 17, (float)_heights.prop, cell: 200f);
+                RegisterContainer(pr, r);
             }
         }
 
@@ -837,6 +881,13 @@ public sealed partial class CampMain : Node2D
     private void FinishSelection(Vector2 releaseScreen)
     {
         bool isBox = _dragStartScreen.DistanceTo(releaseScreen) >= DragThreshold;
+
+        // 单击（非框选）优先判容器命中：命中即存取/搜刮，保留当前选中不动，不落到选人/收面板逻辑。
+        if (!isBox && TryOpenContainerAt(Iso.Unproject(_dragStartWorldIso)))
+        {
+            return;
+        }
+
         ClearSelection();
 
         if (isBox)
@@ -1781,6 +1832,153 @@ public sealed partial class CampMain : Node2D
         _storyFlags.Set("tutorial_raider_done", "true");
     }
 
+    // ---------------- 营地搜刮 / 共享库存 / 阅读（W3a） ----------------
+
+    /// <summary>把一个带 role 的道具登记为可点击容器：loot 类进 <see cref="_containerLoot"/>（一次性搜刮），storage 类留藏物待开局入库。</summary>
+    private void RegisterContainer(PropSpec pr, Rect2 rect)
+    {
+        if (string.IsNullOrEmpty(pr.role) || string.IsNullOrEmpty(pr.name))
+        {
+            return;
+        }
+        List<LootItem> loot = ParseLoot(pr.loot);
+        _containers.Add(new ContainerRef { Name = pr.name!, Rect = rect, Role = pr.role!, Loot = loot });
+        if (pr.role == "loot")
+        {
+            _containerLoot.Register(pr.name!, loot);
+        }
+    }
+
+    /// <summary>camp.json 的 loot 规格 → 纯逻辑 <see cref="LootItem"/> 清单（未知 kind / 缺引用键的条目忽略）。</summary>
+    private static List<LootItem> ParseLoot(LootSpec[]? specs)
+    {
+        var list = new List<LootItem>();
+        foreach (LootSpec s in specs ?? System.Array.Empty<LootSpec>())
+        {
+            switch (s.kind)
+            {
+                case "food":
+                    list.Add(LootItem.Food(s.qty > 0 ? s.qty : 1));
+                    break;
+                case "book" when !string.IsNullOrEmpty(s.id):
+                    list.Add(LootItem.Book(s.id!));
+                    break;
+                case "weapon" when !string.IsNullOrEmpty(s.id):
+                    list.Add(LootItem.Weapon(s.id!));
+                    break;
+                case "armor" when !string.IsNullOrEmpty(s.id):
+                    list.Add(LootItem.Armor(s.id!));
+                    break;
+            }
+        }
+        return list;
+    }
+
+    /// <summary>建好库存/面板/时标钩子后，把 storage 容器（住宅柜子）的开局藏物一次性落地到共享库存/食物。</summary>
+    private void ApplyStorageInitialStock()
+    {
+        foreach (ContainerRef c in _containers.Where(c => c.Role == "storage"))
+        {
+            int food = LootApplication.Apply(c.Loot, _inventory, _bookRegistry, _bookResolver);
+            if (food > 0)
+            {
+                _resources.AddFood(food);
+            }
+        }
+    }
+
+    /// <summary>
+    /// 点击落点（cartesian）命中某容器则处理：storage→开库存面板；loot→未搜过则搜出入库 + 反馈，随后开库存面板看结果。
+    /// 命中返回 <c>true</c>（调用方据此不再走选人/收面板逻辑）。
+    /// </summary>
+    private bool TryOpenContainerAt(Vector2 cart)
+    {
+        ContainerRef? hit = _containers.FirstOrDefault(c => c.Rect.Grow(8f).HasPoint(cart));
+        if (hit == null)
+        {
+            return false;
+        }
+
+        if (hit.Role == "storage")
+        {
+            OpenStash(null);
+            return true;
+        }
+
+        // loot 容器：一次性搜刮。
+        if (_containerLoot.IsSearched(hit.Name))
+        {
+            OpenStash($"{hit.Name}：已经搜过了。");
+            return true;
+        }
+        IReadOnlyList<LootItem> loot = _containerLoot.Search(hit.Name);
+        int food = LootApplication.Apply(loot, _inventory, _bookRegistry, _bookResolver);
+        if (food > 0)
+        {
+            _resources.AddFood(food);
+        }
+        int itemCount = loot.Count(l => l.Kind != LootKind.Food);
+        string notice = loot.Count == 0
+            ? $"{hit.Name}：空空如也。"
+            : food > 0
+                ? $"在{hit.Name}搜到 {itemCount} 件物品、{food} 份食物。"
+                : $"在{hit.Name}搜到 {itemCount} 件物品。";
+        GD.Print($"[搜刮] {notice}");
+        OpenStash(notice);
+        return true;
+    }
+
+    /// <summary>打开（或刷新）库存面板：首次打开冻结时标；<paramref name="notice"/> 为可空的一行搜刮反馈。</summary>
+    private void OpenStash(string? notice)
+    {
+        if (!_stashOpen)
+        {
+            _prevStashTimeScale = Engine.TimeScale;
+            Engine.TimeScale = 0;
+            _stashOpen = true;
+        }
+        _stashPanel.ShowStash(_inventory, _resources.Food, notice, IsBookRead);
+        _stashPanel.Visible = true;
+    }
+
+    /// <summary>关库存面板：连带关阅读面板、恢复时标（暂停中打开的则回 1，避免冻死）。</summary>
+    private void CloseStash()
+    {
+        _stashPanel.Visible = false;
+        _readerPanel.Visible = false;
+        _stashOpen = false;
+        Engine.TimeScale = _prevStashTimeScale <= 0 ? 1 : _prevStashTimeScale;
+    }
+
+    /// <summary>库存里点某本书的「阅读」：置已读 + 记配方桩，弹阅读面板（叠在库存之上）。</summary>
+    private void OnBookOpenRequested(string bookId)
+    {
+        if (!_bookRegistry.TryGetValue(bookId, out BookData? bd))
+        {
+            return;
+        }
+        bd.MarkRead();
+        if (bd.GrantsRecipeStub != null)
+        {
+            GD.Print($"[阅读] 读完《{bd.Title}》，获得配方（桩，配方系统后续接）：{bd.GrantsRecipeStub}");
+        }
+        _readerPanel.ShowBook(bd.Title, bd.Body);
+        _readerPanel.Visible = true;
+    }
+
+    /// <summary>关阅读面板回到库存：刷新库存（反映刚置的「已读」标记），时标仍由库存面板持有。</summary>
+    private void OnReaderClosed()
+    {
+        _readerPanel.Visible = false;
+        if (_stashOpen)
+        {
+            _stashPanel.ShowStash(_inventory, _resources.Food, null, IsBookRead);
+        }
+    }
+
+    private bool IsBookRead(string bookId) =>
+        _bookRegistry.TryGetValue(bookId, out BookData? b) && b.IsRead;
+
     // ---------------- 工具 ----------------
 
     private static Vector2[] RectPoints(Rect2 r) => new[]
@@ -1998,6 +2196,17 @@ public sealed partial class CampMain : Node2D
         public double[]? color { get; set; }
         public double tile { get; set; }
         public double jitter { get; set; }
+        // W3a 搜刮：role = storage（共享库存存取）/ loot（一次性搜刮）；loot = 藏物清单（storage 类即开局库存）。
+        public string? role { get; set; }
+        public LootSpec[]? loot { get; set; }
+    }
+
+    /// <summary>容器藏物一条：kind = food/book/weapon/armor；qty = 食物份数；id = 书 id / 武器名 / 护甲名。</summary>
+    private struct LootSpec
+    {
+        public string? kind { get; set; }
+        public int qty { get; set; }
+        public string? id { get; set; }
     }
 
     private struct SpawnSpec
