@@ -27,9 +27,9 @@ public class PawnInspectionTests
         Assert.False(snap.IsFullyBlind);
         Assert.Equal(BloodLossTier.None, snap.BloodTier);
         Assert.Equal(1.0, snap.BloodRatio, 3);
-        // 满员人体细部位数 = 37（含两级命中新增：左右耳 2 + 十指 10 + 十趾 10）。
+        // 满员人体细部位数 = 36（已移除"颈"部位；含两级命中：左右耳 2 + 十指 10 + 十趾 10）。
         Assert.Equal(body.Parts.Count, snap.Parts.Count);
-        Assert.Equal(37, snap.Parts.Count);
+        Assert.Equal(36, snap.Parts.Count);
     }
 
     [Fact]
@@ -50,9 +50,9 @@ public class PawnInspectionTests
         Assert.False(torso.IsFractured);
         Assert.False(torso.IsBleeding);
 
-        // 头挂在颈下：ParentName 映射父部位名。
+        // 头直接挂躯干下（已移除颈部位）：ParentName 映射父部位名。
         PartStatus head = snap.Parts.Single(p => p.Name == HumanBody.Head);
-        Assert.Equal(HumanBody.Neck, head.ParentName);
+        Assert.Equal(HumanBody.Torso, head.ParentName);
     }
 
     [Fact]

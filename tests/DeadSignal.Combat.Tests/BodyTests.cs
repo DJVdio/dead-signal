@@ -9,8 +9,8 @@ public class BodyTests
     public void NewBody_AllPartsFullHp()
     {
         var body = HumanBody.NewBody();
-        Assert.Equal(55, body.HpOf(HumanBody.Torso));
-        Assert.Equal(10, body.HpOf(HumanBody.LeftHand));
+        Assert.Equal(28, body.HpOf(HumanBody.Torso));
+        Assert.Equal(16, body.HpOf(HumanBody.LeftHand));
         Assert.False(body.IsDead);
     }
 
@@ -18,7 +18,7 @@ public class BodyTests
     public void VitalPart_ZeroHp_CausesDeath()
     {
         var body = HumanBody.NewBody();
-        body.ApplyDamage(HumanBody.Torso, 55);
+        body.ApplyDamage(HumanBody.Torso, 28);
         Assert.Equal(0, body.HpOf(HumanBody.Torso));
         Assert.True(body.IsDead);
     }
@@ -27,7 +27,7 @@ public class BodyTests
     public void LimbPart_ZeroHp_Disabled_NotDead()
     {
         var body = HumanBody.NewBody();
-        body.ApplyDamage(HumanBody.LeftLeg, 22);
+        body.ApplyDamage(HumanBody.LeftLeg, 21);
         Assert.True(body.IsDisabled(HumanBody.LeftLeg));
         Assert.False(body.IsDead);
     }
@@ -37,9 +37,9 @@ public class BodyTests
     {
         var body = HumanBody.NewBody();
         Assert.False(body.IsFullyBlind);
-        body.ApplyDamage(HumanBody.LeftEye, 3);
+        body.ApplyDamage(HumanBody.LeftEye, 6);
         Assert.False(body.IsFullyBlind); // 单眼盲不算全盲
-        body.ApplyDamage(HumanBody.RightEye, 3);
+        body.ApplyDamage(HumanBody.RightEye, 6);
         Assert.True(body.IsFullyBlind);
     }
 
@@ -84,11 +84,11 @@ public class BodyTests
     public void ErodeMaxHp_ReducesCeiling_AndDestroysAtZero()
     {
         var body = HumanBody.NewBody();
-        var e1 = body.ErodeMaxHp(HumanBody.LeftHand, 4); // 10 → 6
-        Assert.Equal(6, body.MaxHpOf(HumanBody.LeftHand), 9);
+        var e1 = body.ErodeMaxHp(HumanBody.LeftHand, 4); // 16 → 12
+        Assert.Equal(12, body.MaxHpOf(HumanBody.LeftHand), 9);
         Assert.False(e1.Destroyed);
 
-        var e2 = body.ErodeMaxHp(HumanBody.LeftHand, 6); // 6 → 0，损毁
+        var e2 = body.ErodeMaxHp(HumanBody.LeftHand, 12); // 12 → 0，损毁
         Assert.True(e2.Destroyed);
         Assert.True(body.IsDestroyed(HumanBody.LeftHand));
         Assert.False(e2.CausedDeath); // 四肢
@@ -99,7 +99,7 @@ public class BodyTests
     {
         // 致死部位（躯干）上限磨损归 0 = 死亡（锤烂胸腔）
         var body = HumanBody.NewBody();
-        var er = body.ErodeMaxHp(HumanBody.Torso, 55); // 55 → 0
+        var er = body.ErodeMaxHp(HumanBody.Torso, 28); // 28 → 0
         Assert.True(er.Destroyed);
         Assert.True(er.CausedDeath);
         Assert.True(body.IsDead);
@@ -113,7 +113,7 @@ public class BodyTests
         var body = HumanBody.NewBody();
         bool dropped = false;
         body.EquipmentDropped = _ => dropped = true;
-        body.ErodeMaxHp(HumanBody.LeftHand, 10); // 损毁
+        body.ErodeMaxHp(HumanBody.LeftHand, 16); // 损毁
         Assert.True(body.IsDestroyed(HumanBody.LeftHand));
         Assert.False(dropped); // 未触发掉落回调
     }

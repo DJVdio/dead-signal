@@ -25,7 +25,7 @@ public class EffectTests
     {
         var body = HumanBody.NewBody();
         var rng = new SequenceRandomSource(); // 切除为阈值判定，不耗 roll
-        var res = Hit(body, HumanBody.LeftHand, dmg: 10, DamageType.Sharp, initialRoll: 12); // maxHp 10
+        var res = Hit(body, HumanBody.LeftHand, dmg: 16, DamageType.Sharp, initialRoll: 12); // maxHp 16
 
         var outcome = new CombatEffectResolver(rng).Apply(body, SharpW, res);
 
@@ -39,7 +39,7 @@ public class EffectTests
     public void Sever_WhenHittingAlreadyZeroHpPart()
     {
         var body = HumanBody.NewBody();
-        body.ApplyDamage(HumanBody.RightHand, 10); // 打到 0
+        body.ApplyDamage(HumanBody.RightHand, 16); // 打到 0
         var rng = new SequenceRandomSource();
         var res = Hit(body, HumanBody.RightHand, dmg: 1, DamageType.Sharp, initialRoll: 3);
 
@@ -67,9 +67,9 @@ public class EffectTests
     public void Bleed_FiresWhenRollBelowProbability()
     {
         var body = HumanBody.NewBody();
-        // 手 maxHp10, dmg5 → p = clamp(1.0*5/10, .9) = 0.5
+        // 手 maxHp16, dmg5 → p = clamp(1.0*5/16, .9) = 0.3125
         var res = Hit(body, HumanBody.LeftHand, dmg: 5, DamageType.Sharp, initialRoll: 6);
-        var rng = new SequenceRandomSource(0.4); // 0.4 < 0.5 → 触发
+        var rng = new SequenceRandomSource(0.2); // 0.2 < 0.3125 → 触发
         var outcome = new CombatEffectResolver(rng).Apply(body, SharpW, res);
         Assert.Contains(outcome.Effects, e => e.Kind == DamageEffectKind.Bleed);
     }
@@ -79,7 +79,7 @@ public class EffectTests
     {
         var body = HumanBody.NewBody();
         var res = Hit(body, HumanBody.LeftHand, dmg: 5, DamageType.Sharp, initialRoll: 6);
-        var rng = new SequenceRandomSource(0.6); // 0.6 >= 0.5 → 不触发
+        var rng = new SequenceRandomSource(0.6); // 0.6 >= 0.3125 → 不触发
         var outcome = new CombatEffectResolver(rng).Apply(body, SharpW, res);
         Assert.DoesNotContain(outcome.Effects, e => e.Kind == DamageEffectKind.Bleed);
     }
@@ -120,7 +120,7 @@ public class EffectTests
     {
         // 用户口径：0HP 部位被护甲全额防住（dmg=0）→ 不切除，部位保住
         var body = HumanBody.NewBody();
-        body.ApplyDamage(HumanBody.LeftHand, 10); // 打到 0
+        body.ApplyDamage(HumanBody.LeftHand, 16); // 打到 0
         var res = Hit(body, HumanBody.LeftHand, dmg: 0, DamageType.Sharp, initialRoll: 8); // 被挡下
         var rng = new SequenceRandomSource();
         var outcome = new CombatEffectResolver(rng).Apply(body, SharpW, res);
@@ -136,7 +136,7 @@ public class EffectTests
     {
         // 0HP 部位 + 穿甲造成任意 >0 伤害 → 切除
         var body = HumanBody.NewBody();
-        body.ApplyDamage(HumanBody.LeftHand, 10); // 打到 0
+        body.ApplyDamage(HumanBody.LeftHand, 16); // 打到 0
         var res = Hit(body, HumanBody.LeftHand, dmg: 2, DamageType.Sharp, initialRoll: 5);
         var rng = new SequenceRandomSource();
         var outcome = new CombatEffectResolver(rng).Apply(body, SharpW, res);
@@ -150,9 +150,9 @@ public class EffectTests
     public void Concussion_NativeBlunt_FiresEvenWhenFullyBlocked()
     {
         var body = HumanBody.NewBody();
-        // 被甲完全挡下：dmg=0，但初始 roll 20 仍驱动震荡。头 maxHp25 → p=clamp(0.9*20/25,.85)=0.72
+        // 被甲完全挡下：dmg=0，但初始 roll 20 仍驱动震荡。头 maxHp16 → p=clamp(0.9*20/16,.85)=0.85（触顶）
         var res = Hit(body, HumanBody.Head, dmg: 0, DamageType.Sharp, initialRoll: 20);
-        var rng = new SequenceRandomSource(0.5); // 0.5 < 0.72 → 触发
+        var rng = new SequenceRandomSource(0.5); // 0.5 < 0.85 → 触发
         var outcome = new CombatEffectResolver(rng).Apply(body, BluntW, res);
         Assert.Contains(outcome.Effects, e => e.Kind == DamageEffectKind.Concussion);
     }
@@ -172,13 +172,13 @@ public class EffectTests
     public void Concussion_Torso_LowerProbabilityThanHead()
     {
         // 同样 initialRoll，躯干概率应远低于头
-        double headP = 0.9 * 20 / 25;   // 0.72
-        double torsoP = 0.25 * 20 / 55; // 0.09
+        double headP = 0.9 * 20 / 16;   // 1.125（未截顶原值；实际 cap .85）
+        double torsoP = 0.25 * 20 / 28; // ≈0.1786
         Assert.True(torsoP < headP);
 
         var body = HumanBody.NewBody();
         var res = Hit(body, HumanBody.Torso, dmg: 0, DamageType.Sharp, initialRoll: 20);
-        var rng = new SequenceRandomSource(0.10); // 0.10 >= 0.09 → 躯干不震荡
+        var rng = new SequenceRandomSource(0.20); // 0.20 >= 0.1786 → 躯干不震荡
         var outcome = new CombatEffectResolver(rng).Apply(body, BluntW, res);
         Assert.DoesNotContain(outcome.Effects, e => e.Kind == DamageEffectKind.Concussion);
     }
@@ -189,9 +189,9 @@ public class EffectTests
     public void Fracture_NativeBlunt_OnDamage()
     {
         var body = HumanBody.NewBody();
-        // 腿 maxHp22, dmg11 → p=clamp(0.8*11/22,.6)=0.4
+        // 腿 maxHp21, dmg11 → p=clamp(0.8*11/21,.6)≈0.419
         var res = Hit(body, HumanBody.LeftLeg, dmg: 11, DamageType.Blunt, initialRoll: 12);
-        var rng = new SequenceRandomSource(0.3); // 腿非震荡部位 → 仅骨折 roll；0.3<0.4 触发
+        var rng = new SequenceRandomSource(0.3); // 腿非震荡部位 → 仅骨折 roll；0.3<0.419 触发
         var outcome = new CombatEffectResolver(rng).Apply(body, BluntW, res);
         Assert.Contains(outcome.Effects, e => e.Kind == DamageEffectKind.Fracture);
     }
@@ -202,8 +202,8 @@ public class EffectTests
         // 用户拍板：骨折要落到 Body 持久态，供角色面板"健康页签"查询（狠辣向健康展示，非平衡问题）。
         // 复现：一次会触发骨折的天然钝器命中后，Body 应能持久查询该部位已骨折。
         var body = HumanBody.NewBody();
-        var res = Hit(body, HumanBody.LeftLeg, dmg: 11, DamageType.Blunt, initialRoll: 12); // p=0.4
-        var rng = new SequenceRandomSource(0.3); // 0.3<0.4 → 触发骨折
+        var res = Hit(body, HumanBody.LeftLeg, dmg: 11, DamageType.Blunt, initialRoll: 12); // p≈0.419
+        var rng = new SequenceRandomSource(0.3); // 0.3<0.419 → 触发骨折
 
         Assert.False(body.IsFractured(HumanBody.LeftLeg)); // 命中前未骨折
 
@@ -217,8 +217,8 @@ public class EffectTests
     public void Fracture_NotMarked_WhenRollAboveProbability()
     {
         var body = HumanBody.NewBody();
-        var res = Hit(body, HumanBody.LeftLeg, dmg: 11, DamageType.Blunt, initialRoll: 12); // p=0.4
-        var rng = new SequenceRandomSource(0.99); // 0.99>=0.4 → 不触发
+        var res = Hit(body, HumanBody.LeftLeg, dmg: 11, DamageType.Blunt, initialRoll: 12); // p≈0.419
+        var rng = new SequenceRandomSource(0.99); // 0.99>=0.419 → 不触发
         var outcome = new CombatEffectResolver(rng).Apply(body, BluntW, res);
         Assert.DoesNotContain(outcome.Effects, e => e.Kind == DamageEffectKind.Fracture);
         Assert.False(body.IsFractured(HumanBody.LeftLeg));
@@ -242,7 +242,7 @@ public class EffectTests
     {
         // 锐转钝的降解钝伤（武器锐器、FinalDamageType=Blunt）打 0HP 部位 → 磨损上限，不切除
         var body = HumanBody.NewBody();
-        body.ApplyDamage(HumanBody.LeftHand, 10); // 手打到 0，MaxHp 仍 10
+        body.ApplyDamage(HumanBody.LeftHand, 16); // 手打到 0，MaxHp 仍 16
         var res = Hit(body, HumanBody.LeftHand, dmg: 3, DamageType.Blunt, initialRoll: 5);
         var rng = new SequenceRandomSource(); // 降解锐器无任何 roll（不流血/切除/震荡/骨折）
 
@@ -250,7 +250,7 @@ public class EffectTests
 
         Assert.Equal(3, outcome.MaxHpEroded, 9);
         Assert.Equal(HumanBody.LeftHand, outcome.ErodedPart);
-        Assert.Equal(7, body.MaxHpOf(HumanBody.LeftHand), 9);
+        Assert.Equal(13, body.MaxHpOf(HumanBody.LeftHand), 9);
         Assert.False(body.IsGone(HumanBody.LeftHand));
         Assert.Empty(outcome.SeveredParts);
         Assert.Empty(outcome.DestroyedParts);
@@ -261,14 +261,14 @@ public class EffectTests
     public void NativeBlunt_ErodesMaxHp_OnZeroHpPart()
     {
         var body = HumanBody.NewBody();
-        body.ApplyDamage(HumanBody.LeftHand, 10);
+        body.ApplyDamage(HumanBody.LeftHand, 16);
         var res = Hit(body, HumanBody.LeftHand, dmg: 4, DamageType.Blunt, initialRoll: 6);
         var rng = new SequenceRandomSource(0.99); // 天然钝器仍 roll 骨折（不触发），磨损为确定性
 
         var outcome = new CombatEffectResolver(rng).Apply(body, BluntW, res);
 
         Assert.Equal(4, outcome.MaxHpEroded, 9);
-        Assert.Equal(6, body.MaxHpOf(HumanBody.LeftHand), 9);
+        Assert.Equal(12, body.MaxHpOf(HumanBody.LeftHand), 9);
     }
 
     [Fact]
@@ -276,14 +276,14 @@ public class EffectTests
     {
         // 0HP 部位被护甲全额防住（dmg=0）→ 不磨损，与切除豁免同构
         var body = HumanBody.NewBody();
-        body.ApplyDamage(HumanBody.LeftHand, 10);
+        body.ApplyDamage(HumanBody.LeftHand, 16);
         var res = Hit(body, HumanBody.LeftHand, dmg: 0, DamageType.Blunt, initialRoll: 8);
         var rng = new SequenceRandomSource();
 
         var outcome = new CombatEffectResolver(rng).Apply(body, BluntW, res);
 
         Assert.Equal(0, outcome.MaxHpEroded, 9);
-        Assert.Equal(10, body.MaxHpOf(HumanBody.LeftHand), 9); // 上限不变
+        Assert.Equal(16, body.MaxHpOf(HumanBody.LeftHand), 9); // 上限不变
         Assert.False(body.IsDestroyed(HumanBody.LeftHand));
         Assert.Equal(0, rng.Remaining);
     }
@@ -293,8 +293,8 @@ public class EffectTests
     {
         // 上限磨损归 0 → 部位永久损毁，连带后代
         var body = HumanBody.NewBody();
-        body.ApplyDamage(HumanBody.LeftArm, 18); // 上臂打到 0，MaxHp 18
-        var res = Hit(body, HumanBody.LeftArm, dmg: 18, DamageType.Blunt, initialRoll: 20);
+        body.ApplyDamage(HumanBody.LeftArm, 21); // 上臂打到 0，MaxHp 21
+        var res = Hit(body, HumanBody.LeftArm, dmg: 21, DamageType.Blunt, initialRoll: 20);
         var rng = new SequenceRandomSource();
 
         var outcome = new CombatEffectResolver(rng).Apply(body, SharpW, res); // 降解钝伤
@@ -311,7 +311,7 @@ public class EffectTests
     {
         // 锐器（未降解）对 0HP 部位造成实质伤害 → 仍走切除，不磨损
         var body = HumanBody.NewBody();
-        body.ApplyDamage(HumanBody.LeftHand, 10);
+        body.ApplyDamage(HumanBody.LeftHand, 16);
         var res = Hit(body, HumanBody.LeftHand, dmg: 2, DamageType.Sharp, initialRoll: 5);
         var rng = new SequenceRandomSource();
 
