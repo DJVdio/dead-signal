@@ -38,6 +38,21 @@ public static class ArmorTable
     /// <summary>粗布外套（外套层）：照皮甲但更粗劣，防护显著偏低、更轻。</summary>
     public static ArmorLayer CoarseClothCoat() => new() { Name = "粗布外套", Slot = ArmorSlot.Outer, SharpDefense = 4, BluntDefense = 2, Weight = 2 }; // 拟定待调
 
-    /// <summary>劳保手套：手部轻护甲。当前无 12 槽系统，先作一层轻护甲（取贴身层为最贴合值），防护极低。</summary>
-    public static ArmorLayer WorkGloves() => new() { Name = "劳保手套", Slot = ArmorSlot.Skin, SharpDefense = 1, BluntDefense = 1, Weight = 0 }; // 拟定待调
+    /// <summary>
+    /// 单只劳保手套：仅覆盖对应那一只手（含该手五指）的轻护甲；命中其它部位（含另一只手）不参与结算。
+    /// 左右各一件独立护甲物品（装备槽按左右分，配合断肢）。防护极低。拟定待调。
+    /// </summary>
+    public static ArmorLayer WorkGlove(bool leftHand) => new()
+    {
+        Name = leftHand ? "左手套" : "右手套",
+        Slot = ArmorSlot.Skin, SharpDefense = 1, BluntDefense = 1, Weight = 0,   // 拟定待调
+        CoversParts = HumanBody.SubtreeNames(leftHand ? HumanBody.LeftHand : HumanBody.RightHand),
+    };
+
+    /// <summary>一副劳保手套 = 左手套 + 右手套两件独立护甲（开局发放）。各只覆盖对应那一只手。</summary>
+    public static IReadOnlyList<ArmorLayer> WorkGloves() => new[]
+    {
+        WorkGlove(leftHand: true),
+        WorkGlove(leftHand: false),
+    };
 }

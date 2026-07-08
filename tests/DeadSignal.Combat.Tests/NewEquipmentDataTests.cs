@@ -75,13 +75,20 @@ public class NewEquipmentDataTests
     // ---- 劳保手套：手部轻护甲层（当前无 12 槽系统，先作一层轻护甲） ----
 
     [Fact]
-    public void WorkGloves_IsLightArmorLayer()
+    public void WorkGloves_IsPairOfLightArmorLayers()
     {
-        ArmorLayer gloves = ArmorTable.WorkGloves();
-        Assert.Equal("劳保手套", gloves.Name);
-        // 无专用手部槽，取最贴合的轻护甲层；防护极低。
-        Assert.True(gloves.SharpDefense > 0 && gloves.SharpDefense <= 2, "手套锐防应为轻护甲");
-        Assert.True(gloves.BluntDefense > 0 && gloves.BluntDefense <= 2, "手套钝防应为轻护甲");
-        Assert.True(gloves.SharpDefense < ArmorTable.CoarseClothCoat().SharpDefense, "手套防护应低于粗布外套");
+        // 一副 = 左手套 + 右手套两件独立护甲（装备槽按左右分）。
+        IReadOnlyList<ArmorLayer> pair = ArmorTable.WorkGloves();
+        Assert.Equal(2, pair.Count);
+        Assert.Contains(pair, g => g.Name == "左手套");
+        Assert.Contains(pair, g => g.Name == "右手套");
+
+        foreach (ArmorLayer glove in pair)
+        {
+            // 防护极低（轻护甲）。
+            Assert.True(glove.SharpDefense > 0 && glove.SharpDefense <= 2, "手套锐防应为轻护甲");
+            Assert.True(glove.BluntDefense > 0 && glove.BluntDefense <= 2, "手套钝防应为轻护甲");
+            Assert.True(glove.SharpDefense < ArmorTable.CoarseClothCoat().SharpDefense, "手套防护应低于粗布外套");
+        }
     }
 }

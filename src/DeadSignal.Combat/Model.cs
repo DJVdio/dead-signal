@@ -60,6 +60,26 @@ public sealed class Weapon
     /// </summary>
     public double AttackInterval { get; init; }
 
+    // ---- 远程射程与射程内衰减（仅远程武器填；近战留 null=无射程模型）----
+
+    /// <summary>
+    /// 最大射程（世界单位）。>MaxRange 不可开火（<see cref="Ballistics.RangedDamageFactor"/> 返 0）。
+    /// null = 无射程模型（近战/未设，恒满伤、无射程约束）。每把远程曲线不同。拟定待调。
+    /// </summary>
+    public double? MaxRange { get; init; }
+
+    /// <summary>
+    /// 满伤射程（世界单位）。distance ≤ FalloffStart 时衰减系数 = 1（满伤）；
+    /// 之后线性降到 <see cref="MaxRange"/> 处的 <see cref="FalloffFloor"/>。null 视为 0（自枪口即衰减）。拟定待调。
+    /// </summary>
+    public double? FalloffStart { get; init; }
+
+    /// <summary>
+    /// 射程末端（MaxRange 处）的伤害下限系数，(0,1]（如 0.5 = 最远处半伤）。
+    /// null 视为 1.0（不衰减，射程内恒满伤直到 MaxRange 外截断）。拟定待调。
+    /// </summary>
+    public double? FalloffFloor { get; init; }
+
     // ---- 枪托近战 profile（仅远程武器填；贴脸时供 Godot 空间层调用的近战版数值）----
 
     /// <summary>枪托近战伤害下限（钝击）。仅远程武器填；null 视为无近战 profile。拟定待调。</summary>
@@ -119,6 +139,20 @@ public sealed class ArmorLayer
     public double Weight { get; init; }
 
     public ArmorSlot Slot { get; init; }
+
+    /// <summary>
+    /// 覆盖的具体身体部位名集合（<see cref="BodyPart.Name"/>，如"左手"）。粒度到具体部位——
+    /// 因 <see cref="BodyRegion"/>/<see cref="BodyMacroRegion"/> 不分左右，区域级无法表达"仅左手/仅右手"，
+    /// 故护甲覆盖以部位名表达（支持左右分、断肢分槽）。
+    /// <c>null</c> = 覆盖全部位（向后兼容：现有护甲不填即全覆盖，行为不变）。
+    /// 局部护甲（如左手套仅覆盖左手及其手指）才显式给出子集；命中部位不在集合内则该层不参与结算。
+    /// 手部/脚部护甲应连带该手/脚的手指/脚趾（用 <see cref="HumanBody.SubtreeNames"/> 展开子树）。
+    /// </summary>
+    public IReadOnlySet<string>? CoversParts { get; init; }
+
+    /// <summary>本层是否覆盖该具体部位（<see cref="CoversParts"/> 为 null 时恒真=全覆盖）。</summary>
+    public bool Covers(BodyPart part) =>
+        CoversParts is null || CoversParts.Contains(part.Name);
 
     /// <summary>取该伤害类型下适用的防御值。</summary>
     public double DefenseFor(DamageType type) =>

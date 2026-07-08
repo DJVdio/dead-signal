@@ -132,6 +132,9 @@ public static class WeaponTable
         IsRanged = true,
         BaseSpreadDegrees = 8,   // 拟定待调
         AttackInterval = 2.5,    // 拟定待调
+        MaxRange = 130,          // 拟定待调（土制枪：近而陡，出满伤段掉得快）
+        FalloffStart = 25,       // 拟定待调
+        FalloffFloor = 0.35,     // 拟定待调
         StockMeleeDamageMin = 3,        // 拟定待调（枪托钝击）
         StockMeleeDamageMax = 5,        // 拟定待调
         StockMeleePenetration = 0.02,   // 拟定待调
@@ -150,6 +153,9 @@ public static class WeaponTable
         IsRanged = true,
         BaseSpreadDegrees = 3,   // 拟定待调
         AttackInterval = 0.5,    // 拟定待调
+        MaxRange = 200,          // 拟定待调（手枪：近而陡）
+        FalloffStart = 55,       // 拟定待调
+        FalloffFloor = 0.5,      // 拟定待调
         StockMeleeDamageMin = 3,        // 拟定待调（手枪柄砸击）
         StockMeleeDamageMax = 6,        // 拟定待调
         StockMeleePenetration = 0.02,   // 拟定待调
@@ -169,6 +175,9 @@ public static class WeaponTable
         IsRanged = true,
         BaseSpreadDegrees = 6,   // 拟定待调
         AttackInterval = 0.1,    // 拟定待调
+        MaxRange = 280,          // 拟定待调（冲锋枪：中距，衰减中等）
+        FalloffStart = 70,       // 拟定待调
+        FalloffFloor = 0.45,     // 拟定待调
         StockMeleeDamageMin = 4,        // 拟定待调（枪托钝击）
         StockMeleeDamageMax = 7,        // 拟定待调
         StockMeleePenetration = 0.02,   // 拟定待调
@@ -187,6 +196,9 @@ public static class WeaponTable
         IsRanged = true,
         BaseSpreadDegrees = 2,   // 拟定待调
         AttackInterval = 0.8,    // 拟定待调
+        MaxRange = 550,          // 拟定待调（步枪：远而缓）
+        FalloffStart = 200,      // 拟定待调
+        FalloffFloor = 0.6,      // 拟定待调
         StockMeleeDamageMin = 6,        // 拟定待调（枪托重砸）
         StockMeleeDamageMax = 10,       // 拟定待调
         StockMeleePenetration = 0.03,   // 拟定待调
@@ -205,6 +217,9 @@ public static class WeaponTable
         IsRanged = true,
         BaseSpreadDegrees = 0.5, // 拟定待调
         AttackInterval = 1.5,    // 拟定待调
+        MaxRange = 900,          // 拟定待调（狙击：远而缓，末端仍高伤）
+        FalloffStart = 450,      // 拟定待调
+        FalloffFloor = 0.8,      // 拟定待调
         StockMeleeDamageMin = 6,        // 拟定待调（长枪身重砸）
         StockMeleeDamageMax = 11,       // 拟定待调
         StockMeleePenetration = 0.03,   // 拟定待调

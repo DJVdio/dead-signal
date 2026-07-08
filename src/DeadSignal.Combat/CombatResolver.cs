@@ -29,6 +29,13 @@ public sealed class CombatResolver
     /// </summary>
     public CombatResult Resolve(Weapon weapon, IReadOnlyList<ArmorLayer> layers, BodyPart part)
     {
+        // 只应用覆盖命中「该具体部位」的护甲层。默认全覆盖（CoversParts=null）→ 现有护甲行为不变；
+        // 局部护甲（如左手套仅左手）在其它部位命中（含右手）时被过滤，等效于该部位无此层。
+        if (layers.Any(l => !l.Covers(part)))
+        {
+            layers = layers.Where(l => l.Covers(part)).ToList();
+        }
+
         var log = new List<LayerResolution>(layers.Count);
 
         DamageType currentType = weapon.DamageType;

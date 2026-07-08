@@ -99,4 +99,28 @@ public static class HumanBody
 
     /// <summary>新建一个满血人类 <see cref="Body"/>。</summary>
     public static Body NewBody() => new(Parts());
+
+    /// <summary>
+    /// 展开给定根部位及其全部后代的部位名集合（含根自身）。供护甲覆盖表达用：
+    /// 如 <see cref="SubtreeNames"/>("左手") = { 左手 + 左手五指 }，让手套连带护住手指。
+    /// </summary>
+    public static IReadOnlySet<string> SubtreeNames(params string[] roots)
+    {
+        var byParent = Parts().ToLookup(p => p.Parent);
+        var result = new HashSet<string>();
+        var stack = new Stack<string>(roots);
+        while (stack.Count > 0)
+        {
+            string name = stack.Pop();
+            if (!result.Add(name))
+            {
+                continue;
+            }
+            foreach (BodyPart child in byParent[name])
+            {
+                stack.Push(child.Name);
+            }
+        }
+        return result;
+    }
 }
