@@ -5,5 +5,6 @@ public enum PawnRole
     Idle,
     Expedition,
     Sleeping,
-    Guard
+    Guard,
+    Reading
 }

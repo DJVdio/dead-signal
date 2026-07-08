@@ -47,6 +47,7 @@ public sealed partial class CampMain : Node2D
     private Node? _levelRoot;
     private NavigationRegion2D _campNavRegion = null!;
     private PawnRoleManager _roleManager = null!;
+    private double _nightLengthSeconds;   // 一夜实时长度（游戏内秒）：喂给读者把每帧 delta 换算成阅读小时。
     private CameraController _camera = null!;
     private CanvasModulate _ambient = null!;
     private Hud _hud = null!;
@@ -55,6 +56,7 @@ public sealed partial class CampMain : Node2D
     private WorldMapPanel _worldMapPanel = null!;
     private ExpeditionPanel _expeditionPanel = null!;
     private GuardPanel _guardPanel = null!;
+    private ReadingPanel _readingPanel = null!;
     private ReturnWarningPopup _returnWarningPopup = null!;
     private MealPanel _mealPanel = null!;
     private CampResources _resources = null!;
@@ -208,7 +210,9 @@ public sealed partial class CampMain : Node2D
 
         _clock = new GameClock();
         AddChild(_clock);
-        _clock.Configure(LoadDayNightConfig());
+        GameClock.Config dayNightCfg = LoadDayNightConfig();
+        _nightLengthSeconds = dayNightCfg.NightLengthSeconds; // 留一份给读者换算阅读小时
+        _clock.Configure(dayNightCfg);
         _clock.OnPhaseChanged += OnGamePhaseChanged;
 
         _worldMapPanel = new WorldMapPanel();
@@ -227,6 +231,13 @@ public sealed partial class CampMain : Node2D
         AddChild(_guardPanel);
         _guardPanel.Visible = false;
         _guardPanel.GuardConfirmed += OnGuardConfirmed;
+
+        // 读书指派面板：NightPrep 守卫面板确认后顺序弹出（MVP）。确认/取消后才进 NightAct（单一触发点，防双触发）。
+        _readingPanel = new ReadingPanel();
+        AddChild(_readingPanel);
+        _readingPanel.Visible = false;
+        _readingPanel.ReadingConfirmed += OnReadingConfirmed;
+        _readingPanel.Cancelled += OnReadingCancelled;
 
         _returnWarningPopup = new ReturnWarningPopup();
         AddChild(_returnWarningPopup);
@@ -1502,6 +1513,7 @@ public sealed partial class CampMain : Node2D
         _expeditionPanel.Visible = false;
         _worldMapPanel.Visible = false;
         _guardPanel.Visible = false;
+        _readingPanel.Visible = false;
         _returnWarningPopup.Visible = false;
         _mealPanel.Visible = false;
 
@@ -1518,6 +1530,7 @@ public sealed partial class CampMain : Node2D
             case DayPhase.DawnMeal:
                 // 黎明聚餐：全员已在 NightAct 起唤醒并度过实时夜晚，此处结算食物 + 气泡交流，结束进 DayPrep。
                 EndRaid(); // 夜晚结束：清残留丧尸、守卫下岗
+                ReleaseReaders(); // 夜晚结束：读者放座、清读书态（阅读进度已跨夜持久）
                 AdvanceSurvivorsHealthDay(); // 又过一昼夜：伤病恶化/愈合、封顶致残/致死（须在聚餐结算前，死亡先反映到名单与全灭判定）
                 RunMeal("黎明聚餐", "dawn");
                 break;
@@ -1552,6 +1565,7 @@ public sealed partial class CampMain : Node2D
                 foreach (var p in _survivors)
                     p.SetSleeping(false);
                 StationGuards(); // D2：守卫走向各自岗位站位并挂上岗位加成
+                StationReaders(); // 读者走向座位坐下读书（读书指派为空则无操作）
                 // 教学关：第 2 夜一次性触发克莉丝汀反水关（StoryFlag 防重入）。这一晚是脚本人类袭击，
                 // 不叠加丧尸袭营（TriggerRaid 会因 _tutorialActive 早退）。
                 if (_clock.Day == 2 && !_storyFlags.Has("tutorial_raider_started"))
@@ -1748,6 +1762,53 @@ public sealed partial class CampMain : Node2D
                 assignments[kv.Key] = _survivors[kv.Value].Id;
         }
         _roleManager.SetGuardAssignments(assignments);
+        // 守卫确认后**顺序弹读书面板**（不直接进 NightAct）：由读书面板确认/取消统一触发进夜，单一触发点防双触发。
+        _guardPanel.Visible = false;
+        PopulateReadingPanel();
+        _readingPanel.Visible = true;
+    }
+
+    /// <summary>
+    /// 填充读书指派面板（仿 <see cref="PopulateGuardPanel"/>）：读者=存活可控幸存者中**未被指派守卫者**
+    /// （守卫已在 GuardAssignments，排除避免同人两职）；书=营地拥有（<see cref="_bookRegistry"/>）且**未读**（全局
+    /// <see cref="BookData.IsRead"/>）的书。读者 Id 直接用 pawn.Id（回传的 pawnId→bookId 直喂 SetReadingAssignments）。
+    /// </summary>
+    private void PopulateReadingPanel()
+    {
+        var guarded = new HashSet<int>(_roleManager.GuardAssignments.Values);
+
+        var readers = new List<ReadingPanel.PawnOption>();
+        foreach (Pawn p in _survivors)
+        {
+            if (!p.Alive || !p.IsControllable || guarded.Contains(p.Id))
+                continue;
+            readers.Add(new ReadingPanel.PawnOption { Id = p.Id, Name = p.DisplayName });
+        }
+
+        var books = new List<ReadingPanel.BookOption>();
+        foreach (BookData b in _bookRegistry.Values)
+        {
+            if (b.IsRead)
+                continue; // "未读"按营地全局已读标记（per-reader 未读细分待用户定，见遗留）
+            books.Add(new ReadingPanel.BookOption { BookId = b.Id, Title = b.Title });
+        }
+
+        _readingPanel.SetupReaders(readers, books);
+    }
+
+    private void OnReadingConfirmed(Dictionary<int, string> assignments)
+    {
+        // assignments 键为 pawn.Id（PopulateReadingPanel 用真实 Id），直接喂 SetReadingAssignments（"不读"行已被面板略过）。
+        _roleManager.SetReadingAssignments(assignments);
+        _readingPanel.Visible = false;
+        _clock.TransitionTo(DayPhase.NightAct);
+    }
+
+    private void OnReadingCancelled()
+    {
+        // 取消=本夜无人读书：清空读书指派后照常进夜。
+        _roleManager.SetReadingAssignments(new Dictionary<int, string>());
+        _readingPanel.Visible = false;
         _clock.TransitionTo(DayPhase.NightAct);
     }
 
@@ -1775,6 +1836,61 @@ public sealed partial class CampMain : Node2D
             guard.CommandMoveTo(post.StandPos);
             _raidGuards.Add(guard);
         }
+    }
+
+    /// <summary>
+    /// 夜晚读书上岗（仿 <see cref="StationGuards"/>）：按 PawnRoleManager 的读书指派（pawnId→bookId），让每个读者
+    /// 认领就近空座、走过去坐下读；无空座就地读（-10%）。全营读速加成汇总一次算好喂给每个读者（含其自身贡献）。
+    /// <b>不 gate 在 Role==Reading</b>——本方法在 NightAct 相位切换的 OnGamePhaseChanged 中先于 PawnRoleManager
+    /// 置 Role 而运行（事件订阅顺序），与 StationGuards 同理靠 Stationing 标志放行移动令。
+    /// </summary>
+    private void StationReaders()
+    {
+        // 全营读速加成汇总：遍历全体存活幸存者的 CampWideReadingSpeedBonus 求和（含读者本人；仅满级书虫非 0）。
+        double campWideSum = _survivors.Where(s => s.Alive).Sum(s => s.Perks.CampWideReadingSpeedBonus);
+
+        // 守卫优先：同人若两处都被指派，让位守卫（与 PawnRoleManager NightAct 分支的优先级一致），不重复站岗。
+        var guarded = new HashSet<int>(_roleManager.GuardAssignments.Values);
+
+        foreach (var kv in _roleManager.ReadingAssignments)
+        {
+            int pawnId = kv.Key;
+            string bookId = kv.Value;
+            if (guarded.Contains(pawnId))
+                continue;
+            Pawn? reader = _survivors.FirstOrDefault(p => p.Id == pawnId && p.Alive);
+            if (reader == null)
+                continue;
+            BookData? book = _bookResolver(bookId);
+            if (book == null)
+                continue;
+
+            reader.BeginReading(book, campWideSum, _nightLengthSeconds);
+
+            SeatClaim? seat = ClaimNearestFreeSeat(reader.GlobalPosition);
+            if (seat is { } s)
+            {
+                reader.ReadingSeat = s;
+                reader.Stationing = true;
+                reader.CommandMoveTo(s.Pos);
+            }
+            else
+            {
+                reader.ReadingSeat = null; // 无空座：就地读，-10% 由 ReadingSpeed 施加
+            }
+        }
+    }
+
+    /// <summary>夜晚结束：释放所有读者认领的座位并清读书运行时态（跨夜进度已在 ReadingProgress 中持久，不受影响）。</summary>
+    private void ReleaseReaders()
+    {
+        foreach (Pawn p in _survivors)
+        {
+            if (p.ReadingSeat is { } seat)
+                ReleaseSeat(seat);
+            p.EndReading();
+        }
+        _roleManager.SetReadingAssignments(new Dictionary<int, string>());
     }
 
     // ---------------- D3 袭营触发/生成 ----------------

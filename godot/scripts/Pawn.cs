@@ -47,6 +47,81 @@ public sealed partial class Pawn : Actor
     /// <summary>标记本 Pawn 读完某书（幂等）。阅读结算按读者调用。</summary>
     public void MarkBookRead(string bookId) => _readBooks.MarkRead(bookId);
 
+    // ================= 读书活动（夜间指派）：走到座位坐下累进度 → 读满标已读 + 诺蒂涨 perk =================
+    // 读书是**指派的夜间活动**（Role=Reading，仅 NightAct）：被指派者寻路走到座位坐下，逐帧累计阅读小时，
+    // 读满 BookData.ReadHours 即标个人已读（配方门槛）+ 全局已读（库存标记）。诺蒂持"书虫"专属效果——
+    // 边读边涨等级、读得越快。无座 -10% 读速。读书算休养、无医疗代价（营地昼夜推进的 resting 由营地层给）。
+
+    /// <summary>本 Pawn 的专属效果容器（诺蒂·书虫，其余角色无 perk → 各加成为 0）。见 <see cref="SurvivorPerks"/>。</summary>
+    public SurvivorPerks Perks { get; } = new();
+
+    /// <summary>本 Pawn 逐书阅读进度（跨夜持久）。见 <see cref="ReadingProgress"/>。</summary>
+    private readonly ReadingProgress _readingProgress = new();
+
+    /// <summary>当前被指派在读的书 id（未在读为 <c>null</c>）。读满或结束后清空。</summary>
+    public string? AssignedBookId { get; private set; }
+
+    /// <summary>当前认领的座位（无座为 <c>null</c>，按 -10% 读速就地读）。由 CampMain 认领/释放，Pawn 只持有并据其判有无座。</summary>
+    public CampMain.SeatClaim? ReadingSeat { get; set; }
+
+    /// <summary>当前在读书的底层数据（供读满时置全局已读 + 取 ReadHours 判完成）。</summary>
+    private BookData? _assignedBook;
+
+    /// <summary>本夜有效的全营读速加成汇总（由 CampMain 遍历全体求和喂入，含读者自身贡献）。</summary>
+    private double _campWideReadingBonus;
+
+    /// <summary>一夜的实时长度（游戏内秒，受时标缩放同口径）：把每帧 delta 换算成游戏内小时（一整夜=12 小时）。</summary>
+    private double _nightLengthSeconds;
+
+    /// <summary>
+    /// 开始一次读书指派：记下要读的书、全营加成汇总、夜长（换算时间用）。座位由 CampMain 另行认领并置
+    /// <see cref="ReadingSeat"/>。之后每帧 <see cref="Think"/> Reading 分支累进阅读进度。
+    /// </summary>
+    public void BeginReading(BookData book, double campWideBonusSum, double nightLengthSeconds)
+    {
+        _assignedBook = book;
+        AssignedBookId = book.Id;
+        _campWideReadingBonus = campWideBonusSum;
+        _nightLengthSeconds = nightLengthSeconds;
+    }
+
+    /// <summary>结束读书（读满/夜晚结束/中断）：清运行时态。座位释放由 CampMain 负责（它持认领句柄）。</summary>
+    public void EndReading()
+    {
+        _assignedBook = null;
+        AssignedBookId = null;
+        ReadingSeat = null;
+        Stationing = false;
+    }
+
+    /// <summary>
+    /// 累进一帧阅读进度：delta 已受 Engine.TimeScale 缩放，与夜长同口径 → 游戏内小时=delta/夜长×12。
+    /// 乘有效读速（自身 perk + 全营加成 + 有无座系数）推进进度；诺蒂据此累计升级；读满标个人+全局已读并结束该书。
+    /// </summary>
+    private void AccrueReading(double delta, BookData book)
+    {
+        if (_nightLengthSeconds <= 0)
+            return;
+
+        double gameHours = delta / _nightLengthSeconds * 12.0;
+        bool hasSeat = ReadingSeat.HasValue;
+        double speed = ReadingSpeed.Effective(1.0, Perks.SelfReadingSpeedBonus, hasSeat, _campWideReadingBonus);
+        double hours = gameHours * speed;
+        if (hours <= 0)
+            return;
+
+        _readingProgress.Advance(book.Id, hours);
+        Perks.Bookworm?.AddReadingTime(hours); // 诺蒂：累计阅读时间涨等级（无 perk 者 Bookworm==null 跳过，别双算别的书）
+
+        if (_readingProgress.IsComplete(book.Id, book.ReadHours))
+        {
+            MarkBookRead(book.Id); // 个人已读（配方门槛按制作者本人）
+            book.MarkRead();       // 全局已读（库存"已读"标记等营地视角）
+            AssignedBookId = null; // 停止累进；等下一指派或回 Idle
+            _assignedBook = null;
+        }
+    }
+
     // ---- §6 装备两模型：穿戴槽（护甲/穿戴品）+ 持械（左右手武器）----
     // Pawn 是唯一持有者与生效点：两模型只管"穿在哪/持在哪"的槽位规则（定稿、纯逻辑），
     // 由 Pawn 把它们的结果**投影**回 Actor 的战斗消费字段（AttackWeapon / DefenderArmor / IsRanged /
@@ -202,6 +277,16 @@ public sealed partial class Pawn : Actor
                         CancelOrders();
                 }
                 break;
+            case PawnRole.Reading:
+                // 仿 Guard Stationing：走向座位途中放行移动令，抵达（导航完成）即坐下开读。
+                // 无座者不下移动令（Stationing=false），就地立即累进（-10% 速）。
+                if (Stationing && IsNavigationFinished())
+                    Stationing = false;
+                if (HasMoveOrder && !Stationing)
+                    CancelOrders();
+                if (!Stationing && _assignedBook is { } book)
+                    AccrueReading(delta, book);
+                break;
         }
     }
 
@@ -218,6 +303,9 @@ public sealed partial class Pawn : Actor
         p.Body = CombatData.NewHumanoidBody();
 
         // 通用技能系统已删——角色能力改由 authored 专属效果 + 读过的书承载，此处不再直设初始技能。
+        // 首个 authored 专属效果：诺蒂天生"书虫"L1（读得快、越读越快）。其余角色无 perk。
+        if (name == "诺蒂")
+            p.Perks.GrantBookworm();
 
         // 初始武器进【持械模型】主手（右手）：手枪→远程、匕首→近战。EquipToHand 自动按 TwoHanded 分流。
         p._loadout.EquipToHand(usePistol ? CombatData.Pistol() : CombatData.Dagger(), Hand.Right);

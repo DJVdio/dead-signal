@@ -12,6 +12,9 @@ public sealed class PawnRoleManager
     public HashSet<int> ExpeditionIds { get; } = new();
     public Dictionary<int, int> GuardAssignments { get; } = new();
 
+    /// <summary>夜间读书指派（pawnId → bookId）。与守卫互斥：同人若两处都在，守卫优先（读书让位）。仅 NightAct 生效。</summary>
+    public Dictionary<int, string> ReadingAssignments { get; } = new();
+
     public event Action? RolesChanged;
 
     public PawnRoleManager(List<Pawn> allPawns, GameClock clock)
@@ -35,6 +38,14 @@ public sealed class PawnRoleManager
         GuardAssignments.Clear();
         foreach (var kv in assignments)
             GuardAssignments[kv.Key] = kv.Value;
+        ApplyPhase(_clock.CurrentPhase);
+    }
+
+    public void SetReadingAssignments(Dictionary<int, string> assignments)
+    {
+        ReadingAssignments.Clear();
+        foreach (var kv in assignments)
+            ReadingAssignments[kv.Key] = kv.Value;
         ApplyPhase(_clock.CurrentPhase);
     }
 
@@ -74,13 +85,14 @@ public sealed class PawnRoleManager
             case DayPhase.NightPrep:
                 break;
             case DayPhase.NightAct:
-                if (GuardAssignments.Count == 0)
-                    break;
-                var assigned = new HashSet<int>(GuardAssignments.Values);
+                // 守卫与读书同为夜间指派角色（一人一个）：守卫优先，剩下被指派读书者置 Reading。
+                var guarded = new HashSet<int>(GuardAssignments.Values);
                 foreach (var p in _allPawns)
                 {
-                    if (assigned.Contains(p.Id))
+                    if (guarded.Contains(p.Id))
                         p.Role = PawnRole.Guard;
+                    else if (ReadingAssignments.ContainsKey(p.Id))
+                        p.Role = PawnRole.Reading;
                 }
                 break;
         }
