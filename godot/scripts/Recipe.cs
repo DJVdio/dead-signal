@@ -3,8 +3,9 @@ using System.Collections.Generic;
 namespace DeadSignal.Godot;
 
 // 注意：本文件为**纯 C# 逻辑**，不得引入任何 Godot 类型
-// （与 SkillSet.cs / Workbench.cs / Materials.cs 一样被 DeadSignal.Combat.Tests 以 Link 方式编入单测）。
-// 配方数据模型：配方 = 材料成本 + 需要工具槽 + 制作者解锁条件（读完的书 / 技能门槛）→ 产物（+ 制作经验回喂）。
+// （与 Workbench.cs / Materials.cs 一样被 DeadSignal.Combat.Tests 以 Link 方式编入单测）。
+// 配方数据模型：配方 = 材料成本 + 需要工具槽 + 制作者解锁条件（读完的书）→ 产物。
+// 通用技能系统已删——能力改由"每角色 authored 专属效果"与"读过的书"承载，配方门槛只看 工具/书/材料。
 // 本文件只放**数据**（RecipeData 值对象 + RecipeBook 草稿表）；能不能做（CanCraft）与产出结算（Resolve）在 CraftingLogic。
 // 材料/产物一律用**字符串 RefKey**（对齐 Materials 目录 / Item RefKey），不硬依赖枚举，解耦并发。
 
@@ -27,14 +28,11 @@ public enum RecipeCategory
     Misc,
 }
 
-/// <summary>制作者需要满足的一条技能门槛（该技能 &gt;= <see cref="MinLevel"/>）。</summary>
-public readonly record struct SkillRequirement(SkillType Skill, SkillLevel MinLevel);
-
 /// <summary>
 /// 一张配方的不可变定义。产物由 <see cref="OutputKey"/>（Item RefKey）+ <see cref="OutputQuantity"/> 描述；
-/// 解锁条件按**制作者**判定：需读完 <see cref="RequiredBookIds"/> 的全部书 且 满足 <see cref="RequiredSkills"/> 的全部技能门槛；
+/// 解锁条件按**制作者**判定：需读完 <see cref="RequiredBookIds"/> 的全部书；
 /// 且工作台已装 <see cref="RequiredTools"/> 的全部工具槽；且库存够付 <see cref="MaterialCosts"/>。
-/// 制作成功回喂 <see cref="ExperienceReward"/> 点经验给 <see cref="ExperienceSkill"/>（null=不回喂）。
+/// 通用技能门槛已删——配方只看 工具/书/材料 三类门槛。
 /// </summary>
 public sealed record RecipeData(
     string Id,
@@ -44,10 +42,7 @@ public sealed record RecipeData(
     int OutputQuantity,
     IReadOnlyDictionary<string, int> MaterialCosts,
     IReadOnlySet<ToolSlot> RequiredTools,
-    IReadOnlyList<string> RequiredBookIds,
-    IReadOnlyList<SkillRequirement> RequiredSkills,
-    SkillType? ExperienceSkill = null,
-    int ExperienceReward = 0);
+    IReadOnlyList<string> RequiredBookIds);
 
 /// <summary>
 /// 内置配方表（**拟定草稿 draft**，工具/条件/材料数值用户后续调）。覆盖用户给的 6 个例子：
@@ -58,6 +53,12 @@ public static class RecipeBook
 {
     /// <summary>《野外生存指南》书 id（对齐 <see cref="BookLibrary.WildernessSurvivalGuide"/>）。骨刀解锁读它。</summary>
     public const string WildernessSurvivalGuideBookId = "wilderness_survival_guide";
+
+    /// <summary>《裁缝手记》纺织书 id（对齐 <see cref="BookLibrary.TailorsNotes"/>）。粗布背心解锁读它。</summary>
+    public const string TailorsNotesBookId = "tailors_notes";
+
+    /// <summary>《土法化学笔记》化学书 id（对齐 <see cref="BookLibrary.FolkChemistryNotes"/>）。火药 / 鞣制药水解锁读它。</summary>
+    public const string FolkChemistryNotesBookId = "folk_chemistry_notes";
 
     private static IReadOnlySet<ToolSlot> Tools(params ToolSlot[] slots) => new HashSet<ToolSlot>(slots);
     private static IReadOnlyDictionary<string, int> Cost(params (string Key, int Qty)[] items)
@@ -70,9 +71,7 @@ public static class RecipeBook
         return d;
     }
     private static readonly IReadOnlyList<string> NoBooks = new List<string>();
-    private static readonly IReadOnlyList<SkillRequirement> NoSkills = new List<SkillRequirement>();
     private static IReadOnlyList<string> Books(params string[] ids) => new List<string>(ids);
-    private static IReadOnlyList<SkillRequirement> Skills(params SkillRequirement[] reqs) => new List<SkillRequirement>(reqs);
 
     // draft：以下配方的工具/条件/材料/数量/经验均为占位草稿，最终由用户调（对标 6 个例子 + 生存造物常识）。
     private static readonly IReadOnlyList<RecipeData> _all = new[]
@@ -86,12 +85,9 @@ public static class RecipeBook
             OutputQuantity: 1,
             MaterialCosts: Cost(("bone", 2), ("scrap_cloth", 1)),
             RequiredTools: Tools(),
-            RequiredBookIds: Books(WildernessSurvivalGuideBookId),
-            RequiredSkills: NoSkills,
-            ExperienceSkill: SkillType.Mechanical,
-            ExperienceReward: 25),
+            RequiredBookIds: Books(WildernessSurvivalGuideBookId)),
 
-        // 粗布背心：初级纺织解锁；缝制布甲。
+        // 粗布背心：读过《裁缝手记》解锁；缝制布甲。
         new RecipeData(
             Id: "cloth_vest",
             DisplayName: "粗布背心",
@@ -100,10 +96,7 @@ public static class RecipeBook
             OutputQuantity: 1,
             MaterialCosts: Cost(("cloth", 2), ("scrap_cloth", 2)),
             RequiredTools: Tools(),
-            RequiredBookIds: NoBooks,
-            RequiredSkills: Skills(new SkillRequirement(SkillType.Textile, SkillLevel.Novice)),
-            ExperienceSkill: SkillType.Textile,
-            ExperienceReward: 30),
+            RequiredBookIds: Books(TailorsNotesBookId)),
 
         // 椅子：锯片类木工。
         new RecipeData(
@@ -114,12 +107,9 @@ public static class RecipeBook
             OutputQuantity: 1,
             MaterialCosts: Cost(("wood", 4), ("nails", 2)),
             RequiredTools: Tools(ToolSlot.SawBlade),
-            RequiredBookIds: NoBooks,
-            RequiredSkills: NoSkills,
-            ExperienceSkill: SkillType.Mechanical,
-            ExperienceReward: 20),
+            RequiredBookIds: NoBooks),
 
-        // 火药：烧杯类化学 + 初级化学。
+        // 火药：烧杯类化学 + 读过《土法化学笔记》解锁。
         new RecipeData(
             Id: "gunpowder",
             DisplayName: "火药",
@@ -128,12 +118,9 @@ public static class RecipeBook
             OutputQuantity: 2,
             MaterialCosts: Cost(("stone", 1), ("fuel", 1)),
             RequiredTools: Tools(ToolSlot.Beaker),
-            RequiredBookIds: NoBooks,
-            RequiredSkills: Skills(new SkillRequirement(SkillType.Chemistry, SkillLevel.Novice)),
-            ExperienceSkill: SkillType.Chemistry,
-            ExperienceReward: 35),
+            RequiredBookIds: Books(FolkChemistryNotesBookId)),
 
-        // 鞣制药水：烧杯类化学 + 初级化学。
+        // 鞣制药水：烧杯类化学 + 读过《土法化学笔记》解锁。
         new RecipeData(
             Id: "tanning_solution",
             DisplayName: "鞣制药水",
@@ -142,10 +129,7 @@ public static class RecipeBook
             OutputQuantity: 2,
             MaterialCosts: Cost(("fuel", 1), ("stone", 1)),
             RequiredTools: Tools(ToolSlot.Beaker),
-            RequiredBookIds: NoBooks,
-            RequiredSkills: Skills(new SkillRequirement(SkillType.Chemistry, SkillLevel.Novice)),
-            ExperienceSkill: SkillType.Chemistry,
-            ExperienceReward: 30),
+            RequiredBookIds: Books(FolkChemistryNotesBookId)),
 
         // 自制弓：卡尺类精工。
         new RecipeData(
@@ -156,10 +140,7 @@ public static class RecipeBook
             OutputQuantity: 1,
             MaterialCosts: Cost(("wood", 2), ("rope", 1)),
             RequiredTools: Tools(ToolSlot.Calipers),
-            RequiredBookIds: NoBooks,
-            RequiredSkills: NoSkills,
-            ExperienceSkill: SkillType.Mechanical,
-            ExperienceReward: 25),
+            RequiredBookIds: NoBooks),
     };
 
     private static readonly IReadOnlyDictionary<string, RecipeData> _byId = ToMap(_all);

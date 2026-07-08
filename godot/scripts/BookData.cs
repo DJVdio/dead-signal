@@ -64,6 +64,20 @@ public static class BookLibrary
         body: FarmerHundredQuestionsBody,
         grantsRecipeStub: "recipe:crop_planting"); // 桩：配方系统后续接
 
+    /// <summary>《裁缝手记》（纺织书，draft）——读过它的制作者解锁粗布背心一类缝纫配方。</summary>
+    public static BookData TailorsNotes() => new(
+        id: "tailors_notes",
+        title: "裁缝手记",
+        body: TailorsNotesBody,
+        grantsRecipeStub: "recipe:cloth_vest"); // 桩：书门槛已实装（RecipeBook.RequiredBookIds），此仅作叙事标记
+
+    /// <summary>《土法化学笔记》（化学书，draft）——读过它的制作者解锁火药 / 鞣制药水一类化学配方。</summary>
+    public static BookData FolkChemistryNotes() => new(
+        id: "folk_chemistry_notes",
+        title: "土法化学笔记",
+        body: FolkChemistryNotesBody,
+        grantsRecipeStub: "recipe:gunpowder"); // 桩：书门槛已实装（RecipeBook.RequiredBookIds），此仅作叙事标记
+
     /// <summary>
     /// 日记A（金手指帮根据地，克莉丝汀尸旁）——两个普通帮众视角：灾后互助、参与暴行、"金手指帮"命名由来。
     /// 纯叙事物品，无配方产出（桩留空）。正文为占位草稿，最终由用户手写。
@@ -89,6 +103,8 @@ public static class BookLibrary
     {
         WildernessSurvivalGuide(),
         FarmerHundredQuestions(),
+        TailorsNotes(),
+        FolkChemistryNotes(),
         GoldfingerDiaryA(),
         GoldfingerDiaryB(),
     };
@@ -106,6 +122,20 @@ public static class BookLibrary
         "\"问：土豆几时下种？答：清明前后，看你的地，也看你的胆量。\"\n" +
         "\"问：一块地能养活几口人？答：伺候得好，比你想的多；伺候不好，一个都不剩。\"\n" +
         "一百个问题，一百个答案，藏着从一粒种子到一顿饱饭的全部门道。";
+
+    // draft 待用户改 —— 纺织书《裁缝手记》：解锁粗布背心一类缝纫配方
+    private const string TailorsNotesBody =
+        "一本用粗线装订的手记，纸页间还夹着几缕褪色的棉线。\n\n" +
+        "\"针脚要密，密了才挡风；线头要藏，藏了才耐磨。\"\n\n" +
+        "从量体、裁片到缝合，作者把一件挡身的粗布背心拆成了十几道工序，" +
+        "一笔一画描得清清楚楚。照着做，几块破布也能变成能穿的东西。";
+
+    // draft 待用户改 —— 化学书《土法化学笔记》：解锁火药 / 鞣制药水一类化学配方
+    private const string FolkChemistryNotesBody =
+        "封面被药水浸出几块焦黄，翻开一股刺鼻的酸味似乎还没散尽。\n\n" +
+        "\"配比错一分，是废料；错一钱，是要命。动手前先把窗户打开。\"\n\n" +
+        "笔记里记满了土法配方——如何把硝石、木炭和硫磺研成火药，" +
+        "如何调一锅鞣制生皮的药水。字迹潦草，却每一步都标着分量与火候。";
 
     // draft 待用户改 —— 日记A：两个普通帮众视角（互助求生 / 参与暴行 / "金手指帮"命名由来）
     private const string GoldfingerDiaryABody =

@@ -284,7 +284,6 @@ public sealed partial class CraftingPanel : CanvasLayer
         CraftAvailability avail = CraftingLogic.CanCraft(
             recipe,
             key => CraftingPanelFormat.MaterialCount(_inventory, key),
-            skill => _selectedCrafter!.SkillLevelOf(skill),
             bookId => _hasReadBook(_selectedCrafter!, bookId), // 书门槛按当前选中制作者本人已读
             installed);
 
@@ -374,11 +373,6 @@ public sealed partial class CraftingPanel : CanvasLayer
         foreach (ToolSlot tool in recipe.RequiredTools.OrderBy(t => (int)t))
         {
             parts.Add($"{Check(installed.Contains(tool))}{tool.Label()}");
-        }
-        foreach (SkillRequirement req in recipe.RequiredSkills)
-        {
-            bool ok = _selectedCrafter!.SkillLevelOf(req.Skill) >= req.MinLevel;
-            parts.Add($"{Check(ok)}{req.Skill.Label()}·{req.MinLevel.Label()}");
         }
         foreach (string bookId in recipe.RequiredBookIds)
         {

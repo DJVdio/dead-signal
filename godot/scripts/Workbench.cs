@@ -5,7 +5,7 @@ using System.Linq;
 namespace DeadSignal.Godot;
 
 // 注意：本文件为**纯 C# 逻辑**，不得引入任何 Godot 类型
-// （与 SkillSet.cs / ApparelSlots.cs 一样被 DeadSignal.Combat.Tests 以 Link 方式编入单测）。
+// （与 ApparelSlots.cs 一样被 DeadSignal.Combat.Tests 以 Link 方式编入单测）。
 // 工作台的三工具插槽状态：装/卸卡尺·锯片·烧杯，某类配方需对应工具装上才解锁。
 // **只管"哪把工具装上了没有"**——不碰配方判定（那是 CraftingLogic 的事，本类只出 InstalledTools 供其消费）。
 

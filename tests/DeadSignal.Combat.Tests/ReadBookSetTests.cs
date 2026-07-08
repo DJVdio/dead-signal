@@ -48,7 +48,7 @@ public class ReadBookSetTests
 
     /// <summary>
     /// 端到端语义：配方书门槛按"制作者本人已读"判定——读者 A 的已读集喂进 <see cref="CraftingLogic.CanCraft"/> 可制作，
-    /// 没读的 B 被 <see cref="CraftBlockReason.UnreadBook"/> 挡下。其余门槛（材料/技能/工具）全俱全，只隔离书这一项。
+    /// 没读的 B 被 <see cref="CraftBlockReason.UnreadBook"/> 挡下。其余门槛（材料/工具）全俱全，只隔离书这一项。
     /// </summary>
     [Fact]
     public void BookGate_IsPerCrafter()
@@ -61,20 +61,17 @@ public class ReadBookSetTests
             OutputQuantity: 1,
             MaterialCosts: new Dictionary<string, int>(),
             RequiredTools: new HashSet<ToolSlot>(),
-            RequiredBookIds: new List<string> { "wilderness_survival_guide" },
-            RequiredSkills: new List<SkillRequirement>(),
-            ExperienceSkill: null,
-            ExperienceReward: 0);
+            RequiredBookIds: new List<string> { "wilderness_survival_guide" });
 
         var reader = new ReadBookSet();   // A 读过《野外生存指南》
         reader.MarkRead("wilderness_survival_guide");
         var stranger = new ReadBookSet(); // B 没读
 
         CraftAvailability aCan = CraftingLogic.CanCraft(
-            recipe, _ => 0, _ => SkillLevel.None,
+            recipe, _ => 0,
             bookId => reader.HasRead(bookId), new HashSet<ToolSlot>());
         CraftAvailability bBlocked = CraftingLogic.CanCraft(
-            recipe, _ => 0, _ => SkillLevel.None,
+            recipe, _ => 0,
             bookId => stranger.HasRead(bookId), new HashSet<ToolSlot>());
 
         Assert.True(aCan.CanCraft);                                              // A 本人读过 → 可制作

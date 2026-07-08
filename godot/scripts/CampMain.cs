@@ -2556,7 +2556,7 @@ public sealed partial class CampMain : Node2D
         }
 
         CraftResult result = CraftingService.Craft(
-            recipe, crafter.Skills, id => crafter.HasReadBook(id), // 书门槛按制作者本人已读
+            recipe, id => crafter.HasReadBook(id), // 书门槛按制作者本人已读
             _workbench, _inventory, 1, CraftOutputFactory.Create);
 
         if (!result.Success)
@@ -2568,11 +2568,8 @@ public sealed partial class CampMain : Node2D
         }
 
         string products = string.Join("、", result.Produced.Select(p => p.DisplayName));
-        string levelUp = result.ExperienceSkill is { } sk && result.SkillLevelsGained > 0
-            ? $"，{crafter.DisplayName} 的{sk.Label()}升到 {crafter.SkillLevelOf(sk).Label()}"
-            : "";
-        _campToast.Show($"{crafter.DisplayName} 制作了 {products}{levelUp}", CampToast.Ok);
-        GD.Print($"[制作] {crafter.DisplayName} 制作 {recipe.DisplayName} → {products}{levelUp}");
+        _campToast.Show($"{crafter.DisplayName} 制作了 {products}", CampToast.Ok);
+        GD.Print($"[制作] {crafter.DisplayName} 制作 {recipe.DisplayName} → {products}");
         RefreshCrafting();
     }
 

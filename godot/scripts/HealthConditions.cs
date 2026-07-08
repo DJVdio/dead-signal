@@ -6,7 +6,7 @@ using DeadSignal.Combat;
 namespace DeadSignal.Godot;
 
 // 注意：本文件为**纯 C# 逻辑**，不得引入任何 Godot 类型
-// （与 HungerState.cs / SkillSet.cs 一样被 DeadSignal.Combat.Tests 以 Link 方式编入单测）。
+// （与 HungerState.cs 一样被 DeadSignal.Combat.Tests 以 Link 方式编入单测）。
 // 只 **只读引用** 战斗引擎（DeadSignal.Combat）的出血/骨折状态语义，绝不改战斗引擎定稿。
 //
 // 承载"伤病随时间恶化 + 手术治疗"的全部规则（模型层，不接 Body/CampMain 每帧推进——接入后续波）：
@@ -16,7 +16,7 @@ namespace DeadSignal.Godot;
 //   · **流血/骨折不会自动痊愈，只能靠手术**（PerformSurgery）：未手术的出血仍按 TickDay 恶化/致死。
 //     手术 = 点数池(基础 15 + 床 +10 + 材料) → roll[0,池] = 恢复效率%；roll ≤ 10 失败需重做；
 //     材料成功失败都消耗；医疗技能完全不参与（纯材料+床+运气）。成功后该伤按恢复效率%逐日愈合。
-//   · 感染/疾病**不在手术机制内**：仍走药品 TreatIllness（抗生素治感染 / 成药治疾病，医疗技能越高越有效）。
+//   · 感染/疾病**不在手术机制内**：仍走药品 TreatIllness（抗生素治感染 / 成药治疾病，疗效取固定基数——通用技能系统已删）。
 //   · 手术耗材（点数/适用伤类）在 SurgeryCatalog；药品语义在 MedicineCatalog；物品数据在 Materials.cs。
 //   · HealthMapping.SeedFromBody：从战斗态只读播种伤病集（出血伤口→Bleeding、骨折→Fracture）。
 // 数值全部"拟定待调 draft"，用于走通规则形态；具体值用 Sim 校准、结局狠辣是有意为之。
@@ -297,14 +297,8 @@ public sealed class HealthConditionSet
     /// <summary>登记一条病状（战斗产出/环境衍生皆经此入库）。</summary>
     public void Add(HealthCondition condition) => _conditions.Add(condition);
 
-    /// <summary>施治者医疗技能 → 单次药效系数（draft，仅感染/疾病用药）：无技能也能救急，但事倍功半。</summary>
-    private static double SkillFactor(SkillLevel level) => level switch
-    {
-        SkillLevel.Expert => 1.0,
-        SkillLevel.Adept => 0.8,
-        SkillLevel.Novice => 0.65,
-        _ => 0.45, // 未掌握：勉强处理
-    };
+    /// <summary>单次药效固定基数（draft，仅感染/疾病用药）：通用医疗技能已删，疗效不再随人变，取一个"照护得当"的固定系数，用 Sim 校准。</summary>
+    private const double TreatmentPotencyFactor = 0.8;
 
     /// <summary>
     /// 分段 roll 区间（纯函数，供测试直接验）：给定有效池 P，返回 roll 的闭区间 [min,max]（区间内均匀整数）。
@@ -420,11 +414,11 @@ public sealed class HealthConditionSet
     }
 
     /// <summary>
-    /// 用药治疗一处**感染/疾病**（流血/骨折不吃药、走 <see cref="PerformSurgery"/>）：给定病状、药品、施治者医疗技能，
+    /// 用药治疗一处**感染/疾病**（流血/骨折不吃药、走 <see cref="PerformSurgery"/>）：给定病状、药品，
     /// 降 severity，归 0 → 治愈并移除。药不对症或病状非感染/疾病 → <see cref="TreatmentStatus.NoEffect"/>。
-    /// 医疗技能越高单次越有效；<see cref="TickDay"/> resting 减缓恶化。
+    /// 疗效取固定基数（<see cref="TreatmentPotencyFactor"/>，通用医疗技能已删）；<see cref="TickDay"/> resting 减缓恶化。
     /// </summary>
-    public TreatmentResult TreatIllness(HealthCondition condition, Medicine? medicine, SkillLevel medicalLevel)
+    public TreatmentResult TreatIllness(HealthCondition condition, Medicine? medicine)
     {
         double before = condition.Severity;
 
@@ -436,7 +430,7 @@ public sealed class HealthConditionSet
         }
 
         condition.MarkTended();
-        condition.AddSeverity(-medicine!.Value.Potency * SkillFactor(medicalLevel));
+        condition.AddSeverity(-medicine!.Value.Potency * TreatmentPotencyFactor);
         if (condition.Severity <= 0)
         {
             _conditions.Remove(condition);

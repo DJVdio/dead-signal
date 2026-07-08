@@ -3,7 +3,7 @@ using System.Collections.Generic;
 namespace DeadSignal.Godot;
 
 // 注意：本文件为**纯 C# 逻辑**，不得引入任何 Godot 类型
-// （与 SkillSet.cs / HungerState.cs 一样被 DeadSignal.Combat.Tests 以 Link 方式编入单测）。
+// （与 HungerState.cs 一样被 DeadSignal.Combat.Tests 以 Link 方式编入单测）。
 // 承载单个幸存者的"个人已读书集"：谁读完了哪些书（按 book id）。配方书门槛由"营地全局已读"
 // 升级为"制作者本人已读"后，判据即读本对象——制作骨刀需要制作者本人读完《野外生存指南》。
 

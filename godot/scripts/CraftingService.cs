@@ -8,28 +8,25 @@ namespace DeadSignal.Godot;
 // 注意：本文件为**纯 C# 逻辑**，不引入任何 Godot 类型（只引 DeadSignal.Combat 的 Weapon），
 // 与 CraftingLogic.cs / WeaponMod.cs 一样被 DeadSignal.Combat.Tests 以 Link 方式编入单测。
 // 制作执行服务：把"只出契约不碰库存"的模型层（CraftingLogic.CanCraft/Resolve、WeaponMods.ApplyMods）
-// 接到营地共享库存（InventoryStore）与制作者技能（SkillSet），**实扣实产**——
-//   Craft          —— CanCraft 判定 → Resolve 契约 → 跨堆扣材料 + 产出入库 + 回喂制作者经验。
+// 接到营地共享库存（InventoryStore），**实扣实产**——
+//   Craft          —— CanCraft 判定 → Resolve 契约 → 跨堆扣材料 + 产出入库。
 //   ApplyWeaponMod —— 消耗库存里的基础武器 → 按 key 取改装合成变体 → 变体作新武器入库。
-// 与 Pawn 解耦：只取 Pawn.Skills（SkillSet，纯逻辑）与"某书是否已读"谓词做入参，故本服务可无 Godot 依赖进单测。
-// 营地接入（CampMain）自行把 crafter.Skills / (id => bookResolver(id)?.IsRead ?? false) / WorkbenchState / InventoryStore 传进来。
+// 通用技能系统已删——不再取制作者技能、不再回喂经验；配方门槛只看 工具/书/材料。
+// 与 Pawn 解耦：只取"某书是否已读"谓词做入参，故本服务可无 Godot 依赖进单测。
+// 营地接入（CampMain）自行把 (id => crafter.HasReadBook(id)) / WorkbenchState / InventoryStore 传进来。
 
 /// <summary>一次 <see cref="CraftingService.Craft"/> 的结果（成功即已实扣实产）。</summary>
 /// <param name="Success">是否制作成功（false 时库存未变，看 <see cref="Blocks"/> 原因）。</param>
 /// <param name="Blocks">失败时未满足的门槛明细（成功为空）。</param>
 /// <param name="Produced">产出的库存物品（成功时已 Add 进 inventory）。</param>
-/// <param name="ExperienceSkill">回喂经验的技能（无则 null）。</param>
-/// <param name="SkillLevelsGained">本次制作使该技能升的级数（供"XX 升级了"提示）。</param>
 public sealed record CraftResult(
     bool Success,
     IReadOnlyList<CraftBlock> Blocks,
-    IReadOnlyList<Item> Produced,
-    SkillType? ExperienceSkill,
-    int SkillLevelsGained)
+    IReadOnlyList<Item> Produced)
 {
     /// <summary>造一个失败结果（带门槛原因，不含产物）。</summary>
     public static CraftResult Fail(IReadOnlyList<CraftBlock> blocks)
-        => new(false, blocks, Array.Empty<Item>(), null, 0);
+        => new(false, blocks, Array.Empty<Item>());
 }
 
 /// <summary>一次 <see cref="CraftingService.ApplyWeaponMod"/> 的结果。</summary>
@@ -112,13 +109,12 @@ public static class CraftingService
     // ======================== 制作执行 ========================
 
     /// <summary>
-    /// 执行一次制作：先 <see cref="CraftingLogic.CanCraft"/> 判四门槛（工具/技能/书/材料，材料按 <paramref name="times"/> 放大校验），
+    /// 执行一次制作：先 <see cref="CraftingLogic.CanCraft"/> 判三门槛（工具/书/材料，材料按 <paramref name="times"/> 放大校验），
     /// 不可制作则原样返回失败（不动库存）；可制作则 <see cref="CraftingLogic.Resolve"/> 出契约 →
-    /// 跨堆从 <paramref name="inventory"/> 扣材料 → 造产物入库 → 给 <paramref name="crafterSkills"/> 回喂经验，返回成功结果。
+    /// 跨堆从 <paramref name="inventory"/> 扣材料 → 造产物入库，返回成功结果。
     /// </summary>
     /// <param name="recipe">配方。</param>
-    /// <param name="crafterSkills">制作者技能集（取自 <c>Pawn.Skills</c>；用于技能门槛判定 + 经验回喂）。</param>
-    /// <param name="isBookRead">"某书 id 是否已读"谓词（营地传 <c>id =&gt; bookResolver(id)?.IsRead ?? false</c>）。</param>
+    /// <param name="isBookRead">"某书 id 是否已读"谓词（营地传 <c>id =&gt; crafter.HasReadBook(id)</c>）。</param>
     /// <param name="workbench">工作台工具装配态（工具门槛判据）。</param>
     /// <param name="inventory">营地共享库存（实扣材料、实产物品）。</param>
     /// <param name="times">批量倍数（clamp 到 ≥1）。</param>
@@ -129,7 +125,6 @@ public static class CraftingService
     /// </param>
     public static CraftResult Craft(
         RecipeData recipe,
-        SkillSet crafterSkills,
         Func<string, bool> isBookRead,
         WorkbenchState workbench,
         InventoryStore inventory,
@@ -137,7 +132,6 @@ public static class CraftingService
         Func<string, int, IEnumerable<Item>>? outputFactory = null)
     {
         if (recipe is null) throw new ArgumentNullException(nameof(recipe));
-        if (crafterSkills is null) throw new ArgumentNullException(nameof(crafterSkills));
         if (isBookRead is null) throw new ArgumentNullException(nameof(isBookRead));
         if (inventory is null) throw new ArgumentNullException(nameof(inventory));
 
@@ -145,11 +139,10 @@ public static class CraftingService
         IReadOnlySet<ToolSlot> installed = workbench?.InstalledTools ?? new HashSet<ToolSlot>();
         List<Item> materials = inventory.ByCategory(ItemCategory.Material).ToList();
 
-        // 门槛判定：材料计数跨堆合计；技能查 SkillSet；书查谓词；工具查工作台。
+        // 门槛判定：材料计数跨堆合计；书查谓词；工具查工作台。
         CraftAvailability availability = CraftingLogic.CanCraft(
             recipe,
             k => MaterialTotal(materials, k),
-            crafterSkills.LevelOf,
             isBookRead,
             installed);
 
@@ -194,14 +187,7 @@ public static class CraftingService
             produced.Add(item);
         }
 
-        // 回喂经验：返回升级数供提示。
-        int levels = 0;
-        if (resolution.ExperienceSkill is SkillType xpSkill && resolution.ExperienceReward > 0)
-        {
-            levels = crafterSkills.GainExperience(xpSkill, resolution.ExperienceReward);
-        }
-
-        return new CraftResult(true, Array.Empty<CraftBlock>(), produced, resolution.ExperienceSkill, levels);
+        return new CraftResult(true, Array.Empty<CraftBlock>(), produced);
     }
 
     /// <summary>

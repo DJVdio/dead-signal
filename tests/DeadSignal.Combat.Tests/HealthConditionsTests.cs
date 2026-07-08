@@ -517,18 +517,18 @@ public class HealthConditionsTests
     // ================= 感染/疾病：药品治疗路径（保留，与手术无关）=================
 
     [Fact]
-    public void Antibiotics_and_high_medical_skill_cure_infection_faster_than_low()
+    public void Antibiotics_reduce_infection_severity()
     {
         HealthCondition MakeInf() => new(HealthConditionType.Infection, 0.9, "右上臂", onLimb: true);
         Medicine? abx = MedicineCatalog.For("antibiotics");
 
-        var expert = new HealthConditionSet(); var ci = MakeInf(); expert.Add(ci);
-        expert.TreatIllness(ci, abx, SkillLevel.Expert);
+        var set = new HealthConditionSet(); var ci = MakeInf(); set.Add(ci);
+        double before = ci.Severity;
+        set.TreatIllness(ci, abx);
 
-        var novice = new HealthConditionSet(); var cn = MakeInf(); novice.Add(cn);
-        novice.TreatIllness(cn, abx, SkillLevel.Novice);
-
-        Assert.True(ci.Severity < cn.Severity, "医疗技能越高，单次治疗降severity越多");
+        // 疗效固定基数（通用技能已删）：单次降 severity = Potency(0.5) × 0.8 = 0.4。
+        Assert.True(ci.Severity < before, "抗生素降低感染 severity");
+        Assert.Equal(before - 0.5 * 0.8, ci.Severity, 3);
     }
 
     [Fact]
@@ -537,8 +537,8 @@ public class HealthConditionsTests
         var set = new HealthConditionSet();
         var disease = new HealthCondition(HealthConditionType.Disease, 0.4, bodyPart: null, onLimb: false);
         set.Add(disease);
-        TreatmentResult tr = set.TreatIllness(disease, MedicineCatalog.For("medicine"), SkillLevel.Expert);
-        Assert.Equal(TreatmentStatus.Cured, tr.Status); // 0.4 - 0.6*1.0 ≤ 0 → 治愈
+        TreatmentResult tr = set.TreatIllness(disease, MedicineCatalog.For("medicine"));
+        Assert.Equal(TreatmentStatus.Cured, tr.Status); // 0.4 - 0.6*0.8 = -0.08 ≤ 0 → 治愈
         Assert.True(tr.Removed);
         Assert.DoesNotContain(disease, set.Conditions);
     }
@@ -565,12 +565,12 @@ public class HealthConditionsTests
         set.Add(infection);
         // 成药治不了感染。
         Assert.Equal(TreatmentStatus.NoEffect,
-            set.TreatIllness(infection, MedicineCatalog.For("medicine"), SkillLevel.Expert).Status);
+            set.TreatIllness(infection, MedicineCatalog.For("medicine")).Status);
 
         // 流血不吃药（走手术）：TreatIllness 对它无效。
         var bleed = Bleed(0.5); set.Add(bleed);
         Assert.Equal(TreatmentStatus.NoEffect,
-            set.TreatIllness(bleed, MedicineCatalog.For("antibiotics"), SkillLevel.Expert).Status);
+            set.TreatIllness(bleed, MedicineCatalog.For("antibiotics")).Status);
         Assert.Equal(0.5, bleed.Severity, 3);
     }
 

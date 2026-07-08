@@ -36,19 +36,6 @@ public sealed partial class Pawn : Actor
     protected override double HungerAbilityPenalty => Hunger.AbilityPenalty;
 
     /// <summary>
-    /// 幸存者技能集（见 <see cref="SkillSet"/>，纯逻辑）。配方系统后续按"制作者"技能门槛解锁配方、
-    /// 并在制作成功时回喂经验，均消费本对象。丧尸/Raider 不涉技能——本对象仅挂在 Pawn 上。
-    /// 直接查询走下方只读封装 <see cref="HasSkill"/>/<see cref="SkillLevelOf"/>；成长/直设走 SkillSet 自身接口。
-    /// </summary>
-    public SkillSet Skills { get; } = new();
-
-    /// <summary>制作者/UI 门槛查询：本 Pawn 某技能是否达到给定等级（默认门槛=初级）。配方解锁的权威判据。</summary>
-    public bool HasSkill(SkillType skill, SkillLevel minLevel = SkillLevel.Novice) => Skills.HasSkill(skill, minLevel);
-
-    /// <summary>本 Pawn 某技能当前等级（未掌握 = <see cref="SkillLevel.None"/>），供配方/UI 读取。</summary>
-    public SkillLevel SkillLevelOf(SkillType skill) => Skills.LevelOf(skill);
-
-    /// <summary>
     /// 幸存者个人已读书集（见 <see cref="ReadBookSet"/>，纯逻辑）。配方书门槛按"制作者本人已读"判定 —— 消费本对象，
     /// 不再走营地全局已读（<see cref="BookData.IsRead"/> 仍供库存"已读"标记等营地视角点使用）。丧尸/Raider 不涉。
     /// </summary>
@@ -147,18 +134,7 @@ public sealed partial class Pawn : Actor
         p.MoveSpeed = 95f;
         p.Body = CombatData.NewHumanoidBody();
 
-        // 初始技能分布【draft 占位人设数据，待用户按角色改】：两名起始幸存者各有一两项初级技能，
-        // 以 usePistol 暂当"两个不同角色"的代号区分——射手/机工型 vs 近战/后勤型。这是 authored 数据、非平衡数值。
-        if (usePistol)
-        {
-            p.Skills.Train(SkillType.Mechanical, SkillLevel.Novice); // 机工
-            p.Skills.Train(SkillType.Combat, SkillLevel.Novice);    // 射击
-        }
-        else
-        {
-            p.Skills.Train(SkillType.Textile, SkillLevel.Novice);   // 纺织（可解锁粗布背心一类配方）
-            p.Skills.Train(SkillType.Cooking, SkillLevel.Novice);   // 烹饪
-        }
+        // 通用技能系统已删——角色能力改由 authored 专属效果 + 读过的书承载，此处不再直设初始技能。
 
         // 初始武器进【持械模型】主手（右手）：手枪→远程、匕首→近战。EquipToHand 自动按 TwoHanded 分流。
         p._loadout.EquipToHand(usePistol ? CombatData.Pistol() : CombatData.Dagger(), Hand.Right);

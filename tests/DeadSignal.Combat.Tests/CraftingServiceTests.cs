@@ -8,7 +8,7 @@ namespace DeadSignal.Combat.Tests;
 
 // 制作执行服务（CraftingService）纯逻辑单测：
 //   跨堆材料合计/够付/扣减（易错点）、Craft 实扣实产（成功/被门槛挡/批量材料不足）、
-//   经验回喂 + 升级数、内置产物工厂（材料 vs 非材料）、ApplyWeaponMod 消耗基础武器入变体/冲突/缺武器。
+//   内置产物工厂（材料 vs 非材料）、ApplyWeaponMod 消耗基础武器入变体/冲突/缺武器（通用技能门槛已删）。
 
 public class CrossStackMaterialTests
 {
@@ -65,7 +65,7 @@ public class CrossStackMaterialTests
 
 public class CraftExecutionTests
 {
-    // 一张自造配方：需 Beaker + 化学初级 + 读 test_book，材料 wood×3/cloth×1，产出材料 gunpowder×2，回喂化学。
+    // 一张自造配方：需 Beaker + 读 test_book，材料 wood×3/cloth×1，产出材料 gunpowder×2。
     private static RecipeData MakeRecipe(string output = "gunpowder", int outQty = 2) => new(
         Id: "svc_test",
         DisplayName: "测试物",
@@ -74,15 +74,10 @@ public class CraftExecutionTests
         OutputQuantity: outQty,
         MaterialCosts: new Dictionary<string, int> { ["wood"] = 3, ["cloth"] = 1 },
         RequiredTools: new HashSet<ToolSlot> { ToolSlot.Beaker },
-        RequiredBookIds: new List<string> { "test_book" },
-        RequiredSkills: new List<SkillRequirement> { new(SkillType.Chemistry, SkillLevel.Novice) },
-        ExperienceSkill: SkillType.Chemistry,
-        ExperienceReward: 40);
+        RequiredBookIds: new List<string> { "test_book" });
 
-    private static (SkillSet skills, WorkbenchState bench, InventoryStore inv) Ready()
+    private static (WorkbenchState bench, InventoryStore inv) Ready()
     {
-        var skills = new SkillSet();
-        skills.Train(SkillType.Chemistry, SkillLevel.Adept);
         var bench = new WorkbenchState();
         bench.InstallTool(ToolSlot.Beaker);
         var inv = new InventoryStore();
@@ -90,14 +85,14 @@ public class CraftExecutionTests
         inv.Add(Item.Material("wood", "木料", 3));
         inv.Add(Item.Material("wood", "木料", 1));
         inv.Add(Item.Material("cloth", "布料", 2));
-        return (skills, bench, inv);
+        return (bench, inv);
     }
 
     [Fact]
-    public void Craft_Success_DeductsAcrossStacks_ProducesMaterial_GainsExperience()
+    public void Craft_Success_DeductsAcrossStacks_ProducesMaterial()
     {
-        var (skills, bench, inv) = Ready();
-        CraftResult r = CraftingService.Craft(MakeRecipe(), skills, _ => true, bench, inv);
+        var (bench, inv) = Ready();
+        CraftResult r = CraftingService.Craft(MakeRecipe(), _ => true, bench, inv);
 
         Assert.True(r.Success);
         Assert.Empty(r.Blocks);
@@ -107,40 +102,15 @@ public class CraftExecutionTests
         // 产出 gunpowder×2（材料堆）。
         Assert.Equal(2, CraftingService.MaterialTotal(inv.Items, "gunpowder"));
         Assert.Contains(r.Produced, i => i.RefKey == "gunpowder" && i.MaterialQuantity == 2);
-        // 经验：Adept(2) + 40 → 无升级（每级 100），记 0 级。
-        Assert.Equal(SkillType.Chemistry, r.ExperienceSkill);
-        Assert.Equal(0, r.SkillLevelsGained);
-        Assert.Equal(40, skills.ExperienceToward(SkillType.Chemistry));
-    }
-
-    [Fact]
-    public void Craft_ReportsLevelUp_WhenExperienceCrossesThreshold()
-    {
-        var (_, bench, inv) = Ready();
-        var skills = new SkillSet();
-        skills.Train(SkillType.Chemistry, SkillLevel.Novice); // 级内经验 0
-        // 配方给 40 不够升；改造一个大奖励配方直接验升级路径。
-        var big = new RecipeData(
-            Id: "big", DisplayName: "大", Category: RecipeCategory.Chemistry,
-            OutputKey: "gunpowder", OutputQuantity: 1,
-            MaterialCosts: new Dictionary<string, int> { ["wood"] = 1 },
-            RequiredTools: new HashSet<ToolSlot> { ToolSlot.Beaker },
-            RequiredBookIds: new List<string>(),
-            RequiredSkills: new List<SkillRequirement>(),
-            ExperienceSkill: SkillType.Chemistry, ExperienceReward: 100);
-
-        CraftResult r = CraftingService.Craft(big, skills, _ => true, bench, inv);
-        Assert.True(r.Success);
-        Assert.Equal(1, r.SkillLevelsGained); // 100 经验恰升一级
     }
 
     [Fact]
     public void Craft_Blocked_MissingTool_LeavesInventoryUntouched()
     {
-        var (skills, _, inv) = Ready();
+        var (_, inv) = Ready();
         int before = inv.Count;
         var emptyBench = new WorkbenchState(); // 无 Beaker
-        CraftResult r = CraftingService.Craft(MakeRecipe(), skills, _ => true, emptyBench, inv);
+        CraftResult r = CraftingService.Craft(MakeRecipe(), _ => true, emptyBench, inv);
 
         Assert.False(r.Success);
         Assert.Contains(r.Blocks, b => b.Reason == CraftBlockReason.MissingTool);
@@ -151,8 +121,8 @@ public class CraftExecutionTests
     [Fact]
     public void Craft_Blocked_UnreadBook()
     {
-        var (skills, bench, inv) = Ready();
-        CraftResult r = CraftingService.Craft(MakeRecipe(), skills, _ => false, bench, inv);
+        var (bench, inv) = Ready();
+        CraftResult r = CraftingService.Craft(MakeRecipe(), _ => false, bench, inv);
         Assert.False(r.Success);
         Assert.Contains(r.Blocks, b => b.Reason == CraftBlockReason.UnreadBook);
     }
@@ -160,10 +130,10 @@ public class CraftExecutionTests
     [Fact]
     public void Craft_Batch_InsufficientMaterial_Fails_NoMutation()
     {
-        var (skills, bench, inv) = Ready(); // wood=4, cloth=2；单份需 wood3/cloth1
+        var (bench, inv) = Ready(); // wood=4, cloth=2；单份需 wood3/cloth1
         int before = inv.Count;
         // times=2 需 wood6 → 不够。
-        CraftResult r = CraftingService.Craft(MakeRecipe(), skills, _ => true, bench, inv, times: 2);
+        CraftResult r = CraftingService.Craft(MakeRecipe(), _ => true, bench, inv, times: 2);
         Assert.False(r.Success);
         Assert.Contains(r.Blocks, b => b.Reason == CraftBlockReason.InsufficientMaterial && b.Key == "wood");
         Assert.Equal(before, inv.Count);
@@ -172,9 +142,9 @@ public class CraftExecutionTests
     [Fact]
     public void Craft_DefaultOutput_NonMaterialKey_ProducesWeaponItems()
     {
-        var (skills, bench, inv) = Ready();
+        var (bench, inv) = Ready();
         // 产出 bone_knife（不在材料目录）×2 → 默认工厂造 2 件武器物品。
-        CraftResult r = CraftingService.Craft(MakeRecipe(output: "bone_knife", outQty: 2), skills, _ => true, bench, inv);
+        CraftResult r = CraftingService.Craft(MakeRecipe(output: "bone_knife", outQty: 2), _ => true, bench, inv);
         Assert.True(r.Success);
         Assert.Equal(2, r.Produced.Count);
         Assert.All(r.Produced, i => Assert.Equal(ItemCategory.Weapon, i.Category));
@@ -184,9 +154,9 @@ public class CraftExecutionTests
     [Fact]
     public void Craft_CustomOutputFactory_IsUsed()
     {
-        var (skills, bench, inv) = Ready();
+        var (bench, inv) = Ready();
         CraftResult r = CraftingService.Craft(
-            MakeRecipe(output: "cloth_vest", outQty: 1), skills, _ => true, bench, inv,
+            MakeRecipe(output: "cloth_vest", outQty: 1), _ => true, bench, inv,
             outputFactory: (key, qty) => Enumerable.Range(0, qty).Select(_ => Item.Armor(key)));
         Assert.True(r.Success);
         Assert.Single(r.Produced);
@@ -196,8 +166,6 @@ public class CraftExecutionTests
     [Fact]
     public void Craft_RealRecipe_Gunpowder_EndToEnd()
     {
-        var skills = new SkillSet();
-        skills.Train(SkillType.Chemistry, SkillLevel.Novice);
         var bench = new WorkbenchState();
         bench.InstallTool(ToolSlot.Beaker);
         var inv = new InventoryStore();
@@ -205,7 +173,7 @@ public class CraftExecutionTests
         inv.Add(Item.Material("fuel", "燃料", 2));
 
         RecipeData gp = RecipeBook.Find("gunpowder")!;
-        CraftResult r = CraftingService.Craft(gp, skills, _ => true, bench, inv);
+        CraftResult r = CraftingService.Craft(gp, _ => true, bench, inv);
         Assert.True(r.Success);
         Assert.Equal(2, CraftingService.MaterialTotal(inv.Items, "gunpowder")); // 产出 2
         Assert.Equal(1, CraftingService.MaterialTotal(inv.Items, "stone"));     // 扣 1

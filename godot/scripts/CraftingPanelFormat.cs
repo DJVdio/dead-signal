@@ -4,7 +4,7 @@ using System.Linq;
 namespace DeadSignal.Godot;
 
 // 注意：本文件为**纯 C# 逻辑**，不得引入任何 Godot 类型
-// （与 SkillSet.cs / Recipe.cs / CraftingLogic.cs 一样被 DeadSignal.Combat.Tests 以 Link 方式编入单测）。
+// （与 Recipe.cs / CraftingLogic.cs 一样被 DeadSignal.Combat.Tests 以 Link 方式编入单测）。
 // 工作台制作面板（CraftingPanel）的**纯展示逻辑**：把配方按"需要的工具槽"分组、给出工具需求文案与满足判定、
 // 聚合库存里某材料的现有数量。面板本体（Godot 层）只做控件装配与事件发射，把这几个可测的算法抽到这里 Link 测。
 
