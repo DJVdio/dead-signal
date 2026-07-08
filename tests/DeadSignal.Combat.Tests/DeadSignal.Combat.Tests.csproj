@@ -54,6 +54,8 @@
     <Compile Include="..\..\godot\scripts\InventoryStore.cs" Link="Consumed\InventoryStore.cs" />
     <!-- 营地容器搜刮纯逻辑（无 Godot 依赖）：掉落登记 + 一次性搜刮语义 + 掉落落地到库存/食物/书登记。 -->
     <Compile Include="..\..\godot\scripts\ContainerLoot.cs" Link="Consumed\ContainerLoot.cs" />
+    <!-- 武器持械模型纯逻辑（无 Godot 依赖）：左右手持械 → GripMode 推导 / 断手禁持 / 主手武器选取。 -->
+    <Compile Include="..\..\godot\scripts\WeaponLoadout.cs" Link="Consumed\WeaponLoadout.cs" />
   </ItemGroup>
 
 </Project>
