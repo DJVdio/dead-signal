@@ -77,6 +77,11 @@ public abstract partial class Actor : CharacterBody2D
     protected double AttackCooldown = 1.0;
     /// <summary>远程武器：攻击时发射锥形散布弹道子弹，而非近战瞬时结算。</summary>
     protected bool IsRanged;
+    /// <summary>
+    /// 远程武器"贴脸"阈值（cartesian 像素，拟定待调）：目标 body 边缘进此间隙内改用枪托近战钝击而非开火。
+    /// 采边缘间隙口径（+双方半径，与本文件其余交战判定一致）——确保近战敌(丧尸/劫掠者贴到约边缘 24~26px)贴身时可靠切枪托。
+    /// </summary>
+    private const float PointBlankRange = 40f;
     protected IReadOnlyList<ArmorLayer> DefenderArmor = Array.Empty<ArmorLayer>();
 
     private double _attackTimer;
@@ -260,7 +265,12 @@ public abstract partial class Actor : CharacterBody2D
             else
             {
                 float dist = GlobalPosition.DistanceTo(tgt.GlobalPosition);
-                if (dist <= AttackRange + Radius + tgt.Radius)
+                // 交战/停下距离：远程按武器 MaxRange 判（进射程即停下开火，贴脸时 TryAttack 再切枪托近战）；
+                // 近战按有效射程边缘（AttackRange 含守卫岗位加成）。远程武器的开火距离权威口径 = MaxRange，非 AttackRange。
+                bool inEngage = IsRanged
+                    ? Ballistics.InRange(dist, AttackWeapon)
+                    : dist <= AttackRange + Radius + tgt.Radius;
+                if (inEngage)
                 {
                     Vector2 aim = tgt.GlobalPosition - GlobalPosition;
                     if (aim != Vector2.Zero)
@@ -352,6 +362,26 @@ public abstract partial class Actor : CharacterBody2D
         {
             return;
         }
+
+        // 远程武器出手前先定"打什么"：
+        // ①贴脸（≤PointBlankRange）→ 改枪托钝击近战（MeleeProfile：必中、无误差角、低伤慢速），不开火；
+        // ②目标超出武器 MaxRange → 本次不出手也不消耗冷却（正常由 _PhysicsProcess 的 MaxRange 交战门先挡下、寻路逼近，此为兜底）。
+        Weapon weapon = AttackWeapon;
+        bool fireRanged = IsRanged;
+        if (IsRanged)
+        {
+            float dist = GlobalPosition.DistanceTo(target.GlobalPosition);
+            if (!Ballistics.InRange(dist, AttackWeapon))
+            {
+                return;
+            }
+            if (dist <= PointBlankRange + Radius + target.Radius && AttackWeapon.MeleeProfile() is { } stock)
+            {
+                weapon = stock;
+                fireRanged = false;
+            }
+        }
+
         // 残疾操作惩罚：操作能力 = 1 − OperationPenalty（断手/断指净值，实时重算）。对齐 Duel.EffectiveInterval 口径：
         // 有效间隔 = 基础 / 操作能力（惩罚 0.5 → 间隔翻倍）；能力 ≤0（惩罚 ≥1，如断双手）→ 无法出手，跳过本次攻击、
         // 计时器不动（避免除零变 NaN/负值），下帧再判。
@@ -364,13 +394,14 @@ public abstract partial class Actor : CharacterBody2D
         }
         _attackTimer = AttackCooldown / operation;
 
-        if (IsRanged)
+        if (fireRanged)
         {
             FireProjectile(target);
         }
         else
         {
-            target.ReceiveAttack(this, AttackWeapon, Combat);
+            // 贴脸枪托或本就近战武器：必中近战结算（枪托为上面派生的 MeleeProfile）。
+            target.ReceiveAttack(this, weapon, Combat);
         }
     }
 
@@ -388,8 +419,11 @@ public abstract partial class Actor : CharacterBody2D
         double shotDeg = Combat.SampleShotDirectionDegrees(aimDeg, AttackWeapon.BaseSpreadDegrees);
         Vector2 dir = Vector2.FromAngle(Mathf.DegToRad((float)shotDeg));
 
+        // 子弹最大飞行距离对齐武器 MaxRange（开火判定同源；超 MaxRange 衰减本就归 0）。
+        // 无射程模型的远程武器（罕见）回落到旧的 AttackRange*1.25 兜底。
+        float maxDist = (float)(AttackWeapon.MaxRange ?? (AttackRange * 1.25));
         Projectile.Spawn(GetParent(), GlobalPosition + dir * (Radius + 2f), dir,
-            AttackRange * 1.25f, AttackWeapon, Combat, this);
+            maxDist, AttackWeapon, Combat, this);
     }
 
     // ---- 守卫岗位加成（D 守卫防御战）：只读取岗位属性作用到战斗参数，不改既有攻防逻辑 ----
@@ -456,14 +490,15 @@ public abstract partial class Actor : CharacterBody2D
     /// 作为防御方承受一次攻击：用自身护甲跑逐层结算 + 效果结算，施加到自身躯体。近战与子弹共用。
     /// <paramref name="attacker"/> 为攻击方（用于战斗日志归属），可为 <c>null</c>（环境伤害/无源）。
     /// </summary>
-    public void ReceiveAttack(Actor? attacker, Weapon weapon, CombatEngine combat)
+    public void ReceiveAttack(Actor? attacker, Weapon weapon, CombatEngine combat, double damageFactor = 1.0)
     {
         if (!Alive)
         {
             return;
         }
         // 伤害/流血/切除/致死已在此调用内施加到 Body；下方仅发布到表现总线（飘字②③④各自订阅）。
-        AttackOutcome hit = combat.ResolveHit(weapon, DefenderArmor, Body);
+        // damageFactor：远程距离衰减系数（近战/贴脸枪托传默认 1.0，不衰减）。
+        AttackOutcome hit = combat.ResolveHit(weapon, DefenderArmor, Body, damageFactor);
         CombatFeed.Publish(attacker, this, hit);
 
         if (!Alive)

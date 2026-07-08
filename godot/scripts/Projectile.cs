@@ -88,7 +88,9 @@ public sealed partial class Projectile : Node2D
                     continue;
                 }
 
-                victim.ReceiveAttack(_shooter, _weapon, _combat);
+                // 距离衰减：按射手→命中者的间距缩放伤害（满伤段内=1，线性降到 MaxRange 处 FalloffFloor）。近战不经此路径。
+                double factor = Ballistics.RangedDamageFactor(dist, _weapon);
+                victim.ReceiveAttack(_shooter, _weapon, _combat, factor);
             }
 
             // 命中体（敌方/远处友军/墙）即终止：命中已结算，撞墙则落空。

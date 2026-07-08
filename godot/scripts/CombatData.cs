@@ -145,12 +145,18 @@ public sealed class CombatEngine
     /// <summary>
     /// 结算一次命中：在防御方当前尚存的部位中按体积加权选一处 → 逐层护甲结算 →
     /// 走效果结算施加到 <paramref name="defenderBody"/> → 摊平结果给表现层。
+    /// <paramref name="damageFactor"/> 为远程距离衰减系数（(0,1]，见 <see cref="Ballistics.RangedDamageFactor"/>）：
+    /// &lt;1 时按系数缩放武器伤害区间后再结算（护甲于其后照常逐层扣减，远射更易被甲挡下）；近战/满伤传 1.0。
     /// </summary>
     public AttackOutcome ResolveHit(
         Weapon weapon,
         IReadOnlyList<ArmorLayer> defenderArmor,
-        Body defenderBody)
+        Body defenderBody,
+        double damageFactor = 1.0)
     {
+        // 远程距离衰减：只在系数 <1 时建缩放副本，满伤/近战路径沿用原武器、逐字节零改动（零回归）。
+        Weapon effective = damageFactor < 1.0 ? ScaleWeaponDamage(weapon, damageFactor) : weapon;
+
         // 只在尚存（未切除/未损毁）的部位里选，避免把伤害"打"到已消失的部位上。
         var candidates = defenderBody.Parts.Values
             .Where(p => !defenderBody.IsGone(p.Name))
@@ -158,8 +164,8 @@ public sealed class CombatEngine
 
         BodyPart part = _hitSelector.Select(candidates);
         IReadOnlyList<ArmorLayer> ordered = CombatResolver.OrderOuterToInner(defenderArmor);
-        CombatResult result = _resolver.Resolve(weapon, ordered, part);
-        EffectOutcome fx = _effectResolver.Apply(defenderBody, weapon, result);
+        CombatResult result = _resolver.Resolve(effective, ordered, part);
+        EffectOutcome fx = _effectResolver.Apply(defenderBody, effective, result);
 
         bool bled = false, concussed = false, fractured = false;
         foreach (DamageEffect e in fx.Effects)
@@ -187,4 +193,30 @@ public sealed class CombatEngine
     /// <summary>把准星方向（度）叠加一次远程误差角锥采样，返回实际射击方向（度）。近战 spread=0 即恒为准星方向。</summary>
     public double SampleShotDirectionDegrees(double aimDegrees, double spreadDegrees) =>
         Ballistics.SampleShotDirectionDegrees(aimDegrees, spreadDegrees, _rng);
+
+    /// <summary>
+    /// 派生一把伤害区间按系数缩放的武器副本（仅缩放 <see cref="Weapon.DamageMin"/>/<see cref="Weapon.DamageMax"/>，
+    /// 其余字段原样保留）。远程距离衰减用。<see cref="Weapon"/> 为 sealed class 无 <c>with</c> 表达式：
+    /// **若 Weapon 新增字段，须在此同步拷贝**，否则副本会静默丢字段。
+    /// </summary>
+    private static Weapon ScaleWeaponDamage(Weapon w, double factor) => new()
+    {
+        Name = w.Name,
+        DamageMin = w.DamageMin * factor,
+        DamageMax = w.DamageMax * factor,
+        Penetration = w.Penetration,
+        DamageType = w.DamageType,
+        TwoHanded = w.TwoHanded,
+        CanDualWield = w.CanDualWield,
+        IsRanged = w.IsRanged,
+        BaseSpreadDegrees = w.BaseSpreadDegrees,
+        AttackInterval = w.AttackInterval,
+        MaxRange = w.MaxRange,
+        FalloffStart = w.FalloffStart,
+        FalloffFloor = w.FalloffFloor,
+        StockMeleeDamageMin = w.StockMeleeDamageMin,
+        StockMeleeDamageMax = w.StockMeleeDamageMax,
+        StockMeleeInterval = w.StockMeleeInterval,
+        StockMeleePenetration = w.StockMeleePenetration,
+    };
 }

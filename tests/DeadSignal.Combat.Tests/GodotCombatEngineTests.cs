@@ -112,6 +112,37 @@ public class GodotCombatEngineTests
     }
 
     [Fact]
+    public void ResolveHit_DamageFactor_ScalesDeliveredDamage()
+    {
+        // 远程距离衰减：系数缩放武器伤害区间。定伤武器(20-20)、无甲、部位够厚(不触切除)，
+        // 满伤系数 → 20；半衰减 → 10；伤害类型不受缩放影响（验证副本保留非伤害字段）。
+        var weapon = new Weapon { Name = "枪", DamageMin = 20, DamageMax = 20, DamageType = DamageType.Sharp };
+
+        var full = new CombatEngine(new SystemRandomSource(seed: 1))
+            .ResolveHit(weapon, NoArmor, SinglePartBody("手", maxHp: 60, BodyPartCategory.Limb));
+        var half = new CombatEngine(new SystemRandomSource(seed: 1))
+            .ResolveHit(weapon, NoArmor, SinglePartBody("手", maxHp: 60, BodyPartCategory.Limb), damageFactor: 0.5);
+
+        Assert.Equal(20, full.Damage);
+        Assert.Equal(10, half.Damage);
+        Assert.Equal(DamageType.Sharp, half.FinalType);
+    }
+
+    [Fact]
+    public void ResolveHit_DamageFactorOne_IdenticalToNoFactor()
+    {
+        // 满伤系数(默认路径)不建副本、逐字节零改动：同种子下带 1.0 与不带参结果一致。
+        var weapon = new Weapon { Name = "枪", DamageMin = 12, DamageMax = 12, DamageType = DamageType.Sharp };
+
+        var noArg = new CombatEngine(new SystemRandomSource(seed: 4))
+            .ResolveHit(weapon, NoArmor, SinglePartBody("手", maxHp: 60, BodyPartCategory.Limb));
+        var oneArg = new CombatEngine(new SystemRandomSource(seed: 4))
+            .ResolveHit(weapon, NoArmor, SinglePartBody("手", maxHp: 60, BodyPartCategory.Limb), damageFactor: 1.0);
+
+        Assert.Equal(noArg.Damage, oneArg.Damage);
+    }
+
+    [Fact]
     public void SampleShotDirectionDegrees_ZeroSpread_ReturnsAim()
     {
         var engine = new CombatEngine(new SystemRandomSource(seed: 1));
