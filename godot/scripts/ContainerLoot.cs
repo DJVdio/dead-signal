@@ -9,7 +9,7 @@ namespace DeadSignal.Godot;
 // 营地容器搜刮的两块纯逻辑：①容器掉落登记 + 一次性搜刮语义（ContainerLoot）；
 // ②把一批掉落落地到共享库存/食物/书登记（LootApplication）。CampMain 只做 Godot 侧的点击命中与面板弹出。
 
-/// <summary>掉落物的四类（对应 <see cref="ItemCategory"/>，另加食物走份数）。</summary>
+/// <summary>掉落物的类别（对应 <see cref="ItemCategory"/>，另加食物走份数、工具走工作台安装）。</summary>
 public enum LootKind
 {
     /// <summary>食物：按份数计，搜到后加进 <c>CampResources.Food</c>（不长留库存）。</summary>
@@ -23,6 +23,12 @@ public enum LootKind
 
     /// <summary>护甲：<see cref="LootItem.RefId"/> = 护甲名。</summary>
     Armor,
+
+    /// <summary>材料：<see cref="LootItem.RefId"/> = 材料标识名（<see cref="MaterialDef.Key"/>）；<see cref="LootItem.Quantity"/> = 堆叠数。入 <see cref="InventoryStore"/> 作 <see cref="Item.Material"/>。</summary>
+    Material,
+
+    /// <summary>工具：<see cref="LootItem.RefId"/> = 工具标识名（calipers/sawblade/beaker，见 <see cref="ContainerLoot.ParseToolSlot"/>）。搜到即装进营地共享工作台对应槽，解锁该类配方。</summary>
+    Tool,
 }
 
 /// <summary>
@@ -42,6 +48,12 @@ public readonly record struct LootItem(LootKind Kind, int Quantity, string RefId
 
     /// <summary>造一件护甲掉落（<paramref name="armorName"/> = 护甲名）。</summary>
     public static LootItem Armor(string armorName) => new(LootKind.Armor, 1, armorName);
+
+    /// <summary>造一堆材料掉落（<paramref name="materialKey"/> = 材料标识名，<paramref name="quantity"/> = 堆叠数，clamp 到 ≥1）。</summary>
+    public static LootItem Material(string materialKey, int quantity = 1) => new(LootKind.Material, Math.Max(1, quantity), materialKey);
+
+    /// <summary>造一件工具掉落（<paramref name="toolKey"/> = calipers/sawblade/beaker）。搜到即装进工作台对应槽。</summary>
+    public static LootItem Tool(string toolKey) => new(LootKind.Tool, 1, toolKey);
 }
 
 /// <summary>
@@ -81,6 +93,15 @@ public sealed class ContainerLoot
         _searched.Add(container);
         return loot;
     }
+
+    /// <summary>工具标识名 → 工作台槽（calipers/sawblade/beaker，大小写不敏感）；未知返回 <c>null</c>。</summary>
+    public static ToolSlot? ParseToolSlot(string? toolKey) => toolKey?.Trim().ToLowerInvariant() switch
+    {
+        "calipers" or "卡尺" => ToolSlot.Calipers,
+        "sawblade" or "saw_blade" or "锯片" => ToolSlot.SawBlade,
+        "beaker" or "烧杯" => ToolSlot.Beaker,
+        _ => null,
+    };
 }
 
 /// <summary>
@@ -94,11 +115,16 @@ public static class LootApplication
     /// 落地一批掉落。<paramref name="bookResolver"/> 按书 id 取 <see cref="BookData"/> 实例（须返回同一实例以共享已读态）；
     /// 解析不到的书 id 跳过。返回本批食物份数合计。
     /// </summary>
+    /// <param name="toolsFound">
+    /// 可选：工具槽收集器。<see cref="LootKind.Tool"/> 掉落解析出的 <see cref="ToolSlot"/> 加进这里，
+    /// 由调用方（营地）装进共享工作台。为 <c>null</c> 时工具掉落被忽略（无工作台的语境）。
+    /// </param>
     public static int Apply(
         IReadOnlyList<LootItem> loot,
         InventoryStore inventory,
         IDictionary<string, BookData> bookRegistry,
-        Func<string, BookData?> bookResolver)
+        Func<string, BookData?> bookResolver,
+        ICollection<ToolSlot>? toolsFound = null)
     {
         int food = 0;
         foreach (LootItem l in loot ?? Array.Empty<LootItem>())
@@ -120,6 +146,19 @@ public static class LootApplication
                     {
                         bookRegistry[bd.Id] = bd;
                         inventory.Add(bd.ToItem());
+                    }
+                    break;
+                case LootKind.Material:
+                    // 材料落地为库存材料堆；显示名/描述取自目录，目录外的键退化为用键本身作显示名。
+                    MaterialDef? def = Materials.Find(l.RefId);
+                    inventory.Add(def is { } d
+                        ? d.ToItem(Math.Max(1, l.Quantity))
+                        : Item.Material(l.RefId, l.RefId, Math.Max(1, l.Quantity)));
+                    break;
+                case LootKind.Tool:
+                    if (ContainerLoot.ParseToolSlot(l.RefId) is { } slot)
+                    {
+                        toolsFound?.Add(slot);
                     }
                     break;
             }

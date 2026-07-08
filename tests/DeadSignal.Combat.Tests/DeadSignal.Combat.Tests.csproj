@@ -83,6 +83,8 @@
     <Compile Include="..\..\godot\scripts\WeaponModCatalog.cs" Link="Consumed\WeaponModCatalog.cs" />
     <!-- 制作执行服务纯逻辑（无 Godot 依赖）：跨堆材料合计/够付/扣减 + Craft 实扣实产接库存/技能/书 + 改装消耗基础武器入变体。 -->
     <Compile Include="..\..\godot\scripts\CraftingService.cs" Link="Consumed\CraftingService.cs" />
+    <!-- 产物分类工厂纯逻辑（营地传给 Craft 的 outputFactory）：按产物 key 造对武器/护甲/材料/杂项。 -->
+    <Compile Include="..\..\godot\scripts\CraftOutputFactory.cs" Link="Consumed\CraftOutputFactory.cs" />
   </ItemGroup>
 
 </Project>

@@ -72,6 +72,14 @@ public sealed partial class CampMain : Node2D
     private ReaderPanel _readerPanel = null!;
     private bool _stashOpen;             // 库存面板是否开着（时标冻结的唯一持有者）
     private double _prevStashTimeScale;  // 开库存前的时标（关闭时恢复）
+
+    // ---------------- 配方 / 制作（工作台接入） ----------------
+    // 全营共享一台工作台的工具装配态（field 初始化，早于 ApplyStorageInitialStock 就绪，供工具搜到即装）。
+    private readonly WorkbenchState _workbench = new();
+    private CraftingPanel _craftingPanel = null!;
+    private bool _craftingOpen;             // 制作面板是否开着（与库存互斥地持有时标冻结）
+    private double _prevCraftingTimeScale;   // 开制作面板前的时标（关闭时恢复）
+    private CampToast _campToast = null!;    // 制作/搜刮的一行瞬时提示（HUD 顶部，手动显隐——时标冻结下计时器不走）
     private DiscoveryPanel _discoveryPanel = null!;  // 探索发现环境叙事面板（模态，弹出时冻结时标）
     private double _prevDiscoveryTimeScale;          // 弹发现叙事前的时标（关闭时恢复）
 
@@ -242,7 +250,19 @@ public sealed partial class CampMain : Node2D
         _discoveryPanel.Visible = false;
         _discoveryPanel.Continued += OnDiscoveryContinued;
 
-        // storage 容器（住宅柜子）的开局藏物：食物入 _resources.Food、书/武器/护甲入共享库存。
+        // 工作台制作面板（点营地工作台打开；与库存面板一样冻结时标）。事件接 CraftingService 实扣实产。
+        _craftingPanel = new CraftingPanel { Layer = 20 };
+        AddChild(_craftingPanel);
+        _craftingPanel.Visible = false;
+        _craftingPanel.CraftRequested += OnCraftRequested;
+        _craftingPanel.ModApplyRequested += OnModApplyRequested;
+        _craftingPanel.Closed += CloseCrafting;
+
+        // 制作/搜刮一行瞬时提示（HUD 之上，独立高层，时标冻结下靠手动显隐）。
+        _campToast = new CampToast { Layer = 26 };
+        AddChild(_campToast);
+
+        // storage 容器（住宅柜子）的开局藏物：食物入 _resources.Food、书/武器/护甲入共享库存、材料入库存、工具装工作台。
         ApplyStorageInitialStock();
 
         _ambient = new CanvasModulate();
@@ -2158,17 +2178,34 @@ public sealed partial class CampMain : Node2D
         return list;
     }
 
-    /// <summary>建好库存/面板/时标钩子后，把 storage 容器（住宅柜子）的开局藏物一次性落地到共享库存/食物。</summary>
+    /// <summary>建好库存/面板/时标钩子后，把 storage 容器（住宅柜子）的开局藏物一次性落地到共享库存/食物/工作台。</summary>
     private void ApplyStorageInitialStock()
     {
         foreach (ContainerRef c in _containers.Where(c => c.Role == "storage"))
         {
-            int food = LootApplication.Apply(c.Loot, _inventory, _bookRegistry, _bookResolver);
+            var tools = new List<ToolSlot>();
+            int food = LootApplication.Apply(c.Loot, _inventory, _bookRegistry, _bookResolver, tools);
             if (food > 0)
             {
                 _resources.AddFood(food);
             }
+            InstallFoundTools(tools);
         }
+    }
+
+    /// <summary>把搜到的工具装进营地共享工作台对应槽（幂等；解锁该类配方）。返回本次新装上的工具中文名。</summary>
+    private List<string> InstallFoundTools(IEnumerable<ToolSlot> tools)
+    {
+        var installed = new List<string>();
+        foreach (ToolSlot t in tools)
+        {
+            if (_workbench.InstallTool(t))
+            {
+                installed.Add(t.Label());
+                GD.Print($"[工作台] 装上工具「{t.Label()}」，解锁对应类配方。");
+            }
+        }
+        return installed;
     }
 
     /// <summary>
@@ -2181,6 +2218,12 @@ public sealed partial class CampMain : Node2D
         if (hit == null)
         {
             return false;
+        }
+
+        if (hit.Role == "workbench")
+        {
+            OpenCrafting();
+            return true;
         }
 
         if (hit.Role == "storage")
@@ -2196,17 +2239,21 @@ public sealed partial class CampMain : Node2D
             return true;
         }
         IReadOnlyList<LootItem> loot = _containerLoot.Search(hit.Name);
-        int food = LootApplication.Apply(loot, _inventory, _bookRegistry, _bookResolver);
+        var tools = new List<ToolSlot>();
+        int food = LootApplication.Apply(loot, _inventory, _bookRegistry, _bookResolver, tools);
         if (food > 0)
         {
             _resources.AddFood(food);
         }
-        int itemCount = loot.Count(l => l.Kind != LootKind.Food);
+        List<string> installedTools = InstallFoundTools(tools);
+        // 物品件数：入库存的非食物件（武器/护甲/书/材料）。工具进的是工作台不算库存件，另在提示里点名。
+        int itemCount = loot.Count(l => l.Kind is not LootKind.Food and not LootKind.Tool);
+        string toolNote = installedTools.Count > 0 ? $"，装上 {string.Join("、", installedTools)}" : "";
         string notice = loot.Count == 0
             ? $"{hit.Name}：空空如也。"
             : food > 0
-                ? $"在{hit.Name}搜到 {itemCount} 件物品、{food} 份食物。"
-                : $"在{hit.Name}搜到 {itemCount} 件物品。";
+                ? $"在{hit.Name}搜到 {itemCount} 件物品、{food} 份食物{toolNote}。"
+                : $"在{hit.Name}搜到 {itemCount} 件物品{toolNote}。";
         GD.Print($"[搜刮] {notice}");
         OpenStash(notice);
         return true;
@@ -2419,6 +2466,88 @@ public sealed partial class CampMain : Node2D
 
     private bool IsBookRead(string bookId) =>
         _bookRegistry.TryGetValue(bookId, out BookData? b) && b.IsRead;
+
+    // ---------------- 配方 / 制作（工作台接入） ----------------
+
+    /// <summary>打开（或刷新）工作台制作面板：首次打开冻结时标。制作者=当前可控幸存者；书已读态用全局 <see cref="IsBookRead"/>。</summary>
+    private void OpenCrafting()
+    {
+        if (!_craftingOpen)
+        {
+            _prevCraftingTimeScale = Engine.TimeScale;
+            Engine.TimeScale = 0;
+            _craftingOpen = true;
+        }
+        RefreshCrafting();
+        _craftingPanel.Visible = true;
+    }
+
+    /// <summary>重刷制作面板数据（制作/改装后调，反映扣掉的材料、新入库产物、升级后的技能）。</summary>
+    private void RefreshCrafting()
+        => _craftingPanel.ShowFor(_workbench, ControllableCrafters(), _inventory, IsBookRead);
+
+    /// <summary>当前可作制作者的幸存者（存活且空闲可控）。</summary>
+    private List<Pawn> ControllableCrafters()
+        => _survivors.Where(p => p.Alive && p.IsControllable).ToList();
+
+    /// <summary>关制作面板：恢复时标、清掉瞬时提示（与库存面板互斥地持有时标）。</summary>
+    private void CloseCrafting()
+    {
+        _craftingPanel.Visible = false;
+        _craftingOpen = false;
+        _campToast.Hide();
+        Engine.TimeScale = _prevCraftingTimeScale <= 0 ? 1 : _prevCraftingTimeScale;
+    }
+
+    /// <summary>
+    /// 面板「制作」→ 查配方 → 走 <see cref="CraftingService.Craft"/> 实扣实产（产物按 <see cref="CraftOutputFactory"/> 分类）。
+    /// 成功：提示产物 + 技能升级，刷新面板；失败：提示 <see cref="CraftBlock.Detail"/> 中文缺项。
+    /// </summary>
+    private void OnCraftRequested(string recipeId, Pawn crafter)
+    {
+        RecipeData? recipe = RecipeBook.Find(recipeId);
+        if (recipe is null)
+        {
+            _campToast.Show($"未知配方：{recipeId}", CampToast.Bad);
+            return;
+        }
+
+        CraftResult result = CraftingService.Craft(
+            recipe, crafter.Skills, IsBookRead, _workbench, _inventory, 1, CraftOutputFactory.Create);
+
+        if (!result.Success)
+        {
+            string reason = string.Join("；", result.Blocks.Select(b => b.Detail));
+            _campToast.Show($"做不了「{recipe.DisplayName}」：{reason}", CampToast.Bad);
+            RefreshCrafting();
+            return;
+        }
+
+        string products = string.Join("、", result.Produced.Select(p => p.DisplayName));
+        string levelUp = result.ExperienceSkill is { } sk && result.SkillLevelsGained > 0
+            ? $"，{crafter.DisplayName} 的{sk.Label()}升到 {crafter.SkillLevelOf(sk).Label()}"
+            : "";
+        _campToast.Show($"{crafter.DisplayName} 制作了 {products}{levelUp}", CampToast.Ok);
+        GD.Print($"[制作] {crafter.DisplayName} 制作 {recipe.DisplayName} → {products}{levelUp}");
+        RefreshCrafting();
+    }
+
+    /// <summary>面板「改装」→ 走 <see cref="CraftingService.ApplyWeaponMod"/> 消耗基础武器落地变体入库。成功/失败均提示 + 刷新。</summary>
+    private void OnModApplyRequested(string baseWeaponRefKey, IReadOnlyList<string> modNames, Pawn crafter)
+    {
+        WeaponModResult result = CraftingService.ApplyWeaponMod(baseWeaponRefKey, modNames, _inventory);
+        if (!result.Success)
+        {
+            _campToast.Show($"改装失败：{result.FailureReason}", CampToast.Bad);
+            RefreshCrafting();
+            return;
+        }
+
+        string name = result.Produced?.DisplayName ?? "改装武器";
+        _campToast.Show($"{crafter.DisplayName} 改装出 {name}", CampToast.Ok);
+        GD.Print($"[改装] {baseWeaponRefKey} → {name}");
+        RefreshCrafting();
+    }
 
     // ---------------- 工具 ----------------
 

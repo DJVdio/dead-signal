@@ -72,10 +72,11 @@
   ],
 
   "_propsComment": "容器为实心矮立体块（碰撞+挖导航洞），置于建筑内墙角，四周留开阔地板可寻路。name 为稳定标识供 W3 搜刮接入。工作台=户外作业台。W3 交互口径见各 prop 的 _role。",
-  "_roleComment": "role 由 PropSpec 读取（W3a 搜刮）：storage=营地共享库存存取容器（点它开库存面板；其 loot 清单为开局共享库存内容）；loot=一次性搜刮容器（点它把 loot 搜出并入库到共享库存，搜过标记不重复）。loot 条目：{kind:food/book/weapon/armor, qty:食物份数, id:书 id/武器名/护甲名}。",
+  "_roleComment": "role 由 PropSpec 读取（W3a 搜刮 / 配方）：storage=营地共享库存存取容器（点它开库存面板；其 loot 清单为开局共享库存内容）；loot=一次性搜刮容器（点它把 loot 搜出并入库/装工作台，搜过标记不重复）；workbench=工作台（点它开制作面板）。loot 条目：{kind:food/book/weapon/armor/material/tool, qty:食物份数或材料堆叠数, id:书 id/武器名/护甲名/材料标识名(Materials.Key)/工具名(calipers/sawblade/beaker)}。材料入共享库存作材料堆、工具装进营地共享工作台对应槽解锁该类配方。分布/数量拟定待调。",
   "props": [
     {
       "name": "工作台",
+      "role": "workbench",
       "rect": [520, 1000, 120, 74],
       "color": [0.42, 0.34, 0.22],
       "tile": 12,
@@ -84,11 +85,19 @@
     {
       "name": "住宅-柜子",
       "role": "storage",
-      "_lootComment": "storage 类：其 loot 为开局共享库存（食物入食物份数，书/武器/护甲入库存）。",
+      "_lootComment": "storage 类：其 loot 为开局共享库存（食物入食物份数，书/武器/护甲/材料入库存，工具装工作台）。开局给一批起手材料，配方系统一开局即可试做（工具/技能/书门槛另需满足）。",
       "loot": [
         { "kind": "food", "qty": 4 },
         { "kind": "book", "id": "wilderness_survival_guide" },
-        { "kind": "book", "id": "farmer_hundred_questions" }
+        { "kind": "book", "id": "farmer_hundred_questions" },
+        { "kind": "material", "id": "bone", "qty": 4 },
+        { "kind": "material", "id": "scrap_cloth", "qty": 4 },
+        { "kind": "material", "id": "cloth", "qty": 3 },
+        { "kind": "material", "id": "wood", "qty": 6 },
+        { "kind": "material", "id": "nails", "qty": 4 },
+        { "kind": "material", "id": "stone", "qty": 3 },
+        { "kind": "material", "id": "fuel", "qty": 3 },
+        { "kind": "material", "id": "rope", "qty": 2 }
       ],
       "rect": [440, 470, 72, 44],
       "color": [0.46, 0.36, 0.24],
@@ -101,7 +110,9 @@
       "loot": [
         { "kind": "armor", "id": "粗布外套" },
         { "kind": "armor", "id": "左手套" },
-        { "kind": "armor", "id": "右手套" }
+        { "kind": "armor", "id": "右手套" },
+        { "kind": "tool", "id": "sawblade" },
+        { "kind": "material", "id": "scrap_cloth", "qty": 3 }
       ],
       "rect": [748, 470, 64, 88],
       "color": [0.40, 0.30, 0.22],
@@ -112,7 +123,8 @@
       "name": "住宅-展示柜",
       "role": "loot",
       "loot": [
-        { "kind": "weapon", "id": "刺剑" }
+        { "kind": "weapon", "id": "刺剑" },
+        { "kind": "tool", "id": "calipers" }
       ],
       "rect": [440, 676, 96, 42],
       "color": [0.52, 0.46, 0.34],
@@ -123,7 +135,9 @@
       "name": "牛棚-草垛A",
       "role": "loot",
       "loot": [
-        { "kind": "weapon", "id": "草叉" }
+        { "kind": "weapon", "id": "草叉" },
+        { "kind": "tool", "id": "beaker" },
+        { "kind": "material", "id": "wood", "qty": 4 }
       ],
       "rect": [1540, 1020, 86, 72],
       "color": [0.62, 0.54, 0.24],
@@ -134,7 +148,9 @@
       "name": "牛棚-草垛B",
       "role": "loot",
       "loot": [
-        { "kind": "food", "qty": 2 }
+        { "kind": "food", "qty": 2 },
+        { "kind": "material", "id": "rope", "qty": 2 },
+        { "kind": "material", "id": "bone", "qty": 3 }
       ],
       "rect": [1760, 1170, 92, 74],
       "color": [0.60, 0.52, 0.22],
