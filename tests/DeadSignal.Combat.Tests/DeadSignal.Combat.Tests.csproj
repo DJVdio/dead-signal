@@ -74,6 +74,8 @@
     <Compile Include="..\..\godot\scripts\ApparelSlots.cs" Link="Consumed\ApparelSlots.cs" />
     <!-- 幸存者技能系统纯逻辑（无 Godot 依赖）：技能项/等级/门槛查询/经验成长升级/authored 初始分布。 -->
     <Compile Include="..\..\godot\scripts\SkillSet.cs" Link="Consumed\SkillSet.cs" />
+    <!-- 伤病恶化+治疗模型纯逻辑（无 Godot 依赖，只读引用战斗引擎出血/骨折语义）：病状/每昼夜恶化(出血致死/感染链/骨折)/治疗判定/药品目录/战斗态只读映射。 -->
+    <Compile Include="..\..\godot\scripts\HealthConditions.cs" Link="Consumed\HealthConditions.cs" />
     <!-- 幸存者个人已读书集纯逻辑（无 Godot 依赖）：配方书门槛按制作者本人已读判定。 -->
     <Compile Include="..\..\godot\scripts\ReadBookSet.cs" Link="Consumed\ReadBookSet.cs" />
     <!-- 配方系统核心纯逻辑（无 Godot 依赖）：工作台三工具槽 + RecipeData/RecipeBook 草稿表 + CanCraft 四门槛判定 + Resolve 产出契约。 -->

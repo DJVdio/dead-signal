@@ -29,6 +29,9 @@ public enum MaterialCategory
 
     /// <summary>杂项：骨头 / 石料 / 绳 / 零件等不归上述类的材料。</summary>
     Misc,
+
+    /// <summary>医疗：绷带 / 止血药 / 抗生素 / 夹板 等药品耗材（治疗系统按 <c>MedicineCatalog</c> 消费）。</summary>
+    Medical,
 }
 
 /// <summary>
@@ -67,6 +70,12 @@ public static class Materials
         new MaterialDef("stone", "石料", "凿下的石块，砌墙与打磨的粗料。", MaterialCategory.Misc),
         new MaterialDef("rope", "绳子", "结实的绳索，捆绑、攀爬与制作的通用件。", MaterialCategory.Misc),
         new MaterialDef("components", "机械零件", "拆解得来的杂项零件，精密装置的关键。", MaterialCategory.Misc),
+        // 医疗耗材（draft）：治疗系统据材料 Key 查 MedicineCatalog 得治疗语义（治哪种病状 + 药效）。
+        new MaterialDef("bandage", "绷带", "干净的绷带，包扎伤口、辅助止血。", MaterialCategory.Medical),
+        new MaterialDef("styptic", "止血药", "强效止血粉，快速封住流血的伤口。", MaterialCategory.Medical),
+        new MaterialDef("antibiotics", "抗生素", "对抗伤口感染的抗菌药物，需连服数日见效。", MaterialCategory.Medical),
+        new MaterialDef("splint", "夹板", "固定骨折部位的夹板，为断骨愈合争取时间。", MaterialCategory.Medical),
+        new MaterialDef("medicine", "成药", "杂七杂八的成药，缓解发热痢疾等病症。", MaterialCategory.Medical),
     };
 
     private static readonly IReadOnlyDictionary<string, MaterialDef> _byKey =
