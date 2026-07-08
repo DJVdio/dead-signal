@@ -1259,6 +1259,12 @@ public sealed partial class CampMain : Node2D
 
     // ---------------- 聚餐 ----------------
 
+    /// <summary>分粮策略：默认"先喂最饿"——库存不足时把口粮压在濒死者身上，最大化少死人（策略/数值拟定待调）。</summary>
+    private RationStrategy _rationStrategy = RationStrategy.HungriestFirst;
+
+    /// <summary>缺口趋势预警阈值（昼夜）：存货全员吃饱撑不过这么多昼夜时红字告警，逼玩家搜刮。拟定待调。</summary>
+    private const int FoodShortfallWarnDays = 2;
+
     private void EnterDuskMeal() => _clock.TransitionTo(DayPhase.DuskMeal);
 
     /// <summary>
@@ -1268,31 +1274,39 @@ public sealed partial class CampMain : Node2D
     /// </summary>
     private void RunMeal(string title, string phaseTag)
     {
-        var diners = _survivors.Where(s => s.Alive).ToList();
-        MealOutcome outcome = _resources.ConsumeMeal(diners.Count);
+        var living = _survivors.Where(s => s.Alive).ToList();
+
+        // 分粮：库存不足喂饱全员时，按策略（默认先喂最饿=少死人）决定谁吃到、谁挨饿。
+        var dinerInputs = living.Select(ToDiner).ToList();
+        RationOutcome ration = FoodEconomy.Allocate(_resources.Food, dinerInputs, _rationStrategy);
+
+        // 食物扣减 + 士气：续用 ConsumeMeal——每份=1 时其消耗/缺口与分粮结算完全一致，
+        // 仅"谁吃到"从原序改由 ration.Fed 决定（见下逐人喂食）。
+        MealOutcome outcome = _resources.ConsumeMeal(living.Count);
 
         // 昼夜切换净结算：一次性施加"无条件 -1，吃到再 +1"（吃满两餐净零维持）。
         // 用 ResolvePhase 一步算净变化 + clamp，避免旧两步"1→0 途中 Feed 被短路"的跨 0 误杀。
+        // 谁吃到由分粮策略给出的 ration.Fed[i]（原序对齐 living[i]）决定，而非先到先吃。
         var hungerNotes = new List<string>();
-        for (int i = 0; i < diners.Count; i++)
+        for (int i = 0; i < living.Count; i++)
         {
-            bool ate = i < outcome.Served;
-            diners[i].ResolveHungerPhase(ate);
-            if (!ate && diners[i].Hunger.Level < HungerLevel.Sated)
+            bool ate = ration.Fed[i];
+            living[i].ResolveHungerPhase(ate);
+            if (!ate && living[i].Hunger.Level < HungerLevel.Sated)
             {
-                hungerNotes.Add($"{diners[i].DisplayName}（{diners[i].Hunger.Level.Label()}）");
+                hungerNotes.Add($"{living[i].DisplayName}（{living[i].Hunger.Level.Label()}）");
             }
         }
 
         // 饥饿士气下降（越饿越重，阶梯见 HungerState.MoraleFor）：按结算后各存活者刻度累加一次扣减。
-        double hungerMorale = diners.Sum(d => d.Hunger.MoralePenaltyPerPhase);
+        double hungerMorale = living.Sum(d => d.Hunger.MoralePenaltyPerPhase);
         if (hungerMorale > 0)
         {
             _resources.ApplyHungerMorale(hungerMorale);
         }
 
         // 饿死：刻度归 0 者走统一死亡路径（Died 事件会改 _survivors，先收集再逐个处理）。
-        foreach (var starved in diners.Where(d => d.IsStarvedToDeath).ToList())
+        foreach (var starved in living.Where(d => d.IsStarvedToDeath).ToList())
         {
             starved.StarveToDeath();
         }
@@ -1318,6 +1332,34 @@ public sealed partial class CampMain : Node2D
         _recentlyDeceased.Clear(); // 死亡只在紧随其后的一餐被提及，之后归入历史不再复播
 
         _mealPanel.ShowMeal(title, outcome, bubbles, hungerNotes);
+
+        // 缺口预警：本餐有人挨饿→急告；否则按存货趋势提醒还能撑几昼夜，逼玩家搜刮补给。
+        WarnFoodShortfall(ration, _survivors.Count(s => s.Alive));
+    }
+
+    /// <summary>把存活幸存者映射成分粮输入：饥饿刻度 + 是否伤员（急性伤：昏迷/出血/骨折需养伤，供 WoundedFirst 优先）。</summary>
+    private static FoodDiner ToDiner(Pawn p)
+    {
+        var insp = p.Inspect();
+        bool wounded = insp.IsUnconscious
+            || insp.Parts.Any(part => part.IsBleeding || part.IsFractured);
+        return new FoodDiner(p.Hunger.Value, wounded);
+    }
+
+    /// <summary>缺口预警（HUD 顶栏红字，手动显隐持久到下次覆盖）：本餐挨饿→急告；否则存货撑不过阈值昼夜→趋势告警。</summary>
+    private void WarnFoodShortfall(RationOutcome ration, int livingCount)
+    {
+        if (ration.StarvedCount > 0)
+        {
+            _campToast.Show($"食物告罄：{ration.StarvedCount} 人挨饿，尽快搜刮补给", CampToast.Bad);
+            return;
+        }
+
+        int days = FoodEconomy.DaysUntilShortfall(_resources.Food, livingCount);
+        if (days != int.MaxValue && days <= FoodShortfallWarnDays)
+        {
+            _campToast.Show($"食物见底：存货约撑 {days} 昼夜，尽快搜刮补给", CampToast.Bad);
+        }
     }
 
     private void OnMealContinued()
