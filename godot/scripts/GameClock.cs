@@ -29,6 +29,14 @@ public sealed partial class GameClock : Node
     public int Day { get; private set; } = 0;
     public bool IsNight => CurrentPhase is DayPhase.NightPrep or DayPhase.NightAct;
 
+    /// <summary>数据驱动的开局配置：true 时首日直接进夜晚推进（NightAct）。由 StartFirstDay 消费。</summary>
+    public bool StartAtNight => _cfg.StartAtNight;
+
+    /// <summary>
+    /// 显式设定当前天数（供开局直接进 NightAct 时补首日 Day=1——该相位转换不自增 Day，否则 HUD 显示「第 0 天」）。
+    /// </summary>
+    public void SetDay(int day) => Day = Math.Max(0, day);
+
     public DayPhase CurrentPhase { get; private set; } = DayPhase.DayPrep;
 
     private double _phaseElapsed;

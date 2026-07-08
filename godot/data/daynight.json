@@ -3,7 +3,7 @@
   "nightLengthSeconds": 480,
   "travelTimeSeconds": 120,
   "warningBufferSeconds": 300,
-  "startAtNight": false,
+  "startAtNight": true,
   "dayColor": [1.0, 0.98, 0.92],
   "nightColor": [0.18, 0.22, 0.38],
   "twilightFraction": 0.12

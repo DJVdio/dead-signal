@@ -226,6 +226,8 @@ public sealed partial class CampMain : Node2D
         _expeditionPanel.Visible = false;
         _expeditionPanel.SelectDestinationRequested += () => _worldMapPanel.Visible = true;
         _expeditionPanel.ExpeditionConfirmed += OnExpeditionConfirmed;
+        // 「取消」语义：关窗留在营地（与 worldMapPanel/readingPanel 的 Cancelled 处理一致，不推进相位）。
+        _expeditionPanel.Cancelled += () => _expeditionPanel.Visible = false;
 
         _guardPanel = new GuardPanel();
         AddChild(_guardPanel);
@@ -1506,7 +1508,16 @@ public sealed partial class CampMain : Node2D
 
     // ---------------- 面板状态机 ----------------
 
-    private void StartFirstDay() => _clock.TransitionTo(DayPhase.DayPrep);
+    private void StartFirstDay()
+    {
+        // 数据驱动开局相位（daynight.json 的 startAtNight）。用户拍板「游戏应当从第一天晚上开始」：
+        // true ⇒ 首日直接进 NightAct 夜晚推进（不弹守卫/读书编排面板、不强制暂停），并显式补首日 Day=1
+        //        （NightAct 相位转换不自增 Day）；false ⇒ 保持原白天 DayPrep 编排（相位自增 0→1）。
+        StartupPhaseLogic.Decision decision = StartupPhaseLogic.Resolve(_clock.StartAtNight);
+        if (decision.SetDayToOne)
+            _clock.SetDay(1); // 置于 TransitionTo 前，使 OnPhaseChanged 及 HUD 立即读到「第 1 天」。
+        _clock.TransitionTo(decision.Phase);
+    }
 
     private void OnGamePhaseChanged(DayPhase phase)
     {
