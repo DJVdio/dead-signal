@@ -68,6 +68,8 @@
     <Compile Include="..\..\godot\scripts\GripCombat.cs" Link="Consumed\GripCombat.cs" />
     <!-- §6 穿戴槽纯逻辑（无 Godot 依赖）：11 槽占用/多槽/成对/断肢禁装/替换/卸装 + 护甲覆盖聚合 + 装备目录映射表。 -->
     <Compile Include="..\..\godot\scripts\ApparelSlots.cs" Link="Consumed\ApparelSlots.cs" />
+    <!-- 幸存者技能系统纯逻辑（无 Godot 依赖）：技能项/等级/门槛查询/经验成长升级/authored 初始分布。 -->
+    <Compile Include="..\..\godot\scripts\SkillSet.cs" Link="Consumed\SkillSet.cs" />
   </ItemGroup>
 
 </Project>
