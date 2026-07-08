@@ -40,6 +40,8 @@
     <Compile Include="..\..\godot\scripts\RaidResolution.cs" Link="Consumed\RaidResolution.cs" />
     <!-- 围栏/大门可破坏结构纯逻辑（无 Godot 依赖）：等级→血量表 + 承伤/摧毁判定。 -->
     <Compile Include="..\..\godot\scripts\CampStructure.cs" Link="Consumed\CampStructure.cs" />
+    <!-- 敌人砸墙破防纯逻辑（无 Godot 依赖）：矩形最近点/边缘距离 + 攻击站位 + 够不够得着决策 + 按边缘择结构。 -->
+    <Compile Include="..\..\godot\scripts\BreachLogic.cs" Link="Consumed\BreachLogic.cs" />
     <Compile Include="..\..\godot\scripts\TutorialRaidLogic.cs" Link="Consumed\TutorialRaidLogic.cs" />
     <Compile Include="..\..\godot\scripts\CampResources.cs" Link="Consumed\CampResources.cs" />
     <!-- 游戏结束纯逻辑（无 Godot 依赖）：全体幸存者死亡即全灭的判定。 -->

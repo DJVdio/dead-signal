@@ -613,6 +613,27 @@ public abstract partial class Actor : CharacterBody2D
         return _agent == null || _agent.IsNavigationFinished();
     }
 
+    /// <summary>
+    /// 只读寻路可达性查询：从本单位当前位置到 <paramref name="worldPos"/> 是否存在能抵达（路径终点贴近目标）
+    /// 的导航路径。**不改变本单位的寻路目标/避障状态**（区别于设 TargetPosition 再读 IsTargetReachable，
+    /// 那会污染当前指令）——纯粹向 NavigationServer 查一次路。供袭营 AI 判断「被围栏/大门阻隔、需先砸墙破防」。
+    /// 导航图尚未就绪时返回 <c>true</c>（不误判为阻隔，避免开局帧敌人凭空砸墙）。
+    /// </summary>
+    public bool CanReach(Vector2 worldPos, float tolerance = 40f)
+    {
+        if (_agent == null)
+        {
+            return true;
+        }
+        Rid map = _agent.GetNavigationMap();
+        if (!map.IsValid || NavigationServer2D.MapGetIterationId(map) == 0)
+        {
+            return true;
+        }
+        Vector2[] path = NavigationServer2D.MapGetPath(map, GlobalPosition, worldPos, true);
+        return path.Length > 0 && path[^1].DistanceTo(worldPos) <= tolerance;
+    }
+
     // 人形/血条/选中环已全部移交 ActorSprite（iso 层、YSort）。本节点在不可见 LogicLayer 下，
     // 不再 _Draw；sprite 每帧读上面暴露的数据自绘。
 

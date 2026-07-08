@@ -12,11 +12,13 @@ public sealed partial class Zombie : Actor
 {
     private const float DetectionRadius = 220f;
     private const float LoseTargetRadius = 320f;
+    private const int StructureHitDamage = 12; // 每爪砸墙伤害（拟定待调；数只丧尸合砸基础大门 250 数十秒破）
 
     private Rect2 _wanderBounds;
     private Func<IEnumerable<Actor>>? _survivorProvider;
     private double _wanderTimer;
     private bool _wasNight;
+    private BreachController? _breach; // 门关闭后砸围栏/大门破防（袭营时由 CampMain 注入）
     private readonly RandomNumberGenerator _rng = new();
 
     public static Zombie Create(Rect2 wanderBounds, Func<IEnumerable<Actor>> survivorProvider)
@@ -39,6 +41,19 @@ public sealed partial class Zombie : Actor
     }
 
     protected override void OnReady() => _rng.Randomize();
+
+    /// <summary>
+    /// 袭营时注入破防能力（门关闭后到不了营内幸存者→走到最近围栏/大门前砸墙）。委托由 CampMain 提供
+    /// （找最近结构 / 对结构施伤，结构类型不外泄）；<paramref name="campCenter"/> 作无目标时的可达性探测点。
+    /// </summary>
+    public void ConfigureBreach(
+        BreachController.FindNearestStructure find,
+        BreachController.DamageNearestStructure damage,
+        Vector2 campCenter)
+    {
+        _breach = new BreachController(find, damage, campCenter,
+            StructureHitDamage, AttackCooldown, attackReach: 34f + Radius, standoff: Radius + 8f);
+    }
 
     protected override void Think(double delta)
     {
@@ -81,6 +96,14 @@ public sealed partial class Zombie : Actor
 
         // 侦测最近幸存者。
         Actor? nearest = FindNearestSurvivor();
+
+        // 破防：若被围栏/大门阻隔（到幸存者/营心无导航路径），走到最近结构前砸墙；接管本帧则不再追击/游荡。
+        if (_breach != null && _breach.TryBreach(this, delta, nearest?.GlobalPosition))
+        {
+            return;
+        }
+
+        // 可达（或未配破防）：常规追击已侦测的幸存者。
         if (nearest != null)
         {
             CommandAttack(nearest);

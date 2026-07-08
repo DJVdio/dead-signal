@@ -20,10 +20,12 @@ public sealed partial class Raider : Actor
 {
     private const float DetectionRadius = 300f;   // 人类警觉半径（比丧尸略大：主动进攻方）
     private const float LoseTargetRadius = 420f;   // 追出此半径即放弃目标
+    private const int StructureHitDamage = 25;    // 每次砸墙伤害（拟定待调；人类比丧尸更快破门。远近程一律贴身砸）
 
     private Rect2 _wanderBounds;
     private Func<IEnumerable<Actor>>? _targetProvider;
     private double _wanderTimer;
+    private BreachController? _breach; // 门关闭后砸围栏/大门破防（袭营时由 CampMain 注入）
     private readonly RandomNumberGenerator _rng = new();
 
     /// <summary>战斗日志/检视显示名（克莉丝汀等具名劫掠者用）；默认"劫掠者"。</summary>
@@ -80,6 +82,19 @@ public sealed partial class Raider : Actor
     /// </summary>
     public void SetTargetProvider(Func<IEnumerable<Actor>> provider) => _targetProvider = provider;
 
+    /// <summary>
+    /// 袭营时注入破防能力（门关闭后到不了营内目标→走到最近围栏/大门前砸墙）。委托由 CampMain 提供
+    /// （找最近结构 / 对结构施伤，结构类型不外泄）；<paramref name="campCenter"/> 作无目标时的可达性探测点。
+    /// </summary>
+    public void ConfigureBreach(
+        BreachController.FindNearestStructure find,
+        BreachController.DamageNearestStructure damage,
+        Vector2 campCenter)
+    {
+        _breach = new BreachController(find, damage, campCenter,
+            StructureHitDamage, AttackCooldown, attackReach: 34f + Radius, standoff: Radius + 8f);
+    }
+
     protected override void Think(double delta)
     {
         // 追击目标维护：目标死亡（基类每帧会清空）或跑出丢失半径则放弃，转入重新侦测/游荡。
@@ -98,6 +113,14 @@ public sealed partial class Raider : Actor
 
         // 侦测最近的敌对单位。阵营由 Factions.IsHostile 裁定 —— 反水切阵营后自动改打对象。
         Actor? nearest = FindNearestHostile();
+
+        // 破防：若被围栏/大门阻隔（到目标/营心无导航路径），走到最近结构前砸墙；接管本帧则不再追击/游荡。
+        if (_breach != null && _breach.TryBreach(this, delta, nearest?.GlobalPosition))
+        {
+            return;
+        }
+
+        // 可达（或未配破防）：常规追击已侦测的敌对单位。
         if (nearest != null)
         {
             CommandAttack(nearest);

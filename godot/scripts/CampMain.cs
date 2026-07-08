@@ -335,7 +335,7 @@ public sealed partial class CampMain : Node2D
                 AddSolid(r, fenceStyle, seed: 13, (float)_heights.post, CellFence);
             }
         }
-        // 南北大门（可破坏结构：HP；当前为可通行关口——门槛视觉、无碰撞、不入导航洞，敌人由此涌入。门控后续）。
+        // 南北大门（可破坏结构：HP=250；**默认关闭**——实心碰撞+挖导航洞+门槛视觉，敌人须砸门破防。门控后续）。
         foreach (GateSpec g in _cfg.gates ?? System.Array.Empty<GateSpec>())
         {
             if (ToRect(g.rect) is { } r)
@@ -684,17 +684,14 @@ public sealed partial class CampMain : Node2D
     }
 
     /// <summary>
-    /// 加一扇大门（可破坏结构，HP=基础大门）：当前建成**可通行关口**——只落门槛地面色带（纯视觉），
-    /// 无碰撞、不入导航洞，敌人由此涌入。承伤/摧毁接口与围栏同（<see cref="DamageStructure"/>）；关门/门控机制后续做。
+    /// 加一扇大门（可破坏结构，HP=基础大门 250）：**默认关闭**——和围栏一样建成实心屏障
+    /// （StaticBody2D 碰撞 + 挖导航洞 + 切块立体视觉），纳入 <see cref="CampStructureInstance"/> 体系，
+    /// 可被攻击摧毁（HP→0 移碰撞 + 重烘焙开出缺口，敌人穿破口涌入）。门下先铺一条门槛地面色带作视觉区分。
+    /// 门控（花料/交互开关门）机制后续做。
     /// </summary>
     private void AddGate(Rect2 rect)
     {
-        var inst = new CampStructureInstance
-        {
-            State = new CampStructureState(StructureTier.GateBasic),
-            Rect = rect,
-            Blocking = false, // 可通行关口（门控后续）
-        };
+        // 门槛地面色带（纯视觉，铺在门体之下，随门体摧毁一并清场）。
         double[] sillColor = _cfg.gateMarker?.color ?? new[] { 0.35, 0.28, 0.18 };
         var sill = new IsoTilePanel
         {
@@ -705,8 +702,13 @@ public sealed partial class CampMain : Node2D
             ZIndex = ZThreshold,
         };
         _isoLayer.AddChild(sill);
-        inst.Visuals.Add(sill);
-        _structures.Add(inst);
+
+        // 门体：实心可破坏结构（用门体色，比围栏略高一点以示区分）。
+        var gateStyle = new PixelStyle { color = sillColor, jitter = 0.08 };
+        CampStructureInstance inst = AddStructure(
+            rect, gateStyle, seed: 61, (float)_heights.post, CellFence,
+            StructureTier.GateBasic, blocking: true);
+        inst.Visuals.Add(sill); // 摧毁时门槛随门体一并 QueueFree
     }
 
     /// <summary>
@@ -773,6 +775,57 @@ public sealed partial class CampMain : Node2D
             {
                 bestD = d;
                 best = s;
+            }
+        }
+        return best;
+    }
+
+    /// <summary>
+    /// 破防 AI 用：按**边缘距离**（非中心）在 <paramref name="radius"/> 内取离 <paramref name="from"/> 最近的未毁结构，
+    /// 输出其最近边缘点与边缘距离。长围栏中心可能很远但边缘就在敌人脸上——故用边缘距离（<see cref="BreachLogic"/>）。
+    /// 委托给 <see cref="BreachController"/>（结构类型不外泄）。
+    /// </summary>
+    private bool TryFindBreachTarget(Vector2 from, float radius, out Vector2 edgePoint, out float edgeDistance)
+    {
+        edgePoint = from;
+        edgeDistance = float.PositiveInfinity;
+        CampStructureInstance? best = NearestStructureByEdge(from, radius, out float bestDist, out Vector2 bestEdge);
+        if (best == null)
+        {
+            return false;
+        }
+        edgePoint = bestEdge;
+        edgeDistance = bestDist;
+        return true;
+    }
+
+    /// <summary>破防 AI 用：对 <paramref name="from"/> 附近 <paramref name="radius"/> 内边缘最近的未毁结构施伤，返回是否本击摧毁。</summary>
+    private bool DamageNearestStructureAt(Vector2 from, float radius, int amount)
+    {
+        CampStructureInstance? s = NearestStructureByEdge(from, radius, out _, out _);
+        return s != null && DamageStructure(s, amount);
+    }
+
+    /// <summary>按边缘距离取最近未毁结构 + 其最近边缘点（供破防择目标/施伤共用）。</summary>
+    private CampStructureInstance? NearestStructureByEdge(Vector2 from, float radius, out float bestDist, out Vector2 bestEdge)
+    {
+        CampStructureInstance? best = null;
+        bestDist = radius;
+        bestEdge = from;
+        foreach (CampStructureInstance s in _structures)
+        {
+            if (s.Removed)
+            {
+                continue;
+            }
+            (double ex, double ey) = BreachLogic.NearestPointOnRect(
+                from.X, from.Y, s.Rect.Position.X, s.Rect.Position.Y, s.Rect.Size.X, s.Rect.Size.Y);
+            float d = (float)BreachLogic.Distance(from.X, from.Y, ex, ey);
+            if (d < bestDist)
+            {
+                bestDist = d;
+                best = s;
+                bestEdge = new Vector2((float)ex, (float)ey);
             }
         }
         return best;
@@ -1567,6 +1620,7 @@ public sealed partial class CampMain : Node2D
 
             var z = Zombie.Create(wander, () => _survivors.Where(a => a.Alive).Cast<Actor>());
             z.Inject(_combat, _clock); // 与营地单位同一 combat+clock，务必首帧 Think 前完成
+            z.ConfigureBreach(TryFindBreachTarget, DamageNearestStructureAt, _cameraCenter); // 门关闭→砸墙破防
             z.Position = new Vector2(gx, gy);
             _actorLayer.AddChild(z);
             z.Died += OnRaidZombieDied;
@@ -1693,6 +1747,7 @@ public sealed partial class CampMain : Node2D
         {
             var r = Raider.Create(wander, TutorialRaiderTargets, usePistol: true);
             r.Inject(_combat, _clock); // 首帧 Think 前完成注入
+            r.ConfigureBreach(TryFindBreachTarget, DamageNearestStructureAt, _cameraCenter); // 门关闭→砸墙破防
             r.Position = new Vector2(1120f + i * 60f, 1540f + (i % 2) * 12f); // 南门外错峰
             _actorLayer.AddChild(r);
             r.Died += OnTutorialRaiderDied;
@@ -1706,6 +1761,7 @@ public sealed partial class CampMain : Node2D
             usePistol: true,
             displayName: "克莉丝汀");
         _christine.Inject(_combat, _clock);
+        _christine.ConfigureBreach(TryFindBreachTarget, DamageNearestStructureAt, _cameraCenter); // 门关闭→砸墙破防
         _christine.Position = new Vector2(1200f, 1560f); // 南门外
         _actorLayer.AddChild(_christine);
         _christine.Died += OnChristineDied;
