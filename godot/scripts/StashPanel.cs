@@ -23,8 +23,8 @@ public sealed partial class StashPanel : CanvasLayer
     public event Action<string>? BookOpenRequested;
 
     /// <summary>
-    /// 点某件可装备物品的「装备」按钮：emit 其引用键（武器名/护甲名）。**W3b 占位**——
-    /// 本轮按钮为禁用态，事件不会触发；W3b 接入时把按钮 Disabled 置回 false 即通。
+    /// 点某件可装备物品的「装备」按钮：emit 其引用键（武器名/护甲名）。
+    /// 由持有目标 Pawn 的一方（CampMain）接住，装到当前选中的幸存者并从库存移除。
     /// </summary>
     public event Action<string>? EquipRequested;
 
@@ -177,8 +177,7 @@ public sealed partial class StashPanel : CanvasLayer
                 var equipBtn = new Button();
                 equipBtn.Text = "装备";
                 equipBtn.CustomMinimumSize = new Vector2(120, 30);
-                equipBtn.Disabled = true; // W3b 占位：装备穿脱后续接入，届时置回 false
-                equipBtn.TooltipText = "装备（后续接入）";
+                equipBtn.TooltipText = "装备到当前选中的幸存者";
                 string refKey = item.RefKey ?? "";
                 equipBtn.Pressed += () => EquipRequested?.Invoke(refKey);
                 UiStyle.StyleButton(equipBtn, new Color(0.5f, 0.45f, 0.3f), fontSize: 13);

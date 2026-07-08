@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Godot;
@@ -39,6 +40,15 @@ public sealed partial class CharacterPanel : PanelContainer
 
     private ProstheticEquipHandler? _onEquip;
 
+    /// <summary>当前展示的装备态快照（死数据，由持有 live Pawn 的一方拍好传入）；null = 不显示装备区。</summary>
+    private EquipmentSnapshot? _equipment;
+
+    /// <summary>卸某手武器回调（由持有 live Pawn 的一方提供，卸下并回库存 + 刷新）；null = 不显示「卸下」入口。</summary>
+    private Action<Hand>? _onUnequipWeapon;
+
+    /// <summary>卸某件穿戴品回调（按名）；null = 不显示「卸下」入口。</summary>
+    private Action<string>? _onUnequipApparel;
+
     /// <summary>true 时在 _Ready 用一份手工快照自测布局；发布保持默认 false。</summary>
     [Export]
     private bool _debugPreview = false;
@@ -73,15 +83,27 @@ public sealed partial class CharacterPanel : PanelContainer
         }
     }
 
-    /// <summary>显示面板并用快照填充（无装假肢入口）；重复调用即切换到新幸存者刷新内容。</summary>
-    public void ShowFor(PawnInspection insp) => ShowFor(insp, null);
+    /// <summary>显示面板并用快照填充（无装假肢入口/无装备快照）；重复调用即切换到新幸存者刷新内容。</summary>
+    public void ShowFor(PawnInspection insp) => ShowFor(insp, null, null);
 
     /// <summary>
     /// 显示面板并用快照填充，同时接入装假肢入口 <paramref name="onEquip"/>（为 null 则不显示入口）。
     /// </summary>
-    public void ShowFor(PawnInspection insp, ProstheticEquipHandler? onEquip)
+    public void ShowFor(PawnInspection insp, ProstheticEquipHandler? onEquip) => ShowFor(insp, null, onEquip);
+
+    /// <summary>
+    /// 显示面板并用快照填充，附装备态快照 <paramref name="equipment"/>（11 槽/持械/握持，为 null 不显示装备区）、
+    /// 装假肢入口 <paramref name="onEquip"/>、卸武器/卸穿戴回调（为 null 则该「卸下」入口不出现）。
+    /// 全部为死数据/闭包，面板仍只读、拿不到 live Pawn。
+    /// </summary>
+    public void ShowFor(
+        PawnInspection insp, EquipmentSnapshot? equipment, ProstheticEquipHandler? onEquip,
+        Action<Hand>? onUnequipWeapon = null, Action<string>? onUnequipApparel = null)
     {
+        _equipment = equipment;
         _onEquip = onEquip;
+        _onUnequipWeapon = onUnequipWeapon;
+        _onUnequipApparel = onUnequipApparel;
         _nameLabel.Text = insp.DisplayName;
         _statusLabel.Text = HealthSummary(insp);
         _statusLabel.AddThemeColorOverride("font_color", insp.IsDead ? ColSevered : ColText);
@@ -220,7 +242,120 @@ public sealed partial class CharacterPanel : PanelContainer
                 _overviewBox.AddChild(Line($"利器防御 {a.SharpDefense:0.#}   钝器防御 {a.BluntDefense:0.#}", ColMuted, 13));
             }
         }
+
+        // —— 装备槽位：持械（左右手 + 握持态）+ 11 穿戴槽（断肢槽灰显）——
+        FillEquipment();
     }
+
+    // ———————————————————————————— 装备槽位 ————————————————————————————
+
+    /// <summary>
+    /// 展示装备态快照：左右手持械 + 握持态，再列全部 11 穿戴槽（各槽已装物/空/断肢禁用）。
+    /// 无快照（<see cref="_equipment"/> 为 null，如调试预览）则整块跳过。
+    /// </summary>
+    private void FillEquipment()
+    {
+        if (_equipment is not { } eq)
+        {
+            return;
+        }
+
+        _overviewBox.AddChild(new Control { CustomMinimumSize = new Vector2(0, 6) });
+        _overviewBox.AddChild(SectionTitle("持械"));
+        _overviewBox.AddChild(HandRow("左手", Hand.Left, eq.LeftHandWeapon));
+        _overviewBox.AddChild(HandRow("右手", Hand.Right, eq.RightHandWeapon));
+        _overviewBox.AddChild(Line($"握持：{GripLabel(eq.Grip)}", ColMuted, 13));
+
+        _overviewBox.AddChild(new Control { CustomMinimumSize = new Vector2(0, 6) });
+        _overviewBox.AddChild(SectionTitle("穿戴槽"));
+        foreach (var slot in eq.Slots)
+        {
+            _overviewBox.AddChild(SlotRow(slot));
+        }
+    }
+
+    /// <summary>一行持械：手名 + 武器名（空手灰显「空手」）；有卸武器回调且该手持械时给「卸下」按钮。</summary>
+    private HBoxContainer HandRow(string label, Hand hand, WeaponInfo? weapon)
+    {
+        var row = new HBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        row.AddThemeConstantOverride("separation", 6);
+
+        var name = new Label { Text = label, CustomMinimumSize = new Vector2(72, 0) };
+        name.AddThemeFontSizeOverride("font_size", 13);
+        name.AddThemeColorOverride("font_color", ColMuted);
+        row.AddChild(name);
+
+        var val = new Label { Text = weapon?.Name ?? "空手", SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        val.AddThemeFontSizeOverride("font_size", 13);
+        val.AddThemeColorOverride("font_color", weapon is null ? ColMuted : ColText);
+        row.AddChild(val);
+
+        if (weapon is not null && _onUnequipWeapon is { } unequip)
+        {
+            row.AddChild(UnequipButton(() => unequip(hand)));
+        }
+
+        return row;
+    }
+
+    /// <summary>一行穿戴槽：槽名 + 已装物（空槽/断肢禁用灰显）；有卸穿戴回调且该槽有装备时给「卸下」按钮。</summary>
+    private HBoxContainer SlotRow(ApparelSlotStatus slot)
+    {
+        var row = new HBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        row.AddThemeConstantOverride("separation", 6);
+
+        var name = new Label { Text = SlotLabel(slot.Slot), CustomMinimumSize = new Vector2(72, 0) };
+        name.AddThemeFontSizeOverride("font_size", 13);
+        name.AddThemeColorOverride("font_color", slot.IsDisabled ? ColDisabled : ColMuted);
+        row.AddChild(name);
+
+        string text = slot.IsDisabled ? "（断肢）" : slot.ItemName ?? "空";
+        Color col = slot.IsDisabled ? ColDisabled : slot.ItemName is null ? ColMuted : ColText;
+        var val = new Label { Text = text, SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        val.AddThemeFontSizeOverride("font_size", 13);
+        val.AddThemeColorOverride("font_color", col);
+        row.AddChild(val);
+
+        if (slot.ItemName is { } item && !slot.IsDisabled && _onUnequipApparel is { } unequip)
+        {
+            row.AddChild(UnequipButton(() => unequip(item)));
+        }
+
+        return row;
+    }
+
+    /// <summary>「卸下」小按钮：点击执行卸下回调（回调内负责卸下 + 回库存 + 重刷面板）。</summary>
+    private static Button UnequipButton(Action onPressed)
+    {
+        var b = new Button { Text = "卸下", CustomMinimumSize = new Vector2(0, 24) };
+        b.AddThemeFontSizeOverride("font_size", 12);
+        b.TooltipText = "卸下并放回营地库存";
+        b.Pressed += onPressed;
+        return b;
+    }
+
+    private static string GripLabel(GripMode grip) => grip switch
+    {
+        GripMode.TwoHanded => "双手",
+        GripMode.DualWield => "双持",
+        _ => "单手",
+    };
+
+    private static string SlotLabel(EquipSlot slot) => slot switch
+    {
+        EquipSlot.Head => "头部",
+        EquipSlot.Eyes => "眼镜",
+        EquipSlot.Face => "面部",
+        EquipSlot.SkinLayer => "贴身层",
+        EquipSlot.OuterLayer => "外套层",
+        EquipSlot.PlateLayer => "装甲层",
+        EquipSlot.LeftHand => "左手",
+        EquipSlot.RightHand => "右手",
+        EquipSlot.Pants => "裤子",
+        EquipSlot.LeftFoot => "左脚",
+        EquipSlot.RightFoot => "右脚",
+        _ => slot.ToString(),
+    };
 
     // ———————————————————————————— 义肢 ————————————————————————————
 

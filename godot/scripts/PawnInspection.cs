@@ -41,6 +41,50 @@ public sealed class WeaponInfo
     public bool IsRanged { get; init; }
     public bool TwoHanded { get; init; }
     public double AttackInterval { get; init; }
+
+    /// <summary>由 live <see cref="Weapon"/> 拍一份只读快照（null → null）。装备 UI 展示某手持械用。</summary>
+    public static WeaponInfo? From(Weapon? w) => w is null ? null : new WeaponInfo
+    {
+        Name = w.Name,
+        DamageMin = w.DamageMin,
+        DamageMax = w.DamageMax,
+        Penetration = w.Penetration,
+        IsRanged = w.IsRanged,
+        TwoHanded = w.TwoHanded,
+        AttackInterval = w.AttackInterval,
+    };
+}
+
+/// <summary>一个穿戴槽的只读态：装了什么（<see cref="ItemName"/> 为 null = 空槽）+ 是否因断肢被禁用。</summary>
+public sealed class ApparelSlotStatus
+{
+    public EquipSlot Slot { get; init; }
+
+    /// <summary>该槽当前所装穿戴品标识（护甲名等），null = 空槽。</summary>
+    public string? ItemName { get; init; }
+
+    /// <summary>该侧肢体已切除 → 槽不可用（UI 灰显）。</summary>
+    public bool IsDisabled { get; init; }
+}
+
+/// <summary>
+/// 装备态只读快照：11 穿戴槽 + 左右手持械 + 握持态。与 <see cref="PawnInspection"/> 一样是死数据，
+/// 由持有 live Pawn 的一侧（CampMain）从 Pawn 的**只读装备 API**（ApparelAt/WeaponInHand/Grip/
+/// DisabledApparelSlots）拍出，喂给角色面板展示。本类纯 C#、无 Godot 依赖。
+/// </summary>
+public sealed class EquipmentSnapshot
+{
+    /// <summary>全部 11 个穿戴槽的当前态（顺序即 <see cref="EquipSlot"/> 声明序）。</summary>
+    public IReadOnlyList<ApparelSlotStatus> Slots { get; init; } = Array.Empty<ApparelSlotStatus>();
+
+    /// <summary>左手持械（空手 null）。双手握一把时左右手指向同一把。</summary>
+    public WeaponInfo? LeftHandWeapon { get; init; }
+
+    /// <summary>右手持械（空手 null）。</summary>
+    public WeaponInfo? RightHandWeapon { get; init; }
+
+    /// <summary>握持态（单手/双手/双持）。</summary>
+    public GripMode Grip { get; init; }
 }
 
 /// <summary>单层护甲信息快照。</summary>
@@ -146,16 +190,7 @@ public sealed class PawnInspection
             IsBleeding = bleeding.Contains(p.Name),
         }).ToList();
 
-        WeaponInfo? weaponInfo = weapon is null ? null : new WeaponInfo
-        {
-            Name = weapon.Name,
-            DamageMin = weapon.DamageMin,
-            DamageMax = weapon.DamageMax,
-            Penetration = weapon.Penetration,
-            IsRanged = weapon.IsRanged,
-            TwoHanded = weapon.TwoHanded,
-            AttackInterval = weapon.AttackInterval,
-        };
+        WeaponInfo? weaponInfo = WeaponInfo.From(weapon);
 
         var armorInfos = (armor ?? Array.Empty<ArmorLayer>()).Select(a => new ArmorInfo
         {

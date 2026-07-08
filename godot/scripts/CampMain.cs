@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
 using Godot;
+using DeadSignal.Combat;
 
 namespace DeadSignal.Godot;
 
@@ -209,6 +210,7 @@ public sealed partial class CampMain : Node2D
         AddChild(_stashPanel);
         _stashPanel.Visible = false;
         _stashPanel.BookOpenRequested += OnBookOpenRequested;
+        _stashPanel.EquipRequested += OnStashEquipRequested;
         _stashPanel.Closed += CloseStash;
 
         _readerPanel = new ReaderPanel { Layer = 21 }; // 叠在库存面板之上
@@ -912,8 +914,8 @@ public sealed partial class CampMain : Node2D
             if (hit != null)
             {
                 Select(hit);
-                // 命中单人 → 打开/刷新面板（重复调用即切换）；附装假肢入口：面板空槽装假肢即时恢复能力。
-                _characterPanel.ShowFor(hit.Inspect(), (region, grade) => hit.EquipProsthetic(region, grade));
+                // 命中单人 → 打开/刷新面板（重复调用即切换）；附装假肢入口 + 装备态快照（11 槽/持械/握持）。
+                ShowInspect(hit);
             }
             else
             {
@@ -1939,6 +1941,163 @@ public sealed partial class CampMain : Node2D
         }
         _stashPanel.ShowStash(_inventory, _resources.Food, notice, IsBookRead);
         _stashPanel.Visible = true;
+    }
+
+    /// <summary>
+    /// 库存面板「装备」→ 装到当前选中的幸存者（单选取一，无选中则提示）。武器默认装右手（EquipToHand
+    /// 会把双手武器自动分流占两手）；护甲走 EquipApparel。成功则从库存移除该件、刷新面板（含开着的角色面板）。
+    /// </summary>
+    private void OnStashEquipRequested(string refKey)
+    {
+        Pawn? target = _selected.FirstOrDefault(p => p.IsControllable);
+        if (target == null)
+        {
+            OpenStash("请先选中一个幸存者，再点「装备」。");
+            return;
+        }
+
+        Item? item = _inventory.Equippable.FirstOrDefault(i => i.RefKey == refKey);
+        if (item == null)
+        {
+            return; // 库存里已无此件（并发/重复点），静默
+        }
+
+        // 顶替回库：装备前记下目标已占的武器/护甲名，装成功后把被顶替下来的旧件回库存（绝不静默丢）。
+        bool isWeapon = item.Category == ItemCategory.Weapon;
+        List<string> before = isWeapon ? HeldWeaponNames(target) : target.EquippedApparel.ToList();
+
+        bool ok = isWeapon
+            ? target.EquipWeapon(refKey, Hand.Right)  // 双手武器 EquipToHand 自动占两手
+            : target.EquipApparel(refKey);
+        if (!ok)
+        {
+            OpenStash($"{item.DisplayName} 无法装备（断肢禁槽/持握冲突/不适用）。");
+            return;
+        }
+
+        _inventory.Remove(item);
+        // 被顶替下来的旧件回库存（本次刚装上的 refKey 从 after 抵掉一份，不算顶替；同名替换也不丢件）。
+        List<string> after = isWeapon ? HeldWeaponNames(target) : target.EquippedApparel.ToList();
+        foreach (string displaced in DisplacedNames(before, after, refKey))
+        {
+            _inventory.Add(isWeapon ? Item.Weapon(displaced) : Item.Armor(displaced));
+        }
+
+        if (_characterPanel.IsShown)
+        {
+            ShowInspect(target); // 面板开着 → 刷新装备态
+        }
+        OpenStash($"已为 {target.DisplayName} 装备 {item.DisplayName}。");
+    }
+
+    /// <summary>卸某手武器 → 回库存 + 刷面板/库存列表（供角色面板「卸下」按钮回调）。</summary>
+    private void UnequipWeaponToStash(Pawn p, Hand hand)
+    {
+        List<string> before = HeldWeaponNames(p);
+        p.UnequipWeapon(hand);
+        List<string> after = HeldWeaponNames(p);
+        foreach (string name in DisplacedNames(before, after, null))
+        {
+            _inventory.Add(Item.Weapon(name));
+        }
+        RefreshAfterEquipmentChange(p);
+    }
+
+    /// <summary>卸某件穿戴品（按名）→ 回库存 + 刷面板/库存列表（供角色面板「卸下」按钮回调）。</summary>
+    private void UnequipApparelToStash(Pawn p, string apparelName)
+    {
+        List<string> before = p.EquippedApparel.ToList();
+        p.UnequipApparel(apparelName);
+        List<string> after = p.EquippedApparel.ToList();
+        foreach (string name in DisplacedNames(before, after, null))
+        {
+            _inventory.Add(Item.Armor(name));
+        }
+        RefreshAfterEquipmentChange(p);
+    }
+
+    /// <summary>装备变更后刷新：角色面板开着则重拍装备态，库存面板开着则重列（反映回库的旧件）。</summary>
+    private void RefreshAfterEquipmentChange(Pawn p)
+    {
+        if (_characterPanel.IsShown)
+        {
+            ShowInspect(p);
+        }
+        if (_stashOpen)
+        {
+            _stashPanel.ShowStash(_inventory, _resources.Food, null, IsBookRead);
+        }
+    }
+
+    /// <summary>
+    /// 目标当前实际持有的武器名（物理件计数）：双手握一把 → 只记一件（两手同一把，靠 <see cref="GripMode.TwoHanded"/>
+    /// 判定，不能用引用比较——武器目录是共享实例，双持两把同名武器亦引用相等）。
+    /// </summary>
+    private static List<string> HeldWeaponNames(Pawn p)
+    {
+        var list = new List<string>();
+        var left = p.WeaponInHand(Hand.Left);
+        var right = p.WeaponInHand(Hand.Right);
+        if (p.Grip == GripMode.TwoHanded)
+        {
+            var w = right ?? left;
+            if (w is not null) list.Add(w.Name);
+        }
+        else
+        {
+            if (left is not null) list.Add(left.Name);
+            if (right is not null) list.Add(right.Name);
+        }
+        return list;
+    }
+
+    /// <summary>
+    /// 顶替/卸下后应回库存的旧件名（多重集差 before − after）：<paramref name="newlyEquipped"/> 为本次刚装上的件，
+    /// 从 after 里先抵掉一份（它已由库存扣减记账，不算顶替），从而同名替换也能正确回收旧件；卸下场景传 null。
+    /// </summary>
+    private static IEnumerable<string> DisplacedNames(List<string> before, List<string> after, string? newlyEquipped)
+    {
+        var afterCounts = after.GroupBy(x => x).ToDictionary(g => g.Key, g => g.Count());
+        if (newlyEquipped is not null && afterCounts.TryGetValue(newlyEquipped, out int nc) && nc > 0)
+        {
+            afterCounts[newlyEquipped] = nc - 1;
+        }
+        foreach (string name in before)
+        {
+            if (afterCounts.TryGetValue(name, out int c) && c > 0)
+            {
+                afterCounts[name] = c - 1; // 仍在装备上的同名件，抵消
+            }
+            else
+            {
+                yield return name; // 顶替/卸下下来的
+            }
+        }
+    }
+
+    /// <summary>打开/刷新角色检视面板：喂只读健康快照 + 装备态快照 + 装假肢/卸下入口（皆死数据/闭包，面板不持 live Pawn）。</summary>
+    private void ShowInspect(Pawn p)
+        => _characterPanel.ShowFor(
+            p.Inspect(),
+            SnapshotEquipment(p),
+            (region, grade) => p.EquipProsthetic(region, grade),
+            hand => UnequipWeaponToStash(p, hand),
+            name => UnequipApparelToStash(p, name));
+
+    /// <summary>由 live Pawn 的只读装备 API 拍一份纯数据装备快照（11 穿戴槽 + 左右手持械 + 握持态）。</summary>
+    private static EquipmentSnapshot SnapshotEquipment(Pawn p)
+    {
+        IReadOnlySet<EquipSlot> disabled = p.DisabledApparelSlots;
+        var slots = Enum.GetValues<EquipSlot>()
+            .Select(s => new ApparelSlotStatus { Slot = s, ItemName = p.ApparelAt(s), IsDisabled = disabled.Contains(s) })
+            .ToList();
+        return new EquipmentSnapshot
+        {
+            Slots = slots,
+            LeftHandWeapon = WeaponInfo.From(p.WeaponInHand(Hand.Left)),
+            RightHandWeapon = WeaponInfo.From(p.WeaponInHand(Hand.Right)),
+            Grip = p.Grip,
+        };
     }
 
     /// <summary>关库存面板：连带关阅读面板、恢复时标（暂停中打开的则回 1，避免冻死）。</summary>
