@@ -19,7 +19,21 @@ public sealed class DuelFighter
     /// <summary>部位→挂载装备名，用于切除时的掉落战报。</summary>
     public IReadOnlyDictionary<string, string> Equipment { get; init; } = new Dictionary<string, string>();
 
+    /// <summary>
+    /// 持握态（单手/双手/双持）。默认单手。表达攻速系数：双手 +15%、双持 ×0.70。
+    /// 与旧字段 <see cref="DualWielding"/> 的关系见 <see cref="EffectiveGrip"/>。
+    /// </summary>
+    public GripMode Grip { get; init; } = GripMode.OneHanded;
+
+    /// <summary>
+    /// 【旧字段/向后兼容】双持简写。新代码用 <see cref="Grip"/>；此 bool 保留是为不破坏 Sim 等既有调用方
+    /// （如 DuelReport 的"双持枪手"）。当 <see cref="Grip"/> 仍为默认单手时，此 bool=true 等价于双持。
+    /// </summary>
     public bool DualWielding { get; init; }
+
+    /// <summary>解析生效持握态：显式 <see cref="Grip"/> 优先；仅当其为默认单手且旧 <see cref="DualWielding"/>=true 时回落双持。</summary>
+    public GripMode EffectiveGrip =>
+        Grip == GripMode.OneHanded && DualWielding ? GripMode.DualWield : Grip;
 
     /// <summary>身体工厂（默认人类；丧尸等亦复用人体结构）。</summary>
     public Func<Body> BodyFactory { get; init; } = HumanBody.NewBody;
@@ -272,10 +286,11 @@ public sealed class DuelEngine
     private double EffectiveInterval(Runtime rt, WeaponMount mount)
     {
         double baseInterval = mount.Weapon.AttackInterval > 0 ? mount.Weapon.AttackInterval : 1.0;
-        double dual = rt.Def.DualWielding ? DualWield.AttackSpeedFactor : 1.0;
+        // 持握态攻速系数：单手 1.0、双手 ×1.15（加速）、双持 ×0.70（减速），互斥（单一枚举）。
+        double grip = DualWield.GripSpeedFactor(rt.Def.EffectiveGrip);
         double blood = BloodSpeedFactor(rt.Body.BloodTier);
-        // 瞬态减益（双持/震荡/手骨折/失血）叠乘，锁下限 MinSpeedMult。
-        double transient = Math.Max(_cfg.MinSpeedMult, dual * rt.SpeedMult * blood);
+        // 瞬态系数（持握/震荡/手骨折/失血）叠乘，锁下限 MinSpeedMult。
+        double transient = Math.Max(_cfg.MinSpeedMult, grip * rt.SpeedMult * blood);
         // 残疾操作能力（断手/断指/假肢净惩罚，用户口径）另行叠乘、不吃 MinSpeedMult 下限：
         // 有效出手间隔 = 基础 / (瞬态系数 × 操作能力)，操作能力 = 1 − OperationPenalty。
         // 惩罚 0.5 → 间隔翻倍；操作能力 ≤0（惩罚 ≥1）→ 无法出手（间隔视为无穷，除零保护）。

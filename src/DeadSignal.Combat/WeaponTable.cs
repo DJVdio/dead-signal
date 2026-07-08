@@ -35,7 +35,7 @@ public static class WeaponTable
         AttackInterval = 0.9,    // 拟定待调
     };
 
-    /// <summary>长剑：近战锐器，穿透 18%。</summary>
+    /// <summary>长剑：近战锐器，穿透 18%。双手武器。</summary>
     public static Weapon Longsword() => new()
     {
         Name = "长剑",
@@ -43,10 +43,11 @@ public static class WeaponTable
         DamageMax = 30,          // 拟定待调
         Penetration = 0.18,
         DamageType = DamageType.Sharp,
+        TwoHanded = true,        // 拟定待调
         AttackInterval = 1.1,    // 拟定待调
     };
 
-    /// <summary>重剑：近战锐器，穿透 24%。</summary>
+    /// <summary>重剑：近战锐器，穿透 24%。双手武器。</summary>
     public static Weapon Greatsword() => new()
     {
         Name = "重剑",
@@ -54,6 +55,7 @@ public static class WeaponTable
         DamageMax = 40,          // 拟定待调
         Penetration = 0.24,
         DamageType = DamageType.Sharp,
+        TwoHanded = true,        // 拟定待调
         AttackInterval = 1.4,    // 拟定待调
     };
 
@@ -81,7 +83,7 @@ public static class WeaponTable
         AttackInterval = 1.2,    // 拟定待调
     };
 
-    /// <summary>破甲锤：近战钝器，穿透 20%（破甲路线）。</summary>
+    /// <summary>破甲锤：近战钝器，穿透 20%（破甲路线）。重型双手武器。</summary>
     public static Weapon Warhammer() => new()
     {
         Name = "破甲锤",
@@ -89,12 +91,13 @@ public static class WeaponTable
         DamageMax = 28,          // 拟定待调
         Penetration = 0.20,
         DamageType = DamageType.Blunt,
+        TwoHanded = true,        // 拟定待调
         AttackInterval = 1.8,    // 拟定待调
     };
 
     // ---- 远程 ----
 
-    /// <summary>土制枪：远程锐器，穿透 10%，误差角大。</summary>
+    /// <summary>土制枪：远程锐器，穿透 10%，误差角大。单手；枪托可贴脸钝击。</summary>
     public static Weapon Zipgun() => new()
     {
         Name = "土制枪",
@@ -105,6 +108,10 @@ public static class WeaponTable
         IsRanged = true,
         BaseSpreadDegrees = 8,   // 拟定待调
         AttackInterval = 2.5,    // 拟定待调
+        StockMeleeDamageMin = 3,        // 拟定待调（枪托钝击）
+        StockMeleeDamageMax = 5,        // 拟定待调
+        StockMeleePenetration = 0.02,   // 拟定待调
+        StockMeleeInterval = 1.4,       // 拟定待调
     };
 
     /// <summary>手枪：远程锐器，穿透 15%（文档：手枪 15%）。数值采 Godot 值（8-14，此前 Sim 为 12-20）。</summary>
@@ -119,9 +126,13 @@ public static class WeaponTable
         IsRanged = true,
         BaseSpreadDegrees = 3,   // 拟定待调
         AttackInterval = 0.5,    // 拟定待调
+        StockMeleeDamageMin = 3,        // 拟定待调（手枪柄砸击）
+        StockMeleeDamageMax = 6,        // 拟定待调
+        StockMeleePenetration = 0.02,   // 拟定待调
+        StockMeleeInterval = 1.2,       // 拟定待调
     };
 
-    /// <summary>冲锋枪：远程锐器，穿透 18%，攻速极快。</summary>
+    /// <summary>冲锋枪：远程锐器，穿透 18%，攻速极快。双手抵肩；枪托可贴脸钝击。</summary>
     public static Weapon Smg() => new()
     {
         Name = "冲锋枪",
@@ -129,12 +140,17 @@ public static class WeaponTable
         DamageMax = 18,          // 拟定待调
         Penetration = 0.18,
         DamageType = DamageType.Sharp,
+        TwoHanded = true,        // 拟定待调
         IsRanged = true,
         BaseSpreadDegrees = 6,   // 拟定待调
         AttackInterval = 0.1,    // 拟定待调
+        StockMeleeDamageMin = 4,        // 拟定待调（枪托钝击）
+        StockMeleeDamageMax = 7,        // 拟定待调
+        StockMeleePenetration = 0.02,   // 拟定待调
+        StockMeleeInterval = 1.3,       // 拟定待调
     };
 
-    /// <summary>步枪：远程锐器，穿透 21%。</summary>
+    /// <summary>步枪：远程锐器，穿透 21%。双手抵肩；枪托可贴脸钝击。</summary>
     public static Weapon Rifle() => new()
     {
         Name = "步枪",
@@ -142,12 +158,17 @@ public static class WeaponTable
         DamageMax = 35,          // 拟定待调
         Penetration = 0.21,
         DamageType = DamageType.Sharp,
+        TwoHanded = true,        // 拟定待调
         IsRanged = true,
         BaseSpreadDegrees = 2,   // 拟定待调
         AttackInterval = 0.8,    // 拟定待调
+        StockMeleeDamageMin = 6,        // 拟定待调（枪托重砸）
+        StockMeleeDamageMax = 10,       // 拟定待调
+        StockMeleePenetration = 0.03,   // 拟定待调
+        StockMeleeInterval = 1.5,       // 拟定待调
     };
 
-    /// <summary>狙击枪：远程锐器，穿透 70%（碾压多层甲，弹药稀缺是唯一约束）。</summary>
+    /// <summary>狙击枪：远程锐器，穿透 70%（碾压多层甲，弹药稀缺是唯一约束）。双手抵肩；枪托可贴脸钝击。</summary>
     public static Weapon SniperRifle() => new()
     {
         Name = "狙击枪",
@@ -155,9 +176,14 @@ public static class WeaponTable
         DamageMax = 70,          // 拟定待调
         Penetration = 0.70,
         DamageType = DamageType.Sharp,
+        TwoHanded = true,        // 拟定待调
         IsRanged = true,
         BaseSpreadDegrees = 0.5, // 拟定待调
         AttackInterval = 1.5,    // 拟定待调
+        StockMeleeDamageMin = 6,        // 拟定待调（长枪身重砸）
+        StockMeleeDamageMax = 11,       // 拟定待调
+        StockMeleePenetration = 0.03,   // 拟定待调
+        StockMeleeInterval = 1.6,       // 拟定待调
     };
 
     // ---- 天生武器 ----

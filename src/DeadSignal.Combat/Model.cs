@@ -59,6 +59,48 @@ public sealed class Weapon
     /// 弹道飞行/时序由实时层消费，引擎只提供数值。拟定待调。
     /// </summary>
     public double AttackInterval { get; init; }
+
+    // ---- 枪托近战 profile（仅远程武器填；贴脸时供 Godot 空间层调用的近战版数值）----
+
+    /// <summary>枪托近战伤害下限（钝击）。仅远程武器填；null 视为无近战 profile。拟定待调。</summary>
+    public double? StockMeleeDamageMin { get; init; }
+
+    /// <summary>枪托近战伤害上限（钝击）。null 视为无近战 profile。拟定待调。</summary>
+    public double? StockMeleeDamageMax { get; init; }
+
+    /// <summary>枪托近战出手间隔（秒/次）。null 时回落到远程 <see cref="AttackInterval"/>。拟定待调。</summary>
+    public double? StockMeleeInterval { get; init; }
+
+    /// <summary>枪托近战穿透（低）。null 视为 0。拟定待调。</summary>
+    public double? StockMeleePenetration { get; init; }
+
+    /// <summary>是否具备枪托近战 profile（远程武器且填了伤害上限）。近战武器恒为 false。</summary>
+    public bool HasMeleeProfile => IsRanged && StockMeleeDamageMax.HasValue;
+
+    /// <summary>
+    /// 派生这把远程武器的"枪托贴脸"近战版：钝击、必中（<see cref="IsRanged"/>=false，无误差角）、伤害/穿透低、攻速慢，
+    /// 单双手语义沿用本武器 <see cref="TwoHanded"/>。供 Godot 空间层贴脸判定时调用（判定本身在 Godot，不在引擎层）。
+    /// 无 profile 时返回 null。
+    /// </summary>
+    public Weapon? MeleeProfile()
+    {
+        if (!HasMeleeProfile)
+        {
+            return null;
+        }
+
+        return new Weapon
+        {
+            Name = Name + "（枪托）",
+            DamageMin = StockMeleeDamageMin ?? 0,
+            DamageMax = StockMeleeDamageMax!.Value,
+            Penetration = StockMeleePenetration ?? 0,
+            DamageType = DamageType.Blunt,
+            TwoHanded = TwoHanded,
+            IsRanged = false,
+            AttackInterval = StockMeleeInterval ?? AttackInterval,
+        };
+    }
 }
 
 /// <summary>护甲单层。数据驱动 POCO。</summary>
