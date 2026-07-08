@@ -1,8 +1,8 @@
 {
-  "_comment": "山凹农庄营地布局。所有坐标/尺寸为像素，均为拟定待调占位。rect = [x, y, w, h]。",
-  "mapBounds": [0, 0, 1600, 1200],
+  "_comment": "山凹农庄营地布局。所有坐标/尺寸为像素，均为拟定待调占位。rect = [x, y, w, h]。地图 2400×1800，三面环山、南面栅栏+大门。",
+  "mapBounds": [0, 0, 2400, 1800],
   "navInset": 20,
-  "cameraCenter": [800, 650],
+  "cameraCenter": [1200, 975],
 
   "_heightsComment": "iso 立面/屋顶抬升高度（屏幕像素），全为拟定待调占位。",
   "heights": {
@@ -16,72 +16,115 @@
   "ground": { "color": [0.20, 0.23, 0.18], "tile": 34, "jitter": 0.05 },
 
   "mountains": [
-    { "rect": [0, 0, 1600, 180] },
-    { "rect": [0, 0, 180, 1200] },
-    { "rect": [1420, 0, 180, 1200] }
+    { "rect": [0, 0, 2400, 270] },
+    { "rect": [0, 0, 270, 1800] },
+    { "rect": [2130, 0, 270, 1800] }
   ],
   "mountainStyle": { "color": [0.27, 0.32, 0.27], "tile": 22, "jitter": 0.14 },
 
+  "_gateComment": "南面栅栏，大门缺口 x∈[1100,1300]（宽 200），在栅栏行 y=1680。CampMain 门外生成/破防线依赖此缺口，改这里须同步 CampMain。",
   "fences": [
-    { "rect": [180, 1120, 545, 22] },
-    { "rect": [875, 1120, 545, 22] }
+    { "rect": [270, 1680, 830, 22] },
+    { "rect": [1300, 1680, 830, 22] }
   ],
   "gatePosts": [
-    { "rect": [700, 1108, 26, 46] },
-    { "rect": [874, 1108, 26, 46] }
+    { "rect": [1074, 1668, 26, 46] },
+    { "rect": [1300, 1668, 26, 46] }
   ],
-  "gateMarker": { "rect": [726, 1132, 148, 8], "color": [0.35, 0.28, 0.18] },
+  "gateMarker": { "rect": [1100, 1692, 200, 8], "color": [0.35, 0.28, 0.18] },
   "fenceStyle": { "color": [0.40, 0.30, 0.19], "tile": 12, "jitter": 0.12 },
 
   "buildings": [
     {
       "name": "住宅",
-      "rect": [300, 300, 300, 220],
+      "rect": [400, 430, 460, 360],
       "wallThickness": 20,
-      "door": { "side": "south", "gapStart": 110, "gapWidth": 100 },
+      "door": { "side": "south", "gapStart": 180, "gapWidth": 110 },
       "wallColor": [0.55, 0.50, 0.42],
       "roof": true,
       "roofColor": [0.50, 0.26, 0.22]
     },
     {
       "name": "仓库",
-      "rect": [960, 300, 300, 210],
+      "rect": [1440, 430, 340, 240],
       "wallThickness": 20,
-      "door": { "side": "south", "gapStart": 100, "gapWidth": 100 },
+      "door": { "side": "south", "gapStart": 120, "gapWidth": 100 },
       "wallColor": [0.50, 0.48, 0.46],
       "roof": true,
       "roofColor": [0.32, 0.34, 0.40]
     },
     {
       "name": "空牛棚",
-      "rect": [1010, 760, 320, 240],
+      "rect": [1480, 980, 420, 320],
       "wallThickness": 20,
-      "door": { "side": "west", "gapStart": 84, "gapWidth": 100 },
+      "door": { "side": "west", "gapStart": 120, "gapWidth": 110 },
       "wallColor": [0.48, 0.42, 0.32],
       "roof": true,
       "roofColor": [0.45, 0.34, 0.20]
     }
   ],
 
+  "_propsComment": "容器为实心矮立体块（碰撞+挖导航洞），置于建筑内墙角，四周留开阔地板可寻路。name 为稳定标识供 W3 搜刮接入。工作台=户外作业台。W3 交互口径见各 prop 的 _role。",
+  "_roleComment": "_role 为人读标注（PropSpec 忽略此键）：storage=营地共享库存存取容器（W3 点它开库存面板存取，衣柜/展示柜/草垛搜到的东西最终入此柜）；loot=一次性搜刮容器（W3 点它搜出并入库到共享库存）。",
   "props": [
     {
       "name": "工作台",
-      "rect": [360, 800, 120, 74],
+      "rect": [520, 1000, 120, 74],
       "color": [0.42, 0.34, 0.22],
       "tile": 12,
       "jitter": 0.10
+    },
+    {
+      "name": "住宅-柜子",
+      "_role": "storage",
+      "rect": [440, 470, 72, 44],
+      "color": [0.46, 0.36, 0.24],
+      "tile": 10,
+      "jitter": 0.08
+    },
+    {
+      "name": "住宅-衣柜",
+      "_role": "loot",
+      "rect": [748, 470, 64, 88],
+      "color": [0.40, 0.30, 0.22],
+      "tile": 10,
+      "jitter": 0.08
+    },
+    {
+      "name": "住宅-展示柜",
+      "_role": "loot",
+      "rect": [440, 676, 96, 42],
+      "color": [0.52, 0.46, 0.34],
+      "tile": 10,
+      "jitter": 0.07
+    },
+    {
+      "name": "牛棚-草垛A",
+      "_role": "loot",
+      "rect": [1540, 1020, 86, 72],
+      "color": [0.62, 0.54, 0.24],
+      "tile": 12,
+      "jitter": 0.16
+    },
+    {
+      "name": "牛棚-草垛B",
+      "_role": "loot",
+      "rect": [1760, 1170, 92, 74],
+      "color": [0.60, 0.52, 0.22],
+      "tile": 12,
+      "jitter": 0.16
     }
   ],
 
   "spawns": [
-    { "name": "山姆", "pos": [560, 720], "pistol": true, "color": [0.40, 0.65, 0.95] },
-    { "name": "诺蒂", "pos": [640, 770], "pistol": false, "color": [0.55, 0.82, 0.60] }
+    { "name": "山姆", "pos": [700, 900], "pistol": true, "color": [0.40, 0.65, 0.95] },
+    { "name": "诺蒂", "pos": [790, 950], "pistol": false, "color": [0.55, 0.82, 0.60] }
   ],
 
   "_guardPostsComment": "预置守卫岗位（D 守卫防御战）。kind=watchtower(哨塔/+射程)/roofPlatform(屋顶平台/+视野)/hidden(暗哨/首发)。stand=守卫驻守站位[x,y]，须在空地可寻路。实心岗位会在站位南侧自动生成结构块。坐标全为拟定待调占位。",
   "guardPosts": [
-    { "kind": "watchtower", "stand": [1200, 620] },
-    { "kind": "roofPlatform", "stand": [420, 650] },
-    { "kind": "hidden", "stand": [800, 1000] }
+    { "kind": "watchtower", "stand": [1780, 860] },
+    { "kind": "roofPlatform", "stand": [650, 1000] },
+    { "kind": "hidden", "stand": [1200, 1400] }
   ]
 }

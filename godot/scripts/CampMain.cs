@@ -20,9 +20,9 @@ namespace DeadSignal.Godot;
 /// </summary>
 public sealed partial class CampMain : Node2D
 {
-    private Rect2 _mapBounds = new(0, 0, 1600, 1200);
+    private Rect2 _mapBounds = new(0, 0, 2400, 1800);
     private float _navInset = 20f;
-    private Vector2 _cameraCenter = new(800, 650);
+    private Vector2 _cameraCenter = new(1200, 975);
 
     // 所有实心矩形（山体/栅栏/建筑墙/道具）——既是碰撞，也作导航挖洞。
     private readonly List<Rect2> _navHoles = new();
@@ -73,7 +73,7 @@ public sealed partial class CampMain : Node2D
     private bool _raidActive;
     private float _raidIntensity = 1f;
     private GuardPostKind _debugPlaceKind = GuardPostKind.Watchtower; // 调试放置轮换类型
-    private const float BreachRadius = 280f;  // 破防线：丧尸摸进营心此半径内 = 破防（拟定待调）
+    private const float BreachRadius = 420f;  // 破防线：丧尸摸进营心此半径内 = 破防（随 2400×1800 地图放大调，拟定待调）
 
     // ---------------- 教学关：克莉丝汀反水（第 2 夜脚本人类袭击，自成一路，与丧尸袭营互斥）----------------
     private readonly List<Raider> _tutorialRaiders = new();  // 场上普通劫掠者（不含克莉丝汀）
@@ -101,10 +101,11 @@ public sealed partial class CampMain : Node2D
     private Vector2 _dragStartWorldIso;
     private const float DragThreshold = 6f;
 
+    // 睡眠点（住宅室内中心 / 仓库室内中心，须跟随 camp.json buildings 放大后的 rect）。
     private static readonly Vector2[] SleepPositions =
     {
-        new(450, 410),
-        new(1110, 405),
+        new(630, 600),
+        new(1610, 550),
     };
 
     // z 分层：地面 → 建筑地基/门槛 → 立体遮挡物/角色(YSort) → 屋顶。
@@ -1330,9 +1331,9 @@ public sealed partial class CampMain : Node2D
 
         for (int i = 0; i < count; i++)
         {
-            // 门外错峰生成：大门缺口 x∈[730,870]，y 在栅栏(1120)与地图下边界(1180)之间。
-            float gx = 730f + (i * 37f) % 140f;
-            float gy = 1152f + (i % 3) * 12f;
+            // 门外错峰生成：大门缺口 x∈[1100,1300]，y 在栅栏(1680)与地图下边界(1800)之间。
+            float gx = 1100f + (i * 53f) % 200f;
+            float gy = 1712f + (i % 3) * 14f;
 
             var z = Zombie.Create(wander, () => _survivors.Where(a => a.Alive).Cast<Actor>());
             z.Inject(_combat, _clock); // 与营地单位同一 combat+clock，务必首帧 Think 前完成
@@ -1462,7 +1463,7 @@ public sealed partial class CampMain : Node2D
         {
             var r = Raider.Create(wander, TutorialRaiderTargets, usePistol: true);
             r.Inject(_combat, _clock); // 首帧 Think 前完成注入
-            r.Position = new Vector2(760f + i * 48f, 1152f + (i % 2) * 10f);
+            r.Position = new Vector2(1120f + i * 60f, 1712f + (i % 2) * 12f);
             _actorLayer.AddChild(r);
             r.Died += OnTutorialRaiderDied;
             _tutorialRaiders.Add(r);
@@ -1475,7 +1476,7 @@ public sealed partial class CampMain : Node2D
             usePistol: true,
             displayName: "克莉丝汀");
         _christine.Inject(_combat, _clock);
-        _christine.Position = new Vector2(830f, 1160f);
+        _christine.Position = new Vector2(1200f, 1720f);
         _actorLayer.AddChild(_christine);
         _christine.Died += OnChristineDied;
 
@@ -1696,9 +1697,10 @@ public sealed partial class CampMain : Node2D
     }
 
     /// <summary>
-    /// 让某单位走向营地大门外并在短暂延时后从场上抹除（放逐/自愿离开共用；活着离开、无倒地尸体）。
-    /// 朝"背离营地中心"方向走出（不依赖精确门坐标，任何地图都读作离开）；sprite 随 actor 失效自毁。
-    /// 注：ActorSprite 每帧自写 Modulate 且随 actor 失效自毁，故无法从本层做 alpha 淡出——以"走出→消失"表达离开。
+    /// 让某单位走向营地大门外并在淡出后从场上抹除（放逐/自愿离开共用；活着离开、无倒地尸体）。
+    /// 朝"背离营地中心"方向走出（不依赖精确门坐标，任何地图都读作离开），同时令其 ActorSprite 真 alpha 淡出——
+    /// 放逐时该单位仍 Alive，故 sprite 走 <see cref="ActorSprite.FadeOutAndFree"/> 独立分支自淡出/自毁（不被每帧重写 Modulate 打断）。
+    /// 淡出结束后再 QueueFree actor 本体（sprite 已自毁；状态图标条随 actor 一并消失）。
     /// </summary>
     private void WalkOutAndDespawn(Actor who)
     {
@@ -1708,14 +1710,30 @@ public sealed partial class CampMain : Node2D
         }
         Vector2 outward = who.GlobalPosition - _cameraCenter;
         outward = outward.LengthSquared() > 1f ? outward.Normalized() : Vector2.Down;
-        who.CommandMoveTo(who.GlobalPosition + outward * 320f);
-        GetTree().CreateTimer(2.2f).Timeout += () =>
+        who.CommandMoveTo(who.GlobalPosition + outward * 420f);
+
+        const float fadeSeconds = 2.0f;
+        FindActorSprite(who)?.FadeOutAndFree(fadeSeconds);
+        GetTree().CreateTimer(fadeSeconds + 0.2f).Timeout += () =>
         {
             if (IsInstanceValid(who))
             {
                 who.QueueFree();
             }
         };
+    }
+
+    /// <summary>在 iso 层子节点里按绑定的 Actor 反查其 ActorSprite（放逐淡出用）；未挂载/未找到返回 null。</summary>
+    private ActorSprite? FindActorSprite(Actor who)
+    {
+        foreach (Node child in _isoLayer.GetChildren())
+        {
+            if (child is ActorSprite s && s.BoundActor == who)
+            {
+                return s;
+            }
+        }
+        return null;
     }
 
     /// <summary>处决表现：在单位脚点投一摊浓血（heavy）到 iso 层（与受击溅血同源），随后由调用方 QueueFree。</summary>

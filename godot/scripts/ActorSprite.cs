@@ -32,6 +32,26 @@ public sealed partial class ActorSprite : Node2D
     private float _shakeDur;            // 本次抖动总时长
     private float _shakeAmp;            // 抖动峰值幅度（iso 屏幕像素）
 
+    // ---- 放逐淡出（modulate alpha→0 后自毁；克莉丝汀放逐时她仍 Alive，故不能靠 !Alive 自毁）----
+    private bool _fading;
+    private float _fadeTime;            // 剩余淡出时长
+    private float _fadeDur;             // 本次淡出总时长
+
+    /// <summary>本 sprite 当前绑定的 Actor（未绑定返回 null）。供 CampMain 放逐时按 actor 反查其 sprite。</summary>
+    public Actor? BoundActor => _bound ? _actor : null;
+
+    /// <summary>
+    /// 放逐淡出：接管 modulate，alpha 在 <paramref name="seconds"/> 内补间到 0 后 QueueFree 自身。
+    /// 走独立的 _Process 分支——不受"每帧重写 Modulate"与"!Alive 即自毁"打断（放逐时 actor 仍 Alive）。
+    /// 淡出期间仍同步脚点+重绘，让她边走出边淡去。
+    /// </summary>
+    public void FadeOutAndFree(float seconds)
+    {
+        _fadeDur = Mathf.Max(0.05f, seconds);
+        _fadeTime = _fadeDur;
+        _fading = true;
+    }
+
     /// <summary>绑定所表现的 Actor，并把绘制朝向初始化到其当前朝向（避免出生瞬间甩头）。</summary>
     public void Bind(Actor actor)
     {
@@ -124,6 +144,25 @@ public sealed partial class ActorSprite : Node2D
         {
             return;
         }
+
+        // 放逐淡出：接管 modulate 直至 alpha→0，然后自毁（不走下方 !Alive 自毁）。
+        if (_fading)
+        {
+            _fadeTime -= (float)delta;
+            if (GodotObject.IsInstanceValid(_actor))
+            {
+                SyncToActor();          // 边淡边走出
+            }
+            float a = Mathf.Clamp(_fadeTime / _fadeDur, 0f, 1f);
+            Modulate = new Color(1f, 1f, 1f, a);
+            QueueRedraw();
+            if (_fadeTime <= 0f)
+            {
+                QueueFree();
+            }
+            return;
+        }
+
         // Actor 死亡即 QueueFree 自身，或将被回收——同步销毁视觉，避免悬挂。
         if (!GodotObject.IsInstanceValid(_actor) || !_actor.Alive)
         {
