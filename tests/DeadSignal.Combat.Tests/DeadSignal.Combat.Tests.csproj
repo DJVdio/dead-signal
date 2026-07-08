@@ -76,6 +76,9 @@
     <Compile Include="..\..\godot\scripts\Workbench.cs" Link="Consumed\Workbench.cs" />
     <Compile Include="..\..\godot\scripts\Recipe.cs" Link="Consumed\Recipe.cs" />
     <Compile Include="..\..\godot\scripts\CraftingLogic.cs" Link="Consumed\CraftingLogic.cs" />
+    <!-- 武器改装模型纯逻辑（无 Godot 依赖）：改装项/部位/大类 + 数值增量 + 合成校验(同部位冲突/不适用/锐击枪托覆盖) + 三类武器改装目录。 -->
+    <Compile Include="..\..\godot\scripts\WeaponMod.cs" Link="Consumed\WeaponMod.cs" />
+    <Compile Include="..\..\godot\scripts\WeaponModCatalog.cs" Link="Consumed\WeaponModCatalog.cs" />
   </ItemGroup>
 
 </Project>
