@@ -56,6 +56,14 @@ public abstract partial class Actor : CharacterBody2D
     protected float MoveSpeed = 90f;
     protected virtual bool CanAct => true;
 
+    /// <summary>
+    /// 当前持握态，供攻速/误差角消费（<see cref="GripCombat"/>）。<see cref="Pawn"/> 走其 <see cref="Pawn.Grip"/>
+    /// （左右手持械推导）；其余单位（丧尸/劫掠者等无持械模型）恒 <see cref="GripMode.OneHanded"/>（系数 ×1.0，零回归）。
+    /// 说明：Pawn 已非虚暴露 public Grip 且其文件为只读边界，无法沿 HungerAbilityPenalty 的虚钩子路径（基类同名虚属性会被
+    /// Pawn 的 public 隐藏而非覆盖），故此处以类型判定就地取用，行为与「Pawn override 返回 Grip」完全等价。
+    /// </summary>
+    protected GripMode ActiveGrip => this is Pawn pawn ? pawn.Grip : GripMode.OneHanded;
+
     // ---- 供 ActorSprite 读取的视觉数据（Actor 自身不再绘制人形）----
     /// <summary>面朝方向（cartesian 弧度）。移动时=速度方向；攻击时=指向目标；空闲保持上一次。
     /// ActorSprite 会把它经 <c>Iso.Project</c> 转到 iso 屏幕空间再平滑旋转（自由角度、无离散帧）。</summary>
@@ -378,15 +386,16 @@ public abstract partial class Actor : CharacterBody2D
     }
 
     /// <summary>
-    /// 当前有效出手间隔 = 基础冷却 / 操作能力（操作能力 = 残疾×饥饿 经 <see cref="HungerState.CombineCapability"/> 合并，
-    /// 与 <c>TryAttack</c> 计时器赋值同源，不改那套乘法）。供 wind-up 重置冷却复用。
+    /// 当前有效出手间隔 = 基础冷却 / (操作能力 × 持握攻速系数)。操作能力 = 残疾×饥饿 经
+    /// <see cref="HungerState.CombineCapability"/> 合并（与 <c>TryAttack</c> 计时器赋值同源，不改那套乘法）；
+    /// 再乘 <see cref="ActiveGrip"/> 的持握系数（双手 1.15→更短、双持 0.70→更长、单手不变）。供 wind-up 重置冷却复用。
     /// 操作能力 ≤0（断双手等无法出手）时回落基础冷却保持正值——此时 TryAttack 本就会跳过出手。
     /// </summary>
     private double EffectiveAttackInterval()
     {
         double operation = HungerState.CombineCapability(
             Body.DisabilityModifiers.OperationPenalty, HungerAbilityPenalty);
-        return operation > 0 ? AttackCooldown / operation : AttackCooldown;
+        return GripCombat.EffectiveInterval(AttackCooldown, operation, ActiveGrip);
     }
 
     private void TryAttack(Actor target)
@@ -448,8 +457,10 @@ public abstract partial class Actor : CharacterBody2D
 
         // 误差角锥采样：以指向目标的准星方向为轴，在武器基础误差角内随机一个射击方向。
         // 命中判定交给弹道实时层（路径首个碰撞体，含撞墙落空）——引擎只出纯函数采样方向。
+        // 双持两把单手武器时误差角 ×1.25（远程双持代价）；单手/双手一把不变。近战不经此路径。
+        double spread = GripCombat.EffectiveSpreadDegrees(AttackWeapon.BaseSpreadDegrees, ActiveGrip);
         double aimDeg = Mathf.RadToDeg(toTarget.Angle());
-        double shotDeg = Combat.SampleShotDirectionDegrees(aimDeg, AttackWeapon.BaseSpreadDegrees);
+        double shotDeg = Combat.SampleShotDirectionDegrees(aimDeg, spread);
         Vector2 dir = Vector2.FromAngle(Mathf.DegToRad((float)shotDeg));
 
         // 子弹最大飞行距离对齐武器 MaxRange（开火判定同源；超 MaxRange 衰减本就归 0）。
