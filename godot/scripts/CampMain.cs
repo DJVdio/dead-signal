@@ -8,7 +8,7 @@ using DeadSignal.Combat;
 namespace DeadSignal.Godot;
 
 /// <summary>
-/// 幸存者营地主场景（初级地图）：山凹里的农庄，三面环山、一面栅栏+大门，易守难攻。
+/// 幸存者营地主场景（初级地图）：大平地上的农庄，四面围栏围合、正南+正北各一扇大门。围栏/大门为带 HP 的可破坏结构。
 ///
 /// 【等距 Batch 1（世界视觉精致化）】在 B0 双层地基上把块状换成精致等距：
 ///  - LogicLayer（Visible=false）：StaticBody2D 墙 / CharacterBody2D actors / RoofFade Area2D，
@@ -24,10 +24,13 @@ public sealed partial class CampMain : Node2D
 {
     private Rect2 _mapBounds = new(0, 0, 2400, 1800);
     private float _navInset = 20f;
-    private Vector2 _cameraCenter = new(1200, 975);
+    private Vector2 _cameraCenter = new(1200, 900);
 
     // 所有实心矩形（山体/栅栏/建筑墙/道具）——既是碰撞，也作导航挖洞。
     private readonly List<Rect2> _navHoles = new();
+
+    // 可破坏结构（围栏/大门）：HP + 碰撞体/视觉块/rect。HP→0 摧毁时逐一清场并重烘焙导航开出缺口。
+    private readonly List<CampStructureInstance> _structures = new();
     private readonly List<Pawn> _survivors = new();
     private readonly HashSet<Pawn> _selected = new();
     private bool _gameOver; // 全灭防重入：game-over 只触发一次。
@@ -108,6 +111,20 @@ public sealed partial class CampMain : Node2D
     private bool _christineTurned;                           // 克莉丝汀是否已反水（切 Survivor 阵营）
     private const int TutorialRaiderCount = 2;               // 固定生成 2 个劫掠者（不走 RaidWave 概率）
     private const string ChristineName = "克莉丝汀";          // 招募后作为 Pawn 的显示名（请求线据此识别她）
+
+    /// <summary>
+    /// 一处可破坏结构（围栏/大门）的运行时实例：血量状态 + cartesian rect + 碰撞体/视觉块。
+    /// Blocking=true（围栏）建实心碰撞 + 导航洞；Blocking=false（大门）为可通行关口（无碰撞、不入导航洞，门控后续）。
+    /// </summary>
+    private sealed class CampStructureInstance
+    {
+        public CampStructureState State = null!;
+        public Rect2 Rect;
+        public bool Blocking;                       // true=围栏(碰撞+导航洞)；false=可通行大门
+        public StaticBody2D? Body;                  // 仅 Blocking 时存在
+        public readonly List<Node2D> Visuals = new();
+        public bool Removed;                        // 已摧毁并清场（防重复摧毁/重烘焙）
+    }
 
     /// <summary>单个已建岗位：类型 + 属性 + 守卫驻守站位（cartesian，须可寻路）。</summary>
     private sealed class GuardPostInstance
@@ -291,7 +308,7 @@ public sealed partial class CampMain : Node2D
         AddBorderWall(new Rect2(0, 0, t, _mapBounds.Size.Y));
         AddBorderWall(new Rect2(_mapBounds.Size.X - t, 0, t, _mapBounds.Size.Y));
 
-        // 三面环山（抬起的立体块，切块 YSort）。
+        // 山体（可选，抬起的立体块切块 YSort）。当前大平地布局 camp.json 无 mountains，此循环空跑；保留以便日后地图复用。
         var mtnStyle = _cfg.mountainStyle ?? new PixelStyle { color = new[] { 0.27, 0.32, 0.27 }, jitter = 0.14 };
         foreach (RectSpec m in _cfg.mountains ?? System.Array.Empty<RectSpec>())
         {
@@ -301,13 +318,14 @@ public sealed partial class CampMain : Node2D
             }
         }
 
-        // 一面栅栏 + 大门缺口（门柱更高）。
+        // 四面围栏（可破坏结构：实心碰撞 + 导航洞 + HP）+ 南北大门缺口（门柱更高，非破坏锚点）。
         var fenceStyle = _cfg.fenceStyle ?? new PixelStyle { color = new[] { 0.40, 0.30, 0.19 }, jitter = 0.12 };
         foreach (RectSpec f in _cfg.fences ?? System.Array.Empty<RectSpec>())
         {
             if (ToRect(f.rect) is { } r)
             {
-                AddSolid(r, fenceStyle, seed: 11, (float)_heights.fence, CellFence);
+                AddStructure(r, fenceStyle, seed: 11, (float)_heights.fence, CellFence,
+                    StructureTier.FenceBasic, blocking: true);
             }
         }
         foreach (RectSpec p in _cfg.gatePosts ?? System.Array.Empty<RectSpec>())
@@ -315,6 +333,14 @@ public sealed partial class CampMain : Node2D
             if (ToRect(p.rect) is { } r)
             {
                 AddSolid(r, fenceStyle, seed: 13, (float)_heights.post, CellFence);
+            }
+        }
+        // 南北大门（可破坏结构：HP；当前为可通行关口——门槛视觉、无碰撞、不入导航洞，敌人由此涌入。门控后续）。
+        foreach (GateSpec g in _cfg.gates ?? System.Array.Empty<GateSpec>())
+        {
+            if (ToRect(g.rect) is { } r)
+            {
+                AddGate(r);
             }
         }
 
@@ -595,8 +621,10 @@ public sealed partial class CampMain : Node2D
         _navHoles.Add(rect);
     }
 
-    /// <summary>把一个 cartesian 矩形切成 ≤cell 的小块，每块一个抬起立体块节点，逐块 YSort。</summary>
-    private void AddOccluderVisual(Rect2 rect, PixelStyle style, int seed, float height, float cell)
+    /// <summary>把一个 cartesian 矩形切成 ≤cell 的小块，每块一个抬起立体块节点，逐块 YSort。
+    /// <paramref name="collect"/> 非空时把每块视觉节点登记进去（供可破坏结构摧毁时逐块移除）。</summary>
+    private void AddOccluderVisual(Rect2 rect, PixelStyle style, int seed, float height, float cell,
+        List<Node2D>? collect = null)
     {
         int nx = Mathf.Max(1, Mathf.CeilToInt(rect.Size.X / cell));
         int ny = Mathf.Max(1, Mathf.CeilToInt(rect.Size.Y / cell));
@@ -607,7 +635,7 @@ public sealed partial class CampMain : Node2D
             for (int ix = 0; ix < nx; ix++)
             {
                 var sub = new Rect2(rect.Position.X + ix * cw, rect.Position.Y + iy * ch, cw, ch);
-                _isoLayer.AddChild(new IsoTilePanel
+                var panel = new IsoTilePanel
                 {
                     FootprintCart = sub,
                     Style = style,
@@ -616,9 +644,153 @@ public sealed partial class CampMain : Node2D
                     Height = height,
                     Facade = true,
                     ZIndex = ZWorld,
-                });
+                };
+                _isoLayer.AddChild(panel);
+                collect?.Add(panel);
             }
         }
+    }
+
+    // ---------------- 可破坏结构（围栏/大门）：HP + 摧毁开口 ----------------
+
+    /// <summary>
+    /// 加一处可破坏结构（围栏）：与 <see cref="AddSolid"/> 同构建实心碰撞 + 切块立体视觉 + 导航洞，
+    /// 但把碰撞体/视觉块/rect 记进 <see cref="CampStructureInstance"/>（含 HP 状态），供 HP→0 摧毁时逐一清场并重烘焙开口。
+    /// </summary>
+    private CampStructureInstance AddStructure(Rect2 rect, PixelStyle style, int seed, float height, float cell,
+        StructureTier tier, bool blocking)
+    {
+        var inst = new CampStructureInstance
+        {
+            State = new CampStructureState(tier),
+            Rect = rect,
+            Blocking = blocking,
+        };
+
+        if (blocking)
+        {
+            var body = new StaticBody2D { Position = rect.Position + rect.Size / 2 };
+            body.CollisionLayer = 0b0100; // 层 3 = 墙（Actor 只与此层碰撞）
+            body.CollisionMask = 0;
+            body.AddChild(new CollisionShape2D { Shape = new RectangleShape2D { Size = rect.Size } });
+            _logicLayer.AddChild(body);
+            inst.Body = body;
+            _navHoles.Add(rect);
+        }
+
+        AddOccluderVisual(rect, style, seed, height, cell, inst.Visuals);
+        _structures.Add(inst);
+        return inst;
+    }
+
+    /// <summary>
+    /// 加一扇大门（可破坏结构，HP=基础大门）：当前建成**可通行关口**——只落门槛地面色带（纯视觉），
+    /// 无碰撞、不入导航洞，敌人由此涌入。承伤/摧毁接口与围栏同（<see cref="DamageStructure"/>）；关门/门控机制后续做。
+    /// </summary>
+    private void AddGate(Rect2 rect)
+    {
+        var inst = new CampStructureInstance
+        {
+            State = new CampStructureState(StructureTier.GateBasic),
+            Rect = rect,
+            Blocking = false, // 可通行关口（门控后续）
+        };
+        double[] sillColor = _cfg.gateMarker?.color ?? new[] { 0.35, 0.28, 0.18 };
+        var sill = new IsoTilePanel
+        {
+            FootprintCart = rect,
+            Style = new PixelStyle { color = sillColor, jitter = 0.06 },
+            Seed = 61,
+            Cell = 40f,
+            ZIndex = ZThreshold,
+        };
+        _isoLayer.AddChild(sill);
+        inst.Visuals.Add(sill);
+        _structures.Add(inst);
+    }
+
+    /// <summary>
+    /// 结构攻击接口（供后续袭营/守卫块让敌人打围栏/大门）：对某结构施加伤害，HP→0 摧毁并开口。
+    /// 返回该击是否摧毁了结构。敌人主动攻击结构的 AI 属袭营块（后续），本块只提供承伤入口 + 摧毁开口实现。
+    /// </summary>
+    private bool DamageStructure(CampStructureInstance s, int amount)
+    {
+        if (s.Removed)
+        {
+            return false;
+        }
+        bool destroyed = s.State.TakeDamage(amount);
+        if (destroyed)
+        {
+            DestroyStructure(s);
+        }
+        return destroyed;
+    }
+
+    /// <summary>结构摧毁：移除碰撞体 + 视觉块 + 导航洞并重烘焙（仅阻挡型动导航），开出缺口供敌人穿过破口。</summary>
+    private void DestroyStructure(CampStructureInstance s)
+    {
+        if (s.Removed)
+        {
+            return;
+        }
+        s.Removed = true;
+
+        if (s.Body != null && IsInstanceValid(s.Body))
+        {
+            s.Body.QueueFree();
+        }
+        foreach (Node2D v in s.Visuals)
+        {
+            if (IsInstanceValid(v))
+            {
+                v.QueueFree();
+            }
+        }
+        s.Visuals.Clear();
+
+        if (s.Blocking)
+        {
+            _navHoles.Remove(s.Rect); // Rect2 值相等；移除后重烘焙在此处补出缺口
+            RebakeNavigation();
+        }
+        GD.Print($"[结构] {s.State.Kind} 被摧毁 @ {s.Rect.Position:0}，已开出缺口（敌人可穿过）。");
+    }
+
+    /// <summary>就近取一处未摧毁结构（供敌人选定攻击目标 / 调试打击）：中心距落点最近且在半径内者。</summary>
+    private CampStructureInstance? NearestStructure(Vector2 cart, float radius)
+    {
+        CampStructureInstance? best = null;
+        float bestD = radius;
+        foreach (CampStructureInstance s in _structures)
+        {
+            if (s.Removed)
+            {
+                continue;
+            }
+            float d = s.Rect.GetCenter().DistanceTo(cart);
+            if (d < bestD)
+            {
+                bestD = d;
+                best = s;
+            }
+        }
+        return best;
+    }
+
+    /// <summary>调试（F 键）：对鼠标落点最近的结构打 50 伤害，验证承伤/摧毁→开口→重烘焙链路。</summary>
+    private void DebugDamageStructureAtMouse()
+    {
+        Vector2 cart = Iso.Unproject(GetGlobalMousePosition());
+        CampStructureInstance? s = NearestStructure(cart, 300f);
+        if (s == null)
+        {
+            GD.Print("[结构] 鼠标附近无可破坏结构。");
+            return;
+        }
+        bool destroyed = DamageStructure(s, 50);
+        GD.Print($"[结构] 调试打击 {s.State.Kind} -50 → HP {s.State.Hp}/{s.State.MaxHp}" +
+                 (destroyed ? "（摧毁！已开口）" : ""));
     }
 
     /// <summary>纯碰撞的边界墙（LogicLayer，无视觉、不登记导航洞——压在地图边缘，山体已覆盖）。</summary>
@@ -839,6 +1011,10 @@ public sealed partial class CampMain : Node2D
             case Key.R:
                 // 调试：手动触发一波袭营（仅 NightAct 生效），把防御战跑通；正式由叙事事件调 TriggerRaid。
                 TriggerRaid(_raidIntensity);
+                break;
+            case Key.F:
+                // 调试：打击鼠标落点最近的围栏/大门，验证承伤→摧毁→开口→重烘焙链路（敌人打结构 AI 属袭营块，后续）。
+                DebugDamageStructureAtMouse();
                 break;
         }
     }
@@ -1384,9 +1560,10 @@ public sealed partial class CampMain : Node2D
 
         for (int i = 0; i < count; i++)
         {
-            // 门外错峰生成：大门缺口 x∈[1100,1300]，y 在栅栏(1680)与地图下边界(1800)之间。
-            float gx = 1100f + (i * 53f) % 200f;
-            float gy = 1712f + (i % 3) * 14f;
+            // 门外错峰生成：南北两门缺口 x∈[1100,1300]，交替从南门(y>1500)、北门(y<300)外涌入。
+            bool south = (i & 1) == 0;
+            float gx = 1110f + (i * 43f) % 180f;
+            float gy = south ? 1540f + (i % 3) * 14f : 260f - (i % 3) * 14f;
 
             var z = Zombie.Create(wander, () => _survivors.Where(a => a.Alive).Cast<Actor>());
             z.Inject(_combat, _clock); // 与营地单位同一 combat+clock，务必首帧 Think 前完成
@@ -1516,7 +1693,7 @@ public sealed partial class CampMain : Node2D
         {
             var r = Raider.Create(wander, TutorialRaiderTargets, usePistol: true);
             r.Inject(_combat, _clock); // 首帧 Think 前完成注入
-            r.Position = new Vector2(1120f + i * 60f, 1712f + (i % 2) * 12f);
+            r.Position = new Vector2(1120f + i * 60f, 1540f + (i % 2) * 12f); // 南门外错峰
             _actorLayer.AddChild(r);
             r.Died += OnTutorialRaiderDied;
             _tutorialRaiders.Add(r);
@@ -1529,7 +1706,7 @@ public sealed partial class CampMain : Node2D
             usePistol: true,
             displayName: "克莉丝汀");
         _christine.Inject(_combat, _clock);
-        _christine.Position = new Vector2(1200f, 1720f);
+        _christine.Position = new Vector2(1200f, 1560f); // 南门外
         _actorLayer.AddChild(_christine);
         _christine.Died += OnChristineDied;
 
@@ -2279,6 +2456,7 @@ public sealed partial class CampMain : Node2D
         public RectSpec[]? mountains { get; set; }
         public PixelStyle? mountainStyle { get; set; }
         public RectSpec[]? fences { get; set; }
+        public GateSpec[]? gates { get; set; }
         public RectSpec[]? gatePosts { get; set; }
         public GateMarker? gateMarker { get; set; }
         public PixelStyle? fenceStyle { get; set; }
@@ -2327,6 +2505,13 @@ public sealed partial class CampMain : Node2D
     {
         public double[]? rect { get; set; }
         public double[]? color { get; set; }
+    }
+
+    /// <summary>大门规格：rect = cartesian [x,y,w,h]；side = 朝向（north/south，供门槛/门控用）。</summary>
+    private struct GateSpec
+    {
+        public double[]? rect { get; set; }
+        public string? side { get; set; }
     }
 
     private struct DoorSpec
