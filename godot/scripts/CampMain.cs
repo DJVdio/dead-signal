@@ -129,6 +129,11 @@ public sealed partial class CampMain : Node2D
     private const int TutorialRaiderCount = 2;               // 固定生成 2 个劫掠者（不走 RaidWave 概率）
     private const string ChristineName = "克莉丝汀";          // 招募后作为 Pawn 的显示名（请求线据此识别她）
 
+    // ---------------- 座位家具（读书等指派活动的可坐点） ----------------
+    // 营地预置的非实心"座位"点（cartesian 坐标 + 占用登记）。读者认领离自己最近的空座、寻路走去坐下读，读完释放。
+    // 纯簿记（就近取空座/占用/释放）在 SeatRegistry；建造/寻路在本类 AddSeat + Claim/Release API。
+    private readonly SeatRegistry _seats = new();
+
     /// <summary>
     /// 一处可破坏结构（围栏/大门）的运行时实例：血量状态 + cartesian rect + 碰撞体/视觉块。
     /// Blocking=true（围栏）建实心碰撞 + 导航洞；Blocking=false（大门）为可通行关口（无碰撞、不入导航洞，门控后续）。
@@ -398,8 +403,16 @@ public sealed partial class CampMain : Node2D
             if (ToRect(pr.rect) is { } r)
             {
                 var style = new PixelStyle { color = pr.color, jitter = pr.jitter };
-                AddSolid(r, style, seed: 17, (float)_heights.prop, cell: 200f);
-                RegisterContainer(pr, r);
+                if (pr.role == "seat")
+                {
+                    // 座位家具：非实心可站点（照暗哨路径——不建碰撞、不挖导航洞），读者据此可寻路走上就座。
+                    AddSeat(r, style);
+                }
+                else
+                {
+                    AddSolid(r, style, seed: 17, (float)_heights.prop, cell: 200f);
+                    RegisterContainer(pr, r);
+                }
             }
         }
 
@@ -465,6 +478,40 @@ public sealed partial class CampMain : Node2D
             RebakeNavigation();
         }
     }
+
+    /// <summary>
+    /// 建一把座位家具：非实心可站点（照暗哨标记路径——<b>不建 StaticBody 碰撞、不入 _navHoles 导航洞</b>，
+    /// 故导航网格在此无洞、读者能寻路直接走上就座）。只落一个矮立体视觉作椅子/坐垫，并把座位中心
+    /// 登记进 <see cref="_seats"/> 供读书等指派活动就近认领。座位建造经此、非 <see cref="AddSolid"/>。
+    /// </summary>
+    private void AddSeat(Rect2 rect, PixelStyle style)
+    {
+        // 矮立体块视觉（无碰撞、不挖洞）：height 取小值，读者站上时与之交叠即"坐下"观感（MVP）。
+        AddOccluderVisual(rect, style, seed: 67, height: 12f, cell: 48f);
+        Vector2 center = rect.Position + rect.Size / 2;
+        _seats.Add(center.X, center.Y);
+    }
+
+    /// <summary>一次座位认领：座位下标 + 其世界坐标（cartesian，读者据此寻路走去坐下）。</summary>
+    public readonly record struct SeatClaim(int Index, Vector2 Pos);
+
+    /// <summary>
+    /// 就近认领一个空座并标记占用（供读书等指派活动给读者派座）：返回该座世界坐标（寻路目标）；
+    /// 无空座返回 null，调用方按"无座"惩罚处理（如读速 -10%）。读完/中断须 <see cref="ReleaseSeat"/> 释放。
+    /// </summary>
+    public SeatClaim? ClaimNearestFreeSeat(Vector2 fromPos)
+    {
+        int idx = _seats.ClaimNearest(fromPos.X, fromPos.Y);
+        if (idx < 0)
+        {
+            return null;
+        }
+        (double x, double y) = _seats.PositionOf(idx);
+        return new SeatClaim(idx, new Vector2((float)x, (float)y));
+    }
+
+    /// <summary>释放先前认领的座位（读完/中断调用；重复释放幂等）。</summary>
+    public void ReleaseSeat(SeatClaim seat) => _seats.Release(seat.Index);
 
     /// <summary>暗哨站位标记：非碰撞、不挖洞的矮地面标记（纯视觉，深色小块）。</summary>
     private void AddHiddenPostMarker(Vector2 stand)

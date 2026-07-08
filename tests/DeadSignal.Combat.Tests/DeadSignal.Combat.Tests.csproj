@@ -42,6 +42,8 @@
     <Compile Include="..\..\godot\scripts\CampStructure.cs" Link="Consumed\CampStructure.cs" />
     <!-- 敌人砸墙破防纯逻辑（无 Godot 依赖）：矩形最近点/边缘距离 + 攻击站位 + 够不够得着决策 + 按边缘择结构。 -->
     <Compile Include="..\..\godot\scripts\BreachLogic.cs" Link="Consumed\BreachLogic.cs" />
+    <!-- 座位家具纯逻辑（无 Godot 依赖）：座位坐标登记 + 就近取空座(标记占用) + 释放，供读书等指派活动认领座位。 -->
+    <Compile Include="..\..\godot\scripts\Seating.cs" Link="Consumed\Seating.cs" />
     <Compile Include="..\..\godot\scripts\TutorialRaidLogic.cs" Link="Consumed\TutorialRaidLogic.cs" />
     <Compile Include="..\..\godot\scripts\CampResources.cs" Link="Consumed\CampResources.cs" />
     <!-- 食物稀缺经济模型纯逻辑（无 Godot 依赖）：全员口粮需求 vs 库存 + 短缺分粮取舍(策略/玩家指定/缺口) + 短缺趋势预警。 -->
