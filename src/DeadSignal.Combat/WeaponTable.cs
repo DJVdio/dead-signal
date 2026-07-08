@@ -35,6 +35,18 @@ public static class WeaponTable
         AttackInterval = 0.9,    // 拟定待调
     };
 
+    /// <summary>刺剑：单手近战锐器，突刺路线——伤害区间窄、穿透略高于短剑，攻速略快。可双持。</summary>
+    public static Weapon Rapier() => new()
+    {
+        Name = "刺剑",
+        DamageMin = 7,           // 拟定待调（刺击：区间窄）
+        DamageMax = 18,          // 拟定待调
+        Penetration = 0.15,      // 拟定待调（刺击穿透略高于短剑 12%）
+        DamageType = DamageType.Sharp,
+        CanDualWield = true,     // 拟定待调
+        AttackInterval = 0.8,    // 拟定待调（略快于短剑 0.9）
+    };
+
     /// <summary>长剑：近战锐器，穿透 18%。双手武器。</summary>
     public static Weapon Longsword() => new()
     {
@@ -57,6 +69,18 @@ public static class WeaponTable
         DamageType = DamageType.Sharp,
         TwoHanded = true,        // 拟定待调
         AttackInterval = 1.4,    // 拟定待调
+    };
+
+    /// <summary>草叉：双手近战锐器，农具改造——多齿突刺，穿透中等、伤害区间较宽、攻速偏慢。照长剑数值风格。</summary>
+    public static Weapon Pitchfork() => new()
+    {
+        Name = "草叉",
+        DamageMin = 9,           // 拟定待调
+        DamageMax = 26,          // 拟定待调
+        Penetration = 0.16,      // 拟定待调（多齿刺击，略低于长剑 18%）
+        DamageType = DamageType.Sharp,
+        TwoHanded = true,        // 拟定待调
+        AttackInterval = 1.2,    // 拟定待调（农具笨重，略慢于长剑 1.1）
     };
 
     // ---- 近战钝器 ----
@@ -141,6 +165,7 @@ public static class WeaponTable
         Penetration = 0.18,
         DamageType = DamageType.Sharp,
         TwoHanded = true,        // 拟定待调
+        CanDualWield = true,     // 用户拍板：放开可双持
         IsRanged = true,
         BaseSpreadDegrees = 6,   // 拟定待调
         AttackInterval = 0.1,    // 拟定待调
@@ -200,12 +225,12 @@ public static class WeaponTable
     };
 
     /// <summary>
-    /// 玩家/敌方可用武器全集（12 种，不含天生的丧尸爪击），Sim 聚合模拟按此顺序遍历。
+    /// 玩家/敌方可用武器全集（14 种，不含天生的丧尸爪击），Sim 聚合模拟按此顺序遍历。
     /// 顺序与旧 Sim 行内武器表一致，便于对照基线。
     /// </summary>
     public static IReadOnlyList<Weapon> Arsenal() => new[]
     {
-        Dagger(), Shortsword(), Longsword(), Greatsword(),
+        Dagger(), Shortsword(), Rapier(), Longsword(), Pitchfork(), Greatsword(),
         Club(), SpikeHammer(), Warhammer(),
         Zipgun(), Pistol(), Smg(), Rifle(), SniperRifle(),
     };
