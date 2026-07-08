@@ -5,9 +5,9 @@ namespace DeadSignal.Godot;
 
 /// <summary>
 /// 「游戏结束」模态（最小版）：全体幸存者死亡时弹出。
-/// 显示结束提示 + 一个「退出游戏」按钮（<see cref="GetTree"/>.Quit()）。
-/// 弹出即 <c>Engine.TimeScale = 0</c> 暂停——游戏已结束，不设恢复口径。
-/// 重开/回标题/存档等菜单系统本轮不做（以后另做）。
+/// 显示结束提示 + 「重新开始」（重载场景开新一局）+「退出游戏」（<see cref="GetTree"/>.Quit()）。
+/// 弹出即 <c>Engine.TimeScale = 0</c> 暂停——游戏已结束。重开前必须先把 TimeScale 复位回 1，
+/// 否则新场景一起步就被冻住。回标题/存档等菜单系统本轮不做（以后另做）。
 /// 骨架照 <see cref="ChoicePanel"/>：CanvasLayer + <see cref="UiStyle.BuildModalShell"/>。
 /// </summary>
 public sealed partial class GameOverPanel : CanvasLayer
@@ -42,13 +42,33 @@ public sealed partial class GameOverPanel : CanvasLayer
         sub.AddThemeColorOverride("font_color", new Color(0.8f, 0.75f, 0.7f));
         panel.AddChild(sub);
 
+        var restartBtn = new Button();
+        restartBtn.Text = "重新开始";
+        restartBtn.Position = new Vector2(28, 190);
+        restartBtn.Size = new Vector2(174, 44);
+        restartBtn.Pressed += Restart;
+        UiStyle.StyleButton(restartBtn, new Color(0.25f, 0.5f, 0.3f), fontSize: 16);
+        panel.AddChild(restartBtn);
+
         var quitBtn = new Button();
         quitBtn.Text = "退出游戏";
-        quitBtn.Position = new Vector2(110, 190);
-        quitBtn.Size = new Vector2(200, 44);
+        quitBtn.Position = new Vector2(218, 190);
+        quitBtn.Size = new Vector2(174, 44);
         quitBtn.Pressed += () => GetTree().Quit();
         UiStyle.StyleButton(quitBtn, new Color(0.65f, 0.2f, 0.2f), fontSize: 16);
         panel.AddChild(quitBtn);
+    }
+
+    /// <summary>
+    /// 重开一局：先复位 <c>Engine.TimeScale = 1</c>（Show 时置 0，不复位则新场景冻住），
+    /// 再 <see cref="CombatFeed.Reset"/> 清 static 订阅防残留死节点引用，最后重载当前场景。
+    /// 顺序要紧：TimeScale 必须先于 ReloadCurrentScene。
+    /// </summary>
+    private void Restart()
+    {
+        Engine.TimeScale = 1;
+        CombatFeed.Reset();
+        GetTree().ReloadCurrentScene();
     }
 
     /// <summary>弹出并暂停：挂到指定 HUD 层，暂停整局（不设恢复——游戏已结束）。</summary>
