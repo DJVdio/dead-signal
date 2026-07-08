@@ -42,5 +42,16 @@
 
   { "speaker": null, "text": "席间提起了一件搁了很久没说的事。", "phase": "dusk",
     "condition": { "all": [ { "type": "flag", "key": "example_story_flag" } ] },
-    "triggers": [ { "key": "example_story_flag_told", "value": "true" } ] }
+    "triggers": [ { "key": "example_story_flag_told", "value": "true" } ] },
+
+  { "comment": "克莉丝汀请求线（收留后）：按 christine_req 精确值门控三条递进请求，说出即置 christine_req_pending，那餐结束弹抉择面板。台词 draft 待用户改。",
+    "speaker": "克莉丝汀", "text": "draft 待用户改：那伙金手指……我逃出来那天就发过誓，总有一天要回去把他们清了。你们的枪，能不能借我一用？", "phase": "any", "weight": 6.0,
+    "condition": { "all": [ { "type": "flag", "key": "christine_req", "value": "0" } ] },
+    "triggers": [ { "key": "christine_req_pending", "value": "true" } ] },
+  { "speaker": "克莉丝汀", "text": "draft 待用户改：我不是要逼你……可他们还逍遥在那儿，我一闭眼就是那几张脸。出趟兵，把那窝端了吧。", "phase": "any", "weight": 6.0,
+    "condition": { "all": [ { "type": "flag", "key": "christine_req", "value": "1" } ] },
+    "triggers": [ { "key": "christine_req_pending", "value": "true" } ] },
+  { "speaker": "克莉丝汀", "text": "draft 待用户改：这是我最后一次开口求你了。你若还是不肯出手，那这仇……我只能自己去了断。", "phase": "any", "weight": 6.0,
+    "condition": { "all": [ { "type": "flag", "key": "christine_req", "value": "2" } ] },
+    "triggers": [ { "key": "christine_req_pending", "value": "true" } ] }
 ]

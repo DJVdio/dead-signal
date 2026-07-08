@@ -81,6 +81,7 @@ public sealed partial class CampMain : Node2D
     private bool _tutorialActive;                            // 教学关战斗进行中（逐帧 UpdateCristineTutorial）
     private bool _christineTurned;                           // 克莉丝汀是否已反水（切 Survivor 阵营）
     private const int TutorialRaiderCount = 2;               // 固定生成 2 个劫掠者（不走 RaidWave 概率）
+    private const string ChristineName = "克莉丝汀";          // 招募后作为 Pawn 的显示名（请求线据此识别她）
 
     /// <summary>单个已建岗位：类型 + 属性 + 守卫驻守站位（cartesian，须可寻路）。</summary>
     private sealed class GuardPostInstance
@@ -705,6 +706,10 @@ public sealed partial class CampMain : Node2D
             // 只**追加**一份死亡当刻快照供下一餐"死亡反应"气泡；不改上面 _survivors/_selected/_raidGuards 的既有清理语义。
             _recentlyDeceased.Add(PawnSnapshot.FromInspection(p.Inspect()));
 
+            // 克莉丝汀若在请求线走完前身故：清空该支线全部 flag，彻底停播请求/离开（她已不在场）。
+            if (p.DisplayName == ChristineName)
+                ChristineRequestLogic.Abort(_storyFlags);
+
             // 玩家幸存者移出名单**之后**判全灭：无一存活 → game-over（只触发一次）。
             // 只玩家幸存者（_survivors 里的 Pawn）算数——盟友反水者/劫掠者/丧尸不进此判定。
             if (!_gameOver && GameOverCondition.AllSurvivorsDead(_survivors.Count(s => s.Alive)))
@@ -1008,6 +1013,26 @@ public sealed partial class CampMain : Node2D
     private void OnMealContinued()
     {
         _mealPanel.Visible = false;
+
+        // 本餐若播了克莉丝汀的请求气泡（trigger 置了 pending）→ 先弹抉择面板，
+        // 相位推进推迟到玩家选完（AdvanceAfterMeal）。仅当她仍是在营存活幸存者时才逼问；
+        // 否则（已亡故/离场）静默清线，照常推进。
+        if (ChristineRequestLogic.HasPendingRequest(_storyFlags))
+        {
+            if (ChristinePawn() != null)
+            {
+                PromptChristineHelpChoice();
+                return;
+            }
+            ChristineRequestLogic.Abort(_storyFlags);
+        }
+
+        AdvanceAfterMeal();
+    }
+
+    /// <summary>聚餐结束后的相位推进（黎明→白天备战；黄昏→睡眠过渡）。抉择面板延迟场景亦复用它收尾。</summary>
+    private void AdvanceAfterMeal()
+    {
         switch (_clock.CurrentPhase)
         {
             case DayPhase.DawnMeal:
@@ -1031,6 +1056,14 @@ public sealed partial class CampMain : Node2D
         _guardPanel.Visible = false;
         _returnWarningPopup.Visible = false;
         _mealPanel.Visible = false;
+
+        // 克莉丝汀累计 3 次"暂不"后不立即走：排期到下一次昼夜交替（相位切进聚餐）时自行离开。
+        // 置于结算前，使她不再计入本餐用餐者。走"自愿离开"清理（非 Died，不触发全灭判定）。
+        if ((phase == DayPhase.DawnMeal || phase == DayPhase.DuskMeal)
+            && ChristineRequestLogic.ConsumeLeaving(_storyFlags))
+        {
+            ChristineLeaveVoluntary();
+        }
 
         switch (phase)
         {
@@ -1588,16 +1621,111 @@ public sealed partial class CampMain : Node2D
                 RecruitChristine();
                 break;
             case CristineChoice.Exile:
-                _christine.QueueFree();
+                // 放逐：让她走向门外后消失（活着离开，不留尸不流血）。
+                WalkOutAndDespawn(_christine);
                 _christine = null;
-                GD.Print("[教学关] 放逐克莉丝汀：她离开了营地。");
+                GD.Print("[教学关] 放逐克莉丝汀：她走向门外，消失在营地外。");
                 break;
             case CristineChoice.Execute:
+                // 处决：脚下留一摊浓血后当场消失（不做倒地尸体视觉）。
+                SpawnDeathBlood(_christine);
                 _christine.QueueFree();
                 _christine = null;
-                GD.Print("[教学关] 处决克莉丝汀。");
+                GD.Print("[教学关] 处决克莉丝汀：地上留下一摊血。");
                 break;
         }
+    }
+
+    // ---------------- 克莉丝汀请求线：请求出兵清剿金手指帮 ----------------
+
+    /// <summary>当前在营存活的克莉丝汀 Pawn（招募后）；不在场（未招募/已亡故/已离开）返回 null。</summary>
+    private Pawn? ChristinePawn() =>
+        _survivors.FirstOrDefault(p => p.Alive && p.DisplayName == ChristineName);
+
+    /// <summary>
+    /// 弹出「答应出兵清剿 / 暂不」抉择面板（复用通用 <see cref="ChoicePanel"/>，非教学三选一）。
+    /// 冻结时标、选完恢复：答应→请求线永久停播；暂不→计一次，满 3 次排期离开。收尾均走 <see cref="AdvanceAfterMeal"/>。
+    /// </summary>
+    private void PromptChristineHelpChoice()
+    {
+        double prevScale = Engine.TimeScale;
+        Engine.TimeScale = 0;
+
+        var panel = new ChoicePanel();
+        AddChild(panel);
+        // draft 待用户改：三条请求台词见 meal_bubbles.json；此处为抉择面板提示与选项占位。
+        panel.Setup(
+            "克莉丝汀把你拉到一旁，声音压得很低：\n" +
+            "「金手指帮……我夜里一闭眼就是他们的脸。带上人，跟我去把那个据点端了——求你了。」",
+            new List<ChoicePanel.ChoiceOption>
+            {
+                new() { Value = 1, Label = "答应出兵清剿",
+                        Description = "等探明他们的据点，就动手", Accent = new Color(0.62f, 0.25f, 0.22f) },
+                new() { Value = 0, Label = "暂不",
+                        Description = "现在还不是时候", Accent = new Color(0.45f, 0.42f, 0.4f) },
+            });
+        panel.Confirmed += v =>
+        {
+            Engine.TimeScale = prevScale <= 0 ? 1 : prevScale;
+            bool agreed = v == 1;
+            ChristineRequestLogic.Resolve(_storyFlags, agreed);
+            GD.Print(agreed
+                ? "[克莉丝汀] 答应出兵清剿金手指帮（请求线停播，待后续探索兑现）。"
+                : $"[克莉丝汀] 暂不出兵（累计回绝 {ChristineRequestLogic.DeclineCount(_storyFlags)}/{ChristineRequestLogic.DeclinesToLeave}）。");
+            panel.QueueFree();
+            AdvanceAfterMeal(); // 抉择完成，接回被推迟的聚餐后相位推进
+        };
+    }
+
+    /// <summary>
+    /// 克莉丝汀累计 3 次回绝后自行离开：**不走 Died 事件**（避免触发全灭判定/记 _recentlyDeceased），
+    /// 手动做与 <see cref="OnActorDied"/> 平行的名单清理（移出 _survivors/_selected/_raidGuards），再走向门外消失。
+    /// </summary>
+    private void ChristineLeaveVoluntary()
+    {
+        var christine = ChristinePawn();
+        if (christine == null)
+        {
+            return; // 已不在场（如中途身故，Abort 已清 flag）——静默跳过
+        }
+        _survivors.Remove(christine);
+        _selected.Remove(christine);
+        _raidGuards.Remove(christine);
+        WalkOutAndDespawn(christine);
+        GD.Print("[克莉丝汀] 三度回绝后，她收拾东西，独自走出了营地大门。");
+    }
+
+    /// <summary>
+    /// 让某单位走向营地大门外并在短暂延时后从场上抹除（放逐/自愿离开共用；活着离开、无倒地尸体）。
+    /// 朝"背离营地中心"方向走出（不依赖精确门坐标，任何地图都读作离开）；sprite 随 actor 失效自毁。
+    /// 注：ActorSprite 每帧自写 Modulate 且随 actor 失效自毁，故无法从本层做 alpha 淡出——以"走出→消失"表达离开。
+    /// </summary>
+    private void WalkOutAndDespawn(Actor who)
+    {
+        if (who == null || !IsInstanceValid(who))
+        {
+            return;
+        }
+        Vector2 outward = who.GlobalPosition - _cameraCenter;
+        outward = outward.LengthSquared() > 1f ? outward.Normalized() : Vector2.Down;
+        who.CommandMoveTo(who.GlobalPosition + outward * 320f);
+        GetTree().CreateTimer(2.2f).Timeout += () =>
+        {
+            if (IsInstanceValid(who))
+            {
+                who.QueueFree();
+            }
+        };
+    }
+
+    /// <summary>处决表现：在单位脚点投一摊浓血（heavy）到 iso 层（与受击溅血同源），随后由调用方 QueueFree。</summary>
+    private void SpawnDeathBlood(Actor who)
+    {
+        if (who == null || !IsInstanceValid(who))
+        {
+            return;
+        }
+        BloodDecal.Spawn(_isoLayer, Iso.Project(who.GlobalPosition), severity: 1f, heavy: true);
     }
 
     /// <summary>
@@ -1611,12 +1739,13 @@ public sealed partial class CampMain : Node2D
         _christine.QueueFree();
         _christine = null;
 
-        var pawn = Pawn.Create("克莉丝汀", usePistol: true, new Color(0.85f, 0.55f, 0.75f));
+        var pawn = Pawn.Create(ChristineName, usePistol: true, new Color(0.85f, 0.55f, 0.75f));
         pawn.Position = pos; // cartesian，原地入营
         AddActor(pawn);
         _survivors.Add(pawn);
 
         _storyFlags.Set("christine_recruited", "true");
+        ChristineRequestLogic.Begin(_storyFlags); // 开启"请求出兵清剿金手指帮"支线（聚餐里递进请求）
         GD.Print("[教学关] 收留克莉丝汀：转为可控幸存者入营。");
     }
 

@@ -46,6 +46,8 @@
     <Compile Include="..\..\godot\scripts\StoryFlags.cs" Link="Consumed\StoryFlags.cs" />
     <Compile Include="..\..\godot\scripts\MealCondition.cs" Link="Consumed\MealCondition.cs" />
     <Compile Include="..\..\godot\scripts\MealBubbles.cs" Link="Consumed\MealBubbles.cs" />
+    <!-- 克莉丝汀请求线状态机纯逻辑（无 Godot 依赖）：收留开线/递进请求门控/答应停播/累计拒绝离开。 -->
+    <Compile Include="..\..\godot\scripts\ChristineRequestLogic.cs" Link="Consumed\ChristineRequestLogic.cs" />
   </ItemGroup>
 
 </Project>
