@@ -95,6 +95,89 @@ public sealed partial class Pawn : Actor
     /// <summary>饿死：走统一非战斗死亡路径（触发 Died 事件 + 移出场，复用现有死亡消费）。</summary>
     public void StarveToDeath() => KillNonCombat();
 
+    // ================= 伤病系统（医疗）：持伤病态 + 昼夜恶化 + 死/致残联动 =================
+    // 每个幸存者挂一份 HealthConditionSet（纯逻辑，见 HealthConditions.cs）：战斗产出的出血/骨折经
+    // ArchiveWounds 建档进伤病集；营地每昼夜 AdvanceHealthDay 推进恶化/愈合，未手术必恶化——封顶
+    // 致残(Sever 断肢)/致死(走统一非战斗死亡路径)。手术/用药（里程碑②）由医疗面板直接在 Health 上调
+    // PerformSurgery/TreatIllness。手术数值/点数不对玩家展示（UI 只显模糊描述）。
+
+    /// <summary>本幸存者的伤病集（出血/骨折/感染/疾病）。医疗面板直接在其上做手术/用药；营地昼夜推进它。</summary>
+    public HealthConditionSet Health { get; } = new();
+
+    /// <summary>已建档的骨折部位：Body 无"消骨折"接口，故骨折靠此永久去重，防每昼夜 ArchiveWounds 反复建档（出血靠止血同步、按活跃条目去重）。</summary>
+    private readonly HashSet<string> _fractureArchived = new();
+
+    /// <summary>本幸存者当前是否有活跃伤病（供 UI / 分粮"伤员"判定的补充信号）。</summary>
+    public bool HasHealthConditions => Health.Conditions.Count > 0;
+
+    /// <summary>
+    /// 施术者操作能力 0..1（= 1 − 残疾操作惩罚，再并饥饿净值；断手/饥饿拉低）。喂给
+    /// <see cref="HealthConditionSet.PerformSurgery"/> 的 operationCapability（与战斗出手间隔同源口径）。
+    /// </summary>
+    public double OperationCapability =>
+        System.Math.Clamp(
+            HungerState.CombineCapability(Body.DisabilityModifiers.OperationPenalty, HungerAbilityPenalty),
+            0.0, 1.0);
+
+    /// <summary>本幸存者已读书 id 集（供 <see cref="MedicalBookPoints.SumFor"/> 求施术者医疗书加点）。</summary>
+    public IReadOnlyCollection<string> ReadBookIds => _readBooks.ReadBooks;
+
+    /// <summary>
+    /// 从当前战斗态（Body 出血伤口/骨折部位）建档伤病：经 <see cref="HealthMapping.SeedFromBody"/> 映射为伤病条目并入
+    /// <see cref="Health"/>（幂等去重）。出血按"该部位是否已有活跃出血条目"去重（术后止血会从 Body 摘除，故可再度受伤重新建档）；
+    /// 骨折靠 <see cref="_fractureArchived"/> 永久去重（Body 无消骨折接口）。每昼夜推进前调用，把战斗产物接进生存层伤病系统。
+    /// </summary>
+    public void ArchiveWounds()
+    {
+        foreach (HealthCondition c in HealthMapping.SeedFromBody(Body).Conditions)
+        {
+            if (c.Type == HealthConditionType.Bleeding)
+            {
+                bool active = Health.Conditions.Any(x => x.Type == HealthConditionType.Bleeding && x.BodyPart == c.BodyPart);
+                if (!active)
+                {
+                    Health.Add(c);
+                }
+            }
+            else if (c.Type == HealthConditionType.Fracture && c.BodyPart != null && _fractureArchived.Add(c.BodyPart))
+            {
+                Health.Add(c);
+            }
+        }
+    }
+
+    /// <summary>
+    /// 推进本幸存者一昼夜的伤病演变：先建档新伤，再 <see cref="HealthConditionSet.TickDay"/>（未手术恶化 / 已手术愈合）。
+    /// 封顶致残的部位就地 <see cref="Body.Sever"/> 断肢（装备联动由每帧 ReconcileSeverance 兜底）；术后愈合/清除的出血同步
+    /// 从 Body 止血（保持战斗层一致；骨折无消除接口，不同步）。是否致死经返回值交营地统一走死亡路径。
+    /// </summary>
+    /// <param name="rng">感染 roll 随机源。</param>
+    /// <param name="resting">本昼夜是否卧床休养（减缓感染/疾病恶化、加速术后愈合）。</param>
+    public HealthTickResult AdvanceHealthDay(IRandomSource rng, bool resting)
+    {
+        ArchiveWounds();
+        HealthTickResult result = Health.TickDay(rng, resting);
+
+        foreach (string part in result.MaimedParts)
+        {
+            Body.Sever(part); // 坏疽/畸形封顶致残：切除该肢
+        }
+
+        // 术后愈合/清除的出血：该部位已无活跃出血条目 → 从 Body 止血，保持战斗层一致（骨折无消除接口，暂不同步）。
+        foreach (string part in Body.BleedingWounds.ToList())
+        {
+            if (!Health.Conditions.Any(c => c.Type == HealthConditionType.Bleeding && c.BodyPart == part))
+            {
+                Body.StopBleed(part);
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>因伤病恶化不治身故：走统一非战斗死亡路径（触发 Died 事件 → 营地名单清理 + 可能触发全灭）。</summary>
+    public void DieOfWounds() => KillNonCombat();
+
     protected override void Think(double delta)
     {
         // 断肢联动兜底（每帧、幂等、变更时才重投）：手/脚被切除或损毁后，同步持械模型（该手武器落地）

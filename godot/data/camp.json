@@ -85,7 +85,7 @@
     {
       "name": "住宅-柜子",
       "role": "storage",
-      "_lootComment": "storage 类：其 loot 为开局共享库存（食物入食物份数，书/武器/护甲/材料入库存，工具装工作台）。开局给一批起手材料，配方系统一开局即可试做（工具/技能/书门槛另需满足）。",
+      "_lootComment": "storage 类：其 loot 为开局共享库存（食物入食物份数，书/武器/护甲/材料入库存，工具装工作台）。开局给一批起手材料，配方系统一开局即可试做（工具/书门槛另需满足）。",
       "loot": [
         { "kind": "food", "qty": 4 },
         { "kind": "book", "id": "wilderness_survival_guide" },
@@ -97,7 +97,10 @@
         { "kind": "material", "id": "nails", "qty": 4 },
         { "kind": "material", "id": "stone", "qty": 3 },
         { "kind": "material", "id": "fuel", "qty": 3 },
-        { "kind": "material", "id": "rope", "qty": 2 }
+        { "kind": "material", "id": "rope", "qty": 2 },
+        { "kind": "material", "id": "bandage", "qty": 3 },
+        { "kind": "material", "id": "splint", "qty": 1 },
+        { "kind": "material", "id": "antibiotics", "qty": 1 }
       ],
       "rect": [440, 470, 72, 44],
       "color": [0.46, 0.36, 0.24],
@@ -108,11 +111,14 @@
       "name": "住宅-衣柜",
       "role": "loot",
       "loot": [
+        { "kind": "book", "id": "tailors_notes" },
         { "kind": "armor", "id": "粗布外套" },
         { "kind": "armor", "id": "左手套" },
         { "kind": "armor", "id": "右手套" },
         { "kind": "tool", "id": "sawblade" },
-        { "kind": "material", "id": "scrap_cloth", "qty": 3 }
+        { "kind": "material", "id": "scrap_cloth", "qty": 3 },
+        { "kind": "material", "id": "bandage", "qty": 2 },
+        { "kind": "material", "id": "needle_thread", "qty": 1 }
       ],
       "rect": [748, 470, 64, 88],
       "color": [0.40, 0.30, 0.22],
@@ -124,7 +130,8 @@
       "role": "loot",
       "loot": [
         { "kind": "weapon", "id": "刺剑" },
-        { "kind": "tool", "id": "calipers" }
+        { "kind": "tool", "id": "calipers" },
+        { "kind": "material", "id": "antibiotics", "qty": 2 }
       ],
       "rect": [440, 676, 96, 42],
       "color": [0.52, 0.46, 0.34],
@@ -135,9 +142,11 @@
       "name": "牛棚-草垛A",
       "role": "loot",
       "loot": [
+        { "kind": "book", "id": "folk_chemistry_notes" },
         { "kind": "weapon", "id": "草叉" },
         { "kind": "tool", "id": "beaker" },
-        { "kind": "material", "id": "wood", "qty": 4 }
+        { "kind": "material", "id": "wood", "qty": 4 },
+        { "kind": "material", "id": "splint", "qty": 1 }
       ],
       "rect": [1540, 1020, 86, 72],
       "color": [0.62, 0.54, 0.24],
@@ -150,7 +159,9 @@
       "loot": [
         { "kind": "food", "qty": 2 },
         { "kind": "material", "id": "rope", "qty": 2 },
-        { "kind": "material", "id": "bone", "qty": 3 }
+        { "kind": "material", "id": "bone", "qty": 3 },
+        { "kind": "material", "id": "first_aid_kit", "qty": 1 },
+        { "kind": "material", "id": "medicine", "qty": 1 }
       ],
       "rect": [1760, 1170, 92, 74],
       "color": [0.60, 0.52, 0.22],

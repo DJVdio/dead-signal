@@ -33,6 +33,8 @@ public sealed partial class CampMain : Node2D
     private readonly List<CampStructureInstance> _structures = new();
     private readonly List<Pawn> _survivors = new();
     private readonly HashSet<Pawn> _selected = new();
+    // 伤病昼夜恶化用随机源（感染 roll 等）：营地生产用，非战斗结算，独立于 CombatEngine 的 rng。
+    private readonly IRandomSource _healthRng = new SystemRandomSource();
     private bool _gameOver; // 全灭防重入：game-over 只触发一次。
 
     // 门缝连通性自检目标（建筑名 + 室内中心 cartesian），首个可用导航帧跑一次。
@@ -79,6 +81,11 @@ public sealed partial class CampMain : Node2D
     private CraftingPanel _craftingPanel = null!;
     private bool _craftingOpen;             // 制作面板是否开着（与库存互斥地持有时标冻结）
     private double _prevCraftingTimeScale;   // 开制作面板前的时标（关闭时恢复）
+
+    // ---------------- 医疗（手术/用药面板） ----------------
+    private MedicalPanel _medicalPanel = null!;
+    private bool _medicalOpen;              // 医疗面板是否开着（同样冻结时标）
+    private double _prevMedicalTimeScale;    // 开医疗面板前的时标（关闭时恢复）
     private CampToast _campToast = null!;    // 制作/搜刮的一行瞬时提示（HUD 顶部，手动显隐——时标冻结下计时器不走）
     private DiscoveryPanel _discoveryPanel = null!;  // 探索发现环境叙事面板（模态，弹出时冻结时标）
     private double _prevDiscoveryTimeScale;          // 弹发现叙事前的时标（关闭时恢复）
@@ -257,6 +264,14 @@ public sealed partial class CampMain : Node2D
         _craftingPanel.CraftRequested += OnCraftRequested;
         _craftingPanel.ModApplyRequested += OnModApplyRequested;
         _craftingPanel.Closed += CloseCrafting;
+
+        // 医疗面板（按 M 打开；冻结时标）。事件接 Health.PerformSurgery / TreatIllness 实做 + 扣耗材。
+        _medicalPanel = new MedicalPanel { Layer = 20 };
+        AddChild(_medicalPanel);
+        _medicalPanel.Visible = false;
+        _medicalPanel.SurgeryRequested += OnSurgeryRequested;
+        _medicalPanel.TreatRequested += OnTreatRequested;
+        _medicalPanel.Closed += CloseMedical;
 
         // 制作/搜刮一行瞬时提示（HUD 之上，独立高层，时标冻结下靠手动显隐）。
         _campToast = new CampToast { Layer = 26 };
@@ -1096,6 +1111,10 @@ public sealed partial class CampMain : Node2D
                 // 调试：打击鼠标落点最近的围栏/大门，验证承伤→摧毁→开口→重烘焙链路（敌人打结构 AI 属袭营块，后续）。
                 DebugDamageStructureAtMouse();
                 break;
+            case Key.M:
+                // 打开医疗面板（手术/用药）：冻结时标，对幸存者做手术、治感染/疾病。
+                OpenMedical();
+                break;
         }
     }
 
@@ -1329,6 +1348,44 @@ public sealed partial class CampMain : Node2D
         WarnFoodShortfall(ration, _survivors.Count(s => s.Alive));
     }
 
+    /// <summary>
+    /// 每昼夜（黎明）推进全体存活幸存者的伤病演变：建档新战伤 → 恶化/愈合 → 封顶致残(断肢)/致死。
+    /// 休养判定（MVP）：整夜值岗的守卫=不休养（伤情恶化更快、术后愈合更慢），其余（睡觉/留守）=卧床休养。
+    /// 致死者走统一非战斗死亡路径（Died → <see cref="OnActorDied"/> 清名单，可能触发全灭）；先收集再逐个致死，避免遍历中改名单。
+    /// 值得注意的事件（新感染/截肢/身故）汇总成一行 HUD 提示。
+    /// </summary>
+    private void AdvanceSurvivorsHealthDay()
+    {
+        var living = _survivors.Where(s => s.Alive).ToList();
+        var toKill = new List<Pawn>();
+        var notes = new List<string>();
+
+        foreach (Pawn p in living)
+        {
+            bool resting = p.Role != PawnRole.Guard; // 守卫整夜值岗=不休养；其余卧床休养
+            HealthTickResult r = p.AdvanceHealthDay(_healthRng, resting);
+
+            foreach (HealthTickEvent e in r.Events)
+            {
+                if (e.Outcome == ConditionOutcome.Death)
+                    notes.Add($"{p.DisplayName} 因伤重不治身故");
+                else if (e.Outcome == ConditionOutcome.Maim)
+                    notes.Add($"{p.DisplayName} 的{e.BodyPart}坏死，已截肢");
+                else if (e.ContractedInfection)
+                    notes.Add($"{p.DisplayName} 的伤口感染了");
+            }
+
+            if (r.AnyDeath)
+                toKill.Add(p);
+        }
+
+        foreach (Pawn p in toKill)
+            p.DieOfWounds();
+
+        if (notes.Count > 0)
+            _campToast.Show(string.Join("；", notes), CampToast.Bad);
+    }
+
     /// <summary>把存活幸存者映射成分粮输入：饥饿刻度 + 是否伤员（急性伤：昏迷/出血/骨折需养伤，供 WoundedFirst 优先）。</summary>
     private static FoodDiner ToDiner(Pawn p)
     {
@@ -1414,6 +1471,7 @@ public sealed partial class CampMain : Node2D
             case DayPhase.DawnMeal:
                 // 黎明聚餐：全员已在 NightAct 起唤醒并度过实时夜晚，此处结算食物 + 气泡交流，结束进 DayPrep。
                 EndRaid(); // 夜晚结束：清残留丧尸、守卫下岗
+                AdvanceSurvivorsHealthDay(); // 又过一昼夜：伤病恶化/愈合、封顶致残/致死（须在聚餐结算前，死亡先反映到名单与全灭判定）
                 RunMeal("黎明聚餐", "dawn");
                 break;
             case DayPhase.DayPrep:
@@ -2207,6 +2265,14 @@ public sealed partial class CampMain : Node2D
                 case "armor" when !string.IsNullOrEmpty(s.id):
                     list.Add(LootItem.Armor(s.id!));
                     break;
+                case "material" when !string.IsNullOrEmpty(s.id):
+                    // 材料（含医疗耗材/药品：绷带/针线/夹板/急救包/抗生素/成药，Materials.Key）→ 库存材料堆。
+                    list.Add(LootItem.Material(s.id!, s.qty > 0 ? s.qty : 1));
+                    break;
+                case "tool" when !string.IsNullOrEmpty(s.id):
+                    // 工具（calipers/sawblade/beaker）→ 落地时装进营地共享工作台对应槽。
+                    list.Add(LootItem.Tool(s.id!));
+                    break;
             }
         }
         return list;
@@ -2588,6 +2654,126 @@ public sealed partial class CampMain : Node2D
         _campToast.Show($"{crafter.DisplayName} 改装出 {name}", CampToast.Ok);
         GD.Print($"[改装] {baseWeaponRefKey} → {name}");
         RefreshCrafting();
+    }
+
+    // ---------------- 医疗面板（手术/用药） ----------------
+
+    private void OpenMedical()
+    {
+        if (_gameOver)
+            return;
+        if (!_medicalOpen)
+        {
+            _prevMedicalTimeScale = Engine.TimeScale;
+            Engine.TimeScale = 0;
+            _medicalOpen = true;
+        }
+        RefreshMedical();
+        _medicalPanel.Visible = true;
+    }
+
+    /// <summary>重刷医疗面板数据（手术/用药后调，反映扣掉的耗材与更新后的伤病集）。病人候选=存活幸存者。</summary>
+    private void RefreshMedical()
+        => _medicalPanel.ShowFor(_survivors.Where(p => p.Alive).ToList(), _inventory);
+
+    /// <summary>关医疗面板：恢复时标、清瞬时提示。</summary>
+    private void CloseMedical()
+    {
+        _medicalPanel.Visible = false;
+        _medicalOpen = false;
+        _campToast.Hide();
+        Engine.TimeScale = _prevMedicalTimeScale <= 0 ? 1 : _prevMedicalTimeScale;
+    }
+
+    /// <summary>
+    /// 面板「手术」→ 算 施术者医疗书加点 / 操作能力 / 是否自体，调 <see cref="HealthConditionSet.PerformSurgery"/>：
+    /// 门槛未过→显示"现状不支持进行这场手术"（零消耗）；成功/失败→按 result 扣 <see cref="SurgeryResult.ConsumedMaterials"/>、
+    /// 给模糊结果提示（**不显点数/roll/效率**）。随后刷新面板。
+    /// </summary>
+    private void OnSurgeryRequested(Pawn patient, HealthCondition condition, IReadOnlyList<string> materials, bool onBed, Pawn surgeon)
+    {
+        int bookBonus = MedicalBookPoints.SumFor(surgeon.ReadBookIds);
+        double capability = surgeon.OperationCapability;
+        bool self = ReferenceEquals(patient, surgeon);
+
+        SurgeryResult result = patient.Health.PerformSurgery(
+            condition, materials, onBed, _healthRng,
+            surgeonBookBonus: bookBonus, selfSurgery: self, operationCapability: capability);
+
+        if (result.Status == SurgeryStatus.NotAllowed)
+        {
+            _campToast.Show(result.PlayerMessage ?? SurgeryResult.NotAllowedMessage, CampToast.Bad);
+            RefreshMedical();
+            return;
+        }
+
+        ConsumeMaterials(result.ConsumedMaterials); // 成功失败都扣耗材
+
+        _campToast.Show(
+            $"{surgeon.DisplayName} 为 {patient.DisplayName} 手术：{FuzzySurgeryOutcome(result)}",
+            result.Success ? CampToast.Ok : CampToast.Bad);
+        GD.Print($"[手术] {surgeon.DisplayName}→{patient.DisplayName} {condition.Type} {(result.Success ? "成功" : "失败")}");
+        RefreshMedical();
+    }
+
+    /// <summary>
+    /// 面板「用药」→ 按伤类取药（感染→抗生素 / 疾病→成药），调 <see cref="HealthConditionSet.TreatIllness"/>（疗效固定基数，通用技能已删）；
+    /// 见效则扣 1 份药、给模糊提示（好转/康复）。药不对症或缺药不消耗。随后刷新面板。
+    /// </summary>
+    private void OnTreatRequested(Pawn patient, HealthCondition condition, Pawn surgeon)
+    {
+        string medKey = condition.Type == HealthConditionType.Infection ? "antibiotics" : "medicine";
+        if (CraftingService.MaterialTotal(_inventory.ByCategory(ItemCategory.Material), medKey) <= 0)
+        {
+            _campToast.Show($"缺{Materials.Find(medKey)?.DisplayName ?? medKey}", CampToast.Bad);
+            RefreshMedical();
+            return;
+        }
+
+        Medicine? medicine = MedicineCatalog.For(medKey);
+        TreatmentResult result = patient.Health.TreatIllness(condition, medicine);
+
+        if (result.Status == TreatmentStatus.NoEffect)
+        {
+            _campToast.Show("这药对症不上，没起作用。", CampToast.Bad);
+            RefreshMedical();
+            return;
+        }
+
+        ConsumeMaterials(new[] { medKey });
+        string msg = result.Status == TreatmentStatus.Cured
+            ? $"{patient.DisplayName} 康复了"
+            : $"{patient.DisplayName} 用药后有所好转，但尚未痊愈";
+        _campToast.Show(msg, CampToast.Ok);
+        GD.Print($"[用药] {surgeon.DisplayName}→{patient.DisplayName} {condition.Type} {result.Status}");
+        RefreshMedical();
+    }
+
+    /// <summary>从营地共享库存跨堆扣减一批材料 key（含重复=按次数扣）。复用 <see cref="CraftingService.Deduct"/> 的扣减语义。</summary>
+    private void ConsumeMaterials(IEnumerable<string> materialKeys)
+    {
+        var demand = materialKeys
+            .GroupBy(k => k)
+            .ToDictionary(g => g.Key, g => g.Count());
+        if (demand.Count == 0)
+            return;
+
+        List<Item> stacks = _inventory.ByCategory(ItemCategory.Material).ToList();
+        IReadOnlyList<Item> remaining = CraftingService.Deduct(stacks, demand);
+        foreach (Item m in stacks)
+            _inventory.Remove(m);
+        foreach (Item m in remaining)
+            _inventory.Add(m);
+    }
+
+    /// <summary>手术结果 → 模糊描述（**不外显点数/roll/效率**，只给恢复观感）。</summary>
+    private static string FuzzySurgeryOutcome(SurgeryResult result)
+    {
+        if (!result.Success)
+            return "失败了，伤情没能好转，得重来";
+        return result.Efficiency >= 100 ? "很成功，恢复顺利"
+            : result.Efficiency >= 40 ? "成功，恢复尚可"
+            : "勉强完成，恢复得慢";
     }
 
     // ---------------- 工具 ----------------
