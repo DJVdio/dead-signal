@@ -81,6 +81,8 @@
     <!-- 武器改装模型纯逻辑（无 Godot 依赖）：改装项/部位/大类 + 数值增量 + 合成校验(同部位冲突/不适用/锐击枪托覆盖) + 三类武器改装目录。 -->
     <Compile Include="..\..\godot\scripts\WeaponMod.cs" Link="Consumed\WeaponMod.cs" />
     <Compile Include="..\..\godot\scripts\WeaponModCatalog.cs" Link="Consumed\WeaponModCatalog.cs" />
+    <!-- 制作执行服务纯逻辑（无 Godot 依赖）：跨堆材料合计/够付/扣减 + Craft 实扣实产接库存/技能/书 + 改装消耗基础武器入变体。 -->
+    <Compile Include="..\..\godot\scripts\CraftingService.cs" Link="Consumed\CraftingService.cs" />
   </ItemGroup>
 
 </Project>
