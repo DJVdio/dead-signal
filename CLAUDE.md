@@ -17,7 +17,8 @@
 
 ## 架构
 
-- `src/DeadSignal.Combat`：战斗规则引擎，**零依赖纯 C# 类库**，Godot 只做消费方。空间问题（弹道飞行/碰撞）归 Godot 实时层，引擎只出纯函数（如 Ballistics 锥形采样）。
+- `src/DeadSignal.Combat`：战斗规则引擎，**零依赖纯 C# 类库**，Godot 只做消费方。空间问题（弹道飞行/碰撞）归 Godot 实时层，引擎只出纯函数（如 Ballistics 锥形采样）。引擎已覆盖：部位血量/切除、护甲按部位覆盖+三段判定、持握 GripMode（单/双手/双持）、远程射程+距离衰减、贴脸枪托、攻击冷却状态机、负重惩罚。
+- **纯逻辑外挂在 godot 消费层**：营地/装备/制作/守卫等子系统的规则写成 `godot/scripts` 里**不引 Godot 类型**的文件，以 **Link 方式编进 `DeadSignal.Combat.Tests`** 单测（先红后绿），空间执行（寻路/碰撞/伤害施加）才落 Godot 运行时层。这批纯逻辑含：装备 11 槽 `ApparelSlots`、左右手持械 `WeaponLoadout`、材料 `Materials`、技能 `SkillSet`、配方/工作台/制作 `Recipe`·`Workbench`·`CraftingLogic`、武器改装 `WeaponMod`、三方阵营+敌对矩阵 `Factions`、袭营破防 `BreachLogic`、可破坏结构 `CampStructure`、库存 `InventoryStore`·`Item`、饥饿 `HungerState`、剧情态 `StoryFlags`·`ChristineRequestLogic`·`GoldfingerDiscovery`、全灭判定 `GameOverCondition` 等。判定与结算走纯函数（如 `CraftingLogic` 出「能不能做/扣什么产什么」，由调用方去 `InventoryStore` 实扣实产）。
 - 随机必须走可注入的 `IRandomSource`（测试用 SequenceRandomSource 复现）。
 - 数据驱动：武器/护甲/部位/配置是数据（如 godot/data/daynight.json），代码只写规则。
 - 数值原则：具体数值皆"拟定待调"，用 Sim 拉表校准方向；规则形态才需要用户拍板。
