@@ -160,6 +160,10 @@ public sealed class Body
     /// <summary>标记某部位已骨折（由效果结算在触发骨折时调用）。持久保留。</summary>
     public void MarkFractured(string part) => _fractured.Add(part);
 
+    /// <summary>消骨折/治疗接口：清除某部位的骨折标记（与 StopBleed 对称）。幂等：未骨折/部位名不存在均无副作用。</summary>
+    /// TODO(治疗): 由骨折手术治愈时调用。
+    public void HealFracture(string part) => _fractured.Remove(part);
+
     /// <summary>某部位当前是否处于骨折状态（持久，供健康页签展示）。</summary>
     public bool IsFractured(string partName) => _fractured.Contains(partName);
 

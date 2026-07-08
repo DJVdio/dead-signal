@@ -214,6 +214,40 @@ public class EffectTests
     }
 
     [Fact]
+    public void HealFracture_ClearsFracture()
+    {
+        // 与 StopBleed 对称：骨折手术治愈后清除持久标记，部位不再显示骨折、可再次建档。
+        var body = HumanBody.NewBody();
+        body.MarkFractured(HumanBody.LeftLeg);
+        Assert.True(body.IsFractured(HumanBody.LeftLeg));
+
+        body.HealFracture(HumanBody.LeftLeg);
+
+        Assert.False(body.IsFractured(HumanBody.LeftLeg));
+        Assert.DoesNotContain(HumanBody.LeftLeg, body.FracturedParts);
+    }
+
+    [Fact]
+    public void HealFracture_Idempotent_OnUnfracturedPart()
+    {
+        // 未骨折调用无副作用（幂等）。
+        var body = HumanBody.NewBody();
+        body.HealFracture(HumanBody.LeftLeg);
+        Assert.False(body.IsFractured(HumanBody.LeftLeg));
+        Assert.Empty(body.FracturedParts);
+    }
+
+    [Fact]
+    public void HealFracture_UnknownPart_NoThrow()
+    {
+        // 部位名不存在安全处理，不影响既有骨折。
+        var body = HumanBody.NewBody();
+        body.MarkFractured(HumanBody.LeftLeg);
+        body.HealFracture("no_such_part");
+        Assert.True(body.IsFractured(HumanBody.LeftLeg));
+    }
+
+    [Fact]
     public void Fracture_NotMarked_WhenRollAboveProbability()
     {
         var body = HumanBody.NewBody();
