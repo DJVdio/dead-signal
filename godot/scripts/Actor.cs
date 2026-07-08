@@ -90,6 +90,13 @@ public abstract partial class Actor : CharacterBody2D
     private Vector2? _moveTarget;
     private Actor? _attackTarget;
 
+    /// <summary>
+    /// 防走A：自上次进入稳定攻击（在射程内停下开打）以来是否移动过——玩家给移动令、或实际位移逼近目标都算。
+    /// 攻击指令的冷却重置决策（<see cref="AttackCommandState.ShouldResetCooldown"/>）据此判定「移动后再攻击→重新 wind-up」。
+    /// 在稳定攻击帧清零，逼近/移动令置位，故右键狂点同一目标（stationary 攻击态）不会误判为移动。
+    /// </summary>
+    private bool _movedSinceCommand;
+
     // ---- 依赖（由 Main 注入） ----
     protected CombatEngine Combat = null!;
     protected GameClock Clock = null!;
@@ -189,6 +196,7 @@ public abstract partial class Actor : CharacterBody2D
     {
         _attackTarget = null;
         _moveTarget = worldPos;
+        _movedSinceCommand = true; // 玩家给移动令：下次攻击须重新 wind-up
         _agent.TargetPosition = worldPos;
     }
 
@@ -197,6 +205,17 @@ public abstract partial class Actor : CharacterBody2D
         if (target == this || !target.Alive)
         {
             return;
+        }
+
+        // 防走A：决定本次攻击指令是否重置冷却（先冷却再打第一下）。
+        //  非攻击态 / 切换目标 / 移动过 → 重置为满有效间隔（重新 wind-up）；
+        //  已在攻击态 + 同一目标 + 未移动（右键狂点同一目标）→ 保持冷却，忽略重复指令，避免一直卡冷却。
+        bool isAttacking = _attackTarget != null;
+        bool sameTarget = ReferenceEquals(_attackTarget, target);
+        if (AttackCommandState.ShouldResetCooldown(isAttacking, sameTarget, _movedSinceCommand))
+        {
+            _attackTimer = EffectiveAttackInterval();
+            _movedSinceCommand = false; // 已把「移动过」折进这次 wind-up，清零等待下次稳定攻击/移动再判
         }
         _attackTarget = target;
         _moveTarget = null;
@@ -279,9 +298,11 @@ public abstract partial class Actor : CharacterBody2D
                     }
                     Velocity = Vector2.Zero;
                     MoveAndSlide();
+                    _movedSinceCommand = false; // 在射程内停下开打：稳定攻击态，重置「移动过」基线（右键狂点不再误判）
                     TryAttack(tgt);
                     return;
                 }
+                _movedSinceCommand = true; // 出射程、寻路逼近目标：位移了，下次攻击须重新 wind-up
                 _agent.TargetPosition = tgt.GlobalPosition;
             }
         }
@@ -356,6 +377,18 @@ public abstract partial class Actor : CharacterBody2D
         }
     }
 
+    /// <summary>
+    /// 当前有效出手间隔 = 基础冷却 / 操作能力（操作能力 = 残疾×饥饿 经 <see cref="HungerState.CombineCapability"/> 合并，
+    /// 与 <c>TryAttack</c> 计时器赋值同源，不改那套乘法）。供 wind-up 重置冷却复用。
+    /// 操作能力 ≤0（断双手等无法出手）时回落基础冷却保持正值——此时 TryAttack 本就会跳过出手。
+    /// </summary>
+    private double EffectiveAttackInterval()
+    {
+        double operation = HungerState.CombineCapability(
+            Body.DisabilityModifiers.OperationPenalty, HungerAbilityPenalty);
+        return operation > 0 ? AttackCooldown / operation : AttackCooldown;
+    }
+
     private void TryAttack(Actor target)
     {
         if (_attackTimer > 0)
@@ -392,7 +425,7 @@ public abstract partial class Actor : CharacterBody2D
         {
             return;
         }
-        _attackTimer = AttackCooldown / operation;
+        _attackTimer = EffectiveAttackInterval();
 
         if (fireRanged)
         {
