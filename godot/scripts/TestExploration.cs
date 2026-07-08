@@ -18,6 +18,9 @@ public sealed partial class TestExploration : ExplorationLevel
     private Area2D _returnZone = null!;
     private Node2D _actorLayer = null!;
 
+    // 金手指帮根据地发现点：本关内已触发过的 discoveryId（防同一关内重复上报；跨关持久去重由 CampMain 的 flag 负责）。
+    private readonly HashSet<string> _firedDiscoveries = new();
+
     // 战斗引擎依赖：与营地单位共用同一实例（由 CampMain 在 Initialize 前注入），
     // 关卡新建的丧尸经 Actor.Inject(Combat, Clock) 拿到它——缺则丧尸首帧 Think 解引用 Clock 崩。
     public CombatEngine Combat { get; set; } = null!;
@@ -30,6 +33,11 @@ public sealed partial class TestExploration : ExplorationLevel
         SetupReturnZone();
         PlaceTeam();
         SpawnZombies();
+
+        // 金手指帮根据地：叠加两处发现点（克莉丝汀尸体+日记A / 哥顿上吊尸+日记B）。
+        // MVP 复用本测试关场景，仅按目的地名叠触发点；其余目的地无发现点，行为不变。
+        if (DestinationName == WorldMapPanel.GoldfingerBaseName)
+            SetupDiscoveries();
     }
 
     public override void Cleanup()
@@ -203,6 +211,62 @@ public sealed partial class TestExploration : ExplorationLevel
             _zombies.Add(z);
             _markers[z] = CreateActorMarker(z, new Color(0.45f, 0.6f, 0.35f));
         }
+    }
+
+    // ---------------- 金手指帮根据地发现点 ----------------
+
+    /// <summary>
+    /// 铺设两处发现点（仿返回区 Area2D+BodyEntered）：探索队踏入即上报 discoveryId，
+    /// 由 CampMain 置 flag / 入库日记 / 弹环境叙事。位置避开出生点、返回区与障碍箱。
+    /// </summary>
+    private void SetupDiscoveries()
+    {
+        AddDiscoveryPoint(
+            GoldfingerDiscovery.ChristineCorpseId,
+            new Vector2(1150, 350),
+            markerColor: new Color(0.7f, 0.2f, 0.2f),
+            label: "遗体");
+
+        AddDiscoveryPoint(
+            GoldfingerDiscovery.GordonHangedId,
+            new Vector2(2000, 1220),
+            markerColor: new Color(0.55f, 0.5f, 0.45f),
+            label: "上吊尸");
+    }
+
+    /// <summary>造一个发现点：地面标记 + 文字标签 + 触发 Area2D（踏入一次即上报，本关内不重复）。</summary>
+    private void AddDiscoveryPoint(string discoveryId, Vector2 pos, Color markerColor, string label)
+    {
+        var mark = new Polygon2D
+        {
+            Polygon = Quad(new Vector2(-14, -14), new Vector2(28, 28)),
+            Color = new Color(markerColor.R, markerColor.G, markerColor.B, 0.6f),
+            Position = pos,
+            ZIndex = 8,
+        };
+        AddChild(mark);
+
+        var tag = new Label
+        {
+            Text = label,
+            Position = pos + new Vector2(-16, -40),
+            ZIndex = 12,
+        };
+        tag.AddThemeFontSizeOverride("font_size", 13);
+        tag.AddThemeColorOverride("font_color", new Color(0.9f, 0.85f, 0.7f));
+        tag.AddThemeColorOverride("font_outline_color", new Color(0, 0, 0, 0.9f));
+        tag.AddThemeConstantOverride("outline_size", 3);
+        AddChild(tag);
+
+        var zone = new Area2D { Position = pos };
+        zone.AddChild(new CollisionShape2D { Shape = new RectangleShape2D { Size = new Vector2(70, 70) } });
+        zone.CollisionMask = 0b0001u; // 与返回区一致：只感知玩家 Pawn 所在层
+        zone.BodyEntered += body =>
+        {
+            if (body is Pawn && _firedDiscoveries.Add(discoveryId))
+                RaiseDiscovery(discoveryId);
+        };
+        AddChild(zone);
     }
 
     private static Node2D CreateActorMarker(Actor actor, Color color)

@@ -64,11 +64,33 @@ public static class BookLibrary
         body: FarmerHundredQuestionsBody,
         grantsRecipeStub: "recipe:crop_planting"); // 桩：配方系统后续接
 
-    /// <summary>两本内置书的全新实例（每次调用新建，已读态不共享）。</summary>
+    /// <summary>
+    /// 日记A（金手指帮根据地，克莉丝汀尸旁）——两个普通帮众视角：灾后互助、参与暴行、"金手指帮"命名由来。
+    /// 纯叙事物品，无配方产出（桩留空）。正文为占位草稿，最终由用户手写。
+    /// </summary>
+    public static BookData GoldfingerDiaryA() => new(
+        id: "goldfinger_diary_a",
+        title: "一本卷边的日记（其一）",
+        body: GoldfingerDiaryABody,
+        grantsRecipeStub: null); // 无配方，纯 lore
+
+    /// <summary>
+    /// 日记B（哥顿上吊尸旁，另一地点）——金手指帮文化起源 + 帮主哥顿身世/自杀。
+    /// 纯叙事物品，无配方产出（桩留空）。正文为占位草稿，最终由用户手写。
+    /// </summary>
+    public static BookData GoldfingerDiaryB() => new(
+        id: "goldfinger_diary_b",
+        title: "一本硬壳笔记（其二）",
+        body: GoldfingerDiaryBBody,
+        grantsRecipeStub: null); // 无配方，纯 lore
+
+    /// <summary>全部内置书的全新实例（每次调用新建，已读态不共享）。</summary>
     public static IReadOnlyList<BookData> All() => new[]
     {
         WildernessSurvivalGuide(),
         FarmerHundredQuestions(),
+        GoldfingerDiaryA(),
+        GoldfingerDiaryB(),
     };
 
     // draft 待用户改
@@ -84,4 +106,30 @@ public static class BookLibrary
         "\"问：土豆几时下种？答：清明前后，看你的地，也看你的胆量。\"\n" +
         "\"问：一块地能养活几口人？答：伺候得好，比你想的多；伺候不好，一个都不剩。\"\n" +
         "一百个问题，一百个答案，藏着从一粒种子到一顿饱饭的全部门道。";
+
+    // draft 待用户改 —— 日记A：两个普通帮众视角（互助求生 / 参与暴行 / "金手指帮"命名由来）
+    private const string GoldfingerDiaryABody =
+        "字迹潦草，像是就着火光匆匆写下的。\n\n" +
+        "灾变头一个月，是老陈拉了我一把。我们俩背靠背，从加油站一路抢到城郊，" +
+        "谁也没抛下谁——那时候我还觉得，能活下来的都是好人。\n\n" +
+        "后来我们撞上了这伙人。有吃的，有墙，有枪。代价是，你得跟他们一样。\n\n" +
+        "第一次把那女人拖进屋的时候，我手在抖。哥顿说，男人就该拿在手里，" +
+        "拿不住的，不配活。老陈先动的手，我跟上了。往后就不抖了。\n\n" +
+        "他们管自己叫\"金手指\"。头目说，指头是男人身上最诚实的东西——" +
+        "它按住扳机，也按住女人，它做过的事，脑子可以不认，指头认。\n" +
+        "所以入伙那天，每个人都要用手指在她们身上留下印子。这就是规矩。\n\n" +
+        "我写下这些，不是想被原谅。我只是怕哪天连自己都忘了，我曾经也算个人。";
+
+    // draft 待用户改 —— 日记B：金手指帮文化起源 + 哥顿身世/以暴掩懦/看透后自杀
+    private const string GoldfingerDiaryBBody =
+        "硬壳笔记本，扉页只写着一个名字：哥顿。字迹工整得不像个恶人。\n\n" +
+        "我母亲从不许我父亲说完一句话。她的声音、她的手，压着这个家二十年。" +
+        "父亲低着头吃饭、低着头挨骂、低着头老去。我恨他的软弱，也害怕自己就是他。\n\n" +
+        "变尸的那天，是母亲先咬穿了父亲的喉咙。他没有反抗，甚至没有后退——" +
+        "他就那样看着她扑上来，像是终于等到了什么。我躲在门后，一动没动。\n\n" +
+        "后来我立了规矩，教弟兄们如何拿捏一个女人，如何让恐惧替我说话。" +
+        "他们怕我，就没人看得见：我不过是那个躲在门后、连喊都不敢喊的孩子。\n\n" +
+        "可这些天我总在想——把她们折磨到死，我究竟证明了什么？\n" +
+        "什么都没有。指头按下去，按住的从来不是别人，是我自己那点没用的怕。\n\n" +
+        "梁很结实。绳子我也试过了。等天黑，就不必再装了。";
 }

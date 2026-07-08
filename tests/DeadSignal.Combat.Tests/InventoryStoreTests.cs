@@ -177,10 +177,13 @@ public class InventoryStoreTests
     }
 
     [Fact]
-    public void Builtin_books_carry_recipe_stub()
+    public void Recipe_books_carry_recipe_stub_lore_diaries_do_not()
     {
-        Assert.Equal(2, BookLibrary.All().Count);
-        Assert.All(BookLibrary.All(), b => Assert.False(string.IsNullOrEmpty(b.GrantsRecipeStub)));
+        // 配方书（野外生存指南 / 农场主问答）带配方桩；纯 lore 日记（金手指帮日记A/B）无配方产出。
+        Assert.False(string.IsNullOrEmpty(BookLibrary.WildernessSurvivalGuide().GrantsRecipeStub));
+        Assert.False(string.IsNullOrEmpty(BookLibrary.FarmerHundredQuestions().GrantsRecipeStub));
+        Assert.Null(BookLibrary.GoldfingerDiaryA().GrantsRecipeStub);
+        Assert.Null(BookLibrary.GoldfingerDiaryB().GrantsRecipeStub);
     }
 
     [Fact]

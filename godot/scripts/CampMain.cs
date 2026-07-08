@@ -72,6 +72,8 @@ public sealed partial class CampMain : Node2D
     private ReaderPanel _readerPanel = null!;
     private bool _stashOpen;             // 库存面板是否开着（时标冻结的唯一持有者）
     private double _prevStashTimeScale;  // 开库存前的时标（关闭时恢复）
+    private DiscoveryPanel _discoveryPanel = null!;  // 探索发现环境叙事面板（模态，弹出时冻结时标）
+    private double _prevDiscoveryTimeScale;          // 弹发现叙事前的时标（关闭时恢复）
 
     /// <summary>场上一个可点击容器：名字（稳定标识）+ cartesian 命中矩形 + 角色（storage/loot）+ 藏物清单。</summary>
     private sealed class ContainerRef
@@ -234,6 +236,11 @@ public sealed partial class CampMain : Node2D
         AddChild(_readerPanel);
         _readerPanel.Visible = false;
         _readerPanel.Closed += OnReaderClosed;
+
+        _discoveryPanel = new DiscoveryPanel { Layer = 22 }; // 探索发现叙事，独立于库存链路
+        AddChild(_discoveryPanel);
+        _discoveryPanel.Visible = false;
+        _discoveryPanel.Continued += OnDiscoveryContinued;
 
         // storage 容器（住宅柜子）的开局藏物：食物入 _resources.Food、书/武器/护甲入共享库存。
         ApplyStorageInitialStock();
@@ -1478,6 +1485,36 @@ public sealed partial class CampMain : Node2D
             _clock.TransitionTo(DayPhase.DayReturn);
     }
 
+    /// <summary>
+    /// 探索队踏入金手指帮根据地一处发现点：置 flag（防重复）、把对应日记经 <c>LootApplication</c> 入共享库存、
+    /// 冻结时标弹环境叙事。日记回营后在库存点开经 ReaderPanel 细读。
+    /// </summary>
+    private void OnExplorationDiscovery(string discoveryId)
+    {
+        DiscoveryResult? r = GoldfingerDiscovery.Resolve(discoveryId, _storyFlags);
+        if (r == null)
+            return; // 未知 id 或已发现过
+
+        DiscoveryResult d = r.Value;
+        _storyFlags.Set(d.StoryFlag, "true"); // 持久去重：本 flag 已置则下次 Resolve 返回 null
+
+        // 日记入共享库存（同一 BookData 实例登记进 registry，回营阅读共享已读态）。
+        LootApplication.Apply(
+            new[] { LootItem.Book(d.BookId) }, _inventory, _bookRegistry, _bookResolver);
+
+        _prevDiscoveryTimeScale = Engine.TimeScale;
+        Engine.TimeScale = 0; // 冻结探索实时层，专注读叙事
+        _discoveryPanel.Show(d.Title, d.Narrative);
+        _discoveryPanel.Visible = true;
+    }
+
+    /// <summary>关发现叙事面板，恢复时标（冻结中打开的则回 1）。</summary>
+    private void OnDiscoveryContinued()
+    {
+        _discoveryPanel.Visible = false;
+        Engine.TimeScale = _prevDiscoveryTimeScale <= 0 ? 1 : _prevDiscoveryTimeScale;
+    }
+
     private void LoadExplorationLevel(string destinationName)
     {
         if (_levelRoot != null)
@@ -1492,8 +1529,10 @@ public sealed partial class CampMain : Node2D
         if (_currentLevel is TestExploration testLevel)
             testLevel.Combat = _combat;
         _currentLevel.ExpeditionTeam = _survivors.Where(s => s.Role == PawnRole.Expedition).ToList();
+        _currentLevel.DestinationName = destinationName; // 关卡据此决定是否铺发现点（金手指帮根据地）
 
         _currentLevel.OnReturnToCamp += OnExplorationReturn;
+        _currentLevel.OnDiscovery += OnExplorationDiscovery;
 
         ClearSelection();
         _campNavRegion.Enabled = false;
@@ -1510,7 +1549,12 @@ public sealed partial class CampMain : Node2D
             return;
 
         _currentLevel!.OnReturnToCamp -= OnExplorationReturn;
+        _currentLevel!.OnDiscovery -= OnExplorationDiscovery;
         _currentLevel!.Cleanup();
+
+        // 卸载关卡时若发现叙事面板仍开着，收起并恢复时标，避免带回营地。
+        if (_discoveryPanel.Visible)
+            OnDiscoveryContinued();
 
         foreach (Pawn p in _survivors.Where(s => s.Role == PawnRole.Expedition))
         {
@@ -1979,6 +2023,8 @@ public sealed partial class CampMain : Node2D
         _selected.Remove(christine);
         _raidGuards.Remove(christine);
         WalkOutAndDespawn(christine);
+        // 置"独自去复仇"flag：日后在金手指帮根据地发现其尸体时，环境叙事据此点名措辞（衔接 §7 时限失败态）。
+        _storyFlags.Set(GoldfingerDiscovery.ChristineLeftForRevengeFlag, "true");
         GD.Print("[克莉丝汀] 三度回绝后，她收拾东西，独自走出了营地大门。");
     }
 

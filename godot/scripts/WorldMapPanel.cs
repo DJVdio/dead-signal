@@ -13,6 +13,9 @@ public sealed partial class WorldMapPanel : CanvasLayer
         public int TravelTimeSeconds;
     }
 
+    /// <summary>金手指帮根据地目的地名（CampMain / 探索关按此名分流发现点，务必一致）。</summary>
+    public const string GoldfingerBaseName = "金手指帮根据地";
+
     private static readonly Destination[] Destinations =
     {
         new() { Name = "超市", Position = new Vector2(140, 120), TravelTimeSeconds = 300 },
@@ -20,6 +23,7 @@ public sealed partial class WorldMapPanel : CanvasLayer
         new() { Name = "药店", Position = new Vector2(300, 300), TravelTimeSeconds = 360 },
         new() { Name = "住宅区", Position = new Vector2(100, 340), TravelTimeSeconds = 240 },
         new() { Name = "加油站", Position = new Vector2(460, 220), TravelTimeSeconds = 420 },
+        new() { Name = GoldfingerBaseName, Position = new Vector2(210, 210), TravelTimeSeconds = 540 },
     };
 
     private Control _root = null!;
