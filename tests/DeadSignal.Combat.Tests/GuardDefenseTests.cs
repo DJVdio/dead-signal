@@ -11,51 +11,96 @@ public sealed class GuardDefenseTests
     // ---------------- D1 岗位属性 ----------------
 
     [Fact]
-    public void Watchtower_gives_range_only_and_is_solid()
+    public void Watchtower_gives_range_sight_and_block_and_is_solid()
     {
         var s = GuardPostStats.For(GuardPostKind.Watchtower);
-        Assert.True(s.RangeBonus > 0);
-        Assert.Equal(0f, s.SightBonus);
+        Assert.True(s.RangeMultiplier > 1f);   // 远程 +射程
+        Assert.True(s.SightMultiplier > 1f);   // +视野
+        Assert.True(s.BlockChance > 0f);       // 围栏抵挡远程
         Assert.False(s.FirstStrike);
         Assert.True(s.IsSolid);
     }
 
     [Fact]
-    public void RoofPlatform_gives_sight_only_and_is_solid()
+    public void RoofPlatform_gives_range_sight_no_block_and_is_solid()
     {
         var s = GuardPostStats.For(GuardPostKind.RoofPlatform);
-        Assert.Equal(0f, s.RangeBonus);
-        Assert.True(s.SightBonus > 0);
+        Assert.True(s.RangeMultiplier > 1f);   // 远程 +射程
+        Assert.True(s.SightMultiplier > 1f);   // +视野
+        Assert.Equal(0f, s.BlockChance);       // 屋顶无抵挡
         Assert.False(s.FirstStrike);
         Assert.True(s.IsSolid);
     }
 
     [Fact]
-    public void RoofPlatform_sight_counts_toward_engage_distance()
+    public void Tower_and_roof_share_range_and_sight_multipliers()
     {
-        // 屋顶平台的视野加成折进"有效交战距离"（真正延长开火距离，非仅提前锁定）。
-        var roof = GuardPostStats.For(GuardPostKind.RoofPlatform);
+        // 哨塔与屋顶的射程/视野加成一致（皆 +10%）；差异仅在哨塔多一层围栏抵挡。
         var tower = GuardPostStats.For(GuardPostKind.Watchtower);
-        Assert.Equal(roof.SightBonus, roof.EngageRangeBonus);   // 屋顶：交战距离加成 = 视野
-        Assert.Equal(tower.RangeBonus, tower.EngageRangeBonus);  // 哨塔：交战距离加成 = 射程
-        Assert.True(roof.EngageRangeBonus > 0);
+        var roof = GuardPostStats.For(GuardPostKind.RoofPlatform);
+        Assert.Equal(tower.RangeMultiplier, roof.RangeMultiplier);
+        Assert.Equal(tower.SightMultiplier, roof.SightMultiplier);
     }
 
     [Fact]
-    public void HiddenPost_has_no_engage_bonus()
-    {
-        // 暗哨不延长交战距离（其价值是首发，不是远射）。
-        Assert.Equal(0f, GuardPostStats.For(GuardPostKind.HiddenPost).EngageRangeBonus);
-    }
-
-    [Fact]
-    public void HiddenPost_gives_firststrike_and_is_not_solid()
+    public void HiddenPost_gives_firststrike_only_and_is_not_solid()
     {
         var s = GuardPostStats.For(GuardPostKind.HiddenPost);
-        Assert.Equal(0f, s.RangeBonus);
-        Assert.Equal(0f, s.SightBonus);
+        Assert.Equal(1f, s.RangeMultiplier);   // 暗哨不延长射程（其价值是首发）
+        Assert.Equal(1f, s.SightMultiplier);
+        Assert.Equal(0f, s.BlockChance);
         Assert.True(s.FirstStrike);
         Assert.False(s.IsSolid); // 暗哨=非碰撞标记，不挡路、不挖导航洞
+    }
+
+    // ---------------- D1 岗位加成纯算法 GuardPostMath ----------------
+
+    [Fact]
+    public void EffectiveRangeDistance_compresses_by_multiplier()
+    {
+        // 倍率 1.1：实际 110 距离被压回武器原生曲线的 100（仍在射程/满伤段内）。
+        Assert.Equal(100.0, GuardPostMath.EffectiveRangeDistance(110.0, 1.10f), 3);
+        // 倍率 1（非守卫/近战）→ 原样。
+        Assert.Equal(110.0, GuardPostMath.EffectiveRangeDistance(110.0, 1f), 3);
+        // 倍率 <=0 兜底原样，不除零。
+        Assert.Equal(110.0, GuardPostMath.EffectiveRangeDistance(110.0, 0f), 3);
+    }
+
+    [Fact]
+    public void EffectiveRangeDistance_extends_firing_reach_via_ballistics()
+    {
+        // +10% 岗位射程：原本超程（210>200）的距离在等效换算后落回射程内（190.9<=200）。
+        var pistol = WeaponTable.Pistol(); // MaxRange=200
+        Assert.False(Ballistics.InRange(210.0, pistol));
+        Assert.True(Ballistics.InRange(GuardPostMath.EffectiveRangeDistance(210.0, 1.10f), pistol));
+    }
+
+    [Fact]
+    public void EffectiveSight_scales_base_radius()
+    {
+        Assert.Equal(220f, GuardPostMath.EffectiveSight(200f, 1.10f), 3);
+        Assert.Equal(200f, GuardPostMath.EffectiveSight(200f, 1f), 3);
+    }
+
+    [Fact]
+    public void RangedBlocked_rolls_against_chance()
+    {
+        // blockChance=0（屋顶/暗哨/近战）→ 恒不免，且不消耗随机。
+        Assert.False(GuardPostMath.RangedBlocked(0f, new SequenceRandomSource()));
+        // 掷值 < 0.25 → 免掉；>= 0.25 → 不免。
+        Assert.True(GuardPostMath.RangedBlocked(0.25f, new SequenceRandomSource(0.10)));
+        Assert.False(GuardPostMath.RangedBlocked(0.25f, new SequenceRandomSource(0.40)));
+    }
+
+    [Fact]
+    public void FirstStrikeReach_uses_maxrange_for_ranged_else_melee()
+    {
+        // 远程：MaxRange×射程倍率。
+        Assert.Equal(220.0, GuardPostMath.FirstStrikeReach(isRanged: true, maxRange: 200.0, meleeRange: 32f, rangeMultiplier: 1.10f), 3);
+        // 远程无 MaxRange（罕见）→ 无限远。
+        Assert.Equal(double.PositiveInfinity, GuardPostMath.FirstStrikeReach(isRanged: true, maxRange: null, meleeRange: 32f, rangeMultiplier: 1f));
+        // 近战：用 AttackRange，忽略 MaxRange。
+        Assert.Equal(32.0, GuardPostMath.FirstStrikeReach(isRanged: false, maxRange: 200.0, meleeRange: 32f, rangeMultiplier: 1.10f), 3);
     }
 
     // ---------------- D3 波次规模 ----------------

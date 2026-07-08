@@ -295,7 +295,7 @@ public abstract partial class Actor : CharacterBody2D
                 // 交战/停下距离：远程按武器 MaxRange 判（进射程即停下开火，贴脸时 TryAttack 再切枪托近战）；
                 // 近战按有效射程边缘（AttackRange 含守卫岗位加成）。远程武器的开火距离权威口径 = MaxRange，非 AttackRange。
                 bool inEngage = IsRanged
-                    ? Ballistics.InRange(dist, AttackWeapon)
+                    ? Ballistics.InRange(EffectiveRangeDistance(dist), AttackWeapon)
                     : dist <= AttackRange + Radius + tgt.Radius;
                 if (inEngage)
                 {
@@ -413,7 +413,7 @@ public abstract partial class Actor : CharacterBody2D
         if (IsRanged)
         {
             float dist = GlobalPosition.DistanceTo(target.GlobalPosition);
-            if (!Ballistics.InRange(dist, AttackWeapon))
+            if (!Ballistics.InRange(EffectiveRangeDistance(dist), AttackWeapon))
             {
                 return;
             }
@@ -463,41 +463,65 @@ public abstract partial class Actor : CharacterBody2D
         double shotDeg = Combat.SampleShotDirectionDegrees(aimDeg, spread);
         Vector2 dir = Vector2.FromAngle(Mathf.DegToRad((float)shotDeg));
 
-        // 子弹最大飞行距离对齐武器 MaxRange（开火判定同源；超 MaxRange 衰减本就归 0）。
-        // 无射程模型的远程武器（罕见）回落到旧的 AttackRange*1.25 兜底。
-        float maxDist = (float)(AttackWeapon.MaxRange ?? (AttackRange * 1.25));
+        // 子弹最大飞行距离对齐武器 MaxRange × 岗位射程倍率（开火判定同源；超此距离衰减归 0）。
+        // 无射程模型的远程武器（罕见）回落到旧的 AttackRange*1.25 兜底（同样吃岗位倍率）。
+        float maxDist = (float)((AttackWeapon.MaxRange ?? (AttackRange * 1.25)) * _postRangeMultiplier);
         Projectile.Spawn(GetParent(), GlobalPosition + dir * (Radius + 2f), dir,
-            maxDist, AttackWeapon, Combat, this);
+            maxDist, AttackWeapon, Combat, this, _postRangeMultiplier);
     }
 
     // ---- 守卫岗位加成（D 守卫防御战）：只读取岗位属性作用到战斗参数，不改既有攻防逻辑 ----
     private const float GuardBaseSightRadius = 200f; // 守卫巡防基础锁敌半径下限（拟定待调）
-    private float _postEngageBonus; // 岗位有效交战距离加成（哨塔射程 + 屋顶视野，均延长开火距离）
+    // 岗位射程倍率（仅远程守卫，作用到有效开火射程 MaxRange；近战恒 1）。默认 1=非守卫/未上岗，零回归。
+    private float _postRangeMultiplier = 1f;
+    private float _postSightMultiplier = 1f; // 岗位视野倍率（作用到 GuardSightRadius；默认 1）
+    private float _postBlockChance;          // 哨塔围栏远程抵挡几率（默认 0=不抵挡）
     private bool _firstStrikeAvailable;
 
     /// <summary>是否有存活的攻击目标（供 CampMain 巡防锁敌判定是否需补目标）。</summary>
     public bool HasActiveTarget => CurrentAttackTarget is { Alive: true };
 
     /// <summary>
-    /// 守卫有效锁敌半径 = max(基础下限, 有效射程 AttackRange)。屋顶平台把视野折进射程后，
-    /// 锁敌半径随之覆盖延长的开火距离，确保远射目标能被锁定并真正开火（而非锁到却打不着）。
+    /// 岗位射程倍率下的等效距离（distance / 倍率）：把实际距离压回武器原生射程曲线，据此复用
+    /// <see cref="Ballistics"/> 的开火/衰减判定而无需改引擎。非守卫/近战倍率=1 → 原样（零回归）。
     /// </summary>
-    public float GuardSightRadius => Mathf.Max(GuardBaseSightRadius, AttackRange);
+    private double EffectiveRangeDistance(double dist) =>
+        GuardPostMath.EffectiveRangeDistance(dist, _postRangeMultiplier);
 
-    /// <summary>上岗：把岗位属性叠加到本 Actor 的战斗参数。哨塔射程 + 屋顶视野均折进有效交战距离；暗哨挂首发。</summary>
+    /// <summary>
+    /// 守卫有效锁敌半径 = max(基础下限, 本单位有效开火距离) × 岗位视野倍率。有效开火距离：远程取
+    /// MaxRange×岗位射程倍率、近战取 AttackRange——确保远射目标能被锁定并真正开火（而非锁到却打不着）。
+    /// </summary>
+    public float GuardSightRadius
+    {
+        get
+        {
+            float reach = IsRanged && AttackWeapon.MaxRange is double mr && mr > 0
+                ? (float)(mr * _postRangeMultiplier)
+                : AttackRange;
+            return GuardPostMath.EffectiveSight(Mathf.Max(GuardBaseSightRadius, reach), _postSightMultiplier);
+        }
+    }
+
+    /// <summary>
+    /// 上岗：把岗位属性叠加到本 Actor 的战斗参数。射程倍率仅作用于远程守卫（近战无 MaxRange 开火模型，
+    /// 不加射程）；视野倍率全适用；哨塔挂围栏远程抵挡；暗哨挂首发。近战守卫射程不变、仅视野随巡防半径 ×倍率。
+    /// </summary>
     public void ApplyGuardPost(GuardPostStats stats)
     {
         ClearGuardPost();
-        _postEngageBonus = stats.EngageRangeBonus; // = RangeBonus + SightBonus
-        AttackRange += _postEngageBonus;           // 登高远射：视野也真正延长开火距离
-        _firstStrikeAvailable = stats.FirstStrike; // 暗哨：首发一击
+        _postRangeMultiplier = IsRanged ? stats.RangeMultiplier : 1f;
+        _postSightMultiplier = stats.SightMultiplier;
+        _postBlockChance = stats.BlockChance;
+        _firstStrikeAvailable = stats.FirstStrike;
     }
 
     /// <summary>下岗：撤销岗位加成，恢复原始战斗参数。</summary>
     public void ClearGuardPost()
     {
-        AttackRange -= _postEngageBonus;
-        _postEngageBonus = 0;
+        _postRangeMultiplier = 1f;
+        _postSightMultiplier = 1f;
+        _postBlockChance = 0f;
         _firstStrikeAvailable = false;
     }
 
@@ -513,8 +537,12 @@ public abstract partial class Actor : CharacterBody2D
             return false;
         }
         // 射程门：超出武器可及距离则不触发（也不消耗标记），等目标真正逼近再打这记先手。
-        float reach = AttackRange + Radius + target.Radius;
-        if (GlobalPosition.DistanceTo(target.GlobalPosition) > reach)
+        // reach 对齐武器射程——远程用 MaxRange×岗位射程倍率（中心距，同 Ballistics.InRange 口径，不叠半径）；
+        // 近战用 AttackRange 边缘（叠双方半径，同近战交战门口径）。
+        double reachBase = GuardPostMath.FirstStrikeReach(
+            IsRanged, AttackWeapon.MaxRange, AttackRange, _postRangeMultiplier);
+        double limit = IsRanged ? reachBase : reachBase + Radius + target.Radius;
+        if (GlobalPosition.DistanceTo(target.GlobalPosition) > limit)
         {
             return false;
         }
@@ -534,9 +562,16 @@ public abstract partial class Actor : CharacterBody2D
     /// 作为防御方承受一次攻击：用自身护甲跑逐层结算 + 效果结算，施加到自身躯体。近战与子弹共用。
     /// <paramref name="attacker"/> 为攻击方（用于战斗日志归属），可为 <c>null</c>（环境伤害/无源）。
     /// </summary>
-    public void ReceiveAttack(Actor? attacker, Weapon weapon, CombatEngine combat, double damageFactor = 1.0)
+    public void ReceiveAttack(Actor? attacker, Weapon weapon, CombatEngine combat, double damageFactor = 1.0,
+        bool ranged = false)
     {
         if (!Alive)
+        {
+            return;
+        }
+        // 哨塔围栏抵挡：命中在哨塔驻守的守卫的**远程**攻击，按岗位抵挡几率整发打在围栏上、对角色完全无效
+        // （非减伤、整发免掉；掷可注入随机源）。近战（枪托/暗哨近战/首发近战）传 ranged=false，不走此门。
+        if (ranged && GuardPostMath.RangedBlocked(_postBlockChance, combat.Rng))
         {
             return;
         }

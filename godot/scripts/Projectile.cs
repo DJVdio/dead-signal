@@ -20,6 +20,9 @@ public sealed partial class Projectile : Node2D
     private Weapon _weapon = null!;
     private CombatEngine _combat = null!;
     private Actor _shooter = null!;
+    // 射手岗位射程倍率（守卫哨塔/屋顶远程 +10%）：把命中距离压回武器原生衰减曲线，令 +射程时衰减曲线整体拉长
+    // （否则超原生 MaxRange 段会静默变 0 伤）。默认 1=非守卫/未上岗，零回归。
+    private float _rangeMultiplier = 1f;
 
     // 命中掩码：墙(层3=0b0100) + 幸存者(层1) + 丧尸(层2) + 劫掠者(层4=0b1000)——覆盖全阵营层，
     // 弹道能命中任意阵营；具体是否结算由下方 Factions.IsHostile + 架肩豁免裁定（异阵营命中、同阵营豁免）。
@@ -30,7 +33,7 @@ public sealed partial class Projectile : Node2D
 
     public static Projectile Spawn(
         Node parent, Vector2 pos, Vector2 dir, float maxDist,
-        Weapon weapon, CombatEngine combat, Actor shooter)
+        Weapon weapon, CombatEngine combat, Actor shooter, float rangeMultiplier = 1f)
     {
         var b = new Projectile
         {
@@ -39,6 +42,7 @@ public sealed partial class Projectile : Node2D
             _weapon = weapon,
             _combat = combat,
             _shooter = shooter,
+            _rangeMultiplier = rangeMultiplier,
             ZIndex = 50,
         };
         parent.AddChild(b);
@@ -89,8 +93,10 @@ public sealed partial class Projectile : Node2D
                 }
 
                 // 距离衰减：按射手→命中者的间距缩放伤害（满伤段内=1，线性降到 MaxRange 处 FalloffFloor）。近战不经此路径。
-                double factor = Ballistics.RangedDamageFactor(dist, _weapon);
-                victim.ReceiveAttack(_shooter, _weapon, _combat, factor);
+                // 岗位 +射程：把间距压回原生曲线（dist/倍率），使整条衰减曲线随射程一同拉长（否则超原生 MaxRange 段变 0 伤）。
+                double factor = Ballistics.RangedDamageFactor(
+                    GuardPostMath.EffectiveRangeDistance(dist, _rangeMultiplier), _weapon);
+                victim.ReceiveAttack(_shooter, _weapon, _combat, factor, ranged: true);
             }
 
             // 命中体（敌方/远处友军/墙）即终止：命中已结算，撞墙则落空。

@@ -190,6 +190,12 @@ public sealed class CombatEngine
             died: fx.CausedDeath || defenderBody.IsDead);
     }
 
+    /// <summary>
+    /// 本引擎注入的随机源（只读）。供空间层的可注入 roll 复用同一 <see cref="IRandomSource"/>——如
+    /// 哨塔围栏远程抵挡掷免（<c>Actor.ReceiveAttack</c> → <c>GuardPostMath.RangedBlocked</c>），保证确定性单测可复现。
+    /// </summary>
+    public IRandomSource Rng => _rng;
+
     /// <summary>把准星方向（度）叠加一次远程误差角锥采样，返回实际射击方向（度）。近战 spread=0 即恒为准星方向。</summary>
     public double SampleShotDirectionDegrees(double aimDegrees, double spreadDegrees) =>
         Ballistics.SampleShotDirectionDegrees(aimDegrees, spreadDegrees, _rng);
