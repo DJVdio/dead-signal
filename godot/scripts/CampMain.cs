@@ -32,7 +32,10 @@ public sealed partial class CampMain : Node2D
     // 可破坏结构（围栏/大门）：HP + 碰撞体/视觉块/rect。HP→0 摧毁时逐一清场并重烘焙导航开出缺口。
     private readonly List<CampStructureInstance> _structures = new();
     private readonly List<Pawn> _survivors = new();
+    // 选中：单选事实源。_selectedPawn 是当前唯一主选角色（可为 null=无选中）。
+    // _selected 保留为 HashSet 只为兼容既有消费点（装备/读书取 FirstOrDefault），恒 ≤1，与 _selectedPawn 同步。
     private readonly HashSet<Pawn> _selected = new();
+    private Pawn? _selectedPawn;
     // 伤病昼夜恶化用随机源（感染 roll 等）：营地生产用，非战斗结算，独立于 CombatEngine 的 rng。
     private readonly IRandomSource _healthRng = new SystemRandomSource();
     private bool _gameOver; // 全灭防重入：game-over 只触发一次。
@@ -52,6 +55,7 @@ public sealed partial class CampMain : Node2D
     private CanvasModulate _ambient = null!;
     private Hud _hud = null!;
     private CharacterPanel _characterPanel = null!;  // 角色检视面板（挂 HUD CanvasLayer，不随相机移动）
+    private SurvivorCardBar _cardBar = null!;         // 底部幸存者卡牌栏（挂 HUD CanvasLayer）：单击选中/双击聚焦
 
     private WorldMapPanel _worldMapPanel = null!;
     private ExpeditionPanel _expeditionPanel = null!;
@@ -70,24 +74,34 @@ public sealed partial class CampMain : Node2D
     // 书 id → 同一 BookData 实例（阅读面板 MarkRead 后已读态共享，故必须持同一实例）。
     private readonly Dictionary<string, BookData> _bookRegistry = new();
     private Func<string, BookData?> _bookResolver = _ => null;
-    // 场上可点击容器（cartesian rect + 角色 + 藏物），点击命中据此存取/搜刮。
+    // 场上可点击容器（cartesian rect + 角色 + 藏物），右键前往命中据此存取/搜刮。
     private readonly List<ContainerRef> _containers = new();
     private StashPanel _stashPanel = null!;
     private ReaderPanel _readerPanel = null!;
     private bool _stashOpen;             // 库存面板是否开着（时标冻结的唯一持有者）
-    private double _prevStashTimeScale;  // 开库存前的时标（关闭时恢复）
+    private int _prevStashSpeed;         // 开库存前 GameClock 的速度档（关闭时按此还原）
+    private bool _prevStashPaused;       // 开库存前世界是否暂停（还原时保真：手动暂停仍还成暂停）
+
+    // 右键前往并交互：记下(前往者, 目标容器)，_Process 轮询到达后开面板/搜刮（自带暂停）；寻路期间绝不暂停。
+    private (Pawn pawn, ContainerRef target)? _pendingInteract;
+    private double _pendingInteractElapsed;                 // 本次前往已耗时（真实秒，用于超时放弃）
+    private const float PendingInteractStandoff = 20f;      // 停在容器最近边缘外的间距
+    private const float PendingArriveMargin = 28f;          // 到达判定：进容器 rect 外扩此值内算到位
+    private const double PendingInteractTimeout = 18.0;     // 前往超时（秒）：超时未到达则放弃 + 提示
 
     // ---------------- 配方 / 制作（工作台接入） ----------------
     // 全营共享一台工作台的工具装配态（field 初始化，早于 ApplyStorageInitialStock 就绪，供工具搜到即装）。
     private readonly WorkbenchState _workbench = new();
     private CraftingPanel _craftingPanel = null!;
     private bool _craftingOpen;             // 制作面板是否开着（与库存互斥地持有时标冻结）
-    private double _prevCraftingTimeScale;   // 开制作面板前的时标（关闭时恢复）
+    private int _prevCraftingSpeed;         // 开制作面板前 GameClock 的速度档（关闭时按此还原）
+    private bool _prevCraftingPaused;       // 开制作面板前世界是否暂停（还原保真）
 
     // ---------------- 医疗（手术/用药面板） ----------------
     private MedicalPanel _medicalPanel = null!;
     private bool _medicalOpen;              // 医疗面板是否开着（同样冻结时标）
-    private double _prevMedicalTimeScale;    // 开医疗面板前的时标（关闭时恢复）
+    private int _prevMedicalSpeed;          // 开医疗面板前 GameClock 的速度档（关闭时按此还原）
+    private bool _prevMedicalPaused;        // 开医疗面板前世界是否暂停（还原保真）
     private CampToast _campToast = null!;    // 制作/搜刮的一行瞬时提示（HUD 顶部，手动显隐——时标冻结下计时器不走）
     private DiscoveryPanel _discoveryPanel = null!;  // 探索发现环境叙事面板（模态，弹出时冻结时标）
     private double _prevDiscoveryTimeScale;          // 弹发现叙事前的时标（关闭时恢复）
@@ -161,12 +175,6 @@ public sealed partial class CampMain : Node2D
 
     private CampConfig _cfg = new();
     private Heights _heights;
-
-    // 框选状态。_dragStartWorldIso = 按下时的 iso 屏幕世界坐标（框选用），点选另行反投影。
-    private bool _dragging;
-    private Vector2 _dragStartScreen;
-    private Vector2 _dragStartWorldIso;
-    private const float DragThreshold = 6f;
 
     // 睡眠点（住宅室内中心 / 仓库室内中心，须跟随 camp.json buildings 放大后的 rect）。
     private static readonly Vector2[] SleepPositions =
@@ -321,6 +329,18 @@ public sealed partial class CampMain : Node2D
         _hud.AddChild(new CombatLogPanel());
 
         SpawnActors();
+
+        // 底部幸存者卡牌栏（挂 HUD 这层 CanvasLayer，不随相机移动）：单击选中（走 SetSelection 弹右侧面板）、
+        // 双击选中并平滑聚焦到该角色。选中高亮由 RefreshSelectionUi→SetSelected 自动同步。
+        _cardBar = new SurvivorCardBar();
+        _hud.AddChild(_cardBar);
+        _cardBar.SetSurvivors(_survivors);
+        _cardBar.CardClicked += p => SetSelection(p);
+        _cardBar.CardDoubleClicked += p =>
+        {
+            SetSelection(p);
+            _camera.FocusOn(Iso.Project(p.GlobalPosition));
+        };
 
         _roleManager = new PawnRoleManager(_survivors, _clock);
         _roleManager.RolesChanged += OnRolesChanged;
@@ -1075,10 +1095,15 @@ public sealed partial class CampMain : Node2D
         if (actor is Pawn p)
         {
             _survivors.Remove(p);
-            _selected.Remove(p);
+            if (_selectedPawn == p)
+                SetSelection(null); // 选中者身故：置空选中 + 收面板（ClearSelection 会移出 _selected）
+            else
+                _selected.Remove(p);
             _raidGuards.Remove(p); // 守卫阵亡：移出上岗名单（结算据存活数判守卫全倒）
             // 只**追加**一份死亡当刻快照供下一餐"死亡反应"气泡；不改上面 _survivors/_selected/_raidGuards 的既有清理语义。
             _recentlyDeceased.Add(PawnSnapshot.FromInspection(p.Inspect()));
+
+            _cardBar?.SetSurvivors(_survivors); // 死亡移除：卡牌栏去掉该卡（避免显示过期名单）
 
             // 克莉丝汀若在请求线走完前身故：清空该支线全部 flag，彻底停播请求/离开（她已不在场）。
             if (p.DisplayName == ChristineName)
@@ -1113,6 +1138,9 @@ public sealed partial class CampMain : Node2D
         if (_tutorialActive)
             UpdateCristineTutorial(delta);
 
+        UpdatePendingInteract(delta);   // 右键前往：轮询到达 → 开面板/搜刮（自带暂停）
+        UpdateHover();                   // 悬停辨识：鼠标下容器 → 跟随小标签
+
         // 导航图首帧就绪后跑一次门缝连通性自检。
         if (!_navTested)
         {
@@ -1136,9 +1164,6 @@ public sealed partial class CampMain : Node2D
                 break;
             case InputEventMouseButton mb:
                 HandleMouseButton(mb);
-                break;
-            case InputEventMouseMotion when _dragging:
-                UpdateDrag();
                 break;
         }
     }
@@ -1180,107 +1205,194 @@ public sealed partial class CampMain : Node2D
 
     private void HandleMouseButton(InputEventMouseButton mb)
     {
-        if (mb.ButtonIndex == MouseButton.Left)
+        if (mb is { ButtonIndex: MouseButton.Left, Pressed: true })
         {
-            if (mb.Pressed)
-            {
-                _dragging = true;
-                _dragStartScreen = mb.Position;
-                _dragStartWorldIso = GetGlobalMousePosition(); // iso 屏幕世界坐标
-            }
-            else if (_dragging)
-            {
-                _dragging = false;
-                _hud.HideSelectionRect();
-                FinishSelection(mb.Position);
-            }
+            // 单选：已禁框选，一次只选一个角色（走 SetSelection）。
+            FinishSelection();
         }
         else if (mb is { ButtonIndex: MouseButton.Right, Pressed: true })
         {
-            // 右键落点在 iso 地面 → 反投影回 cartesian 再下移动指令。
-            IssueMove(Iso.Unproject(GetGlobalMousePosition()));
+            // 右键落点在 iso 地面 → 反投影回 cartesian：命中容器→前往交互，空地→移动。
+            HandleRightClick(Iso.Unproject(GetGlobalMousePosition()));
         }
     }
 
-    private void UpdateDrag()
+    /// <summary>
+    /// 左键点选（单选）：落点反投影回 cartesian。命中容器 → 保留当前选中不动（交互改由右键前往）；
+    /// 否则半径命中最近一个可操控角色 → 单选并开面板；点空白（未命中）→ 取消选择并收面板。
+    /// </summary>
+    private void FinishSelection()
     {
-        Vector2 cur = GetViewport().GetMousePosition();
-        if (_dragStartScreen.DistanceTo(cur) < DragThreshold)
-        {
-            _hud.HideSelectionRect();
-            return;
-        }
-        Vector2 topLeft = new(Mathf.Min(_dragStartScreen.X, cur.X), Mathf.Min(_dragStartScreen.Y, cur.Y));
-        Vector2 size = (cur - _dragStartScreen).Abs();
-        _hud.ShowSelectionRect(new Rect2(topLeft, size));
-    }
+        Vector2 cart = Iso.Unproject(GetGlobalMousePosition());
 
-    private void FinishSelection(Vector2 releaseScreen)
-    {
-        bool isBox = _dragStartScreen.DistanceTo(releaseScreen) >= DragThreshold;
-
-        // 单击（非框选）优先判容器命中：命中即存取/搜刮，保留当前选中不动，不落到选人/收面板逻辑。
-        if (!isBox && TryOpenContainerAt(Iso.Unproject(_dragStartWorldIso)))
+        // 左键点在容器上：不再即时开面板（交互统一走右键前往），保留当前选中，避免误取消。
+        if (HitContainerAt(cart) != null)
         {
             return;
         }
 
-        ClearSelection();
+        Pawn? hit = _survivors
+            .Where(p => p.IsControllable && p.GlobalPosition.DistanceTo(cart) <= p.Radius + 8)
+            .OrderBy(p => p.GlobalPosition.DistanceTo(cart))
+            .FirstOrDefault();
+        SetSelection(hit); // 命中 → 单选并开面板；未命中(null) → 取消选择并收面板
+    }
 
-        if (isBox)
+    /// <summary>
+    /// 右键：命中容器且有可控选中角色（且导航已就绪）→ 记 <see cref="_pendingInteract"/> 并令其走向容器最近边缘，
+    /// 到达后由 <see cref="UpdatePendingInteract"/> 开面板/搜刮；命中容器但无可控选中/导航未就绪 → 忽略（hover 已提示先选中角色）；
+    /// 未命中容器 → 地面移动。
+    /// </summary>
+    private void HandleRightClick(Vector2 cart)
+    {
+        ContainerRef? hit = HitContainerAt(cart);
+        if (hit != null)
         {
-            // 框选：拖拽矩形在 iso 屏幕空间；把每个 actor 的 cartesian 位置 Project 到 iso 再判包含。
-            Vector2 endIso = GetGlobalMousePosition();
-            Rect2 boxIso = RectFrom(_dragStartWorldIso, endIso);
-            foreach (Pawn p in _survivors.Where(p => p.IsControllable && boxIso.HasPoint(Iso.Project(p.GlobalPosition))))
+            if (_navTested && _selectedPawn is { IsControllable: true } pawn)
             {
-                Select(p);
+                Vector2 stand = NearestEdgeStandPoint(hit.Rect, pawn.GlobalPosition);
+                pawn.CommandMoveTo(stand);
+                _pendingInteract = (pawn, hit);
+                _pendingInteractElapsed = 0;
             }
-            _characterPanel.HidePanel();  // 框选（含多选）不看单人检视，收起面板。
+            return; // 命中容器但不满足前往条件：忽略（不把角色移到容器上）
         }
-        else
-        {
-            // 点选：落点反投影回 cartesian，和 actor 逻辑位置按半径比对。
-            Vector2 cart = Iso.Unproject(_dragStartWorldIso);
-            Pawn? hit = _survivors
-                .Where(p => p.IsControllable && p.GlobalPosition.DistanceTo(cart) <= p.Radius + 8)
-                .OrderBy(p => p.GlobalPosition.DistanceTo(cart))
-                .FirstOrDefault();
-            if (hit != null)
-            {
-                Select(hit);
-                // 命中单人 → 打开/刷新面板（重复调用即切换）；附装假肢入口 + 装备态快照（11 槽/持械/握持）。
-                ShowInspect(hit);
-            }
-            else
-            {
-                _characterPanel.HidePanel();  // 点空白未命中 → 收起。
-            }
-        }
+        IssueMove(cart); // 空地 → 地面移动令
     }
 
     private void IssueMove(Vector2 cartPos)
     {
-        if (_selected.Count == 0)
+        _pendingInteract = null; // 新的地面移动令：取消未完成的前往交互
+        // 单选：仅当前主选角色接受移动指令（无选中则无操作）。
+        _selectedPawn?.CommandMoveTo(cartPos);
+    }
+
+    /// <summary>容器命中查询：落点（cartesian）命中某容器则返回它，否则 null（右键前往/悬停辨识共用）。</summary>
+    private ContainerRef? HitContainerAt(Vector2 cart)
+        => _containers.FirstOrDefault(c => c.Rect.Grow(8f).HasPoint(cart));
+
+    /// <summary>容器最近边缘外的站位点：把 pawn 位置钳进 rect 得最近边缘点，再沿朝 pawn 方向外推 standoff，站在容器外沿。</summary>
+    private static Vector2 NearestEdgeStandPoint(Rect2 rect, Vector2 from)
+    {
+        Vector2 edge = new(
+            Mathf.Clamp(from.X, rect.Position.X, rect.End.X),
+            Mathf.Clamp(from.Y, rect.Position.Y, rect.End.Y));
+        Vector2 outward = from - edge;
+        if (outward.LengthSquared() < 0.01f)
+            outward = from - rect.GetCenter(); // pawn 落在 rect 内：以中心指向外
+        if (outward.LengthSquared() < 0.01f)
+            outward = Vector2.Right;           // 极端退化：随便给个方向
+        return edge + outward.Normalized() * PendingInteractStandoff;
+    }
+
+    /// <summary>
+    /// 右键前往交互轮询：目标者到位（进容器外扩 margin 且导航结束）→ 执行开面板/搜刮（自带暂停）；
+    /// 目标者变不可控/身故/离场 → 取消；导航结束却没到位（走不到）或超时 → 放弃 + 一行提示。**寻路期间不暂停**。
+    /// </summary>
+    private void UpdatePendingInteract(double delta)
+    {
+        if (_pendingInteract is not { } pend)
+            return;
+        Pawn pawn = pend.pawn;
+        if (!pawn.Alive || !pawn.IsControllable || !_survivors.Contains(pawn))
         {
+            _pendingInteract = null; // 兜底取消（SetSelection/相位切换等路径通常已提前清）
             return;
         }
-        // 多人移动时环形散开，避免堆叠（cartesian 平面）。
-        var list = _selected.ToList();
-        for (int i = 0; i < list.Count; i++)
+
+        _pendingInteractElapsed += delta;
+        bool arrived = pend.target.Rect.Grow(pawn.Radius + PendingArriveMargin).HasPoint(pawn.GlobalPosition);
+        if (arrived && pawn.IsNavigationFinished())
         {
-            Vector2 offset = Vector2.Zero;
-            if (list.Count > 1)
-            {
-                float ang = Mathf.Tau * i / list.Count;
-                offset = new Vector2(Mathf.Cos(ang), Mathf.Sin(ang)) * 26f;
-            }
-            list[i].CommandMoveTo(cartPos + offset);
+            _pendingInteract = null;                 // 先清，避免 ExecuteContainerInteract 内暂停后重入
+            ExecuteContainerInteract(pend.target);
+            return;
         }
+        if (_pendingInteractElapsed > PendingInteractTimeout)
+        {
+            _campToast.Show($"前往{pend.target.Name}超时，已放弃。", CampToast.Bad);
+            _pendingInteract = null;
+            return;
+        }
+        // 导航结束却没到位 = 走不到（首帧 nav 同步滞后误报靠 0.5s 宽限过滤）。
+        if (pawn.IsNavigationFinished() && _pendingInteractElapsed > 0.5)
+        {
+            _campToast.Show($"走不到{pend.target.Name}。", CampToast.Bad);
+            _pendingInteract = null;
+        }
+    }
+
+    /// <summary>
+    /// 悬停辨识：反投影鼠标 → 命中容器则跟随鼠标显示按 role 定制的一行提示（无选中角色时追加"先选中角色"）；
+    /// 未命中 / 面板打开 / 探索中 → 隐藏。与 <see cref="UpdatePendingInteract"/> 各自独立，互不干扰。
+    /// </summary>
+    private void UpdateHover()
+    {
+        if (_stashOpen || _craftingOpen || _medicalOpen || _currentLevel != null)
+        {
+            _hud.HideHoverLabel();
+            return;
+        }
+        ContainerRef? hit = HitContainerAt(Iso.Unproject(GetGlobalMousePosition()));
+        if (hit == null)
+        {
+            _hud.HideHoverLabel();
+            return;
+        }
+        _hud.ShowHoverLabel(HoverTextFor(hit, _selectedPawn != null), GetViewport().GetMousePosition());
+    }
+
+    /// <summary>容器 role → 悬停提示文案。loot 已搜过标"已搜刮"（无操作提示）；其余可交互，无选中角色时追加"（先选中角色）"。</summary>
+    private string HoverTextFor(ContainerRef c, bool hasSelection)
+    {
+        string noSel = hasSelection ? "" : "（先选中角色）";
+        return c.Role switch
+        {
+            "workbench" => $"工作台 · 选中角色后右键前往{noSel}",
+            "storage" => $"储物柜 · 选中角色后右键前往{noSel}",
+            _ => _containerLoot.IsSearched(c.Name)
+                ? $"{c.Name} · 已搜刮"
+                : $"{c.Name} · 选中角色后右键前往{noSel}",
+        };
+    }
+
+    /// <summary>
+    /// 选中的唯一写入口（单选事实源）：先清空旧选中，再选中 p（非空即 ≤1），置 <see cref="_selectedPawn"/>，
+    /// 并驱动右侧角色面板（p 非空→检视，null→收起）与卡牌栏选中高亮刷新。所有改选中都必须走这里。
+    /// </summary>
+    private void SetSelection(Pawn? p)
+    {
+        _pendingInteract = null; // 改选中：取消未完成的前往交互
+        ClearSelection();
+        if (p != null)
+        {
+            Select(p);
+        }
+        _selectedPawn = p;
+
+        if (p != null)
+        {
+            // 右侧面板：检视该角色（只读健康快照 + 装备态 + 装假肢/卸下入口）。
+            ShowInspect(p);
+        }
+        else
+        {
+            _characterPanel.HidePanel(); // 取消选择 → 收起面板。
+        }
+
+        RefreshSelectionUi();
+    }
+
+    /// <summary>选中变更后刷新依赖选中态的 UI。占位：卡牌栏（C 批）接入后在此按 <see cref="_selectedPawn"/> 刷高亮。</summary>
+    private void RefreshSelectionUi()
+    {
+        // 卡牌栏选中高亮跟随单选事实源（null → 取消全部高亮）。
+        _cardBar?.SetSelected(_selectedPawn);
     }
 
     private void Select(Pawn p)
     {
+        ClearSelection(); // 双保险：单选恒 ≤1
         _selected.Add(p);
         p.Selected = true; // actor 自身 _Draw 不可见，选中环由 iso 标记表现
     }
@@ -1292,17 +1404,17 @@ public sealed partial class CampMain : Node2D
             p.Selected = false;
         }
         _selected.Clear();
+        _selectedPawn = null;
     }
 
     private void OnRolesChanged()
     {
-        foreach (Pawn p in _selected.Where(p => !p.IsControllable).ToList())
+        // 选中者转为不可操控（上岗/远征离场等）→ 取消选择 + 收面板（单选下只可能是 _selectedPawn）。
+        if (_selectedPawn != null && !_selectedPawn.IsControllable)
         {
-            p.Selected = false;
-            _selected.Remove(p);
+            SetSelection(null);
         }
-        if (_selected.Count == 0)
-            _characterPanel.HidePanel();
+        _cardBar?.SetSurvivors(_survivors); // 角色变更：卡牌栏重建以刷新名单/状态显示
     }
 
     private async void StartSleepTransition()
@@ -1521,6 +1633,7 @@ public sealed partial class CampMain : Node2D
 
     private void OnGamePhaseChanged(DayPhase phase)
     {
+        _pendingInteract = null; // 相位切换：取消未完成的前往交互
         _expeditionPanel.Visible = false;
         _worldMapPanel.Visible = false;
         _guardPanel.Visible = false;
@@ -2306,8 +2419,12 @@ public sealed partial class CampMain : Node2D
             return; // 已不在场（如中途身故，Abort 已清 flag）——静默跳过
         }
         _survivors.Remove(christine);
-        _selected.Remove(christine);
+        if (_selectedPawn == christine)
+            SetSelection(null); // 选中者自行离场：置空选中 + 收面板
+        else
+            _selected.Remove(christine);
         _raidGuards.Remove(christine);
+        _cardBar?.SetSurvivors(_survivors); // 自愿离场：卡牌栏去掉她的卡
         // draft 待用户改：三拒后独走复仇的离别台词（决绝，呼应反水时"我是好人！"）。
         FloatingText.Spawn(_actorLayer, christine.GlobalPosition,
             "杀死这些劫掠者……这一次，我一个人也去。", new Color(0.9f, 0.5f, 0.4f));
@@ -2382,6 +2499,7 @@ public sealed partial class CampMain : Node2D
         pawn.Position = pos; // cartesian，原地入营
         AddActor(pawn);
         _survivors.Add(pawn);
+        _cardBar?.SetSurvivors(_survivors); // 入营：卡牌栏新增她的卡
 
         _storyFlags.Set("christine_recruited", "true");
         ChristineRequestLogic.Begin(_storyFlags); // 开启"请求出兵清剿金手指帮"支线（聚餐里递进请求）
@@ -2483,34 +2601,28 @@ public sealed partial class CampMain : Node2D
     }
 
     /// <summary>
-    /// 点击落点（cartesian）命中某容器则处理：storage→开库存面板；loot→未搜过则搜出入库 + 反馈，随后开库存面板看结果。
-    /// 命中返回 <c>true</c>（调用方据此不再走选人/收面板逻辑）。
+    /// 到达容器后执行交互（右键前往到位时调）：workbench→开制作面板；storage→开库存面板；
+    /// loot→未搜过则搜出入库 + 一行反馈，随后开库存面板看结果（已搜过则仅提示）。各 OpenX 自带暂停冻结时标。
     /// </summary>
-    private bool TryOpenContainerAt(Vector2 cart)
+    private void ExecuteContainerInteract(ContainerRef hit)
     {
-        ContainerRef? hit = _containers.FirstOrDefault(c => c.Rect.Grow(8f).HasPoint(cart));
-        if (hit == null)
-        {
-            return false;
-        }
-
         if (hit.Role == "workbench")
         {
             OpenCrafting();
-            return true;
+            return;
         }
 
         if (hit.Role == "storage")
         {
             OpenStash(null);
-            return true;
+            return;
         }
 
         // loot 容器：一次性搜刮。
         if (_containerLoot.IsSearched(hit.Name))
         {
             OpenStash($"{hit.Name}：已经搜过了。");
-            return true;
+            return;
         }
         IReadOnlyList<LootItem> loot = _containerLoot.Search(hit.Name);
         var tools = new List<ToolSlot>();
@@ -2530,7 +2642,28 @@ public sealed partial class CampMain : Node2D
                 : $"在{hit.Name}搜到 {itemCount} 件物品{toolNote}。";
         GD.Print($"[搜刮] {notice}");
         OpenStash(notice);
-        return true;
+    }
+
+    /// <summary>
+    /// 弹面板前捕获 GameClock 的速度档 + 暂停态并冻结时标（直接置 Engine.TimeScale=0）。
+    /// 捕获须在冻结**之前**，才能记住"弹前世界是否已被玩家手动暂停"。
+    /// </summary>
+    private void CapturePanelTimeState(out int savedSpeed, out bool savedPaused)
+    {
+        savedSpeed = _clock.SpeedIndex;
+        savedPaused = _clock.Paused; // Engine.TimeScale==0 ⇒ 手动暂停 or 相位强制暂停
+        Engine.TimeScale = 0;
+    }
+
+    /// <summary>
+    /// 关面板后按捕获的速度档 + 暂停态**保真还原**：SetSpeedIndex 重放相位时标（强制暂停相位会自持 0），
+    /// 弹前若是手动暂停且当前相位未强制暂停，则 TogglePause 还原成暂停——而非旧代码裸恢复成 1x。
+    /// </summary>
+    private void RestorePanelTimeState(int savedSpeed, bool savedPaused)
+    {
+        _clock.SetSpeedIndex(savedSpeed);
+        if (savedPaused && !_clock.Paused)
+            _clock.TogglePause();
     }
 
     /// <summary>打开（或刷新）库存面板：首次打开冻结时标；<paramref name="notice"/> 为可空的一行搜刮反馈。</summary>
@@ -2538,8 +2671,7 @@ public sealed partial class CampMain : Node2D
     {
         if (!_stashOpen)
         {
-            _prevStashTimeScale = Engine.TimeScale;
-            Engine.TimeScale = 0;
+            CapturePanelTimeState(out _prevStashSpeed, out _prevStashPaused);
             _stashOpen = true;
         }
         _stashPanel.ShowStash(_inventory, _resources.Food, notice, IsBookRead);
@@ -2709,7 +2841,7 @@ public sealed partial class CampMain : Node2D
         _stashPanel.Visible = false;
         _readerPanel.Visible = false;
         _stashOpen = false;
-        Engine.TimeScale = _prevStashTimeScale <= 0 ? 1 : _prevStashTimeScale;
+        RestorePanelTimeState(_prevStashSpeed, _prevStashPaused);
     }
 
     /// <summary>
@@ -2756,8 +2888,7 @@ public sealed partial class CampMain : Node2D
     {
         if (!_craftingOpen)
         {
-            _prevCraftingTimeScale = Engine.TimeScale;
-            Engine.TimeScale = 0;
+            CapturePanelTimeState(out _prevCraftingSpeed, out _prevCraftingPaused);
             _craftingOpen = true;
         }
         RefreshCrafting();
@@ -2779,7 +2910,7 @@ public sealed partial class CampMain : Node2D
         _craftingPanel.Visible = false;
         _craftingOpen = false;
         _campToast.Hide();
-        Engine.TimeScale = _prevCraftingTimeScale <= 0 ? 1 : _prevCraftingTimeScale;
+        RestorePanelTimeState(_prevCraftingSpeed, _prevCraftingPaused);
     }
 
     /// <summary>
@@ -2838,8 +2969,7 @@ public sealed partial class CampMain : Node2D
             return;
         if (!_medicalOpen)
         {
-            _prevMedicalTimeScale = Engine.TimeScale;
-            Engine.TimeScale = 0;
+            CapturePanelTimeState(out _prevMedicalSpeed, out _prevMedicalPaused);
             _medicalOpen = true;
         }
         RefreshMedical();
@@ -2856,7 +2986,7 @@ public sealed partial class CampMain : Node2D
         _medicalPanel.Visible = false;
         _medicalOpen = false;
         _campToast.Hide();
-        Engine.TimeScale = _prevMedicalTimeScale <= 0 ? 1 : _prevMedicalTimeScale;
+        RestorePanelTimeState(_prevMedicalSpeed, _prevMedicalPaused);
     }
 
     /// <summary>
@@ -2959,12 +3089,6 @@ public sealed partial class CampMain : Node2D
         r.End,
         new Vector2(r.Position.X, r.End.Y),
     };
-
-    private static Rect2 RectFrom(Vector2 a, Vector2 b)
-    {
-        Vector2 tl = new(Mathf.Min(a.X, b.X), Mathf.Min(a.Y, b.Y));
-        return new Rect2(tl, (b - a).Abs());
-    }
 
     private static Rect2? ToRect(double[]? r) =>
         r is { Length: >= 4 } ? new Rect2((float)r[0], (float)r[1], (float)r[2], (float)r[3]) : null;

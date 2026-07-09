@@ -17,12 +17,26 @@ public sealed partial class CameraController : Camera2D
     private const float ZoomMax = 2.2f;
     private const float DragSensitivity = 1f;
 
+    // 聚焦滑动：指数逼近速率（越大越快）与到达阈值（像素，settle 后停止）。
+    private const float FocusLerpSpeed = 9f;
+    private const float FocusArriveThreshold = 1.5f;
+
     private ulong _lastTick;
     private Rect2 _bounds;
     private bool _isDragging;
     private Vector2 _dragStartMouse;
 
+    /// <summary>正在平滑滑向的目标（iso 屏幕坐标，已 clamp 进边界）；无聚焦为 null。玩家任意平移即清除。</summary>
+    private Vector2? _focusTarget;
+
     public void SetBounds(Rect2 bounds) => _bounds = bounds;
+
+    /// <summary>
+    /// 平滑滑动聚焦到某 iso 屏幕坐标（如双击卡牌居中该幸存者）。非瞬移：在 <see cref="_Process"/> 里
+    /// 逐帧指数逼近，过程中及结束都 <see cref="ClampToBounds"/>。玩家一操作 WASD/边缘/拖拽平移即取消本次滑动。
+    /// 目标先按边界 clamp，保证越界目标也能 settle 到最近可达点。
+    /// </summary>
+    public void FocusOn(Vector2 targetIsoPos) => _focusTarget = ClampPoint(targetIsoPos);
 
     public override void _Ready() => _lastTick = Time.GetTicksMsec();
 
@@ -53,8 +67,22 @@ public sealed partial class CameraController : Camera2D
 
         if (move != Vector2.Zero)
         {
+            // 玩家主动平移优先：取消正在进行的聚焦滑动，避免两者抢位。
+            _focusTarget = null;
             // 缩放越远（Zoom 越小）平移越快，观感一致。
             Position += move.Normalized() * PanSpeed * rdelta / Zoom.X;
+            ClampToBounds();
+        }
+        else if (_focusTarget is { } target)
+        {
+            // 帧率无关的指数逼近：settle 到阈值内即吸附并停止。
+            float t = 1f - Mathf.Exp(-FocusLerpSpeed * rdelta);
+            Position = Position.Lerp(target, t);
+            if (Position.DistanceTo(target) <= FocusArriveThreshold)
+            {
+                Position = target;
+                _focusTarget = null;
+            }
             ClampToBounds();
         }
     }
@@ -86,6 +114,7 @@ public sealed partial class CameraController : Camera2D
             Vector2 delta = mm.Position - _dragStartMouse;
             if (delta != Vector2.Zero)
             {
+                _focusTarget = null; // 拖拽平移同样取消聚焦滑动
                 Position -= delta * DragSensitivity / Zoom.X;
                 ClampToBounds();
                 _dragStartMouse = mm.Position;
@@ -99,14 +128,17 @@ public sealed partial class CameraController : Camera2D
         Zoom = new Vector2(clamped, clamped);
     }
 
-    private void ClampToBounds()
+    private void ClampToBounds() => Position = ClampPoint(Position);
+
+    /// <summary>把一点按当前相机边界 clamp（边界未设时原样返回）。<see cref="ClampToBounds"/> 与聚焦目标共用。</summary>
+    private Vector2 ClampPoint(Vector2 p)
     {
         if (_bounds.Size == Vector2.Zero)
         {
-            return;
+            return p;
         }
-        Position = new Vector2(
-            Mathf.Clamp(Position.X, _bounds.Position.X, _bounds.End.X),
-            Mathf.Clamp(Position.Y, _bounds.Position.Y, _bounds.End.Y));
+        return new Vector2(
+            Mathf.Clamp(p.X, _bounds.Position.X, _bounds.End.X),
+            Mathf.Clamp(p.Y, _bounds.Position.Y, _bounds.End.Y));
     }
 }

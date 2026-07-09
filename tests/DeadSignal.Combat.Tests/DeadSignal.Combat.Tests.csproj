@@ -97,6 +97,8 @@
     <Compile Include="..\..\godot\scripts\CraftingService.cs" Link="Consumed\CraftingService.cs" />
     <!-- 产物分类工厂纯逻辑（营地传给 Craft 的 outputFactory）：按产物 key 造对武器/护甲/材料/杂项。 -->
     <Compile Include="..\..\godot\scripts\CraftOutputFactory.cs" Link="Consumed\CraftOutputFactory.cs" />
+    <!-- 幸存者卡牌栏视觉映射纯逻辑：Id→头像索引/文件名 + Id→稳定占位色。 -->
+    <Compile Include="..\..\godot\scripts\SurvivorCardVisuals.cs" Link="Consumed\SurvivorCardVisuals.cs" />
   </ItemGroup>
 
 </Project>
