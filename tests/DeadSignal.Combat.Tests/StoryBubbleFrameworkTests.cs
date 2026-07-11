@@ -77,7 +77,7 @@ public class StoryBubbleFrameworkTests
     [Fact]
     public void Predicate_AnyPawnState_SeveredHand()
     {
-        var maimed = new PawnSnapshot { Name = "蒂诺", HasSeveredHand = true, HasAnySevered = true };
+        var maimed = new PawnSnapshot { Name = "诺蒂", HasSeveredHand = true, HasAnySevered = true };
         var whole = new PawnSnapshot { Name = "克莉丝汀" };
         var p = new BubblePredicate { type = "any_pawn_state", value = "severed_hand" };
         Assert.True(p.Eval(Ctx(pawns: new[] { maimed, whole })));
@@ -87,8 +87,8 @@ public class StoryBubbleFrameworkTests
     [Fact]
     public void Predicate_NamedPawnState()
     {
-        var dead = new PawnSnapshot { Name = "蒂诺", IsDead = true };
-        var p = new BubblePredicate { type = "pawn_state", name = "蒂诺", value = "dead" };
+        var dead = new PawnSnapshot { Name = "诺蒂", IsDead = true };
+        var p = new BubblePredicate { type = "pawn_state", name = "诺蒂", value = "dead" };
         Assert.True(p.Eval(Ctx(pawns: new[] { dead })));
 
         var pWrongName = new BubblePredicate { type = "pawn_state", name = "无此人", value = "dead" };
@@ -110,21 +110,21 @@ public class StoryBubbleFrameworkTests
     [Fact]
     public void Predicate_Hunger_AnyAndNamed()
     {
-        var hungry = new PawnSnapshot { Name = "蒂诺", HungerStage = 2 };
+        var hungry = new PawnSnapshot { Name = "诺蒂", HungerStage = 2 };
         var fed = new PawnSnapshot { Name = "克莉丝汀", HungerStage = 5 };
 
         var anyHungry = new BubblePredicate { type = "hunger", stage = 3 }; // ≤3 存在
         Assert.True(anyHungry.Eval(Ctx(pawns: new[] { hungry, fed })));
         Assert.False(anyHungry.Eval(Ctx(pawns: new[] { fed })));
 
-        var namedHungry = new BubblePredicate { type = "hunger", name = "蒂诺", stage = 2 };
+        var namedHungry = new BubblePredicate { type = "hunger", name = "诺蒂", stage = 2 };
         Assert.True(namedHungry.Eval(Ctx(pawns: new[] { hungry, fed })));
     }
 
     [Fact]
     public void Predicate_AnyPawnState_HeavyBloodLoss()
     {
-        var bleeder = new PawnSnapshot { Name = "蒂诺", HasBleeding = true, HasHeavyBloodLoss = true };
+        var bleeder = new PawnSnapshot { Name = "诺蒂", HasBleeding = true, HasHeavyBloodLoss = true };
         var scratched = new PawnSnapshot { Name = "克莉丝汀", HasBleeding = true }; // 流血但未到重度
         var heavy = new BubblePredicate { type = "any_pawn_state", value = "heavy_blood_loss" };
         Assert.True(heavy.Eval(Ctx(pawns: new[] { bleeder })));
@@ -170,6 +170,55 @@ public class StoryBubbleFrameworkTests
     public void Condition_Empty_IsAlwaysSatisfied()
     {
         Assert.True(new BubbleCondition().IsSatisfied(Ctx()));
+    }
+
+    // ---------------- 具名说话人在场门控（框架层统一） ----------------
+
+    private static MealBubble Says(string speaker, string text, bool allowAbsentSpeaker = false) =>
+        new MealBubble { speaker = speaker, text = text, phase = "any", allowAbsentSpeaker = allowAbsentSpeaker };
+
+    [Fact]
+    public void Gate_NamedSpeaker_NotInCamp_DoesNotPlay()
+    {
+        // 克莉丝汀入营前：营内只有诺蒂 → 她的具名气泡不合格（不会以本人口吻抢先播）。
+        var bubble = Says("克莉丝汀", "金手指帮还在那儿……我们迟早得清了他们。");
+        var ctx = Ctx(pawns: new[] { new PawnSnapshot { Name = "诺蒂" } });
+        Assert.False(bubble.Matches(ctx));
+    }
+
+    [Fact]
+    public void Gate_NamedSpeaker_Dead_DoesNotPlay()
+    {
+        // 克莉丝汀已死（快照在场但 IsDead）→ 死者不再以本人口吻说话。
+        var bubble = Says("克莉丝汀", "天亮了。至少我们都还活着。");
+        var ctx = Ctx(pawns: new[] { new PawnSnapshot { Name = "克莉丝汀", IsDead = true } });
+        Assert.False(bubble.Matches(ctx));
+    }
+
+    [Fact]
+    public void Gate_NamedSpeaker_InCampAlive_Plays()
+    {
+        // 诺蒂在营存活 → 其具名气泡正常合格。
+        var bubble = Says("诺蒂", "要是有张像样的书桌，我能读得更快些。");
+        var ctx = Ctx(pawns: new[] { new PawnSnapshot { Name = "诺蒂" } });
+        Assert.True(bubble.Matches(ctx));
+    }
+
+    [Fact]
+    public void Gate_AllowAbsentSpeaker_OptOut_Plays()
+    {
+        // opt-out：刻意让离场者发声的台词豁免门控，即便不在场也合格。
+        var bubble = Says("克莉丝汀", "（追忆）她走的那天，天正下着雨。", allowAbsentSpeaker: true);
+        var ctx = Ctx(pawns: new[] { new PawnSnapshot { Name = "诺蒂" } });
+        Assert.True(bubble.Matches(ctx));
+    }
+
+    [Fact]
+    public void Gate_NoSpeaker_UnaffectedByRoster()
+    {
+        // 无 speaker 的通用/旁白气泡不受在场门控影响（营内无人也照播）。
+        var narration = new MealBubble { speaker = null, text = "锅里见了底，气氛有些沉。", phase = "any" };
+        Assert.True(narration.Matches(Ctx(pawns: System.Array.Empty<PawnSnapshot>())));
     }
 
     // ---------------- 选择器 v2：过滤 + 加权 + 去重 ----------------
@@ -269,7 +318,7 @@ public class StoryBubbleFrameworkTests
         const string json = @"[
           { ""speaker"": null, ""text"": ""断手旁白"",
             ""condition"": { ""all"": [ { ""type"": ""any_pawn_state"", ""value"": ""severed_hand"" } ] } },
-          { ""speaker"": ""蒂诺"", ""text"": ""解码"", ""phase"": ""dusk"", ""weight"": 2.0,
+          { ""speaker"": ""诺蒂"", ""text"": ""解码"", ""phase"": ""dusk"", ""weight"": 2.0,
             ""condition"": { ""all"": [ { ""type"": ""flag"", ""key"": ""radio_decoded"" } ] },
             ""triggers"": [ { ""key"": ""radio_hint_shared"", ""value"": ""true"" } ] }
         ]";
@@ -280,11 +329,13 @@ public class StoryBubbleFrameworkTests
         Assert.Equal("radio_hint_shared", bubbles[1].triggers![0].key);
 
         // 且能真正驱动选择器：无 flag 时解码句被过滤，置 flag 后合格。
+        // （诺蒂在营存活，满足具名说话人在场门控，方能验条件驱动本身。）
         var flags = new StoryFlags();
+        var roster = new[] { new PawnSnapshot { Name = "诺蒂" } };
         var pool = new MealBubblePool(bubbles, new SequenceRandomSource(0, 0, 0, 0));
-        Assert.DoesNotContain(pool.Pick(Ctx(phase: "dusk", flags: flags), 5), b => b.text == "解码");
+        Assert.DoesNotContain(pool.Pick(Ctx(phase: "dusk", flags: flags, pawns: roster), 5), b => b.text == "解码");
         flags.Set("radio_decoded", "true");
-        Assert.Contains(pool.Pick(Ctx(phase: "dusk", flags: flags), 5), b => b.text == "解码");
+        Assert.Contains(pool.Pick(Ctx(phase: "dusk", flags: flags, pawns: roster), 5), b => b.text == "解码");
     }
 
     [Fact]

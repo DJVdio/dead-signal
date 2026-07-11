@@ -35,10 +35,10 @@ public sealed partial class TestExploration : ExplorationLevel
         SpawnZombies();
 
         // 按目的地叠加对应发现点（MVP 复用本测试关场景，仅换触发点；其余目的地无发现点，行为不变）：
-        //   金手指帮根据地 → 克莉丝汀尸体 + 日记A；守望者森林小屋 → 哥顿上吊尸（门口树上）+ 日记B。
+        //   金手指帮根据地 → 帮众尸体 + 日记A（恒在）、复仇线另加克莉丝汀本人尸体；守望者森林小屋 → 哥顿上吊尸 + 日记B。
         // 哥顿与克莉丝汀异地（用户拍板），不再同关叠出。
         if (DestinationName == WorldMapPanel.GoldfingerBaseName)
-            SetupChristineCorpseDiscovery();
+            SetupGoldfingerCorpseDiscoveries();
         else if (DestinationName == WorldMapPanel.WatchersCabinName)
             SetupGordonHangedDiscovery();
     }
@@ -218,14 +218,26 @@ public sealed partial class TestExploration : ExplorationLevel
 
     // ---------------- 探索发现点 ----------------
 
-    /// <summary>金手指帮根据地：克莉丝汀尸体 + 日记A 发现点（仿返回区 Area2D+BodyEntered，避开出生点/返回区/障碍箱）。</summary>
-    private void SetupChristineCorpseDiscovery()
+    /// <summary>
+    /// 金手指帮根据地：两具尸体发现点（用户拍板，设计文档 §8.7）。
+    /// · 帮众尸体（被克莉丝汀反杀，恒在、各分支可见）铺在靠近入口处，先被遇到；
+    /// · 克莉丝汀本人尸体仅复仇线（<see cref="ExplorationLevel.ChristineLeftForRevenge"/>）铺出，位置更深，叙事递进（先帮众、再她本人）。
+    /// 触发链路复用现有 AddDiscoveryPoint / DiscoveryPanel / GoldfingerDiscovery.Resolve。
+    /// </summary>
+    private void SetupGoldfingerCorpseDiscoveries()
     {
         AddDiscoveryPoint(
-            GoldfingerDiscovery.ChristineCorpseId,
+            GoldfingerDiscovery.GangMemberCorpseId,
             new Vector2(1150, 350),
             markerColor: new Color(0.7f, 0.2f, 0.2f),
             label: "遗体");
+
+        if (ChristineLeftForRevenge)
+            AddDiscoveryPoint(
+                GoldfingerDiscovery.ChristineCorpseId,
+                new Vector2(1950, 380),
+                markerColor: new Color(0.78f, 0.15f, 0.28f),
+                label: "遗体");
     }
 
     /// <summary>守望者森林小屋：哥顿上吊尸（门口树上）+ 日记B 发现点。与金手指帮根据地异地，独立一处。</summary>

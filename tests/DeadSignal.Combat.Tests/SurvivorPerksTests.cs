@@ -3,7 +3,7 @@ using DeadSignal.Godot;
 namespace DeadSignal.Combat.Tests;
 
 /// <summary>
-/// 专属效果（蒂诺·书虫样板）+ 读书进度 + 读速合成纯逻辑单测。
+/// 专属效果（诺蒂·书虫样板）+ 读书进度 + 读速合成纯逻辑单测。
 /// 锁的是规则形态：书虫按累计阅读时间跨阈值升级、各级读速倍率、L3 全营加成；
 /// 读书进度按 (读者,书) 累计且跨夜不清零；有效读速 = 基础 × 自身倍率 × 座位 × (1+全营加成汇总)。
 /// 具体阈值/座位惩罚/每本书 ReadHours 皆为 draft，测试锁形态不锁绝对数值（用相对断言/常量引用）。
@@ -163,7 +163,7 @@ public class SurvivorPerksTests
     [Fact]
     public void EffectiveSpeed_TinoL3_Seated_IsSeventyFivePercent()
     {
-        // 蒂诺 L3 有座：基础 ×(1 + 自身 0.50 + 含自己的全营 0.25) = ×1.75（加起来对自己就是 75%）
+        // 诺蒂 L3 有座：基础 ×(1 + 自身 0.50 + 含自己的全营 0.25) = ×1.75（加起来对自己就是 75%）
         double s = ReadingSpeed.Effective(1.0, selfBonus: 0.50, hasSeat: true, campWideBonusSum: 0.25);
         Assert.Equal(1.75, s, precision: 10);
     }

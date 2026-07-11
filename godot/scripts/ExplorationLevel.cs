@@ -12,6 +12,12 @@ public abstract partial class ExplorationLevel : Node2D
     /// <summary>本次探索的目的地名（CampMain 注入）。关卡据此决定是否铺设发现点（如金手指帮根据地）。</summary>
     public string DestinationName { get; set; } = "";
 
+    /// <summary>
+    /// 克莉丝汀是否已独走复仇（CampMain 注入 <c>StoryFlags</c> 的 christine_left_for_revenge）。
+    /// 金手指帮根据地据此决定是否**额外**铺出"克莉丝汀本人尸体"发现点（帮众尸体恒在、与此无关）。
+    /// </summary>
+    public bool ChristineLeftForRevenge { get; set; }
+
     public event Action? OnReturnToCamp;
 
     /// <summary>探索队触发一处发现点时上报 discoveryId；CampMain 据此置 flag、入库日记、弹环境叙事。</summary>

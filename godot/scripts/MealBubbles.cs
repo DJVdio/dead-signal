@@ -35,7 +35,13 @@ public sealed class MealBubble
     /// <summary>可选：说完这句后要施加的 flag 改动（推动剧情）。</summary>
     public List<BubbleTrigger>? triggers { get; set; }
 
-    /// <summary>本条对某上下文是否合格（相位粗筛 + condition 细筛）。</summary>
+    /// <summary>
+    /// 可选 opt-out：为 <c>true</c> 时豁免"说话人须在营存活"的自动门控，
+    /// 用于"追忆离场者 / 遗言回响"等**刻意让不在场者发声**的 authored 台词。缺省 <c>false</c>。
+    /// </summary>
+    public bool allowAbsentSpeaker { get; set; } = false;
+
+    /// <summary>本条对某上下文是否合格（相位粗筛 + 具名说话人在场门控 + condition 细筛）。</summary>
     public bool Matches(MealWorldContext ctx)
     {
         bool phaseOk = string.IsNullOrEmpty(phase)
@@ -45,6 +51,19 @@ public sealed class MealBubble
         {
             return false;
         }
+
+        // 具名说话人在场门控（框架层统一）：speaker 必须是"当前在营存活"的 pawn 才播其台词，
+        // 避免角色未登场（如克莉丝汀入营前）或已死亡时，其署名气泡仍以本人口吻播出。
+        // 无 speaker 的通用/旁白气泡不受影响；个别刻意让离场者发声的台词用 allowAbsentSpeaker 豁免。
+        if (!allowAbsentSpeaker && !string.IsNullOrEmpty(speaker))
+        {
+            var p = ctx.PawnNamed(speaker);
+            if (p is null || p.IsDead)
+            {
+                return false;
+            }
+        }
+
         return condition is null || condition.IsSatisfied(ctx);
     }
 }
