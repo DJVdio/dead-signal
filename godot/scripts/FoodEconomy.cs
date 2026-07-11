@@ -95,6 +95,145 @@ public static class FoodEconomy
     /// <summary>每人一餐默认口粮份数（1 份 = 1 人 1 餐，与 CampResources "1 份=1 人 1 餐"口径一致）。拟定待调。</summary>
     public const int DefaultRationPerCapita = 1;
 
+    /// <summary>每人每餐最多份数（用户拍板"一个人一次最多吃两份食物"：第一餐+一份补餐）。拟定待调。</summary>
+    public const int MaxServingsPerMeal = 2;
+
+    /// <summary>
+    /// 玩家手动分配的聚餐结算（"换壳不换账目"）：把每人指定份数（0..<see cref="MaxServingsPerMeal"/>）
+    /// 落成与 <see cref="AllocatePhaseMeal"/> 同构的 <see cref="PhaseMealOutcome"/>——
+    /// <c>Fed[i]=份数≥1</c>（第一餐，净零维持）、<c>SecondFed[i]=份数≥2</c>（补餐，净 +1）。
+    /// 接入层照旧对 <c>First.Fed[i]</c> 走 <c>ResolvePhase</c>、对 <c>SecondFed[i]</c> 走 <c>ServeSecondMeal</c>，
+    /// 故"进分配环节 -1、吃一份 +1、至多两份"的账目与既有净零模型完全同构（面板显示的是 decay 前当前刻度）。
+    /// 防御性 clamp：每人份数夹到 [0,Max]；饿死终态者（刻度 ≤ <see cref="HungerState.StarvedValue"/>）强制 0 份（救不活不浪费）；
+    /// 库存不足以覆盖全部指定份数时，先满足所有第一餐（原名单序）再满足补餐，逐份扣到库存告罄。
+    /// **不**改任何饥饿状态——只出决策明细，由接入层施加。
+    /// </summary>
+    /// <param name="stock">当前营地食物库存份数（负数按 0）。</param>
+    /// <param name="diners">存活进餐者名单（各输出 Fed/SecondFed 与之原序对齐）；null/空视为 0 人。</param>
+    /// <param name="servings">玩家指定的每人份数（与 diners 原序对齐；缺项/越界按 0，脏值会被防御性 clamp）。</param>
+    /// <param name="rationPerCapita">每份口粮份数（&lt;1 按 1）。</param>
+    public static PhaseMealOutcome ResolveManual(
+        int stock,
+        IReadOnlyList<FoodDiner>? diners,
+        IReadOnlyList<int>? servings,
+        int rationPerCapita = DefaultRationPerCapita)
+    {
+        stock = Math.Max(0, stock);
+        int ration = Math.Max(1, rationPerCapita);
+        int n = diners?.Count ?? 0;
+        var fed = new bool[n];
+        var secondFed = new bool[n];
+        if (n == 0)
+        {
+            var empty = new RationOutcome(0, ration, 0, stock, 0, stock, 0, 0, 0, fed);
+            return new PhaseMealOutcome(empty, secondFed, 0, 0, stock);
+        }
+
+        int Want(int i)
+        {
+            int w = servings != null && i < servings.Count ? servings[i] : 0;
+            w = Math.Clamp(w, 0, MaxServingsPerMeal);
+            if (diners![i].HungerValue <= HungerState.StarvedValue)
+            {
+                w = 0; // 饿死终态：进食不复活，不分配口粮
+            }
+            return w;
+        }
+
+        // 第一轮：保障所有"想吃第一餐"者的第一餐（原序），确保"人人先有第一餐"再谈补餐。
+        int remaining = stock;
+        for (int i = 0; i < n; i++)
+        {
+            if (Want(i) >= 1 && remaining >= ration)
+            {
+                fed[i] = true;
+                remaining -= ration;
+            }
+        }
+
+        // 第二轮：给"已吃第一餐 且 想吃第二份"者补餐（原序），库存不够则先到先补。
+        int secondCount = 0;
+        int secondConsumed = 0;
+        for (int i = 0; i < n; i++)
+        {
+            if (Want(i) >= 2 && fed[i] && remaining >= ration)
+            {
+                secondFed[i] = true;
+                remaining -= ration;
+                secondConsumed += ration;
+                secondCount++;
+            }
+        }
+
+        int fedCount = 0;
+        for (int i = 0; i < n; i++)
+        {
+            if (fed[i]) fedCount++;
+        }
+        int consumed = fedCount * ration;
+        int starved = n - fedCount;
+        int shortfall = n * ration - consumed;
+        var first = new RationOutcome(
+            n, ration, n * ration, stock, consumed, stock - consumed, fedCount, starved, shortfall, fed);
+        return new PhaseMealOutcome(first, secondFed, secondCount, secondConsumed, remaining);
+    }
+
+    /// <summary>
+    /// 校验一份玩家分配是否"干净"（无需 clamp 即合法）：<c>servings</c> 长度须等于人数；每人份数 ∈ [0,Max]；
+    /// 饿死终态者未被分配；且总份数 × 口粮 ≤ 库存。UI 据此启用/禁用"确认"（脏分配即便走
+    /// <see cref="ResolveManual"/> 会被防御性 clamp，但不应放行确认）。
+    /// </summary>
+    public static bool IsAllocationValid(
+        int stock,
+        IReadOnlyList<FoodDiner>? diners,
+        IReadOnlyList<int>? servings,
+        int rationPerCapita = DefaultRationPerCapita)
+    {
+        int n = diners?.Count ?? 0;
+        int ration = Math.Max(1, rationPerCapita);
+        if ((servings?.Count ?? 0) != n)
+        {
+            return false; // 长度须与人数一一对应（防越界/漏项）
+        }
+        int total = 0;
+        for (int i = 0; i < n; i++)
+        {
+            int w = servings![i];
+            if (w < 0 || w > MaxServingsPerMeal)
+            {
+                return false;
+            }
+            if (w > 0 && diners![i].HungerValue <= HungerState.StarvedValue)
+            {
+                return false; // 给饿死者分配非法
+            }
+            total += w;
+        }
+        return total * ration <= Math.Max(0, stock);
+    }
+
+    /// <summary>
+    /// 分配面板预填：按现行自动分粮策略（先保第一餐 → 余粮补最饿）给出每人建议份数（0/1/2），
+    /// 玩家在此基础上用 +/- 微调。等于 <see cref="AllocatePhaseMeal"/> 的 <c>Fed + SecondFed</c> 折成份数，
+    /// 故预填必是一份"干净"分配（<see cref="IsAllocationValid"/> 恒真）。
+    /// </summary>
+    public static int[] Prefill(
+        int stock,
+        IReadOnlyList<FoodDiner>? diners,
+        bool allowSeconds = true,
+        RationStrategy strategy = RationStrategy.HungriestFirst,
+        int rationPerCapita = DefaultRationPerCapita)
+    {
+        int n = diners?.Count ?? 0;
+        var result = new int[n];
+        PhaseMealOutcome phase = AllocatePhaseMeal(stock, diners, allowSeconds, strategy, rationPerCapita);
+        for (int i = 0; i < n; i++)
+        {
+            result[i] = (phase.First.Fed[i] ? 1 : 0) + (phase.SecondFed[i] ? 1 : 0);
+        }
+        return result;
+    }
+
     /// <summary>
     /// 一相位聚餐分粮结算（核心）：库存不足以喂饱全员时，按 <paramref name="strategy"/>（或 <paramref name="playerPriority"/>）
     /// 决定谁吃到、谁挨饿，并给出扣减后余量与缺口。**不**改任何饥饿状态——只出决策明细，由接入层施加。

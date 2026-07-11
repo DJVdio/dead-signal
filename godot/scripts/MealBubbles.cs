@@ -12,6 +12,31 @@ namespace DeadSignal.Godot;
 // ★台词/条件/权重/剧情走向全部来自 meal_bubbles.json 里用户填的数据；代码只写"怎么挑"的规则。
 
 /// <summary>
+/// 聚餐吃饭动画期间"某进食者这一条世界内气泡是否播出"的纯规则（坐 vs 站）。
+/// 用户拍板：站着吃聊天气泡触发概率 −50%（玩家可能因此错过一些线索/支线）——漏听惩罚由概率承载。
+/// 坐着按基础概率、站着按基础 × 系数掷一次。数值"拟定待调"。随机走可注入 <see cref="IRandomSource"/>。
+/// </summary>
+public static class MealBubbleDelivery
+{
+    /// <summary>站着吃相对坐着的气泡触发概率系数（−50% → 0.5）。拟定待调。</summary>
+    public const double StandingBubbleFactor = 0.5;
+
+    /// <summary>坐着吃时一条气泡播出的基础概率（1 = 坐着必播，漏听只发生在站着）。拟定待调。</summary>
+    public const double SeatedBubbleChance = 1.0;
+
+    /// <summary>本条气泡的实际播出概率：坐着 = 基础；站着 = 基础 × 系数。clamp 到 [0,1]。</summary>
+    public static double DeliveryChance(bool seated)
+    {
+        double c = seated ? SeatedBubbleChance : SeatedBubbleChance * StandingBubbleFactor;
+        return c < 0 ? 0 : (c > 1 ? 1 : c);
+    }
+
+    /// <summary>掷一次（rng ∈ [0,1)）：本条气泡是否播出。站着漏听由 <see cref="DeliveryChance"/> 的减半承载。</summary>
+    public static bool RollDelivered(bool seated, IRandomSource rng)
+        => rng.Range(0, 1) < DeliveryChance(seated);
+}
+
+/// <summary>
 /// 一条聚餐气泡（schema v2，向后兼容 v1 的 speaker/text/phase 三字段）。数据来自 <c>meal_bubbles.json</c>。
 /// 气泡替代原信件作为支线/营地需求/故事事件入口（设计文档 §7.4）。
 /// </summary>
