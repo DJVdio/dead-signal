@@ -155,6 +155,125 @@ public class HealthConditionsTests
             set.PerformSurgery(inf, new[] { "bandage" }, onBed: false, Roll(5)));
     }
 
+    // ================= 手术即刻 5% 恢复 + 隔日可重做（重 roll 覆盖）=================
+
+    [Fact]
+    public void Successful_surgery_grants_immediate_5pct_heal()
+    {
+        var (set, c) = SetWith(Frac(0.6));
+        set.PerformSurgery(c, new[] { "splint" }, onBed: true, Roll(30)); // 池50 成功
+        Assert.Equal(0.55, c.Severity, 3); // 0.60 - 即刻5% = 0.55（未经 TickDay）
+    }
+
+    [Fact]
+    public void Barely_successful_surgery_also_grants_immediate_5pct()
+    {
+        var (set, c) = SetWith(Bleed(0.5)); // 右手，池30(bandage)
+        SurgeryResult r = set.PerformSurgery(c, new[] { "bandage" }, onBed: false, Roll(11)); // 擦边成功(roll11>10)
+        Assert.True(r.Success);
+        Assert.Equal(11, r.Efficiency);
+        Assert.Equal(0.45, c.Severity, 3); // 擦边成功也拿即刻5%
+    }
+
+    [Fact]
+    public void Failed_first_surgery_grants_no_immediate_heal()
+    {
+        var (set, c) = SetWith(Bleed(0.5));
+        SurgeryResult r = set.PerformSurgery(c, new[] { "bandage" }, onBed: false, Roll(5)); // 失败
+        Assert.False(r.Success);
+        Assert.Equal(0.5, c.Severity, 3); // 失败无即刻恢复
+    }
+
+    [Fact]
+    public void Redo_surgery_blocked_within_one_day()
+    {
+        var (set, c) = SetWith(Bleed(0.5));
+        set.PerformSurgery(c, new[] { "bandage", "needle_thread" }, onBed: true, Roll(20)); // 首次成功 eff20
+        Assert.False(set.CanRedoSurgery(c)); // 同日不可重做
+
+        set.TickDay(NoInfection(), resting: false); // 距上次手术 1 昼夜（=一天，未超过）
+        Assert.False(set.CanRedoSurgery(c));
+        SurgeryResult tooSoon = set.PerformSurgery(c, new[] { "bandage" }, onBed: false, NoRoll(), /*surgeonBookBonus*/0);
+        Assert.Equal(SurgeryStatus.RedoTooSoon, tooSoon.Status);
+        Assert.Empty(tooSoon.ConsumedMaterials);      // 冷却内零消耗
+        Assert.Equal(20, c.RecoveryEfficiency);       // 效率不变
+    }
+
+    [Fact]
+    public void Redo_surgery_after_more_than_one_day_overwrites_efficiency_both_directions()
+    {
+        // 低→高覆盖
+        var (s1, c1) = SetWith(Bleed(0.5));
+        s1.PerformSurgery(c1, new[] { "bandage", "needle_thread" }, onBed: true, Roll(12)); // eff12（擦边）
+        s1.TickDay(NoInfection(), resting: false);
+        s1.TickDay(NoInfection(), resting: false);   // 距上次手术 2 昼夜 > 1
+        Assert.True(s1.CanRedoSurgery(c1));
+        SurgeryResult up = s1.PerformSurgery(c1, new[] { "bandage", "needle_thread" }, onBed: true, Roll(50));
+        Assert.True(up.Success);
+        Assert.Equal(50, c1.RecoveryEfficiency);      // 覆盖为高值
+
+        // 高→低覆盖（双向风险）
+        var (s2, c2) = SetWith(Bleed(0.5));
+        s2.PerformSurgery(c2, new[] { "bandage", "needle_thread" }, onBed: true, Roll(50)); // eff50
+        s2.TickDay(NoInfection(), resting: false);
+        s2.TickDay(NoInfection(), resting: false);
+        s2.PerformSurgery(c2, new[] { "bandage", "needle_thread" }, onBed: true, Roll(12)); // 重做刷到低值
+        Assert.Equal(12, c2.RecoveryEfficiency);      // 高值被刷掉
+    }
+
+    [Fact]
+    public void Redo_surgery_failure_keeps_old_efficiency_and_wastes_materials()
+    {
+        var (set, c) = SetWith(Bleed(0.5));
+        set.PerformSurgery(c, new[] { "bandage", "needle_thread" }, onBed: true, Roll(40)); // eff40
+        set.TickDay(NoInfection(), resting: false);
+        set.TickDay(NoInfection(), resting: false);
+        double sevBefore = c.Severity;
+        SurgeryResult redo = set.PerformSurgery(c, new[] { "bandage", "needle_thread" }, onBed: true, Roll(5)); // 重做失败
+        Assert.Equal(SurgeryStatus.Failed, redo.Status);
+        Assert.Equal(40, c.RecoveryEfficiency);       // 保守：保留旧愈合效率
+        Assert.Equal(sevBefore, c.Severity, 3);       // 不破坏闭口进度、无即刻5%
+        Assert.Equal(new[] { "bandage", "needle_thread" }, redo.ConsumedMaterials); // 材料白费
+    }
+
+    // ---- 睡床 +10pp 加算恢复速度（与即刻5%独立叠加）----
+
+    [Fact]
+    public void Sleeping_in_bed_adds_10_percentage_points_additively_to_heal()
+    {
+        var (bed, cb) = SetWith(Bleed(0.5));
+        bed.PerformSurgery(cb, new[] { "bandage" }, onBed: false, Roll(30)); // eff30，即刻5% → 0.45
+        bed.TickDay(NoInfection(), resting: true, restedInBed: true);
+
+        var (floor, cf) = SetWith(Bleed(0.5));
+        floor.PerformSurgery(cf, new[] { "bandage" }, onBed: false, Roll(30)); // eff30 → 0.45
+        floor.TickDay(NoInfection(), resting: true, restedInBed: false);
+
+        Assert.True(cb.Severity < cf.Severity, "睡床应比不睡床愈合更快");
+        // 加算(非乘算)：差 = BleedHealPerDay(0.20) × (10/100) × RestHealBonus(1.5) = 0.03
+        Assert.Equal(0.03, cf.Severity - cb.Severity, 3);
+    }
+
+    [Fact]
+    public void Bed_bonus_and_immediate_5pct_stack_exactly()
+    {
+        var (set, c) = SetWith(Bleed(0.5));
+        set.PerformSurgery(c, new[] { "bandage" }, onBed: false, Roll(30)); // 即刻5% → 0.45
+        set.TickDay(NoInfection(), resting: true, restedInBed: true);
+        // 0.50 - 即刻5%(0.05) - 睡床愈合[0.20×((30+10)/100)×1.5=0.12] = 0.33
+        Assert.Equal(0.33, c.Severity, 3);
+    }
+
+    [Fact]
+    public void Not_in_bed_gets_no_bonus_default_behavior_unchanged()
+    {
+        var (set, c) = SetWith(Bleed(0.5));
+        set.PerformSurgery(c, new[] { "bandage" }, onBed: false, Roll(30)); // → 0.45
+        set.TickDay(NoInfection(), resting: true); // restedInBed 默认 false
+        // 0.45 - [0.20×(30/100)×1.5=0.09] = 0.36（无睡床加算）
+        Assert.Equal(0.36, c.Severity, 3);
+    }
+
     // ================= roll 边界：≤10 失败 =================
 
     [Fact]
@@ -401,16 +520,330 @@ public class HealthConditionsTests
     }
 
     [Fact]
-    public void Operated_bleeding_neither_worsens_nor_infects()
+    public void Operated_bleeding_heals_not_worsens()
     {
         var (set, c) = SetWith(Bleed(0.5));
         set.PerformSurgery(c, new[] { "bandage" }, onBed: false, Roll(20)); // 效率20
         double before = c.Severity;
-        // roll=0 若还会感染就会新增感染条；已手术应完全不 roll 感染、且 severity 下降。
-        HealthTickResult tick = set.TickDay(new SequenceRandomSource(0.0), resting: false);
+        // 止血=不再失血恶化：severity 下降（用 NoInfection 排除感染扰动）。
+        set.TickDay(NoInfection(), resting: false);
         Assert.True(c.Severity < before, "已手术出血应愈合而非恶化");
-        Assert.DoesNotContain(set.Conditions, x => x.Type == HealthConditionType.Infection);
+    }
+
+    // ---- 止血≠无菌：已手术伤口在"未愈合闭口"窗口内仍保留感染窗（降率）----
+
+    [Fact]
+    public void Operated_bleeding_still_infects_within_open_wound_window()
+    {
+        // 术后 severity 仍高于闭口阈值 → 止血≠无菌，坏运气仍会感染（roll=0 必中）。
+        var (set, c) = SetWith(Bleed(0.5));
+        set.PerformSurgery(c, new[] { "bandage" }, onBed: false, Roll(20)); // 效率20，术后仍开口
+        HealthTickResult tick = set.TickDay(new SequenceRandomSource(0.0), resting: false);
+        Assert.Contains(tick.Events, e => e.ContractedInfection);
+        Assert.Contains(set.Conditions, x => x.Type == HealthConditionType.Infection && x.BodyPart == c.BodyPart);
+    }
+
+    [Fact]
+    public void Operated_bleeding_below_closed_threshold_no_longer_infects()
+    {
+        // 已愈合到闭口阈值以下 → 伤口封闭，不再有感染窗（roll=0 也不中）。
+        var (set, c) = SetWith(Bleed(0.08)); // 低于闭口阈值 0.15
+        set.PerformSurgery(c, new[] { "bandage" }, onBed: false, Roll(25)); // 池30 → roll25 成功
+        HealthTickResult tick = set.TickDay(new SequenceRandomSource(0.0), resting: false);
         Assert.DoesNotContain(tick.Events, e => e.ContractedInfection);
+        Assert.DoesNotContain(set.Conditions, x => x.Type == HealthConditionType.Infection);
+    }
+
+    // ---- 部分伤口只感染不致命失血（小锐器/咬伤类）----
+
+    [Fact]
+    public void Minor_bleed_wound_never_bleeds_to_death()
+    {
+        // 非致命失血伤口（LethalBleed=false）：拖再久也不失血死，severity 封顶在上限之下。
+        var (set, c) = SetWith(new HealthCondition(
+            HealthConditionType.Bleeding, 0.35, "右手", onLimb: true, lethalBleed: false));
+        for (int day = 0; day < 30; day++)
+        {
+            HealthTickResult r = set.TickDay(NoInfection(), resting: false);
+            Assert.False(r.AnyDeath, "非致命失血伤口不应失血死");
+        }
+        Assert.False(set.IsDead);
+        Assert.True(c.Severity < 1.0, "非致命失血伤口 severity 应封顶在 1.0 之下");
+    }
+
+    [Fact]
+    public void Minor_bleed_wound_untreated_festers_into_infection_and_maims_the_limb()
+    {
+        // 小咬伤不失血死，但若放任 → 感染 → 坏疽截肢（肢体致残、非致死）。
+        var (set, c) = SetWith(new HealthCondition(
+            HealthConditionType.Bleeding, 0.35, "右手", onLimb: true, lethalBleed: false));
+        var alwaysInfect = new SequenceRandomSource(Enumerable.Repeat(0.0, 40).ToArray());
+        var maimed = new List<string>();
+        for (int day = 0; day < 30 && maimed.Count == 0 && !set.IsDead; day++)
+        {
+            maimed.AddRange(set.TickDay(alwaysInfect, resting: false).MaimedParts);
+        }
+        Assert.Contains("右手", maimed);
+        Assert.False(set.IsDead, "肢体只感染不致命失血：终局是截肢致残而非死亡");
+    }
+
+    // ---- 时间线提前：新感染更快封顶 ----
+
+    [Fact]
+    public void Fresh_infection_untreated_reaches_terminal_within_five_days()
+    {
+        // 感染时间线提前（draft）：初始严重度的躯干感染，未用药应在 5 昼夜内败血症致死。
+        var (set, c) = SetWith(new HealthCondition(HealthConditionType.Infection, 0.20, "躯干", onLimb: false));
+        bool died = false;
+        int dayDied = -1;
+        for (int day = 1; day <= 5 && !died; day++)
+        {
+            died = set.TickDay(NoInfection(), resting: false).AnyDeath;
+            if (died) dayDied = day;
+        }
+        Assert.True(died, $"新感染应在 5 昼夜内封顶致死（实际未死）");
+        Assert.True(dayDied <= 5);
+    }
+
+    // ---- 播种分类：小部位=只感染不致命、大部位=致命失血 ----
+
+    [Fact]
+    public void SeedFromBody_classifies_small_parts_as_minor_and_large_as_lethal_bleed()
+    {
+        Body body = HumanBody.NewBody();
+        body.RegisterBleed("左大腿"); // 大部位 → 致命失血
+        body.RegisterBleed("右手");   // 小部位（咬伤/小锐器类）→ 只感染不致命
+        body.RegisterBleed("躯干");   // 要害 → 致命失血
+
+        HealthConditionSet set = HealthMapping.SeedFromBody(body);
+
+        Assert.True(set.Conditions.Single(c => c.BodyPart == "左大腿").LethalBleed);
+        Assert.False(set.Conditions.Single(c => c.BodyPart == "右手").LethalBleed);
+        Assert.True(set.Conditions.Single(c => c.BodyPart == "躯干").LethalBleed);
+    }
+
+    // ================= 医疗三调（失血减慢 / 感染按伤口大小博弈 / 愈合提速）=================
+
+    // ---- 1 失血减慢：致命失血伤口死亡时间线适度后移（仍必死）----
+
+    [Fact]
+    public void Lethal_bleed_death_timeline_is_slower_but_still_certain()
+    {
+        var (set, c) = SetWith(new HealthCondition(HealthConditionType.Bleeding, 0.35, "左大腿", onLimb: true));
+        // 放宽操作窗：第 5 昼夜不应就死（旧 0.15/日在此已死）。
+        for (int day = 0; day < 5; day++)
+        {
+            set.TickDay(NoInfection(), resting: false);
+        }
+        Assert.False(set.IsDead, "失血减慢后，致命伤第 5 昼夜不应已失血死（操作窗放宽）");
+        // 但仍必死：继续拖到封顶。
+        for (int day = 0; day < 10 && !set.IsDead; day++)
+        {
+            set.TickDay(NoInfection(), resting: false);
+        }
+        Assert.True(set.IsDead, "致命失血伤口终究失血致死，狠度不降");
+    }
+
+    // ---- 2 感染按伤口大小博弈：越小越不易感染 + 感染窗口期后闭合 ----
+
+    [Fact]
+    public void Infection_proneness_scales_down_with_wound_size()
+    {
+        Body body = HumanBody.NewBody();
+        body.RegisterBleed("左大腿");     // 大部位
+        body.RegisterBleed("右手");       // 中（手掌）
+        body.RegisterBleed("右手食指");   // 微（指）
+        HealthConditionSet set = HealthMapping.SeedFromBody(body);
+
+        double leg = set.Conditions.Single(c => c.BodyPart == "左大腿").InfectionProneness;
+        double hand = set.Conditions.Single(c => c.BodyPart == "右手").InfectionProneness;
+        double finger = set.Conditions.Single(c => c.BodyPart == "右手食指").InfectionProneness;
+
+        Assert.True(leg > hand, "大伤口比手部更易感染");
+        Assert.True(hand > finger, "手部比指部更易感染（越小越不易）");
+        Assert.True(finger > 0, "微伤仍有非零感染几率（值得赌但会翻车）");
+    }
+
+    [Fact]
+    public void Open_wound_infection_window_closes_after_a_few_days()
+    {
+        // 小伤放任不再 100% 坏疽：感染仅限伤口新鲜期(InfectionWindowDays)内，窗口过后即使坏运气也不再感染。
+        var (set, c) = SetWith(new HealthCondition(
+            HealthConditionType.Bleeding, 0.35, "右手", onLimb: true, lethalBleed: false));
+        // 撑过整个感染窗（用 NoInfection 保证窗内未中招）。
+        for (int day = 0; day < HealthConditionSet.InfectionWindowDays; day++)
+        {
+            set.TickDay(NoInfection(), resting: false);
+        }
+        // 窗口已闭：即便 roll=0 也不再感染。
+        HealthTickResult after = set.TickDay(new SequenceRandomSource(0.0), resting: false);
+        Assert.DoesNotContain(after.Events, e => e.ContractedInfection);
+        Assert.DoesNotContain(set.Conditions, x => x.Type == HealthConditionType.Infection);
+    }
+
+    // ---- 3 愈合提速：骨折治疗后愈合明显更快 ----
+
+    // ---- 微小伤自愈（仅"很小的伤"：微小部位/擦伤级）：新鲜期内低概率感染，窗口结束自行闭合 ----
+
+    [Fact]
+    public void Tiny_wound_self_heals_after_window_when_uninfected()
+    {
+        // 微小伤（selfHealing）：撑过感染窗未中招 → 自行闭合、无成本移除（赌赢）。
+        var (set, c) = SetWith(new HealthCondition(
+            HealthConditionType.Bleeding, 0.35, "右手食指", onLimb: true, lethalBleed: false, selfHealing: true));
+        bool removed = false;
+        for (int day = 0; day <= HealthConditionSet.InfectionWindowDays && !removed; day++)
+        {
+            set.TickDay(NoInfection(), resting: false);
+            removed = !set.Conditions.Contains(c);
+        }
+        Assert.True(removed, "微小伤新鲜期结束应自行闭合移除");
+        Assert.False(set.IsDead);
+        Assert.DoesNotContain(set.Conditions, x => x.Type == HealthConditionType.Infection);
+    }
+
+    [Fact]
+    public void Tiny_wound_that_got_infected_self_closes_but_infection_persists()
+    {
+        // 微小伤赌输：新鲜期内中招 → 伤口仍自行闭合，但感染作为独立病状继续（要吃抗生素/否则坏疽）。
+        var (set, c) = SetWith(new HealthCondition(
+            HealthConditionType.Bleeding, 0.35, "右手食指", onLimb: true, lethalBleed: false, selfHealing: true));
+        var alwaysInfect = new SequenceRandomSource(Enumerable.Repeat(0.0, 20).ToArray());
+        // resting 放缓感染，使伤口自愈闭合时感染尚未封顶（否则同 tick 截肢会连带清掉感染，掩盖"感染独立续走"）。
+        for (int day = 0; day <= HealthConditionSet.InfectionWindowDays; day++)
+        {
+            set.TickDay(alwaysInfect, resting: true);
+        }
+        Assert.DoesNotContain(c, set.Conditions); // 微小伤已自行闭合
+        Assert.Contains(set.Conditions, x => x.Type == HealthConditionType.Infection && x.BodyPart == "右手食指");
+    }
+
+    [Fact]
+    public void Self_healed_wound_gets_synced_to_body_via_presence_stopbleed()
+    {
+        // 接入波(Pawn.AdvanceHealthDay)以"该部位已无活跃出血条目"作**单一路径**从 Body 止血（手术/自愈/截肢清理同走此路）。
+        // 此处验证该契约：微小伤自愈后 Health 不再有该出血条目 → 同款判定即可把 Body 侧出血止住。
+        Body body = HumanBody.NewBody();
+        body.RegisterBleed("右手食指");
+        HealthConditionSet set = HealthMapping.SeedFromBody(body); // 微小部位 → 自愈档
+        for (int day = 0; day <= HealthConditionSet.InfectionWindowDays; day++)
+        {
+            set.TickDay(NoInfection(), resting: false);
+        }
+
+        // 复刻接入波的存在性同步判定（Pawn.cs:AdvanceHealthDay）。
+        foreach (string part in body.BleedingWounds.ToList())
+        {
+            if (!set.Conditions.Any(c => c.Type == HealthConditionType.Bleeding && c.BodyPart == part))
+            {
+                body.StopBleed(part);
+            }
+        }
+
+        Assert.DoesNotContain("右手食指", body.BleedingWounds);
+    }
+
+    [Fact]
+    public void Medium_small_wound_does_not_self_heal_must_be_operated()
+    {
+        // 中等非致命小伤（手/脚一般咬伤）不自愈：撑过感染窗后仍在，必须手术闭口。
+        var (set, c) = SetWith(new HealthCondition(
+            HealthConditionType.Bleeding, 0.35, "右手", onLimb: true, lethalBleed: false, selfHealing: false));
+        for (int day = 0; day < HealthConditionSet.InfectionWindowDays + 3; day++)
+        {
+            set.TickDay(NoInfection(), resting: false);
+        }
+        Assert.Contains(c, set.Conditions); // 未手术不自愈，伤口仍在
+        Assert.False(set.IsDead);
+    }
+
+    [Fact]
+    public void SeedFromBody_marks_only_very_small_or_abrasion_wounds_as_self_healing()
+    {
+        Body body = HumanBody.NewBody();
+        body.RegisterBleed("右手食指"); // 微小部位 → 自愈
+        body.RegisterBleed("右手");     // 手（中等小伤）→ 不自愈
+        body.RegisterBleed("左大腿");   // 大部位 → 不自愈
+        HealthConditionSet set = HealthMapping.SeedFromBody(body); // 默认 severity 0.35
+
+        Assert.True(set.Conditions.Single(c => c.BodyPart == "右手食指").SelfHealing);
+        Assert.False(set.Conditions.Single(c => c.BodyPart == "右手").SelfHealing);
+        Assert.False(set.Conditions.Single(c => c.BodyPart == "左大腿").SelfHealing);
+
+        // 擦伤级（低初始严重度）在大部位上也自愈。
+        Body grazed = HumanBody.NewBody();
+        grazed.RegisterBleed("左大腿");
+        HealthConditionSet low = HealthMapping.SeedFromBody(grazed, bleedingSeverity: 0.1);
+        Assert.True(low.Conditions.Single().SelfHealing, "擦伤级低严重度伤口应自愈");
+    }
+
+    // ---- 骨折治疗档回写 Body：三态（未治 -30% / 术后 -15% / 痊愈 0）端到端到 Body 能力系数 ----
+
+    // 复刻接入波(Pawn.AdvanceHealthDay)的骨折回写：手术成功→MarkFractureTreated；愈合清除→HealFracture（存在性扫描）。
+    private static void SyncFractureToBody(HealthConditionSet set, Body body)
+    {
+        foreach (HealthCondition c in set.Conditions)
+        {
+            if (c.Type == HealthConditionType.Fracture && c.BodyPart != null && c.IsOperated)
+            {
+                body.MarkFractureTreated(c.BodyPart);
+            }
+        }
+        foreach (string part in body.FracturedParts.ToList())
+        {
+            if (!set.Conditions.Any(c => c.Type == HealthConditionType.Fracture && c.BodyPart == part))
+            {
+                body.HealFracture(part);
+            }
+        }
+    }
+
+    [Fact]
+    public void Fracture_treatment_tristate_flows_to_body_capability()
+    {
+        // untreatedMult 0.7(-30%) / treatedMult 0.85(-15%) / floor 0.1；愈合后无骨折 = 1.0(0%)。
+        Body body = HumanBody.NewBody();
+        body.MarkFractured("右手"); // 手骨折（Region==Hand 计入操作能力系数）
+        HealthConditionSet set = HealthMapping.SeedFromBody(body);
+        HealthCondition frac = set.Conditions.Single(c => c.Type == HealthConditionType.Fracture && c.BodyPart == "右手");
+
+        // ① 未治：-30%
+        SyncFractureToBody(set, body);
+        Assert.True(body.IsFractured("右手"));
+        Assert.False(body.IsFractureTreated("右手"));
+        Assert.Equal(0.7, body.HandFractureOperationFactor(0.7, 0.85, 0.1), 3);
+
+        // ② 手术成功 → 接入波 MarkFractureTreated：-15%
+        SurgeryResult r = set.PerformSurgery(frac, new[] { "splint" }, onBed: true, Roll(30));
+        Assert.True(r.Success);
+        SyncFractureToBody(set, body);
+        Assert.True(body.IsFractureTreated("右手"));
+        Assert.Equal(0.85, body.HandFractureOperationFactor(0.7, 0.85, 0.1), 3);
+
+        // ③ 康复完成 → 接入波 HealFracture：0%
+        for (int day = 0; day < 40 && set.Conditions.Contains(frac); day++)
+        {
+            set.TickDay(NoInfection(), resting: true);
+            SyncFractureToBody(set, body);
+        }
+        Assert.False(body.IsFractured("右手"));
+        Assert.Equal(1.0, body.HandFractureOperationFactor(0.7, 0.85, 0.1), 3);
+    }
+
+    [Fact]
+    public void Operated_fracture_heals_noticeably_faster()
+    {
+        // 骨折(seed0.6) 夹板在床(池40) roll30=效率30 + 卧床：应在 8 昼夜内愈合（旧 0.12/日需 ~11 昼夜，红）。
+        var (set, c) = SetWith(Frac(0.6));
+        SurgeryResult r = set.PerformSurgery(c, new[] { "splint" }, onBed: true, Roll(30));
+        Assert.True(r.Success);
+        bool healed = false;
+        for (int day = 0; day < 8 && !healed; day++)
+        {
+            set.TickDay(NoInfection(), resting: true);
+            healed = !set.Conditions.Contains(c);
+        }
+        Assert.True(healed, "愈合提速后，齐装+卧床骨折应在 8 昼夜内愈合");
     }
 
     [Fact]

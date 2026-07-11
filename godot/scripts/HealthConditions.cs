@@ -24,7 +24,9 @@ namespace DeadSignal.Godot;
 /// <summary>病状类别（可扩）。战斗产出 <see cref="Bleeding"/>/<see cref="Fracture"/>（需手术）；<see cref="Infection"/> 由开放伤口衍生（走药品）；<see cref="Disease"/> 预留环境/瘟疫来源（走药品）。</summary>
 public enum HealthConditionType
 {
-    /// <summary>外伤出血（开放伤口）：不会自愈，只能手术；未手术逐日加重，封顶=失血过多致死；同时是感染来源。</summary>
+    /// <summary>外伤出血（开放伤口）：不会自愈，只能手术；未手术逐日加重，同时是感染来源。
+    /// 致命失血伤口(<see cref="HealthCondition.LethalBleed"/>=true，大部位)封顶=失血过多致死；
+    /// 非致命(小锐器/咬伤类，小部位)只溃烂感染、不失血死。**止血≠无菌**：已手术伤口愈合闭口前仍保留感染窗。</summary>
     Bleeding,
 
     /// <summary>伤口感染：逐日恶化，封顶=肢体坏疽截肢(致残)/非肢体败血症(致死)。走抗生素治疗。</summary>
@@ -72,11 +74,18 @@ public sealed class HealthCondition
     /// <param name="severity">初始严重度，clamp 到 [0,1]。</param>
     /// <param name="bodyPart">部位名（对齐 <see cref="HumanBody"/> 部位名；系统性疾病可 null）。</param>
     /// <param name="onLimb">是否位于肢体：感染/骨折封顶时肢体→致残、非肢体→致死/无后果。</param>
-    public HealthCondition(HealthConditionType type, double severity, string? bodyPart = null, bool onLimb = false)
+    /// <param name="lethalBleed">仅对 <see cref="HealthConditionType.Bleeding"/> 有意义：true=大伤口，拖久失血过多致死；
+    /// false=小锐器/咬伤类，只会溃烂感染、**不会失血致死**（severity 封顶在 <see cref="HealthConditionSet.MinorBleedSeverityCap"/> 之下）。</param>
+    /// <param name="infectionProneness">感染倾向系数（乘进每昼夜感染几率）：**越小的伤越低**（大部位 1.0、手/脚 0.4、指/趾/面 0.2，见 <see cref="HealthMapping"/>）；直接构造默认 1.0。</param>
+    /// <param name="selfHealing">仅"**很小的伤**"（微小部位 指/趾/眼/面/耳，或擦伤级低严重度）为真：新鲜期结束后**自行闭合**（无需手术）；中等非致命小伤(手/脚)与致命大伤均为 false（必须手术）。默认 false。</param>
+    public HealthCondition(HealthConditionType type, double severity, string? bodyPart = null, bool onLimb = false, bool lethalBleed = true, double infectionProneness = 1.0, bool selfHealing = false)
     {
         Type = type;
         BodyPart = bodyPart;
         OnLimb = onLimb;
+        LethalBleed = lethalBleed;
+        InfectionProneness = Math.Max(0.0, infectionProneness);
+        SelfHealing = selfHealing;
         Severity = Math.Clamp(severity, 0.0, 1.0);
     }
 
@@ -87,6 +96,16 @@ public sealed class HealthCondition
 
     /// <summary>是否位于肢体（感染/骨折终态分流：肢体致残、非肢体致死/无后果）。</summary>
     public bool OnLimb { get; }
+
+    /// <summary>（仅 <see cref="HealthConditionType.Bleeding"/> 有意义）是否为致命失血伤口：true=大伤口，拖久失血致死；
+    /// false=小锐器/咬伤类，只溃烂感染、不失血致死（severity 封顶在 <see cref="HealthConditionSet.MinorBleedSeverityCap"/> 之下）。</summary>
+    public bool LethalBleed { get; }
+
+    /// <summary>感染倾向系数（乘进每昼夜感染几率）：越小的伤越低（大 1.0 / 手脚 0.4 / 指趾面 0.2，draft）。让玩家"省不省这瓶抗生素"成为赌局。</summary>
+    public double InfectionProneness { get; }
+
+    /// <summary>是否为"很小的伤"（微小部位/擦伤级）：新鲜期结束后自行闭合、无需手术（中等小伤与致命大伤为 false，必须手术）。</summary>
+    public bool SelfHealing { get; }
 
     /// <summary>严重度 0..1（1=封顶触发终态）。</summary>
     public double Severity { get; private set; }
@@ -103,9 +122,16 @@ public sealed class HealthCondition
     /// <summary>已历昼夜数（供 UI/叙事）。</summary>
     public int DaysElapsed { get; private set; }
 
+    /// <summary>上次手术时的 <see cref="DaysElapsed"/> 值（-1=从未手术过）。用于"隔日可重做"门槛。</summary>
+    public int LastSurgeryDay { get; private set; } = -1;
+
+    /// <summary>距上次手术的昼夜数（从未手术 → <see cref="int.MaxValue"/>）。供 UI 显示与重做门槛判定。</summary>
+    public int DaysSinceLastSurgery => LastSurgeryDay < 0 ? int.MaxValue : DaysElapsed - LastSurgeryDay;
+
     // ---- 以下 setter 仅供 HealthConditionSet 内部结算调用 ----
     internal void SetSeverity(double v) => Severity = Math.Clamp(v, 0.0, 1.0);
     internal void AddSeverity(double d) => SetSeverity(Severity + d);
+    internal void MarkSurgeryDay() => LastSurgeryDay = DaysElapsed;
     internal void MarkTended() => Tended = true;
     internal void ClearTended() => Tended = false;
     internal void SetRecoveryEfficiency(int eff) => RecoveryEfficiency = Math.Max(0, eff); // 不封顶 100：允许过载效率 >100
@@ -221,6 +247,9 @@ public enum SurgeryStatus
 
     /// <summary>门槛未过（有效池 P &lt; 15，凑不出可行手术）：不 roll、不消耗、不改病状。给玩家展示 <see cref="SurgeryResult.NotAllowedMessage"/>。</summary>
     NotAllowed,
+
+    /// <summary>重做冷却未到（距上次手术 ≤ <see cref="HealthConditionSet.RedoSurgeryCooldownDays"/> 昼夜）：不 roll、不消耗、不改病状。给玩家展示 <see cref="SurgeryResult.RedoTooSoonMessage"/>。</summary>
+    RedoTooSoon,
 }
 
 /// <summary>一次手术（流血/骨折）结果。</summary>
@@ -228,6 +257,9 @@ public sealed class SurgeryResult
 {
     /// <summary>门槛未过时给玩家的提示文案（**不暴露具体点数**）。</summary>
     public const string NotAllowedMessage = "现状不支持进行这场手术";
+
+    /// <summary>重做冷却未到时给玩家的提示文案。</summary>
+    public const string RedoTooSoonMessage = "距上次手术时间太短，暂时无法再次手术";
 
     /// <summary>本次手术判定。</summary>
     public SurgeryStatus Status { get; init; }
@@ -259,17 +291,30 @@ public sealed class SurgeryResult
 public sealed class HealthConditionSet
 {
     // ---- 恶化速率（每昼夜，draft）----
-    private const double BleedWorsenPerDay = 0.15;       // 未手术出血逐日加重
-    private const double InfectionBaseChance = 0.30;     // 开放伤口感染几率基数（× 出血严重度）
-    private const double InfectionInitialSeverity = 0.15;// 新感染初始严重度
-    private const double InfectionWorsenPerDay = 0.14;   // 感染逐日恶化
+    private const double BleedWorsenPerDay = 0.10;       // 未手术出血逐日加重；draft：0.15→0.10 放宽操作窗（致命伤死亡线第 5→约第 8 昼夜后移，仍必死）
+    private const double InfectionBaseChance = 0.45;     // 开放伤口感染几率基数（× 出血严重度 × 伤口大小系数）
+    private const double InfectionInitialSeverity = 0.22;// 新感染初始严重度
+    private const double InfectionWorsenPerDay = 0.20;   // 感染逐日恶化 → 未治约第 4 昼夜封顶坏疽/败血症
     private const double DiseaseWorsenPerDay = 0.12;     // 疾病逐日恶化
-    private const double RestWorsenFactor = 0.5;         // 休养减缓感染/疾病恶化系数
+    private const double RestWorsenFactor = 0.5;         // 休养减缓感染/疾病恶化系数（抗生素才是正解、卧床只拖延）
     private const double FractureMalunionPerDay = 0.05;  // 未手术骨折逐日畸形化（封顶致残）
 
+    // ---- 感染窗 / 非致命失血（draft）----
+    /// <summary>非致命失血伤口（小锐器/咬伤类）的严重度封顶：只溃烂感染、拖再久也不失血死。draft。</summary>
+    public const double MinorBleedSeverityCap = 0.6;
+    /// <summary>止血≠无菌：已手术伤口 severity ≥ 此闭口阈值前仍有感染窗；降到其下=伤口封闭、不再感染。draft。</summary>
+    private const double WoundClosedThreshold = 0.15;
+    /// <summary>已手术（止血中）伤口的感染几率折减系数（相对未手术开放伤口）：止血降低但不清零感染风险。draft。</summary>
+    private const double OperatedInfectionFactor = 0.5;
+    /// <summary>伤口"新鲜期"感染窗口（昼夜数）：只有伤口存在的头几昼夜有感染风险；过后即使不闭口/不手术也不再新感染
+    /// （身体已把伤口壁垒化）。这让**放任小伤不再累积到 100% 坏疽**、感染成为"值得赌但会翻车"的有限概率事件。draft。</summary>
+    public const int InfectionWindowDays = 4;
+    /// <summary>擦伤级严重度阈值：初始 severity ≤ 此值的出血视作"很小的伤"，可自行闭合（配合微小部位判定，见 <see cref="HealthMapping"/>）。draft。</summary>
+    public const double AbrasionSeverityThreshold = 0.2;
+
     // ---- 愈合速率（每昼夜，draft）：手术成功后按 恢复效率% 折算，100%=下述基速 ----
-    private const double BleedHealPerDay = 0.20;         // 已手术出血逐日愈合（× 效率/100）
-    private const double FractureHealPerDay = 0.12;      // 已手术骨折逐日愈合（× 效率/100）
+    private const double BleedHealPerDay = 0.20;         // 已手术出血逐日愈合（× 效率/100）；出血愈合本就够快，不动
+    private const double FractureHealPerDay = 0.24;      // 已手术骨折逐日愈合（× 效率/100）；draft：0.12→0.24 提速（齐装卧床 ~10→~7 昼夜）
     private const double RestHealBonus = 1.5;            // 休养加速愈合系数
 
     // ---- 手术点数（draft）----
@@ -283,6 +328,13 @@ public sealed class HealthConditionSet
     public const int SurgeryMinPoints = 15;
     /// <summary>自体手术能力系数：对自己动手，池 ×0.60。</summary>
     public const double SelfSurgeryFactor = 0.60;
+
+    /// <summary>手术成功即刻恢复量：任何成功手术（含擦边低效率成功）当场对该伤 severity 立减此值。draft，防止擦边成功康复过久。</summary>
+    public const double ImmediateHealOnSuccess = 0.05;
+    /// <summary>睡床加算恢复速度（**百分点**，加算非乘算）：术后愈合当昼夜在床上睡觉休息 → 恢复效率 +此值再折愈合速度（如 33%→43%）。draft。</summary>
+    public const double BedSleepHealBonusPct = 10.0;
+    /// <summary>重做手术冷却（昼夜）：距上次手术 &gt; 此值才可重做（当前=1 → "超过一天"）。draft，边界待确认。</summary>
+    public const int RedoSurgeryCooldownDays = 1;
 
     private readonly List<HealthCondition> _conditions = new();
 
@@ -319,6 +371,13 @@ public sealed class HealthConditionSet
     }
 
     /// <summary>
+    /// 该已手术伤口现在是否可**重做手术**（重新 roll 恢复效率、覆盖旧值）：需已手术且距上次手术 &gt; <see cref="RedoSurgeryCooldownDays"/> 昼夜。
+    /// 供 UI 决定"再次手术"入口是否可用；未手术的伤（首次手术）不走此判定、按门槛正常做。
+    /// </summary>
+    public bool CanRedoSurgery(HealthCondition condition)
+        => condition != null && condition.IsOperated && condition.DaysSinceLastSurgery > RedoSurgeryCooldownDays;
+
+    /// <summary>
     /// 对一处**流血/骨折**做一台手术（<b>医疗技能不参与</b>，靠材料+床+医疗书+操作能力+运气）：
     /// 有效池 <c>P = round( (基础15 + 床10 + 材料 + 施术者医疗书加点) × 操作能力 × (自体?0.60:1) )</c>；
     /// <b>P &lt; 15 → 门槛未过</b>（<see cref="SurgeryStatus.NotAllowed"/>，不 roll/不消耗/不改病状，给玩家 <see cref="SurgeryResult.NotAllowedMessage"/>）；
@@ -349,6 +408,20 @@ public sealed class HealthConditionSet
         if (!_conditions.Contains(condition))
         {
             throw new ArgumentException("该伤不在本伤病集内。", nameof(condition));
+        }
+
+        // 重做冷却：已手术伤口距上次手术不足 → 暂不可重做（不 roll/不消耗/不改病状）。
+        if (condition.IsOperated && condition.DaysSinceLastSurgery <= RedoSurgeryCooldownDays)
+        {
+            return new SurgeryResult
+            {
+                Status = SurgeryStatus.RedoTooSoon,
+                Roll = 0,
+                Efficiency = 0,
+                PointPool = 0,
+                ConsumedMaterials = Array.Empty<string>(),
+                PlayerMessage = SurgeryResult.RedoTooSoonMessage,
+            };
         }
 
         // 解析投入的手术耗材：只保留适用于该伤类的（非耗材/不适用者忽略、不消耗）。
@@ -398,10 +471,16 @@ public sealed class HealthConditionSet
         // 材料成功失败都消耗。
         var consumed = supplies.Select(s => s.MaterialKey).ToList();
 
+        // 记录本次手术昼夜（成功/失败都算一次手术 → 重置重做冷却）。
+        condition.MarkSurgeryDay();
+
         if (success)
         {
-            condition.SetRecoveryEfficiency(roll); // 进入愈合态：TickDay 据此逐日愈合（效率可 >100）
+            // 成功（含擦边）→ 覆盖恢复效率（重做双向风险：高值也会被刷掉）+ 即刻恢复 5%。
+            condition.SetRecoveryEfficiency(roll); // 进入/刷新愈合态：TickDay 据此逐日愈合（效率可 >100）
+            condition.AddSeverity(-ImmediateHealOnSuccess);
         }
+        // 失败：初次=未止血(RecoveryEfficiency 仍 0，继续恶化)；重做=保守（保留旧效率/闭口进度，仅白费材料）——均不动 severity。
 
         return new SurgeryResult
         {
@@ -440,15 +519,38 @@ public sealed class HealthConditionSet
     }
 
     /// <summary>
-    /// 推进一昼夜：
-    ///   · 流血/骨折已手术(RecoveryEfficiency&gt;0) → 按 恢复效率% 逐日愈合，severity 归 0 移除；未手术 → 逐日恶化
-    ///     （出血加重、按几率感染、封顶失血致死；骨折畸形化、封顶致残）。
-    ///   · 感染/疾病 → 未用药(Tended=false)按恶化规则演变，封顶致死/致残；<paramref name="resting"/> 减缓其恶化。
-    /// 返回本昼夜事件汇总。已死则空转。
+    /// 开放/未闭口伤口按几率感染（同部位已有感染则不重复）：命中则向 <paramref name="newConditions"/> 追加一条感染并返回 true。
+    /// 短路：chance≤0 或该部位已感染 → 不消耗 rng、返回 false（供测试稳定断言 rng 消耗）。
+    /// </summary>
+    private bool TryContractInfection(HealthCondition wound, double chance, IRandomSource rng, List<HealthCondition> newConditions)
+    {
+        if (chance <= 0.0)
+        {
+            return false;
+        }
+        bool alreadyInfected = _conditions.Concat(newConditions)
+            .Any(x => x.Type == HealthConditionType.Infection && x.BodyPart == wound.BodyPart);
+        if (alreadyInfected)
+        {
+            return false;
+        }
+        if (rng.Range(0.0, 1.0) < chance)
+        {
+            newConditions.Add(new HealthCondition(
+                HealthConditionType.Infection, InfectionInitialSeverity, wound.BodyPart, wound.OnLimb));
+            return true;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// 推进一昼夜：已手术(RecoveryEfficiency&gt;0)的流血/骨折按 恢复效率% 逐日愈合（severity 归 0 移除）；未手术逐日恶化
+    /// （出血加重/按几率感染/致命伤封顶失血死；骨折畸形化封顶致残）；感染/疾病未用药按规则恶化。返回本昼夜事件汇总；已死空转。
     /// </summary>
     /// <param name="rng">未手术开放伤口感染 roll 用（<see cref="IRandomSource.Range"/>(0,1)）。</param>
-    /// <param name="resting">该幸存者本昼夜是否卧床休养（减缓感染/疾病恶化、加速手术后愈合）。</param>
-    public HealthTickResult TickDay(IRandomSource rng, bool resting)
+    /// <param name="resting">本昼夜是否卧床休养（减缓感染/疾病恶化、×<see cref="RestHealBonus"/> 加速术后愈合）。</param>
+    /// <param name="restedInBed">本昼夜是否**在床上睡觉休息**（而非地铺）：术后愈合恢复效率**加算 +<see cref="BedSleepHealBonusPct"/> 个百分点**。默认 false，接入层按睡眠处是床/地铺传入。</param>
+    public HealthTickResult TickDay(IRandomSource rng, bool resting, bool restedInBed = false)
     {
         if (IsDead)
         {
@@ -473,27 +575,42 @@ public sealed class HealthConditionSet
                 case HealthConditionType.Bleeding:
                     if (c.IsOperated)
                     {
-                        // 已手术：按恢复效率愈合，不再感染/恶化。
-                        double heal = BleedHealPerDay * (c.RecoveryEfficiency / 100.0) * (resting ? RestHealBonus : 1.0);
+                        // 已手术：按恢复效率愈合（睡床加算 +BedSleepHealBonusPct 个百分点，加算非乘算）。
+                        double effPct = c.RecoveryEfficiency + (restedInBed ? BedSleepHealBonusPct : 0.0);
+                        double heal = BleedHealPerDay * (effPct / 100.0) * (resting ? RestHealBonus : 1.0);
                         c.AddSeverity(-heal);
+                    }
+                    else if (c.SelfHealing && c.DaysElapsed >= InfectionWindowDays)
+                    {
+                        // 很小的伤：新鲜期结束 → 自行闭合（无需手术）。若期间已中招，感染作为独立病状继续，此处只闭合伤口本身。
+                        c.SetSeverity(0.0);
                     }
                     else
                     {
                         c.AddSeverity(BleedWorsenPerDay);
-                        // 开放伤口按几率感染（几率随出血严重度上升）：同部位已有感染则不重复。
-                        double chance = InfectionBaseChance * c.Severity;
-                        bool alreadyInfected = _conditions.Concat(newConditions)
-                            .Any(x => x.Type == HealthConditionType.Infection && x.BodyPart == c.BodyPart);
-                        if (!alreadyInfected && rng.Range(0.0, 1.0) < chance)
+                        // 非致命失血伤口（小锐器/咬伤类）：severity 封顶、永不失血死，只作感染源。
+                        if (!c.LethalBleed && c.Severity > MinorBleedSeverityCap)
                         {
-                            newConditions.Add(new HealthCondition(
-                                HealthConditionType.Infection, InfectionInitialSeverity, c.BodyPart, c.OnLimb));
+                            c.SetSeverity(MinorBleedSeverityCap);
+                        }
+                    }
+
+                    // 统一感染窗：伤口在**新鲜期内(DaysElapsed<窗口)** 且尚未愈合闭口时按几率感染；
+                    // 几率随 出血严重度 × 伤口大小系数(越小越低) 缩放，已止血再折减（止血≠无菌）。
+                    // 窗口过后不再新感染 → 放任小伤不累积到 100% 坏疽，成为有限概率赌局。
+                    if (c.DaysElapsed < InfectionWindowDays && c.Severity >= WoundClosedThreshold)
+                    {
+                        double chance = InfectionBaseChance * c.Severity * c.InfectionProneness * (c.IsOperated ? OperatedInfectionFactor : 1.0);
+                        if (TryContractInfection(c, chance, rng, newConditions))
+                        {
                             contracted = true;
                         }
-                        if (c.Severity >= 1.0)
-                        {
-                            outcome = ConditionOutcome.Death; // 失血过多
-                        }
+                    }
+
+                    // 仅未手术的致命失血伤口封顶致死；非致命伤口的终局只能来自感染（坏疽/败血症）。
+                    if (!c.IsOperated && c.LethalBleed && c.Severity >= 1.0)
+                    {
+                        outcome = ConditionOutcome.Death; // 失血过多
                     }
                     break;
 
@@ -512,7 +629,9 @@ public sealed class HealthConditionSet
                 case HealthConditionType.Fracture:
                     if (c.IsOperated)
                     {
-                        double heal = FractureHealPerDay * (c.RecoveryEfficiency / 100.0) * (resting ? RestHealBonus : 1.0);
+                        // 睡床加算 +BedSleepHealBonusPct 个百分点（加算非乘算）。
+                        double effPct = c.RecoveryEfficiency + (restedInBed ? BedSleepHealBonusPct : 0.0);
+                        double heal = FractureHealPerDay * (effPct / 100.0) * (resting ? RestHealBonus : 1.0);
                         c.AddSeverity(-heal);
                     }
                     else
@@ -565,11 +684,29 @@ public sealed class HealthConditionSet
                     break;
             }
 
-            // 完全愈合（severity 归 0，如手术后养好的出血/骨折）→ 移除。
+            // 完全愈合（severity 归 0，如手术后养好的出血/骨折、或微小伤新鲜期自愈）→ 移除。
+            // Body 侧止血由接入波（Pawn.AdvanceHealthDay）按"该部位已无活跃出血条目"统一 StopBleed 同步，此处不额外出清单。
             if (c.Severity <= 0 && outcome == ConditionOutcome.None)
             {
                 toRemove.Add(c);
             }
+        }
+
+        // 截肢连带：某部位坏疽截肢后，该部位上其余病状（残留骨折/已止血伤口/同部位新生感染）一并消解——
+        // **但仍在活动失血的致命伤例外**：断肢残端继续失血 → 致命失血伤口终究失血致死（保"未处置致命伤必死"，感染不得靠截肢救活）。
+        if (maimed.Count > 0)
+        {
+            bool KeepAsStumpBleed(HealthCondition h) =>
+                h.Type == HealthConditionType.Bleeding && h.LethalBleed && !h.IsOperated;
+
+            foreach (HealthCondition cond in _conditions)
+            {
+                if (cond.BodyPart != null && maimed.Contains(cond.BodyPart) && !KeepAsStumpBleed(cond) && !toRemove.Contains(cond))
+                {
+                    toRemove.Add(cond);
+                }
+            }
+            newConditions.RemoveAll(n => n.BodyPart != null && maimed.Contains(n.BodyPart) && !KeepAsStumpBleed(n));
         }
 
         foreach (HealthCondition r in toRemove)
@@ -643,7 +780,12 @@ public static class HealthMapping
         var set = new HealthConditionSet();
         foreach (string part in body.BleedingWounds)
         {
-            set.Add(new HealthCondition(HealthConditionType.Bleeding, bleedingSeverity, part, IsLimb(body, part)));
+            // 三层梯度：很小的伤(微小部位/擦伤级)→自愈；中等非致命小伤(手/脚)→需手术不自愈；大部位→致命失血。
+            bool selfHealing = IsMicroBleedPart(body, part) || bleedingSeverity <= HealthConditionSet.AbrasionSeverityThreshold;
+            bool lethal = !selfHealing && IsLethalBleedPart(body, part); // 自愈伤绝不致命失血
+            set.Add(new HealthCondition(
+                HealthConditionType.Bleeding, bleedingSeverity, part, IsLimb(body, part),
+                lethal, InfectionPronenessOf(body, part), selfHealing));
         }
         foreach (string part in body.FracturedParts)
         {
@@ -655,4 +797,41 @@ public static class HealthMapping
     /// <summary>部位是否为肢体（用于终态致残/致死分流）；部位表查不到按非肢体。</summary>
     private static bool IsLimb(Body body, string part)
         => body.Parts.TryGetValue(part, out BodyPart? p) && p.Category == BodyPartCategory.Limb;
+
+    /// <summary>
+    /// 该部位的出血是否为**致命失血**（拖久失血致死）。draft 启发式：大部位（躯干/头/上臂/大腿）= 致命失血；
+    /// 小/远端部位（手/脚/指/趾/眼/面/耳）= 只溃烂感染、非致命失血（对应"小锐器/咬伤类"口径）。部位表查不到按致命（从狠）。
+    /// 注：引擎不逐伤口记武器类型，此处以部位尺寸作可判定代理，语义为"拟定待调"。
+    /// </summary>
+    private static bool IsLethalBleedPart(Body body, string part)
+    {
+        if (!body.Parts.TryGetValue(part, out BodyPart? p))
+        {
+            return true; // 未知部位从狠：按致命失血
+        }
+        return p.Region is BodyRegion.Torso or BodyRegion.Head or BodyRegion.Neck or BodyRegion.Arm or BodyRegion.Leg;
+    }
+
+    /// <summary>
+    /// 该部位出血伤口的**感染倾向系数**（越小的伤越低，draft）：大部位(躯干/头/颈/上臂/大腿) 1.0、
+    /// 手/脚 0.4、指/趾/眼/面/耳 0.2。喂进每昼夜感染几率，使小伤"值得赌要不要省抗生素"。部位表查不到按 1.0（从狠）。
+    /// </summary>
+    private static double InfectionPronenessOf(Body body, string part)
+    {
+        if (!body.Parts.TryGetValue(part, out BodyPart? p))
+        {
+            return 1.0;
+        }
+        return p.Region switch
+        {
+            BodyRegion.Hand or BodyRegion.Foot => 0.4,
+            BodyRegion.Finger or BodyRegion.Toe or BodyRegion.Eye or BodyRegion.Face or BodyRegion.Ear => 0.2,
+            _ => 1.0, // 躯干/头/颈/上臂/大腿 等大部位
+        };
+    }
+
+    /// <summary>是否为"微小部位"（指/趾/眼/面/耳）：其出血伤口属"很小的伤"，可自行闭合。部位表查不到按非微小。</summary>
+    private static bool IsMicroBleedPart(Body body, string part)
+        => body.Parts.TryGetValue(part, out BodyPart? p)
+           && p.Region is BodyRegion.Finger or BodyRegion.Toe or BodyRegion.Eye or BodyRegion.Face or BodyRegion.Ear;
 }
