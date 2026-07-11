@@ -58,6 +58,28 @@ public class NewEquipmentDataTests
         Assert.Contains("草叉", names);
     }
 
+    // ---- 栓动猎枪：新增民用猎枪，入 Arsenal（自动进 WeaponCatalog/掉落可得），数值介于步枪与土制枪之间 ----
+
+    [Fact]
+    public void BoltActionHuntingRifle_InArsenal_WithBetweenStats()
+    {
+        var names = WeaponTable.Arsenal().Select(w => w.Name).ToList();
+        Assert.Contains("栓动猎枪", names);
+
+        Weapon bolt = WeaponTable.BoltActionHuntingRifle();
+        Weapon rifle = WeaponTable.Rifle();
+        Weapon zip = WeaponTable.Zipgun();
+
+        Assert.True(bolt.IsRanged);
+        Assert.True(bolt.TwoHanded);
+        Assert.Equal(1, bolt.BurstCount);                       // 单发，非连发
+        Assert.Equal(4.5, bolt.AttackInterval, 6);              // 栓动慢冷却锚点
+        // 伤害/穿透/射程介于步枪（军用强）与土制枪（土制弱）之间
+        Assert.InRange(bolt.DamageMax, zip.DamageMax, rifle.DamageMax);
+        Assert.InRange(bolt.Penetration, zip.Penetration, rifle.Penetration);
+        Assert.InRange(bolt.MaxRange!.Value, zip.MaxRange!.Value, rifle.MaxRange!.Value);
+    }
+
     // ---- 粗布外套：外套层，防护劣于皮甲 ----
 
     [Fact]

@@ -254,6 +254,8 @@ public static class WeaponMods
         // 结构（不受数值改装影响，直接透传；名称由合成阶段拼接，见 Build 入参）
         private DamageType _damageType;
         private bool _twoHanded, _canDualWield, _isRanged;
+        private int _burstCount = 1;
+        private double _burstInterval;
 
         public static WeaponDraft From(Weapon w) => new()
         {
@@ -273,6 +275,8 @@ public static class WeaponMods
             _twoHanded = w.TwoHanded,
             _canDualWield = w.CanDualWield,
             _isRanged = w.IsRanged,
+            _burstCount = w.BurstCount,
+            _burstInterval = w.BurstInterval,
         };
 
         public void Apply(StatMod s)
@@ -323,6 +327,8 @@ public static class WeaponMods
             IsRanged = _isRanged,
             BaseSpreadDegrees = System.Math.Max(0, _baseSpread),
             AttackInterval = System.Math.Max(0.01, _attackInterval),
+            BurstCount = System.Math.Max(1, _burstCount),
+            BurstInterval = System.Math.Max(0, _burstInterval),
             MaxRange = _maxRange is null ? null : System.Math.Max(0, _maxRange.Value),
             FalloffStart = _falloffStart is null ? null : System.Math.Max(0, _falloffStart.Value),
             FalloffFloor = _falloffFloor is null ? null : System.Math.Clamp(_falloffFloor.Value, 0.01, 1),

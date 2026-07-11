@@ -100,9 +100,13 @@ public readonly struct AttackOutcome
     /// <summary>本次命中后防御方死亡（含斩首/开膛/失血致死）。</summary>
     public readonly bool Died;
 
+    /// <summary>本次震荡的硬打断时长（秒，2~5s roll，拟定待调）；未震荡为 0。实时层据此设打断计时器。</summary>
+    public readonly double ConcussionSeconds;
+
     public AttackOutcome(
         int damage, string partName, DamageType finalType,
-        bool blocked, bool severed, bool bled, bool concussed, bool fractured, bool died)
+        bool blocked, bool severed, bool bled, bool concussed, bool fractured, bool died,
+        double concussionSeconds = 0)
     {
         Damage = damage;
         PartName = partName;
@@ -113,6 +117,7 @@ public readonly struct AttackOutcome
         Concussed = concussed;
         Fractured = fractured;
         Died = died;
+        ConcussionSeconds = concussionSeconds;
     }
 }
 
@@ -127,6 +132,7 @@ public sealed class CombatEngine
     private readonly CombatResolver _resolver;
     private readonly VolumeWeightedHitSelector _hitSelector;
     private readonly CombatEffectResolver _effectResolver;
+    private readonly EffectConfig _effectCfg;
 
     public CombatEngine(int? seed = null)
         : this(new SystemRandomSource(seed))
@@ -137,10 +143,14 @@ public sealed class CombatEngine
     public CombatEngine(IRandomSource rng)
     {
         _rng = rng;
+        _effectCfg = EffectConfig.Default();
         _resolver = new CombatResolver(_rng);
         _hitSelector = new VolumeWeightedHitSelector(_rng);
-        _effectResolver = new CombatEffectResolver(_rng);
+        _effectResolver = new CombatEffectResolver(_rng, _effectCfg);
     }
+
+    /// <summary>本引擎生效的效果参数（只读）。供实时层读震荡抗性/移速系数/骨折能力系数，与结算同源。</summary>
+    public EffectConfig Effects => _effectCfg;
 
     /// <summary>
     /// 结算一次命中：在防御方当前尚存的部位中按体积加权选一处 → 逐层护甲结算 →
@@ -152,7 +162,8 @@ public sealed class CombatEngine
         Weapon weapon,
         IReadOnlyList<ArmorLayer> defenderArmor,
         Body defenderBody,
-        double damageFactor = 1.0)
+        double damageFactor = 1.0,
+        double concussionResistFactor = 1.0)
     {
         // 远程距离衰减：只在系数 <1 时建缩放副本，满伤/近战路径沿用原武器、逐字节零改动（零回归）。
         Weapon effective = damageFactor < 1.0 ? ScaleWeaponDamage(weapon, damageFactor) : weapon;
@@ -165,15 +176,16 @@ public sealed class CombatEngine
         BodyPart part = _hitSelector.Select(candidates);
         IReadOnlyList<ArmorLayer> ordered = CombatResolver.OrderOuterToInner(defenderArmor);
         CombatResult result = _resolver.Resolve(effective, ordered, part);
-        EffectOutcome fx = _effectResolver.Apply(defenderBody, effective, result);
+        EffectOutcome fx = _effectResolver.Apply(defenderBody, effective, result, concussionResistFactor);
 
         bool bled = false, concussed = false, fractured = false;
+        double concussionSeconds = 0;
         foreach (DamageEffect e in fx.Effects)
         {
             switch (e.Kind)
             {
                 case DamageEffectKind.Bleed: bled = true; break;
-                case DamageEffectKind.Concussion: concussed = true; break;
+                case DamageEffectKind.Concussion: concussed = true; concussionSeconds = e.DurationSeconds; break;
                 case DamageEffectKind.Fracture: fractured = true; break;
             }
         }
@@ -187,7 +199,8 @@ public sealed class CombatEngine
             bled: bled,
             concussed: concussed,
             fractured: fractured,
-            died: fx.CausedDeath || defenderBody.IsDead);
+            died: fx.CausedDeath || defenderBody.IsDead,
+            concussionSeconds: concussionSeconds);
     }
 
     /// <summary>
@@ -217,6 +230,8 @@ public sealed class CombatEngine
         IsRanged = w.IsRanged,
         BaseSpreadDegrees = w.BaseSpreadDegrees,
         AttackInterval = w.AttackInterval,
+        BurstCount = w.BurstCount,
+        BurstInterval = w.BurstInterval,
         MaxRange = w.MaxRange,
         FalloffStart = w.FalloffStart,
         FalloffFloor = w.FalloffFloor,

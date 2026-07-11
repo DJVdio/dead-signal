@@ -61,14 +61,14 @@ public sealed partial class Raider : Actor
         {
             r.AttackWeapon = CombatData.Pistol();
             r.AttackRange = 240f;   // 中距离（略短于玩家手枪，拟定待调）
-            r.AttackCooldown = 1.2;
+            r.AttackCooldown = r.AttackWeapon.AttackInterval; // 读 WeaponTable 权威间隔（手枪慢节奏 2.5s），敌方同步慢节奏
             r.IsRanged = true;      // 锥形散布弹道（误差角来自武器 BaseSpreadDegrees）
         }
         else
         {
             r.AttackWeapon = CombatData.Dagger();
             r.AttackRange = 26f;    // 近战
-            r.AttackCooldown = 0.8;
+            r.AttackCooldown = r.AttackWeapon.AttackInterval; // 读 WeaponTable 权威间隔（匕首慢节奏 1.4s）
         }
         return r;
     }

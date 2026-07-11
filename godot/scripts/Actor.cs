@@ -94,6 +94,15 @@ public abstract partial class Actor : CharacterBody2D
 
     private double _attackTimer;
 
+    /// <summary>震荡硬打断剩余时长（秒）；&gt;0 时不能出手、移速×ConcussionMoveSlowFactor。见 <see cref="ReceiveAttack"/>。</summary>
+    private double _concussionTimer;
+
+    /// <summary>震荡抗性剩余时长（秒，覆盖打断+首轮重走冷却）；&gt;0 时再次被震荡的触发概率×ConcussionResistFactor（防死锁）。</summary>
+    private double _concussionResistTimer;
+
+    /// <summary>震荡/骨折效果参数（与引擎结算同源=EffectConfig.Default，实时消费点只读）。</summary>
+    private static readonly EffectConfig CombatEffectCfg = EffectConfig.Default();
+
     // ---- 指令目标 ----
     private Vector2? _moveTarget;
     private Actor? _attackTarget;
@@ -282,6 +291,17 @@ public abstract partial class Actor : CharacterBody2D
             _attackTimer -= delta;
         }
 
+        // 震荡硬打断/抗性窗随时间衰减（打断期不能出手由 TryAttack 门控，移速惩罚在移动消费点叠乘）。
+        if (_concussionTimer > 0)
+        {
+            _concussionTimer -= delta;
+        }
+
+        if (_concussionResistTimer > 0)
+        {
+            _concussionResistTimer -= delta;
+        }
+
         // 有攻击目标：目标死了则清空；在射程内停下开打，否则寻路逼近。
         if (_attackTarget is { } tgt)
         {
@@ -345,6 +365,16 @@ public abstract partial class Actor : CharacterBody2D
         // 再乘饥饿因子：有效能力 = (1−残疾) × (1−饥饿)，饿越狠移动越慢（丧尸 HungerAbilityPenalty=0，等价原样）。
         double mobility = HungerState.CombineCapability(
             Body.DisabilityModifiers.MobilityPenalty, HungerAbilityPenalty);
+        // 腿/脚骨折 → 移动能力×0.7（未治疗）/×0.85（已治疗，用户口径）；多处乘算叠加、锁下限。与残疾/饥饿相互独立叠乘。
+        mobility *= Body.LegFractureMobilityFactor(
+            CombatEffectCfg.LegFractureMobilityMult, CombatEffectCfg.LegFractureHealedMobilityMult,
+            CombatEffectCfg.FractureCapabilityFloor);
+        // 震荡硬打断期 → 移速×0.1（−90%，限时，用户口径）。
+        if (_concussionTimer > 0)
+        {
+            mobility *= CombatEffectCfg.ConcussionMoveSlowFactor;
+        }
+
         Vector2 desired = mobility > 0 ? dir * MoveSpeed * (float)mobility : Vector2.Zero;
         // 把期望速度交给避障；OnVelocityComputed 收到安全速度后再 MoveAndSlide。
         _agent.Velocity = desired;
@@ -390,17 +420,24 @@ public abstract partial class Actor : CharacterBody2D
     /// <see cref="HungerState.CombineCapability"/> 合并（与 <c>TryAttack</c> 计时器赋值同源，不改那套乘法）；
     /// 再乘 <see cref="ActiveGrip"/> 的持握系数（双手 1.15→更短、双持 0.70→更长、单手不变）。供 wind-up 重置冷却复用。
     /// 操作能力 ≤0（断双手等无法出手）时回落基础冷却保持正值——此时 TryAttack 本就会跳过出手。
+    /// <paramref name="baseCooldown"/> 为空时用 <see cref="AttackCooldown"/>（=主手武器间隔，wind-up 用）；
+    /// TryAttack 出手时传入**当前生效武器**间隔（贴脸枪托则为枪托 StockMeleeInterval），使冷却随实际打出的武器走。
     /// </summary>
-    private double EffectiveAttackInterval()
+    private double EffectiveAttackInterval(double? baseCooldown = null)
     {
         double operation = HungerState.CombineCapability(
             Body.DisabilityModifiers.OperationPenalty, HungerAbilityPenalty);
-        return GripCombat.EffectiveInterval(AttackCooldown, operation, ActiveGrip);
+        // 手部骨折 → 操作能力×0.7（未治疗）/×0.85（已治疗，含攻速，持久，用户口径）；多处乘算叠加、锁下限。对齐 Duel.EffectiveInterval。
+        operation *= Body.HandFractureOperationFactor(
+            CombatEffectCfg.HandFractureOperationMult, CombatEffectCfg.HandFractureHealedOperationMult,
+            CombatEffectCfg.FractureCapabilityFloor);
+        return GripCombat.EffectiveInterval(baseCooldown ?? AttackCooldown, operation, ActiveGrip);
     }
 
     private void TryAttack(Actor target)
     {
-        if (_attackTimer > 0)
+        // 震荡硬打断期：不能出手（冷却计时照常推进，打断结束后仍需走完重置进去的满冷却）。
+        if (_attackTimer > 0 || _concussionTimer > 0)
         {
             return;
         }
@@ -434,7 +471,13 @@ public abstract partial class Actor : CharacterBody2D
         {
             return;
         }
-        _attackTimer = EffectiveAttackInterval();
+        // 冷却随当前生效武器（远程/近战/贴脸枪托）的间隔走，读 WeaponTable 权威值，而非旧的硬编码手感常量。
+        _attackTimer = EffectiveAttackInterval(weapon.AttackInterval);
+        // 连发模型：冷却在整轮连发之后才起算——把连发跨度补进本次冷却，下一轮不与本轮连发重叠。
+        if (fireRanged && AttackWeapon.BurstCount > 1)
+        {
+            _attackTimer += (AttackWeapon.BurstCount - 1) * System.Math.Max(0, AttackWeapon.BurstInterval);
+        }
 
         if (fireRanged)
         {
@@ -449,6 +492,36 @@ public abstract partial class Actor : CharacterBody2D
 
     private void FireProjectile(Actor target)
     {
+        // 一次"射击"= BurstCount 发（默认 1）。首发立即打出，其余 BurstInterval 间隔后逐发补上。
+        // 每发独立锥采样、独立重新瞄准目标当前位置（连发跟枪）。冷却在 TryAttack 已含连发跨度。
+        Weapon weapon = AttackWeapon;   // 捕获当前武器，避免连发途中换枪串味
+        FireOneRound(target, weapon);
+
+        int burst = System.Math.Max(1, weapon.BurstCount);
+        if (burst <= 1)
+        {
+            return;
+        }
+
+        double gap = System.Math.Max(0, weapon.BurstInterval);
+        for (int k = 1; k < burst; k++)
+        {
+            SceneTreeTimer t = GetTree().CreateTimer(gap * k);
+            t.Timeout += () =>
+            {
+                // 连发途中射手/目标可能已死或被释放：逐发校验，失效则中止本发。
+                if (!IsInstanceValid(this) || Body.IsDead || !IsInstanceValid(target))
+                {
+                    return;
+                }
+
+                FireOneRound(target, weapon);
+            };
+        }
+    }
+
+    private void FireOneRound(Actor target, Weapon weapon)
+    {
         Vector2 toTarget = target.GlobalPosition - GlobalPosition;
         if (toTarget == Vector2.Zero)
         {
@@ -458,16 +531,16 @@ public abstract partial class Actor : CharacterBody2D
         // 误差角锥采样：以指向目标的准星方向为轴，在武器基础误差角内随机一个射击方向。
         // 命中判定交给弹道实时层（路径首个碰撞体，含撞墙落空）——引擎只出纯函数采样方向。
         // 双持两把单手武器时误差角 ×1.25（远程双持代价）；单手/双手一把不变。近战不经此路径。
-        double spread = GripCombat.EffectiveSpreadDegrees(AttackWeapon.BaseSpreadDegrees, ActiveGrip);
+        double spread = GripCombat.EffectiveSpreadDegrees(weapon.BaseSpreadDegrees, ActiveGrip);
         double aimDeg = Mathf.RadToDeg(toTarget.Angle());
         double shotDeg = Combat.SampleShotDirectionDegrees(aimDeg, spread);
         Vector2 dir = Vector2.FromAngle(Mathf.DegToRad((float)shotDeg));
 
         // 子弹最大飞行距离对齐武器 MaxRange × 岗位射程倍率（开火判定同源；超此距离衰减归 0）。
         // 无射程模型的远程武器（罕见）回落到旧的 AttackRange*1.25 兜底（同样吃岗位倍率）。
-        float maxDist = (float)((AttackWeapon.MaxRange ?? (AttackRange * 1.25)) * _postRangeMultiplier);
+        float maxDist = (float)((weapon.MaxRange ?? (AttackRange * 1.25)) * _postRangeMultiplier);
         Projectile.Spawn(GetParent(), GlobalPosition + dir * (Radius + 2f), dir,
-            maxDist, AttackWeapon, Combat, this, _postRangeMultiplier);
+            maxDist, weapon, Combat, this, _postRangeMultiplier);
     }
 
     // ---- 守卫岗位加成（D 守卫防御战）：只读取岗位属性作用到战斗参数，不改既有攻防逻辑 ----
@@ -577,13 +650,40 @@ public abstract partial class Actor : CharacterBody2D
         }
         // 伤害/流血/切除/致死已在此调用内施加到 Body；下方仅发布到表现总线（飘字②③④各自订阅）。
         // damageFactor：远程距离衰减系数（近战/贴脸枪托传默认 1.0，不衰减）。
-        AttackOutcome hit = combat.ResolveHit(weapon, DefenderArmor, Body, damageFactor);
+        // 震荡抗性：本单位处抗性窗内（吃过震荡、打断+首轮冷却未走完）→ 再次震荡触发概率打折（防死锁）。
+        double concResist = _concussionResistTimer > 0 ? CombatEffectCfg.ConcussionResistFactor : 1.0;
+        AttackOutcome hit = combat.ResolveHit(weapon, DefenderArmor, Body, damageFactor, concResist);
+        if (hit.Concussed)
+        {
+            ApplyConcussion(hit.ConcussionSeconds);
+        }
+
         CombatFeed.Publish(attacker, this, hit);
 
         if (!Alive)
         {
             Die();
         }
+    }
+
+    /// <summary>
+    /// 受一次震荡（重制口径）：进入 <paramref name="durationSeconds"/> 秒硬打断（期间 TryAttack 门控不出手、移速×0.1），
+    /// 并把已积累的冷却清零——重置为「打断时长 + 一个满有效冷却」，使打断结束后从零重走完整冷却（对齐引擎）；
+    /// 抗性窗覆盖「打断 + 首轮冷却」，期间再次被震荡触发概率打折（防死锁）。多次震荡取更长者、不缩短已有窗。
+    /// </summary>
+    private void ApplyConcussion(double durationSeconds)
+    {
+        double dur = System.Math.Max(0, durationSeconds);
+        _concussionTimer = System.Math.Max(_concussionTimer, dur);
+        double fullCooldown = EffectiveAttackInterval();
+        if (IsRanged && AttackWeapon.BurstCount > 1)
+        {
+            fullCooldown += (AttackWeapon.BurstCount - 1) * System.Math.Max(0, AttackWeapon.BurstInterval);
+        }
+
+        // 打断期计时器照常衰减：设「打断+满冷却」→ 打断走完时恰好剩一个满冷却（=从零重走）。
+        _attackTimer = System.Math.Max(_attackTimer, dur + fullCooldown);
+        _concussionResistTimer = System.Math.Max(_concussionResistTimer, dur + fullCooldown);
     }
 
     private void Die()

@@ -91,8 +91,6 @@ public sealed class DuelConfig
     /// <summary>中度出血攻速系数（debuff 加重）。</summary>
     public double ModerateSpeedMult { get; init; } = 0.7;
 
-    public double ConcussionSpeedMult { get; init; } = 0.8;
-    public double HandFractureSpeedMult { get; init; } = 0.85;
     public double MinSpeedMult { get; init; } = 0.25;
     public double MaxSimSeconds { get; init; } = 600;
     public EffectConfig Effects { get; init; } = EffectConfig.Default();
@@ -101,7 +99,8 @@ public sealed class DuelConfig
 /// <summary>
 /// 确定性 1v1 对决引擎：双方各持 Body（部位树+HP+效果+损毁+储血量），按各武器攻速排时间轴轮流出手，
 /// 效果实际生效——流血 tick 扣储血（分级 debuff：轻/中度降攻速、重度昏迷、储血归零出血致死；不扣部位 HP），
-/// 震荡/手部骨折降攻速，切除/损毁移除部位，致死部位归零或出血致死判死。
+/// 震荡=硬打断+冷却清零+抗性防死锁（时长走 EffectConfig），手部骨折持久降操作/攻速，切除/损毁移除部位，
+/// 致死部位归零或出血致死判死。
 /// 全程单一可注入随机源 → 固定种子可复现。数值口径见 <see cref="DuelConfig"/>（拟定待调）。
 /// </summary>
 public sealed class DuelEngine
@@ -114,6 +113,12 @@ public sealed class DuelEngine
         public double SpeedMult = 1.0;
         public BloodLossTier LastTier = BloodLossTier.None;
         public readonly List<string> LastDropped = new();
+
+        /// <summary>震荡硬打断截止时刻（绝对秒）；now &lt; 此值时该单位处打断态，不能出手（其武器 NextTime 已被顶到打断后）。</summary>
+        public double InterruptUntil;
+
+        /// <summary>震荡抗性窗截止时刻（绝对秒）；now &lt; 此值时再次被震荡的触发概率 ×ConcussionResistFactor（防死锁）。</summary>
+        public double ConcussionResistUntil;
     }
 
     private readonly IRandomSource _rng;
@@ -197,14 +202,33 @@ public sealed class DuelEngine
                 }
                 else
                 {
-                    events.Add(DoAttack(actor, target, actor.Def.Weapons[mountIdx], now));
-                    actions++;
-                    actor.NextTime[mountIdx] = now + EffectiveInterval(actor, actor.Def.Weapons[mountIdx]);
+                    // 一次"射击"= BurstCount 发（默认 1）；每发独立命中/伤害 roll（DoAttack 内各自采样）。
+                    // 连发内每弹间隔 BurstInterval（远小于 BleedStep，故不在连发中细分失血 tick）；
+                    // 冷却在整轮连发之后才起算：下次出手 = 末发时刻 + 有效冷却。
+                    var weapon = actor.Def.Weapons[mountIdx].Weapon;
+                    int burst = Math.Max(1, weapon.BurstCount);
+                    double burstGap = Math.Max(0, weapon.BurstInterval);
+                    double shotTime = now;
+                    for (int k = 0; k < burst; k++)
+                    {
+                        events.Add(DoAttack(actor, target, actor.Def.Weapons[mountIdx], shotTime));
+                        actions++;
 
-                    dead = FirstDead(a, b);
+                        dead = FirstDead(a, b);
+                        if (dead is not null)
+                        {
+                            reason = ReasonFor(dead);
+                            break;
+                        }
+
+                        shotTime += burstGap;
+                    }
+
+                    double lastShot = now + (burst - 1) * burstGap;
+                    actor.NextTime[mountIdx] = lastShot + EffectiveInterval(actor, actor.Def.Weapons[mountIdx]);
+
                     if (dead is not null)
                     {
-                        reason = ReasonFor(dead);
                         break;
                     }
                 }
@@ -240,6 +264,13 @@ public sealed class DuelEngine
         rt.Body.BleedRatePerWound = _cfg.BleedRatePerWound;
         rt.Body.SetBloodMax(_cfg.BloodMax);
         rt.Body.EquipmentDropped = parts => rt.LastDropped.AddRange(parts);
+        // 冷却→射击模型（起手先满冷却，文档 §5）：每把武器首次出手也要先过满一次有效冷却，
+        // 不允许 t=0 瞬发。近战/远程统一（引擎不区分武器类别，与既有攻速节奏一致）。
+        for (int i = 0; i < rt.NextTime.Length; i++)
+        {
+            rt.NextTime[i] = EffectiveInterval(rt, rt.Def.Weapons[i]);
+        }
+
         return rt;
     }
 
@@ -300,7 +331,13 @@ public sealed class DuelEngine
             return double.PositiveInfinity;
         }
 
-        return baseInterval / (transient * operation);
+        // 手部骨折另作乘算系数（用户口径：单处手骨折 −30% 操作/攻速，多处乘算叠加、锁下限）——
+        // 与断手/断指的加性残疾惩罚相互独立叠乘，不改那套数学。
+        double fractureOp = rt.Body.HandFractureOperationFactor(
+            _cfg.Effects.HandFractureOperationMult, _cfg.Effects.HandFractureHealedOperationMult,
+            _cfg.Effects.FractureCapabilityFloor);
+
+        return baseInterval / (transient * operation * fractureOp);
     }
 
     private double BloodSpeedFactor(BloodLossTier tier) => tier switch
@@ -350,7 +387,9 @@ public sealed class DuelEngine
         var result = _resolver.Resolve(mount.Weapon, armor, part);
 
         target.LastDropped.Clear();
-        var outcome = _effects.Apply(target.Body, mount.Weapon, result);
+        // 抗性窗内（吃过震荡、打断+首轮冷却尚未走完）再次被震荡的概率打折，防死锁。
+        double concResist = now < target.ConcussionResistUntil ? _cfg.Effects.ConcussionResistFactor : 1.0;
+        var outcome = _effects.Apply(target.Body, mount.Weapon, result, concResist);
 
         var tags = new List<string>();
 
@@ -402,15 +441,12 @@ public sealed class DuelEngine
 
                     break;
                 case DamageEffectKind.Concussion:
-                    target.SpeedMult = Math.Max(_cfg.MinSpeedMult, target.SpeedMult * _cfg.ConcussionSpeedMult);
+                    ApplyConcussion(target, now, e.DurationSeconds);
                     tags.Add("震荡:" + e.PartName);
                     break;
                 case DamageEffectKind.Fracture:
-                    if (target.Body.Parts[e.PartName].Region == BodyRegion.Hand)
-                    {
-                        target.SpeedMult = Math.Max(_cfg.MinSpeedMult, target.SpeedMult * _cfg.HandFractureSpeedMult);
-                    }
-
+                    // 手部骨折的攻速惩罚已由 EffectiveInterval 读 Body 骨折态（持久）实时叠乘，此处只出战报标签；
+                    // 腿/脚骨折的移速惩罚归 Godot 实时层（对决无位移）。不再用一次性 SpeedMult 永久叠乘（旧机制已删）。
                     tags.Add("骨折:" + e.PartName);
                     break;
             }
@@ -425,6 +461,35 @@ public sealed class DuelEngine
             now, actor.Def.Name, target.Def.Name, mount.Weapon.Name, part.Name,
             DescribePenetration(result, armor.Count), result.FinalDamage, result.FinalDamageType,
             partMaxAtHit, tags);
+    }
+
+    /// <summary>
+    /// 施加一次震荡（重制口径）：目标进入 <paramref name="durationSeconds"/> 秒硬打断（now→打断结束不能出手）；
+    /// 已积累的冷却进度清零——打断结束后所有武器从零重走一次完整有效冷却；抗性窗覆盖「打断 + 首轮重走冷却」，
+    /// 期间再次被震荡概率打折（防死锁）。取代旧的 SpeedMult 永久叠乘。
+    /// 例：3s 冷却武器冷却已推进 2.9s 时吃 2.5s 震荡 → 下次出手 = now + 2.5(打断) + 3.0(满冷却)。
+    /// </summary>
+    private void ApplyConcussion(Runtime target, double now, double durationSeconds)
+    {
+        double interruptEnd = now + Math.Max(0, durationSeconds);
+        // 多次震荡取更晚的打断结束（不缩短已有打断）。
+        target.InterruptUntil = Math.Max(target.InterruptUntil, interruptEnd);
+
+        // 冷却清零 + 从零重走完整冷却：所有武器下次出手 = 打断结束 + 当前有效冷却。
+        double resistUntil = target.InterruptUntil;
+        for (int i = 0; i < target.NextTime.Length; i++)
+        {
+            double next = target.InterruptUntil + EffectiveInterval(target, target.Def.Weapons[i]);
+            target.NextTime[i] = next;
+            if (next > resistUntil)
+            {
+                resistUntil = next;
+            }
+        }
+
+        // 抗性窗到「打断 + 首轮冷却」走完为止（无武器者退化为打断结束）。走完即恢复无抗性；
+        // 抗性窗内再被震荡则重新打断、并把窗顺延到新的首轮冷却末（下轮同样带抗性，默认推导、待确认）。
+        target.ConcussionResistUntil = Math.Max(target.ConcussionResistUntil, resistUntil);
     }
 
     private static string DescribePenetration(CombatResult result, int armorCount)

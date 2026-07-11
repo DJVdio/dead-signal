@@ -35,7 +35,7 @@ public sealed partial class Zombie : Actor
         z.Body = CombatData.NewHumanoidBody();
         z.AttackWeapon = CombatData.ZombieClaw();
         z.AttackRange = 24f;
-        z.AttackCooldown = 1.3;
+        z.AttackCooldown = z.AttackWeapon.AttackInterval; // 读 WeaponTable 权威间隔（爪击慢节奏 2.3s），敌方同步慢节奏
         z.DefenderArmor = CombatData.ZombieHide();
         return z;
     }

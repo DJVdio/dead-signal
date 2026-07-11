@@ -60,6 +60,7 @@ public sealed class Body
     private readonly HashSet<string> _disabled = new();
     private readonly HashSet<string> _bleeding = new();
     private readonly HashSet<string> _fractured = new();
+    private readonly HashSet<string> _treatedFractures = new();
 
     public Body(IEnumerable<BodyPart> parts, double bloodMax = 100)
     {
@@ -87,8 +88,8 @@ public sealed class Body
     /// <summary>当前储血量。</summary>
     public double Blood { get; private set; }
 
-    /// <summary>每处伤口每秒失血量（拟定待调）；多处伤口叠加流速。</summary>
-    public double BleedRatePerWound { get; set; } = 0.8;
+    /// <summary>每处伤口每秒失血量（拟定待调）；多处伤口叠加流速。战斗内实时失血由此驱动（0.8→0.55 下调：慢节奏下放宽多伤口抢救窗）。</summary>
+    public double BleedRatePerWound { get; set; } = 0.55;
 
     /// <summary>设定储血量上限并回满（拟定期用于按体型/难度调参）。</summary>
     public void SetBloodMax(double max)
@@ -160,12 +161,68 @@ public sealed class Body
     /// <summary>标记某部位已骨折（由效果结算在触发骨折时调用）。持久保留。</summary>
     public void MarkFractured(string part) => _fractured.Add(part);
 
-    /// <summary>消骨折/治疗接口：清除某部位的骨折标记（与 StopBleed 对称）。幂等：未骨折/部位名不存在均无副作用。</summary>
-    /// TODO(治疗): 由骨折手术治愈时调用。
-    public void HealFracture(string part) => _fractured.Remove(part);
+    /// <summary>消骨折/痊愈接口：清除某部位的骨折标记（含已治疗标记）。幂等：未骨折/部位名不存在均无副作用。</summary>
+    /// TODO(治疗): 由骨折康复完成（痊愈）时调用。
+    public void HealFracture(string part)
+    {
+        _fractured.Remove(part);
+        _treatedFractures.Remove(part);
+    }
+
+    /// <summary>
+    /// 标记某部位骨折**已治疗**（手术成功、进入愈合中）：能力惩罚由未治疗档减半（−30%→−15%，用户口径）。
+    /// 由 Godot 医疗层在骨折手术成功时调用（愈合完成再调 <see cref="HealFracture"/> 归零）。幂等；仅对已骨折部位有意义。
+    /// </summary>
+    public void MarkFractureTreated(string part)
+    {
+        if (_fractured.Contains(part))
+        {
+            _treatedFractures.Add(part);
+        }
+    }
+
+    /// <summary>某部位骨折是否已治疗（愈合中，惩罚减半）。</summary>
+    public bool IsFractureTreated(string partName) => _treatedFractures.Contains(partName);
 
     /// <summary>某部位当前是否处于骨折状态（持久，供健康页签展示）。</summary>
     public bool IsFractured(string partName) => _fractured.Contains(partName);
+
+    /// <summary>
+    /// 手部骨折对操作能力的乘算系数（用户口径：单处手骨折 −30% 操作/含攻速；已治疗减半为 −15%）。
+    /// 每处**尚存的手部**（Region==Hand）骨折乘一次系数（未治疗 <paramref name="untreatedMult"/> / 已治疗 <paramref name="treatedMult"/>），
+    /// 多处乘算叠加，结果锁下限 <paramref name="floor"/>。不含手指/上臂骨折（仅 Region==Hand 计入，其余骨折为持久状态标记、无能力效果，待确认）。
+    /// 与残疾净惩罚（断手/断指）相互独立叠乘，不改那套加性数学。
+    /// </summary>
+    public double HandFractureOperationFactor(double untreatedMult, double treatedMult, double floor)
+        => FractureCapabilityFactor(untreatedMult, treatedMult, floor, BodyRegion.Hand);
+
+    /// <summary>
+    /// 腿/脚骨折对移动能力的乘算系数（用户口径：单处腿骨折 −30% 移速；已治疗减半为 −15%）。
+    /// 每处尚存的腿（Region==Leg）或脚（Region==Foot）骨折乘一次系数（未治疗/已治疗），
+    /// 多处乘算叠加，锁下限 <paramref name="floor"/>（脚归入腿部移动，待确认）。
+    /// </summary>
+    public double LegFractureMobilityFactor(double untreatedMult, double treatedMult, double floor)
+        => FractureCapabilityFactor(untreatedMult, treatedMult, floor, BodyRegion.Leg, BodyRegion.Foot);
+
+    private double FractureCapabilityFactor(double untreatedMult, double treatedMult, double floor, params BodyRegion[] regions)
+    {
+        double factor = 1.0;
+        foreach (var partName in _fractured)
+        {
+            if (IsGone(partName) || !_parts.TryGetValue(partName, out var bp))
+            {
+                continue; // 已切除/损毁的部位骨折不再计能力（部位已不在）。
+            }
+
+            if (Array.IndexOf(regions, bp.Region) >= 0)
+            {
+                // 已治疗（愈合中）惩罚减半；未治疗满惩罚。
+                factor *= _treatedFractures.Contains(partName) ? treatedMult : untreatedMult;
+            }
+        }
+
+        return Math.Max(floor, factor);
+    }
 
     public IReadOnlyDictionary<string, BodyPart> Parts => _parts;
 

@@ -20,6 +20,12 @@ public sealed class DamageEffect
 
     /// <summary>严重度 0~1（触发时的概率 p，或切除固定 1）。供叙事/后续减益强度使用。</summary>
     public double Severity { get; init; }
+
+    /// <summary>
+    /// 时序时长（秒）。仅 <see cref="DamageEffectKind.Concussion"/> 使用：本次震荡的硬打断时长
+    /// （2~5s roll，拟定待调）。其余效果为 0。消费方（对决引擎/Godot 实时层）据此设打断时限与冷却清零。
+    /// </summary>
+    public double DurationSeconds { get; init; }
 }
 
 /// <summary>
@@ -41,17 +47,65 @@ public sealed class EffectConfig
     /// <summary>0HP 部位受实质钝伤时 MaxHp 磨损量 = 本次伤害 × 此系数（拟定待调）。</summary>
     public double MaxHpErosionFactor { get; init; }
 
+    // ---- 震荡时序 + 抗性（重制口径，用户拍板；数值全部拟定待调）----
+
+    /// <summary>震荡硬打断最短时长（秒）。</summary>
+    public double ConcussionMinSeconds { get; init; }
+
+    /// <summary>震荡硬打断最长时长（秒）。触发时在 [Min,Max] 均匀 roll（默认待确认=均匀分布）。</summary>
+    public double ConcussionMaxSeconds { get; init; }
+
+    /// <summary>
+    /// 未击穿护甲（被甲完全挡下=FinalDamage==0，「甲没破人被锤懵」）触发的震荡固定打断时长（秒，用户口径，拟定待调）。
+    /// 击穿/无甲命中仍走 [Min,Max] roll。粒度取舍：只把"完全挡下"判为未击穿；减半但穿透仍算击穿走区间 roll。
+    /// </summary>
+    public double ConcussionBlockedSeconds { get; init; }
+
+    /// <summary>
+    /// 震荡抗性系数：吃到一次震荡后，其打断+首轮重走冷却期间，再次震荡的触发概率 ×此系数（0.25=75% 抗性，
+    /// 防震荡死锁，用户口径）。1.0=无抗性。抗性窗覆盖打断本身+首轮冷却为默认推导（待确认）。
+    /// </summary>
+    public double ConcussionResistFactor { get; init; }
+
+    /// <summary>震荡打断期间移动速度系数（Godot 实时层消费；对决引擎无位移故不用）。拟定待调=0.1（−90%）。</summary>
+    public double ConcussionMoveSlowFactor { get; init; }
+
+    /// <summary>单处**未治疗**手部骨折对操作能力的乘算系数（0.7=−30% 操作，含攻速，用户口径）。多处乘算叠加。</summary>
+    public double HandFractureOperationMult { get; init; }
+
+    /// <summary>单处**已治疗**（手术成功、愈合中）手部骨折的操作系数（0.85=−15%，减半惩罚，用户口径）。</summary>
+    public double HandFractureHealedOperationMult { get; init; }
+
+    /// <summary>单处**未治疗**腿/脚骨折对移动能力的乘算系数（0.7=−30% 移速，用户口径）。多处乘算叠加。</summary>
+    public double LegFractureMobilityMult { get; init; }
+
+    /// <summary>单处**已治疗**腿/脚骨折的移动系数（0.85=−15%，减半惩罚，用户口径）。</summary>
+    public double LegFractureHealedMobilityMult { get; init; }
+
+    /// <summary>多处骨折乘算叠加后的能力系数下限（防止叠到过低，拟定待确认）。</summary>
+    public double FractureCapabilityFloor { get; init; }
+
     public static EffectConfig Default() => new()
     {
         BleedK = 1.0,
         BleedCap = 0.90,
-        FractureK = 0.8,
+        FractureK = 0.4,   // 拟定待调（0.8→0.4：破甲锤骨折率 60%（96% 撞封顶、武器区分度被抹平）→ ~46%，封顶只在重锤打小部位出现；棍棒 ~17%）
         FractureCap = 0.60,
         ConcussionHeadK = 0.9,
         ConcussionHeadCap = 0.85,
         ConcussionTorsoK = 0.25,
         ConcussionTorsoCap = 0.40,
         MaxHpErosionFactor = 1.0,
+        ConcussionMinSeconds = 2.0,
+        ConcussionMaxSeconds = 5.0,
+        ConcussionBlockedSeconds = 1.0,
+        ConcussionResistFactor = 0.25,
+        ConcussionMoveSlowFactor = 0.1,
+        HandFractureOperationMult = 0.7,
+        HandFractureHealedOperationMult = 0.85,
+        LegFractureMobilityMult = 0.7,
+        LegFractureHealedMobilityMult = 0.85,
+        FractureCapabilityFloor = 0.2,
     };
 }
 
@@ -102,7 +156,12 @@ public sealed class CombatEffectResolver
         _cfg = cfg ?? EffectConfig.Default();
     }
 
-    public EffectOutcome Apply(Body body, Weapon weapon, CombatResult result)
+    /// <param name="concussionResistFactor">
+    /// 目标当前的震荡抗性系数（默认 1.0=无抗性）。&lt;1 时震荡触发概率按此打折（防死锁，见
+    /// <see cref="EffectConfig.ConcussionResistFactor"/>）。抗性窗由调用方（对决/实时层）按其时序判定后传入。
+    /// 无论是否抗性，只要天然钝器命中震荡部位就照旧消耗一次震荡 roll（保持 rng 顺序稳定可复现）。
+    /// </param>
+    public EffectOutcome Apply(Body body, Weapon weapon, CombatResult result, double concussionResistFactor = 1.0)
     {
         string partName = result.HitPart.Name;
         BodyPart part = result.HitPart;
@@ -172,10 +231,19 @@ public sealed class CombatEffectResolver
             bool torso = part.Region == BodyRegion.Torso;
             double k = torso ? _cfg.ConcussionTorsoK : _cfg.ConcussionHeadK;
             double cap = torso ? _cfg.ConcussionTorsoCap : _cfg.ConcussionHeadCap;
-            double p = Clamp01Cap(k * result.InitialAttackRoll / maxHp, cap);
+            // 抗性期内触发概率打折（×resistFactor，防震荡死锁）；无抗性时 factor=1.0 概率不变。
+            double p = Clamp01Cap(k * result.InitialAttackRoll / maxHp, cap) * concussionResistFactor;
             if (_rng.Range(0, 1) < p)
             {
-                effects.Add(new DamageEffect { Kind = DamageEffectKind.Concussion, PartName = partName, Severity = p });
+                // 未击穿护甲（被甲完全挡下 dmg==0）→ 固定短打断 1s（用户口径），不消耗时长 roll；
+                // 击穿/无甲（dmg>0）→ 时长 roll（2~5s，拟定待调），走同一 IRandomSource 保持可复现。
+                double dur = dmg > 0
+                    ? _rng.Range(_cfg.ConcussionMinSeconds, _cfg.ConcussionMaxSeconds)
+                    : _cfg.ConcussionBlockedSeconds;
+                effects.Add(new DamageEffect
+                {
+                    Kind = DamageEffectKind.Concussion, PartName = partName, Severity = p, DurationSeconds = dur,
+                });
             }
         }
 

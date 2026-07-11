@@ -60,6 +60,20 @@ public sealed class Weapon
     /// </summary>
     public double AttackInterval { get; init; }
 
+    // ---- 连发（枪械攻击模型：冷却→射击→冷却→射击；一次"射击"= BurstCount 发）----
+
+    /// <summary>
+    /// 连发数：一次"射击"连续打出的弹数。默认 1=单发；冲锋枪=3（三连发）。
+    /// 每发独立锥形采样/命中/伤害 roll；<see cref="AttackInterval"/> 语义为**连发之后的冷却**
+    /// （冷却→整轮连发→冷却→整轮连发）。拟定待调。
+    /// </summary>
+    public int BurstCount { get; init; } = 1;
+
+    /// <summary>
+    /// 连发内每弹间隔（秒），仅 <see cref="BurstCount"/> &gt; 1 时有意义。冷却在整轮连发之后才开始。拟定待调。
+    /// </summary>
+    public double BurstInterval { get; init; }
+
     // ---- 远程射程与射程内衰减（仅远程武器填；近战留 null=无射程模型）----
 
     /// <summary>
