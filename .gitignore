@@ -25,3 +25,6 @@ data_*/
 *.swp
 .idea/
 .vscode/
+
+# ---- tabb 协调黑板（会话级，不入库）----
+.tabb/
