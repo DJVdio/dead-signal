@@ -36,18 +36,27 @@ public static class ExplorationCache
     // ——目的地名（与 WorldMapPanel 的 Destination.Name 一致，务必同步）——
     public const string RiversideCabinName = "河边小屋";
     public const string HarvesterWarehouseName = "联合收割机仓库";
+    /// <summary>城市之巅瞭望观景台目的地名，须与 <c>WorldMapPanel.CityRooftopLookoutName</c> 一致（本类脱 Godot 单测，故本地持有副本）。</summary>
+    public const string CityRooftopLookoutName = "城市之巅瞭望观景台";
 
     // ——搜刮点 id（探索关内 Area2D 触发时上报）——
     public const string RiversideGunCabinetId = "cache_riverside_gun_cabinet";
     public const string RiversideBedChestId = "cache_riverside_bed_chest";
     public const string WarehouseToolCabinetId = "cache_warehouse_tool_cabinet";
     public const string WarehouseAtticChestId = "cache_warehouse_attic_chest";
+    // 城市之巅瞭望观景台搜刮点（望远镜发现尸潮的剧情由 LookoutSighting 另管，本处只是同址物资）：
+    //   · 游客服务台/礼品柜（近入口，浅）：观景台是旅游景点，游客遗留食水+医疗小物+纪念品店杂物。
+    //   · 瞭望员值班室（藏深）：高空值守间的应急物资——燃油/急救/望远镜等光学信号设备拆出的电子件。
+    public const string LookoutGiftShopId = "cache_lookout_gift_shop";
+    public const string LookoutWardensRoomId = "cache_lookout_wardens_room";
 
     // ——一次性 flag（防重复搜刮，跨关持久）——
     public const string RiversideGunCabinetFlag = "searched_riverside_gun_cabinet";
     public const string RiversideBedChestFlag = "searched_riverside_bed_chest";
     public const string WarehouseToolCabinetFlag = "searched_warehouse_tool_cabinet";
     public const string WarehouseAtticChestFlag = "searched_warehouse_attic_chest";
+    public const string LookoutGiftShopFlag = "searched_lookout_gift_shop";
+    public const string LookoutWardensRoomFlag = "searched_lookout_wardens_room";
 
     // ——关键投放物标识（须与 WeaponTable / BookLibrary 一致）——
     /// <summary>栓动猎枪武器名，须与 <c>WeaponTable.BoltActionHuntingRifle().Name</c> 一致。</summary>
@@ -66,6 +75,8 @@ public static class ExplorationCache
     {
         RiversideCabinName => new[] { RiversideGunCabinetId, RiversideBedChestId },
         HarvesterWarehouseName => new[] { WarehouseToolCabinetId, WarehouseAtticChestId },
+        // 望远镜发现点(尸潮剧情)不在此列——那是 LookoutSighting 管的置旗标+叙事，非物资搜刮。
+        CityRooftopLookoutName => new[] { LookoutGiftShopId, LookoutWardensRoomId },
         _ => Array.Empty<string>(),
     };
 
@@ -118,6 +129,29 @@ public static class ExplorationCache
                 },
                 WarehouseAtticChestTitle, WarehouseAtticChestNarrative),
 
+            LookoutGiftShopId when NotYet(flags, LookoutGiftShopFlag) => new CacheResult(
+                LookoutGiftShopFlag,
+                new[]
+                {
+                    LootItem.Food(2),                       // 游客遗留的瓶装水/零食
+                    LootItem.Material("bandage", 2),        // 服务台常备急救小物
+                    LootItem.Material("cloth", 2),          // 礼品店纪念围巾/布艺
+                    LootItem.Material("scrap_metal", 2),    // 投币望远镜零钱箱/纪念币撬出的碎金属
+                },
+                LookoutGiftShopTitle, LookoutGiftShopNarrative),
+
+            LookoutWardensRoomId when NotYet(flags, LookoutWardensRoomFlag) => new CacheResult(
+                LookoutWardensRoomFlag,
+                new[]
+                {
+                    LootItem.Material("fuel", 2),           // 应急发电/信号灯的燃油
+                    LootItem.Material("first_aid_kit", 1),  // 值班室急救包
+                    LootItem.Material("components", 1),     // 望远镜/信号设备拆出的电子件
+                    LootItem.Material("wire", 2),           // 光学/信号线材
+                    LootItem.Food(1),                       // 瞭望员的口粮
+                },
+                LookoutWardensRoomTitle, LookoutWardensRoomNarrative),
+
             _ => null,
         };
     }
@@ -158,4 +192,21 @@ public static class ExplorationCache
         "撬开锁扣，最上面是一本《进阶木匠技术》，书页间还夹着几张手绘的榫卯草图——" +
         "藏得这样深，原主人显然把它当成了看家的本事。\n\n" +
         "箱底还剩两罐燃油和一只没拆封的急救包。";
+
+    // —— 城市之巅瞭望观景台 ——
+    private const string LookoutGiftShopTitle = "游客服务台";
+
+    private const string LookoutGiftShopNarrative =
+        "观景层入口处是一圈落满灰的游客服务台，玻璃柜里还摆着这座城市的明信片和纪念摆件。" +
+        "疏散得很急——柜台后遗下几瓶没开封的水、半盒受潮的零食，还有一小卷服务台常备的绷带。\n\n" +
+        "墙角那台投币望远镜的零钱箱被人砸开过，箱底散着些没人再要的硬币和纪念币，" +
+        "刮下来倒是几块能回炉的碎金属。";
+
+    private const string LookoutWardensRoomTitle = "瞭望员值班室";
+
+    private const string LookoutWardensRoomNarrative =
+        "观景台最高处隔出一间狭小的值班室，是当年瞭望员盯风向、看火情的地方。" +
+        "断电前这里显然被当成过临时据点：墙边码着两罐应急燃油，抽屉里压着一只没拆封的急救包。\n\n" +
+        "架子上一台拆了一半的信号望远镜——镜筒被卸开，露出里头的线路板和成卷的细线。" +
+        "这些光学和信号设备的电子件、线材，在如今比镜片值钱得多。桌上还剩瞭望员没吃完的一份口粮。";
 }

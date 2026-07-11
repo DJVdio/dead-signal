@@ -53,6 +53,8 @@
     <Compile Include="..\..\godot\scripts\FoodEconomy.cs" Link="Consumed\FoodEconomy.cs" />
     <!-- 游戏结束纯逻辑（无 Godot 依赖）：全体幸存者死亡即全灭的判定。 -->
     <Compile Include="..\..\godot\scripts\GameOverCondition.cs" Link="Consumed\GameOverCondition.cs" />
+    <!-- 尸潮时限纯逻辑（无 Godot 依赖）：隐性计时相位(Hidden/Sighted/Arrived) + 剩余天数 + 到期无限围攻波次调度。 -->
+    <Compile Include="..\..\godot\scripts\HordeTimeline.cs" Link="Consumed\HordeTimeline.cs" />
     <!-- 防走A 攻击冷却重置决策纯逻辑（无 Godot 依赖）：非攻击态/切目标/移动过→重置，同指令重复→保持。 -->
     <Compile Include="..\..\godot\scripts\AttackCommandState.cs" Link="Consumed\AttackCommandState.cs" />
     <!-- 条件驱动气泡框架纯逻辑（无 Godot 依赖）：剧情 flag / 条件求值 / 选择器 v2 / 去重。 -->
@@ -75,8 +77,10 @@
     <Compile Include="..\..\godot\scripts\ContainerLoot.cs" Link="Consumed\ContainerLoot.cs" />
     <!-- 金手指帮根据地发现点纯逻辑（无 Godot 依赖）：discoveryId → flag/日记书/环境叙事；克莉丝汀尸体按支线 flag 分支措辞。 -->
     <Compile Include="..\..\godot\scripts\GoldfingerDiscovery.cs" Link="Consumed\GoldfingerDiscovery.cs" />
-    <!-- 探索点搜刮缓存纯逻辑（无 Godot 依赖）：cacheId → flag/一批掉落/环境叙事（河边小屋/联合收割机仓库）。 -->
+    <!-- 探索点搜刮缓存纯逻辑（无 Godot 依赖）：cacheId → flag/一批掉落/环境叙事（河边小屋/联合收割机仓库/城市之巅瞭望观景台）。 -->
     <Compile Include="..\..\godot\scripts\ExplorationCache.cs" Link="Consumed\ExplorationCache.cs" />
+    <!-- 瞭望台望远镜瞭望尸潮发现点纯逻辑（无 Godot 依赖）：discoveryId → 置 HordeTimeline.SightedFlag + 环境叙事。 -->
+    <Compile Include="..\..\godot\scripts\LookoutSighting.cs" Link="Consumed\LookoutSighting.cs" />
     <!-- 武器持械模型纯逻辑（无 Godot 依赖）：左右手持械 → GripMode 推导 / 断手禁持 / 主手武器选取。 -->
     <Compile Include="..\..\godot\scripts\WeaponLoadout.cs" Link="Consumed\WeaponLoadout.cs" />
     <!-- 持握态战斗消费纯逻辑（无 Godot 依赖）：grip 攻速系数并入残疾×饥饿的有效间隔 + 双持远程误差角 ×1.25。 -->

@@ -3,13 +3,21 @@ using Godot;
 namespace DeadSignal.Godot;
 
 /// <summary>
-/// 屏幕叠加层：左上角昼夜/天数/速度档信息，底部操控提示，以及跟随鼠标的悬停辨识小标签。
+/// 屏幕叠加层：左上角昼夜/天数/速度档信息，右上角尸潮南下倒计时/到期警示，
+/// 底部操控提示，以及跟随鼠标的悬停辨识小标签。
 /// </summary>
 public sealed partial class Hud : CanvasLayer
 {
     private Label _statusLabel = null!;
     private Label _helpLabel = null!;
     private Label _hoverLabel = null!;   // 跟随鼠标的容器辨识提示（工作台/储物柜/搜刮物）
+    private Label _hordeLabel = null!;   // 右上角尸潮倒计时/到期警示（未发现时全隐，Hidden 零痕迹）
+
+    // 拟定：剩余 ≤ 此天数转 Warning 黄警示（数值待 Sim/用户调）。
+    private const int HordeUrgentDays = 7;
+
+    private bool _hordeArrived;          // Arrived 态：驱动红字呼吸动画
+    private double _hordePulseT;         // 呼吸相位累计（缩放时标下，暂停即冻结，合期望）
 
     public override void _Ready()
     {
@@ -32,6 +40,17 @@ public sealed partial class Hud : CanvasLayer
         _hoverLabel.ZIndex = 100;
         _hoverLabel.Visible = false;
         AddChild(_hoverLabel);
+
+        // 右上角尸潮倒计时：锚右上、右对齐、向左生长（不与左上状态行争位）。默认隐（Hidden 态零痕迹）。
+        _hordeLabel = MakeLabel();
+        _hordeLabel.AddThemeFontSizeOverride("font_size", 18);
+        _hordeLabel.SetAnchorsPreset(Control.LayoutPreset.TopRight);
+        _hordeLabel.GrowHorizontal = Control.GrowDirection.Begin;
+        _hordeLabel.HorizontalAlignment = HorizontalAlignment.Right;
+        _hordeLabel.OffsetTop = 12;
+        _hordeLabel.OffsetRight = -16;
+        _hordeLabel.Visible = false;
+        AddChild(_hordeLabel);
     }
 
     private static Label MakeLabel()
@@ -44,6 +63,58 @@ public sealed partial class Hud : CanvasLayer
     }
 
     public void SetStatus(string text) => _statusLabel.Text = text;
+
+    /// <summary>
+    /// 更新右上角尸潮倒计时/警示（三态；调用方由 HordeTimeline.HordePhase 映射来，Hud 不依赖纯逻辑层）：
+    /// <list type="bullet">
+    /// <item><c>!sighted</c>（Hidden）：完全隐藏，零痕迹——玩家未上瞭望台知情前不剧透时限。</item>
+    /// <item><c>sighted &amp;&amp; !arrived</c>（Sighted）：常驻「尸潮南下」倒计时；剩余 ≤ <see cref="HordeUrgentDays"/> 天转 Warning 黄。</item>
+    /// <item><c>arrived</c>（Arrived）：转 Danger 红警示「尸潮已至」，红字缓慢呼吸（克制，不闪烁）。</item>
+    /// </list>
+    /// 文案为草稿（供用户改）。<paramref name="daysRemaining"/> 负值按 0 显示。
+    /// </summary>
+    public void SetHordeCountdown(bool sighted, bool arrived, int daysRemaining)
+    {
+        if (!sighted)
+        {
+            _hordeLabel.Visible = false;
+            _hordeArrived = false;
+            return;
+        }
+
+        _hordeLabel.Visible = true;
+
+        if (arrived)
+        {
+            if (!_hordeArrived)
+            {
+                _hordeArrived = true;
+                _hordePulseT = 0;
+            }
+            _hordeLabel.Text = "尸潮已至";  // 草稿文案
+            _hordeLabel.AddThemeColorOverride("font_color", UiStyle.Danger);
+            return;
+        }
+
+        // 由 Arrived 回退到 Sighted（一般不会，稳健起见复位呼吸 alpha）。
+        _hordeArrived = false;
+        _hordeLabel.Modulate = new Color(1, 1, 1, 1);
+
+        int days = daysRemaining < 0 ? 0 : daysRemaining;
+        _hordeLabel.Text = $"尸潮南下 · 距抵达约 {days} 天";  // 草稿文案
+        Color col = days <= HordeUrgentDays ? UiStyle.Warning : new Color(0.95f, 0.97f, 1f);
+        _hordeLabel.AddThemeColorOverride("font_color", col);
+    }
+
+    public override void _Process(double delta)
+    {
+        if (!_hordeArrived)
+            return;
+        // Arrived 红字缓慢呼吸：alpha 0.5↔1.0，周期 ~2s。仅此态启用，其余帧直接 return 零开销。
+        _hordePulseT += delta;
+        float a = 0.75f + 0.25f * Mathf.Sin((float)_hordePulseT * 3.0f);
+        _hordeLabel.Modulate = new Color(1, 1, 1, a);
+    }
 
     /// <summary>显示（或更新）跟随鼠标的悬停辨识标签；<paramref name="screenPos"/> 为屏幕坐标（视口鼠标位）。</summary>
     public void ShowHoverLabel(string text, Vector2 screenPos)

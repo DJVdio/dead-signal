@@ -71,7 +71,7 @@ public class ExplorationCacheTests
     }
 
     [Fact]
-    public void CacheIdsFor_MapsTwoNewDestinations_OthersEmpty()
+    public void CacheIdsFor_MapsThreeDestinations_OthersEmpty()
     {
         Assert.Equal(
             new[] { ExplorationCache.RiversideGunCabinetId, ExplorationCache.RiversideBedChestId },
@@ -79,14 +79,54 @@ public class ExplorationCacheTests
         Assert.Equal(
             new[] { ExplorationCache.WarehouseToolCabinetId, ExplorationCache.WarehouseAtticChestId },
             ExplorationCache.CacheIdsFor(ExplorationCache.HarvesterWarehouseName).ToArray());
+        // 城市之巅瞭望观景台：两处物资搜刮点（望远镜发现尸潮的剧情点不在此列，归 LookoutSighting）。
+        Assert.Equal(
+            new[] { ExplorationCache.LookoutGiftShopId, ExplorationCache.LookoutWardensRoomId },
+            ExplorationCache.CacheIdsFor(ExplorationCache.CityRooftopLookoutName).ToArray());
         Assert.Empty(ExplorationCache.CacheIdsFor("超市"));
+    }
+
+    [Fact]
+    public void LookoutCaches_HaveGeneralSuppliesNoWeaponNoBook()
+    {
+        // 瞭望台是剧情主点，物资为前中期通用搭配（食水/医疗/材料/电子件），不给招牌武器/书（draft 拟定，用户可加招牌物）。
+        CacheResult shop = ExplorationCache.Resolve(ExplorationCache.LookoutGiftShopId, new StoryFlags())!.Value;
+        Assert.Contains(shop.Loot, l => l.Kind == LootKind.Food);
+        Assert.Contains(shop.Loot, l => l.Kind == LootKind.Material);
+
+        CacheResult room = ExplorationCache.Resolve(ExplorationCache.LookoutWardensRoomId, new StoryFlags())!.Value;
+        Assert.Contains(room.Loot, l => l.Kind == LootKind.Material);
+
+        foreach (string id in ExplorationCache.CacheIdsFor(ExplorationCache.CityRooftopLookoutName))
+        {
+            CacheResult r = ExplorationCache.Resolve(id, new StoryFlags())!.Value;
+            Assert.DoesNotContain(r.Loot, l => l.Kind == LootKind.Weapon);
+            Assert.DoesNotContain(r.Loot, l => l.Kind == LootKind.Book);
+        }
+    }
+
+    [Fact]
+    public void LookoutCaches_AlreadySearched_ReturnsNull()
+    {
+        var f = new StoryFlags();
+        f.Set(ExplorationCache.LookoutGiftShopFlag, "true");
+        Assert.Null(ExplorationCache.Resolve(ExplorationCache.LookoutGiftShopId, f));
+
+        var g = new StoryFlags();
+        g.Set(ExplorationCache.LookoutWardensRoomFlag, "true");
+        Assert.Null(ExplorationCache.Resolve(ExplorationCache.LookoutWardensRoomId, g));
     }
 
     [Fact]
     public void EveryPlacedCacheId_Resolves()
     {
         // TestExploration 铺的每个搜刮点 id 必须解析得到（否则踏入零掉落无叙事）。
-        foreach (string dest in new[] { ExplorationCache.RiversideCabinName, ExplorationCache.HarvesterWarehouseName })
+        foreach (string dest in new[]
+                 {
+                     ExplorationCache.RiversideCabinName,
+                     ExplorationCache.HarvesterWarehouseName,
+                     ExplorationCache.CityRooftopLookoutName,
+                 })
             foreach (string id in ExplorationCache.CacheIdsFor(dest))
                 Assert.NotNull(ExplorationCache.Resolve(id, new StoryFlags()));
     }

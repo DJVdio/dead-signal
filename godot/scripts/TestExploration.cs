@@ -11,6 +11,20 @@ public sealed partial class TestExploration : ExplorationLevel
     private const float LevelH = 1600f;
     private const float WallT = 20f;
 
+    // ——城市之巅瞭望观景台：望远镜交互占位契约（兄弟系统消费）——
+    /// <summary>
+    /// 望远镜发现点 id。踏入望远镜发现区即经 <see cref="ExplorationLevel.OnDiscovery"/> → <c>CampMain.OnExplorationDiscovery(discoveryId)</c> 上报此 id。
+    /// 挂点在 <c>CampMain.OnExplorationDiscovery</c>（已留 TODO 分支）：
+    ///   · anim-lookout：在此 id 触发望远镜瞭望演出（正北黑压压上百万尸潮向南移动），演出锚点＝ <see cref="LookoutTelescopePosition"/>（关内世界坐标）。
+    ///   · loot-story：在此 id 出剧情文本（环境叙事，复用 ShowDiscoveryNarrative）。
+    ///   · core-timer：演出/文本落地后置 HordeSighted 旗标（解锁尸潮倒计时 HUD）。
+    /// 现状：此 id 在 CampMain.OnExplorationDiscovery 走两个既有 Resolve 均返回 null（安全 no-op，不崩），待兄弟接入。
+    /// </summary>
+    public const string LookoutTelescopeDiscoveryId = "discovery_lookout_telescope";
+
+    /// <summary>望远镜占位在瞭望关内的世界坐标（贴北墙，朝正北）。anim-lookout 据此放演出节点/镜头锚点。</summary>
+    public static readonly Vector2 LookoutTelescopePosition = new(LevelW / 2f, 260f);
+
     private CameraController _camera = null!;
     private readonly List<Zombie> _zombies = new();
     private readonly Dictionary<Actor, Node2D> _markers = new();
@@ -45,6 +59,8 @@ public sealed partial class TestExploration : ExplorationLevel
             SetupRiversideCabinCaches();
         else if (DestinationName == ExplorationCache.HarvesterWarehouseName)
             SetupHarvesterWarehouseCaches();
+        else if (DestinationName == WorldMapPanel.CityRooftopLookoutName)
+            SetupCityRooftopLookout();
     }
 
     public override void Cleanup()
@@ -291,6 +307,46 @@ public sealed partial class TestExploration : ExplorationLevel
             new Vector2(2050, 1180),
             markerColor: new Color(0.5f, 0.46f, 0.4f),
             label: "阁楼铁皮箱");
+    }
+
+    /// <summary>
+    /// 城市之巅瞭望观景台（前中期调查点，用户口径："用望远镜看到正北方黑压压上百万尸潮向南移动"）。
+    /// 骨架＝复用本测试关地形，仅在北缘铺一处**望远镜可交互占位**（发现点式，踏入即上报 <see cref="LookoutTelescopeDiscoveryId"/>）。
+    /// 演出/剧情/旗标接线由兄弟系统在 <c>CampMain.OnExplorationDiscovery</c> 的 TODO 挂点补齐（见 <see cref="LookoutTelescopeDiscoveryId"/> 注释）。
+    /// 另铺两处同址物资搜刮点（游客服务台/瞭望员值班室，接 loot-story，物资/叙事见 <see cref="ExplorationCache"/>）。
+    /// 占位美术：北缘一段观景护栏 + 望远镜标记；正式高层观景台空间布局/美术待后续。
+    /// </summary>
+    private void SetupCityRooftopLookout()
+    {
+        // 占位护栏：贴北墙一段横栏，示意"高层观景台面朝正北"（纯视觉，无碰撞）。
+        var railing = new Polygon2D
+        {
+            Polygon = Quad(new Vector2(LookoutTelescopePosition.X - 240f, LookoutTelescopePosition.Y - 34f), new Vector2(480f, 10f)),
+            Color = new Color(0.32f, 0.30f, 0.26f, 0.9f),
+            ZIndex = 6,
+        };
+        AddChild(railing);
+
+        // 望远镜可交互占位：踏入发现区即上报 telescope id（挂点见常量注释；anim-lookout 可用同坐标叠演出节点）。
+        AddDiscoveryPoint(
+            LookoutTelescopeDiscoveryId,
+            LookoutTelescopePosition,
+            markerColor: new Color(0.30f, 0.55f, 0.70f),
+            label: "望远镜");
+
+        // 同址物资搜刮点（接 loot-story HANDOFF；物资/叙事在 ExplorationCache.Resolve，落地走 CampMain.OnExplorationDiscovery→ExplorationCache）：
+        //   · 游客服务台（浅/近入口，贴南入口侧，先被遇到）；· 瞭望员值班室（藏深，关内北侧远角，与望远镜同处高空值守区）。
+        AddDiscoveryPoint(
+            ExplorationCache.LookoutGiftShopId,
+            new Vector2(600, 1250),
+            markerColor: new Color(0.55f, 0.5f, 0.4f),
+            label: "游客服务台");
+
+        AddDiscoveryPoint(
+            ExplorationCache.LookoutWardensRoomId,
+            new Vector2(2050, 320),
+            markerColor: new Color(0.5f, 0.48f, 0.44f),
+            label: "瞭望员值班室");
     }
 
     /// <summary>造一个发现点：地面标记 + 文字标签 + 触发 Area2D（踏入一次即上报，本关内不重复）。</summary>

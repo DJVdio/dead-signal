@@ -73,6 +73,8 @@ public sealed partial class CampMain : Node2D
     private int _hudSpeedIndex = -1;
     private bool _hudPaused;
     private int _hudAlive = -1;
+    private int _hudHordePhase = -1;   // 尸潮相位脏检信号（-1=未初始化；旗标翻转/到期不必每帧重算文案）
+    private int _hudHordeDays = -1;     // 剩余天数脏检信号（仅随 _clock.Day 变）
 
     private WorldMapPanel _worldMapPanel = null!;
     private ExpeditionPanel _expeditionPanel = null!;
@@ -122,6 +124,7 @@ public sealed partial class CampMain : Node2D
     private CampToast _campToast = null!;    // 制作/搜刮的一行瞬时提示（HUD 顶部，手动显隐——时标冻结下计时器不走）
     private DiscoveryPanel _discoveryPanel = null!;  // 探索发现环境叙事面板（模态，弹出时冻结时标）
     private double _prevDiscoveryTimeScale;          // 弹发现叙事前的时标（关闭时恢复）
+    private double _prevLookoutTimeScale;            // 望远镜瞭望演出前的时标（演出期间冻结探索层，播完恢复）
 
     // ---------------- 神秘商人（中立到访者 + 货币交易） ----------------
     // 每 1~5 天夜晚到访、天亮离开（游戏白天=探险队视角、夜晚=营地视角，商人须与营地可操作窗口重合）；
@@ -164,6 +167,11 @@ public sealed partial class CampMain : Node2D
     private readonly List<Pawn> _raidGuards = new();       // 本夜上岗守卫（存活）
     private bool _raidActive;
     private float _raidIntensity = 1f;
+    // 尸潮终局：到期(day>=DeadlineDay)启动的无限围攻。复用袭营执行层(_raidActive+守卫锁敌+SpawnCampZombies)，
+    // 但不走胜负结算——波次不停轮、无生还路线，唯一出口是全灭(GameOverCondition)。数值调度归 HordeTimeline。
+    private bool _siegeActive;
+    private int _siegeWaveIndex;        // 已投放波次序号（0=首波）
+    private double _siegeWaveElapsed;    // 距上一波投放已过秒（逐帧累积，喂 HordeTimeline.NextWave）
     private GuardPostKind _debugPlaceKind = GuardPostKind.Watchtower; // 调试放置轮换类型
     private const float BreachRadius = 420f;  // 破防线：丧尸摸进营心此半径内 = 破防（随 2400×1800 地图放大调，拟定待调）
 
@@ -1178,9 +1186,13 @@ public sealed partial class CampMain : Node2D
         int hudClockKey = _clock.ClockMinuteKey();
         bool hudPaused = _clock.Paused;
         int hudAlive = _survivors.Count(s => s.Alive);
+        // 尸潮倒计时：未望见=Hidden（HUD 零痕迹），望见后常驻，到期转红警。旗标只置不撤，Has 即知情（持久）。
+        HordePhase hordePhase = HordeTimeline.Evaluate(_clock.Day, _storyFlags.Has(HordeTimeline.SightedFlag));
+        int hordeDays = HordeTimeline.DaysRemaining(_clock.Day);
         if (!_hudInit || exploring != _hudExploring || _clock.Day != _hudDay || hudPhase != _hudPhase
             || hudClockKey != _hudClockKey || _clock.SpeedIndex != _hudSpeedIndex
-            || hudPaused != _hudPaused || hudAlive != _hudAlive)
+            || hudPaused != _hudPaused || hudAlive != _hudAlive
+            || (int)hordePhase != _hudHordePhase || hordeDays != _hudHordeDays)
         {
             _hudInit = true;
             _hudExploring = exploring;
@@ -1190,9 +1202,15 @@ public sealed partial class CampMain : Node2D
             _hudSpeedIndex = _clock.SpeedIndex;
             _hudPaused = hudPaused;
             _hudAlive = hudAlive;
+            _hudHordePhase = (int)hordePhase;
+            _hudHordeDays = hordeDays;
             _hud.SetStatus(
                 $"{(exploring ? "探索" : "营地")}  第 {_clock.Day} 天  {_clock.ClockString()}  [{_clock.CurrentPhase}]   速度 {_clock.SpeedLabel()}   " +
                 $"幸存者 {hudAlive}");
+            _hud.SetHordeCountdown(
+                hordePhase != HordePhase.Hidden,
+                hordePhase == HordePhase.Arrived,
+                hordeDays);
         }
 
         if (_returnWarningPopup.Visible && _clock.CurrentPhase == DayPhase.DayExplore)
@@ -2051,6 +2069,12 @@ public sealed partial class CampMain : Node2D
                 // 不叠加丧尸袭营（TriggerRaid 会因 _tutorialActive 早退）。
                 if (_clock.Day == 2 && !_storyFlags.Has("tutorial_raider_started"))
                     BeginChristineTutorial();
+                // 尸潮时限到期(day>=DeadlineDay)：本夜起无限围攻直至全灭（无生还，有意为之的黑暗终局）。
+                // 时限与教学关(第 2 夜)天数相去甚远，不冲突；发现与否不影响触发（Evaluate 到期一律 Arrived）。
+                // 终局冻结门控：主线推进到终局抉择点后置 EndgameFreezeFlag → 结局流程接管，围攻不再触发（置位方留待主线系统）。
+                else if (HordeTimeline.ShouldTriggerSiege(
+                    _clock.Day, _storyFlags.Has(HordeTimeline.SightedFlag), _storyFlags.Has(HordeTimeline.EndgameFreezeFlag)))
+                    TriggerHordeSiege();
                 break;
         }
     }
@@ -2147,6 +2171,23 @@ public sealed partial class CampMain : Node2D
     /// </summary>
     private void OnExplorationDiscovery(string discoveryId)
     {
+        // ——望远镜瞭望挂点（城市之巅瞭望观景台）——
+        // 踏入望远镜发现区即到此。约定顺序：先播全屏瞭望演出（anim-lookout），播完回调 OnLookoutCinematicFinished
+        // 里再出剧情文本（loot-story）+置 HordeSighted 旗标（core-timer）。见 [HANDOFF] anim-lookout → loot-story。
+        if (discoveryId == TestExploration.LookoutTelescopeDiscoveryId)
+        {
+            // 已瞭望过则不重复全屏演出（core-timer 的持久去重旗标；旗标未置前每次踏入均重播）。
+            if (_storyFlags.Has(HordeTimeline.SightedFlag))
+                return;
+
+            // 冻结探索实时层：演出全屏遮挡期间不让世界继续（避免看不见的丧尸交战）；播完回调里恢复。
+            _prevLookoutTimeScale = Engine.TimeScale;
+            Engine.TimeScale = 0;
+            // 演出走真实时钟（不吃 TimeScale），全屏播放约 11s（可跳过），播完自毁并回调。
+            HordeLookoutCinematic.Show(_hud, OnLookoutCinematicFinished);
+            return;
+        }
+
         DiscoveryResult? r = GoldfingerDiscovery.Resolve(discoveryId, _storyFlags);
         if (r != null)
         {
@@ -2178,6 +2219,28 @@ public sealed partial class CampMain : Node2D
         InstallFoundTools(tools);
 
         ShowDiscoveryNarrative(cache.Title, cache.Narrative);
+    }
+
+    /// <summary>
+    /// 望远镜瞭望演出播完（或被跳过）回调 —— anim-lookout 的「播完回调」挂点。约定顺序：演出→本回调。
+    /// 本方法先恢复探索层时标（演出前冻结的），随后交给 loot-story/core-timer 接内容：
+    ///   1) core-timer：置 HordeSighted 旗标 <c>_storyFlags.Set(HordeTimeline.SightedFlag, "true")</c>（解锁尸潮倒计时 HUD + 持久去重）；
+    ///   2) loot-story：出瞭望所见剧情文本 <c>ShowDiscoveryNarrative(title, narrative)</c>（内含再次冻结/恢复时标，无碍）。
+    /// 二者顺序不敏感，但都应在本方法内、时标恢复之后。见 [HANDOFF] anim-lookout → loot-story。
+    /// </summary>
+    private void OnLookoutCinematicFinished()
+    {
+        Engine.TimeScale = _prevLookoutTimeScale <= 0 ? 1 : _prevLookoutTimeScale;
+
+        // 演出播完：置 HordeTimeline.SightedFlag(解锁尸潮倒计时 HUD + 持久去重) + 弹瞭望所见剧情文本(不给书)。
+        // 旗标/文本单一事实源＝LookoutSighting.Resolve（脱 Godot 可测）。外层踏入已按同旗标去重，故此处 Resolve 恒非空。
+        DiscoveryResult? sighting = LookoutSighting.Resolve(TestExploration.LookoutTelescopeDiscoveryId, _storyFlags);
+        if (sighting != null)
+        {
+            DiscoveryResult s = sighting.Value;
+            _storyFlags.Set(s.StoryFlag, "true"); // 置 horde_sighted
+            ShowDiscoveryNarrative(s.Title, s.Narrative);
+        }
     }
 
     /// <summary>冻结探索实时层、弹环境叙事面板（发现点/搜刮点共用）。</summary>
@@ -2442,6 +2505,24 @@ public sealed partial class CampMain : Node2D
         GD.Print($"[Raid] 第 {_clock.Day} 天袭营：强度 {intensity:0.0}，{count} 只丧尸自大门涌入，上岗守卫 {_raidGuards.Count} 人。");
     }
 
+    /// <summary>
+    /// 尸潮抵达终局：启动无限围攻（波次不停轮、逐波递增，直至全灭）。到期夜由 <see cref="OnGamePhaseChanged"/> NightAct 调。
+    /// 复用袭营执行层：置 <c>_raidActive</c> 借 <see cref="UpdateRaid"/> 的守卫锁敌 + 破防统计，但走 <c>_siegeActive</c>
+    /// 分支不做胜负结算。首波由首个 UpdateRaid tick 按 <see cref="HordeTimeline.NextWave"/>（waveIndex=0 立即投）投放。
+    /// **无生还路线，有意为之的黑暗设定，不软化。**
+    /// </summary>
+    private void TriggerHordeSiege()
+    {
+        if (_siegeActive)
+            return;
+        _siegeActive = true;
+        _raidActive = true;
+        _siegeWaveIndex = 0;
+        _siegeWaveElapsed = 0;
+        _storyFlags.Set(HordeTimeline.ArrivedFlag, "true");
+        GD.Print($"[Horde] 第 {_clock.Day} 天：尸潮抵达，无限围攻开始——无生还路线，直至全灭。");
+    }
+
     /// <summary>照 TestExploration 模板在大门缺口外生成一波丧尸：Inject(_combat,_clock)、挂 _actorLayer、涌入营地。</summary>
     private void SpawnCampZombies(int count)
     {
@@ -2480,6 +2561,10 @@ public sealed partial class CampMain : Node2D
     /// </summary>
     private void UpdateRaid(double delta)
     {
+        // 尸潮终局：波次间隔计时逐帧累积（不受 0.15s 节流影响，喂 HordeTimeline.NextWave）。
+        if (_siegeActive)
+            _siegeWaveElapsed += delta;
+
         // 节流：守卫锁敌 + 破防/胜负统计每 ~0.15s 一次（非每帧）。守卫锁敌迟 ≤0.15s 反应可忽略，
         // 破防/全灭是状态检测非边沿事件（丧尸驻留圈内），晚一拍判定不漏。delta 已被时标缩放（暂停即冻结）。
         _raidUpdateElapsed += delta;
@@ -2532,6 +2617,21 @@ public sealed partial class CampMain : Node2D
                 guardsAlive++;
         }
 
+        // 尸潮终局：不做胜负结算（无「守住」出口），只按调度补投下一波——波次不停轮、逐波递增。
+        // 唯一终止是全灭（Pawn.Died → GameOverCondition，见 OnSurvivorDied）。破防/守卫全倒都不结束围攻。
+        if (_siegeActive)
+        {
+            SiegeWave dec = HordeTimeline.NextWave(
+                _siegeWaveIndex, zombiesRemaining, _siegeWaveElapsed, _survivors.Count(s => s.Alive));
+            if (dec.ShouldSpawn)
+            {
+                SpawnCampZombies(dec.Count);
+                _siegeWaveIndex++;
+                _siegeWaveElapsed = 0;
+            }
+            return;
+        }
+
         RaidEvaluation eval = RaidResolution.Evaluate(zombiesRemaining, guardsAlive, breached);
         if (eval.State != RaidState.Ongoing)
             FinishRaid(eval);
@@ -2564,6 +2664,8 @@ public sealed partial class CampMain : Node2D
     private void EndRaid()
     {
         _raidActive = false;
+        // 终局围攻若跨到黎明仍未全灭（罕见）：本夜收口，下一 Arrived 夜的 NightAct 会重新触发（仍无生还）。
+        _siegeActive = false;
         foreach (Zombie z in _raidZombies)
         {
             if (IsInstanceValid(z))

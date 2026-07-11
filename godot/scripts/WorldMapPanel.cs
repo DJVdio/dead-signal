@@ -19,6 +19,12 @@ public sealed partial class WorldMapPanel : CanvasLayer
     /// <summary>守望者森林小屋目的地名（哥顿上吊尸+日记B 所在，与金手指帮根据地异地；按此名分流发现点，务必一致）。</summary>
     public const string WatchersCabinName = "守望者森林小屋";
 
+    /// <summary>
+    /// 城市之巅瞭望观景台目的地名（前中期可达调查点；望远镜瞭望发现点按此名分流，务必一致）。
+    /// 关内核心交互物＝望远镜占位（见 <c>TestExploration.SetupCityRooftopLookout</c>）：踏入触发→（演出/剧情由兄弟系统接）→置 HordeSighted 旗标解锁尸潮倒计时。
+    /// </summary>
+    public const string CityRooftopLookoutName = "城市之巅瞭望观景台";
+
     private static readonly Destination[] Destinations =
     {
         new() { Name = "超市", Position = new Vector2(140, 120), TravelTimeSeconds = 300 },
@@ -34,6 +40,8 @@ public sealed partial class WorldMapPanel : CanvasLayer
         new() { Name = ExplorationCache.RiversideCabinName, Position = new Vector2(250, 335), TravelTimeSeconds = 360 },
         // 联合收割机仓库：城镇东侧田野（方框之外的右下林地/农地），行程 7 分钟（前中期档，拟定待调）。
         new() { Name = ExplorationCache.HarvesterWarehouseName, Position = new Vector2(555, 285), TravelTimeSeconds = 420 },
+        // 城市之巅瞭望观景台：城镇北缘的高层建筑（坐标落城镇方框内偏北，正北可望见尸潮），前中期偏中档，行程 8 分钟（危险度/行程拟定待调）。
+        new() { Name = CityRooftopLookoutName, Position = new Vector2(360, 110), TravelTimeSeconds = 480 },
     };
 
     private Control _root = null!;
