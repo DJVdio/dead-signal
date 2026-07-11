@@ -50,12 +50,12 @@ public sealed partial class MedicalPanel : CanvasLayer
     private VBoxContainer _listContainer = null!;
     private Label _footerLabel = null!;
 
-    // 配色（对齐 CraftingPanel 暗色调）
+    // 配色（对齐 CraftingPanel 暗色调；语义红/绿/黄统一引 UiStyle，消除跨面板漂移）
     private static readonly Color TextColor = new(0.85f, 0.82f, 0.75f);
     private static readonly Color DimColor = new(0.55f, 0.55f, 0.5f);
     private static readonly Color HeadColor = new(0.72f, 0.68f, 0.55f);
-    private static readonly Color OkColor = new(0.62f, 0.78f, 0.55f);
-    private static readonly Color BadColor = new(0.82f, 0.45f, 0.4f);
+    private static readonly Color OkColor = UiStyle.Success;
+    private static readonly Color BadColor = UiStyle.Danger;
 
     public override void _Ready()
     {
@@ -172,7 +172,8 @@ public sealed partial class MedicalPanel : CanvasLayer
         }
         if (_surgeon is null || !_pawns.Contains(_surgeon))
         {
-            _surgeon = _pawns.FirstOrDefault();
+            // 施术者默认取非病人的第一个健在者（避免开面板即默认自体手术的打折态）；仅剩病人一人时才回落自体。
+            _surgeon = _pawns.FirstOrDefault(p => !ReferenceEquals(p, _patient)) ?? _patient;
         }
 
         PopulateDropdown(_patientDropdown, _patient);
@@ -247,11 +248,11 @@ public sealed partial class MedicalPanel : CanvasLayer
         card.MouseFilter = Control.MouseFilterEnum.Pass;
         card.AddThemeConstantOverride("separation", 3);
 
-        // 首行：伤情描述（模糊）
+        // 首行：伤情描述（模糊）；已处置=绿，未处置按严重度着色（危急=红、较重=黄、轻微=常色）
         var head = new Label();
         head.Text = DescribeCondition(c);
         head.AddThemeFontSizeOverride("font_size", 15);
-        head.AddThemeColorOverride("font_color", c.IsOperated ? OkColor : TextColor);
+        head.AddThemeColorOverride("font_color", ConditionHeadColor(c));
         card.AddChild(head);
 
         switch (c.Type)
@@ -260,11 +261,23 @@ public sealed partial class MedicalPanel : CanvasLayer
             case HealthConditionType.Fracture:
                 if (c.IsOperated)
                 {
+                    (string qualityText, Color qualityColor) = RecoveryQuality(c.RecoveryEfficiency);
                     var done = new Label();
-                    done.Text = "    已处置，正在恢复。";
+                    done.Text = $"    已处置 · {qualityText} · 已恢复 {c.DaysSinceLastSurgery} 昼夜";
                     done.AddThemeFontSizeOverride("font_size", 12);
-                    done.AddThemeColorOverride("font_color", DimColor);
+                    done.AddThemeColorOverride("font_color", qualityColor);
                     card.AddChild(done);
+
+                    // 隔日可重做：距上次手术 > 冷却 → 再次手术入口（重做重 roll、覆盖当前恢复，双向风险）。
+                    if (c.DaysSinceLastSurgery > HealthConditionSet.RedoSurgeryCooldownDays)
+                    {
+                        var redoHint = new Label();
+                        redoHint.Text = "    可再次手术（重做会覆盖当前恢复，可能更好也可能更差）";
+                        redoHint.AddThemeFontSizeOverride("font_size", 12);
+                        redoHint.AddThemeColorOverride("font_color", DimColor);
+                        card.AddChild(redoHint);
+                        BuildSurgerySection(card, c); // 复用手术区（材料+按钮），走同一 SurgeryRequested 链路；PerformSurgery 内部按重做处理
+                    }
                 }
                 else
                 {
@@ -298,36 +311,53 @@ public sealed partial class MedicalPanel : CanvasLayer
             .Where(k => SurgeryCatalog.For(k) is { } sup && sup.CanTreat(c.Type))
             .ToList();
 
-        bool exclusiveSelected = sel.Any(k => SurgeryCatalog.For(k) is { Exclusive: true });
-        bool nonExclusiveSelected = sel.Any(k => SurgeryCatalog.For(k) is { Exclusive: false });
-
         var matRow = new HBoxContainer();
         matRow.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
         matRow.MouseFilter = Control.MouseFilterEnum.Pass;
         matRow.AddThemeConstantOverride("separation", 12);
 
+        var checks = new List<(string key, CheckBox box)>();
+        Label? hint = null;
+
+        // 勾选后只就地重算这张卡的互斥置灰与耗材提示，不整列 Rebuild（保滚动位与其它卡状态）。
+        void RefreshMatStates()
+        {
+            bool exclusiveSelected = sel.Any(k => SurgeryCatalog.For(k) is { Exclusive: true });
+            bool nonExclusiveSelected = sel.Any(k => SurgeryCatalog.For(k) is { Exclusive: false });
+            foreach ((string key, CheckBox box) in checks)
+            {
+                bool selected = sel.Contains(key);
+                SurgerySupply sup = SurgeryCatalog.For(key)!.Value;
+                int have = CraftingPanelFormat.MaterialCount(_inventory, key);
+                bool exclusivityBlocked = !selected && (sup.Exclusive ? nonExclusiveSelected : exclusiveSelected);
+                bool outOfStock = have <= 0 && !selected;
+                box.Disabled = exclusivityBlocked || outOfStock;
+                box.AddThemeColorOverride("font_color", box.Disabled ? DimColor : TextColor);
+            }
+            if (hint is not null)
+            {
+                hint.Text = sel.Count == 0 ? "徒手（无耗材，成功率低）" : "耗材：" + string.Join("、",
+                    sel.Select(k => Materials.Find(k)?.DisplayName ?? k));
+                hint.AddThemeColorOverride("font_color", sel.Count == 0 ? DimColor : OkColor);
+            }
+        }
+
         foreach (string key in supplyKeys)
         {
             int have = CraftingPanelFormat.MaterialCount(_inventory, key);
-            SurgerySupply sup = SurgeryCatalog.For(key)!.Value;
             bool selected = sel.Contains(key);
-            // 独占互斥：急救包选中→禁散件；散件选中→禁急救包。库存为 0 也禁（但保留已选，避免丢状态）。
-            bool exclusivityBlocked = !selected &&
-                (sup.Exclusive ? nonExclusiveSelected : exclusiveSelected);
-            bool outOfStock = have <= 0 && !selected;
 
             var check = new CheckBox();
             string name = Materials.Find(key)?.DisplayName ?? key;
             check.Text = have > 0 ? $"{name}（{have}）" : name;
             check.ButtonPressed = selected;
-            check.Disabled = exclusivityBlocked || outOfStock;
-            check.AddThemeColorOverride("font_color", check.Disabled ? DimColor : TextColor);
             string capturedKey = key;
             check.Toggled += on =>
             {
                 if (on) sel.Add(capturedKey); else sel.Remove(capturedKey);
-                Rebuild(); // 重算独占互斥置灰
+                RefreshMatStates(); // 局部重算独占互斥置灰，不整列重建
             };
+            checks.Add((key, check));
             matRow.AddChild(check);
         }
         if (supplyKeys.Count == 0)
@@ -345,14 +375,12 @@ public sealed partial class MedicalPanel : CanvasLayer
         opRow.MouseFilter = Control.MouseFilterEnum.Pass;
         opRow.AddThemeConstantOverride("separation", 8);
 
-        var hint = new Label();
-        hint.Text = sel.Count == 0 ? "徒手（无耗材，成功率低）" : "耗材：" + string.Join("、",
-            sel.Select(k => Materials.Find(k)?.DisplayName ?? k));
+        hint = new Label();
         hint.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
         hint.VerticalAlignment = VerticalAlignment.Center;
         hint.AddThemeFontSizeOverride("font_size", 12);
-        hint.AddThemeColorOverride("font_color", sel.Count == 0 ? DimColor : OkColor);
         opRow.AddChild(hint);
+        RefreshMatStates(); // 初始态：置灰与提示（含首次进入时的独占/缺货判定）
 
         var opBtn = new Button();
         opBtn.Text = "手术";
@@ -418,6 +446,19 @@ public sealed partial class MedicalPanel : CanvasLayer
 
     /// <summary>严重度 → 模糊描述（不显数值）。</summary>
     private static string SeverityWord(double s) => s < 0.34 ? "轻微" : s < 0.67 ? "较重" : "危急";
+
+    /// <summary>恢复效率 → 模糊质量描述 + 色（**不显数值**，守"医疗点/效率不外显"红线）：供玩家判断是否值得重做。draft 分档。</summary>
+    private static (string text, Color color) RecoveryQuality(int efficiency)
+        => efficiency >= 50 ? ("恢复良好", OkColor)
+         : efficiency >= 25 ? ("恢复平稳", TextColor)
+         : ("恢复缓慢", UiStyle.Warning);
+
+    /// <summary>伤情首行色：已处置=绿（恢复中），未处置按严重度——危急=红、较重=黄、轻微=常色。与 SeverityWord 阈值一致。</summary>
+    private static Color ConditionHeadColor(HealthCondition c)
+    {
+        if (c.IsOperated) return OkColor;
+        return c.Severity >= 0.67 ? UiStyle.Danger : c.Severity >= 0.34 ? UiStyle.Warning : TextColor;
+    }
 
     private void AddEmpty(string text)
     {

@@ -20,6 +20,11 @@ public sealed partial class BloodDecal : Node2D
     private const double HoldTime = 18.0;
     private const float YSortLift = 4f;   // 上抬 YSort 锚点，保证压在人形脚下
 
+    // 并发血斑上限（拟定待调）：持续战斗会短时堆积大量各自每帧 _Process 的 Node，超限即回收最老的。
+    // Live 按生成顺序排列（表头最老）；节点自然过期或被回收时经 _ExitTree 自摘。营地全在主线程，静态表安全。
+    private const int MaxConcurrent = 64;
+    private static readonly System.Collections.Generic.List<BloodDecal> Live = new();
+
     private double _age;
 
     private Color[] _cols = System.Array.Empty<Color>();
@@ -37,8 +42,21 @@ public sealed partial class BloodDecal : Node2D
         // node.Y 上抬做 YSort 压层；血斑本体在 _Draw 里补偿下移 YSortLift。
         d.Position = footIso - new Vector2(0, YSortLift);
         d.Build(Mathf.Clamp(severity, 0f, 1f), heavy);
+
+        Live.Add(d);
+        while (Live.Count > MaxConcurrent)
+        {
+            var oldest = Live[0];
+            Live.RemoveAt(0);
+            if (GodotObject.IsInstanceValid(oldest))
+            {
+                oldest.QueueFree();
+            }
+        }
         return d;
     }
+
+    public override void _ExitTree() => Live.Remove(this);
 
     private void Build(float severity, bool heavy)
     {

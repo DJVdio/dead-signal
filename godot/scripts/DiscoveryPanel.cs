@@ -14,6 +14,7 @@ public sealed partial class DiscoveryPanel : CanvasLayer
     private Control _root = null!;
     private Label _titleLabel = null!;
     private Label _bodyLabel = null!;
+    private ScrollContainer _scroll = null!;
 
     /// <summary>点「继续」：CampMain 据此隐藏本面板、放探索队继续行动。</summary>
     public event Action? Continued;
@@ -48,14 +49,14 @@ public sealed partial class DiscoveryPanel : CanvasLayer
         bodyBg.AddThemeStyleboxOverride("panel", bodyStyle);
         panel.AddChild(bodyBg);
 
-        var scroll = new ScrollContainer();
-        scroll.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
-        scroll.AddThemeConstantOverride("margin_left", 12);
-        scroll.AddThemeConstantOverride("margin_top", 12);
-        scroll.AddThemeConstantOverride("margin_right", 12);
-        scroll.AddThemeConstantOverride("margin_bottom", 12);
-        scroll.MouseFilter = Control.MouseFilterEnum.Pass;
-        bodyBg.AddChild(scroll);
+        _scroll = new ScrollContainer();
+        _scroll.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
+        _scroll.AddThemeConstantOverride("margin_left", 12);
+        _scroll.AddThemeConstantOverride("margin_top", 12);
+        _scroll.AddThemeConstantOverride("margin_right", 12);
+        _scroll.AddThemeConstantOverride("margin_bottom", 12);
+        _scroll.MouseFilter = Control.MouseFilterEnum.Pass;
+        bodyBg.AddChild(_scroll);
 
         _bodyLabel = new Label();
         _bodyLabel.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
@@ -63,7 +64,7 @@ public sealed partial class DiscoveryPanel : CanvasLayer
         _bodyLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         _bodyLabel.AddThemeFontSizeOverride("font_size", 15);
         _bodyLabel.AddThemeColorOverride("font_color", new Color(0.82f, 0.8f, 0.74f));
-        scroll.AddChild(_bodyLabel);
+        _scroll.AddChild(_bodyLabel);
 
         var continueBtn = new Button();
         continueBtn.Text = "继续";
@@ -79,5 +80,6 @@ public sealed partial class DiscoveryPanel : CanvasLayer
     {
         _titleLabel.Text = title;
         _bodyLabel.Text = body;
+        _scroll.ScrollVertical = 0; // 每次展示复位到顶，避免连看两段叙事时串位
     }
 }

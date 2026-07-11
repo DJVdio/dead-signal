@@ -31,6 +31,10 @@ public sealed partial class Projectile : Node2D
     /// <summary>架肩豁免的额外间距余量（像素，拟定待调）。叠加在两者碰撞半径之和上。</summary>
     private const float ShoulderGraceMargin = 6f;
 
+    // 复用的射线查询对象与排除表：每物理帧清空重填，避免每帧新建 Godot 托管集合（Variant 编组开销高）。
+    private readonly global::Godot.Collections.Array<Rid> _excluded = new();
+    private PhysicsRayQueryParameters2D? _query;
+
     public static Projectile Spawn(
         Node parent, Vector2 pos, Vector2 dir, float maxDist,
         Weapon weapon, CombatEngine combat, Actor shooter, float rangeMultiplier = 1f)
@@ -60,11 +64,16 @@ public sealed partial class Projectile : Node2D
         // 路径首碰撞查询（排除射手自身，避免出膛即自击）。
         // 架肩豁免：紧贴射手的同阵营队友被穿过——排除后对同一段重查，直到命中敌方/远处友军/墙或落空。
         var space = GetWorld2D().DirectSpaceState;
-        var excluded = new global::Godot.Collections.Array<Rid> { _shooter.GetRid() };
+        var excluded = _excluded;
+        excluded.Clear();
+        excluded.Add(_shooter.GetRid());
+        var query = _query ??= new PhysicsRayQueryParameters2D();
+        query.From = from;
+        query.To = to;
+        query.CollisionMask = HitMask;
         while (true)
         {
-            var query = PhysicsRayQueryParameters2D.Create(from, to, HitMask);
-            query.Exclude = excluded;
+            query.Exclude = excluded; // 排除表被下方架肩豁免/尸体分支就地追加后需重设，令重查生效
             global::Godot.Collections.Dictionary hit = space.IntersectRay(query);
 
             if (hit.Count == 0)

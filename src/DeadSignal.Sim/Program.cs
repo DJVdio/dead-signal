@@ -38,68 +38,80 @@ var combos = new List<(string Name, ArmorLayer[] Layers)>
 
 var bodyParts = HumanBody.Parts();
 
-// ---- 跑模拟 ----
-var rng = new SystemRandomSource(seed);
-var resolver = new CombatResolver(rng);
-var hitSelector = new VolumeWeightedHitSelector(rng);
-var effectResolver = new CombatEffectResolver(rng);
-
-var rows = new List<Row>();
+// ---- 跑模拟（Parallel.ForEach over 单元，每单元 seed+idx*7919 独立 RNG）----
+// 每个 (武器×护甲组合) 单元用独立 SystemRandomSource：随机流按单元切分后
+// 与顺序执行位级一致（parbench 验证），聚合统计等价，且同 seed 同结果可复现。
+// 单元之间无共享可变态（各写自己的 rowsArr[Idx] 槽位），线程安全。
+var cells = new List<(int Idx, Weapon Weapon, string ComboName, ArmorLayer[] LayerTemplate)>();
+int cellIdx = 0;
 foreach (var w in weapons)
 {
     foreach (var (comboName, layerTemplate) in combos)
     {
-        var layers = CombatResolver.OrderOuterToInner(layerTemplate);
-        long dmgSum = 0;
-        long penLayerSum = 0;
-        int full = 0, half = 0, blocked = 0;
-        int bleed = 0, sever = 0, concuss = 0, fracture = 0;
-
-        for (int i = 0; i < Iterations; i++)
-        {
-            var part = hitSelector.Select(bodyParts);
-            var r = resolver.Resolve(w, layers, part);
-            dmgSum += r.FinalDamage;
-            penLayerSum += r.LayersPenetrated;
-
-            if (r.Terminated) blocked++;
-            else if (HadHalf(r)) half++;
-            else full++;
-
-            // 效果统计：每次命中打一具满血人体
-            var body = new Body(bodyParts);
-            var outcome = effectResolver.Apply(body, w, r);
-            bool hasBleed = false, hasSever = false, hasConc = false, hasFrac = false;
-            foreach (var e in outcome.Effects)
-            {
-                switch (e.Kind)
-                {
-                    case DamageEffectKind.Bleed: hasBleed = true; break;
-                    case DamageEffectKind.Sever: hasSever = true; break;
-                    case DamageEffectKind.Concussion: hasConc = true; break;
-                    case DamageEffectKind.Fracture: hasFrac = true; break;
-                }
-            }
-
-            if (hasBleed) bleed++;
-            if (hasSever) sever++;
-            if (hasConc) concuss++;
-            if (hasFrac) fracture++;
-        }
-
-        rows.Add(new Row(
-            w.Name, comboName,
-            (double)dmgSum / Iterations,
-            (double)full / Iterations,
-            (double)half / Iterations,
-            (double)blocked / Iterations,
-            (double)penLayerSum / Iterations,
-            (double)bleed / Iterations,
-            (double)sever / Iterations,
-            (double)concuss / Iterations,
-            (double)fracture / Iterations));
+        cells.Add((cellIdx++, w, comboName, layerTemplate));
     }
 }
+
+var rowsArr = new Row[cells.Count];
+Parallel.ForEach(cells, cell =>
+{
+    var rng = new SystemRandomSource(seed + cell.Idx * 7919);
+    var resolver = new CombatResolver(rng);
+    var hitSelector = new VolumeWeightedHitSelector(rng);
+    var effectResolver = new CombatEffectResolver(rng);
+
+    var layers = CombatResolver.OrderOuterToInner(cell.LayerTemplate);
+    long dmgSum = 0;
+    long penLayerSum = 0;
+    int full = 0, half = 0, blocked = 0;
+    int bleed = 0, sever = 0, concuss = 0, fracture = 0;
+
+    for (int i = 0; i < Iterations; i++)
+    {
+        var part = hitSelector.Select(bodyParts);
+        var r = resolver.Resolve(cell.Weapon, layers, part);
+        dmgSum += r.FinalDamage;
+        penLayerSum += r.LayersPenetrated;
+
+        if (r.Terminated) blocked++;
+        else if (HadHalf(r)) half++;
+        else full++;
+
+        // 效果统计：每次命中打一具满血人体
+        var body = new Body(bodyParts);
+        var outcome = effectResolver.Apply(body, cell.Weapon, r);
+        bool hasBleed = false, hasSever = false, hasConc = false, hasFrac = false;
+        foreach (var e in outcome.Effects)
+        {
+            switch (e.Kind)
+            {
+                case DamageEffectKind.Bleed: hasBleed = true; break;
+                case DamageEffectKind.Sever: hasSever = true; break;
+                case DamageEffectKind.Concussion: hasConc = true; break;
+                case DamageEffectKind.Fracture: hasFrac = true; break;
+            }
+        }
+
+        if (hasBleed) bleed++;
+        if (hasSever) sever++;
+        if (hasConc) concuss++;
+        if (hasFrac) fracture++;
+    }
+
+    rowsArr[cell.Idx] = new Row(
+        cell.Weapon.Name, cell.ComboName,
+        (double)dmgSum / Iterations,
+        (double)full / Iterations,
+        (double)half / Iterations,
+        (double)blocked / Iterations,
+        (double)penLayerSum / Iterations,
+        (double)bleed / Iterations,
+        (double)sever / Iterations,
+        (double)concuss / Iterations,
+        (double)fracture / Iterations);
+});
+
+var rows = rowsArr.ToList();
 
 // ---- 输出 markdown ----
 Row Get(string weapon, string combo) => rows.First(x => x.Weapon == weapon && x.Combo == combo);

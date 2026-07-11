@@ -20,9 +20,9 @@ namespace DeadSignal.Godot;
 public sealed partial class CharacterPanel : PanelContainer
 {
     // —— 状态标记配色（狠辣致残是本游戏有意为之，用醒目色，不淡化）——
-    private static readonly Color ColSevered = new(0.92f, 0.27f, 0.22f);   // 切除/损毁：红
-    private static readonly Color ColFractured = new(0.96f, 0.62f, 0.16f); // 骨折：橙
-    private static readonly Color ColBleeding = new(0.72f, 0.06f, 0.08f);  // 出血：深红
+    private static readonly Color ColSevered = UiStyle.Danger;             // 切除/损毁：统一语义红
+    private static readonly Color ColFractured = new(0.96f, 0.62f, 0.16f); // 骨折：橙（状态专属，不入通用语义）
+    private static readonly Color ColBleeding = new(0.72f, 0.06f, 0.08f);  // 出血：深红（状态专属）
     private static readonly Color ColDisabled = new(0.56f, 0.56f, 0.58f);  // 失能：灰
     private static readonly Color ColText = new(0.93f, 0.95f, 1f);
     private static readonly Color ColMuted = new(0.66f, 0.70f, 0.78f);
@@ -391,7 +391,7 @@ public sealed partial class CharacterPanel : PanelContainer
 
             if (slot.HasProsthetic)
             {
-                row.AddChild(MarkTag(slot.ProstheticName ?? GradeLabel(slot.Grade), ColDisabled));
+                row.AddChild(MarkTag(slot.ProstheticName ?? GradeLabel(slot.Grade), GradeColor(slot.Grade)));
             }
             else if (_onEquip is not null)
             {
@@ -453,6 +453,14 @@ public sealed partial class CharacterPanel : PanelContainer
         _ => "假肢",
     };
 
+    /// <summary>假肢优劣色阶：仿生=绿（优）、简易=黄（中）、木制=灰（差），一眼看出好坏。</summary>
+    private static Color GradeColor(ProstheticGrade? grade) => grade switch
+    {
+        ProstheticGrade.Bionic => UiStyle.Success,
+        ProstheticGrade.Simple => UiStyle.Warning,
+        _ => ColDisabled,
+    };
+
     // ———————————————————————————— 健康页 ————————————————————————————
 
     private void FillHealth(PawnInspection insp)
@@ -465,7 +473,12 @@ public sealed partial class CharacterPanel : PanelContainer
             .ToDictionary(g => g.Key ?? "", g => g.ToList());
         var byName = insp.Parts.ToDictionary(p => p.Name, p => p);
 
-        var roots = insp.Parts.Where(p => p.ParentName is null || !byName.ContainsKey(p.ParentName));
+        var roots = insp.Parts.Where(p => p.ParentName is null || !byName.ContainsKey(p.ParentName)).ToList();
+        if (roots.Count == 0)
+        {
+            _healthBox.AddChild(Line("无部位数据", ColMuted, 13));
+            return;
+        }
         foreach (var r in roots)
         {
             AddPartRow(r, 0, byParent);

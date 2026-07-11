@@ -45,12 +45,16 @@ public sealed partial class SurvivorCardBar : Control
     private readonly List<CardEntry> _cards = new();
     private Pawn? _selected;
 
-    /// <summary>一张卡牌与其绑定幸存者 + 可重着色的边框样式。</summary>
+    /// <summary>一张卡牌与其绑定幸存者 + 可重着色的边框样式 + 可实时更新的血量/饥饿条与其填充样式。</summary>
     private sealed class CardEntry
     {
         public required Pawn Pawn;
         public required PanelContainer Panel;
         public required StyleBoxFlat Style;
+        public required ProgressBar BloodBar;
+        public required StyleBoxFlat BloodFill;
+        public required ProgressBar HungerBar;
+        public required StyleBoxFlat HungerFill;
     }
 
     public override void _Ready() => BuildSkeleton();
@@ -148,8 +152,6 @@ public sealed partial class SurvivorCardBar : Control
             TooltipText = pawn.DisplayName,
         };
         panel.AddThemeStyleboxOverride("panel", style);
-
-        var entry = new CardEntry { Pawn = pawn, Panel = panel, Style = style };
         panel.GuiInput += e => OnCardInput(e, pawn);
 
         var vbox = new VBoxContainer { MouseFilter = MouseFilterEnum.Ignore };
@@ -172,11 +174,22 @@ public sealed partial class SurvivorCardBar : Control
         name.AddThemeColorOverride("font_color", pawn.Alive ? ColText : new Color(0.6f, 0.6f, 0.62f));
         vbox.AddChild(name);
 
-        // —— 状态条：血量 + 饥饿（能从快照拿就拿）——
-        vbox.AddChild(BuildStatusBars(pawn));
+        // —— 状态条：血量 + 饥饿（保留条与填充样式引用，供 RefreshStats 原地更新）——
+        vbox.AddChild(BuildStatusBars(pawn,
+            out ProgressBar bloodBar, out StyleBoxFlat bloodFill,
+            out ProgressBar hungerBar, out StyleBoxFlat hungerFill));
 
         _row.AddChild(panel);
-        return entry;
+        return new CardEntry
+        {
+            Pawn = pawn,
+            Panel = panel,
+            Style = style,
+            BloodBar = bloodBar,
+            BloodFill = bloodFill,
+            HungerBar = hungerBar,
+            HungerFill = hungerFill,
+        };
     }
 
     /// <summary>头像块：优先 res://assets/portraits 下按 Id 稳定映射的图；无导入则用稳定色块占位（留 TextureRect 结构）。</summary>
@@ -226,8 +239,13 @@ public sealed partial class SurvivorCardBar : Control
         return block;
     }
 
-    /// <summary>血量条（红↔绿）+ 饥饿条（按等级配色）。从 <see cref="Pawn.Inspect"/> 快照取值，拿不到用满值占位。</summary>
-    private static Control BuildStatusBars(Pawn pawn)
+    /// <summary>
+    /// 血量条（红↔绿）+ 饥饿条（按等级配色）。从 <see cref="Pawn.Inspect"/> 快照取值。
+    /// 通过 out 参数回传两条 <see cref="ProgressBar"/> 及其填充 <see cref="StyleBoxFlat"/>，供 <see cref="RefreshStats"/> 原地改值/改色（不重建节点）。
+    /// </summary>
+    private static Control BuildStatusBars(Pawn pawn,
+        out ProgressBar bloodBar, out StyleBoxFlat bloodFill,
+        out ProgressBar hungerBar, out StyleBoxFlat hungerFill)
     {
         var box = new VBoxContainer { MouseFilter = MouseFilterEnum.Ignore };
         box.AddThemeConstantOverride("separation", 2);
@@ -236,16 +254,18 @@ public sealed partial class SurvivorCardBar : Control
         PawnInspection insp = pawn.Inspect();
 
         float blood = Mathf.Clamp((float)insp.BloodRatio, 0f, 1f);
-        box.AddChild(MakeBar(blood, BloodColor(blood)));
+        bloodBar = MakeBar(blood, BloodColor(blood), out bloodFill);
+        box.AddChild(bloodBar);
 
         // 饥饿：5=正常满，向 0 递减为"越饿"。用等级/上限做占比，配色按等级加深。
         float hungerRatio = Mathf.Clamp(insp.HungerStage / 5f, 0f, 1f);
-        box.AddChild(MakeBar(hungerRatio, HungerColor(insp.HungerStage)));
+        hungerBar = MakeBar(hungerRatio, HungerColor(insp.HungerStage), out hungerFill);
+        box.AddChild(hungerBar);
 
         return box;
     }
 
-    private static ProgressBar MakeBar(float value01, Color fill)
+    private static ProgressBar MakeBar(float value01, Color fill, out StyleBoxFlat fillStyle)
     {
         var bar = new ProgressBar
         {
@@ -257,9 +277,31 @@ public sealed partial class SurvivorCardBar : Control
             SizeFlagsHorizontal = SizeFlags.ExpandFill,
             MouseFilter = MouseFilterEnum.Ignore,
         };
-        bar.AddThemeStyleboxOverride("fill", new StyleBoxFlat { BgColor = fill });
+        fillStyle = new StyleBoxFlat { BgColor = fill };
+        bar.AddThemeStyleboxOverride("fill", fillStyle);
         bar.AddThemeStyleboxOverride("background", new StyleBoxFlat { BgColor = ColBarBg });
         return bar;
+    }
+
+    /// <summary>
+    /// 轻量实时刷新：只改已建卡牌的血量/饥饿条数值与填充色（不 QueueFree 重建、不动布局/选中态）。
+    /// 由 <c>CampMain._Process</c> 节流调用（约每 0.25s），修「袭营中失血、白天饥饿推进卡牌栏不刷新」。
+    /// 名单增删仍走 <see cref="SetSurvivors"/> 重建；本方法只更新存量卡的条值。
+    /// </summary>
+    public void RefreshStats()
+    {
+        foreach (CardEntry c in _cards)
+        {
+            PawnInspection insp = c.Pawn.Inspect();
+
+            float blood = Mathf.Clamp((float)insp.BloodRatio, 0f, 1f);
+            c.BloodBar.Value = blood;
+            c.BloodFill.BgColor = BloodColor(blood);
+
+            float hungerRatio = Mathf.Clamp(insp.HungerStage / 5f, 0f, 1f);
+            c.HungerBar.Value = hungerRatio;
+            c.HungerFill.BgColor = HungerColor(insp.HungerStage);
+        }
     }
 
     // ———————————————————————————— 交互 ————————————————————————————

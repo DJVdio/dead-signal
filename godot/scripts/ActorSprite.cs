@@ -19,6 +19,17 @@ public sealed partial class ActorSprite : Node2D
     private float _drawAngle;          // 当前绘制朝向（iso 屏幕弧度），平滑逼近目标
     private bool _angleInit;
 
+    // ---- 重绘脏标记：_Draw 只随 _drawAngle + 这组离散态变化，静止帧跳过 QueueRedraw 省重绘命令 ----
+    // （Position 抖动/Modulate 闪色由引擎变换与调色处理，不进 _Draw，故不触发重绘。）
+    private bool _drawInit;
+    private float _drawnAngle;
+    private float _drawnHealth = -1f;
+    private bool _drawnSelected;
+    private int _drawnRoleKey = -1;
+    private bool _drawnSleeping;
+    private Color _drawnTint;
+    private float _drawnRadius = -1f;
+
     private const float TurnRate = 16f; // 朝向平滑速率（越大越跟手）
 
     // ---- 受击表现（Flash 闪色 / Shake 抖动，由 CombatFeed 订阅驱动）----
@@ -197,7 +208,7 @@ public sealed partial class ActorSprite : Node2D
             Position += new Vector2(_rng.RandfRange(-1f, 1f), _rng.RandfRange(-1f, 1f)) * (_shakeAmp * k);
         }
 
-        QueueRedraw();
+        RedrawIfChanged();
 
         // 基准染色：睡眠半透，其余全白；受击闪色在其上叠加（向闪色 Lerp，随时间衰减回基准）。
         Color baseMod = _actor is Pawn { Role: PawnRole.Sleeping }
@@ -213,6 +224,40 @@ public sealed partial class ActorSprite : Node2D
     }
 
     private void SyncToActor() => Position = Iso.Project(_actor.GlobalPosition);
+
+    // 仅在 _Draw 的任一输入变化时请求重绘：朝向平滑期间每帧微动→持续重绘，settle 后停；
+    // 血量/选中/角色/睡眠/染色/半径任一变化也重绘。静止且无状态变更的帧完全跳过。
+    private void RedrawIfChanged()
+    {
+        float health = _actor.HealthFraction;
+        bool selected = _actor.Selected;
+        bool sleeping = _actor is Pawn { SleepingVisual: true };
+        int roleKey = _actor is Pawn pw ? (int)pw.Role : -1;
+        Color tint = _actor.BodyTint;
+        float radius = _actor.Radius;
+
+        if (_drawInit
+            && Mathf.Abs(_drawAngle - _drawnAngle) <= 0.0005f
+            && health == _drawnHealth
+            && selected == _drawnSelected
+            && sleeping == _drawnSleeping
+            && roleKey == _drawnRoleKey
+            && tint == _drawnTint
+            && radius == _drawnRadius)
+        {
+            return;
+        }
+
+        _drawInit = true;
+        _drawnAngle = _drawAngle;
+        _drawnHealth = health;
+        _drawnSelected = selected;
+        _drawnSleeping = sleeping;
+        _drawnRoleKey = roleKey;
+        _drawnTint = tint;
+        _drawnRadius = radius;
+        QueueRedraw();
+    }
 
     public override void _Draw()
     {

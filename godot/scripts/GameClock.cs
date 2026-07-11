@@ -200,7 +200,7 @@ public sealed partial class GameClock : Node
         return baseColor;
     }
 
-    public string ClockString()
+    private (int H, int M) ClockHm()
     {
         double phaseLen = IsNight ? _cfg.NightLengthSeconds : _cfg.DayLengthSeconds;
         double frac = phaseLen > 0 ? _phaseElapsed / phaseLen : 0;
@@ -208,7 +208,20 @@ public sealed partial class GameClock : Node
         double hourOfDay = (startHour + frac * 12.0) % 24.0;
         int h = (int)hourOfDay;
         int m = (int)((hourOfDay - h) * 60);
+        return (h, m);
+    }
+
+    public string ClockString()
+    {
+        var (h, m) = ClockHm();
         return $"{h:00}:{m:00}";
+    }
+
+    // HUD 脏检查用：当前显示时钟的"分钟键"（与 ClockString 同粒度，无字符串分配）。
+    public int ClockMinuteKey()
+    {
+        var (h, m) = ClockHm();
+        return h * 60 + m;
     }
 
     public string SpeedLabel() => Paused ? "暂停" : $"{(int)Speeds[SpeedIndex]}x";

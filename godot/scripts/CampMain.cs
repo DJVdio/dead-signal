@@ -56,6 +56,23 @@ public sealed partial class CampMain : Node2D
     private Hud _hud = null!;
     private CharacterPanel _characterPanel = null!;  // 角色检视面板（挂 HUD CanvasLayer，不随相机移动）
     private SurvivorCardBar _cardBar = null!;         // 底部幸存者卡牌栏（挂 HUD CanvasLayer）：单击选中/双击聚焦
+    private double _cardStatRefreshElapsed;           // 卡牌栏血/饥饿条节流刷新累计（时标冻结时 delta=0 自动停刷）
+    private const double CardStatRefreshInterval = 0.25; // 卡牌栏状态条刷新间隔（秒，真实时标缩放后）
+
+    // HUD 状态行脏缓存：SetStatus 每帧构造大段插值字符串（含 LINQ 计数）是稳定 GC 压力源。
+    // 用一组廉价 int/enum/bool 信号做变更检测，唯有内容实际变化时才重建字符串并 SetStatus。
+    // 袭营推进节流：守卫目标分派 + 破防/胜负统计不必每帧，~0.15s 一次（丧尸驻留破防圈内，晚 ≤0.15s 判定不漏事件）。
+    private double _raidUpdateElapsed;
+    private const double RaidUpdateInterval = 0.15;
+
+    private bool _hudInit;
+    private bool _hudExploring;
+    private int _hudDay = -1;
+    private int _hudPhase = -1;
+    private int _hudClockKey = -1;
+    private int _hudSpeedIndex = -1;
+    private bool _hudPaused;
+    private int _hudAlive = -1;
 
     private WorldMapPanel _worldMapPanel = null!;
     private ExpeditionPanel _expeditionPanel = null!;
@@ -140,7 +157,7 @@ public sealed partial class CampMain : Node2D
     // ---------------- 教学关：克莉丝汀反水（第 2 夜脚本人类袭击，自成一路，与丧尸袭营互斥）----------------
     private readonly List<Raider> _tutorialRaiders = new();  // 场上普通劫掠者（不含克莉丝汀）
     private Raider? _christine;                              // 克莉丝汀（Raider 实例；反水前敌、反水后友、招募后转 Pawn 移除）
-    private bool _tutorialActive;                            // 教学关战斗进行中（逐帧 UpdateCristineTutorial）
+    private bool _tutorialActive;                            // 教学关战斗进行中（逐帧 UpdateChristineTutorial）
     private bool _christineTurned;                           // 克莉丝汀是否已反水（切 Survivor 阵营）
     private const int TutorialRaiderCount = 2;               // 固定生成 2 个劫掠者（不走 RaidWave 概率）
     private const string ChristineName = "克莉丝汀";          // 招募后作为 Pawn 的显示名（请求线据此识别她）
@@ -261,6 +278,7 @@ public sealed partial class CampMain : Node2D
         AddChild(_mealPanel);
         _mealPanel.Visible = false;
         _mealPanel.Continued += OnMealContinued;
+        _mealPanel.SecondServingToggled += on => _allowSecondServing = on; // 补餐开关（下一餐生效）
 
         // 营地搜刮/库存/阅读（W3a）。书解析器取 BookLibrary 的**单一快照实例**（每 id 一份，已读态共享）。
         var bookSnapshot = BookLibrary.All().ToDictionary(b => b.Id);
@@ -1125,9 +1143,29 @@ public sealed partial class CampMain : Node2D
     {
         _ambient.Color = _clock.CurrentAmbientColor();
         bool exploring = _currentLevel != null;
-        _hud.SetStatus(
-            $"{(exploring ? "探索" : "营地")}  第 {_clock.Day} 天  {_clock.ClockString()}  [{_clock.CurrentPhase}]   速度 {_clock.SpeedLabel()}   " +
-            $"幸存者 {_survivors.Count(s => s.Alive)}");
+
+        // HUD 状态行仅在内容实际变化的帧重建（脏缓存）——空闲营地不再每帧造大字符串+调 SetStatus。
+        // 信号全是廉价 int/enum/bool：Count(s=>s.Alive) 的 lambda 无捕获，编译期缓存为静态委托不分配。
+        int hudPhase = (int)_clock.CurrentPhase;
+        int hudClockKey = _clock.ClockMinuteKey();
+        bool hudPaused = _clock.Paused;
+        int hudAlive = _survivors.Count(s => s.Alive);
+        if (!_hudInit || exploring != _hudExploring || _clock.Day != _hudDay || hudPhase != _hudPhase
+            || hudClockKey != _hudClockKey || _clock.SpeedIndex != _hudSpeedIndex
+            || hudPaused != _hudPaused || hudAlive != _hudAlive)
+        {
+            _hudInit = true;
+            _hudExploring = exploring;
+            _hudDay = _clock.Day;
+            _hudPhase = hudPhase;
+            _hudClockKey = hudClockKey;
+            _hudSpeedIndex = _clock.SpeedIndex;
+            _hudPaused = hudPaused;
+            _hudAlive = hudAlive;
+            _hud.SetStatus(
+                $"{(exploring ? "探索" : "营地")}  第 {_clock.Day} 天  {_clock.ClockString()}  [{_clock.CurrentPhase}]   速度 {_clock.SpeedLabel()}   " +
+                $"幸存者 {hudAlive}");
+        }
 
         if (_returnWarningPopup.Visible && _clock.CurrentPhase == DayPhase.DayExplore)
             _returnWarningPopup.SetRemainingTime(_clock.GetExploreTimeRemaining());
@@ -1136,10 +1174,19 @@ public sealed partial class CampMain : Node2D
             UpdateRaid(delta);
 
         if (_tutorialActive)
-            UpdateCristineTutorial(delta);
+            UpdateChristineTutorial(delta);
 
         UpdatePendingInteract(delta);   // 右键前往：轮询到达 → 开面板/搜刮（自带暂停）
         UpdateHover();                   // 悬停辨识：鼠标下容器 → 跟随小标签
+
+        // 卡牌栏血/饥饿条节流刷新：修「袭营中失血、饥饿推进底部条不动」。
+        // delta 已被 Engine.TimeScale 缩放——面板冻结时标时 delta≈0，累计不推进＝世界冻结即不刷新（正合期望）。
+        _cardStatRefreshElapsed += delta;
+        if (_cardStatRefreshElapsed >= CardStatRefreshInterval)
+        {
+            _cardStatRefreshElapsed = 0;
+            _cardBar?.RefreshStats();
+        }
 
         // 导航图首帧就绪后跑一次门缝连通性自检。
         if (!_navTested)
@@ -1184,6 +1231,16 @@ public sealed partial class CampMain : Node2D
             case Key.Key3:
                 _clock.SetSpeedIndex(2);
                 break;
+            case Key.Escape:
+                // 集中派发：关闭当前打开的最上层可取消模态（时标由各自 Close 恢复）。
+                // GameOver（终局）/ Choice（强制抉择）/ Guard（守夜为强制指派，无取消路径）不在此列。
+                TryCloseTopModal();
+                break;
+            case Key.M:
+                // 打开医疗面板（手术/用药）：冻结时标，对幸存者做手术、治感染/疾病。
+                OpenMedical();
+                break;
+#if DEBUG
             case Key.B:
                 // 调试：在鼠标落点放置岗位（类型轮换 哨塔→屋顶平台→暗哨），实心岗位自动重烘焙导航。
                 PlaceGuardPostAtMouse();
@@ -1196,11 +1253,62 @@ public sealed partial class CampMain : Node2D
                 // 调试：打击鼠标落点最近的围栏/大门，验证承伤→摧毁→开口→重烘焙链路（敌人打结构 AI 属袭营块，后续）。
                 DebugDamageStructureAtMouse();
                 break;
-            case Key.M:
-                // 打开医疗面板（手术/用药）：冻结时标，对幸存者做手术、治感染/疾病。
-                OpenMedical();
-                break;
+#endif
         }
+    }
+
+    /// <summary>
+    /// ESC 集中派发：按叠放层级从上到下关闭一个可取消模态，命中即返回 true（一次 ESC 只关一层）。
+    /// 全由 CampMain 自身持有的状态/关闭方法驱动，不触碰各面板脚本内部；关面板的时标恢复沿用各 Close 方法。
+    /// 排除：GameOver（终局不可退）、ChoicePanel（强制抉择，无字段引用）、GuardPanel（守夜强制指派，本就无取消路径）。
+    /// </summary>
+    private bool TryCloseTopModal()
+    {
+        // 阅读面板叠在库存之上：先关它，回到库存。
+        if (_readerPanel.Visible)
+        {
+            OnReaderClosed();
+            return true;
+        }
+        if (_stashOpen)
+        {
+            CloseStash();
+            return true;
+        }
+        if (_craftingOpen)
+        {
+            CloseCrafting();
+            return true;
+        }
+        if (_medicalOpen)
+        {
+            CloseMedical();
+            return true;
+        }
+        // 探索发现叙事：等价于点「继续」，恢复被冻结的时标。
+        if (_discoveryPanel.Visible)
+        {
+            OnDiscoveryContinued();
+            return true;
+        }
+        // 世界地图叠在远征面板之上：先关地图（等价其取消）。
+        if (_worldMapPanel.Visible)
+        {
+            _worldMapPanel.Visible = false;
+            return true;
+        }
+        if (_expeditionPanel.Visible)
+        {
+            _expeditionPanel.Visible = false;
+            return true;
+        }
+        // 读书指派面板：等价点「取消」（本夜无人读书后照常进夜）。
+        if (_readingPanel.Visible)
+        {
+            OnReadingCancelled();
+            return true;
+        }
+        return false;
     }
 
     private void HandleMouseButton(InputEventMouseButton mb)
@@ -1268,8 +1376,19 @@ public sealed partial class CampMain : Node2D
     }
 
     /// <summary>容器命中查询：落点（cartesian）命中某容器则返回它，否则 null（右键前往/悬停辨识共用）。</summary>
+    // 普通 for 循环替代 LINQ FirstOrDefault：后者每帧新建捕获 cart 的闭包（稳定 GC 压力）；
+    // UpdateHover 每帧调本方法，改 for 后零分配，扫描一小把容器 CPU 可忽略。
     private ContainerRef? HitContainerAt(Vector2 cart)
-        => _containers.FirstOrDefault(c => c.Rect.Grow(8f).HasPoint(cart));
+    {
+        for (int i = 0; i < _containers.Count; i++)
+        {
+            if (_containers[i].Rect.Grow(8f).HasPoint(cart))
+            {
+                return _containers[i];
+            }
+        }
+        return null;
+    }
 
     /// <summary>容器最近边缘外的站位点：把 pawn 位置钳进 rect 得最近边缘点，再沿朝 pawn 方向外推 standoff，站在容器外沿。</summary>
     private static Vector2 NearestEdgeStandPoint(Rect2 rect, Vector2 from)
@@ -1453,27 +1572,36 @@ public sealed partial class CampMain : Node2D
     /// <summary>分粮策略：默认"先喂最饿"——库存不足时把口粮压在濒死者身上，最大化少死人（策略/数值拟定待调）。</summary>
     private RationStrategy _rationStrategy = RationStrategy.HungriestFirst;
 
+    /// <summary>
+    /// 补餐策略（用户拍板"应该能补回来"）：默认开——保障全员第一餐后仍有余粮时，用余粮把掉档者补一餐使饥饿回升一级
+    /// （每相每人至多补 1 餐，只补刻度未满上限者，物资不浪费）。玩家可在聚餐面板取消以囤粮。
+    /// </summary>
+    private bool _allowSecondServing = true;
+
     /// <summary>缺口趋势预警阈值（昼夜）：存货全员吃饱撑不过这么多昼夜时红字告警，逼玩家搜刮。拟定待调。</summary>
     private const int FoodShortfallWarnDays = 2;
 
     private void EnterDuskMeal() => _clock.TransitionTo(DayPhase.DuskMeal);
 
     /// <summary>
-    /// 一次聚餐（发生在昼夜相位切换点，一天两次）：全员用餐扣食物（不足则未进食者饥饿加深）+ 触发气泡，弹出模态面板。
-    /// 饥饿模型（净零）：本次切换全员饥饿刻度无条件 -1；吃到饭者 +1（clamp 到各自上限）——吃满两餐即维持。
+    /// 一次聚餐（发生在昼夜相位切换点，一天两次）：全员用餐扣食物（不足则未进食者饥饿加深）+ 可选补餐回升 + 触发气泡，弹出模态面板。
+    /// 饥饿模型（净零 + 补餐）：本次切换全员饥饿刻度无条件 -1；吃到第一餐者 +1（净零维持）；
+    /// 若开补餐且余粮充裕，掉档者再补一餐 +1（净 +1 回升，clamp 到各自上限）——"应该能补回来"。
     /// 结算后：刻度归 0 者饿死（走统一死亡路径）。
     /// </summary>
     private void RunMeal(string title, string phaseTag)
     {
         var living = _survivors.Where(s => s.Alive).ToList();
 
-        // 分粮：库存不足喂饱全员时，按策略（默认先喂最饿=少死人）决定谁吃到、谁挨饿。
+        // 分粮：先按策略保障第一餐（库存不足则最饿优先），再用余粮补掉档者（开补餐时）。
         var dinerInputs = living.Select(ToDiner).ToList();
-        RationOutcome ration = FoodEconomy.Allocate(_resources.Food, dinerInputs, _rationStrategy);
+        PhaseMealOutcome phase = FoodEconomy.AllocatePhaseMeal(
+            _resources.Food, dinerInputs, _allowSecondServing, _rationStrategy);
+        RationOutcome ration = phase.First;
 
-        // 食物扣减：续用 ConsumeMeal——每份=1 时其消耗/缺口与分粮结算完全一致，
-        // 仅"谁吃到"从原序改由 ration.Fed 决定（见下逐人喂食）。
-        MealOutcome outcome = _resources.ConsumeMeal(living.Count);
+        // 食物扣减：按第一餐 + 补餐总消耗实扣（不越界）。
+        _resources.Consume(phase.TotalConsumed);
+        MealOutcome outcome = new MealOutcome(living.Count, ration.FedCount, ration.StarvedCount, _resources.Food);
 
         // 昼夜切换净结算：一次性施加"无条件 -1，吃到再 +1"（吃满两餐净零维持）。
         // 用 ResolvePhase 一步算净变化 + clamp，避免旧两步"1→0 途中 Feed 被短路"的跨 0 误杀。
@@ -1486,6 +1614,18 @@ public sealed partial class CampMain : Node2D
             if (!ate && living[i].Hunger.Level < HungerLevel.Sated)
             {
                 hungerNotes.Add($"{living[i].DisplayName}（{living[i].Hunger.Level.Label()}）");
+            }
+        }
+
+        // 补餐回升：对分粮给出的补餐名单逐人 +1（clamp 到各自上限；饿死终态不复活由 Feed 内部守卫）。
+        // 补餐候选皆为"已吃第一餐（本相未饿死）且掉档"者，故此处在饿死结算前施加安全。
+        var secondNotes = new List<string>();
+        for (int i = 0; i < living.Count; i++)
+        {
+            if (phase.SecondFed[i])
+            {
+                living[i].ServeSecondMeal();
+                secondNotes.Add($"{living[i].DisplayName}（{living[i].Hunger.Level.Label()}）");
             }
         }
 
@@ -1514,7 +1654,8 @@ public sealed partial class CampMain : Node2D
         MealBubblePool.ApplyTriggers(bubbles, _storyFlags);
         _recentlyDeceased.Clear(); // 死亡只在紧随其后的一餐被提及，之后归入历史不再复播
 
-        _mealPanel.ShowMeal(title, outcome, bubbles, hungerNotes);
+        _mealPanel.SetSecondServingPolicy(_allowSecondServing);
+        _mealPanel.ShowMeal(title, outcome, bubbles, hungerNotes, secondNotes);
 
         // 缺口预警：本餐有人挨饿→急告；否则按存货趋势提醒还能撑几昼夜，逼玩家搜刮补给。
         WarnFoodShortfall(ration, _survivors.Count(s => s.Alive));
@@ -1535,7 +1676,10 @@ public sealed partial class CampMain : Node2D
         foreach (Pawn p in living)
         {
             bool resting = p.Role != PawnRole.Guard; // 守卫整夜值岗=不休养；其余卧床休养
-            HealthTickResult r = p.AdvanceHealthDay(_healthRng, resting);
+            // 睡床 +10pp 加算：地铺 vs 床尚未在营地建模（睡眠点=住宅/仓库室内中心，无床位容量），暂将卧床休养一律视作睡床。
+            // 待确认：床位建模后应按该幸存者睡的是床/地铺区分（仅睡床者得加算）。
+            bool restedInBed = resting;
+            HealthTickResult r = p.AdvanceHealthDay(_healthRng, resting, restedInBed);
 
             foreach (HealthTickEvent e in r.Events)
             {
@@ -1564,7 +1708,7 @@ public sealed partial class CampMain : Node2D
         var insp = p.Inspect();
         bool wounded = insp.IsUnconscious
             || insp.Parts.Any(part => part.IsBleeding || part.IsFractured);
-        return new FoodDiner(p.Hunger.Value, wounded);
+        return new FoodDiner(p.Hunger.Value, wounded, p.Hunger.Cap);
     }
 
     /// <summary>缺口预警（HUD 顶栏红字，手动显隐持久到下次覆盖）：本餐挨饿→急告；否则存货撑不过阈值昼夜→趋势告警。</summary>
@@ -1693,7 +1837,7 @@ public sealed partial class CampMain : Node2D
                 // 教学关：第 2 夜一次性触发克莉丝汀反水关（StoryFlag 防重入）。这一晚是脚本人类袭击，
                 // 不叠加丧尸袭营（TriggerRaid 会因 _tutorialActive 早退）。
                 if (_clock.Day == 2 && !_storyFlags.Has("tutorial_raider_started"))
-                    BeginCristineTutorial();
+                    BeginChristineTutorial();
                 break;
         }
     }
@@ -1796,8 +1940,10 @@ public sealed partial class CampMain : Node2D
         _storyFlags.Set(d.StoryFlag, "true"); // 持久去重：本 flag 已置则下次 Resolve 返回 null
 
         // 日记入共享库存（同一 BookData 实例登记进 registry，回营阅读共享已读态）。
-        LootApplication.Apply(
-            new[] { LootItem.Book(d.BookId) }, _inventory, _bookRegistry, _bookResolver);
+        // 空 BookId = 该发现点无书（如克莉丝汀本人尸体点，日记A 归帮众尸体），跳过入库。
+        if (!string.IsNullOrEmpty(d.BookId))
+            LootApplication.Apply(
+                new[] { LootItem.Book(d.BookId) }, _inventory, _bookRegistry, _bookResolver);
 
         _prevDiscoveryTimeScale = Engine.TimeScale;
         Engine.TimeScale = 0; // 冻结探索实时层，专注读叙事
@@ -1827,6 +1973,8 @@ public sealed partial class CampMain : Node2D
             testLevel.Combat = _combat;
         _currentLevel.ExpeditionTeam = _survivors.Where(s => s.Role == PawnRole.Expedition).ToList();
         _currentLevel.DestinationName = destinationName; // 关卡据此决定是否铺发现点（金手指帮根据地）
+        // 复仇线才在金手指帮根据地额外铺"克莉丝汀本人尸体"点（帮众尸体恒在，与此无关）。
+        _currentLevel.ChristineLeftForRevenge = _storyFlags.Has(GoldfingerDiscovery.ChristineLeftForRevengeFlag);
 
         _currentLevel.OnReturnToCamp += OnExplorationReturn;
         _currentLevel.OnDiscovery += OnExplorationDiscovery;
@@ -1914,10 +2062,20 @@ public sealed partial class CampMain : Node2D
         {
             if (b.IsRead)
                 continue; // "未读"按营地全局已读标记（per-reader 未读细分待用户定，见遗留）
-            books.Add(new ReadingPanel.BookOption { BookId = b.Id, Title = b.Title });
+            // 前置书标题：优先解析实例标题供「未读《X》」提示；解析不到退化到 id。
+            string? preTitle = b.PrerequisiteBookId is { } preId ? (_bookResolver(preId)?.Title ?? preId) : null;
+            books.Add(new ReadingPanel.BookOption
+            {
+                BookId = b.Id,
+                Title = b.Title,
+                PrerequisiteBookId = b.PrerequisiteBookId,
+                PrerequisiteTitle = preTitle,
+            });
         }
 
-        _readingPanel.SetupReaders(readers, books);
+        // 前置满足判定按读者本人已读（引擎侧 AccrueReading 亦以 Pawn.HasReadBook 判 ×0.2，口径一致）。
+        _readingPanel.SetupReaders(readers, books,
+            (pawnId, bookId) => _survivors.FirstOrDefault(s => s.Id == pawnId)?.HasReadBook(bookId) ?? false);
     }
 
     private void OnReadingConfirmed(Dictionary<int, string> assignments)
@@ -2084,18 +2242,26 @@ public sealed partial class CampMain : Node2D
     /// </summary>
     private void UpdateRaid(double delta)
     {
+        // 节流：守卫锁敌 + 破防/胜负统计每 ~0.15s 一次（非每帧）。守卫锁敌迟 ≤0.15s 反应可忽略，
+        // 破防/全灭是状态检测非边沿事件（丧尸驻留圈内），晚一拍判定不漏。delta 已被时标缩放（暂停即冻结）。
+        _raidUpdateElapsed += delta;
+        if (_raidUpdateElapsed < RaidUpdateInterval)
+            return;
+        _raidUpdateElapsed = 0;
+
         // 守卫巡防：无目标时取侦测半径内最近丧尸交战（是否真正开火由 Pawn.Think Guard 的射程判定裁决）。
+        // 距离比较用平方（DistanceSquaredTo）免开方。
         foreach (Pawn g in _raidGuards)
         {
             if (!g.Alive || g.HasActiveTarget)
                 continue;
             Zombie? nearest = null;
-            float best = g.GuardSightRadius;
+            float best = g.GuardSightRadius * g.GuardSightRadius;
             foreach (Zombie z in _raidZombies)
             {
                 if (!z.Alive)
                     continue;
-                float d = g.GlobalPosition.DistanceTo(z.GlobalPosition);
+                float d = g.GlobalPosition.DistanceSquaredTo(z.GlobalPosition);
                 if (d < best)
                 {
                     best = d;
@@ -2109,10 +2275,24 @@ public sealed partial class CampMain : Node2D
             }
         }
 
-        // 破防线：任一丧尸摸进营心 BreachRadius 内 = 破防。
-        bool breached = _raidZombies.Any(z => z.Alive && z.GlobalPosition.DistanceTo(_cameraCenter) < BreachRadius);
-        int zombiesRemaining = _raidZombies.Count(z => z.Alive);
-        int guardsAlive = _raidGuards.Count(g => g.Alive);
+        // 破防线 + 存活统计合成单遍：破防=任一丧尸摸进营心 BreachRadius（平方比较）内；同遍数存活丧尸。
+        float breachSq = BreachRadius * BreachRadius;
+        bool breached = false;
+        int zombiesRemaining = 0;
+        foreach (Zombie z in _raidZombies)
+        {
+            if (!z.Alive)
+                continue;
+            zombiesRemaining++;
+            if (!breached && z.GlobalPosition.DistanceSquaredTo(_cameraCenter) < breachSq)
+                breached = true;
+        }
+        int guardsAlive = 0;
+        foreach (Pawn g in _raidGuards)
+        {
+            if (g.Alive)
+                guardsAlive++;
+        }
 
         RaidEvaluation eval = RaidResolution.Evaluate(zombiesRemaining, guardsAlive, breached);
         if (eval.State != RaidState.Ongoing)
@@ -2164,7 +2344,7 @@ public sealed partial class CampMain : Node2D
 
         // 极端情况：夜晚耗尽仍未分胜负（教学关战斗未收口）→ 天亮统一清场，防止拖入白天。
         if (_tutorialActive || _tutorialRaiders.Count > 0 || _christine != null)
-            CleanupCristineTutorial();
+            CleanupChristineTutorial();
     }
 
     // ---------------- 教学关：克莉丝汀反水编排 ----------------
@@ -2173,7 +2353,7 @@ public sealed partial class CampMain : Node2D
     /// 第 2 夜脚本化开场：门外固定生成 2 个劫掠者 + 克莉丝汀（皆 Raider 阵营、起手打幸存者）。
     /// 不走 <see cref="RaidWave"/> 概率。生成模板沿用 <see cref="SpawnCampZombies"/>（门缝错峰、Inject、挂 _actorLayer）。
     /// </summary>
-    private void BeginCristineTutorial()
+    private void BeginChristineTutorial()
     {
         _storyFlags.Set("tutorial_raider_started", "true");
         _tutorialActive = true;
@@ -2231,7 +2411,7 @@ public sealed partial class CampMain : Node2D
     private void OnChristineDied(Actor a)
     {
         // 克莉丝汀战死（Actor.Die 会随后 QueueFree 本节点）：立即置空引用，避免后续帧 use-after-free。
-        // 若死在结算前 → 支线不触发（黑暗向，有意为之），FinishCristineTutorial 据 _christine==null 不弹抉择。
+        // 若死在结算前 → 支线不触发（黑暗向，有意为之），FinishChristineTutorial 据 _christine==null 不弹抉择。
         _christine = null;
         GD.Print("[教学关] 克莉丝汀战死。");
     }
@@ -2239,7 +2419,7 @@ public sealed partial class CampMain : Node2D
     /// <summary>
     /// 逐帧推进教学关：反水监测（未反水时）+ 胜负复用判定。仅 <see cref="_tutorialActive"/> 时调用。
     /// </summary>
-    private void UpdateCristineTutorial(double delta)
+    private void UpdateChristineTutorial(double delta)
     {
         // ① 反水监测：任一劫掠者受伤较重 或 克莉丝汀自己受伤 → 翻转。
         if (!_christineTurned && _christine is { Alive: true })
@@ -2260,7 +2440,7 @@ public sealed partial class CampMain : Node2D
 
         RaidEvaluation eval = RaidResolution.Evaluate(enemiesRemaining, defendersAlive, breached);
         if (eval.State != RaidState.Ongoing)
-            FinishCristineTutorial(eval);
+            FinishChristineTutorial(eval);
     }
 
     /// <summary>
@@ -2282,7 +2462,7 @@ public sealed partial class CampMain : Node2D
     /// 战斗收口：清残留劫掠者、置 done flag、被攻破按 RaidResolution 后果扣资源。
     /// **仅击退(Defended)且克莉丝汀存活**才弹抉择面板；失利(Overrun，含她独活)或她战死 → 支线不触发，直接收尾。
     /// </summary>
-    private void FinishCristineTutorial(RaidEvaluation eval)
+    private void FinishChristineTutorial(RaidEvaluation eval)
     {
         _tutorialActive = false;
         foreach (Raider r in _tutorialRaiders)
@@ -2306,7 +2486,7 @@ public sealed partial class CampMain : Node2D
         // 或她战死 → 不弹，直接收尾。
         if (eval.State == RaidState.Defended && _christine is { Alive: true })
         {
-            PromptCristineChoice();
+            PromptChristineChoice();
         }
         else
         {
@@ -2318,25 +2498,25 @@ public sealed partial class CampMain : Node2D
     }
 
     /// <summary>战后暂停（TimeScale=0）弹收留/放逐/处决三选一。</summary>
-    private void PromptCristineChoice()
+    private void PromptChristineChoice()
     {
         double prevScale = Engine.TimeScale;
         Engine.TimeScale = 0;
 
         var panel = new ChoicePanel();
         AddChild(panel);
-        panel.ForCristine(
+        panel.ForChristine(
             "劫掠者已被清剿。克莉丝汀瘫坐在血泊边，抬头望向你：\n" +
             "「我不是他们一伙的……是他们逼我带路的。求你，让我留下——我能帮上忙。」");
         panel.Confirmed += v =>
         {
             Engine.TimeScale = prevScale <= 0 ? 1 : prevScale;
-            HandleCristineChoice((CristineChoice)v);
+            HandleChristineChoice((ChristineChoice)v);
             panel.QueueFree();
         };
     }
 
-    private void HandleCristineChoice(CristineChoice choice)
+    private void HandleChristineChoice(ChristineChoice choice)
     {
         _storyFlags.Set("tutorial_raider_done", "true");
         if (_christine == null || !IsInstanceValid(_christine))
@@ -2347,16 +2527,16 @@ public sealed partial class CampMain : Node2D
 
         switch (choice)
         {
-            case CristineChoice.Recruit:
+            case ChristineChoice.Recruit:
                 RecruitChristine();
                 break;
-            case CristineChoice.Exile:
+            case ChristineChoice.Exile:
                 // 放逐：让她走向门外后消失（活着离开，不留尸不流血）。
                 WalkOutAndDespawn(_christine);
                 _christine = null;
                 GD.Print("[教学关] 放逐克莉丝汀：她走向门外，消失在营地外。");
                 break;
-            case CristineChoice.Execute:
+            case ChristineChoice.Execute:
                 // 处决：脚下留一摊浓血后当场消失（不做倒地尸体视觉）。
                 SpawnDeathBlood(_christine);
                 _christine.QueueFree();
@@ -2507,7 +2687,7 @@ public sealed partial class CampMain : Node2D
     }
 
     /// <summary>教学关未收口时的天亮兜底清场：移除双方残留、复位标志、置 done flag。</summary>
-    private void CleanupCristineTutorial()
+    private void CleanupChristineTutorial()
     {
         _tutorialActive = false;
         foreach (Raider r in _tutorialRaiders)

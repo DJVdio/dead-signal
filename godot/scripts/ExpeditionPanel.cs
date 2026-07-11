@@ -16,6 +16,7 @@ public sealed partial class ExpeditionPanel : CanvasLayer
 
     private Control _root = null!;
     private VBoxContainer _listContainer = null!;
+    private Label _emptyHint = null!;
     private Label _destinationLabel = null!;
     private Button _destBtn = null!;
     private Button _confirmBtn = null!;
@@ -66,6 +67,18 @@ public sealed partial class ExpeditionPanel : CanvasLayer
         _listContainer.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
         _listContainer.MouseFilter = Control.MouseFilterEnum.Pass;
         scroll.AddChild(_listContainer);
+
+        _emptyHint = new Label();
+        _emptyHint.Text = "没有可派出的队员（全员在外/伤重/已另有安排）。";
+        _emptyHint.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
+        _emptyHint.HorizontalAlignment = HorizontalAlignment.Center;
+        _emptyHint.VerticalAlignment = VerticalAlignment.Center;
+        _emptyHint.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        _emptyHint.AddThemeFontSizeOverride("font_size", 14);
+        _emptyHint.AddThemeColorOverride("font_color", new Color(0.6f, 0.6f, 0.55f));
+        _emptyHint.MouseFilter = Control.MouseFilterEnum.Ignore;
+        _emptyHint.Visible = false;
+        listBg.AddChild(_emptyHint);
 
         _destinationLabel = new Label();
         _destinationLabel.Position = new Vector2(24, 308);
@@ -146,6 +159,7 @@ public sealed partial class ExpeditionPanel : CanvasLayer
             _listContainer.AddChild(hbox);
             _listContainer.AddChild(separator);
         }
+        _emptyHint.Visible = _pawns.Count == 0;
         OnCheckChanged();
     }
 

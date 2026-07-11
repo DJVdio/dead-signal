@@ -62,16 +62,29 @@ public sealed partial class WorldMapPanel : CanvasLayer
         _mapContainer.MouseFilter = Control.MouseFilterEnum.Ignore;
         panel.AddChild(_mapContainer);
 
+        const float labelWidth = 150f;
         foreach (var dest in Destinations)
         {
             var markerLabel = new Label();
-            markerLabel.Text = dest.Name;
-            markerLabel.Position = dest.Position + new Vector2(18, -8);
+            markerLabel.Text = $"{dest.Name}（{dest.TravelTimeSeconds / 60} 分钟）";
             markerLabel.AddThemeFontSizeOverride("font_size", 12);
             markerLabel.AddThemeColorOverride("font_color", new Color(0.8f, 0.75f, 0.6f));
             markerLabel.AddThemeColorOverride("font_outline_color", new Color(0, 0, 0, 0.9f));
             markerLabel.AddThemeConstantOverride("outline_size", 3);
             markerLabel.MouseFilter = Control.MouseFilterEnum.Ignore;
+            markerLabel.CustomMinimumSize = new Vector2(labelWidth, 0);
+            // 靠右侧的点把标签放到左边并右对齐，避免文字冲出地图容器右界。
+            bool placeLeft = dest.Position.X + 18 + labelWidth > _mapContainer.Size.X;
+            if (placeLeft)
+            {
+                markerLabel.HorizontalAlignment = HorizontalAlignment.Right;
+                markerLabel.Position = dest.Position + new Vector2(-18 - labelWidth, -8);
+            }
+            else
+            {
+                markerLabel.HorizontalAlignment = HorizontalAlignment.Left;
+                markerLabel.Position = dest.Position + new Vector2(18, -8);
+            }
             _mapContainer.AddChild(markerLabel);
         }
 
@@ -124,7 +137,8 @@ public sealed partial class WorldMapPanel : CanvasLayer
     private sealed partial class WorldMapDraw : Control
     {
         public Destination[] Destinations = Array.Empty<Destination>();
-        public int SelectedIndex = -1;
+        public int SelectedIndex = -1; // 点选目标：恒亮，不被鼠标移开清除
+        public int HoveredIndex = -1;  // 悬停高亮：随鼠标进出增删，与 SelectedIndex 独立
 
         public event Action<int>? Clicked;
 
@@ -151,9 +165,9 @@ public sealed partial class WorldMapPanel : CanvasLayer
             for (int i = 0; i < Destinations.Length; i++)
             {
                 var d = Destinations[i];
-                bool hovered = i == SelectedIndex;
-                float r = hovered ? 10f : 7f;
-                var color = hovered ? new Color(0.9f, 0.6f, 0.2f) : new Color(0.5f, 0.45f, 0.35f);
+                bool highlighted = i == SelectedIndex || i == HoveredIndex;
+                float r = highlighted ? 10f : 7f;
+                var color = highlighted ? new Color(0.9f, 0.6f, 0.2f) : new Color(0.5f, 0.45f, 0.35f);
                 DrawCircle(d.Position, r + 2, new Color(0, 0, 0, 0.5f));
                 DrawCircle(d.Position, r, color, true);
                 DrawCircle(d.Position, r, new Color(1, 1, 1, 0.3f), false, 1.5f);
@@ -175,17 +189,17 @@ public sealed partial class WorldMapPanel : CanvasLayer
             }
             if (@event is InputEventMouseMotion mm)
             {
-                int prev = SelectedIndex;
-                SelectedIndex = -1;
+                int prev = HoveredIndex;
+                HoveredIndex = -1;
                 for (int i = 0; i < Destinations.Length; i++)
                 {
                     if (Destinations[i].Position.DistanceTo(mm.Position) < 16f)
                     {
-                        SelectedIndex = i;
+                        HoveredIndex = i;
                         break;
                     }
                 }
-                if (prev != SelectedIndex)
+                if (prev != HoveredIndex)
                     QueueRedraw();
             }
         }

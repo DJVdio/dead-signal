@@ -6,9 +6,9 @@ namespace DeadSignal.Godot;
 
 /// <summary>
 /// 教学关"对幸存者的处置"三选一。数值以 int 承载在 <see cref="ChoiceOption.Value"/>，
-/// 调用方 cast 回本枚举即可（<c>(CristineChoice)value</c>）。
+/// 调用方 cast 回本枚举即可（<c>(ChristineChoice)value</c>）。
 /// </summary>
-public enum CristineChoice
+public enum ChristineChoice
 {
     Recruit = 0, // 收留
     Exile = 1,   // 放逐
@@ -19,7 +19,7 @@ public enum CristineChoice
 /// 通用"提示文本 + N 个选项按钮"模态抉择面板。点某个按钮即 emit 该选项的
 /// <see cref="ChoiceOption.Value"/>（订阅 <see cref="Confirmed"/>），无需二次确认。
 /// 选项文本/值/配色全部由调用方 <see cref="Setup"/> 传入，可复用于任何"N 选一"场景；
-/// 教学关的收留/放逐/处决用 <see cref="CristineChoice"/> 装配即可（见 <see cref="ForCristine"/>）。
+/// 教学关的收留/放逐/处决用 <see cref="ChristineChoice"/> 装配即可（见 <see cref="ForChristine"/>）。
 /// </summary>
 public sealed partial class ChoicePanel : CanvasLayer
 {
@@ -36,7 +36,7 @@ public sealed partial class ChoicePanel : CanvasLayer
     private VBoxContainer _optionContainer = null!;
     private Button? _cancelBtn;
 
-    /// <summary>点击某选项按钮后 emit 其 Value（教学关即 (int)CristineChoice）。</summary>
+    /// <summary>点击某选项按钮后 emit 其 Value（教学关即 (int)ChristineChoice）。</summary>
     public event Action<int>? Confirmed;
 
     /// <summary>点击取消（若 Setup 时 showCancel=true）时触发。</summary>
@@ -94,7 +94,8 @@ public sealed partial class ChoicePanel : CanvasLayer
             _optionContainer.AddChild(btn);
         }
 
-        if (showCancel)
+        // 选项为空时若再无取消按钮，本模态将无任何可点、无 ESC 可关 —— 死锁。强制补一个取消兜底。
+        if (showCancel || options.Count == 0)
         {
             _cancelBtn = new Button();
             _cancelBtn.Text = "取消";
@@ -107,20 +108,20 @@ public sealed partial class ChoicePanel : CanvasLayer
     }
 
     /// <summary>
-    /// 教学关便捷装配：收留/放逐/处决三选一。选项 Value 即 (int)CristineChoice，
-    /// 订阅方 <c>Confirmed += v =&gt; Handle((CristineChoice)v)</c>。
+    /// 教学关便捷装配：收留/放逐/处决三选一。选项 Value 即 (int)ChristineChoice，
+    /// 订阅方 <c>Confirmed += v =&gt; Handle((ChristineChoice)v)</c>。
     /// </summary>
-    public void ForCristine(string prompt)
+    public void ForChristine(string prompt)
     {
         Setup(prompt, new List<ChoiceOption>
         {
-            new() { Value = (int)CristineChoice.Recruit, Label = "收留",
+            new() { Value = (int)ChristineChoice.Recruit, Label = "收留",
                     Description = "接纳她加入营地，多一张嘴也多一双手",
                     Accent = new Color(0.3f, 0.6f, 0.3f) },
-            new() { Value = (int)CristineChoice.Exile, Label = "放逐",
+            new() { Value = (int)ChristineChoice.Exile, Label = "放逐",
                     Description = "把她赶走，眼不见为净",
                     Accent = new Color(0.6f, 0.5f, 0.25f) },
-            new() { Value = (int)CristineChoice.Execute, Label = "处决",
+            new() { Value = (int)ChristineChoice.Execute, Label = "处决",
                     Description = "一了百了，永绝后患",
                     Accent = new Color(0.65f, 0.2f, 0.2f) },
         });

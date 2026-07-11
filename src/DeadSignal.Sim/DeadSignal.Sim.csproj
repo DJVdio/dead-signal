@@ -9,6 +9,8 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <!-- 并行蒙特卡洛：Server GC 抬高多线程分配吞吐（每线程独立堆，减跨线程 GC 竞争） -->
+    <ServerGarbageCollection>true</ServerGarbageCollection>
   </PropertyGroup>
 
 </Project>

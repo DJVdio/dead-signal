@@ -7,6 +7,18 @@ namespace DeadSignal.Godot;
 /// </summary>
 public static class UiStyle
 {
+    // —— 公共语义色（跨面板统一：一处定义，各面板/包 C 只读引用，消除"两套红/两套绿"漂移）——
+    // 语义固定：红=缺料/危急/失败、绿=满足/充足/成功、黄=待办/警示。着色只映射真实判定，不发明状态。
+
+    /// <summary>红：材料/条件不足、伤情危急、操作失败。取醒目红（狠辣致残有意为之，不淡化）。</summary>
+    public static readonly Color Danger = new(0.90f, 0.33f, 0.28f);
+
+    /// <summary>绿：材料充足、条件满足、处置成功/恢复中。</summary>
+    public static readonly Color Success = new(0.56f, 0.80f, 0.48f);
+
+    /// <summary>黄：待办/需注意但未达危急（如伤情较重、缺项提醒）。</summary>
+    public static readonly Color Warning = new(0.95f, 0.72f, 0.28f);
+
     /// <summary>
     /// 移除并释放节点全部子节点。Node 非 RefCounted，只 RemoveChild 会造成原生对象泄漏，
     /// 必须 QueueFree。先 RemoveChild 立即脱离父节点（避免重建时的瞬时布局重复），再 QueueFree 释放。

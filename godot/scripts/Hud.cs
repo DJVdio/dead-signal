@@ -23,7 +23,8 @@ public sealed partial class Hud : CanvasLayer
         _helpLabel.AddThemeFontSizeOverride("font_size", 13);
         _helpLabel.Modulate = new Color(1, 1, 1, 0.75f);
         _helpLabel.Text =
-            "左键选中角色  右键：空地移动 / 对准工作台·柜子前往交互  空格暂停  1/2/3 速度档  WASD/边缘平移相机  滚轮缩放";
+            "左键选中角色（底部卡牌栏亦可，双击聚焦）  右键：空地移动 / 对准工作台·柜子前往开面板交互  " +
+            "M 医疗面板  空格暂停  ESC 关面板  1/2/3 速度档  WASD/边缘平移相机  滚轮缩放";
         AddChild(_helpLabel);
 
         _hoverLabel = MakeLabel();

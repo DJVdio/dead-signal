@@ -21,8 +21,13 @@ public sealed partial class GuardPanel : CanvasLayer
 
     private Control _root = null!;
     private VBoxContainer _postContainer = null!;
+    private Label _emptyHint = null!;
+    private Label _warningLabel = null!;
     private Button _confirmBtn = null!;
     private Button _cancelBtn = null!;
+
+    // 全空岗（无人守夜）时，首次「确认」只弹警示不放行，改成待二次确认态；再次点击才真正 emit。
+    private bool _pendingEmptyConfirm;
 
     private readonly List<GuardPostDef> _posts = new();
     private readonly List<PawnOption> _pawns = new();
@@ -68,6 +73,27 @@ public sealed partial class GuardPanel : CanvasLayer
         _postContainer.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
         _postContainer.MouseFilter = Control.MouseFilterEnum.Pass;
         scroll.AddChild(_postContainer);
+
+        _emptyHint = new Label();
+        _emptyHint.Text = "没有可上岗的守卫（全员在外/伤重/已另有安排）。";
+        _emptyHint.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
+        _emptyHint.HorizontalAlignment = HorizontalAlignment.Center;
+        _emptyHint.VerticalAlignment = VerticalAlignment.Center;
+        _emptyHint.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        _emptyHint.AddThemeFontSizeOverride("font_size", 14);
+        _emptyHint.AddThemeColorOverride("font_color", new Color(0.6f, 0.6f, 0.55f));
+        _emptyHint.MouseFilter = Control.MouseFilterEnum.Ignore;
+        _emptyHint.Visible = false;
+        listBg.AddChild(_emptyHint);
+
+        _warningLabel = new Label();
+        _warningLabel.Position = new Vector2(24, 300);
+        _warningLabel.Size = new Vector2(472, 34);
+        _warningLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        _warningLabel.AddThemeFontSizeOverride("font_size", 14);
+        _warningLabel.AddThemeColorOverride("font_color", UiStyle.Danger);
+        _warningLabel.Visible = false;
+        panel.AddChild(_warningLabel);
 
         _confirmBtn = new Button();
         _confirmBtn.Text = "确认";
@@ -144,10 +170,12 @@ public sealed partial class GuardPanel : CanvasLayer
                 dd.AddItem(p.Name, p.Id);
         }
         UpdateEquipSummary();
+        _emptyHint.Visible = _pawns.Count == 0;
     }
 
     private void UpdateEquipSummary()
     {
+        ResetEmptyConfirm(); // 排岗有变即撤回上一次的空岗警示
         for (int i = 0; i < _dropdowns.Count && i < _equipLabels.Count; i++)
         {
             int selectedId = _dropdowns[i].GetItemId(_dropdowns[i].Selected);
@@ -176,6 +204,27 @@ public sealed partial class GuardPanel : CanvasLayer
             if (pawnId >= 0)
                 map[_posts[i].PostId] = pawnId;
         }
+
+        // 全空岗：首次确认只警示不放行（不硬拦，仅要求二次确认）。
+        if (map.Count == 0 && !_pendingEmptyConfirm)
+        {
+            _pendingEmptyConfirm = true;
+            _warningLabel.Text = "今夜无人守夜，袭营将无预警。再次点击「确认」放行。";
+            _warningLabel.Visible = true;
+            _confirmBtn.Text = "仍要确认";
+            return;
+        }
+
         GuardConfirmed?.Invoke(map);
+    }
+
+    /// <summary>清掉全空岗待二次确认态（玩家改了排岗或重开面板时调用）。</summary>
+    private void ResetEmptyConfirm()
+    {
+        if (!_pendingEmptyConfirm)
+            return;
+        _pendingEmptyConfirm = false;
+        _warningLabel.Visible = false;
+        _confirmBtn.Text = "确认";
     }
 }

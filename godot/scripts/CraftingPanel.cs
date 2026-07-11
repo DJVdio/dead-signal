@@ -11,9 +11,11 @@ namespace DeadSignal.Godot;
 /// 骨架照 <see cref="StashPanel"/>：CanvasLayer + <see cref="UiStyle.BuildModalShell"/>；冻结/恢复时标由 CampMain 管。
 ///
 /// 【制作页】按"已装工具"给配方分类（<see cref="CraftingPanelFormat.GroupByTool"/>）：组头标该类需要的工具与是否已装；
-/// 每条配方列材料成本（够=绿/缺=红）与解锁条件（工具/技能/书，满足打勾），用 <see cref="CraftingLogic.CanCraft"/>
-/// 按"当前选中制作者 + 库存 + 工作台"算可否制作，不可则逐条展示 <see cref="CraftAvailability.Blocks"/> 的中文原因。
-/// 顶部一个「制作者」下拉选一个可控幸存者（技能门槛按其判定）。「制作」按钮：可制作时可点，emit <see cref="CraftRequested"/>。
+/// 每条配方列材料成本（够=绿/缺=红）与解锁条件（工具/书，满足打勾），用 <see cref="CraftingLogic.CanCraft"/>
+/// 按"当前选中制作者 + 库存 + 工作台"算可否制作，不可则逐条展示 <see cref="CraftAvailability.Blocks"/> 的中文原因
+/// （书门槛未满足时展示「&lt;制作者&gt;需读完《书名》」，让换制作者对书门槛配方的影响一目了然）。
+/// 顶部一个「制作者」下拉选一个可控幸存者（书门槛按其本人已读判定；无书门槛配方如木椅/自制弓人人可造）。
+/// 「制作」按钮：可制作时可点，emit <see cref="CraftRequested"/>。
 ///
 /// 【改装页】选一把库存武器 → <see cref="WeaponModCatalog.For(Weapon)"/> 列可选改装，按 <see cref="WeaponMod.Part"/> 分组、
 /// 同部位已选则其余置灰（对齐 <see cref="WeaponMods.ApplyMods"/> 的同部位互斥），<see cref="WeaponMod.Note"/> 作说明。
@@ -66,12 +68,12 @@ public sealed partial class CraftingPanel : CanvasLayer
     private VBoxContainer _listContainer = null!;
     private Label _footerLabel = null!;
 
-    // 配色（对齐 StashPanel 暗色调）
+    // 配色（对齐 StashPanel 暗色调；语义红/绿统一引 UiStyle，消除跨面板漂移）
     private static readonly Color TextColor = new(0.85f, 0.82f, 0.75f);
     private static readonly Color DimColor = new(0.55f, 0.55f, 0.5f);
     private static readonly Color HeadColor = new(0.72f, 0.68f, 0.55f);
-    private static readonly Color OkColor = new(0.62f, 0.78f, 0.55f);
-    private static readonly Color BadColor = new(0.82f, 0.45f, 0.4f);
+    private static readonly Color OkColor = UiStyle.Success;
+    private static readonly Color BadColor = UiStyle.Danger;
 
     public override void _Ready()
     {
@@ -149,7 +151,7 @@ public sealed partial class CraftingPanel : CanvasLayer
 
         _footerLabel = new Label();
         _footerLabel.Position = new Vector2(24, 534);
-        _footerLabel.Size = new Vector2(500, 40);
+        _footerLabel.Size = new Vector2(480, 40); // 收窄至 480（右界 504<关闭按钮 x=516），不与关闭键重叠（对齐 MedicalPanel）
         _footerLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         _footerLabel.AddThemeFontSizeOverride("font_size", 12);
         _footerLabel.AddThemeColorOverride("font_color", DimColor);
@@ -324,15 +326,26 @@ public sealed partial class CraftingPanel : CanvasLayer
         // 材料行（够=绿、缺=红）
         card.AddChild(BuildMaterialLabel(recipe));
 
-        // 条件行（工具/技能/书，满足打勾）
-        Label? cond = BuildConditionLabel(recipe, installed);
+        // 条件行（工具/技能/书，满足=✓绿、未满足=✗红，逐项分色）
+        Control? cond = BuildConditionRow(recipe, installed);
         if (cond is not null) card.AddChild(cond);
 
-        // 阻断原因（直接展示 CanCraft 的中文 Detail）
+        // 阻断原因：书门槛部分改用「<制作者>需读完《书名》」（带制作者名，让换人立刻见效；书名而非原始 id），
+        // 工具/材料部分沿用 CanCraft 的中文 Detail（它们非制作者相关）。
         if (!avail.CanCraft)
         {
+            var reasons = new List<string>();
+            string? bookHint = CraftingPanelFormat.BookGateHint(
+                recipe,
+                bookId => _hasReadBook(_selectedCrafter!, bookId),
+                id => BookTitles.TryGetValue(id, out string? t) ? t : id);
+            if (bookHint is not null) reasons.Add($"{_selectedCrafter!.DisplayName}{bookHint}");
+            reasons.AddRange(avail.Blocks
+                .Where(b => b.Reason != CraftBlockReason.UnreadBook)
+                .Select(b => b.Detail));
+
             var blocks = new Label();
-            blocks.Text = "缺：" + string.Join("；", avail.Blocks.Select(b => b.Detail));
+            blocks.Text = "缺：" + string.Join("；", reasons);
             blocks.AutowrapMode = TextServer.AutowrapMode.WordSmart;
             blocks.CustomMinimumSize = new Vector2(600, 0);
             blocks.AddThemeFontSizeOverride("font_size", 12);
@@ -367,30 +380,44 @@ public sealed partial class CraftingPanel : CanvasLayer
         return label;
     }
 
-    private Label? BuildConditionLabel(RecipeData recipe, IReadOnlySet<ToolSlot> installed)
+    /// <summary>
+    /// 条件行：工具/书门槛逐项一个小 Label，满足=✓绿、未满足=✗红（不再整行同一暗色需逐字读符号）。
+    /// 用 HFlowContainer 自动换行，避免多条件时溢出面板。无任何条件返回 null。
+    /// </summary>
+    private Control? BuildConditionRow(RecipeData recipe, IReadOnlySet<ToolSlot> installed)
     {
-        var parts = new List<string>();
+        var items = new List<(string text, bool ok)>();
         foreach (ToolSlot tool in recipe.RequiredTools.OrderBy(t => (int)t))
         {
-            parts.Add($"{Check(installed.Contains(tool))}{tool.Label()}");
+            items.Add(($"{tool.Label()}", installed.Contains(tool)));
         }
         foreach (string bookId in recipe.RequiredBookIds)
         {
             string title = BookTitles.TryGetValue(bookId, out string? t) ? t : bookId;
-            parts.Add($"{Check(_hasReadBook(_selectedCrafter!, bookId))}读《{title}》");
+            items.Add(($"读《{title}》", _hasReadBook(_selectedCrafter!, bookId)));
         }
-        if (parts.Count == 0) return null;
+        if (items.Count == 0) return null;
 
-        var label = new Label();
-        label.Text = "条件：" + string.Join("　", parts);
-        label.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        label.CustomMinimumSize = new Vector2(600, 0);
-        label.AddThemeFontSizeOverride("font_size", 12);
-        label.AddThemeColorOverride("font_color", DimColor);
-        return label;
+        var flow = new HFlowContainer();
+        flow.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        flow.MouseFilter = Control.MouseFilterEnum.Pass;
+        flow.AddThemeConstantOverride("h_separation", 12);
+        flow.AddThemeConstantOverride("v_separation", 2);
+
+        var caption = new Label { Text = "条件：" };
+        caption.AddThemeFontSizeOverride("font_size", 12);
+        caption.AddThemeColorOverride("font_color", DimColor);
+        flow.AddChild(caption);
+
+        foreach ((string text, bool ok) in items)
+        {
+            var item = new Label { Text = $"{(ok ? "✓" : "✗")}{text}" };
+            item.AddThemeFontSizeOverride("font_size", 12);
+            item.AddThemeColorOverride("font_color", ok ? OkColor : BadColor);
+            flow.AddChild(item);
+        }
+        return flow;
     }
-
-    private static string Check(bool ok) => ok ? "✓" : "✗";
 
     // ================= 改装页 =================
 
@@ -457,9 +484,30 @@ public sealed partial class CraftingPanel : CanvasLayer
         _listContainer.AddChild(clsLabel);
 
         IReadOnlyList<WeaponMod> mods = WeaponModCatalog.For(weapon);
-        // 已被占用的部位（当前已选 mod 覆盖的部位）
-        var occupiedParts = new HashSet<WeaponPart>(
-            mods.Where(m => _selectedMods.Contains(m.Name)).Select(m => m.Part));
+
+        // 勾选一项后只就地重算同部位互斥置灰/备注与摘要/按钮，不整列 Rebuild（保滚动位与武器下拉焦点）。
+        var modRows = new List<(WeaponMod mod, CheckBox check, Label? note)>();
+        Label summary = null!;
+        Button applyBtn = null!;
+        void RefreshModStates()
+        {
+            var occupied = new HashSet<WeaponPart>(
+                mods.Where(m => _selectedMods.Contains(m.Name)).Select(m => m.Part));
+            foreach ((WeaponMod mod, CheckBox check, Label? note) in modRows)
+            {
+                bool selected = _selectedMods.Contains(mod.Name);
+                bool blockedByPart = !selected && occupied.Contains(mod.Part);
+                check.Disabled = blockedByPart;
+                check.AddThemeColorOverride("font_color", blockedByPart ? DimColor : TextColor);
+                if (note is not null)
+                {
+                    note.Text = "    " + mod.Note + (blockedByPart ? "（该部位已选其它改装）" : "");
+                }
+            }
+            summary.Text = _selectedMods.Count == 0 ? "未选改装" : "已选：" + string.Join("、", _selectedMods);
+            summary.AddThemeColorOverride("font_color", _selectedMods.Count == 0 ? DimColor : OkColor);
+            applyBtn.Disabled = _selectedMods.Count == 0 || _selectedCrafter is null;
+        }
 
         // 按部位分组（保持目录顺序）
         foreach (IGrouping<WeaponPart, WeaponMod> partGroup in mods
@@ -474,7 +522,7 @@ public sealed partial class CraftingPanel : CanvasLayer
 
             foreach (WeaponMod mod in partGroup)
             {
-                _listContainer.AddChild(BuildModRow(mod, occupiedParts));
+                _listContainer.AddChild(BuildModRow(mod, modRows, RefreshModStates));
             }
         }
 
@@ -484,18 +532,15 @@ public sealed partial class CraftingPanel : CanvasLayer
         applyRow.MouseFilter = Control.MouseFilterEnum.Pass;
         applyRow.AddThemeConstantOverride("separation", 8);
 
-        var summary = new Label();
-        summary.Text = _selectedMods.Count == 0 ? "未选改装" : "已选：" + string.Join("、", _selectedMods);
+        summary = new Label();
         summary.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
         summary.VerticalAlignment = VerticalAlignment.Center;
         summary.AddThemeFontSizeOverride("font_size", 12);
-        summary.AddThemeColorOverride("font_color", _selectedMods.Count == 0 ? DimColor : OkColor);
         applyRow.AddChild(summary);
 
-        var applyBtn = new Button();
+        applyBtn = new Button();
         applyBtn.Text = "改装";
         applyBtn.CustomMinimumSize = new Vector2(120, 32);
-        applyBtn.Disabled = _selectedMods.Count == 0 || _selectedCrafter is null;
         string baseKey = _selectedWeaponRefKey;
         applyBtn.Pressed += () =>
         {
@@ -507,14 +552,16 @@ public sealed partial class CraftingPanel : CanvasLayer
         UiStyle.StyleButton(applyBtn, new Color(0.4f, 0.5f, 0.35f), fontSize: 14);
         applyRow.AddChild(applyBtn);
         _listContainer.AddChild(applyRow);
+
+        RefreshModStates(); // 初始态：置灰/备注/摘要/按钮
     }
 
-    private Control BuildModRow(WeaponMod mod, IReadOnlySet<WeaponPart> occupiedParts)
+    /// <summary>造一行改装项并登记到 <paramref name="registry"/>；勾选只 <paramref name="refresh"/> 局部刷新，不整列重建。</summary>
+    private Control BuildModRow(
+        WeaponMod mod,
+        List<(WeaponMod mod, CheckBox check, Label? note)> registry,
+        Action refresh)
     {
-        bool selected = _selectedMods.Contains(mod.Name);
-        // 同部位已被别的 mod 占用（且不是自己）→ 置灰互斥。
-        bool blockedByPart = !selected && occupiedParts.Contains(mod.Part);
-
         var row = new VBoxContainer();
         row.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
         row.MouseFilter = Control.MouseFilterEnum.Pass;
@@ -522,28 +569,30 @@ public sealed partial class CraftingPanel : CanvasLayer
 
         var check = new CheckBox();
         check.Text = mod.Name;
-        check.ButtonPressed = selected;
-        check.Disabled = blockedByPart;
-        check.AddThemeColorOverride("font_color", blockedByPart ? DimColor : TextColor);
+        check.ButtonPressed = _selectedMods.Contains(mod.Name); // 先设初值再挂 Toggled，避免建行即触发
+        check.AddThemeColorOverride("font_color", TextColor);
         string modName = mod.Name;
         check.Toggled += on =>
         {
             if (on) _selectedMods.Add(modName);
             else _selectedMods.Remove(modName);
-            Rebuild(); // 重算同部位互斥的置灰
+            refresh(); // 局部重算同部位互斥置灰，不整列重建
         };
         row.AddChild(check);
 
+        Label? note = null;
         if (!string.IsNullOrEmpty(mod.Note))
         {
-            var note = new Label();
-            note.Text = "    " + mod.Note + (blockedByPart ? "（该部位已选其它改装）" : "");
+            note = new Label();
+            note.Text = "    " + mod.Note;
             note.AutowrapMode = TextServer.AutowrapMode.WordSmart;
             note.CustomMinimumSize = new Vector2(600, 0);
             note.AddThemeFontSizeOverride("font_size", 11);
             note.AddThemeColorOverride("font_color", DimColor);
             row.AddChild(note);
         }
+
+        registry.Add((mod, check, note));
         return row;
     }
 
