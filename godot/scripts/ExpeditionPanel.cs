@@ -12,6 +12,9 @@ public sealed partial class ExpeditionPanel : CanvasLayer
         public string Name;
         public string WeaponSummary;
         public string ArmorSummary;
+
+        /// <summary>随队伙伴（布鲁斯·狗）：不占 3 人上限、可与人类同勾。带狗须道格同队的约束由 CampMain 在确认时裁定。</summary>
+        public bool IsCompanion;
     }
 
     private Control _root = null!;
@@ -173,16 +176,19 @@ public sealed partial class ExpeditionPanel : CanvasLayer
 
     private void OnCheckChanged()
     {
-        int checkedCount = 0;
-        foreach (var cb in _checkBoxes)
-        {
-            if (cb.ButtonPressed)
-                checkedCount++;
-        }
-        bool limitOk = checkedCount > 0 && checkedCount <= 3;
+        // 只数人类（狗=companion 不占人头上限、不受满员禁用）。
+        int humanChecked = 0;
         for (int i = 0; i < _checkBoxes.Count; i++)
         {
-            if (!_checkBoxes[i].ButtonPressed && checkedCount >= 3)
+            if (_checkBoxes[i].ButtonPressed && i < _pawns.Count && !_pawns[i].IsCompanion)
+                humanChecked++;
+        }
+        bool limitOk = humanChecked > 0 && humanChecked <= 3; // 至少 1 人、至多 3 人
+        for (int i = 0; i < _checkBoxes.Count; i++)
+        {
+            bool isCompanion = i < _pawns.Count && _pawns[i].IsCompanion;
+            // 人类满 3 后未勾选者禁用；狗始终可勾（不占人头）。
+            if (!isCompanion && !_checkBoxes[i].ButtonPressed && humanChecked >= 3)
                 _checkBoxes[i].Disabled = true;
             else
                 _checkBoxes[i].Disabled = false;

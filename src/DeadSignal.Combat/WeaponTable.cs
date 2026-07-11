@@ -285,6 +285,20 @@ public static class WeaponTable
     };
 
     /// <summary>
+    /// 布鲁斯（狗）撕咬：天生近战锐器，穿透 10%。**低伤害**（用户口径：布鲁斯难以独自击杀敌人，靠缠斗拖住给道格
+    /// 创造输出窗口），比爪击更快（犬类机敏）。天生武器（同爪击不入 <see cref="Arsenal"/>，玩家不可穿脱）。全部拟定待调。
+    /// </summary>
+    public static Weapon DogBite() => new()
+    {
+        Name = "撕咬",
+        DamageMin = 2,           // 拟定待调（低伤：难独自击杀）
+        DamageMax = 6,           // 拟定待调
+        Penetration = 0.10,      // 拟定待调
+        DamageType = DamageType.Sharp,
+        AttackInterval = 1.6,    // 拟定待调（比爪击 2.3 快：犬类快速撕咬）
+    };
+
+    /// <summary>
     /// 玩家/敌方可用武器全集（15 种，含新增栓动猎枪，不含天生的丧尸爪击），Sim 聚合模拟按此顺序遍历。
     /// 顺序与旧 Sim 行内武器表一致，便于对照基线。
     /// </summary>

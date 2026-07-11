@@ -55,4 +55,37 @@ public static class ArmorTable
         WorkGlove(leftHand: true),
         WorkGlove(leftHand: false),
     };
+
+    // ---- 布鲁斯（狗）装备护甲层（批次5，道格 2 级解锁制作）----
+    // 狗体型小、覆盖部位少：身体甲仅护躯干、头甲仅护头（狗借用人形躯体，部位名对齐 HumanBody）。
+    // 防御量级参照人类布甲/皮甲**打折**（覆盖面小、单薄）；两档头甲按"铁皮高防 / 铁丝轻便"拉开差异。
+    // 数值全**拟定待调**（Sim/用户校准）。口袋狗衣无护甲（只给携带容量），故不在此表。
+
+    /// <summary>布制狗衣（贴身层，仅护躯干）：照人类布衣打折，防护偏低、轻。</summary>
+    public static ArmorLayer DogClothVest() => new()
+    {
+        Name = "布制狗衣", Slot = ArmorSlot.Skin, SharpDefense = 3, BluntDefense = 1.5, Weight = 1, // 拟定待调
+        CoversParts = new HashSet<string> { HumanBody.Torso },
+    };
+
+    /// <summary>皮制狗衣（外套层，仅护躯干）：照人类皮甲打折，防护中、稍重。</summary>
+    public static ArmorLayer DogLeatherVest() => new()
+    {
+        Name = "皮制狗衣", Slot = ArmorSlot.Outer, SharpDefense = 8, BluntDefense = 4, Weight = 3, // 拟定待调
+        CoversParts = new HashSet<string> { HumanBody.Torso },
+    };
+
+    /// <summary>铁皮头甲（装甲层，仅护头）：刚性铁皮，防护高、较重。</summary>
+    public static ArmorLayer DogIronHelmet() => new()
+    {
+        Name = "铁皮头甲", Slot = ArmorSlot.Plate, SharpDefense = 10, BluntDefense = 6, Weight = 4, // 拟定待调
+        CoversParts = new HashSet<string> { HumanBody.Head },
+    };
+
+    /// <summary>铁丝头甲（装甲层，仅护头）：铁丝编笼，轻便但防护弱于铁皮。</summary>
+    public static ArmorLayer DogWireHelmet() => new()
+    {
+        Name = "铁丝头甲", Slot = ArmorSlot.Plate, SharpDefense = 5, BluntDefense = 2, Weight = 1.5, // 拟定待调
+        CoversParts = new HashSet<string> { HumanBody.Head },
+    };
 }
