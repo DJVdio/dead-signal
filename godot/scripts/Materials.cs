@@ -32,6 +32,9 @@ public enum MaterialCategory
 
     /// <summary>医疗：绷带 / 针线 / 夹板 / 急救包 等手术耗材（按 <c>SurgeryCatalog</c> 计点），抗生素 / 成药 等药品（按 <c>MedicineCatalog</c> 消费）。</summary>
     Medical,
+
+    /// <summary>货币：末日流通的交易媒介（白银，同 RimWorld 以白银计价），成堆持有，用 <see cref="MaterialDef.Key"/> 标识、按 <see cref="Item.MaterialQuantity"/> 计数。神秘商人交易的支付手段。</summary>
+    Currency,
 }
 
 /// <summary>
@@ -79,7 +82,12 @@ public static class Materials
         // —— 药品（感染/疾病）——
         new MaterialDef("antibiotics", "抗生素", "对抗伤口感染的抗菌药物，需连服数日见效。", MaterialCategory.Medical),
         new MaterialDef("medicine", "成药", "杂七杂八的成药，缓解发热痢疾等病症。", MaterialCategory.Medical),
+        // —— 货币（draft）：末日流通的硬通货，神秘商人交易媒介。量级/掉落来源待用户设计。——
+        new MaterialDef(CurrencyKey, "白银", "末世前铸的白银，废土上通行的硬通货——同 RimWorld，交易一律以白银计价。可堆叠、散落世界可搜刮。", MaterialCategory.Currency),
     };
+
+    /// <summary>货币材料标识键（白银）。持币量 = 库存中该键各堆 <see cref="Item.MaterialQuantity"/> 之和；交易走 <c>InventoryStore.TrySpendMaterial</c> 实扣。</summary>
+    public const string CurrencyKey = "silver";
 
     private static readonly IReadOnlyDictionary<string, MaterialDef> _byKey =
         _all.ToDictionary(m => m.Key);

@@ -22,6 +22,14 @@ public class FactionsTests
     [InlineData(Faction.Raider, Faction.Survivor, true)]
     [InlineData(Faction.Zombie, Faction.Raider, true)]
     [InlineData(Faction.Raider, Faction.Zombie, true)]
+    // 中立方（神秘商人）：与任何阵营（含彼此、含同为中立）都不敌对
+    [InlineData(Faction.Neutral, Faction.Survivor, false)]
+    [InlineData(Faction.Survivor, Faction.Neutral, false)]
+    [InlineData(Faction.Neutral, Faction.Zombie, false)]
+    [InlineData(Faction.Zombie, Faction.Neutral, false)]
+    [InlineData(Faction.Neutral, Faction.Raider, false)]
+    [InlineData(Faction.Raider, Faction.Neutral, false)]
+    [InlineData(Faction.Neutral, Faction.Neutral, false)]
     public void IsHostile_CoversAllPairs(Faction a, Faction b, bool expected)
     {
         Assert.Equal(expected, Factions.IsHostile(a, b));
@@ -30,13 +38,24 @@ public class FactionsTests
     [Fact]
     public void IsHostile_IsSymmetric_ForEveryPair()
     {
-        var all = new[] { Faction.Survivor, Faction.Zombie, Faction.Raider };
+        var all = new[] { Faction.Survivor, Faction.Zombie, Faction.Raider, Faction.Neutral };
         foreach (Faction a in all)
         {
             foreach (Faction b in all)
             {
                 Assert.Equal(Factions.IsHostile(a, b), Factions.IsHostile(b, a));
             }
+        }
+    }
+
+    [Fact]
+    public void Neutral_IsHostileToNoOne()
+    {
+        var all = new[] { Faction.Survivor, Faction.Zombie, Faction.Raider, Faction.Neutral };
+        foreach (Faction other in all)
+        {
+            Assert.False(Factions.IsHostile(Faction.Neutral, other));
+            Assert.False(Factions.IsHostile(other, Faction.Neutral));
         }
     }
 }

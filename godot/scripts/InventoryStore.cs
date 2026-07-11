@@ -52,4 +52,53 @@ public sealed class InventoryStore
 
     /// <summary>库存里食物份数合计（供 W3 参考；本块不改 CampResources）。</summary>
     public int TotalFood => _items.Where(i => i.Category == ItemCategory.Food).Sum(i => i.FoodQuantity);
+
+    /// <summary>
+    /// 某材料标识键（<see cref="MaterialDef.Key"/>）在库存里的总量：所有该键材料堆的 <see cref="Item.MaterialQuantity"/> 之和。
+    /// 货币（白银）持有量即 <c>MaterialCount(Materials.CurrencyKey)</c>；配方够不够付亦可用它。
+    /// </summary>
+    public int MaterialCount(string key)
+        => key == null ? 0 : _items.Where(i => i.Category == ItemCategory.Material && i.RefKey == key).Sum(i => i.MaterialQuantity);
+
+    /// <summary>
+    /// 从库存实扣某材料键 <paramref name="amount"/> 个（跨多堆合计扣减）：总量不足则原样不动返回 <c>false</c>；
+    /// 足量则按加入顺序逐堆扣（整堆扣光则移除，部分扣则替换为余量堆），返回 <c>true</c>。
+    /// 交易付款（扣白银）、配方消耗材料均走此实扣路径。<paramref name="amount"/> ≤ 0 视作无操作返回 <c>true</c>。
+    /// </summary>
+    public bool TrySpendMaterial(string key, int amount)
+    {
+        if (amount <= 0)
+        {
+            return true;
+        }
+
+        if (key == null || MaterialCount(key) < amount)
+        {
+            return false;
+        }
+
+        int remaining = amount;
+        for (int i = 0; i < _items.Count && remaining > 0; i++)
+        {
+            Item it = _items[i];
+            if (it.Category != ItemCategory.Material || it.RefKey != key)
+            {
+                continue;
+            }
+
+            if (it.MaterialQuantity <= remaining)
+            {
+                remaining -= it.MaterialQuantity;
+                _items.RemoveAt(i);
+                i--; // 该槽已移除，回退以复查新占位的下一件
+            }
+            else
+            {
+                _items[i] = Item.Material(key, it.DisplayName, it.MaterialQuantity - remaining, it.Description);
+                remaining = 0;
+            }
+        }
+
+        return true;
+    }
 }
