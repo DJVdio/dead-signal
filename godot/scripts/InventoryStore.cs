@@ -101,4 +101,46 @@ public sealed class InventoryStore
 
         return true;
     }
+
+    /// <summary>
+    /// 从库存实扣食物 <paramref name="amount"/> 份（跨多堆合计扣减，镜像 <see cref="TrySpendMaterial"/>）：总量不足则原样不动返回 <c>false</c>；
+    /// 足量则按加入顺序逐堆扣（整堆扣光则移除，部分扣则替换为余量堆），返回 <c>true</c>。卖食物给商人走此实扣路径。
+    /// <paramref name="amount"/> ≤ 0 视作无操作返回 <c>true</c>。
+    /// </summary>
+    public bool TrySpendFood(int amount)
+    {
+        if (amount <= 0)
+        {
+            return true;
+        }
+
+        if (TotalFood < amount)
+        {
+            return false;
+        }
+
+        int remaining = amount;
+        for (int i = 0; i < _items.Count && remaining > 0; i++)
+        {
+            Item it = _items[i];
+            if (it.Category != ItemCategory.Food)
+            {
+                continue;
+            }
+
+            if (it.FoodQuantity <= remaining)
+            {
+                remaining -= it.FoodQuantity;
+                _items.RemoveAt(i);
+                i--; // 该槽已移除，回退以复查新占位的下一件
+            }
+            else
+            {
+                _items[i] = Item.Food(it.FoodQuantity - remaining, it.DisplayName, it.Description);
+                remaining = 0;
+            }
+        }
+
+        return true;
+    }
 }

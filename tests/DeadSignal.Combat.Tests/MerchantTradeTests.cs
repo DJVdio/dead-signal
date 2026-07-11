@@ -78,6 +78,42 @@ public class MerchantTradeTests
         Assert.Equal(10, store.MaterialCount(Materials.CurrencyKey)); // 原样不动
     }
 
+    // —— 价率（用户拍板：卖给商人=基准价60%、从商人买=100%）——
+
+    [Fact]
+    public void Rates_MatchUserRuling_Buy100_Sell60()
+    {
+        Assert.Equal(100, MerchantTrade.BuyRatePercent);
+        Assert.Equal(60, MerchantTrade.SellRatePercent);
+    }
+
+    [Fact]
+    public void BuyPrice_IsFullBasePrice_At100Percent()
+    {
+        Assert.Equal(30, MerchantTrade.BuyPrice(30));
+        Assert.Equal(0, MerchantTrade.BuyPrice(0));
+        Assert.Equal(0, MerchantTrade.BuyPrice(-5)); // 负价 clamp 到 0
+    }
+
+    [Theory]
+    // 60% 向下取整：100→60、30→18、7→4(4.2 截 4)、1→0(0.6 截 0)。
+    [InlineData(100, 60)]
+    [InlineData(30, 18)]
+    [InlineData(7, 4)]
+    [InlineData(1, 0)]
+    [InlineData(0, 0)]
+    public void SellPrice_Is60PercentFloored(int basePrice, int expected)
+    {
+        Assert.Equal(expected, MerchantTrade.SellPrice(basePrice));
+    }
+
+    [Fact]
+    public void SellPrice_IsCheaperThanBuyPrice_ForSameBase()
+    {
+        // 同一基准价：玩家卖出所得 < 买入所付（商人压价 → 杜绝无损倒卖套利）。
+        Assert.True(MerchantTrade.SellPrice(50) < MerchantTrade.BuyPrice(50));
+    }
+
     // —— 交易判定（不改状态）——
 
     [Fact]
