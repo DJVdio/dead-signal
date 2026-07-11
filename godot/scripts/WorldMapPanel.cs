@@ -29,6 +29,11 @@ public sealed partial class WorldMapPanel : CanvasLayer
         new() { Name = GoldfingerBaseName, Position = new Vector2(210, 210), TravelTimeSeconds = 540 },
         // 森林深处、远离城镇：坐标落在城镇方框（80,60,440,260）之外的右侧林地，行程最长（拟定待调）。
         new() { Name = WatchersCabinName, Position = new Vector2(545, 150), TravelTimeSeconds = 600 },
+        // 两个前中期探索点（用户拍板"加两个探索点 河边小屋 联合收割机仓库"），搜刮点铺设见 TestExploration，投放见 ExplorationCache。
+        // 河边小屋：城镇以南、临河（坐标落在城镇方框下缘），行程 6 分钟（前中期档，拟定待调）。
+        new() { Name = ExplorationCache.RiversideCabinName, Position = new Vector2(250, 335), TravelTimeSeconds = 360 },
+        // 联合收割机仓库：城镇东侧田野（方框之外的右下林地/农地），行程 7 分钟（前中期档，拟定待调）。
+        new() { Name = ExplorationCache.HarvesterWarehouseName, Position = new Vector2(555, 285), TravelTimeSeconds = 420 },
     };
 
     private Control _root = null!;

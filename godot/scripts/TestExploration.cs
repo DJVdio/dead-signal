@@ -41,6 +41,10 @@ public sealed partial class TestExploration : ExplorationLevel
             SetupGoldfingerCorpseDiscoveries();
         else if (DestinationName == WorldMapPanel.WatchersCabinName)
             SetupGordonHangedDiscovery();
+        else if (DestinationName == ExplorationCache.RiversideCabinName)
+            SetupRiversideCabinCaches();
+        else if (DestinationName == ExplorationCache.HarvesterWarehouseName)
+            SetupHarvesterWarehouseCaches();
     }
 
     public override void Cleanup()
@@ -248,6 +252,45 @@ public sealed partial class TestExploration : ExplorationLevel
             new Vector2(2000, 1220),
             markerColor: new Color(0.55f, 0.5f, 0.45f),
             label: "上吊尸");
+    }
+
+    /// <summary>
+    /// 河边小屋（前中期探索点，用户拍板）：两处搜刮点（发现点式，踏入即入库+弹环境叙事，投放/叙事见 <see cref="ExplorationCache"/>）。
+    /// · 枪柜（← 栓动猎枪）铺在靠近入口处（近入口＝易得）；· 床底木箱（通用搜刮）位置更深。
+    /// 触发链路复用现有 <see cref="AddDiscoveryPoint"/>；掉落解析在 CampMain.OnExplorationDiscovery 走 <see cref="ExplorationCache.Resolve"/>。
+    /// </summary>
+    private void SetupRiversideCabinCaches()
+    {
+        AddDiscoveryPoint(
+            ExplorationCache.RiversideGunCabinetId,
+            new Vector2(1100, 380),
+            markerColor: new Color(0.55f, 0.42f, 0.28f),
+            label: "枪柜");
+
+        AddDiscoveryPoint(
+            ExplorationCache.RiversideBedChestId,
+            new Vector2(1850, 420),
+            markerColor: new Color(0.5f, 0.45f, 0.3f),
+            label: "床底木箱");
+    }
+
+    /// <summary>
+    /// 联合收割机仓库（前中期探索点，用户拍板）：两处搜刮点（发现点式，投放/叙事见 <see cref="ExplorationCache"/>）。
+    /// · 工具柜（←《木匠入门》，易得）铺在靠近入口处；· 阁楼铁皮箱（←《进阶木匠技术》，藏深）位置最深，难度梯度 draft 拟定待调。
+    /// </summary>
+    private void SetupHarvesterWarehouseCaches()
+    {
+        AddDiscoveryPoint(
+            ExplorationCache.WarehouseToolCabinetId,
+            new Vector2(1080, 400),
+            markerColor: new Color(0.48f, 0.44f, 0.36f),
+            label: "工具柜");
+
+        AddDiscoveryPoint(
+            ExplorationCache.WarehouseAtticChestId,
+            new Vector2(2050, 1180),
+            markerColor: new Color(0.5f, 0.46f, 0.4f),
+            label: "阁楼铁皮箱");
     }
 
     /// <summary>造一个发现点：地面标记 + 文字标签 + 触发 Area2D（踏入一次即上报，本关内不重复）。</summary>

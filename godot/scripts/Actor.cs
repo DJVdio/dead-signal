@@ -190,6 +190,12 @@ public abstract partial class Actor : CharacterBody2D
                 CollisionLayer = LayerRaider;
                 CollisionMask = LayerWall | LayerRaider;   // 0b1100
                 break;
+            case Faction.Neutral:
+                // 中立方（神秘商人等）：不占任何阵营层（谁都不会撞进它、也不被挤开），只避墙自行走位。
+                // 站定停留即可被右键前往交互（走的是容器 Rect 命中，非物理碰撞），无需参与阵营分离。
+                CollisionLayer = 0u;
+                CollisionMask = LayerWall;
+                break;
         }
     }
 

@@ -79,7 +79,7 @@ public sealed partial class CampMain : Node2D
     private GuardPanel _guardPanel = null!;
     private ReadingPanel _readingPanel = null!;
     private ReturnWarningPopup _returnWarningPopup = null!;
-    private MealPanel _mealPanel = null!;
+    private MealAllocationPanel _mealAllocPanel = null!;
     private CampResources _resources = null!;
     private MealBubblePool _bubblePool = null!;
 
@@ -122,6 +122,19 @@ public sealed partial class CampMain : Node2D
     private CampToast _campToast = null!;    // 制作/搜刮的一行瞬时提示（HUD 顶部，手动显隐——时标冻结下计时器不走）
     private DiscoveryPanel _discoveryPanel = null!;  // 探索发现环境叙事面板（模态，弹出时冻结时标）
     private double _prevDiscoveryTimeScale;          // 弹发现叙事前的时标（关闭时恢复）
+
+    // ---------------- 神秘商人（中立到访者 + 货币交易） ----------------
+    // 每 1~5 天夜晚到访、天亮离开（游戏白天=探险队视角、夜晚=营地视角，商人须与营地可操作窗口重合）；
+    // 只卖《木匠入门》（架子数据驱动可扩展）；货币=白银，走共享库存实扣实产。
+    private const int MerchantStartingCurrency = 40; // draft：开局起步白银（让交易闭环开箱即跑；掉落来源/经济量级待用户设计，见 TODO）
+    private MerchantPanel _merchantPanel = null!;
+    private MerchantSchedule _merchantSchedule = null!;
+    private readonly MerchantShelf _merchantShelf = MerchantShelf.Default();
+    private Merchant? _merchant;                      // 当前在场商人（null=未来访）
+    private ContainerRef? _merchantContainer;         // 商人停留点的可交互登记（离场时从 _containers 移除）
+    private bool _merchantOpen;                       // 交易面板是否开着（冻结时标）
+    private int _prevMerchantSpeed;                   // 开面板前速度档
+    private bool _prevMerchantPaused;                 // 开面板前是否暂停
 
     /// <summary>场上一个可点击容器：名字（稳定标识）+ cartesian 命中矩形 + 角色（storage/loot）+ 藏物清单。</summary>
     private sealed class ContainerRef
@@ -274,11 +287,10 @@ public sealed partial class CampMain : Node2D
 
         _resources = LoadCampResources();
         _bubblePool = LoadMealBubbles();
-        _mealPanel = new MealPanel();
-        AddChild(_mealPanel);
-        _mealPanel.Visible = false;
-        _mealPanel.Continued += OnMealContinued;
-        _mealPanel.SecondServingToggled += on => _allowSecondServing = on; // 补餐开关（下一餐生效）
+        _mealAllocPanel = new MealAllocationPanel();
+        AddChild(_mealAllocPanel);
+        _mealAllocPanel.Visible = false;
+        _mealAllocPanel.Confirmed += OnMealAllocationConfirmed;
 
         // 营地搜刮/库存/阅读（W3a）。书解析器取 BookLibrary 的**单一快照实例**（每 id 一份，已读态共享）。
         var bookSnapshot = BookLibrary.All().ToDictionary(b => b.Id);
@@ -309,6 +321,13 @@ public sealed partial class CampMain : Node2D
         _craftingPanel.ModApplyRequested += OnModApplyRequested;
         _craftingPanel.Closed += CloseCrafting;
 
+        // 神秘商人交易面板（右键前往在场商人打开；冻结时标）。买入事件走 MerchantTrade.Buy 实扣白银实产商品。
+        _merchantPanel = new MerchantPanel { Layer = 20 };
+        AddChild(_merchantPanel);
+        _merchantPanel.Visible = false;
+        _merchantPanel.BuyRequested += OnMerchantBuyRequested;
+        _merchantPanel.Closed += CloseMerchant;
+
         // 医疗面板（按 M 打开；冻结时标）。事件接 Health.PerformSurgery / TreatIllness 实做 + 扣耗材。
         _medicalPanel = new MedicalPanel { Layer = 20 };
         AddChild(_medicalPanel);
@@ -323,6 +342,15 @@ public sealed partial class CampMain : Node2D
 
         // storage 容器（住宅柜子）的开局藏物：食物入 _resources.Food、书/武器/护甲入共享库存、材料入库存、工具装工作台。
         ApplyStorageInitialStock();
+
+        // 神秘商人：给一点起步白银（draft，让交易开箱可跑；正式掉落来源/经济量级待用户设计）+ 初始化来访调度。
+        // 首访排在 1~5 天后（不在开局当天）；随机走 SystemRandomSource（生产随机源）。
+        if (MerchantStartingCurrency > 0)
+        {
+            string coinName = Materials.Find(Materials.CurrencyKey)?.DisplayName ?? "白银";
+            _inventory.Add(Item.Material(Materials.CurrencyKey, coinName, MerchantStartingCurrency));
+        }
+        _merchantSchedule = new MerchantSchedule(new SystemRandomSource(), _clock.Day);
 
         _ambient = new CanvasModulate();
         AddChild(_ambient);
@@ -1469,6 +1497,7 @@ public sealed partial class CampMain : Node2D
         {
             "workbench" => $"工作台 · 选中角色后右键前往{noSel}",
             "storage" => $"储物柜 · 选中角色后右键前往{noSel}",
+            "merchant" => $"神秘商人 · 选中角色后右键前往交易{noSel}",
             _ => _containerLoot.IsSearched(c.Name)
                 ? $"{c.Name} · 已搜刮"
                 : $"{c.Name} · 选中角色后右键前往{noSel}",
@@ -1569,63 +1598,86 @@ public sealed partial class CampMain : Node2D
 
     // ---------------- 聚餐 ----------------
 
-    /// <summary>分粮策略：默认"先喂最饿"——库存不足时把口粮压在濒死者身上，最大化少死人（策略/数值拟定待调）。</summary>
+    /// <summary>预填分粮策略：默认"先喂最饿"——库存不足时把口粮压在濒死者身上，最大化少死人（策略/数值拟定待调）。
+    /// 仅用于分配面板的预填建议（<see cref="FoodEconomy.Prefill"/>），玩家可用 +/- 覆盖。</summary>
     private RationStrategy _rationStrategy = RationStrategy.HungriestFirst;
-
-    /// <summary>
-    /// 补餐策略（用户拍板"应该能补回来"）：默认开——保障全员第一餐后仍有余粮时，用余粮把掉档者补一餐使饥饿回升一级
-    /// （每相每人至多补 1 餐，只补刻度未满上限者，物资不浪费）。玩家可在聚餐面板取消以囤粮。
-    /// </summary>
-    private bool _allowSecondServing = true;
 
     /// <summary>缺口趋势预警阈值（昼夜）：存货全员吃饱撑不过这么多昼夜时红字告警，逼玩家搜刮。拟定待调。</summary>
     private const int FoodShortfallWarnDays = 2;
 
+    /// <summary>吃饭动画：被分配者走到座位/餐区后的进食时长窗口（秒，拟定待调）。</summary>
+    private const double MealEatSeconds = 3.0;
+
+    /// <summary>吃饭动画：走到座位/餐区的寻路超时兜底（秒，走不到也照常吃/冒泡，不卡死流程）。</summary>
+    private const double MealSeatTimeoutSeconds = 6.0;
+
+    /// <summary>吃饭动画期间世界气泡的随机源（坐/站冒泡掷点、无名气泡随机指派吃饭者）。</summary>
+    private readonly IRandomSource _mealRng = new SystemRandomSource();
+
+    private string _mealTitle = "";
+    private string _mealPhaseTag = "";
+
     private void EnterDuskMeal() => _clock.TransitionTo(DayPhase.DuskMeal);
 
     /// <summary>
-    /// 一次聚餐（发生在昼夜相位切换点，一天两次）：全员用餐扣食物（不足则未进食者饥饿加深）+ 可选补餐回升 + 触发气泡，弹出模态面板。
-    /// 饥饿模型（净零 + 补餐）：本次切换全员饥饿刻度无条件 -1；吃到第一餐者 +1（净零维持）；
-    /// 若开补餐且余粮充裕，掉档者再补一餐 +1（净 +1 回升，clamp 到各自上限）——"应该能补回来"。
-    /// 结算后：刻度归 0 者饿死（走统一死亡路径）。
+    /// 聚餐第一步（发生在昼夜相位切换点，一天两次；相位 DawnMeal/DuskMeal 已由 GameClock 冻结 TimeScale=0＝"画面暂停变暗"）：
+    /// 按现行自动分粮策略预填每人份数，弹出<b>食物分配面板</b>（每人头像/名字/当前饥饿档位 + 剩余食物 + 头像旁 −/+ 微调）。
+    /// 玩家确认后走 <see cref="OnMealAllocationConfirmed"/> 结算并播放吃饭动画。强制流程：面板无取消/无 ESC（不入 TryCloseTopModal）。
     /// </summary>
-    private void RunMeal(string title, string phaseTag)
+    private void BeginMeal(string title, string phaseTag)
     {
+        _mealTitle = title;
+        _mealPhaseTag = phaseTag;
+
         var living = _survivors.Where(s => s.Alive).ToList();
-
-        // 分粮：先按策略保障第一餐（库存不足则最饿优先），再用余粮补掉档者（开补餐时）。
-        var dinerInputs = living.Select(ToDiner).ToList();
-        PhaseMealOutcome phase = FoodEconomy.AllocatePhaseMeal(
-            _resources.Food, dinerInputs, _allowSecondServing, _rationStrategy);
-        RationOutcome ration = phase.First;
-
-        // 食物扣减：按第一餐 + 补餐总消耗实扣（不越界）。
-        _resources.Consume(phase.TotalConsumed);
-        MealOutcome outcome = new MealOutcome(living.Count, ration.FedCount, ration.StarvedCount, _resources.Food);
-
-        // 昼夜切换净结算：一次性施加"无条件 -1，吃到再 +1"（吃满两餐净零维持）。
-        // 用 ResolvePhase 一步算净变化 + clamp，避免旧两步"1→0 途中 Feed 被短路"的跨 0 误杀。
-        // 谁吃到由分粮策略给出的 ration.Fed[i]（原序对齐 living[i]）决定，而非先到先吃。
-        var hungerNotes = new List<string>();
-        for (int i = 0; i < living.Count; i++)
+        if (living.Count == 0)
         {
-            bool ate = ration.Fed[i];
-            living[i].ResolveHungerPhase(ate);
-            if (!ate && living[i].Hunger.Level < HungerLevel.Sated)
-            {
-                hungerNotes.Add($"{living[i].DisplayName}（{living[i].Hunger.Level.Label()}）");
-            }
+            FinishMeal(); // 无人可吃（理论上全灭已在别处判定），守一手直接收尾
+            return;
         }
 
-        // 补餐回升：对分粮给出的补餐名单逐人 +1（clamp 到各自上限；饿死终态不复活由 Feed 内部守卫）。
-        // 补餐候选皆为"已吃第一餐（本相未饿死）且掉档"者，故此处在饿死结算前施加安全。
-        var secondNotes = new List<string>();
+        // 预填 = 现行自动分粮策略（先保第一餐 → 余粮补最饿），折成每人 0/1/2 份，玩家用 +/- 微调。
+        var diners = living.Select(ToDiner).ToList();
+        int[] prefill = FoodEconomy.Prefill(_resources.Food, diners, allowSeconds: true, _rationStrategy);
+
+        var rows = new List<MealAllocationPanel.DinerRow>(living.Count);
+        for (int i = 0; i < living.Count; i++)
+        {
+            Pawn p = living[i];
+            rows.Add(new MealAllocationPanel.DinerRow(
+                p.Id, p.DisplayName, p.Hunger.Level, p.Hunger.Cap, prefill[i], !p.Hunger.IsStarved));
+        }
+        _mealAllocPanel.ShowAllocation(title, _resources.Food, rows);
+    }
+
+    /// <summary>
+    /// 聚餐第二步：玩家确认分配 → 结算食物/饥饿/饿死（账目"换壳不换规则"：<see cref="FoodEconomy.ResolveManual"/> 落成
+    /// 与既有净零/补餐同构的 Fed/SecondFed——份数≥1 走 <c>ResolvePhase</c>（净零，进餐 −1 内嵌）、份数≥2 走
+    /// <c>ServeSecondMeal</c>（净 +1）；结算后刻度归 0 者饿死）→ 选气泡 → 播放吃饭动画（<see cref="PlayMealAnimation"/>）。
+    /// </summary>
+    private void OnMealAllocationConfirmed(int[] servings)
+    {
+        _mealAllocPanel.Visible = false;
+
+        var living = _survivors.Where(s => s.Alive).ToList();
+        var diners = living.Select(ToDiner).ToList();
+        PhaseMealOutcome phase = FoodEconomy.ResolveManual(_resources.Food, diners, servings);
+        RationOutcome ration = phase.First;
+
+        // 食物扣减：第一餐 + 补餐总消耗实扣（不越界）。
+        _resources.Consume(phase.TotalConsumed);
+
+        // 净结算：份数≥1（Fed）→ ResolvePhase(true) 净零维持；份数=0 → ResolvePhase(false) 净 −1 前进一级。
+        for (int i = 0; i < living.Count; i++)
+        {
+            living[i].ResolveHungerPhase(ration.Fed[i]);
+        }
+        // 补餐回升：份数≥2（SecondFed）→ +1（clamp 到各自上限；饿死终态由 Feed 内部守卫）。
         for (int i = 0; i < living.Count; i++)
         {
             if (phase.SecondFed[i])
             {
                 living[i].ServeSecondMeal();
-                secondNotes.Add($"{living[i].DisplayName}（{living[i].Hunger.Level.Label()}）");
             }
         }
 
@@ -1635,30 +1687,187 @@ public sealed partial class CampMain : Node2D
             starved.StarveToDeath();
         }
 
+        // 缺口预警：本餐有人挨饿→急告；否则按存货趋势提醒还能撑几昼夜，逼玩家搜刮补给。
+        WarnFoodShortfall(ration, _survivors.Count(s => s.Alive));
+
         // 构造"世界只读快照"喂条件驱动选择器：相位 + 当前 flags + 存活者真实状态 + 食物。
-        // 角色状态只读引擎真实状态（经 Inspect→PawnSnapshot），不发明新状态、不做关系/性格。
-        // 在场存活者 + 近期已故者的快照都放进 Pawns：前者供伤/饥饿谓词，后者供 dead 死亡反应谓词。
+        // 在场存活者 + 近期已故者快照都放进 Pawns：前者供伤/饥饿谓词，后者供 dead 死亡反应谓词。
         var pawnSnapshots = _survivors.Where(s => s.Alive)
                                       .Select(s => PawnSnapshot.FromInspection(s.Inspect()))
-                                      .Concat(_recentlyDeceased) // 近期已故快照（死时已拍好）
+                                      .Concat(_recentlyDeceased)
                                       .ToList();
         var context = new MealWorldContext
         {
-            Phase = phaseTag,
+            Phase = _mealPhaseTag,
             Flags = _storyFlags,
             Pawns = pawnSnapshots,
             Food = _resources.Food,
         };
         var bubbles = _bubblePool.Pick(context, 3);
-        // 应用选中气泡的 triggers（改 flags）——推动剧情；选择器不隐式改 flag，故独立成步。
-        MealBubblePool.ApplyTriggers(bubbles, _storyFlags);
+        MealBubblePool.ApplyTriggers(bubbles, _storyFlags); // 施加 triggers（改 flags）推动剧情
         _recentlyDeceased.Clear(); // 死亡只在紧随其后的一餐被提及，之后归入历史不再复播
 
-        _mealPanel.SetSecondServingPolicy(_allowSecondServing);
-        _mealPanel.ShowMeal(title, outcome, bubbles, hungerNotes, secondNotes);
+        // 吃饭动画：吃到饭者（Fed 且存活）去找座/站着吃并冒世界气泡；结束回 FinishMeal。
+        var eaters = new List<Pawn>();
+        for (int i = 0; i < living.Count; i++)
+        {
+            if (ration.Fed[i] && living[i].Alive)
+            {
+                eaters.Add(living[i]);
+            }
+        }
+        PlayMealAnimation(eaters, bubbles);
+    }
 
-        // 缺口预警：本餐有人挨饿→急告；否则按存货趋势提醒还能撑几昼夜，逼玩家搜刮补给。
-        WarnFoodShortfall(ration, _survivors.Count(s => s.Alive));
+    /// <summary>
+    /// 吃饭动画（实时渲染）：解冻世界（相位仍 DawnMeal/DuskMeal，GameClock 在此不 tick，故置 TimeScale=1 安全）→
+    /// 吃到饭者就近认领空座、走过去坐下；座位不足者走到餐区边缘站着吃 → 进食窗口内按坐/站冒世界气泡
+    /// （坐着必冒、站着触发概率 ×0.5＝<see cref="MealBubbleDelivery"/>，漏听线索/支线的惩罚由概率承载）→
+    /// 释放座位、清 Stationing → <see cref="FinishMeal"/>。走位/寻路照搬 <see cref="StationReaders"/> 的 Stationing 放行范式。
+    /// </summary>
+    private async void PlayMealAnimation(List<Pawn> eaters, IReadOnlyList<MealBubble> bubbles)
+    {
+        if (eaters.Count == 0)
+        {
+            FinishMeal();
+            return;
+        }
+
+        Engine.TimeScale = 1; // 解冻，让吃饭者实时走位（相位不变，时钟不推进）
+
+        Vector2 diningAnchor = DiningAnchor();
+        var claimed = new List<SeatClaim>();
+        var seatedFlags = new Dictionary<Pawn, bool>();
+        int standIdx = 0;
+
+        foreach (Pawn p in eaters)
+        {
+            p.Stationing = true; // 放行走向座位/餐区的移动令（覆盖 Guard/Reading 角色门控；Idle 无副作用）
+            SeatClaim? seat = ClaimNearestFreeSeat(p.GlobalPosition);
+            if (seat is { } s)
+            {
+                claimed.Add(s);
+                seatedFlags[p] = true;
+                p.CommandMoveTo(s.Pos); // 有座：走过去坐下
+            }
+            else
+            {
+                seatedFlags[p] = false;
+                p.CommandMoveTo(StandingSpot(diningAnchor, standIdx++)); // 无座：走到餐区边缘站着吃
+            }
+        }
+
+        // 等所有吃饭者到位（导航完成）或超时兜底（走不到也照常吃/冒泡，不卡死流程）。
+        double elapsed = 0;
+        while (elapsed < MealSeatTimeoutSeconds && eaters.Any(p => p.Alive && !p.IsNavigationFinished()))
+        {
+            await ToSignal(GetTree().CreateTimer(0.2f), "timeout");
+            elapsed += 0.2;
+        }
+
+        // 到位后冒世界气泡（坐着必冒、站着 ×0.5）。
+        EmitMealBubbles(eaters, seatedFlags, bubbles);
+
+        // 进食窗口（让气泡飘一会儿）。
+        await ToSignal(GetTree().CreateTimer((float)MealEatSeconds), "timeout");
+
+        // 释放座位 + 清 Stationing。
+        foreach (SeatClaim s in claimed)
+        {
+            ReleaseSeat(s);
+        }
+        foreach (Pawn p in eaters)
+        {
+            p.Stationing = false;
+        }
+
+        FinishMeal();
+    }
+
+    /// <summary>餐区锚点：有座位时取所有座位坐标的质心，否则取相机中心（cartesian）。</summary>
+    private Vector2 DiningAnchor()
+    {
+        int c = _seats.Count;
+        if (c == 0)
+        {
+            return _cameraCenter;
+        }
+        Vector2 sum = Vector2.Zero;
+        for (int i = 0; i < c; i++)
+        {
+            (double x, double y) = _seats.PositionOf(i);
+            sum += new Vector2((float)x, (float)y);
+        }
+        return sum / c;
+    }
+
+    /// <summary>站着吃的落点：绕餐区锚点排一圈（cartesian），idx 越大越外圈，避免重叠。</summary>
+    private static Vector2 StandingSpot(Vector2 anchor, int idx)
+    {
+        float ang = idx * 1.05f;                 // 弧度间隔，均匀撒开
+        float radius = 46f + (idx / 6) * 28f;    // 每满 6 人往外扩一圈
+        return anchor + new Vector2(Mathf.Cos(ang), Mathf.Sin(ang)) * radius;
+    }
+
+    /// <summary>
+    /// 把选中气泡分派给吃饭者并冒世界内头顶气泡：具名气泡 → 对应说话人吃饭者（在座才发声），
+    /// 无名气泡 → 随机未分派吃饭者；每条按该吃饭者坐/站掷点（坐着必冒、站着 ×0.5）决定是否真的冒出来。
+    /// 气泡挂 iso 可视层，坐标 <c>Iso.Project(pawn.GlobalPosition)</c> + 头顶偏移。
+    /// </summary>
+    private void EmitMealBubbles(List<Pawn> eaters, IReadOnlyDictionary<Pawn, bool> seated, IReadOnlyList<MealBubble> bubbles)
+    {
+        if (bubbles.Count == 0 || eaters.Count == 0)
+        {
+            return;
+        }
+
+        var assigned = new Dictionary<Pawn, MealBubble>();
+        var used = new HashSet<MealBubble>();
+
+        // 具名气泡 → 同名吃饭者（该说话人须在餐桌前才由本人口吻发声）。
+        foreach (MealBubble b in bubbles)
+        {
+            if (string.IsNullOrEmpty(b.speaker))
+            {
+                continue;
+            }
+            Pawn? sp = eaters.FirstOrDefault(p => p.Alive
+                && !assigned.ContainsKey(p)
+                && string.Equals(p.DisplayName, b.speaker, StringComparison.OrdinalIgnoreCase));
+            if (sp != null)
+            {
+                assigned[sp] = b;
+                used.Add(b);
+            }
+        }
+        // 无名气泡 → 随机未分派吃饭者。
+        var free = eaters.Where(p => p.Alive && !assigned.ContainsKey(p)).ToList();
+        foreach (MealBubble b in bubbles)
+        {
+            if (used.Contains(b) || free.Count == 0)
+            {
+                continue;
+            }
+            int pick = (int)Math.Floor(_mealRng.Range(0, free.Count - 1e-9));
+            Pawn p = free[pick];
+            free.RemoveAt(pick);
+            assigned[p] = b;
+            used.Add(b);
+        }
+
+        // 掷点冒泡（坐着必冒、站着 ×0.5）。
+        var accent = new Color(0.7f, 0.6f, 0.35f);
+        foreach (var kv in assigned)
+        {
+            Pawn p = kv.Key;
+            bool isSeated = seated.TryGetValue(p, out bool sv) && sv;
+            if (!MealBubbleDelivery.RollDelivered(isSeated, _mealRng))
+            {
+                continue; // 站着漏听：这条没冒出来
+            }
+            Vector2 iso = Iso.Project(p.GlobalPosition) + new Vector2(0, -46);
+            MealSpeechBubble.Spawn(_isoLayer, iso, kv.Value.speaker, kv.Value.text, accent);
+        }
     }
 
     /// <summary>
@@ -1727,13 +1936,13 @@ public sealed partial class CampMain : Node2D
         }
     }
 
-    private void OnMealContinued()
+    /// <summary>
+    /// 聚餐收尾（吃饭动画结束后）：本餐若播了克莉丝汀的请求气泡（trigger 置了 pending）→ 先弹抉择面板，
+    /// 相位推进推迟到玩家选完（AdvanceAfterMeal）。仅当她仍是在营存活幸存者时才逼问；
+    /// 否则（已亡故/离场）静默清线，照常推进。
+    /// </summary>
+    private void FinishMeal()
     {
-        _mealPanel.Visible = false;
-
-        // 本餐若播了克莉丝汀的请求气泡（trigger 置了 pending）→ 先弹抉择面板，
-        // 相位推进推迟到玩家选完（AdvanceAfterMeal）。仅当她仍是在营存活幸存者时才逼问；
-        // 否则（已亡故/离场）静默清线，照常推进。
         if (ChristineRequestLogic.HasPendingRequest(_storyFlags))
         {
             if (ChristinePawn() != null)
@@ -1783,7 +1992,7 @@ public sealed partial class CampMain : Node2D
         _guardPanel.Visible = false;
         _readingPanel.Visible = false;
         _returnWarningPopup.Visible = false;
-        _mealPanel.Visible = false;
+        _mealAllocPanel.Visible = false;
 
         // 克莉丝汀累计 3 次"暂不"后不立即走：排期到下一次昼夜交替（相位切进聚餐）时自行离开。
         // 置于结算前，使她不再计入本餐用餐者。走"自愿离开"清理（非 Died，不触发全灭判定）。
@@ -1798,9 +2007,10 @@ public sealed partial class CampMain : Node2D
             case DayPhase.DawnMeal:
                 // 黎明聚餐：全员已在 NightAct 起唤醒并度过实时夜晚，此处结算食物 + 气泡交流，结束进 DayPrep。
                 EndRaid(); // 夜晚结束：清残留丧尸、守卫下岗
+                DismissMerchant(); // 天亮：夜访商人收摊走出画面（白天玩家转探险队视角，营地无操作，商人不逗留）
                 ReleaseReaders(); // 夜晚结束：读者放座、清读书态（阅读进度已跨夜持久）
                 AdvanceSurvivorsHealthDay(); // 又过一昼夜：伤病恶化/愈合、封顶致残/致死（须在聚餐结算前，死亡先反映到名单与全灭判定）
-                RunMeal("黎明聚餐", "dawn");
+                BeginMeal("黎明聚餐", "dawn");
                 break;
             case DayPhase.DayPrep:
                 foreach (var p in _survivors)
@@ -1821,7 +2031,7 @@ public sealed partial class CampMain : Node2D
                 CallDeferred(nameof(EnterDuskMeal));
                 break;
             case DayPhase.DuskMeal:
-                RunMeal("黄昏聚餐", "dusk");
+                BeginMeal("黄昏聚餐", "dusk");
                 break;
             case DayPhase.NightPrep:
                 PopulateGuardPanel();
@@ -1832,6 +2042,9 @@ public sealed partial class CampMain : Node2D
                 // 之后夜晚由 GameClock 实时流逝 NightLengthSeconds，到时自动 → DawnMeal（不再瞬跳）。
                 foreach (var p in _survivors)
                     p.SetSleeping(false);
+                // 神秘商人夜访：到点且平安（非袭营/教学夜）则进场。置于 BeginChristineTutorial 之前——
+                // 否则教学关会先置 tutorial flag，IsMerchantBlockedToday 的第 2 夜判据失效导致商人与反水撞车。
+                TryMerchantVisit();
                 StationGuards(); // D2：守卫走向各自岗位站位并挂上岗位加成
                 StationReaders(); // 读者走向座位坐下读书（读书指派为空则无操作）
                 // 教学关：第 2 夜一次性触发克莉丝汀反水关（StoryFlag 防重入）。这一晚是脚本人类袭击，
@@ -1927,27 +2140,52 @@ public sealed partial class CampMain : Node2D
     }
 
     /// <summary>
-    /// 探索队踏入金手指帮根据地一处发现点：置 flag（防重复）、把对应日记经 <c>LootApplication</c> 入共享库存、
-    /// 冻结时标弹环境叙事。日记回营后在库存点开经 ReaderPanel 细读。
+    /// 探索队踏入一处发现点：先按剧情发现点（金手指帮根据地/守望者森林小屋尸体+日记）解析，
+    /// 未命中再按探索点搜刮缓存（河边小屋/联合收割机仓库的枪柜/工具柜等）解析。
+    /// 命中则置 flag（防重复）、把掉落经 <c>LootApplication</c> 入共享库存/食物/工作台、冻结时标弹环境叙事。
+    /// 日记/书回营后在库存点开经 ReaderPanel 细读。
     /// </summary>
     private void OnExplorationDiscovery(string discoveryId)
     {
         DiscoveryResult? r = GoldfingerDiscovery.Resolve(discoveryId, _storyFlags);
-        if (r == null)
-            return; // 未知 id 或已发现过
+        if (r != null)
+        {
+            DiscoveryResult d = r.Value;
+            _storyFlags.Set(d.StoryFlag, "true"); // 持久去重：本 flag 已置则下次 Resolve 返回 null
 
-        DiscoveryResult d = r.Value;
-        _storyFlags.Set(d.StoryFlag, "true"); // 持久去重：本 flag 已置则下次 Resolve 返回 null
+            // 日记入共享库存（同一 BookData 实例登记进 registry，回营阅读共享已读态）。
+            // 空 BookId = 该发现点无书（如克莉丝汀本人尸体点，日记A 归帮众尸体），跳过入库。
+            if (!string.IsNullOrEmpty(d.BookId))
+                LootApplication.Apply(
+                    new[] { LootItem.Book(d.BookId) }, _inventory, _bookRegistry, _bookResolver);
 
-        // 日记入共享库存（同一 BookData 实例登记进 registry，回营阅读共享已读态）。
-        // 空 BookId = 该发现点无书（如克莉丝汀本人尸体点，日记A 归帮众尸体），跳过入库。
-        if (!string.IsNullOrEmpty(d.BookId))
-            LootApplication.Apply(
-                new[] { LootItem.Book(d.BookId) }, _inventory, _bookRegistry, _bookResolver);
+            ShowDiscoveryNarrative(d.Title, d.Narrative);
+            return;
+        }
 
+        // 探索点搜刮缓存（河边小屋/联合收割机仓库）：整批掉落落地（武器/书/材料/食物/工具），同构营地搜刮。
+        CacheResult? c = ExplorationCache.Resolve(discoveryId, _storyFlags);
+        if (c == null)
+            return; // 未知 id 或已搜过
+
+        CacheResult cache = c.Value;
+        _storyFlags.Set(cache.StoryFlag, "true"); // 持久去重
+
+        var tools = new List<ToolSlot>();
+        int food = LootApplication.Apply(cache.Loot, _inventory, _bookRegistry, _bookResolver, tools);
+        if (food > 0)
+            _resources.AddFood(food);
+        InstallFoundTools(tools);
+
+        ShowDiscoveryNarrative(cache.Title, cache.Narrative);
+    }
+
+    /// <summary>冻结探索实时层、弹环境叙事面板（发现点/搜刮点共用）。</summary>
+    private void ShowDiscoveryNarrative(string title, string narrative)
+    {
         _prevDiscoveryTimeScale = Engine.TimeScale;
         Engine.TimeScale = 0; // 冻结探索实时层，专注读叙事
-        _discoveryPanel.Show(d.Title, d.Narrative);
+        _discoveryPanel.Show(title, narrative);
         _discoveryPanel.Visible = true;
     }
 
@@ -2798,6 +3036,12 @@ public sealed partial class CampMain : Node2D
             return;
         }
 
+        if (hit.Role == "merchant")
+        {
+            OpenMerchantPanel();
+            return;
+        }
+
         // loot 容器：一次性搜刮。
         if (_containerLoot.IsSearched(hit.Name))
         {
@@ -2822,6 +3066,147 @@ public sealed partial class CampMain : Node2D
                 : $"在{hit.Name}搜到 {itemCount} 件物品{toolNote}。";
         GD.Print($"[搜刮] {notice}");
         OpenStash(notice);
+    }
+
+    // ---------------- 神秘商人到访 / 交易 ----------------
+
+    /// <summary>
+    /// 每晚营地视角起点（NightAct）调：到访调度到点且当晚平安（非袭营/教学夜）→ 派商人夜访进场；否则顺延。
+    /// 挂夜晚是因为游戏白天=探险队视角（营地无操作）、夜晚=营地视角（玩家可右键调度角色）——商人须与可操作窗口重合。
+    /// 已在场则不重复派。
+    /// </summary>
+    private void TryMerchantVisit()
+    {
+        if (_merchant != null) // 已在场（异常：上次未离场），不重复派
+        {
+            return;
+        }
+        if (_merchantSchedule.ShouldVisit(_clock.Day, IsMerchantBlockedToday()))
+        {
+            SpawnMerchant();
+        }
+    }
+
+    /// <summary>
+    /// 当晚是否不宜来访（袭营/异常夜 → 顺延到次晚再试）：夜访与袭营现同为夜晚窗口，故当晚有袭营则商人不来
+    /// （避免"一边打劫一边摆摊"）——已有袭营在进行、或脚本化克莉丝汀反水袭击当晚（第 2 夜）算异常夜。
+    /// 当前无"每晚概率袭营"表，故只挡这两类；日后接随机袭营表时在此并入。
+    /// </summary>
+    private bool IsMerchantBlockedToday()
+        => _raidActive || (_clock.Day == 2 && !_storyFlags.Has("tutorial_raider_started"));
+
+    /// <summary>
+    /// 派神秘商人夜访进场：南门外边缘生成 → 夜里走向营地中心附近约定停留点（营地照明范围内）→ 登记停留点为
+    /// merchant 容器（右键前往即开交易面板）。交互窗口 = 整个夜晚（NightAct 期间）。
+    /// 照 <see cref="BeginChristineTutorial"/> 的边缘生成 + Inject + _actorLayer 范式；中立不参战。
+    /// </summary>
+    private void SpawnMerchant()
+    {
+        var merchant = Merchant.Create();
+        merchant.Inject(_combat, _clock);
+        merchant.Died += _ => OnMerchantGone(); // 中立不参战，理论不死；兜底清引用（Died 传 Actor，忽略）
+        Vector2 entry = new(1120f, 1540f);              // 南门外边缘（同克莉丝汀入场量级）
+        Vector2 standPoint = _cameraCenter + new Vector2(160f, 120f); // 营地中心附近约定停留点（营地照明内，draft，避开正中拥挤区）
+        merchant.Position = entry;
+        _actorLayer.AddChild(merchant);
+        merchant.CommandMoveTo(standPoint);
+        _merchant = merchant;
+
+        Rect2 rect = new(standPoint - new Vector2(20f, 20f), new Vector2(40f, 40f));
+        _merchantContainer = new ContainerRef { Name = "神秘商人", Rect = rect, Role = "merchant" };
+        _containers.Add(_merchantContainer);
+
+        _campToast.Show("夜色里，神秘商人来到营地——右键让角色前往交易。", CampToast.Ok);
+        GD.Print("[神秘商人] 夜访营地。");
+    }
+
+    /// <summary>
+    /// 送走商人（天亮 / 袭营）：从可交互登记移除、关掉可能开着的交易面板、走出画面淡出消失，并滚下一次来访日。
+    /// 天亮离场因白天玩家转探险队视角、营地无操作，商人不逗留。
+    /// 保守边界（待确认）：袭营时若在场亦立即离开（不设无敌/不掉落）。无在场商人则无操作。
+    /// </summary>
+    private void DismissMerchant()
+    {
+        if (_merchant == null)
+        {
+            return;
+        }
+        if (_merchantOpen)
+        {
+            CloseMerchant();
+        }
+        Merchant leaving = _merchant;
+        OnMerchantGone();
+        WalkOutAndDespawn(leaving);
+        _merchantSchedule.CompleteVisit(_clock.Day); // 本次到访收束，排下一次（1~5 天后）
+        _campToast.Show("神秘商人收摊离开了。", CampToast.Bad);
+        GD.Print("[神秘商人] 离开营地。");
+    }
+
+    /// <summary>清商人在场引用 + 从可交互容器移除 + 作废正走向它的前往令（离场/意外消失共用）。</summary>
+    private void OnMerchantGone()
+    {
+        if (_merchantContainer != null)
+        {
+            _containers.Remove(_merchantContainer);
+            _merchantContainer = null;
+        }
+        if (_pendingInteract is { } pend && pend.target.Role == "merchant")
+        {
+            _pendingInteract = null;
+        }
+        _merchant = null;
+    }
+
+    /// <summary>打开交易面板（右键前往到位时调）：冻结时标 + 展示货架与当前持币量。</summary>
+    private void OpenMerchantPanel()
+    {
+        if (!_merchantOpen)
+        {
+            CapturePanelTimeState(out _prevMerchantSpeed, out _prevMerchantPaused);
+            _merchantOpen = true;
+        }
+        RefreshMerchantPanel();
+        _merchantPanel.Visible = true;
+    }
+
+    /// <summary>用当前货架 + 持币量刷新交易面板（买入结算后即时反映扣币/库存/灰显）。</summary>
+    private void RefreshMerchantPanel()
+        => _merchantPanel.ShowShelf(_merchantShelf, _inventory.MaterialCount(Materials.CurrencyKey));
+
+    /// <summary>买入某货架条目：<see cref="MerchantTrade.Buy"/> 实扣白银实产商品 → 结果 toast → 刷新面板。</summary>
+    private void OnMerchantBuyRequested(int offerIndex)
+    {
+        if (offerIndex < 0 || offerIndex >= _merchantShelf.Offers.Count)
+        {
+            return;
+        }
+        MerchantOffer offer = _merchantShelf.Offers[offerIndex];
+        switch (MerchantTrade.Buy(_inventory, offer))
+        {
+            case PurchaseStatus.Ok:
+                _campToast.Show($"买下了「{offer.Good.DisplayName}」。", CampToast.Ok);
+                break;
+            case PurchaseStatus.NotEnoughMoney:
+                _campToast.Show("白银不够。", CampToast.Bad);
+                break;
+            case PurchaseStatus.SoldOut:
+                _campToast.Show("这件已经卖光了。", CampToast.Bad);
+                break;
+        }
+        RefreshMerchantPanel();
+    }
+
+    /// <summary>关交易面板：还原时标（不送走商人，可再次前往）。</summary>
+    private void CloseMerchant()
+    {
+        if (!_merchantOpen)
+        {
+            return;
+        }
+        _merchantPanel.Visible = false;
+        _merchantOpen = false;
+        RestorePanelTimeState(_prevMerchantSpeed, _prevMerchantPaused);
     }
 
     /// <summary>
