@@ -25,12 +25,31 @@ public sealed partial class TestExploration : ExplorationLevel
     /// <summary>望远镜占位在瞭望关内的世界坐标（贴北墙，朝正北）。anim-lookout 据此放演出节点/镜头锚点。</summary>
     public static readonly Vector2 LookoutTelescopePosition = new(LevelW / 2f, 260f);
 
+    // ——广播台：发出设备定点投放契约（RadioMainline 主线消费）——
+    /// <summary>
+    /// 广播台「发出设备」发现点 id（须与 <see cref="RadioMainline.TransmitterDiscoveryId"/> 一致）。踏入机房发现区即上报此 id。
+    /// 挂点在 <c>CampMain.OnExplorationDiscovery</c>：取得发出设备 → <see cref="RadioMainline.GrantTransmitter"/> 推进状态 + 弹取设备叙事（<see cref="RadioMainline.TransmitterPickupNarrative"/>）。
+    /// 定点非随机（用户 D4 拍板：主线关键物资保底/定点投放）。
+    /// </summary>
+    public const string BroadcastTransmitterDiscoveryId = RadioMainline.TransmitterDiscoveryId;
+
+    /// <summary>发射机占位在广播台关内的世界坐标（机房内，贴发射塔基座）。</summary>
+    public static readonly Vector2 BroadcastTransmitterPosition = new(LevelW / 2f, 300f);
+
     private CameraController _camera = null!;
     private readonly List<Zombie> _zombies = new();
     private readonly Dictionary<Actor, Node2D> _markers = new();
     private readonly List<Rect2> _obstructions = new();
     private Area2D _returnZone = null!;
     private Node2D _actorLayer = null!;
+
+    // 视野遮暗（批次4）：探索关全程启用。发现点视觉容器供检测层隐藏（视野外不揭示）。
+    private VisionMask? _visionMask;
+
+    // 批次4 光照：探索关固定光源场（预置油灯）。供玩家遮暗渲染（VisionMask.SetSourceProvider）与
+    // 关内丧尸感知（ConfigurePerception 的 localLightAt）按位置查询最强光源贡献。位置/盏数拟定待调。
+    private readonly LightField _levelLights = new();
+    private readonly List<(Node2D container, Vector2 pos)> _discoveryVisuals = new();
 
     // 探索发现点：本关内已触发过的 discoveryId（防同一关内重复上报；跨关持久去重由 CampMain 的 flag 负责）。
     private readonly HashSet<string> _firedDiscoveries = new();
@@ -61,6 +80,77 @@ public sealed partial class TestExploration : ExplorationLevel
             SetupHarvesterWarehouseCaches();
         else if (DestinationName == WorldMapPanel.CityRooftopLookoutName)
             SetupCityRooftopLookout();
+        else if (DestinationName == WorldMapPanel.BroadcastStationName)
+            SetupBroadcastStation();
+
+        // 视野遮暗（批次4）：探索关全程启用。发现点须在此之前铺好（进 _discoveryVisuals）。
+        SetupVisionMask();
+    }
+
+    /// <summary>
+    /// 装配视野遮暗层（探索关全程启用）：以探索队为观察者、环境光按当前相位（探索=白昼满档）算锥形，
+    /// 视野外网格遮暗 + 视野外丧尸/发现点隐藏。遮罩覆盖全关、cartesian 直绘（探索关本就 top-down cartesian）。
+    /// </summary>
+    /// <summary>探索关预置固定光源（油灯示例，拟定待调）：入口附近 + 关内中段各一盏。</summary>
+    private void SetupLevelLights()
+    {
+        _levelLights.Clear();
+        _levelLights.AddFixed(LightSource.LampKey, LevelW / 2f, LevelH - 200f); // 入口/返回区附近
+        _levelLights.AddFixed(LightSource.LampKey, LevelW * 0.5f, LevelH * 0.4f); // 关内中段
+    }
+
+    /// <summary>关内某点合成局部光照 L∈[0,1]（环境光与固定光源取 max），供丧尸感知 ConeFor 消费。</summary>
+    private float SampleLevelLight(Vector2 pos)
+        => VisionLogic.CombineLight(
+            VisionLogic.AmbientLight(Clock.CurrentPhase, indoorsDark: false),
+            _levelLights.StrongestAt(pos.X, pos.Y));
+
+    private void SetupVisionMask()
+    {
+        SetupLevelLights();
+        _visionMask = new VisionMask();
+        _visionMask.Configure(new Rect2(0, 0, LevelW, LevelH), VisionMask.ProjectionMode.Cartesian);
+        // 观察者＝存活探索队 + 随队布鲁斯（狗随队时也揭示视野，其感知锥同规则）。
+        _visionMask.SetViewersProvider(() =>
+        {
+            IEnumerable<Actor> viewers = ExpeditionTeam.Where(p => p.Alive).Cast<Actor>();
+            return CompanionDog is { Alive: true } dog ? viewers.Append(dog) : viewers;
+        });
+        _visionMask.SetAmbientProvider(() => VisionLogic.AmbientLight(Clock.CurrentPhase, indoorsDark: false));
+        // 光源场：玩家侧遮暗按局部光照（灯旁视野更远），VisionMask 内部 CombineLight(ambient, 源贡献)。
+        _visionMask.SetSourceProvider(pos => _levelLights.StrongestAt(pos.X, pos.Y));
+        _visionMask.SetRevealablesProvider(Revealables);
+        // 羁绊视野系数（道格锥角/布鲁斯视距·锥角按等级缩放）：CampMain 注入 BondScaleCone，与营地侧同口径，
+        // 使道格带布鲁斯出探索的视野技能端到端生效。未注入（无羁绊上下文）则不缩放。
+        if (ViewerConeAdjuster != null)
+            _visionMask.SetViewerConeAdjuster(ViewerConeAdjuster);
+        AddChild(_visionMask);
+    }
+
+    /// <summary>视野检测层的可揭示物：存活丧尸（隐 Actor 节点即隐其地面标记）+ 发现点视觉容器。</summary>
+    private IEnumerable<(Vector2 worldPos, Action<bool> setVisible)> Revealables()
+    {
+        foreach (Zombie z in _zombies)
+        {
+            if (!IsInstanceValid(z) || !z.Alive)
+                continue;
+            Zombie captured = z;
+            yield return (captured.GlobalPosition, v =>
+            {
+                if (IsInstanceValid(captured))
+                    captured.Visible = v;
+            });
+        }
+
+        foreach ((Node2D container, Vector2 pos) in _discoveryVisuals)
+        {
+            Node2D captured = container;
+            yield return (pos, v =>
+            {
+                if (IsInstanceValid(captured))
+                    captured.Visible = v;
+            });
+        }
     }
 
     public override void Cleanup()
@@ -211,6 +301,33 @@ public sealed partial class TestExploration : ExplorationLevel
             p.Reparent(_actorLayer, keepGlobalTransform: false);
             _markers[p] = CreateActorMarker(p, p.BodyTint);
         }
+
+        // 随队布鲁斯（若带上）：放在队伍旁、reparent 进关卡 actor 层。跟随道格/自主缠斗（关内敌对经 CampMain
+        // 的敌对 provider 读 LevelHostiles）由其既有 AI 驱动；战斗引擎已在营地 Inject 过（跨关卡复用同一实例）。
+        if (CompanionDog is { } dog)
+        {
+            dog.Position = spawn + new Vector2(ExpeditionTeam.Count * stepX, 0);
+            dog.Reparent(_actorLayer, keepGlobalTransform: false);
+            _markers[dog] = CreateActorMarker(dog, dog.BodyTint);
+        }
+    }
+
+    /// <summary>关内丧尸的目标池＝存活探索队 + 随队布鲁斯（狗也可被咬/被杀）。</summary>
+    private IEnumerable<Actor> LevelTargets()
+    {
+        foreach (Pawn p in ExpeditionTeam)
+            if (p.Alive)
+                yield return p;
+        if (CompanionDog is { Alive: true } dog)
+            yield return dog;
+    }
+
+    /// <summary>本关存活敌对单位＝存活丧尸（供随队布鲁斯经 CampMain 敌对 provider 自主缠斗）。</summary>
+    public override IEnumerable<Actor> LevelHostiles()
+    {
+        foreach (Zombie z in _zombies)
+            if (z.Alive)
+                yield return z;
     }
 
     private void SpawnZombies()
@@ -227,8 +344,9 @@ public sealed partial class TestExploration : ExplorationLevel
 
         foreach (Vector2 spot in spots)
         {
-            var z = Zombie.Create(wander, () => ExpeditionTeam.Where(a => a.Alive).Cast<Actor>());
+            var z = Zombie.Create(wander, LevelTargets); // 目标池含随队布鲁斯（可被关内丧尸攻击/杀）
             z.Inject(Combat, Clock); // 与营地单位相同的 combat+clock，务必在入树/首个物理帧 Think 前完成
+            z.ConfigurePerception(localLightAt: SampleLevelLight); // 固定光源→局部光照喂给（暴露走目标 CarriedLightIntensity 回落）
             z.Position = spot;
             _actorLayer.AddChild(z);
             _zombies.Add(z);
@@ -349,9 +467,64 @@ public sealed partial class TestExploration : ExplorationLevel
             label: "瞭望员值班室");
     }
 
-    /// <summary>造一个发现点：地面标记 + 文字标签 + 触发 Area2D（踏入一次即上报，本关内不重复）。</summary>
+    /// <summary>
+    /// 广播台（「dead signal」主线中后期探索点，用户 [SPEC-B8] 拍板）：在此**定点**取得「发出设备」（非随机，落实 D4 主线关键物资保底）。
+    /// 骨架＝复用本测试关地形，在关内铺一处**发射机可交互占位**（发现点式，踏入即上报 <see cref="BroadcastTransmitterDiscoveryId"/>）+ 发射塔/机房占位视觉。
+    /// 取设备/推进状态/叙事接线由 <c>CampMain.OnExplorationDiscovery</c> 的挂点补齐（<see cref="RadioMainline.GrantTransmitter"/> + 取设备叙事）。
+    /// 另铺两处普通物资搜刮点（值班室茶水间/备件仓库，接 <see cref="ExplorationCache"/>）。
+    /// 占位美术：机房地台 + 发射塔基座剪影 + 发射机标记；正式关卡空间/美术待后续。
+    /// </summary>
+    private void SetupBroadcastStation()
+    {
+        // 占位机房地台：发射机所在的一片方形地台（纯视觉，无碰撞）。
+        var floor = new Polygon2D
+        {
+            Polygon = Quad(new Vector2(BroadcastTransmitterPosition.X - 220f, BroadcastTransmitterPosition.Y - 140f), new Vector2(440f, 300f)),
+            Color = new Color(0.20f, 0.21f, 0.24f, 0.85f),
+            ZIndex = 5,
+        };
+        AddChild(floor);
+
+        // 占位发射塔基座：机房上方一个窄高的塔基剪影，示意"通讯发射塔"（纯视觉）。
+        var towerBase = new Polygon2D
+        {
+            Polygon = Quad(new Vector2(BroadcastTransmitterPosition.X - 34f, BroadcastTransmitterPosition.Y - 120f), new Vector2(68f, 60f)),
+            Color = new Color(0.34f, 0.30f, 0.24f, 0.9f),
+            ZIndex = 6,
+        };
+        AddChild(towerBase);
+
+        // 发射机可交互占位：踏入发现区即上报 transmitter id（挂点见常量注释；取得发出设备→推进主线状态）。
+        AddDiscoveryPoint(
+            BroadcastTransmitterDiscoveryId,
+            BroadcastTransmitterPosition,
+            markerColor: new Color(0.40f, 0.65f, 0.55f),
+            label: "发射机");
+
+        // 同址普通物资搜刮点（接 ExplorationCache；落地走 CampMain.OnExplorationDiscovery→ExplorationCache.Resolve）：
+        //   · 值班室茶水间（浅/近入口，贴南入口侧，先被遇到）；· 备件仓库（藏深，关内北侧远角）。
+        AddDiscoveryPoint(
+            ExplorationCache.BroadcastBreakRoomId,
+            new Vector2(650, 1230),
+            markerColor: new Color(0.55f, 0.5f, 0.4f),
+            label: "值班室茶水间");
+
+        AddDiscoveryPoint(
+            ExplorationCache.BroadcastPartsStoreId,
+            new Vector2(1980, 360),
+            markerColor: new Color(0.5f, 0.48f, 0.44f),
+            label: "备件仓库");
+    }
+
+    /// <summary>造一个发现点：地面标记 + 文字标签 + 触发 Area2D（踏入一次即上报，本关内不重复）。
+    /// 标记+标签挂在一个容器 Node2D 下，登记进 <see cref="_discoveryVisuals"/> 供视野检测层隐藏（视野外不揭示）；
+    /// 触发 Area2D 独立不受隐藏影响（视野外踏入仍可发现，"看不见但撞上了"）。</summary>
     private void AddDiscoveryPoint(string discoveryId, Vector2 pos, Color markerColor, string label)
     {
+        // 视觉容器（隐藏用）：标记+标签挂其下，隐藏容器即隐藏两者。
+        var visual = new Node2D();
+        AddChild(visual);
+
         var mark = new Polygon2D
         {
             Polygon = Quad(new Vector2(-14, -14), new Vector2(28, 28)),
@@ -359,7 +532,7 @@ public sealed partial class TestExploration : ExplorationLevel
             Position = pos,
             ZIndex = 8,
         };
-        AddChild(mark);
+        visual.AddChild(mark);
 
         var tag = new Label
         {
@@ -371,7 +544,9 @@ public sealed partial class TestExploration : ExplorationLevel
         tag.AddThemeColorOverride("font_color", new Color(0.9f, 0.85f, 0.7f));
         tag.AddThemeColorOverride("font_outline_color", new Color(0, 0, 0, 0.9f));
         tag.AddThemeConstantOverride("outline_size", 3);
-        AddChild(tag);
+        visual.AddChild(tag);
+
+        _discoveryVisuals.Add((visual, pos));
 
         var zone = new Area2D { Position = pos };
         zone.AddChild(new CollisionShape2D { Shape = new RectangleShape2D { Size = new Vector2(70, 70) } });

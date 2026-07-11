@@ -118,6 +118,41 @@ public class HordeTimelineTests
         Assert.True(d.ShouldSpawn);
     }
 
+    // ---------------- 在场并发上限 clamp（P0 缓解：封 day40 无界实体堆积）----------------
+
+    [Fact]
+    public void NextWave_UnderConcurrencyCap_ClampsCountToHeadroom()
+    {
+        // 到期该投一大波，但场上已接近上限 → 本波规模缩到 上限−残敌。
+        int alive = HordeTimeline.MaxConcurrentSiege - 3;
+        var d = HordeTimeline.NextWave(waveIndex: 100, zombiesAlive: alive,
+            secondsSinceLastWave: HordeTimeline.WaveInterval + 1, campSize: 4,
+            maxConcurrent: HordeTimeline.MaxConcurrentSiege);
+        Assert.True(d.ShouldSpawn);
+        Assert.Equal(3, d.Count); // 只补到上限，不无界堆
+    }
+
+    [Fact]
+    public void NextWave_AtConcurrencyCap_SkipsWave()
+    {
+        // 场上已达上限：本波不投（清不动时不堆节点），波次照常下次再判——不软化无生还语义。
+        var d = HordeTimeline.NextWave(waveIndex: 100, zombiesAlive: HordeTimeline.MaxConcurrentSiege,
+            secondsSinceLastWave: HordeTimeline.WaveInterval + 1, campSize: 4,
+            maxConcurrent: HordeTimeline.MaxConcurrentSiege);
+        Assert.False(d.ShouldSpawn);
+        Assert.Equal(0, d.Count);
+    }
+
+    [Fact]
+    public void NextWave_DefaultMaxConcurrent_Unlimited_PreservesLegacyBehavior()
+    {
+        // 不传 maxConcurrent（默认 int.MaxValue）→ 与既有行为一致，不 clamp。
+        var d = HordeTimeline.NextWave(waveIndex: 100, zombiesAlive: 500,
+            secondsSinceLastWave: HordeTimeline.WaveInterval + 1, campSize: 4);
+        Assert.True(d.ShouldSpawn);
+        Assert.Equal(HordeTimeline.WaveSize(100, 4), d.Count);
+    }
+
     // ---------------- WaveSize：递增、封顶、保底 ----------------
 
     [Fact]

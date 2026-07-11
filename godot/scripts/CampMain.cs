@@ -115,6 +115,30 @@ public sealed partial class CampMain : Node2D
     private bool _craftingOpen;             // 制作面板是否开着（与库存互斥地持有时标冻结）
     private int _prevCraftingSpeed;         // 开制作面板前 GameClock 的速度档（关闭时按此还原）
     private bool _prevCraftingPaused;       // 开制作面板前世界是否暂停（还原保真）
+    // 工时制（批次6）：本工作台当前在制任务（单任务队列）；下单时开工扣料，夜间生产相位逐分钟推进，完工产出。
+    private CraftingJob? _craftingJob;
+    private int _craftLastMinuteKey = -1;   // 上帧游戏分钟键（ClockMinuteKey）；算夜间流逝分钟增量推进工时，非生产相位/无任务时置 -1
+    private Pawn? _craftingJobWorker;        // 本在制任务的下单者（生产者身份，供 3 级光环生产系数；完工/清任务时置 null）
+    private float _craftMinuteBudget;        // 工时推进的小数分钟预算（光环 ×1.10 等非整系数下累积不截断；复位点与 _craftLastMinuteKey 同步清零）
+
+    // ---------------- 批次9 开局营地废墟挖掘 ----------------
+    // 废墟点纯逻辑注册表（工时进度 + 一次性收获，见 RubbleField / RubbleSite）。
+    private readonly RubbleField _rubble = new();
+    // 废墟视觉/碰撞句柄（key = RubbleSite.Id）：挖净后逐块清场 + 移导航洞重烘焙 = 显露空地。
+    private readonly Dictionary<string, RubbleInstance> _rubbleVisuals = new();
+    // 当前挖掘指派：某幸存者在某废墟点作业。到位后逐游戏分钟推进（同工时制分钟键增量）；
+    // 离场/死亡/改派 = 中断（进度留存在 RubbleSite，回来续挖）。★HANDOFF(night-response)：双班硬日程落地后，
+    // 挖废墟须豁免或归入白天营地/探险队可做的活，否则夜班生产、白天营地无人可操作时废墟无人可挖会死锁（现状全天可操作，先按现状接）。
+    private (Pawn pawn, string rubbleId)? _digging;
+    private int _digLastMinuteKey = -1;      // 上帧游戏分钟键；算流逝分钟增量推进挖掘，离场/无指派时置 -1
+
+    /// <summary>一处废墟的运行时句柄：碰撞体 + 切块视觉 + rect，挖净时逐一清场并重烘焙导航（镜像可破坏结构摧毁）。</summary>
+    private sealed class RubbleInstance
+    {
+        public StaticBody2D? Body;
+        public readonly List<Node2D> Visuals = new();
+        public Rect2 Rect;
+    }
 
     // ---------------- 医疗（手术/用药面板） ----------------
     private MedicalPanel _medicalPanel = null!;
@@ -163,8 +187,58 @@ public sealed partial class CampMain : Node2D
     // ---------------- D 守卫防御战 ----------------
     // 已建岗位（含预置 + 调试放置）。哨塔/屋顶=实心结构；暗哨=非碰撞站位标记。
     private readonly List<GuardPostInstance> _guardPosts = new();
+
+    // ---------------- 批次4 光照与视野：营地固定光源场 ----------------
+    // 读 camp.json lights → 固定光源(火堆/油灯)集合。供 vision-render 遮暗合成 / enemy-vision 感知
+    // 按局部光照 L 查询：field.StrongestAt(x,y[,手持光源]) 出最强光源贡献，再 VisionLogic.CombineLight(环境光,贡献)。
+    // 本类只做数据采集入口；发光视觉(Light2D/光晕)由 vision-render 渲染层负责。
+    private readonly LightField _campLights = new();
+
+    /// <summary>本帧持光幸存者手持光源采样缓冲（复用去 alloc，见 <see cref="CurrentHandheldLights"/>）。</summary>
+    private readonly List<PlacedLight> _handheldScratch = new();
+
+    // 视野揭示（CampRevealables）复用态：去 4Hz 逐 hostile 闭包/ValueTuple 分配（tech-review #2）。
+    private readonly List<(Vector2 worldPos, Action<bool> setVisible)> _revealBuffer = new();
+    private readonly Dictionary<Actor, Action<bool>> _revealDelegates = new();
+    private readonly List<Actor> _revealPrune = new();
+
+    /// <summary>营地固定光源场（供视野/遮暗按位置查询最强光源贡献）。</summary>
+    public LightField CampLights => _campLights;
     private readonly List<Zombie> _raidZombies = new();  // 当前袭营波次（存活）
+    private VisionMask? _campVisionMask;                   // 营地视野遮暗（批次4，夜间启用/白天豁免）
     private readonly List<Pawn> _raidGuards = new();       // 本夜上岗守卫（存活）
+    private readonly List<Dog> _raidGuardDogs = new();     // 本夜上岗犬类守卫（布鲁斯，站岗效率 75%，与 _raidGuards 平行）
+
+    // ---------------- 批次6 夜防对抗：袭击者潜入（警戒 vs 潜行，night-response）----------------
+    // 与丧尸袭营(_raidActive)/尸潮围攻(_siegeActive)/教学关(_tutorialActive)并列的第四路：夜间袭击者(Raider)潜入，
+    // 走「警戒力 vs 潜行力」对抗——发现→暂停+三档响应拉人入战；未发现→按意图潜行先手 1.5x（Killer）或静默偷物资（Looter）。
+    private readonly List<Raider> _nightRaiders = new();    // 本夜潜入的袭击者（存活）
+    private bool _nightRaidActive;                          // 夜间袭击者袭营进行中
+    private RaiderIntent _nightRaidIntent = RaiderIntent.Killer;
+    private double _nightRaidUpdateElapsed;                 // UpdateNightRaid 节流累计（复用 RaidUpdateInterval）
+    private readonly HashSet<int> _respondingIds = new();   // 本次响应被点名参战的幸存者 id（三档响应名册译得）
+    private int _pendingTheftAmount;                        // 夜里被静默偷走的食物份数（DawnMeal 晨间提示后清零）
+    private readonly IRandomSource _raidContestRng = new SystemRandomSource(); // 对抗掷点（SPEC 口径 roll 走 IRandomSource）
+    private readonly Dictionary<int, float> _guardPostSightById = new();       // 守卫/犬 id → 岗位视野倍率（岗哨建筑加成源，StationGuards 采集）
+    private const float NightRaiderRaidChance = 0.35f;      // 合法夜袭击者潜入概率（拟定待调）
+    private const int NightRaiderCountBase = 2;             // 袭击者基数（随天数缓增，拟定待调）
+    private int _prevRaidResponseSpeed;                     // 响应面板冻结前时标（速度档）
+    private bool _prevRaidResponsePaused;                  // 响应面板冻结前时标（暂停态）
+    // 双班硬日程（SPEC-B6①）：当日探险名册。夜里 DayCrew=强制睡；ExpeditionIds 在 DayReturn 即清空，故本类自存作夜间班别真源。
+    private readonly HashSet<int> _todaysExpeditionIds = new();
+    // 次相位疲劳（被唤醒者次个在勤相位吃 debuff、过一相位清）：pending=待施加(id→debuff)、active=本相位生效中。
+    private readonly Dictionary<int, FatigueDebuff> _pendingFatigueWake = new();
+    private readonly Dictionary<int, FatigueDebuff> _activeFatigue = new();
+
+    // ---------------- 批次5 道格与布鲁斯 ----------------
+    // 道格=普通可入队幸存者（Pawn，在 _survivors 内，聚餐/读书/医疗/守卫/探索均照常）；布鲁斯=其犬类伙伴（Dog，
+    // 独立 actor，不入 _survivors/不占卡牌）。二者由本类持引用配对；入队时机/剧情=用户手写，本批经调试键注入验证。
+    private Pawn? _doug;   // 道格（Pawn），身故即置 null
+    private Dog? _bruce;   // 布鲁斯（Dog），身故即置 null
+    private bool _bruceExpedition; // 本次探索是否带上布鲁斯（须道格同队；决定关卡 CompanionDog 注入与回收）
+    // 羁绊升级推进：道格&布鲁斯共同存活天数（每昼夜两者皆活 +1；任一死即停累加=冻结，见 AdvanceBondDay）。
+    // 运行时态——本工程尚无存档系统，故不持久化（有存档后随现有状态模式落盘）。等级经 DougBruceBond.EvaluateLevel 现算。
+    private int _bondDaysBothAlive;
     private bool _raidActive;
     private float _raidIntensity = 1f;
     // 尸潮终局：到期(day>=DeadlineDay)启动的无限围攻。复用袭营执行层(_raidActive+守卫锁敌+SpawnCampZombies)，
@@ -253,6 +327,7 @@ public sealed partial class CampMain : Node2D
 
         BuildWorld();
         BuildNavigation();
+        SetupCampVisionMask();
 
         _clock = new GameClock();
         AddChild(_clock);
@@ -309,6 +384,8 @@ public sealed partial class CampMain : Node2D
         _stashPanel.Visible = false;
         _stashPanel.BookOpenRequested += OnBookOpenRequested;
         _stashPanel.EquipRequested += OnStashEquipRequested;
+        // 手持光源「持起」接线待 Pawn.HeldLight/EquipLight 就绪（perf-ux-fix 正持 Pawn 锁），见 journal [HANDOFF]。
+        _stashPanel.LightHoldRequested += OnStashLightHoldRequested; // 库存「持起」手持光源（手电/火把）→ Pawn.HeldLight
         _stashPanel.Closed += CloseStash;
 
         _readerPanel = new ReaderPanel { Layer = 21 }; // 叠在库存面板之上
@@ -334,6 +411,7 @@ public sealed partial class CampMain : Node2D
         AddChild(_merchantPanel);
         _merchantPanel.Visible = false;
         _merchantPanel.BuyRequested += OnMerchantBuyRequested;
+        _merchantPanel.SellRequested += OnMerchantSellRequested;
         _merchantPanel.Closed += CloseMerchant;
 
         // 医疗面板（按 M 打开；冻结时标）。事件接 Health.PerformSurgery / TreatIllness 实做 + 扣耗材。
@@ -506,7 +584,51 @@ public sealed partial class CampMain : Node2D
         // 守卫岗位（预置点，读 camp.json guardPosts）。哨塔/屋顶=实心结构进 _navHoles（随首次烘焙生效）；暗哨=非碰撞标记。
         BuildGuardPosts();
 
+        // 固定光源（预置点，读 camp.json lights）。火堆/油灯灌进 _campLights 供视野/遮暗按位置查询；视觉留渲染层。
+        BuildCampLights();
+
+        // 开局废墟（预置点，读 camp.json rubble）。实心瓦砾块 + 登记 RubbleField + 可点击容器，供玩家挖掘开拓。
+        BuildRubble();
+
         _logicLayer.AddChild(_actorLayer);
+    }
+
+    /// <summary>读 camp.json lights 一次性灌入固定光源场（key 对齐 LightSource 目录；未知 key 由 LightField 静默忽略）。</summary>
+    private void BuildCampLights()
+    {
+        _campLights.Clear();
+        foreach (LightSpec spec in _cfg.lights ?? System.Array.Empty<LightSpec>())
+        {
+            Vector2? pos = ToVec(spec.pos);
+            if (spec.key is not null && pos is Vector2 p)
+            {
+                _campLights.AddFixed(spec.key, p.X, p.Y);
+            }
+        }
+    }
+
+    /// <summary>
+    /// 营地某点合成局部光照 L∈[0,1]（环境光与固定光源+手持光源取 max），供袭营敌人 <c>ConeFor</c> 消费。
+    /// 敌人生成处经 <c>ConfigurePerception(localLightAt: SampleCampLight)</c> 注入——灯/火堆/持光幸存者附近敌人视野更远更宽。
+    /// </summary>
+    private float SampleCampLight(Vector2 pos)
+        => VisionLogic.CombineLight(
+            VisionLogic.AmbientLight(_clock.CurrentPhase, indoorsDark: false),
+            _campLights.StrongestAt(pos.X, pos.Y, CurrentHandheldLights()));
+
+    /// <summary>本帧持光幸存者的手持光源快照（复用 <see cref="_handheldScratch"/> 去逐次 alloc）：喂 <see cref="LightField.StrongestAt(float,float,IEnumerable{PlacedLight})"/> 让手电/火把也照亮局部。</summary>
+    private IEnumerable<PlacedLight> CurrentHandheldLights()
+    {
+        _handheldScratch.Clear();
+        foreach (Pawn p in _survivors)
+        {
+            if (p.Alive && p.HeldLight.Held is LightProfile lp)
+            {
+                Vector2 pos = p.GlobalPosition;
+                _handheldScratch.Add(new PlacedLight(pos.X, pos.Y, lp));
+            }
+        }
+        return _handheldScratch;
     }
 
     // ---------------- D1 岗位建造/放置 ----------------
@@ -1144,11 +1266,211 @@ public sealed partial class CampMain : Node2D
         // 角色视觉（iso 层的人形 ActorSprite）由 B2 接管：Actor 自行经 "iso_layer" group 挂载。
     }
 
+    /// <summary>
+    /// 口袋狗衣负重接缝（③）：本次探索若带上布鲁斯，其穿戴的口袋狗衣提供的额外携带容量（无则 0）。
+    /// 容量数据/查询由 dog-gear 落定（<see cref="Dog.CarryCapacity"/>＝DogApparelSlots.TotalCarryCapacity）。
+    /// TODO：探索搜刮的负重上限系统（Loadout 体系的探索消费方）尚未建立——此值为**已就位的留口**，
+    /// 待该负重系统落地后由其叠加到队伍装载上限（届时调本访问器即可，无需再动布鲁斯侧）。
+    /// </summary>
+    public float ExpeditionDogCarryBonus =>
+        _bruceExpedition && _bruce is { Alive: true } b ? b.CarryCapacity : 0f;
+
+    /// <summary>
+    /// 己方可被敌人攻击的单位池（幸存者 Pawn + 布鲁斯）。喂给丧尸/劫掠者的目标 provider，使布鲁斯也能被
+    /// 敌人锁定攻击（"可被攻击可被杀"，狠辣世界观）。仅返回存活者。
+    /// </summary>
+    private IEnumerable<Actor> AlliedTargets()
+    {
+        foreach (Pawn s in _survivors)
+            if (s.Alive)
+                yield return s;
+        if (_bruce is { Alive: true })
+            yield return _bruce;
+    }
+
+    /// <summary>
+    /// 布鲁斯自主缠斗的潜在敌对单位池（营地：袭营丧尸 + 教学劫掠者 + 克莉丝汀；探索关：关内丧尸等）。
+    /// 狗自行按 <see cref="Factions.IsHostile"/> 过滤。营地/探索互斥（探索期营地列表空、营地期无关卡），故并列产出安全。
+    /// </summary>
+    private IEnumerable<Actor> CurrentHostiles()
+    {
+        foreach (Zombie z in _raidZombies)
+            yield return z;
+        foreach (Raider r in _tutorialRaiders)
+            yield return r;
+        foreach (Raider r in _nightRaiders) // 批次6 夜袭者：入敌对池供视野揭示 + 犬/守卫锁敌
+            yield return r;
+        if (_christine != null)
+            yield return _christine;
+        // 随队出探索时，布鲁斯的敌对目标来自当前关卡（营地敌对列表此时为空）。
+        if (_currentLevel != null)
+            foreach (Actor h in _currentLevel.LevelHostiles())
+                yield return h;
+    }
+
+    // ---------------- 羁绊接线辅助（synergy-wiring，批次5）----------------
+
+    /// <summary>道格&布鲁斯羁绊等级（1/2/3），由共同存活天数现算。未入队时值无意义（仅道格/布鲁斯本人消费其技能）。</summary>
+    private int BondLevel => DougBruceBond.EvaluateLevel(_bondDaysBothAlive);
+
+    /// <summary>
+    /// 羁绊升级推进：共同存活天数每昼夜 +1，仅两者皆存活时累加（任一死亡即冻结＝停止累加，各技能再经 alive 门控失效）。
+    /// 在 <see cref="OnGamePhaseChanged"/> 的黎明聚餐分支（每昼夜一次，紧随 <see cref="AdvanceSurvivorsHealthDay"/>）调用。
+    /// </summary>
+    private void AdvanceBondDay()
+    {
+        if (_doug is { Alive: true } && _bruce is { Alive: true })
+            _bondDaysBothAlive++;
+    }
+
+    /// <summary>
+    /// 3 级光环当前生效态：等级≥3、道格布鲁斯皆存活、互相距离 ≤ <see cref="DougBruceBond.DefaultAuraRadius"/> 时激活
+    /// （生产 ×1.10、受伤 ×0.90）；否则中性（两系数 1.0）。一方死亡即永失（_doug/_bruce 死时置 null）。
+    /// </summary>
+    private AuraEffect BondAuraNow()
+    {
+        if (_doug is not { Alive: true } doug || _bruce is not { Alive: true } bruce)
+            return AuraEffect.Inactive;
+        float dist = doug.GlobalPosition.DistanceTo(bruce.GlobalPosition);
+        return DougBruceBond.AuraActive(BondLevel, bothAlive: true, dist, DougBruceBond.DefaultAuraRadius);
+    }
+
+    /// <summary>
+    /// 光环生产系数（供 craft-worktime 工时推进消费，见 [HANDOFF]）：工人是道格且羁绊光环激活 → <see cref="DougBruceBond.AuraProductionMult"/>(1.10)，
+    /// 否则 1.0。布鲁斯非 Pawn 不进工作台，实际仅道格受益，符合「二者生产 ×1.10」。调用方把它乘进喂 CraftingJob.Advance 的分钟数。
+    /// </summary>
+    public float BondProductionMultFor(Pawn crafter)
+        => crafter == _doug ? BondAuraNow().ProductionMult : 1f;
+
+    /// <summary>营地视野观察者：在营存活幸存者（含道格）＋布鲁斯（犬类，其机敏也向玩家揭示敌人）。</summary>
+    private IEnumerable<Actor> CampViewers()
+    {
+        foreach (Pawn p in _survivors)
+            if (p.Alive)
+                yield return p;
+        if (_bruce is { Alive: true })
+            yield return _bruce;
+    }
+
+    /// <summary>
+    /// 羁绊视野系数（施到玩家侧 <see cref="VisionMask"/> 的逐观察者基础锥）：道格 1 级视角 ×1.10；
+    /// 布鲁斯 1 级视角 ×1.10、2 级视距 ×1.10（皆依道格存活，经 DougBruceBond 门控）。其余观察者原样。
+    /// 经 <see cref="VisionLogic.VisionCone.Scaled"/> 叠加，与光照/基准 R0 正交。
+    /// </summary>
+    private VisionLogic.VisionCone BondScaleCone(Actor viewer, VisionLogic.VisionCone cone)
+    {
+        int lv = BondLevel;
+        if (viewer == _doug)
+            return cone.Scaled(1f, DougBruceBond.DougAngleMult(lv));
+        if (viewer == _bruce)
+        {
+            bool dougAlive = _doug is { Alive: true };
+            return cone.Scaled(
+                DougBruceBond.BruceRangeMult(lv, dougAlive),
+                DougBruceBond.BruceAngleMult(lv, dougAlive));
+        }
+        return cone;
+    }
+
+    /// <summary>
+    /// 注入道格（可入队幸存者）+ 布鲁斯（其犬类伙伴）到营地。入队时机/剧情=用户手写，本批经调试键（DEBUG 下 Key.G）
+    /// 调用作验证路径；幂等（道格在场即跳过）。道格照常参与聚餐/读书/医疗/守卫/探索；布鲁斯跟随道格、自主缠斗、可站岗。
+    /// </summary>
+    public void SpawnDougAndBruce()
+    {
+        if (_doug is { Alive: true })
+            return; // 幂等：已在场不重复注入
+
+        // 道格：普通 Pawn（持手枪，拟定待调；性格/台词/入队剧情=用户手写，不代写）。
+        var doug = Pawn.Create("道格", usePistol: true, new Color(0.62f, 0.56f, 0.42f));
+        doug.Position = _cameraCenter + new Vector2(-40f, 0f);
+        AddActor(doug);
+        _survivors.Add(doug);
+        _doug = doug;
+
+        // 布鲁斯：跟随道格——仅当二者同处一个场景（同父节点：营地 actor 层，或随队出探索时的关卡 actor 层）才贴随；
+        // 道格离场而布鲁斯留守（未带狗出探索）则父节点不同→布鲁斯在营地待命。自主缠斗当前场上敌对单位。
+        var bruce = Dog.Create(
+            masterProvider: () =>
+                _doug is { Alive: true } d && _bruce != null && d.GetParent() == _bruce.GetParent() ? d : null,
+            hostileProvider: CurrentHostiles);
+        bruce.Position = _cameraCenter + new Vector2(-8f, 24f);
+        AddActor(bruce);
+        _bruce = bruce;
+
+        // 羁绊技能接线（synergy-wiring，批次5）：
+        // 注：2 级原「道格攻击布鲁斯目标 ×1.25 缠斗伤害」已被**用户 L2 修订**退役（doug-logic 改为
+        // DougBruceBond.CanCraftDogGear 解锁狗装备制作，×1.25 条款移除，待确认可恢复）。新 2 级=狗装备门控，
+        // 消费方在 dog-gear 制作系统落地后接 CanCraftDogGear，本批无该系统故 2 级伤害接线不再接（见 [DECISION]）。
+        // · 3 级光环减伤：道格/布鲁斯相依为命时受伤 ×AuraDamageTakenMult(0.90)。二者各挂承伤系数。
+        doug.SetIncomingDamageFactor(() => BondAuraNow().DamageTakenMult);
+        bruce.SetIncomingDamageFactor(() => BondAuraNow().DamageTakenMult);
+        // · 布鲁斯 2 级视距 +10%：自主缠斗侦测半径按 BruceRangeMult 缩放（依道格存活）。
+        bruce.SetDetectRangeMultProvider(() => DougBruceBond.BruceRangeMult(BondLevel, _doug is { Alive: true }));
+
+        _cardBar?.SetSurvivors(_survivors); // 道格入队：卡牌栏加卡（布鲁斯为犬类不占卡）
+        GD.Print("[DougBruce] 道格 + 布鲁斯 已注入营地（调试）。");
+    }
+
+#if DEBUG
+    /// <summary>
+    /// 调试：把库存里的狗装备（Item.Armor，RefKey∈<see cref="DogGearCatalog"/>）穿到布鲁斯身上，验证护甲进受击结算
+    /// （<see cref="Dog.RefreshArmor"/> 喂 DefenderArmor）+ 口袋狗衣携带容量。每槽单件，顶替下来的旧件退回库存。
+    /// 遗留（TODO dog-gear）：正式穿戴入口＝布鲁斯检视/角色面板（重 UI，待道格布鲁斯正式入队剧情落地一并做）。
+    /// </summary>
+    private void DebugEquipDogGearOnBruce()
+    {
+        if (_bruce is not { Alive: true } bruce)
+        {
+            _campToast.Show("布鲁斯不在场（先按 G 注入道格 + 布鲁斯）", CampToast.Bad);
+            return;
+        }
+        var gear = _inventory.ByCategory(ItemCategory.Armor)
+            .Where(i => DogGearCatalog.IsDogGear(i.RefKey))
+            .ToList();
+        if (gear.Count == 0)
+        {
+            _campToast.Show("库存无狗装备（先让道格制作五件套）", CampToast.Bad);
+            return;
+        }
+
+        var worn = new List<string>();
+        foreach (Item item in gear)
+        {
+            if (bruce.EquipGear(item.RefKey!, out string? displaced))
+            {
+                _inventory.Remove(item);
+                worn.Add(item.DisplayName);
+                if (displaced is not null)
+                    _inventory.Add(Item.Armor(displaced)); // 顶替下来的旧件回库存
+            }
+        }
+        if (worn.Count > 0)
+        {
+            string cap = bruce.CarryCapacity > 0 ? $"，携带容量 +{bruce.CarryCapacity:0}" : "";
+            _campToast.Show($"布鲁斯穿上：{string.Join("、", worn)}{cap}", CampToast.Ok);
+            GD.Print($"[DogGear] 布鲁斯穿戴 {string.Join("、", worn)}；护甲层 {bruce.Apparel.ArmorLayers().Count}");
+        }
+    }
+#endif
+
     private void OnActorDied(Actor actor)
     {
+        // 布鲁斯（狗）身故：移出上岗名单、断配对引用（主人跟随/敌人目标 provider 自动不再产出它）。
+        // 非幸存者，不参与全灭判定。
+        if (actor is Dog dog)
+        {
+            _raidGuardDogs.Remove(dog);
+            if (_bruce == dog)
+                _bruce = null;
+            return;
+        }
+
         if (actor is Pawn p)
         {
             _survivors.Remove(p);
+            if (_doug == p)
+                _doug = null; // 道格身故：布鲁斯失去主人 → 原地待命（跟随 provider 返回 null）
             if (_selectedPawn == p)
                 SetSelection(null); // 选中者身故：置空选中 + 收面板（ClearSelection 会移出 _selected）
             else
@@ -1219,6 +1541,9 @@ public sealed partial class CampMain : Node2D
         if (_raidActive)
             UpdateRaid(delta);
 
+        if (_nightRaidActive)
+            UpdateNightRaid(delta);
+
         if (_tutorialActive)
             UpdateChristineTutorial(delta);
 
@@ -1233,6 +1558,12 @@ public sealed partial class CampMain : Node2D
             _cardStatRefreshElapsed = 0;
             _cardBar?.RefreshStats();
         }
+
+        // 工时制夜间生产推进：面板冻结时标时 ClockMinuteKey 不变 → 无增量 → 世界冻结即不推进（正合期望）。
+        TickCraftingWorktime();
+
+        // 废墟挖掘推进：挖掘者在场时逐游戏分钟推进；挖满→收获+清场显露空地。面板冻结时标时同样不推进。
+        TickRubbleDig();
 
         // 导航图首帧就绪后跑一次门缝连通性自检。
         if (!_navTested)
@@ -1298,6 +1629,14 @@ public sealed partial class CampMain : Node2D
             case Key.F:
                 // 调试：打击鼠标落点最近的围栏/大门，验证承伤→摧毁→开口→重烘焙链路（敌人打结构 AI 属袭营块，后续）。
                 DebugDamageStructureAtMouse();
+                break;
+            case Key.G:
+                // 调试：注入道格 + 布鲁斯（狗）到营地，验证跟随/缠斗/站岗（正式入队时机由用户手写剧情驱动）。
+                SpawnDougAndBruce();
+                break;
+            case Key.H:
+                // 调试：把库存里的狗装备（五件套）穿到布鲁斯身上，验证护甲进受击结算 + 携带容量（正式穿戴 UI 待做，见遗留）。
+                DebugEquipDogGearOnBruce();
                 break;
 #endif
         }
@@ -1470,7 +1809,7 @@ public sealed partial class CampMain : Node2D
         if (arrived && pawn.IsNavigationFinished())
         {
             _pendingInteract = null;                 // 先清，避免 ExecuteContainerInteract 内暂停后重入
-            ExecuteContainerInteract(pend.target);
+            ExecuteContainerInteract(pend.pawn, pend.target);
             return;
         }
         if (_pendingInteractElapsed > PendingInteractTimeout)
@@ -1514,8 +1853,10 @@ public sealed partial class CampMain : Node2D
         return c.Role switch
         {
             "workbench" => $"工作台 · 选中角色后右键前往{noSel}",
+            "radio" => $"收音机 · 选中角色后右键前往{(RadioMainline.IsDecisionAvailable(_storyFlags) ? "抉择" : "收听")}{noSel}",
             "storage" => $"储物柜 · 选中角色后右键前往{noSel}",
             "merchant" => $"神秘商人 · 选中角色后右键前往交易{noSel}",
+            "rubble" => RubbleHoverText(c, noSel),
             _ => _containerLoot.IsSearched(c.Name)
                 ? $"{c.Name} · 已搜刮"
                 : $"{c.Name} · 选中角色后右键前往{noSel}",
@@ -1703,6 +2044,17 @@ public sealed partial class CampMain : Node2D
         foreach (var starved in living.Where(d => d.IsStarvedToDeath).ToList())
         {
             starved.StarveToDeath();
+        }
+
+        // 布鲁斯（狗）进食：**不上桌**——不入分配面板/坐席/气泡，人类分配后从余粮自动喂。每聚餐相位 -1；
+        // 未饱且尚有余粮则吃 1 份（+3、扣 1 粮，用户口径）；饿死走统一死亡路径。份额出自 §4 分粮同一存货。
+        if (_bruce is { Alive: true } bruce)
+        {
+            bool dogAte = bruce.Hunger.Value < DogHungerState.Cap && _resources.Food >= 1;
+            if (dogAte)
+                _resources.Consume(1);
+            if (bruce.ResolveHungerPhase(dogAte))
+                bruce.StarveToDeath();
         }
 
         // 缺口预警：本餐有人挨饿→急告；否则按存货趋势提醒还能撑几昼夜，逼玩家搜刮补给。
@@ -2002,9 +2354,69 @@ public sealed partial class CampMain : Node2D
         _clock.TransitionTo(decision.Phase);
     }
 
+    /// <summary>
+    /// 装配营地视野遮暗层（批次4）：营地白天全可见豁免、夜间（NightPrep/NightAct）启用。iso 投影绘制（营地世界为 iso），
+    /// 观察者=在营存活幸存者，环境光按相位并入固定光源（<see cref="_campLights"/>）贡献→灯/火堆旁视野更远更宽；
+    /// 视野外袭营敌人经 <see cref="Actor.SetVisualHidden"/> 不揭示。开局白天故初始禁用，由 <see cref="OnGamePhaseChanged"/> 按相位切换。
+    /// </summary>
+    private void SetupCampVisionMask()
+    {
+        _campVisionMask = new VisionMask();
+        _campVisionMask.Configure(_mapBounds, VisionMask.ProjectionMode.Iso);
+        _campVisionMask.SetViewersProvider(CampViewers); // 含道格＋布鲁斯（羁绊视野系数经 BondScaleCone 施加）
+        _campVisionMask.SetViewerConeAdjuster(BondScaleCone);
+        _campVisionMask.SetAmbientProvider(() => VisionLogic.AmbientLight(_clock.CurrentPhase, indoorsDark: false));
+        _campVisionMask.SetSourceProvider(pos => _campLights.StrongestAt(pos.X, pos.Y));
+        _campVisionMask.SetRevealablesProvider(CampRevealables);
+        _campVisionMask.SetEnabled(false); // 开局为白天：全可见豁免
+        AddChild(_campVisionMask);
+    }
+
+    /// <summary>
+    /// 营地视野可揭示物：袭营敌对单位（丧尸/劫掠者/克莉丝汀）——视野外经 <see cref="Actor.SetVisualHidden"/> 隐其 iso sprite（物理/AI 照常）。
+    /// 性能：复用 <see cref="_revealBuffer"/> + 每 hostile 的隐藏委托缓存 <see cref="_revealDelegates"/>（4Hz 调用不再逐 hostile 造闭包/ValueTuple，见 tech-review #2）。
+    /// </summary>
+    private IEnumerable<(Vector2 worldPos, Action<bool> setVisible)> CampRevealables()
+    {
+        // 缓存膨胀（历经数百丧尸的围攻）时修剪已死/失效条目，防字典无界增长；复用 _revealPrune 去 alloc。
+        if (_revealDelegates.Count > 128)
+        {
+            _revealPrune.Clear();
+            foreach (Actor a in _revealDelegates.Keys)
+            {
+                if (!IsInstanceValid(a) || !a.Alive)
+                    _revealPrune.Add(a);
+            }
+            foreach (Actor a in _revealPrune)
+                _revealDelegates.Remove(a);
+        }
+
+        _revealBuffer.Clear();
+        foreach (Actor h in CurrentHostiles())
+        {
+            if (!IsInstanceValid(h) || !h.Alive)
+                continue;
+            if (!_revealDelegates.TryGetValue(h, out Action<bool>? setVis))
+            {
+                Actor captured = h; // 每 hostile 仅造一次隐藏委托（缓存），非每 recompute
+                setVis = v =>
+                {
+                    if (IsInstanceValid(captured))
+                        captured.SetVisualHidden(!v);
+                };
+                _revealDelegates[h] = setVis;
+            }
+            _revealBuffer.Add((h.GlobalPosition, setVis));
+        }
+        return _revealBuffer;
+    }
+
     private void OnGamePhaseChanged(DayPhase phase)
     {
         _pendingInteract = null; // 相位切换：取消未完成的前往交互
+        UpdateFatigueTimers(phase); // 批次6：被唤醒者次相位疲劳 debuff 的施加/过期（每相位切换维护）
+        // 视野遮暗（批次4）：营地夜间（NightPrep/NightAct）启用；白天/暮光/探索相位全可见豁免。
+        _campVisionMask?.SetEnabled(phase is DayPhase.NightPrep or DayPhase.NightAct);
         _expeditionPanel.Visible = false;
         _worldMapPanel.Visible = false;
         _guardPanel.Visible = false;
@@ -2024,10 +2436,13 @@ public sealed partial class CampMain : Node2D
         {
             case DayPhase.DawnMeal:
                 // 黎明聚餐：全员已在 NightAct 起唤醒并度过实时夜晚，此处结算食物 + 气泡交流，结束进 DayPrep。
-                EndRaid(); // 夜晚结束：清残留丧尸、守卫下岗
+                EndRaid(); // 夜晚结束：清残留丧尸、守卫下岗（含收尾夜袭者 EndNightRaid）
+                ReportNightTheftIfAny(); // 批次6：夜里若被静默偷窃，晨间清点提示（Looter 未发现后果）
                 DismissMerchant(); // 天亮：夜访商人收摊走出画面（白天玩家转探险队视角，营地无操作，商人不逗留）
                 ReleaseReaders(); // 夜晚结束：读者放座、清读书态（阅读进度已跨夜持久）
                 AdvanceSurvivorsHealthDay(); // 又过一昼夜：伤病恶化/愈合、封顶致残/致死（须在聚餐结算前，死亡先反映到名单与全灭判定）
+                AdvanceBondDay(); // 道格&布鲁斯共同存活又一昼夜 → 羁绊升级推进（两者皆活才 +1，任一死即冻结）
+                TryTriggerMilitaryRaid(); // 电台主线：回复军方后第 3 天白天军袭到期（结局②，本批仅钩子+安全 no-op）
                 BeginMeal("黎明聚餐", "dawn");
                 break;
             case DayPhase.DayPrep:
@@ -2060,6 +2475,8 @@ public sealed partial class CampMain : Node2D
                 // 之后夜晚由 GameClock 实时流逝 NightLengthSeconds，到时自动 → DawnMeal（不再瞬跳）。
                 foreach (var p in _survivors)
                     p.SetSleeping(false);
+                // 双班硬日程（SPEC-B6①）：当日探险队(DayCrew)白天在外奔波，夜里强制睡；营地留守(NightCrew)清醒站岗/生产。
+                ApplyNightShiftSleep();
                 // 神秘商人夜访：到点且平安（非袭营/教学夜）则进场。置于 BeginChristineTutorial 之前——
                 // 否则教学关会先置 tutorial flag，IsMerchantBlockedToday 的第 2 夜判据失效导致商人与反水撞车。
                 TryMerchantVisit();
@@ -2075,6 +2492,8 @@ public sealed partial class CampMain : Node2D
                 else if (HordeTimeline.ShouldTriggerSiege(
                     _clock.Day, _storyFlags.Has(HordeTimeline.SightedFlag), _storyFlags.Has(HordeTimeline.EndgameFreezeFlag)))
                     TriggerHordeSiege();
+                else
+                    MaybeTriggerNightRaiderRaid(); // 批次6：常规夜（非教学/非围攻）按概率触发袭击者潜入 + 警戒对抗
                 break;
         }
     }
@@ -2091,6 +2510,19 @@ public sealed partial class CampMain : Node2D
                 Name = insp.DisplayName,
                 WeaponSummary = insp.Weapon?.Name ?? "徒手",
                 ArmorSummary = string.Join(", ", insp.Armor.Select(a => a.Name)),
+            });
+        }
+        // 布鲁斯（狗）可随队出探索（口袋狗衣提供负重）：以哨兵 Id=_survivors.Count 追加为 companion 条目（不占 3 人上限）。
+        // 仅当道格在场（狗须道格同队才可带）时列出；实际"须道格勾选"的绑定在 OnExpeditionConfirmed 裁定。
+        if (_bruce is { Alive: true } && _doug is { Alive: true })
+        {
+            entries.Add(new ExpeditionPanel.PawnEntry
+            {
+                Id = _survivors.Count,
+                Name = _bruce.DisplayName + "（狗·需道格同队）",
+                WeaponSummary = "撕咬",
+                ArmorSummary = "",
+                IsCompanion = true,
             });
         }
         _expeditionPanel.SetPawns(entries);
@@ -2119,18 +2551,43 @@ public sealed partial class CampMain : Node2D
                 EquipmentSummary = insp.Weapon?.Name ?? "徒手",
             });
         }
+        // 布鲁斯（狗）可排岗（效率 75%）：以哨兵 Id=_survivors.Count 追加（选项 Id 为下标空间，狗不在 _survivors，
+        // 用越界下标当哨兵，OnGuardConfirmed 据此译回 _bruce.Id）。
+        if (_bruce is { Alive: true })
+        {
+            pawnOptions.Add(new GuardPanel.PawnOption
+            {
+                Id = _survivors.Count,
+                Name = _bruce.DisplayName + "（狗·75%）",
+                EquipmentSummary = "撕咬",
+            });
+        }
         _guardPanel.SetPawns(pawnOptions);
     }
 
     private void OnExpeditionConfirmed(int[] pawnIds, string destination)
     {
         var ids = new HashSet<int>();
+        bool brucePicked = false;
         foreach (int idx in pawnIds)
         {
             if (idx >= 0 && idx < _survivors.Count)
                 ids.Add(_survivors[idx].Id);
+            else if (idx == _survivors.Count) // 哨兵下标=布鲁斯
+                brucePicked = true;
         }
+
+        // 带狗须道格同队：布鲁斯被勾选但道格不在本次队伍→撤下布鲁斯（提示玩家），不阻断出队。
+        bool dougInTeam = _doug is { Alive: true } && ids.Contains(_doug.Id);
+        _bruceExpedition = brucePicked && dougInTeam && _bruce is { Alive: true };
+        if (brucePicked && !_bruceExpedition)
+            _campToast.Show("布鲁斯需道格同队才能带上，本次留守营地。", CampToast.Bad);
+
         _roleManager.SetExpeditionIds(ids);
+        // 夜间班别真源：ExpeditionIds 会在 DayReturn 相位被清空，故本类自存当日探险名册供夜里 ShiftFor/硬日程/名册判定。
+        _todaysExpeditionIds.Clear();
+        foreach (int id in ids)
+            _todaysExpeditionIds.Add(id);
         _clock.TransitionTo(DayPhase.DayTravel);
     }
 
@@ -2185,6 +2642,16 @@ public sealed partial class CampMain : Node2D
             Engine.TimeScale = 0;
             // 演出走真实时钟（不吃 TimeScale），全屏播放约 11s（可跳过），播完自毁并回调。
             HordeLookoutCinematic.Show(_hud, OnLookoutCinematicFinished);
+            return;
+        }
+
+        // ——广播台「发出设备」挂点（电台主线）——
+        // 踏入发射机发现区即到此：取得发出设备 → 推进主线状态（Unknown/Heard→HasTransmitter）+ 弹取设备叙事（不给书）。
+        // 定点非随机（用户 D4 拍板：主线关键物资保底）。GrantTransmitter 幂等：已取得过返回 false → 不重复弹叙事。
+        if (discoveryId == RadioMainline.TransmitterDiscoveryId)
+        {
+            if (RadioMainline.GrantTransmitter(_storyFlags))
+                ShowDiscoveryNarrative(RadioMainline.TransmitterPickupTitle, RadioMainline.TransmitterPickupNarrative);
             return;
         }
 
@@ -2273,6 +2740,11 @@ public sealed partial class CampMain : Node2D
         if (_currentLevel is TestExploration testLevel)
             testLevel.Combat = _combat;
         _currentLevel.ExpeditionTeam = _survivors.Where(s => s.Role == PawnRole.Expedition).ToList();
+        // 随队布鲁斯（本次带狗且道格同队时）：关卡据此放置/回收+纳入敌人目标池/视野观察者。狗非 Pawn、不入 ExpeditionTeam。
+        _currentLevel.CompanionDog = _bruceExpedition && _bruce is { Alive: true } ? _bruce : null;
+        // 探索侧羁绊视野系数：注入营地同款逐观察者视锥调整器（道格锥角/布鲁斯视距·锥角按 BondLevel 缩放），
+        // 使道格带布鲁斯出探索时视野技能端到端生效（委托内部读 BondLevel，道格/布鲁斯为同一实例，跨场景命中）。
+        _currentLevel.ViewerConeAdjuster = BondScaleCone;
         _currentLevel.DestinationName = destinationName; // 关卡据此决定是否铺发现点（金手指帮根据地）
         // 复仇线才在金手指帮根据地额外铺"克莉丝汀本人尸体"点（帮众尸体恒在，与此无关）。
         _currentLevel.ChristineLeftForRevenge = _storyFlags.Has(GoldfingerDiscovery.ChristineLeftForRevengeFlag);
@@ -2311,6 +2783,14 @@ public sealed partial class CampMain : Node2D
             }
         }
 
+        // 随队布鲁斯回收：随队伍返回营地 actor 层（存活则跟随道格恢复，阵亡已在 OnActorDied 置 _bruce=null）。
+        if (_bruce is { } bruce && _levelRoot.IsAncestorOf(bruce))
+        {
+            bruce.Reparent(_actorLayer, keepGlobalTransform: false);
+            bruce.Position = _cameraCenter + new Vector2(-8f, 24f);
+        }
+        _bruceExpedition = false;
+
         _currentLevel = null;
         GetTree().Root.RemoveChild(_levelRoot);
         _levelRoot.QueueFree();
@@ -2333,6 +2813,8 @@ public sealed partial class CampMain : Node2D
         {
             if (kv.Value >= 0 && kv.Value < _survivors.Count)
                 assignments[kv.Key] = _survivors[kv.Value].Id;
+            else if (kv.Value == _survivors.Count && _bruce != null)
+                assignments[kv.Key] = _bruce.Id; // 哨兵下标=布鲁斯，译回其真 Id（不落 PawnRoleManager 的 Pawn 角色）
         }
         _roleManager.SetGuardAssignments(assignments);
         // 守卫确认后**顺序弹读书面板**（不直接进 NightAct）：由读书面板确认/取消统一触发进夜，单一触发点防双触发。
@@ -2404,20 +2886,35 @@ public sealed partial class CampMain : Node2D
     private void StationGuards()
     {
         _raidGuards.Clear();
+        _raidGuardDogs.Clear();
+        _guardPostSightById.Clear(); // 批次6：重采集守卫 id → 岗位视野倍率（岗哨建筑加成源）
         foreach (var kv in _roleManager.GuardAssignments)
         {
             int postId = kv.Key, pawnId = kv.Value;
             if (postId < 0 || postId >= _guardPosts.Count)
                 continue;
-            Pawn? guard = _survivors.FirstOrDefault(p => p.Id == pawnId && p.Alive);
-            if (guard == null)
-                continue;
-
             GuardPostInstance post = _guardPosts[postId];
-            guard.ApplyGuardPost(post.Stats);
-            guard.Stationing = true;
-            guard.CommandMoveTo(post.StandPos);
-            _raidGuards.Add(guard);
+
+            Pawn? guard = _survivors.FirstOrDefault(p => p.Id == pawnId && p.Alive);
+            if (guard != null)
+            {
+                guard.ApplyGuardPost(post.Stats);
+                guard.Stationing = true;
+                guard.CommandMoveTo(post.StandPos);
+                _raidGuards.Add(guard);
+                _guardPostSightById[guard.Id] = post.Stats.SightMultiplier;
+                continue;
+            }
+
+            // 犬类守卫（布鲁斯）：站岗效率 75%，走向岗位靠 GuardStationing 让位跟随/侦测；巡防锁敌由 UpdateRaid 驱动。
+            if (_bruce is { Alive: true } bruce && bruce.Id == pawnId && !_raidGuardDogs.Contains(bruce))
+            {
+                bruce.ApplyGuardPost(post.Stats);
+                bruce.GuardStationing = true;
+                bruce.CommandMoveTo(post.StandPos);
+                _raidGuardDogs.Add(bruce);
+                _guardPostSightById[bruce.Id] = post.Stats.SightMultiplier;
+            }
         }
     }
 
@@ -2505,6 +3002,374 @@ public sealed partial class CampMain : Node2D
         GD.Print($"[Raid] 第 {_clock.Day} 天袭营：强度 {intensity:0.0}，{count} 只丧尸自大门涌入，上岗守卫 {_raidGuards.Count} 人。");
     }
 
+    // ============ 批次6 夜防对抗：袭击者潜入（警戒力 vs 潜行力）============
+
+    /// <summary>
+    /// 常规夜（NightAct）尝试触发袭击者潜入：非教学/非围攻/未在进行中、<see cref="ShiftSchedule.RaidAllowedIn"/> 放行（常规仅夜里块）、
+    /// 开局两夜后（留给教学），按 <see cref="NightRaiderRaidChance"/> 概率生成一波并跑对抗。数值皆拟定待调。
+    /// </summary>
+    private void MaybeTriggerNightRaiderRaid()
+    {
+        if (_nightRaidActive || _tutorialActive || _siegeActive || _raidActive)
+            return;
+        if (_clock.Day < 3) // 开局前两夜留给教学/熟悉，拟定待调
+            return;
+        if (!ShiftSchedule.RaidAllowedIn(_clock.CurrentPhase, authored: false))
+            return;
+        if (_raidContestRng.Range(0.0, 1.0) >= NightRaiderRaidChance)
+            return;
+
+        // 意图随机（拟定待调）：杀戮型（潜行先手 1.5x）/ 劫掠型（静默偷窃）各半。
+        RaiderIntent intent = _raidContestRng.Range(0.0, 1.0) < 0.5 ? RaiderIntent.Killer : RaiderIntent.Looter;
+        int count = NightRaiderCountBase + _clock.Day / 12; // 随天数缓增，拟定待调
+        TriggerRaiderRaid(intent, count, authored: false);
+    }
+
+    /// <summary>
+    /// 触发一波袭击者潜入并立即结算「警戒 vs 潜行」对抗（公共钩子供 authored 事件调用）。
+    /// 发现 → 暂停+三档响应面板；未发现 → 按意图潜行先手 1.5x（Killer）或静默偷物资后撤离（Looter）。
+    /// authored=true 绕过时段/概率门（如剧情军袭在别处走各自路径，本钩子供未来夜间 authored 潜入用）。
+    /// </summary>
+    public void TriggerRaiderRaid(RaiderIntent intent, int count = 2, bool authored = false)
+    {
+        if (_nightRaidActive || _tutorialActive || _siegeActive)
+            return;
+        if (!authored && !ShiftSchedule.RaidAllowedIn(_clock.CurrentPhase, authored: false))
+        {
+            GD.Print("[NightRaid] 非夜里块且非 authored，忽略袭击者潜入触发。");
+            return;
+        }
+
+        _nightRaidIntent = intent;
+        _respondingIds.Clear();
+        SpawnNightRaiders(System.Math.Max(1, count));
+        _nightRaidActive = true;
+
+        bool detected = RunNightRaidContest();
+        GD.Print($"[NightRaid] 第 {_clock.Day} 天袭击者潜入：{_nightRaiders.Count} 人，意图 {intent}，{(detected ? "被守卫发现" : "未被发现")}。");
+
+        if (detected)
+            ShowRaidResponsePanel();
+        else
+            ResolveUndetected();
+    }
+
+    /// <summary>门外错峰生成一波袭击者（目标池=幸存者+布鲁斯；持匕首=消音近战贴合潜入，拟定待调）。</summary>
+    private void SpawnNightRaiders(int count)
+    {
+        Rect2 wander = new(
+            _mapBounds.Position + new Vector2(200, 200),
+            _mapBounds.Size - new Vector2(400, 400));
+        for (int i = 0; i < count; i++)
+        {
+            var r = Raider.Create(wander, AlliedTargets, usePistol: false, displayName: "夜袭者");
+            r.Inject(_combat, _clock);
+            r.ConfigureBreach(TryFindBreachTarget, DamageNearestStructureAt, _cameraCenter);
+            r.ConfigurePerception(localLightAt: SampleCampLight);
+            bool south = (i & 1) == 0;
+            float gx = 1110f + (i * 47f) % 180f;
+            float gy = south ? 1540f + (i % 3) * 12f : 260f - (i % 3) * 12f;
+            r.Position = new Vector2(gx, gy);
+            _actorLayer.AddChild(r);
+            r.Died += OnNightRaiderDied;
+            _nightRaiders.Add(r);
+        }
+    }
+
+    private void OnNightRaiderDied(Actor a)
+    {
+        if (a is Raider r)
+            _nightRaiders.Remove(r);
+    }
+
+    /// <summary>
+    /// 结算「警戒 vs 潜行」对抗：取最深潜入者（离营心最近）为尖兵，每个守卫（含犬，站岗效率 75%）用其视力（VisionLogic 锥+光照+遮挡）、
+    /// 听力、岗哨建筑加成、疲劳系数得警戒力，对尖兵潜行力（局部光照/距离/遮蔽）各自掷点——任一守卫掷中即全营发现。无守卫=没人望风=未发现。
+    /// </summary>
+    private bool RunNightRaidContest()
+    {
+        var raiders = _nightRaiders.Where(r => r.Alive).ToList();
+        if (raiders.Count == 0)
+            return false;
+
+        // 尖兵 = 离营心最近者（最深、最该被发现）。
+        Raider point = raiders.OrderBy(r => r.GlobalPosition.DistanceSquaredTo(_cameraCenter)).First();
+        Vector2 pPos = point.GlobalPosition;
+        float pLight = SampleCampLight(pPos);
+
+        // 守卫（人+犬）名单及其站岗效率/岗哨加成。
+        var watchers = new List<(Actor actor, float watchEff)>();
+        foreach (Pawn g in _raidGuards)
+            if (g.Alive) watchers.Add((g, 1f));
+        foreach (Dog d in _raidGuardDogs)
+            if (d.Alive) watchers.Add((d, DougBruceBond.BruceGuardEfficiency)); // 布鲁斯 0.75
+        if (watchers.Count == 0)
+            return false; // 没人站岗 → 长驱直入，恒未发现
+
+        float nearestGuardDist = watchers.Min(w => w.actor.GlobalPosition.DistanceTo(pPos));
+        float coverWeight = SelfSightOccluded(watchers[0].actor.GlobalPosition, pPos) ? 0.5f : 0f; // 粗略遮蔽项（拟定待调）
+        float stealth = NightWatchContest.ComputeStealth(pLight, apparelStealthSum: 0f, nearestGuardDist, coverWeight);
+
+        var alertness = new List<float>(watchers.Count);
+        foreach (var w in watchers)
+        {
+            float gLight = SampleCampLight(w.actor.GlobalPosition);
+            VisionLogic.VisionCone cone = VisionLogic.ConeFor(gLight);
+            bool occluded = SelfSightOccluded(w.actor.GlobalPosition, pPos);
+            bool canSee = VisionLogic.CanSee(Sn(w.actor.GlobalPosition), FacingUnit(w.actor.FacingAngle), Sn(pPos), cone, occluded);
+            float dist = w.actor.GlobalPosition.DistanceTo(pPos);
+            float acuity = NightWatchContest.VisionAcuity(canSee, dist, cone);
+            float structBonus = NightRaidLogic.StructureBonusFrom(_guardPostSightById.GetValueOrDefault(ActorId(w.actor), 1f));
+            float fatigue = FatigueMultiplierFor(w.actor); // 被唤醒守卫更迟钝（一般守卫为夜班=1）
+            alertness.Add(NightWatchContest.ComputeAlertness(acuity, dist, structBonus, fatigue, w.watchEff));
+        }
+
+        return NightRaidLogic.ResolveCampDetection(alertness, stealth, _raidContestRng);
+    }
+
+    /// <summary>发现袭击者：暂停世界 + 弹三档响应面板（复用通用 <see cref="ChoicePanel"/>），展示守卫目击的模糊规模情报。</summary>
+    private void ShowRaidResponsePanel()
+    {
+        CapturePanelTimeState(out _prevRaidResponseSpeed, out _prevRaidResponsePaused);
+
+        int raiderCount = _nightRaiders.Count(r => r.Alive);
+        string intel = NightRaidLogic.ThreatLabel(NightRaidLogic.BandFor(raiderCount));
+
+        var panel = new ChoicePanel();
+        AddChild(panel);
+        panel.Setup(
+            $"守夜的人拉响了警报——{intel}。\n如何应对？",
+            new List<ChoicePanel.ChoiceOption>
+            {
+                new() { Value = (int)RaidTier.Low, Label = "低危应对",
+                        Description = "只有站岗的人迎战，其余人继续休整",
+                        Accent = new Color(0.35f, 0.55f, 0.35f) },
+                new() { Value = (int)RaidTier.Medium, Label = "中危应对",
+                        Description = "除熟睡的探险队外，全营投入战斗",
+                        Accent = new Color(0.6f, 0.5f, 0.25f) },
+                new() { Value = (int)RaidTier.High, Label = "高危应对",
+                        Description = "叫醒所有人（含探险队）全员死战——次日疲劳",
+                        Accent = new Color(0.65f, 0.25f, 0.22f) },
+            });
+        panel.Confirmed += v =>
+        {
+            panel.QueueFree();
+            RestorePanelTimeState(_prevRaidResponseSpeed, _prevRaidResponsePaused);
+            OnRaidTierChosen((RaidTier)v);
+        };
+    }
+
+    /// <summary>
+    /// 玩家选定响应档 → 拉人入战：<see cref="NightWatchContest.RespondersFor"/> 出参战名册，被点名者唤醒并锁最近袭击者；
+    /// 被唤醒的睡眠者（High 档唤醒探险队）→ <see cref="ShiftSchedule.DebuffsForAwoken"/> 挂次相位疲劳 debuff（下个在勤相位兑现）。
+    /// </summary>
+    private void OnRaidTierChosen(RaidTier tier)
+    {
+        var roster = BuildWatchRoster();
+        var responders = NightWatchContest.RespondersFor(tier, roster);
+        _respondingIds.Clear();
+        foreach (var m in responders)
+            if (int.TryParse(m.Id, out int id))
+                _respondingIds.Add(id);
+
+        Raider? firstTarget = _nightRaiders.FirstOrDefault(r => r.Alive);
+        foreach (Pawn p in _survivors)
+        {
+            if (!p.Alive || !_respondingIds.Contains(p.Id))
+                continue;
+            p.SetSleeping(false); // 唤醒参战者（守卫已醒；生产者/被唤醒探险队在此醒来）
+            if (firstTarget != null && !p.HasActiveTarget)
+                p.CommandAttack(firstTarget);
+        }
+
+        // 被唤醒睡眠者 → 次相位疲劳（duration=1 相位，UpdateFatigueTimers 在其次个在勤相位施加、过后清）。
+        var debuffs = ShiftSchedule.DebuffsForAwoken(tier, roster);
+        foreach (var kv in debuffs)
+            if (int.TryParse(kv.Key, out int id))
+                _pendingFatigueWake[id] = kv.Value;
+        if (debuffs.Count > 0)
+            GD.Print($"[NightRaid] {debuffs.Count} 名睡眠者被唤醒参战，次相位吃疲劳 debuff。");
+
+        GD.Print($"[NightRaid] 响应档 {tier}：{_respondingIds.Count} 人迎战。");
+    }
+
+    /// <summary>未被发现的后果：Looter 静默偷物资后悄然撤离（晨间才发现）；Killer 潜行先手 1.5x 后惊动全营转入战斗。</summary>
+    private void ResolveUndetected()
+    {
+        if (_nightRaidIntent == RaiderIntent.Looter)
+        {
+            ApplySilentTheft();
+            EndNightRaid(); // 得手，悄然撤离（不开战）
+            return;
+        }
+        // Killer：潜行先手一击落在最近幸存者，随后惊动全营 → 守卫自动迎战（无面板=未发现没得选，等价低危）。
+        ApplyPreemptiveStrike();
+    }
+
+    /// <summary>潜行先手一击：以匕首（消音近战）对最近幸存者施一次 <see cref="NightWatchContest.PreemptiveDamageMultiplier"/>(1.5x) 承伤（走既有承伤管道，不改战斗规则）。</summary>
+    private void ApplyPreemptiveStrike()
+    {
+        var raider = _nightRaiders.FirstOrDefault(r => r.Alive);
+        if (raider is null)
+            return;
+        Pawn? victim = _survivors.Where(s => s.Alive)
+            .OrderBy(s => s.GlobalPosition.DistanceSquaredTo(raider.GlobalPosition))
+            .FirstOrDefault();
+        if (victim is null)
+            return;
+        double mult = NightWatchContest.PreemptiveDamageMultiplier(_nightRaidIntent); // Killer → 1.5
+        victim.ReceiveAttack(raider, CombatData.Dagger(), _combat, damageFactor: mult);
+        _campToast.Show($"{victim.DisplayName} 在睡梦中遭到潜行偷袭！", CampToast.Bad);
+        GD.Print($"[NightRaid] 潜行先手 ×{mult:0.0} 命中 {victim.DisplayName}。");
+    }
+
+    /// <summary>静默偷窃：按 <see cref="NightWatchContest.SilentTheftAmount"/> 从营地食物实扣（可偷存量封顶），记待晨间提示。</summary>
+    private void ApplySilentTheft()
+    {
+        int stealable = _resources.Food; // 可偷存量=营地食物（最易变现；材料/白银偷窃后续可扩）
+        int amount = NightWatchContest.SilentTheftAmount(stealable, _raidContestRng);
+        if (amount <= 0)
+            return;
+        _resources.ApplyRaidLoss(amount);
+        _pendingTheftAmount += amount;
+        GD.Print($"[NightRaid] 静默偷窃：损失食物 {amount}（晨间提示）。");
+    }
+
+    /// <summary>DawnMeal 晨间清点：若夜里被静默偷窃则一行提示后清零（Looter 未发现后果的呈现）。</summary>
+    private void ReportNightTheftIfAny()
+    {
+        if (_pendingTheftAmount <= 0)
+            return;
+        _campToast.Show($"清晨清点：夜里被摸走了 {_pendingTheftAmount} 份食物。", CampToast.Bad);
+        _pendingTheftAmount = 0;
+    }
+
+    /// <summary>夜袭者实时推进（节流）：守卫/犬/被点名参战者无目标时锁最近袭击者；袭击者清光即收尾。防御方伤亡由实时战斗自然产生。</summary>
+    private void UpdateNightRaid(double delta)
+    {
+        _nightRaidUpdateElapsed += delta;
+        if (_nightRaidUpdateElapsed < RaidUpdateInterval)
+            return;
+        _nightRaidUpdateElapsed = 0;
+
+        var raiders = _nightRaiders.Where(r => r.Alive).ToList();
+        if (raiders.Count == 0)
+        {
+            EndNightRaid(); // 全部袭击者伏诛 → 守住收尾
+            return;
+        }
+
+        foreach (Pawn g in _raidGuards)
+        {
+            if (!g.Alive || g.HasActiveTarget)
+                continue;
+            Raider? near = NearestRaiderTo(g.GlobalPosition, raiders);
+            if (near != null) { g.TryFirstStrike(near); g.CommandAttack(near); }
+        }
+        foreach (Dog d in _raidGuardDogs)
+        {
+            if (!d.Alive || d.HasActiveTarget)
+                continue;
+            Raider? near = NearestRaiderTo(d.GlobalPosition, raiders);
+            if (near != null) d.CommandAttack(near);
+        }
+        foreach (Pawn p in _survivors)
+        {
+            if (!p.Alive || !_respondingIds.Contains(p.Id) || p.HasActiveTarget)
+                continue;
+            Raider? near = NearestRaiderTo(p.GlobalPosition, raiders);
+            if (near != null) p.CommandAttack(near);
+        }
+    }
+
+    /// <summary>夜袭收尾：清残留袭击者、复位响应态（EndRaid 天亮调 + 全灭袭击者时调）。</summary>
+    private void EndNightRaid()
+    {
+        if (!_nightRaidActive && _nightRaiders.Count == 0)
+            return;
+        _nightRaidActive = false;
+        _respondingIds.Clear();
+        foreach (Raider r in _nightRaiders)
+            if (IsInstanceValid(r))
+                r.QueueFree();
+        _nightRaiders.Clear();
+    }
+
+    private static Raider? NearestRaiderTo(Vector2 from, List<Raider> raiders)
+    {
+        Raider? best = null;
+        float bestSq = float.MaxValue;
+        foreach (Raider r in raiders)
+        {
+            float d = from.DistanceSquaredTo(r.GlobalPosition);
+            if (d < bestSq) { bestSq = d; best = r; }
+        }
+        return best;
+    }
+
+    /// <summary>构造夜防三档响应名册：探险队(在 _todaysExpeditionIds)=睡眠中的 Expedition；上岗守卫=Guard；其余在营者=Producer。</summary>
+    private List<WatchMember> BuildWatchRoster()
+    {
+        var roster = new List<WatchMember>();
+        var guardIds = new HashSet<int>(_raidGuards.Select(g => g.Id));
+        foreach (Pawn p in _survivors.Where(s => s.Alive))
+        {
+            WatchDuty duty;
+            bool asleep;
+            if (_todaysExpeditionIds.Contains(p.Id)) { duty = WatchDuty.Expedition; asleep = true; }
+            else if (guardIds.Contains(p.Id)) { duty = WatchDuty.Guard; asleep = false; }
+            else { duty = WatchDuty.Producer; asleep = false; }
+            roster.Add(new WatchMember(p.Id.ToString(), duty, asleep));
+        }
+        return roster;
+    }
+
+    /// <summary>双班硬日程（SPEC-B6①）：夜里让当日探险队(DayCrew)强制睡（白天在外奔波）；营地留守(NightCrew)保持清醒站岗/生产。</summary>
+    private void ApplyNightShiftSleep()
+    {
+        foreach (Pawn p in _survivors)
+            if (p.Alive && _todaysExpeditionIds.Contains(p.Id))
+                p.SetSleeping(true);
+    }
+
+    /// <summary>
+    /// 次相位疲劳的施加/过期（每相位切换调）：先清上一相位已生效的疲劳（duration=1 相位）；再把待施加者在其**次个在勤相位**兑现。
+    /// 被唤醒者多为探险队(DayCrew)，其次个在勤相位=次日白天；过一相位后随下次清除。视野/攻速系数消费见 <see cref="FatigueMultiplierFor"/> 及生产工时。
+    /// </summary>
+    private void UpdateFatigueTimers(DayPhase phase)
+    {
+        _activeFatigue.Clear();
+        foreach (var kv in _pendingFatigueWake.ToList())
+        {
+            int id = kv.Key;
+            Pawn? p = _survivors.FirstOrDefault(s => s.Id == id && s.Alive);
+            if (p is null) { _pendingFatigueWake.Remove(id); continue; }
+            Shift shift = ShiftSchedule.ShiftFor(id, _todaysExpeditionIds);
+            if (ShiftSchedule.CanOperate(shift, phase)) // 到达其在勤相位 → 兑现次相位代价
+            {
+                _activeFatigue[id] = kv.Value;
+                _pendingFatigueWake.Remove(id);
+            }
+        }
+    }
+
+    /// <summary>某 Actor 当前的疲劳能力系数（作 <see cref="NightWatchContest.ComputeAlertness"/> 疲劳项 / 生产效率折减）：有生效疲劳→其 EfficiencyMult，否则 1。</summary>
+    private float FatigueMultiplierFor(Actor a)
+        => a is Pawn p && _activeFatigue.TryGetValue(p.Id, out var f) && f.IsActive ? f.EfficiencyMult : 1f;
+
+    private static int ActorId(Actor a) => a switch { Pawn p => p.Id, Dog d => d.Id, _ => -1 };
+
+    // VisionLogic 零 Godot 依赖，坐标用 System.Numerics.Vector2；此处转换（与 Actor 的同款）。
+    private static System.Numerics.Vector2 Sn(Vector2 v) => new(v.X, v.Y);
+    private static System.Numerics.Vector2 FacingUnit(float rad) => new(Mathf.Cos(rad), Mathf.Sin(rad));
+
+    /// <summary>两点间视线是否被墙遮挡（复用批次4 遮挡唯一权威源 <see cref="VisionOcclusion.IsOccluded"/>，墙层 0b0100）。</summary>
+    private bool SelfSightOccluded(Vector2 from, Vector2 to)
+    {
+        PhysicsDirectSpaceState2D? space = GetWorld2D()?.DirectSpaceState;
+        return space is not null && VisionOcclusion.IsOccluded(space, from, to);
+    }
+
     /// <summary>
     /// 尸潮抵达终局：启动无限围攻（波次不停轮、逐波递增，直至全灭）。到期夜由 <see cref="OnGamePhaseChanged"/> NightAct 调。
     /// 复用袭营执行层：置 <c>_raidActive</c> 借 <see cref="UpdateRaid"/> 的守卫锁敌 + 破防统计，但走 <c>_siegeActive</c>
@@ -2538,9 +3403,10 @@ public sealed partial class CampMain : Node2D
             float gx = 1110f + (i * 43f) % 180f;
             float gy = south ? 1540f + (i % 3) * 14f : 260f - (i % 3) * 14f;
 
-            var z = Zombie.Create(wander, () => _survivors.Where(a => a.Alive).Cast<Actor>());
+            var z = Zombie.Create(wander, AlliedTargets); // 目标池含布鲁斯（可被丧尸攻击/杀）
             z.Inject(_combat, _clock); // 与营地单位同一 combat+clock，务必首帧 Think 前完成
             z.ConfigureBreach(TryFindBreachTarget, DamageNearestStructureAt, _cameraCenter); // 门关闭→砸墙破防
+            z.ConfigurePerception(localLightAt: SampleCampLight); // 固定+手持光源→局部光照喂给（暴露走目标 CarriedLightIntensity 回落）
             z.Position = new Vector2(gx, gy);
             _actorLayer.AddChild(z);
             z.Died += OnRaidZombieDied;
@@ -2598,6 +3464,28 @@ public sealed partial class CampMain : Node2D
             }
         }
 
+        // 犬类守卫（布鲁斯）巡防：无目标时取 75% 效率锁敌半径内最近丧尸缠斗（无暗哨首发）。
+        foreach (Dog dog in _raidGuardDogs)
+        {
+            if (!dog.Alive || dog.HasActiveTarget)
+                continue;
+            Zombie? nearest = null;
+            float best = dog.GuardSightRadiusScaled * dog.GuardSightRadiusScaled; // 75% 效率半径
+            foreach (Zombie z in _raidZombies)
+            {
+                if (!z.Alive)
+                    continue;
+                float d = dog.GlobalPosition.DistanceSquaredTo(z.GlobalPosition);
+                if (d < best)
+                {
+                    best = d;
+                    nearest = z;
+                }
+            }
+            if (nearest != null)
+                dog.CommandAttack(nearest);
+        }
+
         // 破防线 + 存活统计合成单遍：破防=任一丧尸摸进营心 BreachRadius（平方比较）内；同遍数存活丧尸。
         float breachSq = BreachRadius * BreachRadius;
         bool breached = false;
@@ -2616,13 +3504,19 @@ public sealed partial class CampMain : Node2D
             if (g.Alive)
                 guardsAlive++;
         }
+        foreach (Dog dog in _raidGuardDogs) // 犬类守卫也计入"守卫存活"（关系非围攻夜的守住/被破结算）
+        {
+            if (dog.Alive)
+                guardsAlive++;
+        }
 
         // 尸潮终局：不做胜负结算（无「守住」出口），只按调度补投下一波——波次不停轮、逐波递增。
         // 唯一终止是全灭（Pawn.Died → GameOverCondition，见 OnSurvivorDied）。破防/守卫全倒都不结束围攻。
         if (_siegeActive)
         {
             SiegeWave dec = HordeTimeline.NextWave(
-                _siegeWaveIndex, zombiesRemaining, _siegeWaveElapsed, _survivors.Count(s => s.Alive));
+                _siegeWaveIndex, zombiesRemaining, _siegeWaveElapsed, _survivors.Count(s => s.Alive),
+                HordeTimeline.MaxConcurrentSiege); // 在场并发上限：达上限本波不投，封 day40 无界实体崩塌（波次仍轮询）
             if (dec.ShouldSpawn)
             {
                 SpawnCampZombies(dec.Count);
@@ -2664,6 +3558,7 @@ public sealed partial class CampMain : Node2D
     private void EndRaid()
     {
         _raidActive = false;
+        EndNightRaid(); // 批次6：夜袭者若跨到黎明仍在场，天亮统一收尾（清残留袭击者、复位响应态）
         // 终局围攻若跨到黎明仍未全灭（罕见）：本夜收口，下一 Arrived 夜的 NightAct 会重新触发（仍无生还）。
         _siegeActive = false;
         foreach (Zombie z in _raidZombies)
@@ -2672,6 +3567,7 @@ public sealed partial class CampMain : Node2D
                 z.QueueFree();
         }
         _raidZombies.Clear();
+        _revealDelegates.Clear(); // 夜袭结束：清揭示委托缓存，释放对已回收敌人的引用
         foreach (Pawn g in _raidGuards)
         {
             if (IsInstanceValid(g) && g.Alive)
@@ -2681,6 +3577,15 @@ public sealed partial class CampMain : Node2D
             }
         }
         _raidGuards.Clear();
+        foreach (Dog dog in _raidGuardDogs) // 犬类守卫下岗：撤岗位加成 + 解除驻守（恢复跟随/自主缠斗）
+        {
+            if (IsInstanceValid(dog) && dog.Alive)
+            {
+                dog.ClearGuardPost();
+                dog.GuardStationing = false;
+            }
+        }
+        _raidGuardDogs.Clear();
 
         // 极端情况：夜晚耗尽仍未分胜负（教学关战斗未收口）→ 天亮统一清场，防止拖入白天。
         if (_tutorialActive || _tutorialRaiders.Count > 0 || _christine != null)
@@ -2711,20 +3616,22 @@ public sealed partial class CampMain : Node2D
             var r = Raider.Create(wander, TutorialRaiderTargets, usePistol: true);
             r.Inject(_combat, _clock); // 首帧 Think 前完成注入
             r.ConfigureBreach(TryFindBreachTarget, DamageNearestStructureAt, _cameraCenter); // 门关闭→砸墙破防
+            r.ConfigurePerception(localLightAt: SampleCampLight); // 光源→局部光照喂给
             r.Position = new Vector2(1120f + i * 60f, 1540f + (i % 2) * 12f); // 南门外错峰
             _actorLayer.AddChild(r);
             r.Died += OnTutorialRaiderDied;
             _tutorialRaiders.Add(r);
         }
 
-        // 克莉丝汀：起手 Faction=Raider、targetProvider=幸存者池（打幸存者），与两名同伙一致。
+        // 克莉丝汀：起手 Faction=Raider、targetProvider=己方池（幸存者+布鲁斯，打幸存者/狗），与两名同伙一致。
         _christine = Raider.Create(
             wander,
-            () => _survivors.Where(a => a.Alive).Cast<Actor>(),
+            AlliedTargets,
             usePistol: true,
             displayName: "克莉丝汀");
         _christine.Inject(_combat, _clock);
         _christine.ConfigureBreach(TryFindBreachTarget, DamageNearestStructureAt, _cameraCenter); // 门关闭→砸墙破防
+        _christine.ConfigurePerception(localLightAt: SampleCampLight); // 光源→局部光照喂给
         _christine.Position = new Vector2(1200f, 1560f); // 南门外
         _actorLayer.AddChild(_christine);
         _christine.Died += OnChristineDied;
@@ -2740,6 +3647,8 @@ public sealed partial class CampMain : Node2D
                 yield return s;
         if (_christine is { Alive: true })
             yield return _christine;
+        if (_bruce is { Alive: true })
+            yield return _bruce; // 布鲁斯可被劫掠者攻击/杀
     }
 
     private void OnTutorialRaiderDied(Actor a)
@@ -2891,6 +3800,125 @@ public sealed partial class CampMain : Node2D
     /// <summary>当前在营存活的克莉丝汀 Pawn（招募后）；不在场（未招募/已亡故/已离开）返回 null。</summary>
     private Pawn? ChristinePawn() =>
         _survivors.FirstOrDefault(p => p.Alive && p.DisplayName == ChristineName);
+
+    // ---------------- 电台主线（收音机交互 / 抉择 / 军袭钩子） ----------------
+
+    /// <summary>
+    /// 营地收音机交互（右键前往到位时调，role=="radio"）：
+    ///   · 已持发出设备且未做终局抉择 → 弹抉择入口（回复军方 / 呼叫南方 / 暂不）；
+    ///   · 否则 → 收听军方循环广播（首次收听推进主线状态「已收听」，解锁主线知情）。
+    /// 文案（广播/抉择/确认）皆 <see cref="RadioMainline"/> 的 draft 常量，供用户改。
+    /// </summary>
+    private void OpenRadio()
+    {
+        if (RadioMainline.IsDecisionAvailable(_storyFlags))
+        {
+            PromptRadioDecision();
+            return;
+        }
+        // 收听：首次收听推进 Unknown→HeardBroadcast（已收听/已抉择则无操作，仍复播循环广播）。
+        RadioMainline.MarkBroadcastHeard(_storyFlags);
+        ShowDiscoveryNarrative("军方救援频段", RadioMainline.MilitaryBroadcastLoop);
+    }
+
+    /// <summary>
+    /// 持发出设备后的电台抉择入口（复用通用 <see cref="ChoicePanel"/>）：回复军方 / 呼叫南方 / 暂不。
+    /// 两条终局岔口不可逆，故选中后走二次确认；「暂不」直接关闭（可再来）。冻结时标、选完恢复。
+    /// </summary>
+    private void PromptRadioDecision()
+    {
+        double prevScale = Engine.TimeScale;
+        Engine.TimeScale = 0;
+
+        var panel = new ChoicePanel();
+        AddChild(panel);
+        panel.Setup(
+            RadioMainline.DecisionPrompt,
+            new List<ChoicePanel.ChoiceOption>
+            {
+                new() { Value = 1, Label = RadioMainline.ReplyOptionLabel,
+                        Description = "报出坐标，等军方派人前来", Accent = new Color(0.30f, 0.45f, 0.62f) },
+                new() { Value = 2, Label = RadioMainline.CallSouthOptionLabel,
+                        Description = "向南方营地求救，试着求一条生路", Accent = new Color(0.35f, 0.55f, 0.38f) },
+                new() { Value = 0, Label = RadioMainline.DeferOptionLabel,
+                        Description = "先不急，再想想", Accent = new Color(0.45f, 0.42f, 0.4f) },
+            });
+        panel.Confirmed += v =>
+        {
+            Engine.TimeScale = prevScale <= 0 ? 1 : prevScale;
+            panel.QueueFree();
+            switch (v)
+            {
+                case 1:
+                    ConfirmRadioEnding(RadioMainline.ReplyConfirmPrompt, isReply: true);
+                    break;
+                case 2:
+                    ConfirmRadioEnding(RadioMainline.CallSouthConfirmPrompt, isReply: false);
+                    break;
+                default:
+                    break; // 暂不：直接关闭，可再来
+            }
+        };
+    }
+
+    /// <summary>
+    /// 电台终局抉择的二次确认（不可逆，故独立一层确认面板）。确认→推进对应终态：
+    ///   · 回复军方：<see cref="RadioMainline.ReplyToMilitary"/> 记录回复日（当天），第 3 天白天军袭到期（钩子在 <see cref="TryTriggerMilitaryRaid"/>）；
+    ///   · 呼叫南方：<see cref="RadioMainline.CallSouth"/> 开启南逃线 flag（后续 authored）。
+    /// 两者均不冻结尸潮时限（用户口径）。取消→回到未抉择态，可再来。
+    /// </summary>
+    private void ConfirmRadioEnding(string confirmPrompt, bool isReply)
+    {
+        double prevScale = Engine.TimeScale;
+        Engine.TimeScale = 0;
+
+        var panel = new ChoicePanel();
+        AddChild(panel);
+        panel.Setup(
+            confirmPrompt,
+            new List<ChoicePanel.ChoiceOption>
+            {
+                new() { Value = 1, Label = "确定", Description = "这个决定收不回来了",
+                        Accent = new Color(0.62f, 0.25f, 0.22f) },
+                new() { Value = 0, Label = "再想想", Description = "先回到上一步",
+                        Accent = new Color(0.45f, 0.42f, 0.4f) },
+            });
+        panel.Confirmed += v =>
+        {
+            Engine.TimeScale = prevScale <= 0 ? 1 : prevScale;
+            panel.QueueFree();
+            if (v != 1)
+            {
+                PromptRadioDecision(); // 再想想：回到抉择入口
+                return;
+            }
+            if (isReply)
+            {
+                RadioMainline.ReplyToMilitary(_storyFlags, _clock.Day);
+                GD.Print($"[电台] 已回复军方（第 {_clock.Day} 天）。第 {_clock.Day + RadioMainline.MilitaryRaidDelayDays} 天白天军袭到期（结局②，事件本体待实装）。");
+            }
+            else
+            {
+                RadioMainline.CallSouth(_storyFlags);
+                GD.Print("[电台] 已呼叫南方营地，南逃线开启（结局③，后续流程待实装）。");
+            }
+        };
+    }
+
+    /// <summary>
+    /// 电台主线军袭到期钩子（每日黎明调）：回复军方后第 3 天（回复日+3）白天军袭到期。
+    /// ★军袭事件本体不在本批（authored 待用户：军方白天屠杀留守者、外出探险队幸存归来见营地覆灭、
+    ///   游戏不强制结束、续走结局①尸潮或③南逃）。本方法只在到期首次置事件钩子 flag（<see cref="RadioMainline.TryFireMilitaryRaidHook"/> 保证一次性），
+    ///   TODO 挂点处安全 no-op（不改变现状；实装军袭时在此触发白天军袭演出/结算）。
+    /// </summary>
+    private void TryTriggerMilitaryRaid()
+    {
+        if (!RadioMainline.TryFireMilitaryRaidHook(_storyFlags, _clock.Day))
+            return;
+        // TODO(结局②·军方白天来袭)：此处触发 authored 军袭事件——白天屠杀留守者、外出探险队幸存归来见营地覆灭、
+        //   游戏不强制结束（仅全员在营时才自然全灭）。本批为安全 no-op：仅记录钩子已触发，不改变现状。
+        GD.Print($"[电台] 第 {_clock.Day} 天：军方白天来袭到期（结局②事件钩子已触发，事件本体待实装，本批 no-op）。");
+    }
 
     /// <summary>
     /// 弹出「答应出兵清剿 / 暂不」抉择面板（复用通用 <see cref="ChoicePanel"/>，非教学三选一）。
@@ -3124,11 +4152,23 @@ public sealed partial class CampMain : Node2D
     /// 到达容器后执行交互（右键前往到位时调）：workbench→开制作面板；storage→开库存面板；
     /// loot→未搜过则搜出入库 + 一行反馈，随后开库存面板看结果（已搜过则仅提示）。各 OpenX 自带暂停冻结时标。
     /// </summary>
-    private void ExecuteContainerInteract(ContainerRef hit)
+    private void ExecuteContainerInteract(Pawn arriver, ContainerRef hit)
     {
+        if (hit.Role == "rubble")
+        {
+            BeginRubbleDig(arriver, hit);
+            return;
+        }
+
         if (hit.Role == "workbench")
         {
             OpenCrafting();
+            return;
+        }
+
+        if (hit.Role == "radio")
+        {
+            OpenRadio();
             return;
         }
 
@@ -3170,6 +4210,178 @@ public sealed partial class CampMain : Node2D
         OpenStash(notice);
     }
 
+    // ---------------- 批次9 开局营地废墟挖掘 ----------------
+
+    /// <summary>读 camp.json rubble[] 建开局废墟点：实心矮瓦砾块（碰撞 + 挖导航洞 + 切块视觉，句柄留存供挖净清场）
+    /// + 登记 <see cref="RubbleField"/>（工时/产出/彩蛋位）+ 登记可点击容器（role=rubble，右键前往开挖）。drops 复用 ParseLoot→LootItem。</summary>
+    private void BuildRubble()
+    {
+        foreach (RubbleSpec spec in _cfg.rubble ?? System.Array.Empty<RubbleSpec>())
+        {
+            if (string.IsNullOrEmpty(spec.name) || ToRect(spec.rect) is not { } rect)
+            {
+                continue;
+            }
+            var style = new PixelStyle { color = spec.color, tile = spec.tile, jitter = spec.jitter };
+
+            // 实心瓦砾块（同 AddSolid 的碰撞 + 导航洞，但收集切块视觉节点句柄供挖净逐块清场）。
+            var inst = new RubbleInstance { Rect = rect };
+            var body = new StaticBody2D { Position = rect.Position + rect.Size / 2 };
+            body.CollisionLayer = 0b0100; // 层 3 = 墙（Actor 只与此层碰撞）
+            body.CollisionMask = 0;
+            body.AddChild(new CollisionShape2D { Shape = new RectangleShape2D { Size = rect.Size } });
+            _logicLayer.AddChild(body);
+            inst.Body = body;
+            AddOccluderVisual(rect, style, seed: 29, (float)_heights.prop, cell: 60f, collect: inst.Visuals);
+            _navHoles.Add(rect);
+            _rubbleVisuals[spec.name!] = inst;
+
+            // 纯逻辑：工时进度 + 一次性收获（drops 复用 ParseLoot→LootItem）。
+            _rubble.Register(new RubbleSite(
+                spec.name!,
+                spec.workMinutes,
+                ParseLoot(spec.drops),
+                hasEggSlot: spec.eggSlot));
+
+            // 可点击容器（右键前往开挖，走既有 _pendingInteract → ExecuteContainerInteract 路径）。
+            _containers.Add(new ContainerRef { Name = spec.name!, Rect = rect, Role = "rubble", Loot = new List<LootItem>() });
+        }
+    }
+
+    /// <summary>到达废墟后开挖：指派到位的前往者为挖掘者（占用其作业），随后由 <see cref="TickRubbleDig"/> 逐游戏分钟推进；
+    /// 首次开挖弹一行提示教交互。不冻结时标——挖掘消耗真实游戏时间（白天营地活），被拉走则中断、进度留存（回来续挖）。</summary>
+    private void BeginRubbleDig(Pawn digger, ContainerRef hit)
+    {
+        RubbleSite? site = _rubble.Find(hit.Name);
+        if (site is null || site.Cleared)
+        {
+            return;
+        }
+        // 到位的前往者即挖掘者（UpdatePendingInteract 已确保是可控存活的选中角色）。
+        _digging = (digger, hit.Name);
+        _digLastMinuteKey = -1; // 下一挖掘帧从当前分钟起算
+
+        // 首次开挖：一行提示教交互（hint-system 已在 HintTracker 加 rubble_dig 条目；已示过则 ShouldShow=false）。
+        if (HintTracker.ShouldShow(HintTracker.RubbleDig, _storyFlags) && HintTracker.Text(HintTracker.RubbleDig) is { } tip)
+        {
+            _campToast.Show(tip, CampToast.Ok);
+            HintTracker.MarkShown(HintTracker.RubbleDig, _storyFlags);
+        }
+        else
+        {
+            _campToast.Show($"{digger.DisplayName} 开始清挖{hit.Name}（工时 {site.RemainingWorkMinutes} 分）", CampToast.Ok);
+        }
+        GD.Print($"[废墟] {digger.DisplayName} 开挖 {hit.Name}，剩余工时 {site.RemainingWorkMinutes} 分。");
+    }
+
+    /// <summary>废墟挖掘逐分钟推进（每帧，_Process 调，同工时制分钟键增量）：挖掘者仍在该废墟点作业时按流逝游戏分钟推进；
+    /// 挖满→收获落地 + 清场显露空地。挖掘者离场/死亡/改派=中断（进度留存，回来续挖）；面板冻结时标时分钟键不变→不推进。</summary>
+    private void TickRubbleDig()
+    {
+        if (_digging is not { } d)
+        {
+            _digLastMinuteKey = -1;
+            return;
+        }
+        RubbleSite? site = _rubble.Find(d.rubbleId);
+        if (site is null || site.Cleared)
+        {
+            _digging = null;
+            _digLastMinuteKey = -1;
+            return;
+        }
+
+        // 挖掘者仍在场作业：存活可控 && 在名册 && 站在该废墟边缘附近（离开=中断，进度留存）。
+        bool present =
+            d.pawn.Alive && d.pawn.IsControllable && _survivors.Contains(d.pawn) &&
+            _rubbleVisuals.TryGetValue(d.rubbleId, out RubbleInstance? inst) &&
+            inst.Rect.Grow(d.pawn.Radius + PendingArriveMargin).HasPoint(d.pawn.GlobalPosition);
+
+        int key = _clock.ClockMinuteKey();
+        if (!present || _digLastMinuteKey < 0)
+        {
+            _digLastMinuteKey = present ? key : -1; // 离场清基线（不丢已推进的整分钟）
+            return;
+        }
+        int delta = key - _digLastMinuteKey;
+        if (delta < 0) delta += 24 * 60; // 跨午夜环绕
+        _digLastMinuteKey = key;
+        if (delta <= 0) return;
+
+        site.Advance(delta, workerPresent: true);
+        if (site.IsComplete)
+        {
+            CompleteRubbleDig(d.rubbleId);
+        }
+    }
+
+    /// <summary>废墟挖满：收获产出落地（材料入共享库存/食物，复用 <see cref="LootApplication"/>）+ 清场显露空地 + 移除可点击容器 + 提示。
+    /// 彩蛋位（<see cref="RubbleSite.HasEggSlot"/>）当前仅出普通产出 + 一行占位提示；authored 彩蛋内容待用户（见 RubbleSite.EggContentId TODO）。</summary>
+    private void CompleteRubbleDig(string rubbleId)
+    {
+        RubbleSite? site = _rubble.Find(rubbleId);
+        IReadOnlyList<LootItem> drops = _rubble.Harvest(rubbleId);
+        var tools = new List<ToolSlot>();
+        int food = LootApplication.Apply(drops, _inventory, _bookRegistry, _bookResolver, tools);
+        if (food > 0)
+        {
+            _resources.AddFood(food);
+        }
+        InstallFoundTools(tools);
+
+        // 清场：移碰撞体 + 视觉块 + 导航洞并重烘焙 → 显露空地（镜像 DestroyStructure）。
+        ClearRubbleVisual(rubbleId);
+        _containers.RemoveAll(c => c.Name == rubbleId);
+        _digging = null;
+        _digLastMinuteKey = -1;
+
+        // 入库存的材料件数（drops 只含材料；食物/工具另计）。
+        int itemCount = drops.Count(l => l.Kind is not LootKind.Food and not LootKind.Tool);
+        // TODO(彩蛋 authored 待用户)：HasEggSlot 处接入 authored 特殊物/剧情；当前仅普通产出 + 占位提示。
+        string eggNote = site is { HasEggSlot: true } ? "，瓦砾深处似乎还压着什么……" : "";
+        _campToast.Show($"{rubbleId}已清挖干净，翻出 {itemCount} 件材料，腾出一片空地{eggNote}", CampToast.Ok);
+        GD.Print($"[废墟] {rubbleId} 挖净，产出 {itemCount} 件材料{(food > 0 ? $"+{food}份食物" : "")}{eggNote}");
+    }
+
+    /// <summary>废墟清场：QueueFree 碰撞体 + 切块视觉，移导航洞并重烘焙（显露空地可寻路）。幂等（已清空则空操作）。</summary>
+    private void ClearRubbleVisual(string rubbleId)
+    {
+        if (!_rubbleVisuals.TryGetValue(rubbleId, out RubbleInstance? inst))
+        {
+            return;
+        }
+        _rubbleVisuals.Remove(rubbleId);
+        if (inst.Body != null && IsInstanceValid(inst.Body))
+        {
+            inst.Body.QueueFree();
+        }
+        foreach (Node2D v in inst.Visuals)
+        {
+            if (IsInstanceValid(v))
+            {
+                v.QueueFree();
+            }
+        }
+        inst.Visuals.Clear();
+        _navHoles.Remove(inst.Rect); // Rect2 值相等；移除后重烘焙补出空地
+        RebakeNavigation();
+    }
+
+    /// <summary>废墟悬停文案：显示挖掘进度；正在挖标"清挖中"，否则提示"选中角色后右键前往开挖"。</summary>
+    private string RubbleHoverText(ContainerRef c, string noSel)
+    {
+        RubbleSite? site = _rubble.Find(c.Name);
+        if (site is null)
+        {
+            return $"{c.Name}{noSel}";
+        }
+        bool digging = _digging is { } d && d.rubbleId == c.Name;
+        string prog = site.ElapsedWorkMinutes > 0 ? $"（已挖 {(int)(site.Progress * 100)}%）" : "";
+        return digging
+            ? $"{c.Name} · 清挖中{prog}"
+            : $"{c.Name} · 选中角色后右键前往开挖{prog}{noSel}";
+    }
+
     // ---------------- 神秘商人到访 / 交易 ----------------
 
     /// <summary>
@@ -3180,6 +4392,11 @@ public sealed partial class CampMain : Node2D
     private void TryMerchantVisit()
     {
         if (_merchant != null) // 已在场（异常：上次未离场），不重复派
+        {
+            return;
+        }
+        // 接替链断商门控（用户拍板 [SPEC-B7]#5）：两位商人皆死于营地后永久断商，调度不再排访。
+        if (!MerchantLineage.MerchantsAvailable(_storyFlags))
         {
             return;
         }
@@ -3206,7 +4423,7 @@ public sealed partial class CampMain : Node2D
     {
         var merchant = Merchant.Create();
         merchant.Inject(_combat, _clock);
-        merchant.Died += _ => OnMerchantGone(); // 中立不参战，理论不死；兜底清引用（Died 传 Actor，忽略）
+        merchant.Died += OnMerchantKilledAtCamp; // 死于营地 → 推进接替链（零掉落）+ 清引用
         Vector2 entry = new(1120f, 1540f);              // 南门外边缘（同克莉丝汀入场量级）
         Vector2 standPoint = _cameraCenter + new Vector2(160f, 120f); // 营地中心附近约定停留点（营地照明内，draft，避开正中拥挤区）
         merchant.Position = entry;
@@ -3219,7 +4436,31 @@ public sealed partial class CampMain : Node2D
         _containers.Add(_merchantContainer);
 
         _campToast.Show("夜色里，神秘商人来到营地——右键让角色前往交易。", CampToast.Ok);
+        // 第二（接替）商人首访：播 authored 开场白（协会想放弃此点/他信这里的人善良/力排众议来跑商），只播一次。
+        if (MerchantLineage.ShouldPlaySecondIntro(_storyFlags))
+        {
+            FloatingText.Spawn(_actorLayer, merchant.GlobalPosition, MerchantLineage.SecondMerchantIntroLine,
+                new Color(0.6f, 0.78f, 0.9f));
+            MerchantLineage.MarkSecondIntroPlayed(_storyFlags);
+        }
         GD.Print("[神秘商人] 夜访营地。");
+    }
+
+    /// <summary>
+    /// 神秘商人**死于营地**（用户拍板 [SPEC-B7]#5）：推进接替链——第一商人死 → 第二商人将接替、第二商人死 → 今后永无商人。
+    /// **零掉落**：商人 Pawn 不携货架库存、本作角色死亡也无自动尸体掉落，故此处不产任何搜刮物（杜绝杀商套利）。
+    /// 死亡地点判定：商人为 Neutral、只在营地生成出现，故"死亡"即等价"死于营地"（若日后商人会出现在别处需在此加地点门控）。
+    /// 死后滚下一次来访日：断商前尚存的下一位商人在未来某晚按调度到访。
+    /// </summary>
+    private void OnMerchantKilledAtCamp(Actor _)
+    {
+        MerchantLineageStage after = MerchantLineage.OnMerchantDiedAtCamp(_storyFlags);
+        OnMerchantGone();
+        _merchantSchedule.CompleteVisit(_clock.Day); // 死亡收束本次到访，排下一次（接替商人未来某晚到访）
+        _campToast.Show(after == MerchantLineageStage.Extinct
+            ? "商人倒在了营地里。协会不会再派人来了。"
+            : "商人倒在了营地里——他什么也没能留下。", CampToast.Bad);
+        GD.Print($"[神秘商人] 死于营地，接替链 → {after}。");
     }
 
     /// <summary>
@@ -3272,9 +4513,9 @@ public sealed partial class CampMain : Node2D
         _merchantPanel.Visible = true;
     }
 
-    /// <summary>用当前货架 + 持币量刷新交易面板（买入结算后即时反映扣币/库存/灰显）。</summary>
+    /// <summary>用当前货架 + 可收购库存行 + 持币量刷新交易面板（买入/卖出结算后即时反映扣币/库存/灰显，保持当前页签）。</summary>
     private void RefreshMerchantPanel()
-        => _merchantPanel.ShowShelf(_merchantShelf, _inventory.MaterialCount(Materials.CurrencyKey));
+        => _merchantPanel.Show(_merchantShelf, MerchantBuyList.SellableRows(_inventory), _inventory.MaterialCount(Materials.CurrencyKey));
 
     /// <summary>买入某货架条目：<see cref="MerchantTrade.Buy"/> 实扣白银实产商品 → 结果 toast → 刷新面板。</summary>
     private void OnMerchantBuyRequested(int offerIndex)
@@ -3294,6 +4535,27 @@ public sealed partial class CampMain : Node2D
                 break;
             case PurchaseStatus.SoldOut:
                 _campToast.Show("这件已经卖光了。", CampToast.Bad);
+                break;
+        }
+        RefreshMerchantPanel();
+    }
+
+    /// <summary>
+    /// 卖出某收购行的一单位（用户拍板：白名单收购、基准价 60%）：<see cref="MerchantTrade.SellOne"/> 实扣一单位物品、白银入账 → 结果 toast → 刷新面板。
+    /// 收购白名单/单位收购价由 <see cref="MerchantBuyList"/> 定；商人不在场（断商）自然无此入口。
+    /// </summary>
+    private void OnMerchantSellRequested(SellRow row)
+    {
+        switch (MerchantTrade.SellOne(_inventory, row.UnitItem))
+        {
+            case SellStatus.Ok:
+                _campToast.Show($"卖出「{row.DisplayName}」，进账 {row.UnitSellPrice} 白银。", CampToast.Ok);
+                break;
+            case SellStatus.NoneOwned:
+                _campToast.Show($"没有多余的「{row.DisplayName}」可卖了。", CampToast.Bad);
+                break;
+            case SellStatus.NotBuying:
+                _campToast.Show("商人不收这个。", CampToast.Bad);
                 break;
         }
         RefreshMerchantPanel();
@@ -3390,6 +4652,43 @@ public sealed partial class CampMain : Node2D
             ShowInspect(target); // 面板开着 → 刷新装备态
         }
         OpenStash($"已为 {target.DisplayName} 装备 {item.DisplayName}。");
+    }
+
+    /// <summary>库存「持起」手持光源（手电/火把）→ 选中幸存者 <see cref="Pawn.HeldLight"/>，占一只手；被顶替的旧光源回库存（绝不静默丢）。</summary>
+    private void OnStashLightHoldRequested(string lightKey)
+    {
+        Pawn? target = _selected.FirstOrDefault(p => p.IsControllable);
+        if (target == null)
+        {
+            OpenStash("请先选中一个幸存者，再点「持起」。");
+            return;
+        }
+
+        Item? item = _inventory.ByCategory(ItemCategory.Light).FirstOrDefault(i => i.RefKey == lightKey);
+        if (item == null)
+        {
+            return; // 库存里已无此件（并发/重复点），静默
+        }
+
+        string? previous = target.HeldLight.Held?.Key; // 顶替回库用
+        if (!target.EquipLight(lightKey))
+        {
+            OpenStash($"{item.DisplayName} 无法持起（断手/双手武器占两手/该手已持械）。");
+            return;
+        }
+
+        _inventory.Remove(item);
+        // 被顶替下来的旧光源回库存（同源 refKey 不算顶替）。
+        if (previous != null && previous != lightKey && LightSource.Find(previous) is LightProfile prev)
+        {
+            _inventory.Add(Item.Light(previous, prev.DisplayName));
+        }
+
+        if (_characterPanel.IsShown)
+        {
+            ShowInspect(target); // 面板开着 → 刷新持械/持光态
+        }
+        OpenStash($"{target.DisplayName} 持起了 {item.DisplayName}。");
     }
 
     /// <summary>卸某手武器 → 回库存 + 刷面板/库存列表（供角色面板「卸下」按钮回调）。</summary>
@@ -3562,14 +4861,36 @@ public sealed partial class CampMain : Node2D
         _craftingPanel.Visible = true;
     }
 
-    /// <summary>重刷制作面板数据（制作/改装后调，反映扣掉的材料、新入库产物、升级后的技能）。</summary>
+    /// <summary>重刷制作面板数据（下单/推进/完工/改装后调，反映扣掉的材料、新入库产物、在制任务进度）。</summary>
     private void RefreshCrafting()
         => _craftingPanel.ShowFor(_workbench, ControllableCrafters(), _inventory,
-            (pawn, id) => pawn.HasReadBook(id)); // 书门槛按制作者本人已读（非营地全局）
+            (pawn, id) => pawn.HasReadBook(id), // 书门槛按制作者本人已读（非营地全局）
+            _craftingJob,                        // 工时制：本工作台在制任务（顶部进度横幅/占用中置灰）
+            DogGearGate);                        // 制作者门槛：狗装备需道格 + 羁绊≥2 级（灰显+双保险）
 
     /// <summary>当前可作制作者的幸存者（存活且空闲可控）。</summary>
     private List<Pawn> ControllableCrafters()
         => _survivors.Where(p => p.Alive && p.IsControllable).ToList();
+
+    /// <summary>
+    /// 狗装备制作者门槛判据（批次5，消费 <see cref="DougBruceBond.CanCraftDogGear"/>）：
+    /// 门槛键＝<see cref="RecipeBook.DogGearCrafterGate"/> 时，要求**制作者是道格**且**与布鲁斯羁绊≥2 级**（且两者皆在世）；
+    /// 满足返回 null、否则返回灰显文案。喂给 <see cref="CraftingLogic.CanCraft"/>/<see cref="CraftingService.StartJob"/> 的 crafterGate。
+    /// 未识别的门槛键 fail-closed（返回文案）。羁绊等级经 <see cref="BondLevel"/>（共同存活天数现算）。
+    /// </summary>
+    private string? DogGearGate(Pawn crafter, string gateKey)
+    {
+        if (gateKey != RecipeBook.DogGearCrafterGate)
+            return "未知制作门槛";
+        if (crafter != _doug)
+            return "狗装备只有道格能为布鲁斯制作";
+        bool bothAlive = _doug is { Alive: true } && _bruce is { Alive: true };
+        if (DougBruceBond.CanCraftDogGear(BondLevel, bothAlive))
+            return null; // 满足
+        return bothAlive
+            ? $"需与布鲁斯羁绊达 {DougBruceBond.DogGearUnlockLevel} 级（继续共同存活）"
+            : "需道格与布鲁斯皆在世";
+    }
 
     /// <summary>关制作面板：恢复时标、清掉瞬时提示（与库存面板互斥地持有时标）。</summary>
     private void CloseCrafting()
@@ -3581,8 +4902,9 @@ public sealed partial class CampMain : Node2D
     }
 
     /// <summary>
-    /// 面板「制作」→ 查配方 → 走 <see cref="CraftingService.Craft"/> 实扣实产（产物按 <see cref="CraftOutputFactory"/> 分类）。
-    /// 成功：提示产物 + 技能升级，刷新面板；失败：提示 <see cref="CraftBlock.Detail"/> 中文缺项。
+    /// 面板「下单」→ 查配方 → 走 <see cref="CraftingService.StartJob"/> 开工（工时制：**开工即扣料锁定**，
+    /// 返回可推进的 <see cref="CraftingJob"/>，存为本工作台在制任务，产出留待夜间推进满工时后完工）。
+    /// 每台单任务：已有在制任务时拒绝新单；成功：提示已下单+工时，刷新面板；门槛失败：提示中文缺项。
     /// </summary>
     private void OnCraftRequested(string recipeId, Pawn crafter)
     {
@@ -3593,9 +4915,18 @@ public sealed partial class CampMain : Node2D
             return;
         }
 
-        CraftResult result = CraftingService.Craft(
+        // 单任务队列：工作台被在制任务占用时不接新单（面板已置灰，此为双保险）。
+        if (_craftingJob is not null)
+        {
+            _campToast.Show("工作台占用中：完工取出后再下新单。", CampToast.Bad);
+            RefreshCrafting();
+            return;
+        }
+
+        CraftStartResult result = CraftingService.StartJob(
             recipe, id => crafter.HasReadBook(id), // 书门槛按制作者本人已读
-            _workbench, _inventory, 1, CraftOutputFactory.Create);
+            _workbench, _inventory, 1,
+            crafterGate: gateKey => DogGearGate(crafter, gateKey)); // 狗装备制作者门槛（道格+羁绊≥2级）
 
         if (!result.Success)
         {
@@ -3605,10 +4936,93 @@ public sealed partial class CampMain : Node2D
             return;
         }
 
-        string products = string.Join("、", result.Produced.Select(p => p.DisplayName));
-        _campToast.Show($"{crafter.DisplayName} 制作了 {products}", CampToast.Ok);
-        GD.Print($"[制作] {crafter.DisplayName} 制作 {recipe.DisplayName} → {products}");
+        _craftingJob = result.Job;
+        _craftingJobWorker = crafter; // 记下单者作生产者身份（3 级光环生产系数按其判定）
+        _craftLastMinuteKey = -1; // 重置增量基线，下一生产帧从当前分钟起算
+        _craftMinuteBudget = 0f;  // 清小数预算，新任务从零累积
+        string work = CraftingPanelFormat.FormatWorkDuration(recipe.WorkMinutes);
+        _campToast.Show($"已下单：{recipe.DisplayName}（工时 {work}，夜间生产）", CampToast.Ok);
+        GD.Print($"[制作] {crafter.DisplayName} 下单 {recipe.DisplayName}（工时 {recipe.WorkMinutes} 分）");
         RefreshCrafting();
+    }
+
+    /// <summary>
+    /// 工时制夜间生产推进（每帧，_Process 调）：仅当有在制任务且处夜间生产相位（NightAct）时，
+    /// 按游戏分钟增量推进工时；满工时即完工产出。面板冻结时标时分钟键不变→零增量→不推进。
+    /// ★interim：workerPresent 暂等同于"处生产相位"——真正的"指派夜班生产者在工作台"判定归 night-response/shift-sleep（见 [HANDOFF]）。
+    /// </summary>
+    private void TickCraftingWorktime()
+    {
+        if (_craftingJob is null)
+        {
+            _craftLastMinuteKey = -1;
+            _craftMinuteBudget = 0f;
+            return;
+        }
+
+        // 夜间生产相位（shift-sleep 落定"夜班生产相位"API 后可替换此判据）。
+        bool productionPhase = _clock.CurrentPhase == DayPhase.NightAct;
+        int key = _clock.ClockMinuteKey();
+        if (!productionPhase || _craftLastMinuteKey < 0)
+        {
+            _craftLastMinuteKey = productionPhase ? key : -1;
+            if (!productionPhase) _craftMinuteBudget = 0f; // 中断相位清小数残值（不丢已推进的整分钟）
+            return;
+        }
+
+        int delta = key - _craftLastMinuteKey;
+        if (delta < 0) delta += 24 * 60; // 跨午夜环绕
+        _craftLastMinuteKey = key;
+        if (delta <= 0) return;
+
+        // 3 级光环生产 +10%（synergy-wiring）+ 次相位疲劳折减（批次6）：把流逝分钟乘生产系数累积到小数预算，取整分钟喂 Advance，
+        // 余数留存——避免 delta=1/min 时 (int)(1×1.10)=1 吞掉每分钟 0.10。光环系数=下单者是道格且光环激活→1.10，疲劳系数=被唤醒者次相位<1。
+        float mult = _craftingJobWorker is { } worker ? BondProductionMultFor(worker) * FatigueMultiplierFor(worker) : 1f;
+        _craftMinuteBudget += delta * mult;
+        int wholeMinutes = (int)_craftMinuteBudget;
+        if (wholeMinutes <= 0) return;
+        _craftMinuteBudget -= wholeMinutes;
+
+        // canWork（批次6，接 craft-worktime HANDOFF）：指派夜班生产者(NightCrew)在其生产相位(IsWorkPhaseFor)且未被袭营拉去战斗（在台语义：
+        // 无战斗目标即视作在工作台）。被拉走(HasActiveTarget)→canWork=false，工时暂停不丢进度，袭营结束回台自动续作。
+        bool workerPresent = _craftingJobWorker is { Alive: true } w2
+            && ShiftSchedule.IsWorkPhaseFor(ShiftSchedule.ShiftFor(w2.Id, _todaysExpeditionIds), _clock.CurrentPhase)
+            && !w2.HasActiveTarget;
+        int applied = _craftingJob.Advance(wholeMinutes, canWork: workerPresent);
+        if (applied <= 0) return;
+
+        if (_craftingJob.IsComplete)
+        {
+            CompleteActiveCraftingJob();
+        }
+        else if (_craftingOpen)
+        {
+            RefreshCrafting(); // 面板开着时随进度更新横幅（1/分钟粒度）
+        }
+    }
+
+    /// <summary>在制任务完工：产物按 <see cref="CraftOutputFactory"/> 分类入库、提示、清空任务、刷新面板。</summary>
+    private void CompleteActiveCraftingJob()
+    {
+        CraftingJob job = _craftingJob!;
+        _craftingJob = null;
+        _craftingJobWorker = null;
+        _craftLastMinuteKey = -1;
+        _craftMinuteBudget = 0f;
+
+        RecipeData? recipe = RecipeBook.Find(job.RecipeId);
+        if (recipe is null)
+        {
+            GD.Print($"[制作] 完工但配方丢失：{job.RecipeId}");
+            if (_craftingOpen) RefreshCrafting();
+            return;
+        }
+
+        IReadOnlyList<Item> produced = CraftingService.CompleteJob(job, recipe, _inventory, CraftOutputFactory.Create);
+        string products = string.Join("、", produced.Select(p => p.DisplayName));
+        _campToast.Show($"制作完成：{products}", CampToast.Ok);
+        GD.Print($"[制作] 完工 {recipe.DisplayName} → {products}");
+        if (_craftingOpen) RefreshCrafting();
     }
 
     /// <summary>面板「改装」→ 走 <see cref="CraftingService.ApplyWeaponMod"/> 消耗基础武器落地变体入库。成功/失败均提示 + 刷新。</summary>
@@ -3890,6 +5304,15 @@ public sealed partial class CampMain : Node2D
         public PropSpec[]? props { get; set; }
         public SpawnSpec[]? spawns { get; set; }
         public GuardPostSpec[]? guardPosts { get; set; }
+        public LightSpec[]? lights { get; set; }
+        public RubbleSpec[]? rubble { get; set; }
+    }
+
+    /// <summary>预置固定光源：key = 光源键（campfire/lamp，对齐 LightSource 目录）；pos = 世界坐标 [x,y]（cartesian）。</summary>
+    private struct LightSpec
+    {
+        public string? key { get; set; }
+        public double[]? pos { get; set; }
     }
 
     /// <summary>预置守卫岗位：kind = watchtower/roofPlatform/hidden；stand = 守卫驻守站位 [x,y]（cartesian，须可寻路）。</summary>
@@ -3977,6 +5400,20 @@ public sealed partial class CampMain : Node2D
         public string? kind { get; set; }
         public int qty { get; set; }
         public string? id { get; set; }
+    }
+
+    /// <summary>开局废墟点（批次9）：name=稳定标识；rect=[x,y,w,h]；workMinutes=挖净总工时（游戏分钟）；
+    /// eggSlot=是否彩蛋位（内容 authored 待用户，当前仅出普通 drops）；drops=挖净产出（同 <see cref="LootSpec"/>，主要木/碎金属/布）。</summary>
+    private struct RubbleSpec
+    {
+        public string? name { get; set; }
+        public double[]? rect { get; set; }
+        public int workMinutes { get; set; }
+        public bool eggSlot { get; set; }
+        public LootSpec[]? drops { get; set; }
+        public double[]? color { get; set; }
+        public double tile { get; set; }
+        public double jitter { get; set; }
     }
 
     private struct SpawnSpec

@@ -103,13 +103,22 @@ public static class HordeTimeline
     public const int WaveClearThreshold = 4;
 
     /// <summary>
+    /// 场上丧尸并发硬上限（拟定待调）：围攻波次投放前先按此把本波规模 clamp 到 <c>上限−残敌</c>，
+    /// 达上限则本波不投（等玩家清出空间再压上来）。**不软化"无生还终局"语义**——波次仍不停轮询，
+    /// 只是清不动时不让 Godot 实体真无界堆积（防 day40 数百节点逐帧 _Process/物理体崩帧，同时封住敌方感知 raycast 的分母）。
+    /// </summary>
+    public const int MaxConcurrentSiege = 80;
+
+    /// <summary>
     /// 下一波是否该来 + 规模。
     /// </summary>
     /// <param name="waveIndex">已投放波次序号（0=首波，立即投）。</param>
     /// <param name="zombiesAlive">场上存活丧尸数。</param>
     /// <param name="secondsSinceLastWave">距上一波投放已过秒数。</param>
     /// <param name="campSize">在营幸存者数。</param>
-    public static SiegeWave NextWave(int waveIndex, int zombiesAlive, double secondsSinceLastWave, int campSize)
+    /// <param name="maxConcurrent">场上并发硬上限：本波规模 clamp 到 <c>上限−残敌</c>，凑不出正数即本波不投
+    /// （<see cref="ShouldSpawn"/>=false，波次照常下次再判）。默认 <see cref="int.MaxValue"/>=不限（保持既有调用行为）。</param>
+    public static SiegeWave NextWave(int waveIndex, int zombiesAlive, double secondsSinceLastWave, int campSize, int maxConcurrent = int.MaxValue)
     {
         bool due = waveIndex <= 0
             || zombiesAlive <= WaveClearThreshold
@@ -118,7 +127,15 @@ public static class HordeTimeline
         if (!due)
             return new SiegeWave { ShouldSpawn = false, Count = 0 };
 
-        return new SiegeWave { ShouldSpawn = true, Count = WaveSize(waveIndex, campSize) };
+        int count = WaveSize(waveIndex, campSize);
+        // 在场并发上限：达上限则本波缩减/跳过，封 day40 无界实体堆积（不改"波次不停轮"语义）。
+        int headroom = maxConcurrent - Math.Max(0, zombiesAlive);
+        if (count > headroom)
+            count = Math.Max(0, headroom);
+        if (count <= 0)
+            return new SiegeWave { ShouldSpawn = false, Count = 0 };
+
+        return new SiegeWave { ShouldSpawn = true, Count = count };
     }
 
     /// <summary>第 waveIndex 波的丧尸数：基数 + 逐波递增 + 随营地微增，封顶 WaveCap、保底 1。</summary>

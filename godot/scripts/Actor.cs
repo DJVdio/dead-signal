@@ -100,6 +100,13 @@ public abstract partial class Actor : CharacterBody2D
     /// <summary>震荡抗性剩余时长（秒，覆盖打断+首轮重走冷却）；&gt;0 时再次被震荡的触发概率×ConcussionResistFactor（防死锁）。</summary>
     private double _concussionResistTimer;
 
+    /// <summary>
+    /// 命中减速剩余时长（秒，通用/RimWorld stagger 式）；&gt;0 时移速×StaggerSpeedMult。
+    /// 任何攻击命中即触发（无论破防与否），只降移速——不打断出手、不清冷却（区别于震荡）。
+    /// 重复命中取 <c>Max</c> 刷新时长、不叠加幅度。见 <see cref="ReceiveAttack"/>。
+    /// </summary>
+    private double _staggerTimer;
+
     /// <summary>震荡/骨折效果参数（与引擎结算同源=EffectConfig.Default，实时消费点只读）。</summary>
     private static readonly EffectConfig CombatEffectCfg = EffectConfig.Default();
 
@@ -126,6 +133,10 @@ public abstract partial class Actor : CharacterBody2D
 
     // ---- 头顶状态图标条（E④）：与 sprite 同挂 iso_layer（Actor 本体在不可见 LogicLayer，做子节点会不可见）----
     private StatusIconStrip? _statusStrip;
+
+    // ---- 视野隐藏（批次4）：视野外不揭示。ActorSprite/状态条挂 iso_layer（非本体子节点），故隐 Actor 隐不掉它们，
+    //      须单独切其 Visible。延迟挂载期间先记状态，挂载完成时补应用。----
+    private bool _visualHidden;
 
     public event Action<Actor>? Died;
 
@@ -308,6 +319,12 @@ public abstract partial class Actor : CharacterBody2D
             _concussionResistTimer -= delta;
         }
 
+        // 命中减速随时间衰减（只作用移速，不门控出手）。
+        if (_staggerTimer > 0)
+        {
+            _staggerTimer -= delta;
+        }
+
         // 有攻击目标：目标死了则清空；在射程内停下开打，否则寻路逼近。
         if (_attackTarget is { } tgt)
         {
@@ -375,11 +392,19 @@ public abstract partial class Actor : CharacterBody2D
         mobility *= Body.LegFractureMobilityFactor(
             CombatEffectCfg.LegFractureMobilityMult, CombatEffectCfg.LegFractureHealedMobilityMult,
             CombatEffectCfg.FractureCapabilityFloor);
-        // 震荡硬打断期 → 移速×0.1（−90%，限时，用户口径）。
+        // 战斗移动减速：震荡硬打断 ×0.1（−90%，重）与命中减速 ×0.6（−40%，通用/RimWorld stagger 式）。
+        // 二者并存则乘算，但整体封底 ConcussionMoveSlowFactor（0.1）——命中减速不再把已处震荡的移速进一步压低
+        // （震荡是更重的效果，减速叠在其上无意义；封底口径拟定待确认，见 §5）。单独命中减速时 = ×0.6（不触底）。
+        double combatSlow = 1.0;
         if (_concussionTimer > 0)
         {
-            mobility *= CombatEffectCfg.ConcussionMoveSlowFactor;
+            combatSlow *= CombatEffectCfg.ConcussionMoveSlowFactor;
         }
+        if (_staggerTimer > 0)
+        {
+            combatSlow *= CombatEffectCfg.StaggerSpeedMult;
+        }
+        mobility *= System.Math.Max(combatSlow, CombatEffectCfg.ConcussionMoveSlowFactor);
 
         Vector2 desired = mobility > 0 ? dir * MoveSpeed * (float)mobility : Vector2.Zero;
         // 把期望速度交给避障；OnVelocityComputed 收到安全速度后再 MoveAndSlide。
@@ -397,6 +422,13 @@ public abstract partial class Actor : CharacterBody2D
         MoveAndSlide();
     }
 
+    /// <summary>
+    /// 头顶状态图标条（<see cref="StatusIconStrip"/>）的只读快照来源。基类只出 Body/武器/护甲
+    /// （敌人等无伤病档单位）；<see cref="Pawn"/> 覆写以并入伤病集（感染常驻可见）。名字/饥饿对状态图标无关，省略。
+    /// </summary>
+    protected virtual PawnInspection BuildStatusInspection() =>
+        PawnInspection.FromBody(Body, AttackWeapon, DefenderArmor, "");
+
     /// <summary>在 iso_layer group 下挂人形 sprite；group 未就位则记一次重试。</summary>
     private void TryAttachSprite()
     {
@@ -411,7 +443,14 @@ public abstract partial class Actor : CharacterBody2D
             // Body/武器/护甲构造委托（strip 拿不到可变引擎对象，改不坏战斗）。名字/饥饿对状态图标无关，省略。
             _statusStrip = new StatusIconStrip();
             layer.AddChild(_statusStrip);
-            _statusStrip.Bind(this, () => PawnInspection.FromBody(Body, AttackWeapon, DefenderArmor, ""));
+            _statusStrip.Bind(this, BuildStatusInspection);
+
+            // 补应用挂载前累积的视野隐藏态。
+            if (_visualHidden)
+            {
+                _sprite.Visible = false;
+                _statusStrip.Visible = false;
+            }
         }
         else if (_spriteRetries == 120)
         {
@@ -419,6 +458,19 @@ public abstract partial class Actor : CharacterBody2D
                 "[ActorSprite] 未找到 'iso_layer' group，人形未挂载" +
                 "（worktree 独立构建/合并前属正常，合并后由 B1 提供该 group）。");
         }
+    }
+
+    /// <summary>
+    /// 视野隐藏（批次4，视野外不揭示）：切 iso_layer 上的 <see cref="ActorSprite"/> + 状态条可见性（本体 <see cref="Node.Visible"/>
+    /// 隐不掉它们，因它们非本体子节点）。物理/AI/战斗照常——只是"没被看见时不渲染"。挂载前调用会在挂载完成时补应用。
+    /// </summary>
+    public void SetVisualHidden(bool hidden)
+    {
+        _visualHidden = hidden;
+        if (_sprite != null && IsInstanceValid(_sprite))
+            _sprite.Visible = !hidden;
+        if (_statusStrip != null && IsInstanceValid(_statusStrip))
+            _statusStrip.Visible = !hidden;
     }
 
     /// <summary>
@@ -638,6 +690,20 @@ public abstract partial class Actor : CharacterBody2D
     }
 
     /// <summary>
+    /// 承受攻击前的闪避判定：返回 true 则整次攻击被躲开（不结算伤害/效果/表现，也不消耗攻击方冷却——冷却在攻击方侧起算）。
+    /// 基类恒 <c>false</c>（无闪避轴，零回归）；高闪避单位（<see cref="Dog"/> 布鲁斯）覆盖按闪避概率掷免。
+    /// 随机走引擎注入的 <see cref="IRandomSource"/>（<paramref name="rng"/>=<c>combat.Rng</c>，可复现）。
+    /// </summary>
+    protected virtual bool EvadeIncoming(IRandomSource rng) => false;
+
+    // ---- 专属效果承伤乘子（synergy-wiring 注入，批次5 道格&布鲁斯；null=1.0 零回归）----
+    /// <summary>本单位承伤额外系数（道格&布鲁斯 3 级光环：相依为命受伤 ×0.90）。返回 ≥0 乘子。</summary>
+    private Func<double>? _incomingDamageFactor;
+
+    /// <summary>注入承伤系数（3 级光环减伤）。null 清除。</summary>
+    public void SetIncomingDamageFactor(Func<double>? f) => _incomingDamageFactor = f;
+
+    /// <summary>
     /// 作为防御方承受一次攻击：用自身护甲跑逐层结算 + 效果结算，施加到自身躯体。近战与子弹共用。
     /// <paramref name="attacker"/> 为攻击方（用于战斗日志归属），可为 <c>null</c>（环境伤害/无源）。
     /// </summary>
@@ -645,6 +711,12 @@ public abstract partial class Actor : CharacterBody2D
         bool ranged = false)
     {
         if (!Alive)
+        {
+            return;
+        }
+        // 闪避：高闪避单位（布鲁斯）命中前掷免整次攻击（整次躲开、不结算伤害/效果/表现）。基类恒不闪避（零回归）。
+        // 现引擎无闪避轴，按用户口径以最小侵入落在 Godot 层承伤入口；随机走引擎注入的 IRandomSource（可复现）。
+        if (EvadeIncoming(combat.Rng))
         {
             return;
         }
@@ -656,12 +728,22 @@ public abstract partial class Actor : CharacterBody2D
         }
         // 伤害/流血/切除/致死已在此调用内施加到 Body；下方仅发布到表现总线（飘字②③④各自订阅）。
         // damageFactor：远程距离衰减系数（近战/贴脸枪托传默认 1.0，不衰减）。
+        // 光环承伤乘子（批次5 道格&布鲁斯 3 级：相依为命受伤 ×0.90）：折进 damageFactor 一并结算
+        // （近战/首发/弹道统一经此入口）。null 注入回落 ×1.0（零回归）。
+        if (_incomingDamageFactor is { } inMult)
+            damageFactor *= inMult();
         // 震荡抗性：本单位处抗性窗内（吃过震荡、打断+首轮冷却未走完）→ 再次震荡触发概率打折（防死锁）。
         double concResist = _concussionResistTimer > 0 ? CombatEffectCfg.ConcussionResistFactor : 1.0;
         AttackOutcome hit = combat.ResolveHit(weapon, DefenderArmor, Body, damageFactor, concResist);
         if (hit.Concussed)
         {
             ApplyConcussion(hit.ConcussionSeconds);
+        }
+        // 命中减速（通用）：命中即施加（无论破防与否，含被甲完全挡下 hit.Blocked）——远程/近战/枪托同款。
+        // 重复命中取 Max 刷新时长、不叠加幅度（RimWorld stagger）。围栏整发抵挡的远程在上方已 return，不到此处，故不减速。
+        if (hit.StaggerSeconds > 0)
+        {
+            _staggerTimer = System.Math.Max(_staggerTimer, hit.StaggerSeconds);
         }
 
         CombatFeed.Publish(attacker, this, hit);
@@ -738,6 +820,201 @@ public abstract partial class Actor : CharacterBody2D
         }
         Vector2[] path = NavigationServer2D.MapGetPath(map, GlobalPosition, worldPos, true);
         return path.Length > 0 && path[^1].DistanceTo(worldPos) <= tolerance;
+    }
+
+    // ---- 感知（批次4 光照视野）：锥形 + 局部光照 + 遮挡 raycast，取代旧半径式侦测 ----
+    // 视锥由观察者所处局部光照定（暗→短窄，走 VisionLogic.ConeFor）；对持光目标按暴露代价放大视距
+    // （黑暗中的光源=显眼目标）；再对落在锥内的候选补墙层 raycast 判遮挡。潜行（背后/暗处/绕墙）由此自然涌现。
+    // 三个依赖经 ConfigurePerception 注入，皆可空——未接线时回落（仅环境光锥 / 无暴露 / 自打墙层 raycast），
+    // 使 worktree/光源系统未就绪的敌人仍走正确的锥形+环境光+遮挡感知，只是暂不吃动态光源与暴露代价。
+
+    /// <summary>某点合成局部光照 L∈[0,1]（环境光与光源按距离衰减取 max，由 light-items 的 LightField 组合）。</summary>
+    private Func<Vector2, float>? _localLightAt;
+    /// <summary>目标当前持光强度 0~1（0=未持光；由 HeldLightState/LightProfile 提供），供暴露代价。</summary>
+    private Func<Actor, float>? _carriedIntensityOf;
+    /// <summary>观察者→目标是否被墙遮挡（复用 vision-render 公共工具；null 则本类自 raycast 墙层）。</summary>
+    private Func<Vector2, Vector2, bool>? _sightOccluded;
+
+    /// <summary>
+    /// 本单位自身携带的光源强度 0~1（如劫掠者战斗时掏火把）；0=未持光。既提升自身视野（自照亮=光源中心满强度，
+    /// 折进 <see cref="LocalLightAt"/> 的观察者局部光照），又使自己成为暴露信标（他人 <see cref="ExposedCone"/> 读此值放大对己视距）。
+    /// </summary>
+    private float _selfLightIntensity;
+    /// <summary>本单位当前携带光源强度 0~1（供他人算暴露代价；0=未持光）。</summary>
+    public float CarriedLightIntensity => _selfLightIntensity;
+    /// <summary>设置/清除自身携带光源强度（劫掠者战斗态掏/收火把）。</summary>
+    protected void SetCarriedLight(float intensity) => _selfLightIntensity = Mathf.Clamp(intensity, 0f, 1f);
+
+    /// <summary>
+    /// 短程全向"嗅觉"兜底半径（丧尸用；0=无，默认）。视距/半角看不见、但目标在此半径内且未被墙隔断（同房间）→仍感知。
+    /// 补锥形视野"侧后死角"被无脑绕过的漏洞（用户拍板加）。是否穿墙=否（复用 <see cref="SightBlocked"/> 判同房间，待用户确认）。
+    /// </summary>
+    protected virtual float SmellRadius => 0f;
+
+    /// <summary>感知节流计时（raycast 贵，按 <see cref="PerceiveInterval"/> 重算目标获取/丢失；移动/破防仍每帧）。</summary>
+    private double _perceiveTimer;
+    protected const double PerceiveInterval = 0.2; // 拟定待调，对齐批次2 UpdateRaid 节流量级
+    /// <summary>丢失视野时的最后目击点（走过去侦查一次，到点/超时恢复游荡）。</summary>
+    private Vector2? _lastSeenPos;
+
+    /// <summary>
+    /// 注入感知依赖（敌人生成处调用）。三者皆可空：null 时分别回落「仅环境光」「无暴露加成」「自打墙层 raycast」。
+    /// </summary>
+    public void ConfigurePerception(
+        Func<Vector2, float>? localLightAt = null,
+        Func<Actor, float>? carriedIntensityOf = null,
+        Func<Vector2, Vector2, bool>? sightOccluded = null)
+    {
+        _localLightAt = localLightAt;
+        _carriedIntensityOf = carriedIntensityOf;
+        _sightOccluded = sightOccluded;
+    }
+
+    /// <summary>当前相位环境光（室内无窗恒暗标记暂按 false，室内标记待关卡层接入）。Clock 缺失回落白昼。</summary>
+    private float AmbientNow()
+        => VisionLogic.AmbientLight(Clock is null ? DayPhase.DayExplore : Clock.CurrentPhase, indoorsDark: false);
+
+    /// <summary>
+    /// 观察者所处局部光照 L：注入的 LightField 组合（否则仅环境光）与自身携带光源（自照亮，光源中心=满强度）取 max。
+    /// 仅以本单位自身位置调用（PerceiveNearest/CanPerceive 传 GlobalPosition），故自持光折入即"站在自己火把下"的满强度，语义正确。
+    /// </summary>
+    private float LocalLightAt(Vector2 pos)
+    {
+        float baseLight = _localLightAt?.Invoke(pos) ?? AmbientNow();
+        return _selfLightIntensity > baseLight ? _selfLightIntensity : baseLight;
+    }
+
+    /// <summary>观察者→目标视线是否被墙遮挡：注入工具优先，否则复用 vision-render 的共用遮挡工具。</summary>
+    private bool SightBlocked(Vector2 from, Vector2 to)
+        => _sightOccluded?.Invoke(from, to) ?? SelfSightBlocked(from, to);
+
+    // 复用 vision-render 的 VisionOcclusion（批次4 遮挡「唯一权威来源」：遮暗渲染与敌方感知同口径，墙层 0b0100），
+    // 不自造 raycast。无物理空间（未入树/worktree）→ 不误判为遮挡。
+    private bool SelfSightBlocked(Vector2 from, Vector2 to)
+    {
+        PhysicsDirectSpaceState2D? space = GetWorld2D()?.DirectSpaceState;
+        return space is not null && VisionOcclusion.IsOccluded(space, from, to);
+    }
+
+    // VisionLogic 零 Godot 依赖，坐标用 System.Numerics.Vector2；此处转换。
+    private static System.Numerics.Vector2 Sn(Vector2 v) => new(v.X, v.Y);
+    private static System.Numerics.Vector2 FacingUnit(float rad) => new(MathF.Cos(rad), MathF.Sin(rad));
+
+    /// <summary>对持光目标按暴露代价放大视距（角度不变）：黑暗中持光=更远被发现。未持光/白昼=原锥。</summary>
+    private VisionLogic.VisionCone ExposedCone(VisionLogic.VisionCone cone, float ambient, Actor target)
+    {
+        // 注入的持光查询优先（survivor 手持光走 HeldLightState）；否则回落目标自身携带光强（劫掠者战时火把等）。
+        float carried = _carriedIntensityOf?.Invoke(target) ?? target.CarriedLightIntensity;
+        if (carried <= 0f)
+        {
+            return cone;
+        }
+        float mult = VisionLogic.ExposureRangeMultiplier(ambient, carried);
+        return new VisionLogic.VisionCone(cone.Range * mult, cone.HalfAngleDeg);
+    }
+
+    /// <summary>
+    /// 锥形+光照+遮挡感知：从候选中挑本单位当前**能真正看见**的最近者。候选筛选（阵营/存活）由调用方在传入前完成。
+    /// <paramref name="baseRange"/>=本单位白昼满档视距 R0。先廉价锥检（视距+半角）过滤，仅对锥内候选补 raycast，省开销。
+    /// </summary>
+    protected Actor? PerceiveNearest(IEnumerable<Actor> candidates, float baseRange)
+    {
+        float ambient = AmbientNow();
+        VisionLogic.VisionCone cone = VisionLogic.ConeFor(LocalLightAt(GlobalPosition), baseRange);
+        System.Numerics.Vector2 obs = Sn(GlobalPosition);
+        System.Numerics.Vector2 facing = FacingUnit(FacingAngle);
+        float smell = SmellRadius;
+
+        Actor? best = null;
+        float bestDist = float.MaxValue;
+        foreach (Actor c in candidates)
+        {
+            if (!c.Alive)
+            {
+                continue;
+            }
+            float d = GlobalPosition.DistanceTo(c.GlobalPosition);
+            VisionLogic.VisionCone effCone = ExposedCone(cone, ambient, c);
+            bool inCone = VisionLogic.CanSee(obs, facing, Sn(c.GlobalPosition), effCone, occluded: false);
+            bool inSmell = smell > 0f && d <= smell; // 全向嗅觉：无视半角，仅受半径约束
+            if (!inCone && !inSmell)
+            {
+                continue; // 视锥外且嗅觉外 → 免 raycast
+            }
+            if (SightBlocked(GlobalPosition, c.GlobalPosition))
+            {
+                continue; // 墙隔断视线与气味（同房间才感知）
+            }
+            if (d < bestDist)
+            {
+                bestDist = d;
+                best = c;
+            }
+        }
+        return best;
+    }
+
+    /// <summary>本单位当前是否仍能看见指定目标（追击维护/丢失判定）：同 <see cref="PerceiveNearest"/> 的单目标版。</summary>
+    protected bool CanPerceive(Actor target, float baseRange)
+    {
+        if (target is not { Alive: true })
+        {
+            return false;
+        }
+        float ambient = AmbientNow();
+        float d = GlobalPosition.DistanceTo(target.GlobalPosition);
+        VisionLogic.VisionCone cone = ExposedCone(VisionLogic.ConeFor(LocalLightAt(GlobalPosition), baseRange), ambient, target);
+        bool inCone = VisionLogic.CanSee(Sn(GlobalPosition), FacingUnit(FacingAngle), Sn(target.GlobalPosition), cone, occluded: false);
+        bool inSmell = SmellRadius > 0f && d <= SmellRadius;
+        if (!inCone && !inSmell)
+        {
+            return false; // 视锥外且嗅觉外 → 免 raycast
+        }
+        return !SightBlocked(GlobalPosition, target.GlobalPosition); // 墙隔断=同房间外，视线与气味皆断
+    }
+
+    /// <summary>感知节流闸：每 <see cref="PerceiveInterval"/> 放行一次重算（返回 true）；其间返回 false（维持现指令）。</summary>
+    protected bool PerceptionDue(double delta)
+    {
+        _perceiveTimer -= delta;
+        if (_perceiveTimer > 0)
+        {
+            return false;
+        }
+        _perceiveTimer = PerceiveInterval;
+        return true;
+    }
+
+    /// <summary>
+    /// 目标获取/丢失维护（节流帧调）：仍看得见现目标→刷新最后目击点；看不见（出锥/遮挡/进暗/超视距）→放弃并
+    /// 走向最后目击点侦查一次；无目标→从候选里重新侦测最近可见者并 <see cref="CommandAttack"/>。走既有指令通道，
+    /// 破防/基类移动照旧消费。<paramref name="candidates"/> 由子类给出（丧尸=幸存者池；劫掠者=IsHostile 过滤后的敌对池）。
+    /// </summary>
+    protected void UpdatePerception(IEnumerable<Actor> candidates, float baseRange)
+    {
+        Actor? cur = CurrentAttackTarget;
+        if (cur is { Alive: true })
+        {
+            if (CanPerceive(cur, baseRange))
+            {
+                _lastSeenPos = cur.GlobalPosition;
+                return;
+            }
+            CancelOrders(); // 丢失视野：放弃追击
+            if (_lastSeenPos is { } p)
+            {
+                CommandMoveTo(p); // 走向最后目击点侦查（到点/超时后由子类游荡接管）
+                _lastSeenPos = null;
+            }
+            return;
+        }
+
+        Actor? found = PerceiveNearest(candidates, baseRange);
+        if (found != null)
+        {
+            CommandAttack(found);
+            _lastSeenPos = found.GlobalPosition;
+        }
     }
 
     // 人形/血条/选中环已全部移交 ActorSprite（iso 层、YSort）。本节点在不可见 LogicLayer 下，

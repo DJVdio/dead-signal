@@ -37,6 +37,7 @@
     <!-- 饥饿系统 v2 纯逻辑（无 Godot 依赖）：刻度枚举 + 衰减/进食/上限/惩罚/合并算法。 -->
     <Compile Include="..\..\godot\scripts\HungerLevel.cs" Link="Consumed\HungerLevel.cs" />
     <Compile Include="..\..\godot\scripts\HungerState.cs" Link="Consumed\HungerState.cs" />
+    <Compile Include="..\..\godot\scripts\DogHungerState.cs" Link="Consumed\DogHungerState.cs" />
     <!-- D 守卫防御战纯逻辑（无 Godot 依赖）：岗位属性/波次规模/胜负结算/物资失血。 -->
     <Compile Include="..\..\godot\scripts\GuardPost.cs" Link="Consumed\GuardPost.cs" />
     <Compile Include="..\..\godot\scripts\RaidWave.cs" Link="Consumed\RaidWave.cs" />
@@ -55,10 +56,16 @@
     <Compile Include="..\..\godot\scripts\GameOverCondition.cs" Link="Consumed\GameOverCondition.cs" />
     <!-- 尸潮时限纯逻辑（无 Godot 依赖）：隐性计时相位(Hidden/Sighted/Arrived) + 剩余天数 + 到期无限围攻波次调度。 -->
     <Compile Include="..\..\godot\scripts\HordeTimeline.cs" Link="Consumed\HordeTimeline.cs" />
+    <!-- 光照与视野纯逻辑（无 Godot 依赖）：昼夜环境光/光源距离衰减/光照合成/L→锥形(视距+半角)/CanSee 遮挡短路/持光暴露代价。 -->
+    <Compile Include="..\..\godot\scripts\VisionLogic.cs" Link="Consumed\VisionLogic.cs" />
+    <!-- 视野场纯逻辑（无 Godot 依赖，遮暗渲染/视野外隐藏判定核）：观察者并集点可见 + 网格逐格心遮暗位图（遮挡谓词由 Godot 层 raycast 供给）。 -->
+    <Compile Include="..\..\godot\scripts\VisionField.cs" Link="Consumed\VisionField.cs" />
     <!-- 防走A 攻击冷却重置决策纯逻辑（无 Godot 依赖）：非攻击态/切目标/移动过→重置，同指令重复→保持。 -->
     <Compile Include="..\..\godot\scripts\AttackCommandState.cs" Link="Consumed\AttackCommandState.cs" />
     <!-- 条件驱动气泡框架纯逻辑（无 Godot 依赖）：剧情 flag / 条件求值 / 选择器 v2 / 去重。 -->
     <Compile Include="..\..\godot\scripts\StoryFlags.cs" Link="Consumed\StoryFlags.cs" />
+    <!-- 首次触发一行提示框架纯逻辑（无 Godot 依赖）：hint id→一行文案数据表 + StoryFlags 背书 hint_* 旗标幂等去重(ShouldShow/MarkShown)。 -->
+    <Compile Include="..\..\godot\scripts\HintTracker.cs" Link="Consumed\HintTracker.cs" />
     <Compile Include="..\..\godot\scripts\MealCondition.cs" Link="Consumed\MealCondition.cs" />
     <Compile Include="..\..\godot\scripts\MealBubbles.cs" Link="Consumed\MealBubbles.cs" />
     <!-- 克莉丝汀请求线状态机纯逻辑（无 Godot 依赖）：收留开线/递进请求门控/答应停播/累计拒绝离开。 -->
@@ -69,10 +76,16 @@
     <Compile Include="..\..\godot\scripts\InventoryStore.cs" Link="Consumed\InventoryStore.cs" />
     <!-- 材料目录纯数据（无 Godot 依赖，配方波地基之一）：MaterialCategory / MaterialDef→Item / Materials 目录 All/Find/Has/InCategory。 -->
     <Compile Include="..\..\godot\scripts\Materials.cs" Link="Consumed\Materials.cs" />
+    <!-- 批次4 光源纯逻辑（无 Godot 依赖）：光源目录/距离衰减/最强贡献查询/持光暴露代价(LightSource) + 固定光源场查询(LightField) + 手持光源占手态(HeldLightState)。 -->
+    <Compile Include="..\..\godot\scripts\LightSource.cs" Link="Consumed\LightSource.cs" />
+    <Compile Include="..\..\godot\scripts\LightField.cs" Link="Consumed\LightField.cs" />
+    <Compile Include="..\..\godot\scripts\HeldLightState.cs" Link="Consumed\HeldLightState.cs" />
     <!-- 神秘商人纯逻辑（无 Godot 依赖）：货架/售卖条目 MerchantShelf·MerchantOffer + 交易判定/实扣实产 MerchantTrade + 来访调度状态机 MerchantSchedule。 -->
     <Compile Include="..\..\godot\scripts\MerchantShelf.cs" Link="Consumed\MerchantShelf.cs" />
     <Compile Include="..\..\godot\scripts\MerchantTrade.cs" Link="Consumed\MerchantTrade.cs" />
     <Compile Include="..\..\godot\scripts\MerchantSchedule.cs" Link="Consumed\MerchantSchedule.cs" />
+    <Compile Include="..\..\godot\scripts\MerchantLineage.cs" Link="Consumed\MerchantLineage.cs" />
+    <Compile Include="..\..\godot\scripts\MerchantBuyList.cs" Link="Consumed\MerchantBuyList.cs" />
     <!-- 营地容器搜刮纯逻辑（无 Godot 依赖）：掉落登记 + 一次性搜刮语义 + 掉落落地到库存/食物/书登记。 -->
     <Compile Include="..\..\godot\scripts\ContainerLoot.cs" Link="Consumed\ContainerLoot.cs" />
     <!-- 金手指帮根据地发现点纯逻辑（无 Godot 依赖）：discoveryId → flag/日记书/环境叙事；克莉丝汀尸体按支线 flag 分支措辞。 -->
@@ -87,6 +100,8 @@
     <Compile Include="..\..\godot\scripts\GripCombat.cs" Link="Consumed\GripCombat.cs" />
     <!-- §6 穿戴槽纯逻辑（无 Godot 依赖）：11 槽占用/多槽/成对/断肢禁装/替换/卸装 + 护甲覆盖聚合 + 装备目录映射表。 -->
     <Compile Include="..\..\godot\scripts\ApparelSlots.cs" Link="Consumed\ApparelSlots.cs" />
+    <!-- 批次5 布鲁斯（狗）穿戴纯逻辑（无 Godot 依赖）：身体+头2槽穿脱/顶替 + 五件套目录(布/皮/口袋狗衣·铁皮/铁丝头甲) + 护甲层聚合喂 DefenderArmor + 口袋狗衣携带容量。 -->
+    <Compile Include="..\..\godot\scripts\DogApparel.cs" Link="Consumed\DogApparel.cs" />
     <!-- 伤病恶化+治疗模型纯逻辑（无 Godot 依赖，只读引用战斗引擎出血/骨折语义）：病状/每昼夜恶化(出血致死/感染链/骨折)/治疗判定/药品目录/战斗态只读映射。 -->
     <Compile Include="..\..\godot\scripts\HealthConditions.cs" Link="Consumed\HealthConditions.cs" />
     <!-- 幸存者个人已读书集纯逻辑（无 Godot 依赖）：配方书门槛按制作者本人已读判定。 -->
@@ -98,6 +113,8 @@
     <Compile Include="..\..\godot\scripts\Workbench.cs" Link="Consumed\Workbench.cs" />
     <Compile Include="..\..\godot\scripts\Recipe.cs" Link="Consumed\Recipe.cs" />
     <Compile Include="..\..\godot\scripts\CraftingLogic.cs" Link="Consumed\CraftingLogic.cs" />
+    <!-- 工时制在制品纯逻辑（无 Godot 依赖）：工时进度推进(人在台+生产相位才推进)/中断续作/封顶完工。 -->
+    <Compile Include="..\..\godot\scripts\CraftingJob.cs" Link="Consumed\CraftingJob.cs" />
     <!-- 制作面板纯展示逻辑（无 Godot 依赖）：配方按工具分组 + 工具需求文案/满足判定 + 库存材料计数聚合。 -->
     <Compile Include="..\..\godot\scripts\CraftingPanelFormat.cs" Link="Consumed\CraftingPanelFormat.cs" />
     <!-- 武器改装模型纯逻辑（无 Godot 依赖）：改装项/部位/大类 + 数值增量 + 合成校验(同部位冲突/不适用/锐击枪托覆盖) + 三类武器改装目录。 -->
@@ -109,6 +126,18 @@
     <Compile Include="..\..\godot\scripts\CraftOutputFactory.cs" Link="Consumed\CraftOutputFactory.cs" />
     <!-- 幸存者卡牌栏视觉映射纯逻辑：Id→头像索引/文件名 + Id→稳定占位色。 -->
     <Compile Include="..\..\godot\scripts\SurvivorCardVisuals.cs" Link="Consumed\SurvivorCardVisuals.cs" />
+    <!-- 道格&布鲁斯羁绊纯逻辑（无 Godot 依赖）：共同存活天数→等级 + 各级技能系数(视野角/视距/缠斗伤害/光环生产·受伤) + 站岗效率 75%；全静态纯函数供接线层消费。 -->
+    <Compile Include="..\..\godot\scripts\DougBruceBond.cs" Link="Consumed\DougBruceBond.cs" />
+    <!-- 批次6 双班硬日程+睡眠 debuff 纯逻辑（shift-sleep）：共用枚举 RaidTier 的单一定义源，watch-contest 的 RespondersFor 复用之。watch-contest 代 Link，shift-sleep 勿重复添加。 -->
+    <Compile Include="..\..\godot\scripts\ShiftSchedule.cs" Link="Consumed\ShiftSchedule.cs" />
+    <!-- 批次6 夜防「警戒力 vs 潜行力」对抗纯逻辑（watch-contest，无 Godot 依赖）：警戒力/潜行力合成 + Resolve 掷点对抗 + 未发现后果(先手/偷窃) + 三档响应名册 RespondersFor。 -->
+    <Compile Include="..\..\godot\scripts\NightWatchContest.cs" Link="Consumed\NightWatchContest.cs" />
+    <!-- 批次8 电台主线状态机纯逻辑（radio-mainline，无 Godot 依赖）：未知情→已收听广播→持发出设备→(终态分岔)已回复军方[回复日+3军袭钩子]|已呼叫南方[南逃flag]。 -->
+    <Compile Include="..\..\godot\scripts\RadioMainline.cs" Link="Consumed\RadioMainline.cs" />
+    <!-- 批次9 营地废墟挖掘纯逻辑（camp-rubble，无 Godot 依赖）：RubbleSite 有状态(进度/drops/彩蛋槽/cleared) + RubbleField 注册表/批量 Advance/一次性 Harvest；复用 LootItem 做 drops。 -->
+    <Compile Include="..\..\godot\scripts\RubbleDig.cs" Link="Consumed\RubbleDig.cs" />
+    <!-- 批次6 夜防对抗运行时编排辅助纯逻辑（night-response，无 Godot 依赖）：岗哨加成映射/威胁分档/营地多守卫对抗聚合。 -->
+    <Compile Include="..\..\godot\scripts\NightRaidLogic.cs" Link="Consumed\NightRaidLogic.cs" />
   </ItemGroup>
 
 </Project>

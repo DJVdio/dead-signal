@@ -55,6 +55,7 @@ public sealed partial class SurvivorCardBar : Control
         public required StyleBoxFlat BloodFill;
         public required ProgressBar HungerBar;
         public required StyleBoxFlat HungerFill;
+        public required ColorRect InfectionPip;
     }
 
     public override void _Ready() => BuildSkeleton();
@@ -158,8 +159,9 @@ public sealed partial class SurvivorCardBar : Control
         vbox.AddThemeConstantOverride("separation", 3);
         panel.AddChild(vbox);
 
-        // —— 头像（有素材用图，缺素材用稳定色块占位）——
-        vbox.AddChild(BuildPortrait(pawn, stable));
+        // —— 头像（有素材用图，缺素材用稳定色块占位）+ 右上角感染病征点 ——
+        vbox.AddChild(BuildPortraitCell(pawn, stable, out ColorRect infectionPip));
+        ApplyInfectionPip(infectionPip, pawn.Inspect());
 
         // —— 姓名 ——
         var name = new Label
@@ -189,7 +191,55 @@ public sealed partial class SurvivorCardBar : Control
             BloodFill = bloodFill,
             HungerBar = hungerBar,
             HungerFill = hungerFill,
+            InfectionPip = infectionPip,
         };
+    }
+
+    /// <summary>头像单元：肖像铺满 + 右上角感染病征点（默认隐藏，由快照开合/着色）。</summary>
+    private static Control BuildPortraitCell(Pawn pawn, Color placeholder, out ColorRect pip)
+    {
+        var holder = new Control
+        {
+            CustomMinimumSize = new Vector2(0, PortraitHeight),
+            SizeFlagsHorizontal = SizeFlags.ExpandFill,
+            MouseFilter = MouseFilterEnum.Ignore,
+            ClipContents = true,
+        };
+
+        Control portrait = BuildPortrait(pawn, placeholder);
+        portrait.AnchorRight = 1f; // 铺满 holder（anchor 全矩形，offset 默认 0）
+        portrait.AnchorBottom = 1f;
+        holder.AddChild(portrait);
+
+        // 感染病征点：右上角小方点，默认隐藏。避让上方状态图标条口径，仅"看得见感染"用。
+        pip = new ColorRect
+        {
+            CustomMinimumSize = new Vector2(12, 12),
+            Visible = false,
+            MouseFilter = MouseFilterEnum.Ignore,
+        };
+        pip.AnchorLeft = 1f;
+        pip.AnchorRight = 1f;
+        pip.OffsetLeft = -15f;
+        pip.OffsetTop = 3f;
+        pip.OffsetRight = -3f;
+        pip.OffsetBottom = 15f;
+        holder.AddChild(pip);
+        return holder;
+    }
+
+    /// <summary>按快照开合/着色感染病征点（无感染=隐藏；有=按最高严重度着色）。</summary>
+    private static void ApplyInfectionPip(ColorRect pip, PawnInspection insp)
+    {
+        if (insp.HasInfection)
+        {
+            pip.Visible = true;
+            pip.Color = InfectionColor(insp.MaxInfectionSeverity);
+        }
+        else
+        {
+            pip.Visible = false;
+        }
     }
 
     /// <summary>头像块：优先 res://assets/portraits 下按 Id 稳定映射的图；无导入则用稳定色块占位（留 TextureRect 结构）。</summary>
@@ -301,6 +351,8 @@ public sealed partial class SurvivorCardBar : Control
             float hungerRatio = Mathf.Clamp(insp.HungerStage / 5f, 0f, 1f);
             c.HungerBar.Value = hungerRatio;
             c.HungerFill.BgColor = HungerColor(insp.HungerStage);
+
+            ApplyInfectionPip(c.InfectionPip, insp);
         }
     }
 
@@ -346,6 +398,14 @@ public sealed partial class SurvivorCardBar : Control
             ? new Color(Mathf.Lerp(0.85f, 0.35f, (ratio - 0.5f) * 2f), 0.78f, 0.28f)
             : new Color(0.85f, Mathf.Lerp(0.25f, 0.78f, ratio * 2f), 0.22f);
     }
+
+    /// <summary>感染病征点配色：按最高严重度加深（早期黄→中度橙红→危重品红），与 <see cref="StatusIconStrip"/> 感染 glyph 同口径。</summary>
+    private static Color InfectionColor(double severity) => severity switch
+    {
+        >= 0.66 => new Color(0.80f, 0.15f, 0.55f),
+        >= 0.33 => new Color(0.90f, 0.45f, 0.35f),
+        _ => new Color(0.85f, 0.72f, 0.30f),
+    };
 
     /// <summary>饥饿配色：正常/吃撑柔绿，逐级向红加深（复刻 CharacterPanel.HungerColor 口径）。</summary>
     private static Color HungerColor(int stage) => stage switch

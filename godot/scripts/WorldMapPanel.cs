@@ -25,6 +25,12 @@ public sealed partial class WorldMapPanel : CanvasLayer
     /// </summary>
     public const string CityRooftopLookoutName = "城市之巅瞭望观景台";
 
+    /// <summary>
+    /// 广播台目的地名（「dead signal」主线中后期探索点；发出设备定点投放于此，按此名分流发现点，务必一致）。
+    /// 关内核心交互物＝发射机占位（见 <c>TestExploration.SetupBroadcastStation</c>）：踏入取得「发出设备」→ 电台解锁"回复军方/呼叫南方"抉择（见 <see cref="RadioMainline"/>）。
+    /// </summary>
+    public const string BroadcastStationName = "广播台";
+
     private static readonly Destination[] Destinations =
     {
         new() { Name = "超市", Position = new Vector2(140, 120), TravelTimeSeconds = 300 },
@@ -42,6 +48,8 @@ public sealed partial class WorldMapPanel : CanvasLayer
         new() { Name = ExplorationCache.HarvesterWarehouseName, Position = new Vector2(555, 285), TravelTimeSeconds = 420 },
         // 城市之巅瞭望观景台：城镇北缘的高层建筑（坐标落城镇方框内偏北，正北可望见尸潮），前中期偏中档，行程 8 分钟（危险度/行程拟定待调）。
         new() { Name = CityRooftopLookoutName, Position = new Vector2(360, 110), TravelTimeSeconds = 480 },
+        // 广播台：城镇北侧山脊上的通讯发射塔（坐标落城镇方框北缘外的高地），主线中后期解锁位、路程最远，行程 11 分钟（中后期定位/危险度/行程拟定待调）。
+        new() { Name = BroadcastStationName, Position = new Vector2(500, 55), TravelTimeSeconds = 660 },
     };
 
     private Control _root = null!;

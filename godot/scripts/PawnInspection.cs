@@ -126,6 +126,16 @@ public sealed class ProstheticSlot
 }
 
 /// <summary>
+/// 单条感染的只读态：部位（系统性感染可空）+ 严重度 0..1。取自 <see cref="HealthConditionSet"/> 里
+/// <see cref="HealthConditionType.Infection"/> 病状——UI 用它做头顶/卡牌/角色面板的常驻感染指示（此前仅医疗面板可见）。
+/// </summary>
+public sealed class InfectionStatus
+{
+    public string? BodyPart { get; init; }
+    public double Severity { get; init; }
+}
+
+/// <summary>
 /// 一个战斗单位对外的只读检视快照。UI 只读它、永远拿不到可变的引擎对象引用。
 /// 通过 <see cref="FromBody"/> 静态工厂由 live Body/Weapon/Armor 拍成，构造后即与源脱钩。
 /// </summary>
@@ -154,6 +164,26 @@ public sealed class PawnInspection
 
     public IReadOnlyList<PartStatus> Parts { get; init; } = Array.Empty<PartStatus>();
 
+    /// <summary>当前感染病状（取自伤病集，无 = 空）。供常驻感染可见性（头顶 glyph / 卡牌病征点 / 角色面板健康行）。</summary>
+    public IReadOnlyList<InfectionStatus> Infections { get; init; } = Array.Empty<InfectionStatus>();
+
+    /// <summary>是否存在任一感染（供 UI 一眼判定）。</summary>
+    public bool HasInfection => Infections.Count > 0;
+
+    /// <summary>感染最高严重度 0..1（无感染=0）。供 UI 按严重度着色（越重越红），呼应 spec"抗生素赌局"的可治窗口。</summary>
+    public double MaxInfectionSeverity
+    {
+        get
+        {
+            double max = 0;
+            foreach (InfectionStatus i in Infections)
+            {
+                if (i.Severity > max) max = i.Severity;
+            }
+            return max;
+        }
+    }
+
     /// <summary>可装假肢的肢体槽（两手 + 两脚，共 4 个）；UI 据此为空槽提供装假肢入口。</summary>
     public IReadOnlyList<ProstheticSlot> ProstheticSlots { get; init; } = Array.Empty<ProstheticSlot>();
 
@@ -168,9 +198,12 @@ public sealed class PawnInspection
     /// </summary>
     /// <param name="hungerStage">饥饿刻度序号（0=饿死…5=正常…6=吃撑），由调用方从 Pawn.Hunger 取；默认正常(5)。</param>
     /// <param name="hungerLabel">饥饿等级中文名，由调用方从 Pawn.Hunger 取；null 视为"正常"。</param>
+    /// <param name="conditions">该单位当前伤病集（由调用方从 Pawn.Health.Conditions 传；非 Pawn/无档=null）。仅抽取感染做常驻可见性，
+    /// 出血/骨折仍走 Body 的逐部位判定（<see cref="PartStatus.IsBleeding"/>/<see cref="PartStatus.IsFractured"/>），不重复。</param>
     public static PawnInspection FromBody(
         Body body, Weapon? weapon, IReadOnlyList<ArmorLayer>? armor, string name,
-        int hungerStage = (int)HungerLevel.Sated, string? hungerLabel = null)
+        int hungerStage = (int)HungerLevel.Sated, string? hungerLabel = null,
+        IReadOnlyList<HealthCondition>? conditions = null)
     {
         // 出血伤口按部位名登记（断口即使部位被移除仍会持续出血）——直接命中部位名即在流血。
         var bleeding = new HashSet<string>(body.BleedingWounds);
@@ -205,6 +238,12 @@ public sealed class PawnInspection
         AddProstheticSlots(body, BodyRegion.Hand, BodyRegion.Hand, prostheticSlots);
         AddProstheticSlots(body, BodyRegion.Foot, BodyRegion.Leg, prostheticSlots);
 
+        // 感染抽取（只映射引擎真实病状，不发明）：从伤病集取 Infection 型，供常驻可见性。
+        var infections = (conditions ?? Array.Empty<HealthCondition>())
+            .Where(c => c.Type == HealthConditionType.Infection)
+            .Select(c => new InfectionStatus { BodyPart = c.BodyPart, Severity = c.Severity })
+            .ToList();
+
         return new PawnInspection
         {
             DisplayName = name,
@@ -218,6 +257,7 @@ public sealed class PawnInspection
             HungerStage = hungerStage,
             HungerLabel = hungerLabel ?? "正常",
             Parts = parts,
+            Infections = infections,
             ProstheticSlots = prostheticSlots,
             Weapon = weaponInfo,
             Armor = armorInfos,

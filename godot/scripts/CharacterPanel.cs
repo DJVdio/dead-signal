@@ -467,6 +467,16 @@ public sealed partial class CharacterPanel : PanelContainer
     {
         ClearChildren(_healthBox);
 
+        // —— 感染（此前仅医疗面板可见）：健康页常驻列出，配合头顶 glyph / 卡牌病征点补齐"抗生素赌局"的可见性 ——
+        if (insp.Infections.Count > 0)
+        {
+            _healthBox.AddChild(SectionTitle("感染"));
+            foreach (InfectionStatus inf in insp.Infections)
+            {
+                _healthBox.AddChild(InfectionRow(inf));
+            }
+        }
+
         // 用 ParentName 重建父子层级：根 = ParentName 为 null 者（通常躯干）。
         var byParent = insp.Parts
             .GroupBy(p => p.ParentName)
@@ -552,6 +562,42 @@ public sealed partial class CharacterPanel : PanelContainer
             }
         }
     }
+
+    /// <summary>一行感染状态：部位（系统性="全身"）+ 严重度标签（早期/恶化/危重，按严重度着色）。只映射引擎真实病状。</summary>
+    private static Control InfectionRow(InfectionStatus inf)
+    {
+        var row = new HBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        row.AddThemeConstantOverride("separation", 6);
+
+        var name = new Label
+        {
+            Text = string.IsNullOrEmpty(inf.BodyPart) ? "全身" : inf.BodyPart,
+            CustomMinimumSize = new Vector2(72, 0),
+            SizeFlagsHorizontal = SizeFlags.ExpandFill,
+        };
+        name.AddThemeFontSizeOverride("font_size", 13);
+        name.AddThemeColorOverride("font_color", ColText);
+        row.AddChild(name);
+
+        row.AddChild(MarkTag(InfectionSeverityLabel(inf.Severity), InfectionColor(inf.Severity)));
+        return row;
+    }
+
+    /// <summary>感染严重度中文档：早期/恶化/危重（对齐终态坏疽/败血症前兆）。</summary>
+    private static string InfectionSeverityLabel(double severity) => severity switch
+    {
+        >= 0.66 => "危重",
+        >= 0.33 => "恶化",
+        _ => "早期",
+    };
+
+    /// <summary>感染配色：早期黄→恶化橙红→危重品红（与 StatusIconStrip/SurvivorCardBar 感染指示同口径）。</summary>
+    private static Color InfectionColor(double severity) => severity switch
+    {
+        >= 0.66 => new Color(0.80f, 0.15f, 0.55f),
+        >= 0.33 => new Color(0.90f, 0.45f, 0.35f),
+        _ => new Color(0.85f, 0.72f, 0.30f),
+    };
 
     private static List<(string, Color)> PartMarks(PartStatus p)
     {

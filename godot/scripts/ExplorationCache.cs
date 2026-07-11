@@ -38,6 +38,8 @@ public static class ExplorationCache
     public const string HarvesterWarehouseName = "联合收割机仓库";
     /// <summary>城市之巅瞭望观景台目的地名，须与 <c>WorldMapPanel.CityRooftopLookoutName</c> 一致（本类脱 Godot 单测，故本地持有副本）。</summary>
     public const string CityRooftopLookoutName = "城市之巅瞭望观景台";
+    /// <summary>广播台目的地名，须与 <c>WorldMapPanel.BroadcastStationName</c> 一致（本类脱 Godot 单测，故本地持有副本）。</summary>
+    public const string BroadcastStationName = "广播台";
 
     // ——搜刮点 id（探索关内 Area2D 触发时上报）——
     public const string RiversideGunCabinetId = "cache_riverside_gun_cabinet";
@@ -49,6 +51,11 @@ public static class ExplorationCache
     //   · 瞭望员值班室（藏深）：高空值守间的应急物资——燃油/急救/望远镜等光学信号设备拆出的电子件。
     public const string LookoutGiftShopId = "cache_lookout_gift_shop";
     public const string LookoutWardensRoomId = "cache_lookout_wardens_room";
+    // 广播台普通搜刮点（主线「发出设备」定点投放由 RadioMainline.TransmitterDiscoveryId 另管，本处只是同址普通物资，量级对齐现有点）：
+    //   · 值班室茶水间（浅/近入口）：台里值班人员遗留的食水+急救小物。
+    //   · 备件仓库（藏深）：广播设备维护间的电子件/线材/燃油等零碎。
+    public const string BroadcastBreakRoomId = "cache_broadcast_break_room";
+    public const string BroadcastPartsStoreId = "cache_broadcast_parts_store";
 
     // ——一次性 flag（防重复搜刮，跨关持久）——
     public const string RiversideGunCabinetFlag = "searched_riverside_gun_cabinet";
@@ -57,6 +64,8 @@ public static class ExplorationCache
     public const string WarehouseAtticChestFlag = "searched_warehouse_attic_chest";
     public const string LookoutGiftShopFlag = "searched_lookout_gift_shop";
     public const string LookoutWardensRoomFlag = "searched_lookout_wardens_room";
+    public const string BroadcastBreakRoomFlag = "searched_broadcast_break_room";
+    public const string BroadcastPartsStoreFlag = "searched_broadcast_parts_store";
 
     // ——关键投放物标识（须与 WeaponTable / BookLibrary 一致）——
     /// <summary>栓动猎枪武器名，须与 <c>WeaponTable.BoltActionHuntingRifle().Name</c> 一致。</summary>
@@ -77,6 +86,8 @@ public static class ExplorationCache
         HarvesterWarehouseName => new[] { WarehouseToolCabinetId, WarehouseAtticChestId },
         // 望远镜发现点(尸潮剧情)不在此列——那是 LookoutSighting 管的置旗标+叙事，非物资搜刮。
         CityRooftopLookoutName => new[] { LookoutGiftShopId, LookoutWardensRoomId },
+        // 发出设备定点(TransmitterDiscoveryId)不在此列——那是 RadioMainline 管的取设备+推进状态，非物资搜刮。
+        BroadcastStationName => new[] { BroadcastBreakRoomId, BroadcastPartsStoreId },
         _ => Array.Empty<string>(),
     };
 
@@ -152,6 +163,27 @@ public static class ExplorationCache
                 },
                 LookoutWardensRoomTitle, LookoutWardensRoomNarrative),
 
+            BroadcastBreakRoomId when NotYet(flags, BroadcastBreakRoomFlag) => new CacheResult(
+                BroadcastBreakRoomFlag,
+                new[]
+                {
+                    LootItem.Food(2),                       // 值班人员留下的口粮/瓶装水
+                    LootItem.Material("bandage", 2),        // 茶水间常备急救小物
+                    LootItem.Material("first_aid_kit", 1),  // 台里应急急救包
+                },
+                BroadcastBreakRoomTitle, BroadcastBreakRoomNarrative),
+
+            BroadcastPartsStoreId when NotYet(flags, BroadcastPartsStoreFlag) => new CacheResult(
+                BroadcastPartsStoreFlag,
+                new[]
+                {
+                    LootItem.Material("components", 2),     // 广播设备维护备件
+                    LootItem.Material("wire", 3),           // 成卷的信号线材
+                    LootItem.Material("fuel", 2),           // 备用发电机燃油
+                    LootItem.Material("scrap_metal", 2),    // 拆解机架的碎金属
+                },
+                BroadcastPartsStoreTitle, BroadcastPartsStoreNarrative),
+
             _ => null,
         };
     }
@@ -209,4 +241,19 @@ public static class ExplorationCache
         "断电前这里显然被当成过临时据点：墙边码着两罐应急燃油，抽屉里压着一只没拆封的急救包。\n\n" +
         "架子上一台拆了一半的信号望远镜——镜筒被卸开，露出里头的线路板和成卷的细线。" +
         "这些光学和信号设备的电子件、线材，在如今比镜片值钱得多。桌上还剩瞭望员没吃完的一份口粮。";
+
+    // —— 广播台（draft 待用户改；只写普通物资氛围，主线「发出设备」的取得叙事归 RadioMainline）——
+    private const string BroadcastBreakRoomTitle = "值班室茶水间";
+
+    private const string BroadcastBreakRoomNarrative =
+        "进门不远是值班人员的茶水间，断电前显然还有人守在这儿——桌上摊着没喝完的水、几盒受潮的口粮，" +
+        "抽屉里塞着台里常备的绷带和一只没拆封的急救包。\n\n" +
+        "墙上的排班表停在了某一天，往后的格子全是空的。";
+
+    private const string BroadcastPartsStoreTitle = "备件仓库";
+
+    private const string BroadcastPartsStoreNarrative =
+        "顺着走廊往里，是广播设备的备件仓库。大件的发射组件早被拆走或砸烂，" +
+        "货架上却还剩不少零碎：一盒备用的电子元件、几卷粗细不一的信号线材、两桶给备用发电机预留的燃油。\n\n" +
+        "被掀翻的机架散在地上，撬下几块结实的碎金属带走。";
 }

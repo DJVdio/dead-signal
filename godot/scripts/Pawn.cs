@@ -135,6 +135,12 @@ public sealed partial class Pawn : Actor
     /// <summary>持械态（左右手各一把，推导 <see cref="GripMode"/>）。见 <see cref="WeaponLoadout"/>。</summary>
     private readonly WeaponLoadout _loadout = new();
 
+    /// <summary>手持光源态（手电/火把，占一只手，读 <see cref="WeaponLoadout"/> 校验，与双手武器互斥）。见 <see cref="HeldLightState"/>。</summary>
+    private readonly HeldLightState _heldLight = new();
+
+    /// <summary>当前手持光源态（只读）：暴露/照明/装备 UI 消费。</summary>
+    public HeldLightState HeldLight => _heldLight;
+
     /// <summary>
     /// 已穿护甲名 → 其生效 <see cref="ArmorLayer"/>（带防御数值）。<see cref="ApparelSlots"/> 只存名/覆盖部位、
     /// 不存防御数值，故此处并存一份 name→layer 以在穿脱后重组 <see cref="DefenderArmor"/>。
@@ -287,6 +293,14 @@ public sealed partial class Pawn : Actor
         // 与穿戴模型（该肢体上的穿戴品失效），再重组生效战斗数据。见 <see cref="ReconcileSeverance"/>。
         ReconcileSeverance();
 
+        // 手持光源（light-items HANDOFF）：持光手被切除即落地；每帧同步自照亮强度（暴露链 Actor.ExposedCone 读 CarriedLightIntensity）。
+        if (_heldLight.IsActive && _heldLight.HandUsed is Hand hlHand
+            && (hlHand == Hand.Left ? _loadout.LeftHandLost : _loadout.RightHandLost))
+        {
+            _heldLight.Drop();
+        }
+        SyncCarriedLight();
+
         switch (Role)
         {
             case PawnRole.Sleeping:
@@ -353,7 +367,10 @@ public sealed partial class Pawn : Actor
     /// （皆为受保护的可变引擎对象），构造纯数据 <see cref="PawnInspection"/> —— UI 只拿死数据、改不坏战斗。
     /// </summary>
     public PawnInspection Inspect() =>
-        PawnInspection.FromBody(Body, AttackWeapon, DefenderArmor, DisplayName, Hunger.Value, Hunger.Level.Label());
+        PawnInspection.FromBody(Body, AttackWeapon, DefenderArmor, DisplayName, Hunger.Value, Hunger.Level.Label(), Health.Conditions);
+
+    /// <summary>头顶状态条快照并入伤病集（含感染），使感染在头顶常驻可见（非仅医疗面板）。</summary>
+    protected override PawnInspection BuildStatusInspection() => Inspect();
 
     /// <summary>
     /// 给某个空槽（被切除的手/腿）装一副某等级的成品假肢：本轮直接给（调试/掉落来源，不做制作/搜刮/交易链），
@@ -447,6 +464,42 @@ public sealed partial class Pawn : Actor
         _loadout.Unequip(hand);
         SyncCombatFromEquipment();
     }
+
+    /// <summary>
+    /// 持起一件手持光源（<paramref name="key"/> 对齐 <see cref="LightSource"/> 目录，如手电/火把）：占一只手，
+    /// 读 <see cref="WeaponLoadout"/> 校验（断手/双手武器占两手/该手已持械→拒绝）。首选 <paramref name="hand"/>，不行试另一手；
+    /// 成功即同步自照亮强度（暴露链自动通）。返回是否持起。
+    /// </summary>
+    public bool EquipLight(string key, Hand hand = Hand.Left)
+    {
+        if (LightSource.Find(key) is not LightProfile profile)
+        {
+            return false;
+        }
+        ReconcileSeverance(); // 先同步断肢态，避免往已断的手上持
+        if (!_heldLight.TryHold(profile, hand, _loadout))
+        {
+            Hand other = hand == Hand.Left ? Hand.Right : Hand.Left;
+            if (!_heldLight.TryHold(profile, other, _loadout))
+            {
+                return false;
+            }
+        }
+        SyncCarriedLight();
+        return true;
+    }
+
+    /// <summary>放下手持光源（返回被放下的光源 key，无则 null），供调用方回库存。</summary>
+    public string? UnequipLight()
+    {
+        string? key = _heldLight.Held?.Key;
+        _heldLight.Drop();
+        SyncCarriedLight();
+        return key;
+    }
+
+    /// <summary>把手持光源强度同步给 <see cref="Actor"/> 自照亮（<see cref="Actor.ExposedCone"/> 暴露链据此计算，无光=0）。</summary>
+    private void SyncCarriedLight() => SetCarriedLight(_heldLight.Held?.Intensity ?? 0f);
 
     /// <summary>
     /// 穿一件穿戴品（护甲名）。占槽/覆盖：目录品走 <see cref="ApparelCatalog"/>（如左右手套→对应手槽）；

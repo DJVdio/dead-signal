@@ -83,6 +83,15 @@
       "jitter": 0.10
     },
     {
+      "_radioComment": "营地简易收音机（电台主线知情入口）：role=radio，点它=收听军方循环广播(首次推进主线'已收听')；持广播台'发出设备'后同一交互升级为抉择入口(回复军方/呼叫南方/暂不，见 RadioMainline)。位置在住宅内北墙、柜子与衣柜之间；拟定待调。",
+      "name": "收音机",
+      "role": "radio",
+      "rect": [560, 470, 48, 34],
+      "color": [0.30, 0.32, 0.36],
+      "tile": 10,
+      "jitter": 0.08
+    },
+    {
       "name": "住宅-柜子",
       "role": "storage",
       "_lootComment": "storage 类：其 loot 为开局共享库存（食物入食物份数，书/武器/护甲/材料入库存，工具装工作台）。开局给一批起手材料，配方系统一开局即可试做（工具/书门槛另需满足）。",
@@ -195,6 +204,67 @@
     }
   ],
 
+  "_rubbleComment": "开局营地废墟（批次9，参考《这是我的战争》开局挖废墟）：营地内数处坍塌瓦砾堆，玩家选中幸存者→右键前往开挖，逐分钟挖满工时(workMinutes)→翻出基础材料(drops，同 props.loot 结构，主要木/碎金属/布，量级拟定待调)→该处永久清空、显露空地(移碰撞+视觉+重烘焙导航)。分布刻意撒向营地四角(西南/东南/东北/中庭)引导玩家走遍营地熟悉布局(西北被住宅占)。eggSlot=true 的处埋彩蛋位(内容 authored 待用户，当前仅出普通 drops)。坐标/工时/产出全为拟定待调占位。CampMain 读入建 RubbleField + 可点击容器(role=rubble)。",
+  "rubble": [
+    {
+      "name": "废墟·西南瓦砾堆",
+      "rect": [360, 1300, 84, 64],
+      "workMinutes": 90,
+      "drops": [
+        { "kind": "material", "id": "wood", "qty": 4 },
+        { "kind": "material", "id": "scrap_metal", "qty": 2 },
+        { "kind": "material", "id": "scrap_cloth", "qty": 2 }
+      ],
+      "color": [0.40, 0.38, 0.34],
+      "tile": 12,
+      "jitter": 0.22
+    },
+    {
+      "name": "废墟·东北塌方",
+      "rect": [1900, 640, 82, 72],
+      "workMinutes": 100,
+      "drops": [
+        { "kind": "material", "id": "wood", "qty": 3 },
+        { "kind": "material", "id": "scrap_metal", "qty": 2 },
+        { "kind": "material", "id": "nails", "qty": 3 },
+        { "kind": "material", "id": "scrap_cloth", "qty": 2 }
+      ],
+      "color": [0.39, 0.37, 0.35],
+      "tile": 12,
+      "jitter": 0.22
+    },
+    {
+      "name": "废墟·东南碎砖堆",
+      "rect": [1900, 1360, 84, 66],
+      "workMinutes": 110,
+      "drops": [
+        { "kind": "material", "id": "wood", "qty": 3 },
+        { "kind": "material", "id": "scrap_metal", "qty": 3 },
+        { "kind": "material", "id": "scrap_cloth", "qty": 2 },
+        { "kind": "material", "id": "stone", "qty": 2 }
+      ],
+      "color": [0.41, 0.38, 0.34],
+      "tile": 12,
+      "jitter": 0.22
+    },
+    {
+      "_eggComment": "中庭废墟埋彩蛋位（eggSlot=true）：位置在营地正中，最引玩家注意。彩蛋内容 authored 待用户（CampMain 收获时据 HasEggSlot 后续接特殊物/剧情）；当前仅出下方普通 drops + 一行'似乎还藏着什么'提示占位。",
+      "name": "废墟·中庭断墙",
+      "rect": [1120, 720, 90, 74],
+      "workMinutes": 130,
+      "eggSlot": true,
+      "drops": [
+        { "kind": "material", "id": "wood", "qty": 4 },
+        { "kind": "material", "id": "scrap_metal", "qty": 2 },
+        { "kind": "material", "id": "scrap_cloth", "qty": 3 },
+        { "kind": "material", "id": "components", "qty": 1 }
+      ],
+      "color": [0.42, 0.39, 0.35],
+      "tile": 12,
+      "jitter": 0.20
+    }
+  ],
+
   "spawns": [
     { "name": "山姆", "pos": [700, 900], "pistol": true, "color": [0.40, 0.65, 0.95] },
     { "name": "诺蒂", "pos": [790, 950], "pistol": false, "color": [0.55, 0.82, 0.60] }
@@ -205,5 +275,11 @@
     { "kind": "watchtower", "stand": [1780, 860] },
     { "kind": "roofPlatform", "stand": [650, 1000] },
     { "kind": "hidden", "stand": [1200, 1300] }
+  ],
+
+  "_lightsComment": "固定光源（批次4 光照与视野）。key 对齐 LightSource 目录：campfire=火堆(大范围强光)/lamp=油灯(中范围暖光)。pos=[x,y] 世界像素。运行时 CampMain 读入 LightField，供 vision-render 遮暗合成与 enemy-vision 感知按局部光照 L 查询(经 VisionLogic.CombineLight(环境光,LightField.StrongestAt))；发光视觉(Light2D/光晕)为最简占位，观感目视校准。坐标/盏数拟定待调。营地白天全可见豁免下光源无感，夜间生效。",
+  "lights": [
+    { "key": "campfire", "pos": [1040, 980] },
+    { "key": "lamp", "pos": [630, 620] }
   ]
 }

@@ -181,6 +181,10 @@ public sealed partial class StatusIconStrip : Node2D
         {
             marks.Add(new Mark("废", new Color(0.6f, 0.62f, 0.68f)));   // 失能
         }
+        if (insp.HasInfection)
+        {
+            marks.Add(new Mark("疫", InfectionColor(insp.MaxInfectionSeverity))); // 感染（坏疽/败血症前兆）——按严重度加深
+        }
         if (insp.IsUnconscious)
         {
             marks.Add(new Mark("昏", new Color(0.45f, 0.55f, 0.95f)));  // 昏迷
@@ -188,6 +192,14 @@ public sealed partial class StatusIconStrip : Node2D
 
         return marks;
     }
+
+    /// <summary>感染标记按严重度着色：越接近封顶（坏疽/败血症）越红，早期偏黄警示。</summary>
+    private static Color InfectionColor(double severity) => severity switch
+    {
+        >= 0.66 => new Color(0.80f, 0.15f, 0.55f), // 危重：品红（区别于失血纯红）
+        >= 0.33 => new Color(0.90f, 0.45f, 0.35f), // 中度：橙红
+        _ => new Color(0.85f, 0.72f, 0.30f),       // 早期：警示黄
+    };
 
     /// <summary>失血标记按分档着色：越低越红（None 不会走到这里）。</summary>
     private static Color BloodColor(BloodLossTier tier) => tier switch
