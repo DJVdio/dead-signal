@@ -105,7 +105,9 @@ public sealed partial class Pawn : Actor
 
         double gameHours = delta / _nightLengthSeconds * 12.0;
         bool hasSeat = ReadingSeat.HasValue;
-        double speed = ReadingSpeed.Effective(1.0, Perks.SelfReadingSpeedBonus, hasSeat, _campWideReadingBonus);
+        // 书籍前置链：没读完前置书读得极慢（×0.2），但不禁止（读满阈值不变，只是更耗时）。
+        double prereqFactor = ReadingSpeed.PrerequisiteFactor(book, HasReadBook);
+        double speed = ReadingSpeed.Effective(1.0, Perks.SelfReadingSpeedBonus, hasSeat, _campWideReadingBonus, prereqFactor);
         double hours = gameHours * speed;
         if (hours <= 0)
             return;
@@ -163,6 +165,12 @@ public sealed partial class Pawn : Actor
     /// 避免旧两步"1→0 途中进食被短路"的跨 0 误杀。返回本次是否饿死（刻度归 0）。
     /// </summary>
     public bool ResolveHungerPhase(bool ate) => Hunger.ResolvePhase(ate);
+
+    /// <summary>
+    /// 一相位内补第二餐（补餐回升，用户拍板"应该能补回来"）：净 +1，clamp 到该角色上限 <see cref="HungerState.Cap"/>。
+    /// 把掉档者往回喂——仅在第一餐已保证、余粮充裕时由营地层对分粮给出的补餐名单调用。饿死为终态不复活（<see cref="HungerState.Feed"/> 内部守卫）。
+    /// </summary>
+    public void ServeSecondMeal() => Hunger.Feed();
 
     /// <summary>饥饿刻度已归 0（饿死）。由聚餐结算据此走统一死亡路径。</summary>
     public bool IsStarvedToDeath => Hunger.IsStarved;
@@ -224,26 +232,46 @@ public sealed partial class Pawn : Actor
     /// <summary>
     /// 推进本幸存者一昼夜的伤病演变：先建档新伤，再 <see cref="HealthConditionSet.TickDay"/>（未手术恶化 / 已手术愈合）。
     /// 封顶致残的部位就地 <see cref="Body.Sever"/> 断肢（装备联动由每帧 ReconcileSeverance 兜底）；术后愈合/清除的出血同步
-    /// 从 Body 止血（保持战斗层一致；骨折无消除接口，不同步）。是否致死经返回值交营地统一走死亡路径。
+    /// 从 Body 止血；骨折治疗档回写 Body（手术成功→<see cref="Body.MarkFractureTreated"/> 减半惩罚，康复清除→<see cref="Body.HealFracture"/> 归零），
+    /// 保持战斗层能力系数与医疗态一致。是否致死经返回值交营地统一走死亡路径。
     /// </summary>
     /// <param name="rng">感染 roll 随机源。</param>
     /// <param name="resting">本昼夜是否卧床休养（减缓感染/疾病恶化、加速术后愈合）。</param>
-    public HealthTickResult AdvanceHealthDay(IRandomSource rng, bool resting)
+    public HealthTickResult AdvanceHealthDay(IRandomSource rng, bool resting, bool restedInBed = false)
     {
         ArchiveWounds();
-        HealthTickResult result = Health.TickDay(rng, resting);
+        HealthTickResult result = Health.TickDay(rng, resting, restedInBed);
 
         foreach (string part in result.MaimedParts)
         {
             Body.Sever(part); // 坏疽/畸形封顶致残：切除该肢
         }
 
-        // 术后愈合/清除的出血：该部位已无活跃出血条目 → 从 Body 止血，保持战斗层一致（骨折无消除接口，暂不同步）。
+        // 出血条目闭合 → 从 Body 止血，保持战斗层一致。**单一同步路径**（基于"条目是否存在"，与闭合成因无关）：
+        // 手术养好、微小伤新鲜期自愈、截肢连带清理——任一使该部位不再有活跃出血条目，都在此统一 StopBleed。
         foreach (string part in Body.BleedingWounds.ToList())
         {
             if (!Health.Conditions.Any(c => c.Type == HealthConditionType.Bleeding && c.BodyPart == part))
             {
                 Body.StopBleed(part);
+            }
+        }
+
+        // 骨折治疗档回写 Body（能力系数三档：未治 -30% / 术后 -15% / 痊愈 0，见 Body.HandFractureOperationFactor/LegFractureMobilityFactor）：
+        //  · 手术成功(IsOperated) → MarkFractureTreated：惩罚减半（-15%）。幂等，仅对 Body 仍骨折的部位生效。
+        foreach (HealthCondition c in Health.Conditions)
+        {
+            if (c.Type == HealthConditionType.Fracture && c.BodyPart != null && c.IsOperated)
+            {
+                Body.MarkFractureTreated(c.BodyPart);
+            }
+        }
+        //  · 康复清除/畸形封顶等使该部位不再有活跃骨折条目 → HealFracture：归零（同出血的存在性同步）。
+        foreach (string part in Body.FracturedParts.ToList())
+        {
+            if (!Health.Conditions.Any(c => c.Type == HealthConditionType.Fracture && c.BodyPart == part))
+            {
+                Body.HealFracture(part);
             }
         }
 
@@ -498,17 +526,17 @@ public sealed partial class Pawn : Actor
         if (_loadout.PrimaryWeapon is { } w)
         {
             AttackWeapon = w;
+            // 冷却读武器权威间隔（WeaponTable 全局慢节奏值），不再硬编码手感常量；GripMode/操作能力系数仍在 EffectiveAttackInterval 叠乘。
+            AttackCooldown = w.AttackInterval;
             if (w.IsRanged)
             {
                 IsRanged = true;
                 AttackRange = 260f;   // 远程：中距离（拟定待调；远程交战门权威口径为武器 MaxRange，此值主要作近战兜底）
-                AttackCooldown = 1.1; // 拟定待调（沿用旧手枪手感；GripMode 攻速系数为后续消费步）
             }
             else
             {
                 IsRanged = false;
                 AttackRange = 26f;    // 近战（拟定待调）
-                AttackCooldown = 0.7; // 拟定待调（沿用旧匕首手感）
             }
         }
 

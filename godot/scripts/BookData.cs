@@ -35,13 +35,22 @@ public sealed class BookData
     /// </summary>
     public double ReadHours { get; }
 
-    public BookData(string id, string title, string body, string? grantsRecipeStub = null, double readHours = 12)
+    /// <summary>
+    /// **前置书**（通用书籍前置链，可空 = 无前置）：读本书时若读者尚未读完此前置书，**不禁止**阅读，
+    /// 但读速 ×<see cref="ReadingSpeed.MissingPrerequisiteMultiplier"/>（即耗时数倍，见 <see cref="ReadingSpeed.PrerequisiteFactor"/>）。
+    /// 数据驱动：链上每本书声明各自前置即可（如《进阶木匠技术》←《木匠入门》）。系数 draft 待调。
+    /// </summary>
+    public string? PrerequisiteBookId { get; }
+
+    public BookData(string id, string title, string body, string? grantsRecipeStub = null, double readHours = 12,
+        string? prerequisiteBookId = null)
     {
         Id = id;
         Title = title;
         Body = body;
         GrantsRecipeStub = grantsRecipeStub;
         ReadHours = readHours;
+        PrerequisiteBookId = prerequisiteBookId;
     }
 
     /// <summary>标记为已读（幂等，重复调用无副作用）。W3 阅读结算时调用。</summary>
@@ -89,6 +98,26 @@ public static class BookLibrary
         grantsRecipeStub: "recipe:gunpowder", // 桩：书门槛已实装（RecipeBook.RequiredBookIds），此仅作叙事标记
         readHours: 20); // draft：技术笔记，读得较久
 
+    /// <summary>《木匠入门》（木工书，draft）——读过它的制作者解锁木椅 / 自制弓一类木工配方（一本管两条，同构土法化学笔记）。</summary>
+    public static BookData CarpentryBasics() => new(
+        id: "carpentry_basics",
+        title: "木匠入门",
+        body: CarpentryBasicsBody,
+        grantsRecipeStub: "recipe:chair", // 桩：书门槛已实装（RecipeBook.RequiredBookIds），此仅作叙事标记
+        readHours: 20); // draft：技术工具书，读得较久
+
+    /// <summary>
+    /// 《进阶木匠技术》（木工进阶书，draft）——**前置**《木匠入门》：没读完前置照样能读，但读速极慢（×0.2）。
+    /// 读完解锁什么**待用户指定**（暂作占位、不挂配方产出）。
+    /// </summary>
+    public static BookData AdvancedCarpentry() => new(
+        id: "advanced_carpentry",
+        title: "进阶木匠技术",
+        body: AdvancedCarpentryBody,
+        grantsRecipeStub: null, // 解锁效果待用户指定（占位书）
+        readHours: 28, // draft：进阶技术书，篇幅更长
+        prerequisiteBookId: "carpentry_basics"); // 前置链首条数据：没读入门读得极慢
+
     /// <summary>
     /// 日记A（金手指帮根据地，克莉丝汀尸旁）——两个普通帮众视角：灾后互助、参与暴行、"金手指帮"命名由来。
     /// 纯叙事物品，无配方产出（桩留空）。正文为占位草稿，最终由用户手写。
@@ -118,6 +147,8 @@ public static class BookLibrary
         FarmerHundredQuestions(),
         TailorsNotes(),
         FolkChemistryNotes(),
+        CarpentryBasics(),
+        AdvancedCarpentry(),
         GoldfingerDiaryA(),
         GoldfingerDiaryB(),
     };
@@ -149,6 +180,20 @@ public static class BookLibrary
         "\"配比错一分，是废料；错一钱，是要命。动手前先把窗户打开。\"\n\n" +
         "笔记里记满了土法配方——如何把硝石、木炭和硫磺研成火药，" +
         "如何调一锅鞣制生皮的药水。字迹潦草，却每一步都标着分量与火候。";
+
+    // draft 待用户改 —— 木工书《木匠入门》：解锁木椅 / 自制弓一类木工配方
+    private const string CarpentryBasicsBody =
+        "一本封皮沾满木屑的旧册子，翻开时还簌簌往下掉。\n\n" +
+        "\"量两遍，锯一遍。急着下刀的人，做出来的东西也急着散架。\"\n\n" +
+        "从认木料、开榫到打磨收边，作者把一把结实的椅子、一张能拉满的弓，" +
+        "拆成一道道看得见摸得着的工序。照着做，几根木头也能拼成能坐能用的东西。";
+
+    // draft 待用户改 —— 木工进阶书《进阶木匠技术》：前置《木匠入门》；解锁效果待用户指定
+    private const string AdvancedCarpentryBody =
+        "纸页泛黄，字里行间满是术语与受力草图，像是写给已经会做椅子的人看的。\n\n" +
+        "\"没摸熟基本功就翻到这一页的，先回去把《木匠入门》读透——否则这里每一句你都得多琢磨半天。\"\n\n" +
+        "开卯连接、层压弯曲、承重结构……门道比入门深了不止一层，" +
+        "读起来也慢得多。但真吃透了，能造的就不只是能用的东西了。";
 
     // draft 待用户改 —— 日记A：两个普通帮众视角（互助求生 / 参与暴行 / "金手指帮"命名由来）
     private const string GoldfingerDiaryABody =

@@ -14,13 +14,13 @@ public class CraftingPanelFormatTests
     {
         IReadOnlyList<RecipeToolGroup> groups = CraftingPanelFormat.GroupByTool(RecipeBook.All);
 
-        // RecipeBook 声明顺序：骨刀(无)、粗布背心(无)、椅子(锯片)、火药(烧杯)、鞣制药水(烧杯)、自制弓(卡尺)。
+        // RecipeBook 声明顺序：骨刀(无)、粗布背心(无)、板凳(无)、木椅(锯片)、火药(烧杯)、鞣制药水(烧杯)、自制弓(卡尺)。
         // 桶按首次出现顺序：无 → 锯片 → 烧杯 → 卡尺，共 4 组。
         Assert.Equal(4, groups.Count);
         Assert.Empty(groups[0].Tools);
-        Assert.Equal(2, groups[0].Recipes.Count);            // 骨刀 + 粗布背心
+        Assert.Equal(3, groups[0].Recipes.Count);            // 骨刀 + 粗布背心 + 板凳
         Assert.Equal(new[] { ToolSlot.SawBlade }, groups[1].Tools);
-        Assert.Single(groups[1].Recipes);                    // 椅子
+        Assert.Single(groups[1].Recipes);                    // 木椅
         Assert.Equal(new[] { ToolSlot.Beaker }, groups[2].Tools);
         Assert.Equal(2, groups[2].Recipes.Count);            // 火药 + 鞣制药水
         Assert.Equal(new[] { ToolSlot.Calipers }, groups[3].Tools);

@@ -32,7 +32,8 @@ public enum RationStrategy
 /// </summary>
 /// <param name="HungerValue">当前饥饿刻度序号（见 <see cref="HungerLevel"/>，0=饿死…5=正常…6=吃撑）。越小越饿。</param>
 /// <param name="IsWounded">是否伤员（供 <see cref="RationStrategy.WoundedFirst"/> 优先；由接入层据引擎真实伤情判定）。</param>
-public readonly record struct FoodDiner(int HungerValue, bool IsWounded = false);
+/// <param name="Cap">该进餐者饥饿上限（普通 5、"大胃袋" 6）。供补餐判"是否掉档(<see cref="HungerValue"/> &lt; Cap)"，避免给已满者浪费口粮。</param>
+public readonly record struct FoodDiner(int HungerValue, bool IsWounded = false, int Cap = HungerState.DefaultCap);
 
 /// <summary>
 /// 一次分粮结算的只读明细。<see cref="Fed"/> 按**输入名单原序**对齐（第 i 位对应第 i 个进餐者），
@@ -63,6 +64,27 @@ public readonly record struct RationOutcome(
 {
     /// <summary>库存是否够全员吃饱（无人挨饿）。</summary>
     public bool Sufficient => StarvedCount == 0;
+}
+
+/// <summary>
+/// 一相位"一餐 + 可选补餐"的完整分粮明细（见 <see cref="FoodEconomy.AllocatePhaseMeal"/>）。
+/// <see cref="First"/> 是第一餐结算（谁吃到=净零维持）；<see cref="SecondFed"/> 按输入原序，各人本相位是否补到第二餐（=净 +1 回升）。
+/// 接入层：第一餐 <c>ResolvePhase(First.Fed[i])</c>、补餐 <c>Feed()</c>（对 SecondFed[i]），并按 <see cref="TotalConsumed"/> 实扣库存。
+/// </summary>
+/// <param name="First">第一餐分粮结算（既有 <see cref="RationOutcome"/> 语义）。</param>
+/// <param name="SecondFed">按输入原序，各人是否补到第二餐（+1 回升）。</param>
+/// <param name="SecondCount">补到第二餐的人数。</param>
+/// <param name="SecondConsumed">补餐消耗份数 = SecondCount × 每人口粮。</param>
+/// <param name="Remaining">第一餐 + 补餐全部扣完后的余量份数。</param>
+public readonly record struct PhaseMealOutcome(
+    RationOutcome First,
+    IReadOnlyList<bool> SecondFed,
+    int SecondCount,
+    int SecondConsumed,
+    int Remaining)
+{
+    /// <summary>本相位聚餐总消耗份数（第一餐 + 补餐）。接入层据此实扣库存。</summary>
+    public int TotalConsumed => First.Consumed + SecondConsumed;
 }
 
 /// <summary>
@@ -123,6 +145,62 @@ public static class FoodEconomy
         int starved = n - fedCount;
         int shortfall = demand - consumed; // = starved * ration
         return new RationOutcome(n, ration, demand, stock, consumed, remaining, fedCount, starved, shortfall, fed);
+    }
+
+    /// <summary>
+    /// 一相位"一餐 + 可选补餐"的完整分粮结算（补餐回升机制，用户拍板"应该能补回来"）：
+    /// 先按 <paramref name="strategy"/> 分第一餐（<see cref="Allocate"/> 既有语义，吃到=净零维持）；
+    /// 若 <paramref name="allowSeconds"/> 且第一餐后仍有余粮，把余粮补给**已吃到第一餐且掉档（刻度 &lt; Cap）**的存活者，
+    /// 最饿（刻度最低）优先、同刻度原序、每人至多补 1 餐。补餐 = 净 +1 回升（接入层对补到者调 <c>HungerState.Feed()</c>）。
+    /// 只补掉档者 → 全员满档时不动余粮（物资不浪费）；第一餐未保住全员（库存告罄）时无余粮 → 一律不补。
+    /// **不**改任何饥饿状态——只出决策明细，由接入层施加（第一餐 <c>ResolvePhase(Fed[i])</c>、补餐 <c>Feed()</c>），并按 <see cref="PhaseMealOutcome.TotalConsumed"/> 实扣库存。
+    /// </summary>
+    /// <param name="stock">当前营地食物库存份数（负数按 0）。</param>
+    /// <param name="diners">存活进餐者名单（各输出 Fed/SecondFed 与之原序对齐）；null/空视为 0 人。</param>
+    /// <param name="allowSeconds">是否启用补餐（玩家可关以囤粮）。false 时余粮原样保留、无人补餐。</param>
+    /// <param name="strategy">第一餐分粮策略（默认先喂最饿=少死人）。</param>
+    /// <param name="rationPerCapita">每人一餐口粮份数（&lt;1 按 1）；补餐同样按此份数。</param>
+    /// <param name="firstPriority">第一餐的玩家指定优先名单（透传给 <see cref="Allocate"/> 的 playerPriority）。</param>
+    public static PhaseMealOutcome AllocatePhaseMeal(
+        int stock,
+        IReadOnlyList<FoodDiner>? diners,
+        bool allowSeconds,
+        RationStrategy strategy = RationStrategy.HungriestFirst,
+        int rationPerCapita = DefaultRationPerCapita,
+        IReadOnlyList<int>? firstPriority = null)
+    {
+        RationOutcome first = Allocate(stock, diners, strategy, rationPerCapita, firstPriority);
+        int n = diners?.Count ?? 0;
+        var secondFed = new bool[n];
+
+        // 补餐仅在：开启 + 有人 + 第一餐后余粮够一份 时进行（第一餐未保住全员则余粮必为 0，天然不补）。
+        if (!allowSeconds || n == 0 || first.Remaining < first.RationPerCapita)
+        {
+            return new PhaseMealOutcome(first, secondFed, 0, 0, first.Remaining);
+        }
+
+        int ration = first.RationPerCapita;
+        // 候选：已吃到第一餐 且 掉档（刻度 < 该人 Cap，补了才涨得动）。最饿优先、同刻度原序（稳定）。
+        var candidates = Enumerable.Range(0, n)
+            .Where(i => first.Fed[i] && diners![i].HungerValue < diners[i].Cap)
+            .OrderBy(i => diners![i].HungerValue);
+
+        int remaining = first.Remaining;
+        int secondCount = 0;
+        int secondConsumed = 0;
+        foreach (int i in candidates)
+        {
+            if (remaining < ration)
+            {
+                break; // 余粮不够再补一份
+            }
+            secondFed[i] = true;   // 每人至多在此置一次 → 每相至多补 1 餐
+            remaining -= ration;
+            secondConsumed += ration;
+            secondCount++;
+        }
+
+        return new PhaseMealOutcome(first, secondFed, secondCount, secondConsumed, remaining);
     }
 
     /// <summary>按策略生成进餐次序（返回 diners 的下标序列，稳定排序）。</summary>

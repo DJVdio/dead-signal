@@ -5,7 +5,8 @@ namespace DeadSignal.Godot;
 
 // 注意：本文件为**纯 C# 逻辑**，不引入任何 Godot 类型（与 CraftingLogic.cs / CraftingService.cs 一样可被 Tests 以 Link 编入单测）。
 // 制作产物分类工厂：修 CraftingService 的默认工厂遗留（默认把非材料产物一律当武器占位）。
-// 按产物 key 把 6 个内置配方的产出各造对类别——武器 / 护甲 / 材料 / 家具杂项——供营地接入传 outputFactory。
+// 按产物 key 把内置配方的产出各造对类别——武器 / 护甲 / 材料 / 家具杂项——供营地接入传 outputFactory。
+// 家具类（木椅 / 板凳等）不在武器/护甲/材料集 → 自动落末尾"家具/杂项"分支，新增家具配方无需改本表。
 
 /// <summary>
 /// 把配方产物 key（<see cref="RecipeData.OutputKey"/>）+ 数量 造成正确类别的库存 <see cref="Item"/>：

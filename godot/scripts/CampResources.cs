@@ -32,6 +32,17 @@ public sealed class CampResources
     }
 
     /// <summary>
+    /// 按已算好的份数实扣食物（一相位聚餐总消耗：第一餐 + 补餐，见 <see cref="FoodEconomy.AllocatePhaseMeal"/>）。
+    /// 不越界（最多扣到 0，负入参当 0）。返回实际扣减份数。
+    /// </summary>
+    public int Consume(int portions)
+    {
+        int take = Math.Clamp(portions, 0, Food);
+        Food -= take;
+        return take;
+    }
+
+    /// <summary>
     /// 入库食物份数（营地搜刮落点）：搜到的食物不长留库存，直接累加到食物份数（clamp 到 ≥0，负数当 0）。
     /// </summary>
     public void AddFood(int portions)

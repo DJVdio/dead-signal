@@ -71,9 +71,11 @@ public class RecipeBookTests
     }
 
     [Fact]
-    public void Chair_RequiresSawBlade()
+    public void Chair_RequiresSawBlade_AndCarpentryBasics()
     {
-        Assert.Contains(ToolSlot.SawBlade, RecipeBook.Find("chair")!.RequiredTools);
+        var r = RecipeBook.Find("chair")!;
+        Assert.Contains(ToolSlot.SawBlade, r.RequiredTools);
+        Assert.Contains(RecipeBook.CarpentryBasicsBookId, r.RequiredBookIds); // 用户拍板：木椅也要读《木匠入门》
     }
 
     [Fact]
@@ -98,18 +100,76 @@ public class RecipeBookTests
         var ids = BookLibrary.All().Select(b => b.Id).ToHashSet();
         Assert.Contains(RecipeBook.TailorsNotesBookId, ids);
         Assert.Contains(RecipeBook.FolkChemistryNotesBookId, ids);
+        Assert.Contains(RecipeBook.CarpentryBasicsBookId, ids); // 《木匠入门》须在书目里，否则木椅/自制弓永久不可制作
     }
 
     [Fact]
-    public void HandmadeBow_RequiresCalipers()
+    public void HandmadeBow_RequiresCalipers_AndCarpentryBasics()
     {
-        Assert.Contains(ToolSlot.Calipers, RecipeBook.Find("handmade_bow")!.RequiredTools);
+        var r = RecipeBook.Find("handmade_bow")!;
+        Assert.Contains(ToolSlot.Calipers, r.RequiredTools);
+        Assert.Contains(RecipeBook.CarpentryBasicsBookId, r.RequiredBookIds); // 用户拍板：自制弓也要读《木匠入门》
+    }
+
+    [Fact]
+    public void Chair_RealCanCraft_GatedByCarpentryBasics()
+    {
+        var r = RecipeBook.Find("chair")!;
+        var sawblade = new HashSet<ToolSlot> { ToolSlot.SawBlade };
+
+        // 有锯片、材料够、没读《木匠入门》→ 卡书。
+        var noBook = CraftingLogic.CanCraft(r, _ => 99, _ => false, sawblade);
+        Assert.False(noBook.CanCraft);
+        Assert.Contains(noBook.Blocks, b => b.Reason == CraftBlockReason.UnreadBook);
+
+        // 锯片 + 读《木匠入门》→ 过。
+        var ok = CraftingLogic.CanCraft(
+            r, _ => 99, id => id == RecipeBook.CarpentryBasicsBookId, sawblade);
+        Assert.True(ok.CanCraft);
     }
 
     [Fact]
     public void Find_Unknown_ReturnsNull()
     {
         Assert.Null(RecipeBook.Find("no_such_recipe"));
+    }
+
+    [Fact]
+    public void Bench_LowTierChair_NoBookNoTool()
+    {
+        var r = RecipeBook.Find("bench")!;
+        Assert.Equal("板凳", r.DisplayName);
+        Assert.Empty(r.RequiredBookIds);   // 无书门槛
+        Assert.Empty(r.RequiredTools);     // 无工具槽 —— 开局即可做
+        Assert.Equal(RecipeCategory.Woodwork, r.Category);
+    }
+
+    [Fact]
+    public void Bench_CheaperThanChair()
+    {
+        var bench = RecipeBook.Find("bench")!;
+        var chair = RecipeBook.Find("chair")!;
+        int benchWood = bench.MaterialCosts.TryGetValue("wood", out int bw) ? bw : 0;
+        int chairWood = chair.MaterialCosts.TryGetValue("wood", out int cw) ? cw : 0;
+        Assert.True(benchWood < chairWood, "板凳应比木椅便宜（低级椅）");
+        Assert.False(bench.MaterialCosts.ContainsKey("nails")); // 打折：去掉钉子
+    }
+
+    [Fact]
+    public void Bench_AnyoneCanCraftAtStart_NoBookNoToolNeeded()
+    {
+        var r = RecipeBook.Find("bench")!;
+        // 材料够、一本书没读、工作台空工具 → 仍可制作（人人可造、开局即可）。
+        var avail = CraftingLogic.CanCraft(
+            r, _ => 99, _ => false, new HashSet<ToolSlot>());
+        Assert.True(avail.CanCraft);
+        Assert.Empty(avail.Blocks);
+
+        // 材料不足才卡（且只卡材料，不卡书/工具）。
+        var noMat = CraftingLogic.CanCraft(
+            r, _ => 0, _ => false, new HashSet<ToolSlot>());
+        Assert.False(noMat.CanCraft);
+        Assert.All(noMat.Blocks, b => Assert.Equal(CraftBlockReason.InsufficientMaterial, b.Reason));
     }
 }
 
@@ -282,5 +342,104 @@ public class CraftingLogicTests
         var ok = CraftingLogic.CanCraft(
             r, _ => 99, id => id == RecipeBook.FolkChemistryNotesBookId, beaker);
         Assert.True(ok.CanCraft);
+    }
+}
+
+// 制作者「书门槛」查询/提示纯逻辑：供制作面板把"换制作者对书门槛配方的影响"显式化
+// （仅看书，不看工具/材料——工具/材料非制作者相关）。零规则改动，只加可测的查询与人读提示。
+public class CrafterBookGateTests
+{
+    private static readonly RecipeData TwoBookRecipe = new(
+        Id: "test_two_books",
+        DisplayName: "双书物",
+        Category: RecipeCategory.Chemistry,
+        OutputKey: "test_out",
+        OutputQuantity: 1,
+        MaterialCosts: new Dictionary<string, int>(),
+        RequiredTools: new HashSet<ToolSlot>(),
+        RequiredBookIds: new List<string> { "book_a", "book_b" });
+
+    [Fact]
+    public void UnreadRequiredBooks_AllRead_Empty()
+    {
+        var unread = CraftingPanelFormat.UnreadRequiredBooks(TwoBookRecipe, _ => true);
+        Assert.Empty(unread);
+    }
+
+    [Fact]
+    public void UnreadRequiredBooks_NoneRead_ReturnsAllInOrder()
+    {
+        var unread = CraftingPanelFormat.UnreadRequiredBooks(TwoBookRecipe, _ => false);
+        Assert.Equal(new[] { "book_a", "book_b" }, unread);
+    }
+
+    [Fact]
+    public void UnreadRequiredBooks_PartialRead_ReturnsOnlyUnread()
+    {
+        var unread = CraftingPanelFormat.UnreadRequiredBooks(TwoBookRecipe, id => id == "book_a");
+        Assert.Equal(new[] { "book_b" }, unread);
+    }
+
+    [Fact]
+    public void UnreadRequiredBooks_NoBookGate_Empty()
+    {
+        // 无书门槛配方（RequiredBookIds 为空）：书门槛恒满足，即使全没读过书也返回空。
+        var noBookRecipe = new RecipeData(
+            Id: "test_no_book",
+            DisplayName: "无书门槛物",
+            Category: RecipeCategory.Misc,
+            OutputKey: "test_out",
+            OutputQuantity: 1,
+            MaterialCosts: new Dictionary<string, int>(),
+            RequiredTools: new HashSet<ToolSlot>(),
+            RequiredBookIds: new List<string>());
+        Assert.Empty(CraftingPanelFormat.UnreadRequiredBooks(noBookRecipe, _ => false));
+    }
+
+    [Fact]
+    public void UnreadRequiredBooks_RealRecipe_TracksCrafter()
+    {
+        var gp = RecipeBook.Find("gunpowder")!;
+        // 没读《土法化学笔记》→ 列它；读了 → 空。
+        Assert.Equal(
+            new[] { RecipeBook.FolkChemistryNotesBookId },
+            CraftingPanelFormat.UnreadRequiredBooks(gp, _ => false));
+        Assert.Empty(CraftingPanelFormat.UnreadRequiredBooks(gp, _ => true));
+    }
+
+    [Fact]
+    public void BookGateHint_Met_ReturnsNull()
+    {
+        Assert.Null(CraftingPanelFormat.BookGateHint(TwoBookRecipe, _ => true, id => id));
+    }
+
+    [Fact]
+    public void BookGateHint_OneUnread_UsesTitleInBrackets()
+    {
+        string? hint = CraftingPanelFormat.BookGateHint(
+            TwoBookRecipe, id => id == "book_a", id => id == "book_b" ? "土法化学笔记" : id);
+        Assert.Equal("需读完《土法化学笔记》", hint);
+    }
+
+    [Fact]
+    public void BookGateHint_TwoUnread_JoinsWithSeparator()
+    {
+        string? hint = CraftingPanelFormat.BookGateHint(
+            TwoBookRecipe, _ => false, id => id == "book_a" ? "甲书" : "乙书");
+        Assert.Equal("需读完《甲书》、《乙书》", hint);
+    }
+
+    [Fact]
+    public void BookGateHint_MissingTitle_FallsBackToId()
+    {
+        string? hint = CraftingPanelFormat.BookGateHint(TwoBookRecipe, id => id == "book_a", id => id);
+        Assert.Equal("需读完《book_b》", hint);
+    }
+
+    [Fact]
+    public void UnreadRequiredBooks_NullArgs_Throw()
+    {
+        Assert.Throws<ArgumentNullException>(() => CraftingPanelFormat.UnreadRequiredBooks(null!, _ => true));
+        Assert.Throws<ArgumentNullException>(() => CraftingPanelFormat.UnreadRequiredBooks(TwoBookRecipe, null!));
     }
 }

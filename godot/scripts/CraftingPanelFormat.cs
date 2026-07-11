@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -55,4 +56,38 @@ public static class CraftingPanelFormat
     /// <summary>库存里某材料（按 <see cref="Item.RefKey"/> 匹配）的现有堆叠总量，供配方材料门槛判定。</summary>
     public static int MaterialCount(InventoryStore inventory, string key)
         => inventory.ByCategory(ItemCategory.Material).Where(i => i.RefKey == key).Sum(i => i.MaterialQuantity);
+
+    /// <summary>
+    /// 制作者「书门槛」查询：返回 <paramref name="recipe"/> 要求、但 <paramref name="isBookRead"/> 判为未读的书 id
+    /// （按 <see cref="RecipeData.RequiredBookIds"/> 顺序、去重）。空 = 该制作者书门槛已满足（含无书门槛配方，如木椅/自制弓恒空）。
+    /// 只看书、不看工具/材料——工具/材料非制作者相关，故供制作面板把"换制作者"对书门槛配方的影响显式化。
+    /// </summary>
+    public static IReadOnlyList<string> UnreadRequiredBooks(RecipeData recipe, Func<string, bool> isBookRead)
+    {
+        if (recipe is null) throw new ArgumentNullException(nameof(recipe));
+        if (isBookRead is null) throw new ArgumentNullException(nameof(isBookRead));
+
+        var unread = new List<string>();
+        foreach (string bookId in recipe.RequiredBookIds)
+        {
+            if (!unread.Contains(bookId) && !isBookRead(bookId))
+            {
+                unread.Add(bookId);
+            }
+        }
+        return unread;
+    }
+
+    /// <summary>
+    /// 制作者「书门槛」的人读提示："需读完《书名》、《书名》"；书门槛已满足（<see cref="UnreadRequiredBooks"/> 为空）返回 <c>null</c>。
+    /// <paramref name="bookTitle"/> 把 book id 映射为书名（查不到时应由调用方兜底为 id），注入以免本纯逻辑依赖 Godot/BookLibrary。
+    /// </summary>
+    public static string? BookGateHint(RecipeData recipe, Func<string, bool> isBookRead, Func<string, string> bookTitle)
+    {
+        if (bookTitle is null) throw new ArgumentNullException(nameof(bookTitle));
+
+        IReadOnlyList<string> unread = UnreadRequiredBooks(recipe, isBookRead);
+        if (unread.Count == 0) return null;
+        return "需读完" + string.Join("、", unread.Select(id => $"《{bookTitle(id)}》"));
+    }
 }

@@ -60,6 +60,9 @@ public static class RecipeBook
     /// <summary>《土法化学笔记》化学书 id（对齐 <see cref="BookLibrary.FolkChemistryNotes"/>）。火药 / 鞣制药水解锁读它。</summary>
     public const string FolkChemistryNotesBookId = "folk_chemistry_notes";
 
+    /// <summary>《木匠入门》木工书 id（对齐 <see cref="BookLibrary.CarpentryBasics"/>）。木椅 / 自制弓解锁读它（一本管两条，同构化学书）。</summary>
+    public const string CarpentryBasicsBookId = "carpentry_basics";
+
     private static IReadOnlySet<ToolSlot> Tools(params ToolSlot[] slots) => new HashSet<ToolSlot>(slots);
     private static IReadOnlyDictionary<string, int> Cost(params (string Key, int Qty)[] items)
     {
@@ -70,7 +73,6 @@ public static class RecipeBook
         }
         return d;
     }
-    private static readonly IReadOnlyList<string> NoBooks = new List<string>();
     private static IReadOnlyList<string> Books(params string[] ids) => new List<string>(ids);
 
     // draft：以下配方的工具/条件/材料/数量/经验均为占位草稿，最终由用户调（对标 6 个例子 + 生存造物常识）。
@@ -98,7 +100,20 @@ public static class RecipeBook
             RequiredTools: Tools(),
             RequiredBookIds: Books(TailorsNotesBookId)),
 
-        // 椅子：锯片类木工。
+        // 板凳（低级椅）：家具梯度最低档——无书门槛、无工具槽，**人人可造、开局即可做**（用户拍板：开局可做板凳，不必做中级木椅）。
+        // 材料是木椅的打折版（仅 wood 2、去 nails，拟定待调）。产物 key 不在武器/护甲/材料集 → 走 CraftOutputFactory 家具/杂项分支落地。
+        // 座位功能**暂同木椅**（低配版，读书座位无差异）；板凳/木椅/沙发的档次差异（耐久/舒适/加成）待设计。
+        new RecipeData(
+            Id: "bench",
+            DisplayName: "板凳",
+            Category: RecipeCategory.Woodwork,
+            OutputKey: "bench",
+            OutputQuantity: 1,
+            MaterialCosts: Cost(("wood", 2)),
+            RequiredTools: Tools(),
+            RequiredBookIds: Books()),
+
+        // 椅子：锯片类木工 + 读过《木匠入门》解锁（用户拍板：木椅/自制弓也要读木工书）。
         new RecipeData(
             Id: "chair",
             DisplayName: "木椅",
@@ -107,7 +122,7 @@ public static class RecipeBook
             OutputQuantity: 1,
             MaterialCosts: Cost(("wood", 4), ("nails", 2)),
             RequiredTools: Tools(ToolSlot.SawBlade),
-            RequiredBookIds: NoBooks),
+            RequiredBookIds: Books(CarpentryBasicsBookId)),
 
         // 火药：烧杯类化学 + 读过《土法化学笔记》解锁。
         new RecipeData(
@@ -131,7 +146,7 @@ public static class RecipeBook
             RequiredTools: Tools(ToolSlot.Beaker),
             RequiredBookIds: Books(FolkChemistryNotesBookId)),
 
-        // 自制弓：卡尺类精工。
+        // 自制弓：卡尺类精工 + 读过《木匠入门》解锁（用户拍板：木椅/自制弓也要读木工书）。
         new RecipeData(
             Id: "handmade_bow",
             DisplayName: "自制弓",
@@ -140,7 +155,7 @@ public static class RecipeBook
             OutputQuantity: 1,
             MaterialCosts: Cost(("wood", 2), ("rope", 1)),
             RequiredTools: Tools(ToolSlot.Calipers),
-            RequiredBookIds: NoBooks),
+            RequiredBookIds: Books(CarpentryBasicsBookId)),
     };
 
     private static readonly IReadOnlyDictionary<string, RecipeData> _byId = ToMap(_all);
