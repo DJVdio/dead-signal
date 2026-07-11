@@ -17,7 +17,12 @@ public static class CraftOutputFactory
 {
     // 产物 key → 大类（草稿，随配方增补）。材料类产物（gunpowder/tanning_solution）不列此表——走 Materials 目录判定。
     private static readonly IReadOnlySet<string> WeaponOutputs = new HashSet<string> { "bone_knife", "handmade_bow" };
-    private static readonly IReadOnlySet<string> ArmorOutputs = new HashSet<string> { "cloth_vest" };
+    // 护甲类产物：粗布背心 + 布鲁斯狗装备五件套（DogGearCatalog 键）。落地为 Item.Armor，
+    // RefKey=产物 key（狗装备穿戴走 DogApparelSlots 按此键查 DogGearCatalog）。
+    private static readonly IReadOnlySet<string> ArmorOutputs = new HashSet<string>(
+        new[] { "cloth_vest" }.Concat(DogGearCatalog.AllKeys));
+    // 光源类产物（火把）：落地为 Item.Light，refKey=产物 key（对齐 LightSource 目录）。手电不可制作，不列此表。
+    private static readonly IReadOnlySet<string> LightOutputs = new HashSet<string> { "torch" };
 
     /// <summary>产物工厂：传给 <see cref="CraftingService.Craft"/> 的 outputFactory，按 key 分类造 <paramref name="quantity"/> 件产物。</summary>
     public static IEnumerable<Item> Create(string outputKey, int quantity)
@@ -42,6 +47,12 @@ public static class CraftOutputFactory
         if (ArmorOutputs.Contains(outputKey))
         {
             for (int i = 0; i < qty; i++) yield return Item.Armor(display);
+            yield break;
+        }
+        if (LightOutputs.Contains(outputKey))
+        {
+            // 光源产物（火把）：refKey=产物 key 指向 LightSource 目录，显示名取配方名（中文「火把」）。
+            for (int i = 0; i < qty; i++) yield return Item.Light(outputKey, display);
             yield break;
         }
 

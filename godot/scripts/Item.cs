@@ -27,6 +27,12 @@ public enum ItemCategory
     /// 堆叠数量走 <see cref="Item.MaterialQuantity"/>；配方消耗/扣减留给配方波。
     /// </summary>
     Material,
+
+    /// <summary>
+    /// 光源：手持照明工具（手电/火把），指向一条 <see cref="LightProfile"/>（<see cref="Item.RefKey"/> = 光源键，对齐 <c>LightSource</c> 目录）。
+    /// 非武器（不进 WeaponLoadout），持起走 <see cref="HeldLightState"/> 占一只手；照明属性供 <c>VisionLogic</c> 消费。
+    /// </summary>
+    Light,
 }
 
 /// <summary>
@@ -91,6 +97,16 @@ public sealed record Item
     public static Item Material(string materialKey, string displayName, int quantity = 1, string description = "")
         => new(ItemCategory.Material, displayName, description, materialKey, 0, Math.Max(0, quantity));
 
+    /// <summary>
+    /// 造一件光源物品（<paramref name="lightKey"/> = 光源键，作引用键指向 <c>LightSource</c> 目录；显示名单独给）。
+    /// 手电经搜刮/投放入库、火把经配方产出（见 <c>CraftOutputFactory</c>）。持起占一只手走 <see cref="HeldLightState"/>。
+    /// </summary>
+    public static Item Light(string lightKey, string displayName, string description = "")
+        => new(ItemCategory.Light, displayName, description, lightKey, 0, 0);
+
     /// <summary>是否可装备（武器或护甲）。W3 装备接入据此从库存筛可上身之物。</summary>
     public bool IsEquippable => Category is ItemCategory.Weapon or ItemCategory.Armor;
+
+    /// <summary>是否为光源物品（手电/火把）。持起走 <see cref="HeldLightState"/>，非 <see cref="IsEquippable"/>。</summary>
+    public bool IsLight => Category is ItemCategory.Light;
 }

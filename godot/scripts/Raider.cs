@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Godot;
 
 namespace DeadSignal.Godot;
@@ -18,9 +19,16 @@ namespace DeadSignal.Godot;
 /// </summary>
 public sealed partial class Raider : Actor
 {
-    private const float DetectionRadius = 300f;   // 人类警觉半径（比丧尸略大：主动进攻方）
-    private const float LoseTargetRadius = 420f;   // 追出此半径即放弃目标
+    // 白昼满档视距 R0（作日间正面警觉，比丧尸略大：主动进攻方）。人类昼夜皆活动：白昼环境光满档→视距≈300、
+    // 半角 60°；夜间环境光≈0.15→视距≈134、半角≈34.5°，夜间对潜行明显收紧（与丧尸夜锥同规则）。数值拟定待调。
+    private const float BaseSightRange = 300f;
     private const int StructureHitDamage = 25;    // 每次砸墙伤害（拟定待调；人类比丧尸更快破门。远近程一律贴身砸）
+
+    // 战斗时掏火把（用户口径：被发现正式开战后才拿出光源，潜行阶段不持光）。火把强度读 LightSource 目录（拟定待调，缺则 0.7）。
+    // 效果：进入战斗态→SetCarriedLight(火把强度)：①自照亮提升本体局部光照→ConeFor 视锥变大（夜战视野恢复）；
+    // ②成持光信标→他人 ExposedCone 读本体 CarriedLightIntensity 放大对己视距（暴露代价对己生效）。脱战即收火把归 0。
+    private static readonly float TorchLightIntensity =
+        LightSource.Find(LightSource.TorchKey)?.Intensity ?? 0.7f;
 
     private Rect2 _wanderBounds;
     private Func<IEnumerable<Actor>>? _targetProvider;
@@ -97,37 +105,31 @@ public sealed partial class Raider : Actor
 
     protected override void Think(double delta)
     {
-        // 追击目标维护：目标死亡（基类每帧会清空）或跑出丢失半径则放弃，转入重新侦测/游荡。
-        Actor? tgt = CurrentAttackTarget;
-        if (tgt is { Alive: true })
+        // 目标获取/丢失：锥形+光照+遮挡感知（raycast 贵，节流重算；其间维持现指令，基类照常逼近/射击/近战）。
+        // 候选=IsHostile 过滤后的敌对池——反水切阵营/换池后自动改打对象（克莉丝汀反水所需的运行时改边不变）。
+        if (PerceptionDue(delta))
         {
-            if (GlobalPosition.DistanceTo(tgt.GlobalPosition) > LoseTargetRadius)
-            {
-                CancelOrders();
-            }
-            else
-            {
-                return; // 继续追（Actor 基类负责逼近 + 射击/近战）
-            }
+            UpdatePerception(HostileCandidates(), BaseSightRange);
         }
 
-        // 侦测最近的敌对单位。阵营由 Factions.IsHostile 裁定 —— 反水切阵营后自动改打对象。
-        Actor? nearest = FindNearestHostile();
+        // 战斗态掏/收火把：有存活目标=已开战→点火把（自照亮回视野+成暴露信标）；脱战→收火把归 0。每帧据现目标切，幂等便宜。
+        // TODO（待 light-items LightField 就绪）：火把还应作为 PlacedLight 并入场光源，照亮劫掠者周边（利于它与友军看清，也被玩家看见）；
+        //   现仅实现"照亮自身位置"（本体视野+暴露），周边照明留待 ConfigurePerception 光源场接线时补。
+        SetCarriedLight(CurrentAttackTarget is { Alive: true } ? TorchLightIntensity : 0f);
 
-        // 破防：若被围栏/大门阻隔（到目标/营心无导航路径），走到最近结构前砸墙；接管本帧则不再追击/游荡。
-        if (_breach != null && _breach.TryBreach(this, delta, nearest?.GlobalPosition))
+        // 破防：每帧真 delta（TryBreach 内部自带 0.3s 可达节流）。被围栏/大门阻隔则走到最近结构前砸墙；接管本帧则不再追击/游荡。
+        if (_breach != null && _breach.TryBreach(this, delta, CurrentAttackTarget?.GlobalPosition))
         {
             return;
         }
 
-        // 可达（或未配破防）：常规追击已侦测的敌对单位。
-        if (nearest != null)
+        // 可达且有已感知目标：交基类逼近+攻击。
+        if (CurrentAttackTarget is { Alive: true })
         {
-            CommandAttack(nearest);
             return;
         }
 
-        // 游荡巡场：到点或超时换一个随机目标点。
+        // 游荡巡场（含丢失视野后走向最后目击点的一次侦查 move）：到点或超时换一个随机目标点。
         _wanderTimer -= delta;
         if (!HasMoveOrder || _wanderTimer <= 0)
         {
@@ -140,31 +142,11 @@ public sealed partial class Raider : Actor
     }
 
     /// <summary>
-    /// 在 <see cref="_targetProvider"/> 给出的候选池里挑侦测半径内最近的**敌对**单位
-    /// （敌我一律走 <see cref="Factions.IsHostile"/>，不散写阵营相等比较）。因此：块D 只要 SetFaction 即改变敌我，
-    /// 或 SetTargetProvider 换候选池，二者皆运行时立即生效——这正是克莉丝汀反水所需的两个改动。
+    /// 候选敌对池：<see cref="_targetProvider"/> 输出经 <see cref="Factions.IsHostile"/> + 存活过滤
+    /// （敌我一律走 IsHostile，不散写阵营相等比较）。感知锥/遮挡由基类 <see cref="Actor.PerceiveNearest"/> 再裁。
     /// </summary>
-    private Actor? FindNearestHostile()
-    {
-        if (_targetProvider == null)
-        {
-            return null;
-        }
-        Actor? best = null;
-        float bestDist = DetectionRadius;
-        foreach (Actor a in _targetProvider())
-        {
-            if (!a.Alive || !Factions.IsHostile(Faction, a.Faction))
-            {
-                continue;
-            }
-            float d = GlobalPosition.DistanceTo(a.GlobalPosition);
-            if (d < bestDist)
-            {
-                bestDist = d;
-                best = a;
-            }
-        }
-        return best;
-    }
+    private IEnumerable<Actor> HostileCandidates()
+        => _targetProvider is null
+            ? Array.Empty<Actor>()
+            : _targetProvider().Where(a => a.Alive && Factions.IsHostile(Faction, a.Faction));
 }

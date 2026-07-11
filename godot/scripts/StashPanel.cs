@@ -28,6 +28,12 @@ public sealed partial class StashPanel : CanvasLayer
     /// </summary>
     public event Action<string>? EquipRequested;
 
+    /// <summary>
+    /// 点某件光源（手电/火把）的「持起」按钮：emit 其光源键（<see cref="Item.RefKey"/>）。
+    /// CampMain 据此让当前选中幸存者占一只手持起该光源（<see cref="HeldLightState"/>）并从库存移除。
+    /// </summary>
+    public event Action<string>? LightHoldRequested;
+
     /// <summary>点「关闭」：CampMain 据此隐藏面板并恢复时标。</summary>
     public event Action? Closed;
 
@@ -107,6 +113,7 @@ public sealed partial class StashPanel : CanvasLayer
 
         AddSection("武器", inventory.Weapons, isBookRead);
         AddSection("护甲", inventory.Armors, isBookRead);
+        AddSection("光源", inventory.ByCategory(ItemCategory.Light), isBookRead);
         AddSection("书", inventory.Books, isBookRead);
         AddSection("食物", inventory.Foods, isBookRead);
 
@@ -182,6 +189,17 @@ public sealed partial class StashPanel : CanvasLayer
                 equipBtn.Pressed += () => EquipRequested?.Invoke(refKey);
                 UiStyle.StyleButton(equipBtn, new Color(0.5f, 0.45f, 0.3f), fontSize: 13);
                 hbox.AddChild(equipBtn);
+                break;
+
+            case ItemCategory.Light:
+                var holdBtn = new Button();
+                holdBtn.Text = "持起";
+                holdBtn.CustomMinimumSize = new Vector2(120, 30);
+                holdBtn.TooltipText = "让当前选中的幸存者持起（占一只手，与双手武器互斥）";
+                string lightKey = item.RefKey ?? "";
+                holdBtn.Pressed += () => LightHoldRequested?.Invoke(lightKey);
+                UiStyle.StyleButton(holdBtn, new Color(0.5f, 0.42f, 0.22f), fontSize: 13);
+                hbox.AddChild(holdBtn);
                 break;
 
             default:
