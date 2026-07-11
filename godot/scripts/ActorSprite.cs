@@ -29,8 +29,18 @@ public sealed partial class ActorSprite : Node2D
     private bool _drawnSleeping;
     private Color _drawnTint;
     private float _drawnRadius = -1f;
+    private Faction _drawnFaction = (Faction)(-1);
 
     private const float TurnRate = 16f; // 朝向平滑速率（越大越跟手）
+
+    // ---- 三阵营描边（用户拍板：己方白 / 中立蓝 / 敌对红）----
+    // 视角固定为玩家营地（Survivor）。敌对与否一律走 Factions.IsHostile（勿散写 faction 相等比较），
+    // 中立=非己方且不敌对——神秘商人等未来非敌对第三方挂对应阵营后按此自动变蓝，绘制层不特判。
+    // 实现走 _Draw 底色环（复用选中环范式），刻意不用 AddOutline 管线（headless 挖洞失效的既往坑）。
+    private const Faction PlayerFaction = Faction.Survivor;
+    private static readonly Color FactionSelf = new(0.95f, 0.97f, 1f, 0.95f);     // 己方 白
+    private static readonly Color FactionNeutral = new(0.30f, 0.62f, 1f, 0.95f);  // 中立 蓝
+    private static readonly Color FactionHostile = new(1f, 0.32f, 0.28f, 0.95f);  // 敌对 红
 
     // ---- 受击表现（Flash 闪色 / Shake 抖动，由 CombatFeed 订阅驱动）----
     private bool _subscribed;
@@ -235,6 +245,7 @@ public sealed partial class ActorSprite : Node2D
         int roleKey = _actor is Pawn pw ? (int)pw.Role : -1;
         Color tint = _actor.BodyTint;
         float radius = _actor.Radius;
+        Faction faction = _actor.Faction;
 
         if (_drawInit
             && Mathf.Abs(_drawAngle - _drawnAngle) <= 0.0005f
@@ -243,7 +254,8 @@ public sealed partial class ActorSprite : Node2D
             && sleeping == _drawnSleeping
             && roleKey == _drawnRoleKey
             && tint == _drawnTint
-            && radius == _drawnRadius)
+            && radius == _drawnRadius
+            && faction == _drawnFaction)
         {
             return;
         }
@@ -256,6 +268,7 @@ public sealed partial class ActorSprite : Node2D
         _drawnRoleKey = roleKey;
         _drawnTint = tint;
         _drawnRadius = radius;
+        _drawnFaction = faction;
         QueueRedraw();
     }
 
@@ -277,9 +290,15 @@ public sealed partial class ActorSprite : Node2D
 
         DrawColoredPolygon(Ellipse(new Vector2(0, -r * 0.12f), r * 1.2f, r * 0.55f), new Color(0, 0, 0, 0.28f));
 
+        // 阵营描边：脚下底色环（己方白/中立蓝/敌对红），始终绘制。
+        Vector2[] facRing = Ellipse(new Vector2(0, -r * 0.12f), r * 1.30f, r * 0.58f, 28);
+        DrawPolyline(Close(facRing), FactionOutlineColor(_actor.Faction), 2.5f, true);
+
+        // 选中态与阵营描边并存（保守方案，标待确认）：选中绿环画在阵营环之外形成双环，
+        // 层级上选中高亮压过阵营边（外层更醒目），阵营色仍以内环恒示。
         if (_actor.Selected)
         {
-            Vector2[] ring = Ellipse(new Vector2(0, -r * 0.12f), r * 1.45f, r * 0.66f, 28);
+            Vector2[] ring = Ellipse(new Vector2(0, -r * 0.12f), r * 1.52f, r * 0.70f, 28);
             DrawPolyline(Close(ring), new Color(0.4f, 1f, 0.55f), 2f, true);
         }
 
@@ -389,6 +408,19 @@ public sealed partial class ActorSprite : Node2D
         float hr = r * 0.48f;
         DrawColoredPolygon(Ellipse(headC, hr + 1, hr + 1), outline);
         DrawColoredPolygon(Ellipse(headC, hr, hr), headCol);
+    }
+
+    /// <summary>
+    /// 从阵营推导描边色（视角=玩家营地 <see cref="PlayerFaction"/>）：己方白、对己方敌对红、其余中立蓝。
+    /// 敌对判定统一走 <see cref="Factions.IsHostile"/>；中立分支覆盖未来非敌对第三方（如神秘商人），无需在此特判。
+    /// </summary>
+    private static Color FactionOutlineColor(Faction faction)
+    {
+        if (faction == PlayerFaction)
+        {
+            return FactionSelf;
+        }
+        return Factions.IsHostile(PlayerFaction, faction) ? FactionHostile : FactionNeutral;
     }
 
     private static Vector2[] Ellipse(Vector2 c, float rx, float ry, int seg = 22)
