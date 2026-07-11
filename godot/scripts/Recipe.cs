@@ -33,6 +33,10 @@ public enum RecipeCategory
 /// 解锁条件按**制作者**判定：需读完 <see cref="RequiredBookIds"/> 的全部书；
 /// 且工作台已装 <see cref="RequiredTools"/> 的全部工具槽；且库存够付 <see cref="MaterialCosts"/>。
 /// 通用技能门槛已删——配方只看 工具/书/材料 三类门槛。
+/// <see cref="WorkMinutes"/>=夜间工时制的每配方工时（游戏分钟，拟定待调）：制作不再"点击即得"，
+/// 而是下单入队后人在工作台逐段推进（见 <see cref="CraftingJob"/>）。默认 30 分（旧调用点/临时配方兜底）。
+/// <see cref="RequiredCrafterGates"/>=**制作者门槛键**（如"道格且羁绊≥2 级"才能做的狗装备）：书门槛之外的另一类
+/// 与制作者身份/剧情态挂钩的解锁，判定委托调用方（见 <see cref="CraftingLogic.CanCraft"/> 的 crafterGate 参数）。null/空＝无此类门槛。
 /// </summary>
 public sealed record RecipeData(
     string Id,
@@ -42,7 +46,9 @@ public sealed record RecipeData(
     int OutputQuantity,
     IReadOnlyDictionary<string, int> MaterialCosts,
     IReadOnlySet<ToolSlot> RequiredTools,
-    IReadOnlyList<string> RequiredBookIds);
+    IReadOnlyList<string> RequiredBookIds,
+    int WorkMinutes = 30,
+    IReadOnlyList<string>? RequiredCrafterGates = null);
 
 /// <summary>
 /// 内置配方表（**拟定草稿 draft**，工具/条件/材料数值用户后续调）。覆盖用户给的 6 个例子：
@@ -62,6 +68,12 @@ public static class RecipeBook
 
     /// <summary>《木匠入门》木工书 id（对齐 <see cref="BookLibrary.CarpentryBasics"/>）。木椅 / 自制弓解锁读它（一本管两条，同构化学书）。</summary>
     public const string CarpentryBasicsBookId = "carpentry_basics";
+
+    /// <summary>
+    /// 狗装备制作者门槛键（批次5）：满足＝**制作者是道格且与布鲁斯羁绊≥2 级**（消费 <see cref="DougBruceBond.CanCraftDogGear"/>）。
+    /// 五件狗装备配方均带此门槛（<see cref="RecipeData.RequiredCrafterGates"/>）；判定委托营地层（见 CampMain 制作接线）。
+    /// </summary>
+    public const string DogGearCrafterGate = "doug_bond_l2";
 
     private static IReadOnlySet<ToolSlot> Tools(params ToolSlot[] slots) => new HashSet<ToolSlot>(slots);
     private static IReadOnlyDictionary<string, int> Cost(params (string Key, int Qty)[] items)
@@ -87,7 +99,8 @@ public static class RecipeBook
             OutputQuantity: 1,
             MaterialCosts: Cost(("bone", 2), ("scrap_cloth", 1)),
             RequiredTools: Tools(),
-            RequiredBookIds: Books(WildernessSurvivalGuideBookId)),
+            RequiredBookIds: Books(WildernessSurvivalGuideBookId),
+            WorkMinutes: 45),
 
         // 粗布背心：读过《裁缝手记》解锁；缝制布甲。
         new RecipeData(
@@ -98,7 +111,8 @@ public static class RecipeBook
             OutputQuantity: 1,
             MaterialCosts: Cost(("cloth", 2), ("scrap_cloth", 2)),
             RequiredTools: Tools(),
-            RequiredBookIds: Books(TailorsNotesBookId)),
+            RequiredBookIds: Books(TailorsNotesBookId),
+            WorkMinutes: 90),
 
         // 板凳（低级椅）：家具梯度最低档——无书门槛、无工具槽，**人人可造、开局即可做**（用户拍板：开局可做板凳，不必做中级木椅）。
         // 材料是木椅的打折版（仅 wood 2、去 nails，拟定待调）。产物 key 不在武器/护甲/材料集 → 走 CraftOutputFactory 家具/杂项分支落地。
@@ -111,7 +125,8 @@ public static class RecipeBook
             OutputQuantity: 1,
             MaterialCosts: Cost(("wood", 2)),
             RequiredTools: Tools(),
-            RequiredBookIds: Books()),
+            RequiredBookIds: Books(),
+            WorkMinutes: 60),
 
         // 椅子：锯片类木工 + 读过《木匠入门》解锁（用户拍板：木椅/自制弓也要读木工书）。
         new RecipeData(
@@ -122,7 +137,8 @@ public static class RecipeBook
             OutputQuantity: 1,
             MaterialCosts: Cost(("wood", 4), ("nails", 2)),
             RequiredTools: Tools(ToolSlot.SawBlade),
-            RequiredBookIds: Books(CarpentryBasicsBookId)),
+            RequiredBookIds: Books(CarpentryBasicsBookId),
+            WorkMinutes: 150),
 
         // 火药：烧杯类化学 + 读过《土法化学笔记》解锁。
         new RecipeData(
@@ -133,7 +149,8 @@ public static class RecipeBook
             OutputQuantity: 2,
             MaterialCosts: Cost(("stone", 1), ("fuel", 1)),
             RequiredTools: Tools(ToolSlot.Beaker),
-            RequiredBookIds: Books(FolkChemistryNotesBookId)),
+            RequiredBookIds: Books(FolkChemistryNotesBookId),
+            WorkMinutes: 60),
 
         // 鞣制药水：烧杯类化学 + 读过《土法化学笔记》解锁。
         new RecipeData(
@@ -144,7 +161,8 @@ public static class RecipeBook
             OutputQuantity: 2,
             MaterialCosts: Cost(("fuel", 1), ("stone", 1)),
             RequiredTools: Tools(ToolSlot.Beaker),
-            RequiredBookIds: Books(FolkChemistryNotesBookId)),
+            RequiredBookIds: Books(FolkChemistryNotesBookId),
+            WorkMinutes: 60),
 
         // 自制弓：卡尺类精工 + 读过《木匠入门》解锁（用户拍板：木椅/自制弓也要读木工书）。
         new RecipeData(
@@ -155,7 +173,92 @@ public static class RecipeBook
             OutputQuantity: 1,
             MaterialCosts: Cost(("wood", 2), ("rope", 1)),
             RequiredTools: Tools(ToolSlot.Calipers),
-            RequiredBookIds: Books(CarpentryBasicsBookId)),
+            RequiredBookIds: Books(CarpentryBasicsBookId),
+            WorkMinutes: 120),
+
+        // 火把（手持光源，批次4 光照）：木棒裹布蘸燃油即成——基础求生造物，无书门槛、无工具槽、开局可做。
+        // 产物 key="torch"（对齐 LightSource.TorchKey），经 CraftOutputFactory 落地为 Item.Light（非武器/护甲/材料）。
+        // 材料拟定待调：木料 1 + 破布 1 + 燃料 1。手电不可制作（拾取/投放获得）。
+        new RecipeData(
+            Id: "torch",
+            DisplayName: "火把",
+            Category: RecipeCategory.Misc,
+            OutputKey: "torch",
+            OutputQuantity: 1,
+            MaterialCosts: Cost(("wood", 1), ("scrap_cloth", 1), ("fuel", 1)),
+            RequiredTools: Tools(),
+            RequiredBookIds: Books(),
+            WorkMinutes: 20),
+
+        // ── 布鲁斯（狗）装备五件套（批次5，道格 2 级解锁）────────────────────────────
+        // 制作者门槛＝道格且羁绊≥2 级（RequiredCrafterGates: DogGearCrafterGate，判定委托营地层）；
+        // 无书门槛、无工具槽（道格手工为伙伴打造）。材料/工时/护甲值皆**拟定待调**。
+        // 产物 key＝DogGearCatalog 键，经 CraftOutputFactory 落地为 Item.Armor（穿戴走 DogApparelSlots）。
+
+        // 布制狗衣：身体贴身甲（低防·轻）。缝纫小件，布为主。
+        new RecipeData(
+            Id: "dog_cloth_vest",
+            DisplayName: "布制狗衣",
+            Category: RecipeCategory.Tailoring,
+            OutputKey: "布制狗衣",
+            OutputQuantity: 1,
+            MaterialCosts: Cost(("cloth", 2), ("scrap_cloth", 1)),
+            RequiredTools: Tools(),
+            RequiredBookIds: Books(),
+            WorkMinutes: 50,
+            RequiredCrafterGates: Books(DogGearCrafterGate)),
+
+        // 皮制狗衣：身体外套甲（中防·稍重）。皮革为主 + 绳绑带。
+        new RecipeData(
+            Id: "dog_leather_vest",
+            DisplayName: "皮制狗衣",
+            Category: RecipeCategory.Tailoring,
+            OutputKey: "皮制狗衣",
+            OutputQuantity: 1,
+            MaterialCosts: Cost(("leather", 2), ("rope", 1)),
+            RequiredTools: Tools(),
+            RequiredBookIds: Books(),
+            WorkMinutes: 70,
+            RequiredCrafterGates: Books(DogGearCrafterGate)),
+
+        // 口袋狗衣：身体无甲，缝多口袋给布鲁斯携带容量（探索负重）。布 + 破布 + 绳（背带）。
+        new RecipeData(
+            Id: "dog_pocket_vest",
+            DisplayName: "口袋狗衣",
+            Category: RecipeCategory.Tailoring,
+            OutputKey: "口袋狗衣",
+            OutputQuantity: 1,
+            MaterialCosts: Cost(("cloth", 1), ("scrap_cloth", 2), ("rope", 1)),
+            RequiredTools: Tools(),
+            RequiredBookIds: Books(),
+            WorkMinutes: 60,
+            RequiredCrafterGates: Books(DogGearCrafterGate)),
+
+        // 铁皮头甲：头部高防甲（重）。废金属敲打成盔 + 皮革内衬。
+        new RecipeData(
+            Id: "dog_iron_helmet",
+            DisplayName: "铁皮头甲",
+            Category: RecipeCategory.Misc,
+            OutputKey: "铁皮头甲",
+            OutputQuantity: 1,
+            MaterialCosts: Cost(("scrap_metal", 2), ("leather", 1)),
+            RequiredTools: Tools(),
+            RequiredBookIds: Books(),
+            WorkMinutes: 70,
+            RequiredCrafterGates: Books(DogGearCrafterGate)),
+
+        // 铁丝头甲：头部轻便甲（防护弱于铁皮）。铁丝编笼 + 破布衬。
+        new RecipeData(
+            Id: "dog_wire_helmet",
+            DisplayName: "铁丝头甲",
+            Category: RecipeCategory.Misc,
+            OutputKey: "铁丝头甲",
+            OutputQuantity: 1,
+            MaterialCosts: Cost(("wire", 2), ("scrap_cloth", 1)),
+            RequiredTools: Tools(),
+            RequiredBookIds: Books(),
+            WorkMinutes: 55,
+            RequiredCrafterGates: Books(DogGearCrafterGate)),
     };
 
     private static readonly IReadOnlyDictionary<string, RecipeData> _byId = ToMap(_all);

@@ -78,6 +78,27 @@ public static class CraftingPanelFormat
         return unread;
     }
 
+    /// <summary>工时的人读文案（游戏分钟，60 进制）："即时"（≤0）/ "45 分" / "1 小时" / "1 小时 30 分"。</summary>
+    public static string FormatWorkDuration(int minutes)
+    {
+        if (minutes <= 0) return "即时";
+        int h = minutes / 60, m = minutes % 60;
+        if (h == 0) return $"{m} 分";
+        if (m == 0) return $"{h} 小时";
+        return $"{h} 小时 {m} 分";
+    }
+
+    /// <summary>
+    /// 在制品进度文案（工时制面板）："制作中 · 剩 45 分（40%）" / 完工 "已完成 · 待取出"；<paramref name="job"/> 为 <c>null</c> 返回 <c>null</c>。
+    /// </summary>
+    public static string? WorkProgressLabel(CraftingJob? job)
+    {
+        if (job is null) return null;
+        if (job.IsComplete) return "已完成 · 待取出";
+        int pct = (int)Math.Round(job.Progress * 100);
+        return $"制作中 · 剩 {FormatWorkDuration(job.RemainingWorkMinutes)}（{pct}%）";
+    }
+
     /// <summary>
     /// 制作者「书门槛」的人读提示："需读完《书名》、《书名》"；书门槛已满足（<see cref="UnreadRequiredBooks"/> 为空）返回 <c>null</c>。
     /// <paramref name="bookTitle"/> 把 book id 映射为书名（查不到时应由调用方兜底为 id），注入以免本纯逻辑依赖 Godot/BookLibrary。

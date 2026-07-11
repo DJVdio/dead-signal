@@ -14,11 +14,12 @@ public class CraftingPanelFormatTests
     {
         IReadOnlyList<RecipeToolGroup> groups = CraftingPanelFormat.GroupByTool(RecipeBook.All);
 
-        // RecipeBook 声明顺序：骨刀(无)、粗布背心(无)、板凳(无)、木椅(锯片)、火药(烧杯)、鞣制药水(烧杯)、自制弓(卡尺)。
-        // 桶按首次出现顺序：无 → 锯片 → 烧杯 → 卡尺，共 4 组。
+        // RecipeBook 声明顺序：骨刀(无)、粗布背心(无)、板凳(无)、木椅(锯片)、火药(烧杯)、鞣制药水(烧杯)、自制弓(卡尺)、火把(无)、
+        //   狗装备五件套(布/皮/口袋狗衣·铁皮/铁丝头甲，皆无工具)。
+        // 桶按首次出现顺序：无 → 锯片 → 烧杯 → 卡尺，共 4 组（火把 + 狗装备五件套无工具，归入"无"桶末尾）。
         Assert.Equal(4, groups.Count);
         Assert.Empty(groups[0].Tools);
-        Assert.Equal(3, groups[0].Recipes.Count);            // 骨刀 + 粗布背心 + 板凳
+        Assert.Equal(9, groups[0].Recipes.Count);            // 骨刀 + 粗布背心 + 板凳 + 火把 + 狗装备五件套(5)
         Assert.Equal(new[] { ToolSlot.SawBlade }, groups[1].Tools);
         Assert.Single(groups[1].Recipes);                    // 木椅
         Assert.Equal(new[] { ToolSlot.Beaker }, groups[2].Tools);
@@ -59,5 +60,37 @@ public class CraftingPanelFormatTests
         Assert.Equal(7, CraftingPanelFormat.MaterialCount(inv, "wood"));
         Assert.Equal(5, CraftingPanelFormat.MaterialCount(inv, "stone"));
         Assert.Equal(0, CraftingPanelFormat.MaterialCount(inv, "nails"));
+    }
+
+    // ---- 工时制面板展示 ----
+
+    [Theory]
+    [InlineData(0, "即时")]
+    [InlineData(-5, "即时")]
+    [InlineData(45, "45 分")]
+    [InlineData(60, "1 小时")]
+    [InlineData(90, "1 小时 30 分")]
+    [InlineData(150, "2 小时 30 分")]
+    public void FormatWorkDuration_HumanReadable(int minutes, string expected)
+        => Assert.Equal(expected, CraftingPanelFormat.FormatWorkDuration(minutes));
+
+    [Fact]
+    public void WorkProgressLabel_Null_ReturnsNull()
+        => Assert.Null(CraftingPanelFormat.WorkProgressLabel(null));
+
+    [Fact]
+    public void WorkProgressLabel_InProgress_ShowsRemainingAndPercent()
+    {
+        var job = new CraftingJob("bench", 60);
+        job.Advance(15, canWork: true); // 25%，剩 45 分
+        Assert.Equal("制作中 · 剩 45 分（25%）", CraftingPanelFormat.WorkProgressLabel(job));
+    }
+
+    [Fact]
+    public void WorkProgressLabel_Complete_ShowsReadyToCollect()
+    {
+        var job = new CraftingJob("bench", 30);
+        job.Advance(30, canWork: true);
+        Assert.Equal("已完成 · 待取出", CraftingPanelFormat.WorkProgressLabel(job));
     }
 }

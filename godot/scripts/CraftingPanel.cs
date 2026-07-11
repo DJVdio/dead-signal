@@ -53,6 +53,10 @@ public sealed partial class CraftingPanel : CanvasLayer
     private IReadOnlyList<Pawn> _crafters = Array.Empty<Pawn>();
     private InventoryStore _inventory = new();
     private Func<Pawn, string, bool> _hasReadBook = (_, _) => false;
+    // 制作者门槛判据（狗装备等）：(制作者, 门槛键) → null=满足 / 文案=挡（供灰显）。null=未接线，
+    // 交由 CraftingLogic.CanCraft **fail-closed** 拦下带门槛的配方（见其 crafterGate 参数）。
+    private Func<Pawn, string, string?>? _crafterGate;
+    private CraftingJob? _activeJob; // 工时制：本工作台当前在制任务（单任务队列）；非 null 时工作台占用，其余配方不可下单
 
     // ---- 面板自身瞬态 ----
     private Page _page = Page.Craft;
@@ -170,17 +174,23 @@ public sealed partial class CraftingPanel : CanvasLayer
     /// 打开面板：传入只读依赖（工作台工具态、可控幸存者作制作者候选、营地共享库存、"某人是否读完某书"谓词），刷新两页数据。
     /// <paramref name="hasReadBook"/> 按 (制作者, 书 id) 查该幸存者本人是否读完（配方书门槛判据，按**制作者**判定；
     /// 面板对当前选中 crafter 求值喂给 <see cref="CraftingLogic.CanCraft"/>，切换制作者时重算）。
+    /// <paramref name="activeJob"/>=本工作台当前在制任务（工时制单任务队列）：非 null 时顶部显示进度、其余配方不可下单；
+    /// null=空闲可下单。营地每次刷新（下单/推进/完工后）重传最新任务。
     /// </summary>
     public void ShowFor(
         WorkbenchState workbench,
         IReadOnlyList<Pawn> crafters,
         InventoryStore inventory,
-        Func<Pawn, string, bool> hasReadBook)
+        Func<Pawn, string, bool> hasReadBook,
+        CraftingJob? activeJob = null,
+        Func<Pawn, string, string?>? crafterGate = null)
     {
         _workbench = workbench ?? new WorkbenchState();
         _crafters = crafters ?? Array.Empty<Pawn>();
         _inventory = inventory ?? new InventoryStore();
         _hasReadBook = hasReadBook ?? ((_, _) => false);
+        _crafterGate = crafterGate;
+        _activeJob = activeJob;
 
         // 制作者候选：保留已选（若仍在名单），否则取第一个。
         if (_selectedCrafter is null || !_crafters.Contains(_selectedCrafter))
@@ -255,7 +265,15 @@ public sealed partial class CraftingPanel : CanvasLayer
             AddEmpty("无可用制作者。");
             return;
         }
-        _footerLabel.Text = "材料/条件不足的配方会灰显并列出缺项；满足即可制作。";
+        _footerLabel.Text = _activeJob is not null
+            ? "工作台占用中：完工取出后才能下新单（每台一件在制）。"
+            : "下单后夜间由工作台旁的生产者逐段推进工时；材料在下单时即扣。";
+
+        // 工时制：本工作台有在制任务时，顶部横幅显示进度/剩余工时；期间其余配方不可下单。
+        if (_activeJob is not null)
+        {
+            AddActiveJobBanner(_activeJob);
+        }
 
         IReadOnlySet<ToolSlot> installed = _workbench.InstalledTools;
         foreach (RecipeToolGroup group in CraftingPanelFormat.GroupByTool(RecipeBook.All))
@@ -267,6 +285,24 @@ public sealed partial class CraftingPanel : CanvasLayer
                 _listContainer.AddChild(BuildCraftRow(recipe, installed));
             }
         }
+    }
+
+    /// <summary>顶部在制任务横幅：配方名 + 进度文案（"制作中 · 剩 45 分（40%）" / "已完成 · 待取出"）。</summary>
+    private void AddActiveJobBanner(CraftingJob job)
+    {
+        RecipeData? recipe = RecipeBook.Find(job.RecipeId);
+        string name = recipe?.DisplayName ?? job.RecipeId;
+
+        var banner = new Label();
+        string progress = CraftingPanelFormat.WorkProgressLabel(job) ?? "";
+        banner.Text = $"◆ 在制：{name}　{progress}";
+        banner.AddThemeFontSizeOverride("font_size", 15);
+        banner.AddThemeColorOverride("font_color", job.IsComplete ? OkColor : new Color(0.85f, 0.75f, 0.45f));
+        _listContainer.AddChild(banner);
+
+        var sep = new HSeparator();
+        sep.AddThemeColorOverride("default_color", new Color(0.3f, 0.28f, 0.2f, 0.6f));
+        _listContainer.AddChild(sep);
     }
 
     private void AddCraftGroupHeader(RecipeToolGroup group, bool toolsOk)
@@ -283,11 +319,16 @@ public sealed partial class CraftingPanel : CanvasLayer
 
     private Control BuildCraftRow(RecipeData recipe, IReadOnlySet<ToolSlot> installed)
     {
+        // 制作者门槛判据绑定当前选中制作者；未接线则传 null，由 CanCraft fail-closed 拦下带门槛的配方。
+        Func<string, string?>? gate = _crafterGate is null || _selectedCrafter is null
+            ? null
+            : gateKey => _crafterGate(_selectedCrafter, gateKey);
         CraftAvailability avail = CraftingLogic.CanCraft(
             recipe,
             key => CraftingPanelFormat.MaterialCount(_inventory, key),
             bookId => _hasReadBook(_selectedCrafter!, bookId), // 书门槛按当前选中制作者本人已读
-            installed);
+            installed,
+            gate);
 
         var card = new VBoxContainer();
         card.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
@@ -310,10 +351,12 @@ public sealed partial class CraftingPanel : CanvasLayer
         nameLabel.AddThemeColorOverride("font_color", avail.CanCraft ? TextColor : DimColor);
         top.AddChild(nameLabel);
 
+        // 工时制：工作台被在制任务占用时，其余配方一律不可下单（单任务队列）。
+        bool benchBusy = _activeJob is not null;
         var craftBtn = new Button();
-        craftBtn.Text = "制作";
+        craftBtn.Text = benchBusy ? "占用中" : "下单";
         craftBtn.CustomMinimumSize = new Vector2(120, 30);
-        craftBtn.Disabled = !avail.CanCraft;
+        craftBtn.Disabled = benchBusy || !avail.CanCraft;
         string recipeId = recipe.Id;
         craftBtn.Pressed += () =>
         {
@@ -322,6 +365,13 @@ public sealed partial class CraftingPanel : CanvasLayer
         UiStyle.StyleButton(craftBtn, new Color(0.4f, 0.5f, 0.35f), fontSize: 13);
         top.AddChild(craftBtn);
         card.AddChild(top);
+
+        // 工时行（游戏时；工时制下单后逐段推进）
+        var workLabel = new Label();
+        workLabel.Text = "工时：" + CraftingPanelFormat.FormatWorkDuration(recipe.WorkMinutes);
+        workLabel.AddThemeFontSizeOverride("font_size", 12);
+        workLabel.AddThemeColorOverride("font_color", DimColor);
+        card.AddChild(workLabel);
 
         // 材料行（够=绿、缺=红）
         card.AddChild(BuildMaterialLabel(recipe));

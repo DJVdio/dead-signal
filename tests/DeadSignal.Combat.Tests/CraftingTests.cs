@@ -135,6 +135,24 @@ public class RecipeBookTests
     }
 
     [Fact]
+    public void AllRecipes_HavePositiveWorkMinutes()
+    {
+        // 工时制：每配方须标正工时（拟定待调），否则夜间生产瞬间完工失去意义。
+        Assert.All(RecipeBook.All, r => Assert.True(r.WorkMinutes > 0, $"{r.Id} 工时应为正"));
+    }
+
+    [Fact]
+    public void Furniture_TakesLongerThan_SmallItems()
+    {
+        // 家具（木椅）工时应显著高于小件（火把/骨刀）——拟定档次待调。
+        int chair = RecipeBook.Find("chair")!.WorkMinutes;
+        int torch = RecipeBook.Find("torch")!.WorkMinutes;
+        int knife = RecipeBook.Find("bone_knife")!.WorkMinutes;
+        Assert.True(chair > torch, "木椅工时应长于火把");
+        Assert.True(chair > knife, "木椅工时应长于骨刀");
+    }
+
+    [Fact]
     public void Bench_LowTierChair_NoBookNoTool()
     {
         var r = RecipeBook.Find("bench")!;

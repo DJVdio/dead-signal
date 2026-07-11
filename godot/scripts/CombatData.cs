@@ -103,10 +103,16 @@ public readonly struct AttackOutcome
     /// <summary>本次震荡的硬打断时长（秒，2~5s roll，拟定待调）；未震荡为 0。实时层据此设打断计时器。</summary>
     public readonly double ConcussionSeconds;
 
+    /// <summary>
+    /// 本次命中的通用减速时长（秒，拟定待调 ~1s）；**命中即触发**（无论破防与否，含被甲完全挡下）。
+    /// 实时层（<c>Actor._staggerTimer</c>）据此短暂降移速（×StaggerSpeedMult）。与震荡区分：不打断、不清冷却。
+    /// </summary>
+    public readonly double StaggerSeconds;
+
     public AttackOutcome(
         int damage, string partName, DamageType finalType,
         bool blocked, bool severed, bool bled, bool concussed, bool fractured, bool died,
-        double concussionSeconds = 0)
+        double concussionSeconds = 0, double staggerSeconds = 0)
     {
         Damage = damage;
         PartName = partName;
@@ -118,6 +124,7 @@ public readonly struct AttackOutcome
         Fractured = fractured;
         Died = died;
         ConcussionSeconds = concussionSeconds;
+        StaggerSeconds = staggerSeconds;
     }
 }
 
@@ -200,7 +207,9 @@ public sealed class CombatEngine
             concussed: concussed,
             fractured: fractured,
             died: fx.CausedDeath || defenderBody.IsDead,
-            concussionSeconds: concussionSeconds);
+            concussionSeconds: concussionSeconds,
+            // 命中减速（通用）：无论破防与否命中即透传，供 Actor._staggerTimer 消费（全角色）。
+            staggerSeconds: fx.StaggerSeconds);
     }
 
     /// <summary>

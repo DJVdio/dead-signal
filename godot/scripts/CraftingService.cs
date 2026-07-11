@@ -29,6 +29,23 @@ public sealed record CraftResult(
         => new(false, blocks, Array.Empty<Item>());
 }
 
+/// <summary>
+/// 一次 <see cref="CraftingService.StartJob"/> 的结果（工时制开工）。成功即材料已扣（锁定），
+/// 返回可推进的在制品 <see cref="CraftingJob"/>；产出留待 <see cref="CraftingService.CompleteJob"/>。
+/// </summary>
+/// <param name="Success">是否开工成功（false 时库存未变，看 <see cref="Blocks"/> 原因，<see cref="Job"/> 为 null）。</param>
+/// <param name="Blocks">失败时未满足的门槛明细（成功为空）。</param>
+/// <param name="Job">成功时的在制品（材料已扣，待推进工时）。</param>
+public sealed record CraftStartResult(
+    bool Success,
+    IReadOnlyList<CraftBlock> Blocks,
+    CraftingJob? Job)
+{
+    /// <summary>造一个失败结果（带门槛原因，不含在制品）。</summary>
+    public static CraftStartResult Fail(IReadOnlyList<CraftBlock> blocks)
+        => new(false, blocks, null);
+}
+
 /// <summary>一次 <see cref="CraftingService.ApplyWeaponMod"/> 的结果。</summary>
 /// <param name="Success">是否改装成功（false 时库存未变）。</param>
 /// <param name="FailureReason">失败原因文案（成功为 null）。</param>
@@ -129,26 +146,55 @@ public static class CraftingService
         WorkbenchState workbench,
         InventoryStore inventory,
         int times = 1,
-        Func<string, int, IEnumerable<Item>>? outputFactory = null)
+        Func<string, int, IEnumerable<Item>>? outputFactory = null,
+        Func<string, string?>? crafterGate = null)
     {
         if (recipe is null) throw new ArgumentNullException(nameof(recipe));
         if (isBookRead is null) throw new ArgumentNullException(nameof(isBookRead));
         if (inventory is null) throw new ArgumentNullException(nameof(inventory));
 
         int mult = times < 1 ? 1 : times;
+
+        // 即时路径 = 开工扣料 + 立即产出（工时制的 StartJob 复用同一扣料半段，只是延后产出）。
+        if (!TryDeductMaterials(recipe, isBookRead, workbench, inventory, mult, crafterGate, out IReadOnlyList<CraftBlock> blocks))
+        {
+            return CraftResult.Fail(blocks);
+        }
+
+        CraftResolution resolution = CraftingLogic.Resolve(recipe, mult);
+        IReadOnlyList<Item> produced = ProduceOutput(
+            resolution.OutputKey, resolution.OutputQuantity, inventory, outputFactory);
+        return new CraftResult(true, Array.Empty<CraftBlock>(), produced);
+    }
+
+    /// <summary>
+    /// 三门槛判定（工具/书/材料，材料按 <paramref name="mult"/> 放大二次校验）→ 通过则跨堆**实扣材料**（锁定），返回 true；
+    /// 任一门槛不满足则不动库存，<paramref name="blocks"/> 出缺项，返回 false。
+    /// <see cref="Craft"/>（即时）与 <see cref="StartJob"/>（工时制开工）共用此扣料半段——语义一致：开工即扣。
+    /// </summary>
+    private static bool TryDeductMaterials(
+        RecipeData recipe,
+        Func<string, bool> isBookRead,
+        WorkbenchState workbench,
+        InventoryStore inventory,
+        int mult,
+        Func<string, string?>? crafterGate,
+        out IReadOnlyList<CraftBlock> blocks)
+    {
         IReadOnlySet<ToolSlot> installed = workbench?.InstalledTools ?? new HashSet<ToolSlot>();
         List<Item> materials = inventory.ByCategory(ItemCategory.Material).ToList();
 
-        // 门槛判定：材料计数跨堆合计；书查谓词；工具查工作台。
+        // 门槛判定：材料计数跨堆合计；书查谓词；工具查工作台；制作者门槛（狗装备）查 crafterGate。
         CraftAvailability availability = CraftingLogic.CanCraft(
             recipe,
             k => MaterialTotal(materials, k),
             isBookRead,
-            installed);
-
+            installed,
+            crafterGate);
         if (!availability.CanCraft)
         {
-            return CraftResult.Fail(availability.Blocks);
+            blocks = availability.Blocks;
+            return false;
         }
 
         CraftResolution resolution = CraftingLogic.Resolve(recipe, mult);
@@ -157,14 +203,14 @@ public static class CraftingService
         var demand = resolution.MaterialDeltas.ToDictionary(kv => kv.Key, kv => -kv.Value);
         if (!HasEnough(materials, demand))
         {
-            var blocks = demand
+            blocks = demand
                 .Where(kv => MaterialTotal(materials, kv.Key) < kv.Value)
                 .Select(kv => new CraftBlock(
                     CraftBlockReason.InsufficientMaterial,
                     $"材料不足：{kv.Key} 需{kv.Value}、有{MaterialTotal(materials, kv.Key)}",
                     kv.Key))
                 .ToList();
-            return CraftResult.Fail(blocks);
+            return false;
         }
 
         // 实扣：跨堆扣减后，把库存里的材料堆整体替换为剩余堆（非材料物品不动）。
@@ -178,16 +224,74 @@ public static class CraftingService
             inventory.Add(m);
         }
 
-        // 实产：造产物入库。
+        blocks = Array.Empty<CraftBlock>();
+        return true;
+    }
+
+    /// <summary>按产物 key×数量造对类别物品入库并返回（内置默认或调用方传入的 outputFactory）。</summary>
+    private static IReadOnlyList<Item> ProduceOutput(
+        string outputKey,
+        int quantity,
+        InventoryStore inventory,
+        Func<string, int, IEnumerable<Item>>? outputFactory)
+    {
         var produced = new List<Item>();
         Func<string, int, IEnumerable<Item>> factory = outputFactory ?? DefaultOutput;
-        foreach (Item item in factory(resolution.OutputKey, resolution.OutputQuantity))
+        foreach (Item item in factory(outputKey, quantity))
         {
             inventory.Add(item);
             produced.Add(item);
         }
+        return produced;
+    }
 
-        return new CraftResult(true, Array.Empty<CraftBlock>(), produced);
+    // ======================== 工时制：开工 / 完工 ========================
+
+    /// <summary>
+    /// 开一件在制品（夜间工时制）：同 <see cref="Craft"/> 的三门槛+批量材料校验，通过则**开工即扣材料（锁定，防重复下单）**
+    /// 并返回可推进的 <see cref="CraftingJob"/>（总工时 = 配方 <see cref="RecipeData.WorkMinutes"/> × <paramref name="times"/>，拟定待调）；
+    /// 产出留待进度满后调 <see cref="CompleteJob"/>。不通过原样失败、不动库存。
+    /// 遗留（待确认）：任务中途取消/失败是否返还已扣材料——当前不返还（开工即消耗）。
+    /// </summary>
+    public static CraftStartResult StartJob(
+        RecipeData recipe,
+        Func<string, bool> isBookRead,
+        WorkbenchState workbench,
+        InventoryStore inventory,
+        int times = 1,
+        Func<string, string?>? crafterGate = null)
+    {
+        if (recipe is null) throw new ArgumentNullException(nameof(recipe));
+        if (isBookRead is null) throw new ArgumentNullException(nameof(isBookRead));
+        if (inventory is null) throw new ArgumentNullException(nameof(inventory));
+
+        int mult = times < 1 ? 1 : times;
+        if (!TryDeductMaterials(recipe, isBookRead, workbench, inventory, mult, crafterGate, out IReadOnlyList<CraftBlock> blocks))
+        {
+            return CraftStartResult.Fail(blocks);
+        }
+
+        var job = new CraftingJob(recipe.Id, recipe.WorkMinutes * mult, mult);
+        return new CraftStartResult(true, Array.Empty<CraftBlock>(), job);
+    }
+
+    /// <summary>
+    /// 完工产出：把在制品 <paramref name="job"/> 的产物按 <paramref name="recipe"/>（应与 job.RecipeId 对应）造好入库并返回。
+    /// **不校验进度**——调用方应在 <see cref="CraftingJob.IsComplete"/> 时才调。产物数量 = 配方产量 × job.Times，
+    /// 分类走 <paramref name="outputFactory"/>（营地传 <see cref="CraftOutputFactory.Create"/>）。材料已在 <see cref="StartJob"/> 时扣除，此处只产不扣。
+    /// </summary>
+    public static IReadOnlyList<Item> CompleteJob(
+        CraftingJob job,
+        RecipeData recipe,
+        InventoryStore inventory,
+        Func<string, int, IEnumerable<Item>>? outputFactory = null)
+    {
+        if (job is null) throw new ArgumentNullException(nameof(job));
+        if (recipe is null) throw new ArgumentNullException(nameof(recipe));
+        if (inventory is null) throw new ArgumentNullException(nameof(inventory));
+
+        CraftResolution resolution = CraftingLogic.Resolve(recipe, job.Times);
+        return ProduceOutput(resolution.OutputKey, resolution.OutputQuantity, inventory, outputFactory);
     }
 
     /// <summary>

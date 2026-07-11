@@ -85,6 +85,19 @@ public sealed class EffectConfig
     /// <summary>多处骨折乘算叠加后的能力系数下限（防止叠到过低，拟定待确认）。</summary>
     public double FractureCapabilityFloor { get; init; }
 
+    // ---- 命中减速（通用，RimWorld stagger 式；用户口径「未破防也会短暂减速 是 所有角色都是这样的（参考rimworld）」）----
+
+    /// <summary>
+    /// 命中减速时长（秒，拟定待调=1.0）。**任何攻击命中任何角色、无论是否击穿护甲**都施加，只降移速、
+    /// 短暂即恢复。与震荡严格区分：减速=轻量通用（无攻击打断、无冷却清零、无概率 roll——命中即触发，
+    /// 重复命中刷新时长、不叠幅度）；震荡=既有重效果（<see cref="ConcussionMinSeconds"/> 一系）不变。
+    /// 移动层效果——对决引擎 <see cref="DuelEngine"/> 不建模位移，故减速对对决胜率零影响，引擎只透传数值。
+    /// </summary>
+    public double StaggerSeconds { get; init; }
+
+    /// <summary>命中减速期间移速系数（Godot 实时层消费，拟定待调=0.6=−40%）。比震荡打断 ×0.1 轻。</summary>
+    public double StaggerSpeedMult { get; init; }
+
     public static EffectConfig Default() => new()
     {
         BleedK = 1.0,
@@ -106,6 +119,8 @@ public sealed class EffectConfig
         LegFractureMobilityMult = 0.7,
         LegFractureHealedMobilityMult = 0.85,
         FractureCapabilityFloor = 0.2,
+        StaggerSeconds = 1.0,     // 拟定待调
+        StaggerSpeedMult = 0.6,   // 拟定待调（−40%，比震荡打断 ×0.1 轻）
     };
 }
 
@@ -125,6 +140,12 @@ public sealed class EffectOutcome
 
     /// <summary>因 MaxHp 归 0 而永久损毁的部位（含连带后代；不掉落装备）。</summary>
     public IReadOnlyList<string> DestroyedParts { get; init; } = Array.Empty<string>();
+
+    /// <summary>
+    /// 本次命中施加的通用减速时长（秒；命中即置=<see cref="EffectConfig.StaggerSeconds"/>，含被甲完全挡下 dmg==0）。
+    /// 不进 <see cref="Effects"/> 概率型效果列表（不耗 roll、不产生 Concussion）；由 Godot 实时层消费到移速。0=引擎未配置。
+    /// </summary>
+    public double StaggerSeconds { get; init; }
 }
 
 /// <summary>
@@ -273,6 +294,8 @@ public sealed class CombatEffectResolver
             MaxHpEroded = erodedAmount,
             ErodedPart = erodedPart,
             DestroyedParts = destroyedParts,
+            // 命中减速（通用）：命中即触发，无论破防与否、无概率 roll、不打断/不清冷却。仅透传时长供实时层消费移速。
+            StaggerSeconds = _cfg.StaggerSeconds,
         };
     }
 

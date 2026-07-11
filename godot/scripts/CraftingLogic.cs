@@ -22,6 +22,9 @@ public enum CraftBlockReason
 
     /// <summary>库存材料不足。</summary>
     InsufficientMaterial,
+
+    /// <summary>制作者身份/剧情态门槛未满足（如狗装备需"制作者是道格且羁绊≥2 级"）。</summary>
+    CrafterLocked,
 }
 
 /// <summary>一条未满足门槛的明细（原因 + 人读说明 + 相关键）。</summary>
@@ -52,11 +55,17 @@ public static class CraftingLogic
     /// <param name="availableMaterial">材料 RefKey → 当前库存计数（未登记视为 0）。</param>
     /// <param name="isBookRead">制作者是否读完某 book id（解锁书判据）。</param>
     /// <param name="installedTools">工作台当前已装的工具槽集合。</param>
+    /// <param name="crafterGate">
+    /// **制作者门槛**判据（可选）：给一个门槛键（<see cref="RecipeData.RequiredCrafterGates"/> 里的键），返回
+    /// <c>null</c>＝已满足、否则返回人读的阻塞说明（供 UI 灰显）。判定逻辑（谁是制作者、羁绊几级）由调用方持有，
+    /// 本纯逻辑不认识具体门槛语义。**fail-closed**：配方带门槛但未传此委托 ⇒ 一律拦下（不误放）。
+    /// </param>
     public static CraftAvailability CanCraft(
         RecipeData recipe,
         Func<string, int> availableMaterial,
         Func<string, bool> isBookRead,
-        IReadOnlySet<ToolSlot> installedTools)
+        IReadOnlySet<ToolSlot> installedTools,
+        Func<string, string?>? crafterGate = null)
     {
         if (recipe is null) throw new ArgumentNullException(nameof(recipe));
         if (availableMaterial is null) throw new ArgumentNullException(nameof(availableMaterial));
@@ -98,6 +107,21 @@ public static class CraftingLogic
                     CraftBlockReason.InsufficientMaterial,
                     $"材料不足：{cost.Key} 需{cost.Value}、有{have}",
                     cost.Key));
+            }
+        }
+
+        // 4) 制作者门槛（狗装备等）：逐键问 crafterGate。fail-closed——有门槛但无判据即整条拦下。
+        if (recipe.RequiredCrafterGates is { Count: > 0 } gates)
+        {
+            foreach (string gateKey in gates)
+            {
+                string? detail = crafterGate is null
+                    ? "制作者门槛未满足"
+                    : crafterGate(gateKey);
+                if (detail is not null)
+                {
+                    blocks.Add(new CraftBlock(CraftBlockReason.CrafterLocked, detail, gateKey));
+                }
             }
         }
 
