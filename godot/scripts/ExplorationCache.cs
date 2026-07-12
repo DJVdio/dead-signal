@@ -62,8 +62,8 @@ public static class ExplorationCache
     //   · 里屋碗柜（暗间）：守林人独居的储粮/急救小物；· 后院柴房：劈柴/修屋的木料工具。哥顿上吊尸+日记B 由 GoldfingerDiscovery 另管（非物资搜刮）。
     public const string RangersCabinPantryId = "cache_rangers_cabin_pantry";
     public const string RangersCabinShedId = "cache_rangers_cabin_shed";
-    // 南林村庄（**大点**，[SPEC-B11-补]"5天+探索量"）：一个空间分区的小聚落，铺 9 处搜刮点（救援锁屋另由 VillageRescue 管、不计物资完成度）。
-    //   分区：村口/杂物(1) · 民居区(3) · 村中心(2) · 村尾/藏深(3)。近入口在前、藏深在后。
+    // 南林村庄（**大点**，[SPEC-B12] 大=30+ 硬口径）：一个空间分区的聚落，铺 30 处搜刮点（救援锁屋另由 VillageRescue 管、不计物资完成度）。
+    //   分区：村口/杂物(3) · 民居区(9) · 村中心(6) · 村尾/藏深(6) · 后山(3) · 河滩(3)。近入口在前、藏深在后。原 9 点见下，[SPEC-B12] 扩容 21 点见后半段常量。
     public const string VillageRoadsideCarId = "cache_village_roadside_car";     // 村口·废弃皮卡后备箱（近）
     public const string VillageKitchenId = "cache_village_kitchen";              // 民居·厨房碗柜
     public const string VillageWardrobeId = "cache_village_wardrobe";            // 民居·卧室衣柜
@@ -73,6 +73,66 @@ public static class ExplorationCache
     public const string VillageToolShedId = "cache_village_tool_shed";           // 村尾·农具棚（深）
     public const string VillageShrineId = "cache_village_shrine";                // 村尾·祠堂供桌（深）
     public const string VillageClinicId = "cache_village_clinic";                // 村尾·卫生所药柜（深）
+
+    // ==== [SPEC-B12] 配额扩容新增搜刮点 id（各图扩到三级配额带下限；单点掉落调薄见 Resolve）====
+    // 守林人小屋（小点 2→5，band 5~10 下限；密度克制、不破坏"内容很少"氛围）：阁楼/床底/门廊。
+    public const string RangersCabinAtticId = "cache_rangers_cabin_attic";
+    public const string RangersCabinUnderbedId = "cache_rangers_cabin_underbed";
+    public const string RangersCabinPorchId = "cache_rangers_cabin_porch";
+    // 河边小屋（小点 2→5）：灶膛橱柜/屋檐渔具/屋后菜窖。
+    public const string RiversideHearthId = "cache_riverside_hearth";
+    public const string RiversideFishingId = "cache_riverside_fishing";
+    public const string RiversideCellarId = "cache_riverside_cellar";
+    // 城市之巅瞭望观景台（小点 2→5）：自动贩卖机/员工储物柜/天台机房。
+    public const string LookoutVendingId = "cache_lookout_vending";
+    public const string LookoutStaffLockerId = "cache_lookout_staff_locker";
+    public const string LookoutMachineRoomId = "cache_lookout_machine_room";
+    // 联合收割机仓库（中点 2→10，band 10~30 下限）：工业材料为主，食物/医疗极少。
+    public const string WarehouseWorkbenchId = "cache_warehouse_workbench";
+    public const string WarehousePartsBinId = "cache_warehouse_parts_bin";
+    public const string WarehouseFuelDrumId = "cache_warehouse_fuel_drum";
+    public const string WarehouseHayLoftId = "cache_warehouse_hayloft";
+    public const string WarehouseBreakCornerId = "cache_warehouse_break_corner";
+    public const string WarehouseScrapPileId = "cache_warehouse_scrap_pile";
+    public const string WarehouseCombineCabId = "cache_warehouse_combine_cab";
+    public const string WarehouseLumberRackId = "cache_warehouse_lumber_rack";
+    // 广播台（中点 2→10）：电子/线材/燃油 + 办公区，食物/医疗集中在食堂/更衣室各一处。
+    public const string BroadcastOfficeId = "cache_broadcast_office";
+    public const string BroadcastArchiveId = "cache_broadcast_archive";
+    public const string BroadcastGeneratorId = "cache_broadcast_generator";
+    public const string BroadcastLockersId = "cache_broadcast_lockers";
+    public const string BroadcastCanteenId = "cache_broadcast_canteen";
+    public const string BroadcastServerRackId = "cache_broadcast_server_rack";
+    public const string BroadcastRoofAntennaId = "cache_broadcast_roof_antenna";
+    public const string BroadcastStoreroomId = "cache_broadcast_storeroom";
+    // 南林村庄（大点 9→30，band 30+ 硬口径）：既有四分区加密 + 新增后山/河滩两分区；单点调薄、食物医疗分散控量。
+    //   民居区加密(6)：
+    public const string VillageBedroom2Id = "cache_village_bedroom2";
+    public const string VillageLoftId = "cache_village_loft";
+    public const string VillageCourtyardId = "cache_village_courtyard";
+    public const string VillageCoopId = "cache_village_coop";
+    public const string VillagePantry2Id = "cache_village_pantry2";
+    public const string VillageWoodpileId = "cache_village_woodpile";
+    //   村中心加密(4)：
+    public const string VillageCoopStoreId = "cache_village_coop_store";
+    public const string VillageSchoolId = "cache_village_school";
+    public const string VillageForgeId = "cache_village_forge";
+    public const string VillageBusStopId = "cache_village_bus_stop";
+    //   村尾加密(3)：
+    public const string VillageBarnId = "cache_village_barn";
+    public const string VillageGraveHutId = "cache_village_grave_hut";
+    public const string VillageBeehiveId = "cache_village_beehive";
+    //   村口加密(2)：
+    public const string VillageGatePostId = "cache_village_gate_post";
+    public const string VillageTrikeId = "cache_village_trike";
+    //   新分区·后山(3)（藏深，山洞为医疗深藏点）：
+    public const string VillageBackhillBlindId = "cache_village_backhill_blind";
+    public const string VillageBackhillKilnId = "cache_village_backhill_kiln";
+    public const string VillageBackhillCaveId = "cache_village_backhill_cave";
+    //   新分区·河滩(3)：
+    public const string VillageRiverbankBoatId = "cache_village_riverbank_boat";
+    public const string VillageRiverbankShackId = "cache_village_riverbank_shack";
+    public const string VillageRiverbankPumpId = "cache_village_riverbank_pump";
 
     // ——一次性 flag（防重复搜刮，跨关持久）——
     public const string RiversideGunCabinetFlag = "searched_riverside_gun_cabinet";
@@ -94,6 +154,53 @@ public static class ExplorationCache
     public const string VillageToolShedFlag = "searched_village_tool_shed";
     public const string VillageShrineFlag = "searched_village_shrine";
     public const string VillageClinicFlag = "searched_village_clinic";
+    // [SPEC-B12] 扩容新增点的一次性 flag（与上方 id 一一对应）：
+    public const string RangersCabinAtticFlag = "searched_rangers_cabin_attic";
+    public const string RangersCabinUnderbedFlag = "searched_rangers_cabin_underbed";
+    public const string RangersCabinPorchFlag = "searched_rangers_cabin_porch";
+    public const string RiversideHearthFlag = "searched_riverside_hearth";
+    public const string RiversideFishingFlag = "searched_riverside_fishing";
+    public const string RiversideCellarFlag = "searched_riverside_cellar";
+    public const string LookoutVendingFlag = "searched_lookout_vending";
+    public const string LookoutStaffLockerFlag = "searched_lookout_staff_locker";
+    public const string LookoutMachineRoomFlag = "searched_lookout_machine_room";
+    public const string WarehouseWorkbenchFlag = "searched_warehouse_workbench";
+    public const string WarehousePartsBinFlag = "searched_warehouse_parts_bin";
+    public const string WarehouseFuelDrumFlag = "searched_warehouse_fuel_drum";
+    public const string WarehouseHayLoftFlag = "searched_warehouse_hayloft";
+    public const string WarehouseBreakCornerFlag = "searched_warehouse_break_corner";
+    public const string WarehouseScrapPileFlag = "searched_warehouse_scrap_pile";
+    public const string WarehouseCombineCabFlag = "searched_warehouse_combine_cab";
+    public const string WarehouseLumberRackFlag = "searched_warehouse_lumber_rack";
+    public const string BroadcastOfficeFlag = "searched_broadcast_office";
+    public const string BroadcastArchiveFlag = "searched_broadcast_archive";
+    public const string BroadcastGeneratorFlag = "searched_broadcast_generator";
+    public const string BroadcastLockersFlag = "searched_broadcast_lockers";
+    public const string BroadcastCanteenFlag = "searched_broadcast_canteen";
+    public const string BroadcastServerRackFlag = "searched_broadcast_server_rack";
+    public const string BroadcastRoofAntennaFlag = "searched_broadcast_roof_antenna";
+    public const string BroadcastStoreroomFlag = "searched_broadcast_storeroom";
+    public const string VillageBedroom2Flag = "searched_village_bedroom2";
+    public const string VillageLoftFlag = "searched_village_loft";
+    public const string VillageCourtyardFlag = "searched_village_courtyard";
+    public const string VillageCoopFlag = "searched_village_coop";
+    public const string VillagePantry2Flag = "searched_village_pantry2";
+    public const string VillageWoodpileFlag = "searched_village_woodpile";
+    public const string VillageCoopStoreFlag = "searched_village_coop_store";
+    public const string VillageSchoolFlag = "searched_village_school";
+    public const string VillageForgeFlag = "searched_village_forge";
+    public const string VillageBusStopFlag = "searched_village_bus_stop";
+    public const string VillageBarnFlag = "searched_village_barn";
+    public const string VillageGraveHutFlag = "searched_village_grave_hut";
+    public const string VillageBeehiveFlag = "searched_village_beehive";
+    public const string VillageGatePostFlag = "searched_village_gate_post";
+    public const string VillageTrikeFlag = "searched_village_trike";
+    public const string VillageBackhillBlindFlag = "searched_village_backhill_blind";
+    public const string VillageBackhillKilnFlag = "searched_village_backhill_kiln";
+    public const string VillageBackhillCaveFlag = "searched_village_backhill_cave";
+    public const string VillageRiverbankBoatFlag = "searched_village_riverbank_boat";
+    public const string VillageRiverbankShackFlag = "searched_village_riverbank_shack";
+    public const string VillageRiverbankPumpFlag = "searched_village_riverbank_pump";
 
     // ——关键投放物标识（须与 WeaponTable / BookLibrary 一致）——
     /// <summary>栓动猎枪武器名，须与 <c>WeaponTable.BoltActionHuntingRifle().Name</c> 一致。</summary>
@@ -110,21 +217,60 @@ public static class ExplorationCache
     /// </summary>
     public static IReadOnlyList<string> CacheIdsFor(string destinationName) => destinationName switch
     {
-        RiversideCabinName => new[] { RiversideGunCabinetId, RiversideBedChestId },
-        HarvesterWarehouseName => new[] { WarehouseToolCabinetId, WarehouseAtticChestId },
+        // 河边小屋（小点，5 处）：枪柜(近)→灶膛→渔具→床底(深)→菜窖(深)。
+        RiversideCabinName => new[]
+        {
+            RiversideGunCabinetId, RiversideHearthId, RiversideFishingId,
+            RiversideBedChestId, RiversideCellarId,
+        },
+        // 联合收割机仓库（中点，10 处）：工具柜(近)→…→阁楼铁皮箱(最深←书)。
+        HarvesterWarehouseName => new[]
+        {
+            WarehouseToolCabinetId, WarehouseWorkbenchId, WarehouseBreakCornerId,
+            WarehousePartsBinId, WarehouseFuelDrumId, WarehouseLumberRackId,
+            WarehouseHayLoftId, WarehouseScrapPileId, WarehouseCombineCabId,
+            WarehouseAtticChestId,
+        },
         // 望远镜发现点(尸潮剧情)不在此列——那是 LookoutSighting 管的置旗标+叙事，非物资搜刮。
-        CityRooftopLookoutName => new[] { LookoutGiftShopId, LookoutWardensRoomId },
+        // 城市之巅瞭望观景台（小点，5 处）：游客服务台(近)→贩卖机→员工储物柜→天台机房(深)→值班室(最深)。
+        CityRooftopLookoutName => new[]
+        {
+            LookoutGiftShopId, LookoutVendingId, LookoutStaffLockerId,
+            LookoutMachineRoomId, LookoutWardensRoomId,
+        },
         // 发出设备定点(TransmitterDiscoveryId)不在此列——那是 RadioMainline 管的取设备+推进状态，非物资搜刮。
-        BroadcastStationName => new[] { BroadcastBreakRoomId, BroadcastPartsStoreId },
-        // 守林人小屋（小点）：里屋碗柜(近) + 后院柴房(深)。哥顿上吊尸+日记B 不在此列——那是 GoldfingerDiscovery 管的剧情发现点。
-        WatchersCabinName => new[] { RangersCabinPantryId, RangersCabinShedId },
-        // 南林村庄（大点）：9 处搜刮点，近入口→藏深排序（村口→民居→村中心→村尾）。救援锁屋(VillageRescue)不在此列——那是主线入队触发点，不计物资完成度。
+        // 广播台（中点，10 处）：茶水间(近)→…→备件仓库(最深)。
+        BroadcastStationName => new[]
+        {
+            BroadcastBreakRoomId, BroadcastOfficeId, BroadcastLockersId,
+            BroadcastCanteenId, BroadcastStoreroomId, BroadcastGeneratorId,
+            BroadcastServerRackId, BroadcastArchiveId, BroadcastRoofAntennaId,
+            BroadcastPartsStoreId,
+        },
+        // 守林人小屋（小点，5 处；密度克制不破坏"内容很少"氛围）：里屋碗柜(近)→床底→门廊→阁楼(深)→后院柴房(深)。哥顿上吊尸+日记B 不在此列（GoldfingerDiscovery 管）。
+        WatchersCabinName => new[]
+        {
+            RangersCabinPantryId, RangersCabinUnderbedId, RangersCabinPorchId,
+            RangersCabinAtticId, RangersCabinShedId,
+        },
+        // 南林村庄（大点，30 处，[SPEC-B12] 大=30+ 硬口径）：近入口→藏深，村口→民居→村中心→村尾→后山→河滩。救援锁屋(VillageRescue)不在此列——主线入队触发点，不计物资完成度。
         VillageRescue.DestinationName => new[]
         {
-            VillageRoadsideCarId,
-            VillageKitchenId, VillageWardrobeId, VillageBackRoomId,
-            VillageShopShelfId, VillageWellToolboxId,
-            VillageToolShedId, VillageShrineId, VillageClinicId,
+            // 村口/杂物(3)
+            VillageRoadsideCarId, VillageGatePostId, VillageTrikeId,
+            // 民居区(9)
+            VillageKitchenId, VillageWardrobeId, VillageBedroom2Id, VillageCourtyardId,
+            VillageCoopId, VillagePantry2Id, VillageLoftId, VillageWoodpileId, VillageBackRoomId,
+            // 村中心(6)
+            VillageShopShelfId, VillageCoopStoreId, VillageBusStopId, VillageSchoolId,
+            VillageWellToolboxId, VillageForgeId,
+            // 村尾/藏深(6)
+            VillageToolShedId, VillageBarnId, VillageBeehiveId, VillageGraveHutId,
+            VillageShrineId, VillageClinicId,
+            // 后山(3, 山洞医疗深藏)
+            VillageBackhillBlindId, VillageBackhillKilnId, VillageBackhillCaveId,
+            // 河滩(3)
+            VillageRiverbankBoatId, VillageRiverbankShackId, VillageRiverbankPumpId,
         },
         _ => Array.Empty<string>(),
     };
@@ -154,6 +300,53 @@ public static class ExplorationCache
         VillageToolShedId => VillageToolShedFlag,
         VillageShrineId => VillageShrineFlag,
         VillageClinicId => VillageClinicFlag,
+        // [SPEC-B12] 扩容新增点：
+        RangersCabinAtticId => RangersCabinAtticFlag,
+        RangersCabinUnderbedId => RangersCabinUnderbedFlag,
+        RangersCabinPorchId => RangersCabinPorchFlag,
+        RiversideHearthId => RiversideHearthFlag,
+        RiversideFishingId => RiversideFishingFlag,
+        RiversideCellarId => RiversideCellarFlag,
+        LookoutVendingId => LookoutVendingFlag,
+        LookoutStaffLockerId => LookoutStaffLockerFlag,
+        LookoutMachineRoomId => LookoutMachineRoomFlag,
+        WarehouseWorkbenchId => WarehouseWorkbenchFlag,
+        WarehousePartsBinId => WarehousePartsBinFlag,
+        WarehouseFuelDrumId => WarehouseFuelDrumFlag,
+        WarehouseHayLoftId => WarehouseHayLoftFlag,
+        WarehouseBreakCornerId => WarehouseBreakCornerFlag,
+        WarehouseScrapPileId => WarehouseScrapPileFlag,
+        WarehouseCombineCabId => WarehouseCombineCabFlag,
+        WarehouseLumberRackId => WarehouseLumberRackFlag,
+        BroadcastOfficeId => BroadcastOfficeFlag,
+        BroadcastArchiveId => BroadcastArchiveFlag,
+        BroadcastGeneratorId => BroadcastGeneratorFlag,
+        BroadcastLockersId => BroadcastLockersFlag,
+        BroadcastCanteenId => BroadcastCanteenFlag,
+        BroadcastServerRackId => BroadcastServerRackFlag,
+        BroadcastRoofAntennaId => BroadcastRoofAntennaFlag,
+        BroadcastStoreroomId => BroadcastStoreroomFlag,
+        VillageBedroom2Id => VillageBedroom2Flag,
+        VillageLoftId => VillageLoftFlag,
+        VillageCourtyardId => VillageCourtyardFlag,
+        VillageCoopId => VillageCoopFlag,
+        VillagePantry2Id => VillagePantry2Flag,
+        VillageWoodpileId => VillageWoodpileFlag,
+        VillageCoopStoreId => VillageCoopStoreFlag,
+        VillageSchoolId => VillageSchoolFlag,
+        VillageForgeId => VillageForgeFlag,
+        VillageBusStopId => VillageBusStopFlag,
+        VillageBarnId => VillageBarnFlag,
+        VillageGraveHutId => VillageGraveHutFlag,
+        VillageBeehiveId => VillageBeehiveFlag,
+        VillageGatePostId => VillageGatePostFlag,
+        VillageTrikeId => VillageTrikeFlag,
+        VillageBackhillBlindId => VillageBackhillBlindFlag,
+        VillageBackhillKilnId => VillageBackhillKilnFlag,
+        VillageBackhillCaveId => VillageBackhillCaveFlag,
+        VillageRiverbankBoatId => VillageRiverbankBoatFlag,
+        VillageRiverbankShackId => VillageRiverbankShackFlag,
+        VillageRiverbankPumpId => VillageRiverbankPumpFlag,
         _ => "",
     };
 
@@ -269,6 +462,248 @@ public static class ExplorationCache
                     LootItem.Material("nails", 2),          // 零散铁钉
                 },
                 RangersCabinShedTitle, RangersCabinShedNarrative),
+
+            // —— [SPEC-B12] 守林人小屋补 3 处（小点，量级极克制：新增仅 1 处医疗小物）——
+            RangersCabinAtticId when NotYet(flags, RangersCabinAtticFlag) => new CacheResult(
+                RangersCabinAtticFlag,
+                new[] { LootItem.Material("cloth", 1), LootItem.Material("wire", 1) },
+                RangersCabinAtticTitle, RangersCabinAtticNarrative),
+
+            RangersCabinUnderbedId when NotYet(flags, RangersCabinUnderbedFlag) => new CacheResult(
+                RangersCabinUnderbedFlag,
+                new[] { LootItem.Material("bandage", 1), LootItem.Material("scrap_metal", 1) },
+                RangersCabinUnderbedTitle, RangersCabinUnderbedNarrative),
+
+            RangersCabinPorchId when NotYet(flags, RangersCabinPorchFlag) => new CacheResult(
+                RangersCabinPorchFlag,
+                new[] { LootItem.Material("nails", 2), LootItem.Material("wood", 1) },
+                RangersCabinPorchTitle, RangersCabinPorchNarrative),
+
+            // —— [SPEC-B12] 河边小屋补 3 处（小点）——
+            RiversideHearthId when NotYet(flags, RiversideHearthFlag) => new CacheResult(
+                RiversideHearthFlag,
+                new[] { LootItem.Food(1) },
+                RiversideHearthTitle, RiversideHearthNarrative),
+
+            RiversideFishingId when NotYet(flags, RiversideFishingFlag) => new CacheResult(
+                RiversideFishingFlag,
+                new[] { LootItem.Material("rope", 1), LootItem.Material("wire", 1) },
+                RiversideFishingTitle, RiversideFishingNarrative),
+
+            RiversideCellarId when NotYet(flags, RiversideCellarFlag) => new CacheResult(
+                RiversideCellarFlag,
+                new[] { LootItem.Food(1), LootItem.Material("bone", 1) },
+                RiversideCellarTitle, RiversideCellarNarrative),
+
+            // —— [SPEC-B12] 瞭望台补 3 处（小点）——
+            LookoutVendingId when NotYet(flags, LookoutVendingFlag) => new CacheResult(
+                LookoutVendingFlag,
+                new[] { LootItem.Food(1) },
+                LookoutVendingTitle, LookoutVendingNarrative),
+
+            LookoutStaffLockerId when NotYet(flags, LookoutStaffLockerFlag) => new CacheResult(
+                LookoutStaffLockerFlag,
+                new[] { LootItem.Material("cloth", 1), LootItem.Material("bandage", 1) },
+                LookoutStaffLockerTitle, LookoutStaffLockerNarrative),
+
+            LookoutMachineRoomId when NotYet(flags, LookoutMachineRoomFlag) => new CacheResult(
+                LookoutMachineRoomFlag,
+                new[] { LootItem.Material("components", 1), LootItem.Material("wire", 1), LootItem.Material("fuel", 1) },
+                LookoutMachineRoomTitle, LookoutMachineRoomNarrative),
+
+            // —— [SPEC-B12] 联合收割机仓库补 8 处（中点；工业材料为主，食物/医疗仅休息角 1 处）——
+            WarehouseWorkbenchId when NotYet(flags, WarehouseWorkbenchFlag) => new CacheResult(
+                WarehouseWorkbenchFlag,
+                new[] { LootItem.Material("nails", 2), LootItem.Material("wood", 1) },
+                WarehouseWorkbenchTitle, WarehouseWorkbenchNarrative),
+
+            WarehousePartsBinId when NotYet(flags, WarehousePartsBinFlag) => new CacheResult(
+                WarehousePartsBinFlag,
+                new[] { LootItem.Material("scrap_metal", 2), LootItem.Material("components", 1) },
+                WarehousePartsBinTitle, WarehousePartsBinNarrative),
+
+            WarehouseFuelDrumId when NotYet(flags, WarehouseFuelDrumFlag) => new CacheResult(
+                WarehouseFuelDrumFlag,
+                new[] { LootItem.Material("fuel", 2) },
+                WarehouseFuelDrumTitle, WarehouseFuelDrumNarrative),
+
+            WarehouseHayLoftId when NotYet(flags, WarehouseHayLoftFlag) => new CacheResult(
+                WarehouseHayLoftFlag,
+                new[] { LootItem.Material("cloth", 1), LootItem.Material("rope", 1) },
+                WarehouseHayLoftTitle, WarehouseHayLoftNarrative),
+
+            WarehouseBreakCornerId when NotYet(flags, WarehouseBreakCornerFlag) => new CacheResult(
+                WarehouseBreakCornerFlag,
+                new[] { LootItem.Food(1), LootItem.Material("bandage", 1) },
+                WarehouseBreakCornerTitle, WarehouseBreakCornerNarrative),
+
+            WarehouseScrapPileId when NotYet(flags, WarehouseScrapPileFlag) => new CacheResult(
+                WarehouseScrapPileFlag,
+                new[] { LootItem.Material("scrap_metal", 2), LootItem.Material("wire", 1) },
+                WarehouseScrapPileTitle, WarehouseScrapPileNarrative),
+
+            WarehouseCombineCabId when NotYet(flags, WarehouseCombineCabFlag) => new CacheResult(
+                WarehouseCombineCabFlag,
+                new[] { LootItem.Material("components", 1), LootItem.Material("fuel", 1) },
+                WarehouseCombineCabTitle, WarehouseCombineCabNarrative),
+
+            WarehouseLumberRackId when NotYet(flags, WarehouseLumberRackFlag) => new CacheResult(
+                WarehouseLumberRackFlag,
+                new[] { LootItem.Material("wood", 3), LootItem.Material("nails", 1) },
+                WarehouseLumberRackTitle, WarehouseLumberRackNarrative),
+
+            // —— [SPEC-B12] 广播台补 8 处（中点；电子/线材为主，食物仅食堂 1、医疗仅更衣室 1）——
+            BroadcastOfficeId when NotYet(flags, BroadcastOfficeFlag) => new CacheResult(
+                BroadcastOfficeFlag,
+                new[] { LootItem.Material("cloth", 1), LootItem.Material("components", 1) },
+                BroadcastOfficeTitle, BroadcastOfficeNarrative),
+
+            BroadcastArchiveId when NotYet(flags, BroadcastArchiveFlag) => new CacheResult(
+                BroadcastArchiveFlag,
+                new[] { LootItem.Material("cloth", 2), LootItem.Material("wire", 1) },
+                BroadcastArchiveTitle, BroadcastArchiveNarrative),
+
+            BroadcastGeneratorId when NotYet(flags, BroadcastGeneratorFlag) => new CacheResult(
+                BroadcastGeneratorFlag,
+                new[] { LootItem.Material("fuel", 2), LootItem.Material("components", 1) },
+                BroadcastGeneratorTitle, BroadcastGeneratorNarrative),
+
+            BroadcastLockersId when NotYet(flags, BroadcastLockersFlag) => new CacheResult(
+                BroadcastLockersFlag,
+                new[] { LootItem.Material("cloth", 1), LootItem.Material("bandage", 1) },
+                BroadcastLockersTitle, BroadcastLockersNarrative),
+
+            BroadcastCanteenId when NotYet(flags, BroadcastCanteenFlag) => new CacheResult(
+                BroadcastCanteenFlag,
+                new[] { LootItem.Food(2) },
+                BroadcastCanteenTitle, BroadcastCanteenNarrative),
+
+            BroadcastServerRackId when NotYet(flags, BroadcastServerRackFlag) => new CacheResult(
+                BroadcastServerRackFlag,
+                new[] { LootItem.Material("components", 2), LootItem.Material("wire", 2) },
+                BroadcastServerRackTitle, BroadcastServerRackNarrative),
+
+            BroadcastRoofAntennaId when NotYet(flags, BroadcastRoofAntennaFlag) => new CacheResult(
+                BroadcastRoofAntennaFlag,
+                new[] { LootItem.Material("scrap_metal", 2), LootItem.Material("wire", 1) },
+                BroadcastRoofAntennaTitle, BroadcastRoofAntennaNarrative),
+
+            BroadcastStoreroomId when NotYet(flags, BroadcastStoreroomFlag) => new CacheResult(
+                BroadcastStoreroomFlag,
+                new[] { LootItem.Material("nails", 2), LootItem.Material("rope", 1), LootItem.Material("scrap_metal", 1) },
+                BroadcastStoreroomTitle, BroadcastStoreroomNarrative),
+
+            // —— [SPEC-B12] 南林村庄补 21 处（大点 30；单点调薄，食物散布 7 处、医疗集中候车棚 1+后山洞深藏 1）——
+            // 村口(2)
+            VillageGatePostId when NotYet(flags, VillageGatePostFlag) => new CacheResult(
+                VillageGatePostFlag,
+                new[] { LootItem.Material("scrap_metal", 1), LootItem.Material("wire", 1) },
+                VillageGatePostTitle, VillageGatePostNarrative),
+
+            VillageTrikeId when NotYet(flags, VillageTrikeFlag) => new CacheResult(
+                VillageTrikeFlag,
+                new[] { LootItem.Material("scrap_metal", 1), LootItem.Material("fuel", 1) },
+                VillageTrikeTitle, VillageTrikeNarrative),
+
+            // 民居(6)
+            VillageBedroom2Id when NotYet(flags, VillageBedroom2Flag) => new CacheResult(
+                VillageBedroom2Flag,
+                new[] { LootItem.Material("cloth", 1) },
+                VillageBedroom2Title, VillageBedroom2Narrative),
+
+            VillageCourtyardId when NotYet(flags, VillageCourtyardFlag) => new CacheResult(
+                VillageCourtyardFlag,
+                new[] { LootItem.Food(1) },
+                VillageCourtyardTitle, VillageCourtyardNarrative),
+
+            VillageCoopId when NotYet(flags, VillageCoopFlag) => new CacheResult(
+                VillageCoopFlag,
+                new[] { LootItem.Food(1), LootItem.Material("bone", 1) },
+                VillageCoopTitle, VillageCoopNarrative),
+
+            VillagePantry2Id when NotYet(flags, VillagePantry2Flag) => new CacheResult(
+                VillagePantry2Flag,
+                new[] { LootItem.Food(1) },
+                VillagePantry2Title, VillagePantry2Narrative),
+
+            VillageLoftId when NotYet(flags, VillageLoftFlag) => new CacheResult(
+                VillageLoftFlag,
+                new[] { LootItem.Material("scrap_cloth", 1), LootItem.Material("wood", 1) },
+                VillageLoftTitle, VillageLoftNarrative),
+
+            VillageWoodpileId when NotYet(flags, VillageWoodpileFlag) => new CacheResult(
+                VillageWoodpileFlag,
+                new[] { LootItem.Material("wood", 2), LootItem.Material("rope", 1) },
+                VillageWoodpileTitle, VillageWoodpileNarrative),
+
+            // 村中心(4)
+            VillageCoopStoreId when NotYet(flags, VillageCoopStoreFlag) => new CacheResult(
+                VillageCoopStoreFlag,
+                new[] { LootItem.Material("nails", 2), LootItem.Material("cloth", 1) },
+                VillageCoopStoreTitle, VillageCoopStoreNarrative),
+
+            VillageSchoolId when NotYet(flags, VillageSchoolFlag) => new CacheResult(
+                VillageSchoolFlag,
+                new[] { LootItem.Material("cloth", 1), LootItem.Material("wire", 1) },
+                VillageSchoolTitle, VillageSchoolNarrative),
+
+            VillageForgeId when NotYet(flags, VillageForgeFlag) => new CacheResult(
+                VillageForgeFlag,
+                new[] { LootItem.Material("scrap_metal", 2), LootItem.Material("nails", 2) },
+                VillageForgeTitle, VillageForgeNarrative),
+
+            VillageBusStopId when NotYet(flags, VillageBusStopFlag) => new CacheResult(
+                VillageBusStopFlag,
+                new[] { LootItem.Food(1), LootItem.Material("bandage", 1) },
+                VillageBusStopTitle, VillageBusStopNarrative),
+
+            // 村尾(3)
+            VillageBarnId when NotYet(flags, VillageBarnFlag) => new CacheResult(
+                VillageBarnFlag,
+                new[] { LootItem.Food(1), LootItem.Material("wood", 1) },
+                VillageBarnTitle, VillageBarnNarrative),
+
+            VillageGraveHutId when NotYet(flags, VillageGraveHutFlag) => new CacheResult(
+                VillageGraveHutFlag,
+                new[] { LootItem.Material("nails", 1), LootItem.Material("rope", 1) },
+                VillageGraveHutTitle, VillageGraveHutNarrative),
+
+            VillageBeehiveId when NotYet(flags, VillageBeehiveFlag) => new CacheResult(
+                VillageBeehiveFlag,
+                new[] { LootItem.Food(1) },
+                VillageBeehiveTitle, VillageBeehiveNarrative),
+
+            // 后山(3, 山洞暗格＝医疗深藏奖励)
+            VillageBackhillBlindId when NotYet(flags, VillageBackhillBlindFlag) => new CacheResult(
+                VillageBackhillBlindFlag,
+                new[] { LootItem.Material("bone", 2), LootItem.Material("rope", 1) },
+                VillageBackhillBlindTitle, VillageBackhillBlindNarrative),
+
+            VillageBackhillKilnId when NotYet(flags, VillageBackhillKilnFlag) => new CacheResult(
+                VillageBackhillKilnFlag,
+                new[] { LootItem.Material("wood", 2), LootItem.Material("fuel", 1) },
+                VillageBackhillKilnTitle, VillageBackhillKilnNarrative),
+
+            VillageBackhillCaveId when NotYet(flags, VillageBackhillCaveFlag) => new CacheResult(
+                VillageBackhillCaveFlag,
+                new[] { LootItem.Material("antibiotics", 1), LootItem.Material("first_aid_kit", 1) },
+                VillageBackhillCaveTitle, VillageBackhillCaveNarrative),
+
+            // 河滩(3)
+            VillageRiverbankBoatId when NotYet(flags, VillageRiverbankBoatFlag) => new CacheResult(
+                VillageRiverbankBoatFlag,
+                new[] { LootItem.Material("rope", 1), LootItem.Material("scrap_metal", 1) },
+                VillageRiverbankBoatTitle, VillageRiverbankBoatNarrative),
+
+            VillageRiverbankShackId when NotYet(flags, VillageRiverbankShackFlag) => new CacheResult(
+                VillageRiverbankShackFlag,
+                new[] { LootItem.Food(1), LootItem.Material("bone", 1) },
+                VillageRiverbankShackTitle, VillageRiverbankShackNarrative),
+
+            VillageRiverbankPumpId when NotYet(flags, VillageRiverbankPumpFlag) => new CacheResult(
+                VillageRiverbankPumpFlag,
+                new[] { LootItem.Material("components", 1), LootItem.Material("fuel", 1), LootItem.Material("wire", 1) },
+                VillageRiverbankPumpTitle, VillageRiverbankPumpNarrative),
 
             // —— 南林村庄（大点，量级中档、分区铺设；draft 待用户改）——
             VillageRoadsideCarId when NotYet(flags, VillageRoadsideCarFlag) => new CacheResult(
@@ -510,4 +945,110 @@ public static class ExplorationCache
         "药柜被翻过，但没搜干净——玻璃门后还剩两卷绷带、一小板没过期的抗生素，" +
         "抽屉底压着一只没拆封的急救包。\n\n" +
         "诊桌上的登记本停在灾变那几天，最后几行字迹潦草得几乎认不出。";
+
+    // ==== [SPEC-B12] 配额扩容新增点的环境叙事 draft（一句话级草稿，末日日常氛围；全文待用户验收/优化）====
+
+    // —— 守林人小屋补点 ——
+    private const string RangersCabinAtticTitle = "阁楼杂物";
+    private const string RangersCabinAtticNarrative = "钻进低矮的阁楼，积灰的木箱里翻出些叠好的旧布和一小卷铁丝。";
+    private const string RangersCabinUnderbedTitle = "床底铁盒";
+    private const string RangersCabinUnderbedNarrative = "床板底下拖出个上了锁的铁盒，撬开只有一卷绷带和几块用剩的碎铁。";
+    private const string RangersCabinPorchTitle = "门廊工具架";
+    private const string RangersCabinPorchNarrative = "门廊角落的工具架上还挂着几枚钉子、一截没用完的木料。";
+
+    // —— 河边小屋补点 ——
+    private const string RiversideHearthTitle = "灶膛橱柜";
+    private const string RiversideHearthNarrative = "灶台边的橱柜里，还剩一小袋没受潮的干粮。";
+    private const string RiversideFishingTitle = "屋檐渔具箱";
+    private const string RiversideFishingNarrative = "屋檐下挂着猎人的渔具箱，成卷的鱼线和钩绳还能拆下来用。";
+    private const string RiversideCellarTitle = "屋后菜窖";
+    private const string RiversideCellarNarrative = "屋后半塌的菜窖里，腌菜坛底压着点存粮，墙角还堆着几根处理干净的兽骨。";
+
+    // —— 瞭望台补点 ——
+    private const string LookoutVendingTitle = "自动贩卖机";
+    private const string LookoutVendingNarrative = "观景层的自动贩卖机被撬过，玻璃后头还卡着两瓶饮料、一包没掉出来的零食。";
+    private const string LookoutStaffLockerTitle = "员工储物柜";
+    private const string LookoutStaffLockerNarrative = "员工休息室的储物柜里挂着景区制服，夹层里塞着一小包创可贴。";
+    private const string LookoutMachineRoomTitle = "天台机房";
+    private const string LookoutMachineRoomNarrative = "天台机房堆着通风和信号设备的零件，拆下些电子件、线材，还接了半桶余油。";
+
+    // —— 联合收割机仓库补点 ——
+    private const string WarehouseWorkbenchTitle = "工作台抽屉";
+    private const string WarehouseWorkbenchNarrative = "工作台的抽屉没关严，里头散着一把铁钉和一截刨好的木料。";
+    private const string WarehousePartsBinTitle = "零件料架";
+    private const string WarehousePartsBinNarrative = "靠墙的零件料架翻倒了，捡出几块农机拆下的碎金属和一小盒电子元件。";
+    private const string WarehouseFuelDrumTitle = "油料桶区";
+    private const string WarehouseFuelDrumNarrative = "仓库尽头码着几只油桶，晃了晃还有响，接出两桶柴油。";
+    private const string WarehouseHayLoftTitle = "草料阁";
+    private const string WarehouseHayLoftNarrative = "草料阁堆着发霉的干草，翻出几块盖粮的旧帆布和一卷捆草绳。";
+    private const string WarehouseBreakCornerTitle = "工人休息角";
+    private const string WarehouseBreakCornerNarrative = "机棚一角是工人歇脚的地方，桌上剩着没吃完的干粮，抽屉里有一卷绷带。";
+    private const string WarehouseScrapPileTitle = "废铁堆";
+    private const string WarehouseScrapPileNarrative = "墙根堆着报废农具的废铁，扒拉出几块结实的碎金属和一段电线。";
+    private const string WarehouseCombineCabTitle = "收割机驾驶室";
+    private const string WarehouseCombineCabNarrative = "钻进那台大收割机的驾驶室，仪表盘后拆出些电子件，油箱里还剩一点余油。";
+    private const string WarehouseLumberRackTitle = "木料架";
+    private const string WarehouseLumberRackNarrative = "靠里的木料架上码着整齐的板材，抱下几根，顺手扫了盒散钉。";
+
+    // —— 广播台补点 ——
+    private const string BroadcastOfficeTitle = "台长办公室";
+    private const string BroadcastOfficeNarrative = "台长办公室的抽屉被翻乱了，剩下一块窗帘布和一小盒备用电子元件。";
+    private const string BroadcastArchiveTitle = "资料室";
+    private const string BroadcastArchiveNarrative = "资料室的架子上尽是发霉的磁带和文件，扯下几幅遮尘布，顺走一卷捆线。";
+    private const string BroadcastGeneratorTitle = "发电机房";
+    private const string BroadcastGeneratorNarrative = "地下发电机房还留着两桶备用柴油，控制柜里拆出块电子件。";
+    private const string BroadcastLockersTitle = "员工更衣室";
+    private const string BroadcastLockersNarrative = "更衣室的铁皮柜里挂着工装，最上层压着一小盒常备的绷带。";
+    private const string BroadcastCanteenTitle = "食堂后厨";
+    private const string BroadcastCanteenNarrative = "台里的小食堂后厨，米面早霉了，冷库门后倒还留着几听没胀气的罐头。";
+    private const string BroadcastServerRackTitle = "机架间";
+    private const string BroadcastServerRackNarrative = "满墙的机架被拆过一轮，拆板间还能撬下几块电子件、几卷成盘的信号线。";
+    private const string BroadcastRoofAntennaTitle = "屋顶天线基座";
+    private const string BroadcastRoofAntennaNarrative = "爬上屋顶，天线基座锈成一片，敲下几块结实的碎金属和一段拉线。";
+    private const string BroadcastStoreroomTitle = "杂物储藏间";
+    private const string BroadcastStoreroomNarrative = "走廊尽头的储藏间堆着杂物，翻出一把铁钉、一卷麻绳，还有块能回炉的碎铁。";
+
+    // —— 南林村庄补点（村口/民居/村中心/村尾/后山/河滩）——
+    private const string VillageGatePostTitle = "村口岗亭";
+    private const string VillageGatePostNarrative = "村口一间搭起来又废弃的岗亭，桌上撂着值守用的手电和一卷电线，都还能用。";
+    private const string VillageTrikeTitle = "村口废三轮";
+    private const string VillageTrikeNarrative = "路边歪着一辆爆胎的农用三轮，车斗空了，撬下几块车壳碎铁，油箱还余一点。";
+    private const string VillageBedroom2Title = "民居·梳妆台";
+    private const string VillageBedroom2Narrative = "另一户人家的主卧，梳妆台的抽屉里叠着几件没带走的衣裳。";
+    private const string VillageCourtyardTitle = "民居·院子菜畦";
+    private const string VillageCourtyardNarrative = "院子里的菜畦荒了，翻土时倒扒出几颗还能吃的番薯。";
+    private const string VillageCoopTitle = "民居·鸡窝棚";
+    private const string VillageCoopNarrative = "后院的鸡窝棚早空了，草料底下压着几枚风干的蛋，墙角散着些禽骨。";
+    private const string VillagePantry2Title = "民居·灶房米缸";
+    private const string VillagePantry2Narrative = "灶房那口大米缸盖得严实，缸底还剩小半袋没生虫的糙米。";
+    private const string VillageLoftTitle = "民居·阁楼";
+    private const string VillageLoftNarrative = "顺着木梯上阁楼，堆的尽是破烂，扯下些能引火的碎布、抽走一根房梁旧料。";
+    private const string VillageWoodpileTitle = "民居·柴垛";
+    private const string VillageWoodpileNarrative = "屋檐下码着过冬的柴垛，抱走几捆干柴，顺手拆下捆柴的粗绳。";
+    private const string VillageCoopStoreTitle = "村中心·供销社仓";
+    private const string VillageCoopStoreNarrative = "供销社后头的库房翻得七零八落，货架缝里还夹着一盒铁钉、几匹积灰的布。";
+    private const string VillageSchoolTitle = "村中心·村小教室";
+    private const string VillageSchoolNarrative = "村小的教室黑板还留着半句没擦的字，教具柜里剩些旧布和实验用的电线。";
+    private const string VillageForgeTitle = "村中心·铁匠铺";
+    private const string VillageForgeNarrative = "村口的铁匠铺炉子早凉了，砧板边散着打剩的碎铁料和一盒手打的钉子。";
+    private const string VillageBusStopTitle = "村中心·候车棚";
+    private const string VillageBusStopNarrative = "候车棚长椅下遗着个没人认领的行李袋，翻出点干粮和一卷急救绷带。";
+    private const string VillageBarnTitle = "村尾·打谷场谷仓";
+    private const string VillageBarnNarrative = "打谷场旁的谷仓门虚掩着，仓底还堆着没搬空的谷袋和几根晒谷用的木杆。";
+    private const string VillageGraveHutTitle = "村尾·坟场看守屋";
+    private const string VillageGraveHutNarrative = "村尾坟场边一间守墓人的矮屋，工具房里剩着几枚锈钉和一卷下棺用的粗绳。";
+    private const string VillageBeehiveTitle = "村尾·养蜂棚";
+    private const string VillageBeehiveNarrative = "半山脚下几只废弃的蜂箱，撬开一只，巢脾里还封着没被掏空的蜜。";
+    private const string VillageBackhillBlindTitle = "后山·猎人窝棚";
+    private const string VillageBackhillBlindNarrative = "后山林子里藏着个猎人守夜的窝棚，晾架上挂着处理好的兽骨，墙上盘着捕兽的绳套。";
+    private const string VillageBackhillKilnTitle = "后山·炭窑";
+    private const string VillageBackhillKilnNarrative = "半塌的炭窑还留着没烧完的木料，窑边一只铁皮桶里晃着引火的油。";
+    private const string VillageBackhillCaveTitle = "后山·山洞暗格";
+    private const string VillageBackhillCaveNarrative = "钻进后山最深处的山洞，石缝里嵌着个防潮的铁皮匣——有人把一小板抗生素和一只完整急救包藏在了这最难找的地方。";
+    private const string VillageRiverbankBoatTitle = "河滩·搁浅小船";
+    private const string VillageRiverbankBoatNarrative = "河滩上一条搁浅的乌篷船翻倒着，船舱里盘着缆绳，船钉能撬下几块碎铁。";
+    private const string VillageRiverbankShackTitle = "河滩·晒鱼棚";
+    private const string VillageRiverbankShackNarrative = "河边搭着个晒鱼的草棚，架上还挂着几条风干的鱼，脚下散着剔净的鱼骨。";
+    private const string VillageRiverbankPumpTitle = "河滩·抽水泵房";
+    private const string VillageRiverbankPumpNarrative = "灌溉用的抽水泵房锈迹斑斑，拆开泵机取出电机零件、一段线，油壶里还余点柴油。";
 }

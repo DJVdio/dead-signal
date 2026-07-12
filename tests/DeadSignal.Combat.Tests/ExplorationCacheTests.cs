@@ -71,18 +71,38 @@ public class ExplorationCacheTests
     }
 
     [Fact]
-    public void CacheIdsFor_MapsThreeDestinations_OthersEmpty()
+    public void CacheIdsFor_MapsDestinations_QuotaBandsNearToDeep_OthersEmpty()
     {
+        // [SPEC-B12] 扩到三级配额带下限：河边小屋/瞭望台=5(小)，仓库=10(中)；近→深序（招牌武器/书仍在入口/最深）。
         Assert.Equal(
-            new[] { ExplorationCache.RiversideGunCabinetId, ExplorationCache.RiversideBedChestId },
+            new[]
+            {
+                ExplorationCache.RiversideGunCabinetId, ExplorationCache.RiversideHearthId,
+                ExplorationCache.RiversideFishingId, ExplorationCache.RiversideBedChestId,
+                ExplorationCache.RiversideCellarId,
+            },
             ExplorationCache.CacheIdsFor(ExplorationCache.RiversideCabinName).ToArray());
         Assert.Equal(
-            new[] { ExplorationCache.WarehouseToolCabinetId, ExplorationCache.WarehouseAtticChestId },
+            new[]
+            {
+                ExplorationCache.WarehouseToolCabinetId, ExplorationCache.WarehouseWorkbenchId,
+                ExplorationCache.WarehouseBreakCornerId, ExplorationCache.WarehousePartsBinId,
+                ExplorationCache.WarehouseFuelDrumId, ExplorationCache.WarehouseLumberRackId,
+                ExplorationCache.WarehouseHayLoftId, ExplorationCache.WarehouseScrapPileId,
+                ExplorationCache.WarehouseCombineCabId, ExplorationCache.WarehouseAtticChestId,
+            },
             ExplorationCache.CacheIdsFor(ExplorationCache.HarvesterWarehouseName).ToArray());
-        // 城市之巅瞭望观景台：两处物资搜刮点（望远镜发现尸潮的剧情点不在此列，归 LookoutSighting）。
+        // 城市之巅瞭望观景台：5 处物资搜刮点（望远镜发现尸潮的剧情点不在此列，归 LookoutSighting）。
         Assert.Equal(
-            new[] { ExplorationCache.LookoutGiftShopId, ExplorationCache.LookoutWardensRoomId },
+            new[]
+            {
+                ExplorationCache.LookoutGiftShopId, ExplorationCache.LookoutVendingId,
+                ExplorationCache.LookoutStaffLockerId, ExplorationCache.LookoutMachineRoomId,
+                ExplorationCache.LookoutWardensRoomId,
+            },
             ExplorationCache.CacheIdsFor(ExplorationCache.CityRooftopLookoutName).ToArray());
+        // 广播台：10 处（茶水间近→备件仓库最深）。
+        Assert.Equal(10, ExplorationCache.CacheIdsFor(ExplorationCache.BroadcastStationName).Count);
         Assert.Empty(ExplorationCache.CacheIdsFor("超市"));
     }
 

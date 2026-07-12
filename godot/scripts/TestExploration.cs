@@ -97,6 +97,10 @@ public sealed partial class TestExploration : ExplorationLevel
         else if (DestinationName == VillageRescue.DestinationName)
             SetupSouthForestVillage();
 
+        // 叙事调查点（极乐迪斯科式，[SPEC-B12]）：按目的地迭代注册表铺 Area2D（与物资/主线点并存，命名空间隔离）。
+        // 须在 SetupVisionMask 之前（视觉容器进 _discoveryVisuals，供视野外隐藏）。
+        SetupNarrativeSpots();
+
         // 视野遮暗（批次4）：探索关全程启用。发现点须在此之前铺好（进 _discoveryVisuals）。
         SetupVisionMask();
     }
@@ -464,6 +468,23 @@ public sealed partial class TestExploration : ExplorationLevel
             markerColor: new Color(0.55f, 0.5f, 0.4f),
             label: "碗柜");
 
+        // [SPEC-B12] 小点扩至 5（band 5~10 下限；仍是"阁楼/床底/门廊"一类小点，不破坏内容稀薄氛围）。
+        AddDiscoveryPoint(
+            ExplorationCache.RangersCabinUnderbedId,
+            new Vector2(1080, 640),
+            markerColor: new Color(0.5f, 0.46f, 0.36f),
+            label: "床底铁盒");
+        AddDiscoveryPoint(
+            ExplorationCache.RangersCabinPorchId,
+            new Vector2(1200, 960),
+            markerColor: new Color(0.5f, 0.46f, 0.36f),
+            label: "门廊工具架");
+        AddDiscoveryPoint(
+            ExplorationCache.RangersCabinAtticId,
+            new Vector2(1420, 560),
+            markerColor: new Color(0.5f, 0.46f, 0.36f),
+            label: "阁楼杂物");
+
         // —— 后院：老树 + 哥顿上吊尸占位 + 柴房搜刮点 ——
         AddBackyardTree(new Vector2(1720, 700));
         // 哥顿上吊尸（后院老树横枝）+ 日记B 发现点。与金手指帮根据地异地，独立一处。
@@ -565,11 +586,28 @@ public sealed partial class TestExploration : ExplorationLevel
             markerColor: new Color(0.55f, 0.42f, 0.28f),
             label: "枪柜");
 
+        // [SPEC-B12] 小点扩至 5：灶膛(近)/渔具(近)、菜窖(深)。
+        AddDiscoveryPoint(
+            ExplorationCache.RiversideHearthId,
+            new Vector2(1320, 420),
+            markerColor: new Color(0.5f, 0.45f, 0.3f),
+            label: "灶膛橱柜");
+        AddDiscoveryPoint(
+            ExplorationCache.RiversideFishingId,
+            new Vector2(920, 520),
+            markerColor: new Color(0.5f, 0.45f, 0.3f),
+            label: "屋檐渔具箱");
+
         AddDiscoveryPoint(
             ExplorationCache.RiversideBedChestId,
             new Vector2(1850, 420),
             markerColor: new Color(0.5f, 0.45f, 0.3f),
             label: "床底木箱");
+        AddDiscoveryPoint(
+            ExplorationCache.RiversideCellarId,
+            new Vector2(2020, 660),
+            markerColor: new Color(0.5f, 0.45f, 0.3f),
+            label: "屋后菜窖");
     }
 
     /// <summary>
@@ -583,6 +621,16 @@ public sealed partial class TestExploration : ExplorationLevel
             new Vector2(1080, 400),
             markerColor: new Color(0.48f, 0.44f, 0.36f),
             label: "工具柜");
+
+        // [SPEC-B12] 中点扩至 10（band 10~30 下限）：工业材料为主，近→深散布；食物/医疗仅休息角一处。
+        AddDiscoveryPoint(ExplorationCache.WarehouseWorkbenchId, new Vector2(1300, 420), markerColor: new Color(0.48f, 0.44f, 0.36f), label: "工作台");
+        AddDiscoveryPoint(ExplorationCache.WarehouseBreakCornerId, new Vector2(880, 700), markerColor: new Color(0.48f, 0.44f, 0.36f), label: "休息角");
+        AddDiscoveryPoint(ExplorationCache.WarehousePartsBinId, new Vector2(1520, 620), markerColor: new Color(0.48f, 0.44f, 0.36f), label: "零件料架");
+        AddDiscoveryPoint(ExplorationCache.WarehouseFuelDrumId, new Vector2(1760, 460), markerColor: new Color(0.48f, 0.44f, 0.36f), label: "油料桶区");
+        AddDiscoveryPoint(ExplorationCache.WarehouseLumberRackId, new Vector2(1180, 920), markerColor: new Color(0.48f, 0.44f, 0.36f), label: "木料架");
+        AddDiscoveryPoint(ExplorationCache.WarehouseHayLoftId, new Vector2(1600, 1000), markerColor: new Color(0.48f, 0.44f, 0.36f), label: "草料阁");
+        AddDiscoveryPoint(ExplorationCache.WarehouseScrapPileId, new Vector2(720, 1080), markerColor: new Color(0.48f, 0.44f, 0.36f), label: "废铁堆");
+        AddDiscoveryPoint(ExplorationCache.WarehouseCombineCabId, new Vector2(1900, 860), markerColor: new Color(0.48f, 0.44f, 0.36f), label: "收割机驾驶室");
 
         AddDiscoveryPoint(
             ExplorationCache.WarehouseAtticChestId,
@@ -623,6 +671,11 @@ public sealed partial class TestExploration : ExplorationLevel
             new Vector2(600, 1250),
             markerColor: new Color(0.55f, 0.5f, 0.4f),
             label: "游客服务台");
+
+        // [SPEC-B12] 小点扩至 5：贩卖机/员工储物柜(近中)、天台机房(深)。
+        AddDiscoveryPoint(ExplorationCache.LookoutVendingId, new Vector2(900, 1150), markerColor: new Color(0.5f, 0.48f, 0.42f), label: "自动贩卖机");
+        AddDiscoveryPoint(ExplorationCache.LookoutStaffLockerId, new Vector2(1300, 900), markerColor: new Color(0.5f, 0.48f, 0.42f), label: "员工储物柜");
+        AddDiscoveryPoint(ExplorationCache.LookoutMachineRoomId, new Vector2(1750, 480), markerColor: new Color(0.5f, 0.48f, 0.42f), label: "天台机房");
 
         AddDiscoveryPoint(
             ExplorationCache.LookoutWardensRoomId,
@@ -673,6 +726,16 @@ public sealed partial class TestExploration : ExplorationLevel
             markerColor: new Color(0.55f, 0.5f, 0.4f),
             label: "值班室茶水间");
 
+        // [SPEC-B12] 中点扩至 10（band 10~30 下限）：电子/线材为主，近→深散布；食物仅食堂、医疗仅更衣室各一处。
+        AddDiscoveryPoint(ExplorationCache.BroadcastOfficeId, new Vector2(920, 1000), markerColor: new Color(0.5f, 0.48f, 0.44f), label: "台长办公室");
+        AddDiscoveryPoint(ExplorationCache.BroadcastLockersId, new Vector2(1200, 1150), markerColor: new Color(0.5f, 0.48f, 0.44f), label: "员工更衣室");
+        AddDiscoveryPoint(ExplorationCache.BroadcastCanteenId, new Vector2(720, 900), markerColor: new Color(0.5f, 0.48f, 0.44f), label: "食堂后厨");
+        AddDiscoveryPoint(ExplorationCache.BroadcastStoreroomId, new Vector2(1420, 900), markerColor: new Color(0.5f, 0.48f, 0.44f), label: "杂物储藏间");
+        AddDiscoveryPoint(ExplorationCache.BroadcastGeneratorId, new Vector2(1020, 620), markerColor: new Color(0.5f, 0.48f, 0.44f), label: "发电机房");
+        AddDiscoveryPoint(ExplorationCache.BroadcastServerRackId, new Vector2(1520, 520), markerColor: new Color(0.5f, 0.48f, 0.44f), label: "机架间");
+        AddDiscoveryPoint(ExplorationCache.BroadcastArchiveId, new Vector2(1760, 720), markerColor: new Color(0.5f, 0.48f, 0.44f), label: "资料室");
+        AddDiscoveryPoint(ExplorationCache.BroadcastRoofAntennaId, new Vector2(1900, 940), markerColor: new Color(0.5f, 0.48f, 0.44f), label: "屋顶天线基座");
+
         AddDiscoveryPoint(
             ExplorationCache.BroadcastPartsStoreId,
             new Vector2(1980, 360),
@@ -696,31 +759,69 @@ public sealed partial class TestExploration : ExplorationLevel
         // ——空间分区（大点，[SPEC-B11-补]"5天+探索量"）：村口 → 民居区 → 村中心 → 村尾/藏深，锁屋救援只是其中一区——
         // 各区占位民居（纯视觉，示意聚落；正式布局/美术待后续）。搜刮点/叙事在 ExplorationCache，落地走 CampMain.OnExplorationDiscovery→ExplorationCache.Resolve。
 
-        // 村口/杂物区（南入口侧，先被遇到）：废弃皮卡。
+        // [SPEC-B12] 大点 9→30（band 30+ 硬口径）：既有四分区加密 + 新增后山/河滩两分区；
+        // 单点掉落调薄（食物散布 7 处、医疗集中候车棚 1 + 后山洞深藏 1），总量对齐经济压力口径（拟定待调）。
+
+        // 村口/杂物区（南入口侧，先被遇到）：皮卡 + 岗亭 + 废三轮。
         DrawHousePlaceholder(new Vector2(700f, 1300f), new Vector2(160f, 120f)); // 村口小屋
         AddCachePoint(ExplorationCache.VillageRoadsideCarId, new Vector2(450f, 1300f), "皮卡");
+        DrawHousePlaceholder(new Vector2(300f, 1180f), new Vector2(110f, 100f));  // 岗亭
+        AddCachePoint(ExplorationCache.VillageGatePostId, new Vector2(300f, 1180f), "岗亭");
+        AddCachePoint(ExplorationCache.VillageTrikeId, new Vector2(620f, 1150f), "废三轮");
 
-        // 民居区（西/中南，几户人家）：厨房 / 卧室衣柜 / 储藏间。
+        // 民居区（西/中南，多户人家）：厨房 / 卧室衣柜 / 主卧梳妆台 / 院子菜畦 / 鸡窝棚 / 灶房米缸 / 阁楼 / 柴垛 / 储藏间。
         DrawHousePlaceholder(new Vector2(500f, 900f), new Vector2(230f, 180f));
         AddCachePoint(ExplorationCache.VillageKitchenId, new Vector2(500f, 900f), "厨房碗柜");
+        AddCachePoint(ExplorationCache.VillagePantry2Id, new Vector2(560f, 980f), "米缸");
         DrawHousePlaceholder(new Vector2(870f, 1080f), new Vector2(210f, 170f));
         AddCachePoint(ExplorationCache.VillageWardrobeId, new Vector2(870f, 1080f), "卧室衣柜");
+        AddCachePoint(ExplorationCache.VillageBedroom2Id, new Vector2(930f, 1010f), "梳妆台");
+        DrawHousePlaceholder(new Vector2(690f, 720f), new Vector2(200f, 170f));
+        AddCachePoint(ExplorationCache.VillageCourtyardId, new Vector2(690f, 720f), "院子菜畦");
+        AddCachePoint(ExplorationCache.VillageCoopId, new Vector2(760f, 640f), "鸡窝棚");
         DrawHousePlaceholder(new Vector2(470f, 560f), new Vector2(200f, 170f));
         AddCachePoint(ExplorationCache.VillageBackRoomId, new Vector2(470f, 560f), "储藏间");
+        AddCachePoint(ExplorationCache.VillageLoftId, new Vector2(400f, 620f), "阁楼");
+        AddCachePoint(ExplorationCache.VillageWoodpileId, new Vector2(560f, 490f), "柴垛");
 
-        // 村中心（中部，公共设施）：小卖部 + 水井旁工具箱。
+        // 村中心（中部，公共设施）：小卖部 / 供销社仓 / 候车棚 / 村小 / 水井工具箱 / 铁匠铺。
         DrawHousePlaceholder(new Vector2(1200f, 1080f), new Vector2(240f, 170f)); // 小卖部
         AddCachePoint(ExplorationCache.VillageShopShelfId, new Vector2(1200f, 1080f), "小卖部");
+        DrawHousePlaceholder(new Vector2(1000f, 1120f), new Vector2(180f, 150f)); // 供销社仓
+        AddCachePoint(ExplorationCache.VillageCoopStoreId, new Vector2(1000f, 1120f), "供销社仓");
+        AddCachePoint(ExplorationCache.VillageBusStopId, new Vector2(1350f, 1180f), "候车棚");
+        DrawHousePlaceholder(new Vector2(1400f, 900f), new Vector2(230f, 180f));  // 村小
+        AddCachePoint(ExplorationCache.VillageSchoolId, new Vector2(1400f, 900f), "村小教室");
         DrawWellPlaceholder(new Vector2(1120f, 860f));
         AddCachePoint(ExplorationCache.VillageWellToolboxId, new Vector2(1120f, 860f), "水井工具箱");
+        DrawHousePlaceholder(new Vector2(1500f, 1120f), new Vector2(150f, 140f)); // 铁匠铺
+        AddCachePoint(ExplorationCache.VillageForgeId, new Vector2(1500f, 1120f), "铁匠铺");
 
-        // 村尾/藏深（东/北远角，难度梯度尾）：农具棚 / 祠堂 / 卫生所。
+        // 村尾/藏深（东/北远角，难度梯度尾）：农具棚 / 谷仓 / 养蜂棚 / 坟场看守屋 / 祠堂 / 卫生所。
         DrawHousePlaceholder(new Vector2(1950f, 1180f), new Vector2(250f, 170f)); // 农具棚
         AddCachePoint(ExplorationCache.VillageToolShedId, new Vector2(1950f, 1180f), "农具棚");
+        DrawHousePlaceholder(new Vector2(1680f, 1120f), new Vector2(220f, 180f)); // 谷仓
+        AddCachePoint(ExplorationCache.VillageBarnId, new Vector2(1680f, 1120f), "打谷场谷仓");
+        AddCachePoint(ExplorationCache.VillageBeehiveId, new Vector2(2000f, 980f), "养蜂棚");
+        DrawHousePlaceholder(new Vector2(1650f, 520f), new Vector2(150f, 140f));  // 坟场看守屋
+        AddCachePoint(ExplorationCache.VillageGraveHutId, new Vector2(1650f, 520f), "坟场看守屋");
         DrawHousePlaceholder(new Vector2(2000f, 420f), new Vector2(220f, 190f)); // 祠堂
         AddCachePoint(ExplorationCache.VillageShrineId, new Vector2(2000f, 420f), "祠堂");
         DrawHousePlaceholder(new Vector2(1850f, 760f), new Vector2(210f, 180f)); // 卫生所
         AddCachePoint(ExplorationCache.VillageClinicId, new Vector2(1850f, 760f), "卫生所");
+
+        // 新分区·后山（最北，藏深；山洞暗格＝医疗深藏奖励）：猎人窝棚 / 炭窑 / 山洞暗格。
+        DrawHousePlaceholder(new Vector2(1100f, 220f), new Vector2(140f, 120f)); // 猎人窝棚
+        AddCachePoint(ExplorationCache.VillageBackhillBlindId, new Vector2(1100f, 220f), "猎人窝棚");
+        AddCachePoint(ExplorationCache.VillageBackhillKilnId, new Vector2(1450f, 260f), "炭窑");
+        AddCachePoint(ExplorationCache.VillageBackhillCaveId, new Vector2(1750f, 180f), "山洞暗格");
+
+        // 新分区·河滩（最西，沿河带）：搁浅小船 / 晒鱼棚 / 抽水泵房。
+        AddCachePoint(ExplorationCache.VillageRiverbankBoatId, new Vector2(200f, 900f), "搁浅小船");
+        DrawHousePlaceholder(new Vector2(230f, 720f), new Vector2(130f, 110f)); // 晒鱼棚
+        AddCachePoint(ExplorationCache.VillageRiverbankShackId, new Vector2(230f, 720f), "晒鱼棚");
+        DrawHousePlaceholder(new Vector2(210f, 460f), new Vector2(130f, 120f)); // 抽水泵房
+        AddCachePoint(ExplorationCache.VillageRiverbankPumpId, new Vector2(210f, 460f), "抽水泵房");
 
         // ——核心区：上锁的屋子（道格布鲁斯被困，中北部）——
         // 四面视觉墙 + 南墙门缺口。
@@ -942,6 +1043,28 @@ public sealed partial class TestExploration : ExplorationLevel
                 RaiseDiscovery(discoveryId);
         };
         AddChild(zone);
+    }
+
+    /// <summary>
+    /// 叙事调查点铺设（[SPEC-B12] 极乐迪斯科式）：按目的地迭代 <see cref="NarrativeSpotRegistry"/> 铺触发区，
+    /// 与物资搜刮点/主线触发点并存（命名空间隔离，id 前缀 narrative_）。复用 <see cref="AddDiscoveryPoint"/>
+    /// （marker + label + Area2D → RaiseDiscovery），叙事点用**冷青**标记区别于物资(棕黄)/剧情尸体(红)。
+    /// 触发解析在 <c>CampMain.OnExplorationDiscovery</c> 走 <see cref="NarrativeSpotRegistry.Resolve"/>（分页弹叙事、冻结时标＝不走时间）。
+    ///
+    /// 触发式：Proximity（靠近即触发）已落地＝walk-in。Click（点击调查物→角色走近后触发）探索关**无拾取先例**——
+    /// [HANDOFF] 探索关正式化专项（TODO#8）：届时把 <c>spot.Trigger == NarrativeTrigger.Click</c> 的点改为鼠标拾取 + 寻路到达触发；
+    /// 当前统一渲染为 proximity（walk-in 即可达、可测），Trigger 字段已在注册表如实标注，切换时读它即可。
+    /// </summary>
+    private void SetupNarrativeSpots()
+    {
+        foreach (NarrativeSpot spot in NarrativeSpotRegistry.ForDestination(DestinationName))
+        {
+            AddDiscoveryPoint(
+                spot.Id,
+                new Vector2(spot.X, spot.Y),
+                markerColor: new Color(0.40f, 0.62f, 0.72f), // 冷青：叙事调查点（区别于物资棕黄/剧情红）
+                label: spot.Label);
+        }
     }
 
     private static Node2D CreateActorMarker(Actor actor, Color color)

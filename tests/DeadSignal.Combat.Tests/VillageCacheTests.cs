@@ -12,25 +12,33 @@ namespace DeadSignal.Combat.Tests;
 /// </summary>
 public class VillageCacheTests
 {
+    // [SPEC-B12] 大点 9→30（band 30+ 硬口径）：既有四分区加密 + 新增后山/河滩两分区，近入口→藏深序。
     private static readonly string[] ExpectedIds =
     {
-        ExplorationCache.VillageRoadsideCarId,
-        ExplorationCache.VillageKitchenId,
-        ExplorationCache.VillageWardrobeId,
-        ExplorationCache.VillageBackRoomId,
-        ExplorationCache.VillageShopShelfId,
-        ExplorationCache.VillageWellToolboxId,
-        ExplorationCache.VillageToolShedId,
-        ExplorationCache.VillageShrineId,
-        ExplorationCache.VillageClinicId,
+        // 村口/杂物(3)
+        ExplorationCache.VillageRoadsideCarId, ExplorationCache.VillageGatePostId, ExplorationCache.VillageTrikeId,
+        // 民居区(9)
+        ExplorationCache.VillageKitchenId, ExplorationCache.VillageWardrobeId, ExplorationCache.VillageBedroom2Id,
+        ExplorationCache.VillageCourtyardId, ExplorationCache.VillageCoopId, ExplorationCache.VillagePantry2Id,
+        ExplorationCache.VillageLoftId, ExplorationCache.VillageWoodpileId, ExplorationCache.VillageBackRoomId,
+        // 村中心(6)
+        ExplorationCache.VillageShopShelfId, ExplorationCache.VillageCoopStoreId, ExplorationCache.VillageBusStopId,
+        ExplorationCache.VillageSchoolId, ExplorationCache.VillageWellToolboxId, ExplorationCache.VillageForgeId,
+        // 村尾/藏深(6)
+        ExplorationCache.VillageToolShedId, ExplorationCache.VillageBarnId, ExplorationCache.VillageBeehiveId,
+        ExplorationCache.VillageGraveHutId, ExplorationCache.VillageShrineId, ExplorationCache.VillageClinicId,
+        // 后山(3)
+        ExplorationCache.VillageBackhillBlindId, ExplorationCache.VillageBackhillKilnId, ExplorationCache.VillageBackhillCaveId,
+        // 河滩(3)
+        ExplorationCache.VillageRiverbankBoatId, ExplorationCache.VillageRiverbankShackId, ExplorationCache.VillageRiverbankPumpId,
     };
 
     [Fact]
-    public void CacheIdsFor_Village_NineLargePointCaches()
+    public void CacheIdsFor_Village_ThirtyLargePointCaches()
     {
         var ids = ExplorationCache.CacheIdsFor(VillageRescue.DestinationName);
-        Assert.Equal(9, ids.Count);                          // 大点内容量
-        Assert.Equal(ExpectedIds, ids.ToArray());            // 且按近→深登记序
+        Assert.Equal(30, ids.Count);                         // 大点=30+ 硬口径
+        Assert.Equal(ExpectedIds, ids.ToArray());            // 且按近→深登记序（村口→民居→村中心→村尾→后山→河滩）
     }
 
     [Fact]
@@ -66,19 +74,19 @@ public class VillageCacheTests
     }
 
     [Fact]
-    public void Completion_Village_TotalNine_DoneRisesWithSearches()
+    public void Completion_Village_TotalThirty_DoneRisesWithSearches()
     {
         var flags = new StoryFlags();
         var (done0, total) = ExplorationProgress.Completion(VillageRescue.DestinationName, flags, christineLeftForRevenge: false);
-        Assert.Equal(9, total);   // 9 处登记（救援主线点不计）
+        Assert.Equal(30, total);   // 30 处登记（救援主线点不计）
         Assert.Equal(0, done0);
 
-        // 搜掉前三处 → done=3。
+        // 搜掉三处（跨分区）→ done=3。
         flags.Set(ExplorationCache.VillageRoadsideCarFlag, "true");
         flags.Set(ExplorationCache.VillageKitchenFlag, "true");
-        flags.Set(ExplorationCache.VillageWardrobeFlag, "true");
+        flags.Set(ExplorationCache.VillageBackhillCaveFlag, "true");
         var (done3, total3) = ExplorationProgress.Completion(VillageRescue.DestinationName, flags, christineLeftForRevenge: false);
-        Assert.Equal(9, total3);
+        Assert.Equal(30, total3);
         Assert.Equal(3, done3);
     }
 

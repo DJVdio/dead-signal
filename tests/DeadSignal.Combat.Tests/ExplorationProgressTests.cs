@@ -20,27 +20,31 @@ public class ExplorationProgressTests
     }
 
     [Fact]
-    public void RangersCabin_HasThreePoints_GordonPlusTwoCaches()
+    public void RangersCabin_HasSixPoints_GordonPlusFiveCaches()
     {
+        // [SPEC-B12] 守林人小屋 2→5 物资搜刮点 + 哥顿上吊尸 = 6 处登记点（小点配额带下限，密度仍克制）。
         var flags = ExplorationProgress.PointFlagsFor(ExplorationProgress.WatchersCabinName, christineLeftForRevenge: false);
-        Assert.Equal(3, flags.Count);
+        Assert.Equal(6, flags.Count);
         Assert.Contains(GoldfingerDiscovery.GordonHangedFlag, flags);
         Assert.Contains(ExplorationCache.RangersCabinPantryFlag, flags);
         Assert.Contains(ExplorationCache.RangersCabinShedFlag, flags);
+        Assert.Contains(ExplorationCache.RangersCabinAtticFlag, flags);
+        Assert.Contains(ExplorationCache.RangersCabinUnderbedFlag, flags);
+        Assert.Contains(ExplorationCache.RangersCabinPorchFlag, flags);
     }
 
     [Fact]
     public void RangersCabin_Completion_CountsSetFlags()
     {
         var story = new StoryFlags();
-        Assert.Equal((0, 3), ExplorationProgress.Completion(ExplorationProgress.WatchersCabinName, story, false));
+        Assert.Equal((0, 6), ExplorationProgress.Completion(ExplorationProgress.WatchersCabinName, story, false));
 
         story.Set(GoldfingerDiscovery.GordonHangedFlag, "true"); // 发现哥顿上吊尸
-        Assert.Equal((1, 3), ExplorationProgress.Completion(ExplorationProgress.WatchersCabinName, story, false));
+        Assert.Equal((1, 6), ExplorationProgress.Completion(ExplorationProgress.WatchersCabinName, story, false));
 
         story.Set(ExplorationCache.RangersCabinPantryFlag, "true");
         story.Set(ExplorationCache.RangersCabinShedFlag, "true");
-        Assert.Equal((3, 3), ExplorationProgress.Completion(ExplorationProgress.WatchersCabinName, story, false));
+        Assert.Equal((3, 6), ExplorationProgress.Completion(ExplorationProgress.WatchersCabinName, story, false));
     }
 
     [Fact]
@@ -58,16 +62,17 @@ public class ExplorationProgressTests
     }
 
     [Fact]
-    public void RiversideCabin_HasTwoCachePoints()
+    public void RiversideCabin_HasFiveCachePoints()
     {
-        Assert.Equal((0, 2), ExplorationProgress.Completion(ExplorationCache.RiversideCabinName, new StoryFlags(), false));
+        // [SPEC-B12] 河边小屋 2→5（小点配额带下限）。
+        Assert.Equal((0, 5), ExplorationProgress.Completion(ExplorationCache.RiversideCabinName, new StoryFlags(), false));
     }
 
     [Fact]
     public void Lookout_CountsOnlyCaches_TelescopeExcluded()
     {
-        // 望远镜是主线触发点（置 HordeSighted），刻意不计入完成度：仅两处物资搜刮点。
-        Assert.Equal((0, 2), ExplorationProgress.Completion(ExplorationCache.CityRooftopLookoutName, new StoryFlags(), false));
+        // 望远镜是主线触发点（置 HordeSighted），刻意不计入完成度：[SPEC-B12] 扩至 5 处物资搜刮点。
+        Assert.Equal((0, 5), ExplorationProgress.Completion(ExplorationCache.CityRooftopLookoutName, new StoryFlags(), false));
     }
 
     [Fact]
