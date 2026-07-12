@@ -53,5 +53,35 @@
   { "comment": "请求 3（draft 待用户优化）：最后通牒，衔接三拒后独走复仇。",
     "speaker": "克莉丝汀", "text": "这是我最后一次开口了。我懂——你们有你们要护的人，这仗不该由你们来打。那就当我没求过。可这笔账我记了太久，压不住了。你若还是不肯，那这仇，我自己去了。", "phase": "any", "weight": 6.0,
     "condition": { "all": [ { "type": "flag", "key": "christine_req", "value": "2" } ] },
-    "triggers": [ { "key": "christine_req_pending", "value": "true" } ] }
+    "triggers": [ { "key": "christine_req_pending", "value": "true" } ] },
+
+  { "comment": "draft·待用户细化 —— 道格/布鲁斯 日常组（道格在营存活[speaker门控]+布鲁斯存活[flag bruce_present]）：道格与狗的相处细节，克制不煽情。bruce_present 由 CampMain.SpawnDougAndBruce 置、布鲁斯身故清（见 CampMain OnActorDied 犬类分支）。",
+    "speaker": "道格", "text": "布鲁斯今早又把我的鞋叼到门口了。它记得比我清楚，天亮就是该出门的时候。", "phase": "dawn", "weight": 1.2,
+    "condition": { "all": [ { "type": "flag", "key": "bruce_present" } ] } },
+  { "comment": "draft·待用户细化 —— 道格/布鲁斯 日常组：一口饭顶三口呼应狗进食（吃1份+3）。",
+    "speaker": "道格", "text": "别看它一口饭要顶我三口，夜里有它趴在脚边，我睡得比谁都沉。", "phase": "any", "weight": 1.2,
+    "condition": { "all": [ { "type": "flag", "key": "bruce_present" } ] } },
+  { "comment": "draft·待用户细化 —— 道格/布鲁斯 日常组：狗的警觉，夜里认脚步声。",
+    "speaker": "道格", "text": "它认得每个人的脚步声。谁半夜起夜，它耳朵动一下，又睡回去了。", "phase": "dusk", "weight": 1.2,
+    "condition": { "all": [ { "type": "flag", "key": "bruce_present" } ] } },
+  { "comment": "draft·待用户细化 —— 道格/布鲁斯 日常组：相依为命的'约定'，黑暗向但克制、不煽情。",
+    "speaker": "道格", "text": "我跟它有个说好的——我先倒下，它就去找下一个能喂饱它的人；它先走，我把它埋在墙根，那儿晒得着太阳。", "phase": "any", "weight": 1.0,
+    "condition": { "all": [ { "type": "flag", "key": "bruce_present" } ] } },
+
+  { "comment": "draft·待用户细化 —— 布鲁斯死亡组（道格在营存活[speaker门控]+布鲁斯死亡[flag bruce_dead]）：写物件与习惯的缺失，参照空袖管/空位子同型，不写嚎啕。bruce_dead 由 CampMain OnActorDied 犬类分支置。",
+    "speaker": "道格", "text": "脚边空了。夜里我伸脚去够那团热乎气，够了个空。", "phase": "any", "weight": 2.8,
+    "condition": { "all": [ { "type": "flag", "key": "bruce_dead" } ] } },
+  { "comment": "draft·待用户细化 —— 布鲁斯死亡组：留下的食盆，收不下手。",
+    "speaker": "道格", "text": "它那只破食盆我还没收。……先搁着吧。", "phase": "any", "weight": 2.8,
+    "condition": { "all": [ { "type": "flag", "key": "bruce_dead" } ] } },
+  { "comment": "draft·待用户细化 —— 布鲁斯死亡组：呼应日常组'叼鞋'那条，习惯断了。",
+    "speaker": "道格", "text": "早上门口没有鞋了。是我自己走过去开的门。", "phase": "dawn", "weight": 2.8,
+    "condition": { "all": [ { "type": "flag", "key": "bruce_dead" } ] } },
+
+  { "comment": "draft·待用户细化 —— 道格死亡后布鲁斯旁观组（道格死亡[flag doug_dead]+布鲁斯仍存活[flag bruce_present]）：其他角色/旁白视角，speaker=null 走环境旁白（不绑具体幸存者存活）。doug_dead 由 CampMain OnActorDied 道格分支置。",
+    "speaker": null, "text": "那条狗还守在道格常坐的空位子边，谁递吃的都不理。", "phase": "any", "weight": 2.6,
+    "condition": { "all": [ { "type": "flag", "key": "doug_dead" }, { "type": "flag", "key": "bruce_present" } ] } },
+  { "comment": "draft·待用户细化 —— 道格死亡后布鲁斯旁观组：狗守在门口等一个不会回来的人。",
+    "speaker": null, "text": "布鲁斯整宿卧在门口，耳朵支着，像还在等谁回来。", "phase": "dusk", "weight": 2.6,
+    "condition": { "all": [ { "type": "flag", "key": "doug_dead" }, { "type": "flag", "key": "bruce_present" } ] } }
 ]

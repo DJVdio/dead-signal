@@ -248,11 +248,12 @@
       "jitter": 0.22
     },
     {
-      "_eggComment": "中庭废墟埋彩蛋位（eggSlot=true）：位置在营地正中，最引玩家注意。彩蛋内容 authored 待用户（CampMain 收获时据 HasEggSlot 后续接特殊物/剧情）；当前仅出下方普通 drops + 一行'似乎还藏着什么'提示占位。",
+      "_eggComment": "中庭废墟埋彩蛋位（eggSlot=true）：位置在营地正中，最引玩家注意。彩蛋内容 authored（draft·待用户细化）：eggContentId 指向 CampMain.EggContent 里的叙事键；挖净时除普通 drops 外弹一段发现叙事（前住户全家福/蜡笔画/铁盒，克制向）。",
       "name": "废墟·中庭断墙",
       "rect": [1120, 720, 90, 74],
       "workMinutes": 130,
       "eggSlot": true,
+      "eggContentId": "egg_courtyard_family",
       "drops": [
         { "kind": "material", "id": "wood", "qty": 4 },
         { "kind": "material", "id": "scrap_metal", "qty": 2 },

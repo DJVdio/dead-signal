@@ -1398,6 +1398,10 @@ public sealed partial class CampMain : Node2D
         AddActor(bruce);
         _bruce = bruce;
 
+        // 聚餐气泡门控用（draft·待用户细化）：布鲁斯在营存活旗标。日常/旁观气泡读它（meal_bubbles.json bruce_present）；
+        // 布鲁斯身故清除 + 置 bruce_dead（见 OnActorDied 犬类分支）。运行时态，无存档故不持久化（同羁绊天数）。
+        _storyFlags.Set("bruce_present", "true");
+
         // 羁绊技能接线（synergy-wiring，批次5）：
         // 注：2 级原「道格攻击布鲁斯目标 ×1.25 缠斗伤害」已被**用户 L2 修订**退役（doug-logic 改为
         // DougBruceBond.CanCraftDogGear 解锁狗装备制作，×1.25 条款移除，待确认可恢复）。新 2 级=狗装备门控，
@@ -1462,7 +1466,12 @@ public sealed partial class CampMain : Node2D
         {
             _raidGuardDogs.Remove(dog);
             if (_bruce == dog)
+            {
                 _bruce = null;
+                // 聚餐气泡门控（draft·待用户细化）：布鲁斯身故 → 清在营旗标 + 置死亡旗标（道格的哀悼气泡读 bruce_dead）。
+                _storyFlags.Set("bruce_present", null);
+                _storyFlags.Set("bruce_dead", "true");
+            }
             return;
         }
 
@@ -1470,7 +1479,11 @@ public sealed partial class CampMain : Node2D
         {
             _survivors.Remove(p);
             if (_doug == p)
+            {
                 _doug = null; // 道格身故：布鲁斯失去主人 → 原地待命（跟随 provider 返回 null）
+                // 聚餐气泡门控（draft·待用户细化）：道格身故旗标 → 布鲁斯守空位/等门的旁观气泡读 doug_dead（须 bruce_present 仍在）。
+                _storyFlags.Set("doug_dead", "true");
+            }
             if (_selectedPawn == p)
                 SetSelection(null); // 选中者身故：置空选中 + 收面板（ClearSelection 会移出 _selected）
             else
@@ -4241,7 +4254,8 @@ public sealed partial class CampMain : Node2D
                 spec.name!,
                 spec.workMinutes,
                 ParseLoot(spec.drops),
-                hasEggSlot: spec.eggSlot));
+                hasEggSlot: spec.eggSlot,
+                eggContentId: spec.eggContentId ?? ""));
 
             // 可点击容器（右键前往开挖，走既有 _pendingInteract → ExecuteContainerInteract 路径）。
             _containers.Add(new ContainerRef { Name = spec.name!, Rect = rect, Role = "rubble", Loot = new List<LootItem>() });
@@ -4337,11 +4351,35 @@ public sealed partial class CampMain : Node2D
 
         // 入库存的材料件数（drops 只含材料；食物/工具另计）。
         int itemCount = drops.Count(l => l.Kind is not LootKind.Food and not LootKind.Tool);
-        // TODO(彩蛋 authored 待用户)：HasEggSlot 处接入 authored 特殊物/剧情；当前仅普通产出 + 占位提示。
-        string eggNote = site is { HasEggSlot: true } ? "，瓦砾深处似乎还压着什么……" : "";
+        // 彩蛋位：有 authored 叙事键（draft·待用户细化）→ 材料提示后再弹一段发现叙事（复用发现面板 ShowDiscoveryNarrative）；
+        // 无键但 HasEggSlot（内容待填）→ 退回一行占位提示。普通废墟 eggNote 为空。
+        (string title, string narrative)? egg =
+            site is { HasEggSlot: true, EggContentId: { Length: > 0 } eid } ? EggContent(eid) : null;
+        string eggNote = egg is null && site is { HasEggSlot: true } ? "，瓦砾深处似乎还压着什么……" : "";
         _campToast.Show($"{rubbleId}已清挖干净，翻出 {itemCount} 件材料，腾出一片空地{eggNote}", CampToast.Ok);
         GD.Print($"[废墟] {rubbleId} 挖净，产出 {itemCount} 件材料{(food > 0 ? $"+{food}份食物" : "")}{eggNote}");
+        if (egg is { } e)
+        {
+            ShowDiscoveryNarrative(e.title, e.narrative);
+        }
     }
+
+    /// <summary>
+    /// 废墟彩蛋 authored 叙事内容（draft·待用户细化）：按 <see cref="RubbleSite.EggContentId"/> 返回 (标题, 正文)；
+    /// 未知键返回 null（退回占位提示）。文本对齐既有克制/压抑基调，不发明物件的煽情反应。
+    /// 后续可扩展为多彩蛋位/加发实物纪念品；当前只做叙事揭示（"彩蛋物"= 铁盒里的全家福/蜡笔画，读后留在原处，不入库）。
+    /// </summary>
+    private (string title, string narrative)? EggContent(string eggContentId) => eggContentId switch
+    {
+        "egg_courtyard_family" => (
+            "断墙里的铁盒",
+            "断墙的夹层里嵌着一只生锈的铁皮饼干盒，边角被砸瘪了，盖子却还扣得严实。\n\n" +
+            "里面没有值钱的东西。一叠用橡皮筋捆着的蜡笔画——歪歪扭扭的四口人，牵着手站在一栋涂成红色的房子前，" +
+            "太阳画在角落，咧着嘴笑。最上面那张的背面，是大人的字迹：“给爸爸，等你回家。”\n\n" +
+            "盒子底下压着一张全家福，边缘被摩挲得发白。照片里的房子，就是你们此刻脚下这片废墟。\n\n" +
+            "你把盒盖轻轻扣回去，放回原处。有些东西，翻出来看过一眼就够了。"),
+        _ => null,
+    };
 
     /// <summary>废墟清场：QueueFree 碰撞体 + 切块视觉，移导航洞并重烘焙（显露空地可寻路）。幂等（已清空则空操作）。</summary>
     private void ClearRubbleVisual(string rubbleId)
@@ -5403,13 +5441,14 @@ public sealed partial class CampMain : Node2D
     }
 
     /// <summary>开局废墟点（批次9）：name=稳定标识；rect=[x,y,w,h]；workMinutes=挖净总工时（游戏分钟）；
-    /// eggSlot=是否彩蛋位（内容 authored 待用户，当前仅出普通 drops）；drops=挖净产出（同 <see cref="LootSpec"/>，主要木/碎金属/布）。</summary>
+    /// eggSlot=是否彩蛋位；eggContentId=彩蛋 authored 叙事键（draft·待用户细化，映射 <see cref="EggContent"/>；空=仅占位提示）；drops=挖净产出（同 <see cref="LootSpec"/>，主要木/碎金属/布）。</summary>
     private struct RubbleSpec
     {
         public string? name { get; set; }
         public double[]? rect { get; set; }
         public int workMinutes { get; set; }
         public bool eggSlot { get; set; }
+        public string? eggContentId { get; set; }
         public LootSpec[]? drops { get; set; }
         public double[]? color { get; set; }
         public double tile { get; set; }
