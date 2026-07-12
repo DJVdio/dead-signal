@@ -36,6 +36,18 @@ public sealed partial class TestExploration : ExplorationLevel
     /// <summary>发射机占位在广播台关内的世界坐标（机房内，贴发射塔基座）。</summary>
     public static readonly Vector2 BroadcastTransmitterPosition = new(LevelW / 2f, 300f);
 
+    // ——南林村庄：上锁的屋子 / 围困 / 吠叫锚点（[SPEC-B11]，见 VillageRescue）——
+    /// <summary>锁屋中心（关内世界坐标）：道格布鲁斯被困于此，屋内放二人一狗占位。</summary>
+    private static readonly Vector2 VillageHouseCenter = new(1200f, 520f);
+    /// <summary>锁屋南墙门缺口位（救援发现区锚点 + 布鲁斯吠叫飘字锚点；队伍自南侧入关循此而来）。</summary>
+    private static readonly Vector2 VillageDoorPosition = new(1200f, 650f);
+    private const float VillageHouseHalfW = 170f;
+    private const float VillageHouseHalfH = 130f;
+
+    private bool _villageActive;         // 本关＝南林村庄（决定 _Process 是否跑吠叫轮询）
+    private bool _villageBarking;        // 布鲁斯当前是否在吠叫（"起吠"一次性，离中距离即清）
+    private double _villageBarkCooldown;  // 距下次"汪！"飘字的剩余秒数
+
     private CameraController _camera = null!;
     private readonly List<Zombie> _zombies = new();
     private readonly Dictionary<Actor, Node2D> _markers = new();
@@ -73,7 +85,7 @@ public sealed partial class TestExploration : ExplorationLevel
         if (DestinationName == WorldMapPanel.GoldfingerBaseName)
             SetupGoldfingerCorpseDiscoveries();
         else if (DestinationName == WorldMapPanel.WatchersCabinName)
-            SetupGordonHangedDiscovery();
+            SetupRangersCabin();
         else if (DestinationName == ExplorationCache.RiversideCabinName)
             SetupRiversideCabinCaches();
         else if (DestinationName == ExplorationCache.HarvesterWarehouseName)
@@ -82,6 +94,8 @@ public sealed partial class TestExploration : ExplorationLevel
             SetupCityRooftopLookout();
         else if (DestinationName == WorldMapPanel.BroadcastStationName)
             SetupBroadcastStation();
+        else if (DestinationName == VillageRescue.DestinationName)
+            SetupSouthForestVillage();
 
         // 视野遮暗（批次4）：探索关全程启用。发现点须在此之前铺好（进 _discoveryVisuals）。
         SetupVisionMask();
@@ -332,6 +346,13 @@ public sealed partial class TestExploration : ExplorationLevel
 
     private void SpawnZombies()
     {
+        // 南林村庄：围困锁屋的一圈丧尸（[SPEC-B11]），取代默认散布——见 SpawnVillageSiegeZombies。
+        if (DestinationName == VillageRescue.DestinationName)
+        {
+            SpawnVillageSiegeZombies();
+            return;
+        }
+
         Vector2[] spots =
         {
             new(LevelW * 0.25f, LevelH * 0.3f),
@@ -343,15 +364,60 @@ public sealed partial class TestExploration : ExplorationLevel
         var wander = new Rect2(WallT + 40, WallT + 40, LevelW - WallT * 2 - 80, LevelH - WallT * 2 - 80);
 
         foreach (Vector2 spot in spots)
+            SpawnZombieAt(spot, wander);
+    }
+
+    /// <summary>造一只关内丧尸（与营地同 combat/clock、含随队布鲁斯的目标池、局部光照感知）并登记标记。</summary>
+    private void SpawnZombieAt(Vector2 pos, Rect2 wander)
+    {
+        var z = Zombie.Create(wander, LevelTargets); // 目标池含随队布鲁斯（可被关内丧尸攻击/杀）
+        z.Inject(Combat, Clock); // 与营地单位相同的 combat+clock，务必在入树/首个物理帧 Think 前完成
+        z.ConfigurePerception(localLightAt: SampleLevelLight); // 固定光源→局部光照喂给（暴露走目标 CarriedLightIntensity 回落）
+        z.Position = pos;
+        _actorLayer.AddChild(z);
+        _zombies.Add(z);
+        _markers[z] = CreateActorMarker(z, new Color(0.45f, 0.6f, 0.35f));
+    }
+
+    /// <summary>村庄区域游荡丧尸数（大点区域危险，锁屋 5 围困之外散布在各分区间，拟定待调）。</summary>
+    private const int VillageWanderZombieCount = 4;
+
+    /// <summary>
+    /// 南林村庄：<see cref="VillageRescue.SiegeZombieCount"/> 只丧尸围困锁屋（[SPEC-B11]"被丧尸包围的屋子"）
+    /// + <see cref="VillageWanderZombieCount"/> 只在村庄各区间游荡（大点区域危险，[SPEC-B11-补]）——
+    /// 围困沿锁屋外围一圈布点、给一个贴着屋子的紧凑徘徊区，让它们在屋周打转＝围困本身即"丧尸向屋子聚集"的空间体现
+    /// （用户口径"吠叫吸引丧尸向屋子聚集"由初始围困布局承载；吠叫仅作引导玩家的叙事飘字，不额外驱赶丧尸，避免过度惩罚）。
+    /// 数量/半径拟定待调。
+    /// </summary>
+    private void SpawnVillageSiegeZombies()
+    {
+        // 贴着锁屋外围的紧凑徘徊区（屋子四周一圈），使丧尸在屋周打转、堵住入口。
+        var siegeWander = new Rect2(
+            VillageHouseCenter.X - VillageHouseHalfW - 160f,
+            VillageHouseCenter.Y - VillageHouseHalfH - 160f,
+            (VillageHouseHalfW + 160f) * 2f,
+            (VillageHouseHalfH + 160f) * 2f);
+
+        // 沿锁屋外围一圈均匀布点（含门口方向，堵住玩家开锁路径）。
+        float ringRadius = VillageHouseHalfW + 90f;
+        for (int i = 0; i < VillageRescue.SiegeZombieCount; i++)
         {
-            var z = Zombie.Create(wander, LevelTargets); // 目标池含随队布鲁斯（可被关内丧尸攻击/杀）
-            z.Inject(Combat, Clock); // 与营地单位相同的 combat+clock，务必在入树/首个物理帧 Think 前完成
-            z.ConfigurePerception(localLightAt: SampleLevelLight); // 固定光源→局部光照喂给（暴露走目标 CarriedLightIntensity 回落）
-            z.Position = spot;
-            _actorLayer.AddChild(z);
-            _zombies.Add(z);
-            _markers[z] = CreateActorMarker(z, new Color(0.45f, 0.6f, 0.35f));
+            float ang = Mathf.Tau * i / VillageRescue.SiegeZombieCount - Mathf.Pi / 2f; // 从正上方起，均分一圈
+            var spot = VillageHouseCenter + new Vector2(Mathf.Cos(ang), Mathf.Sin(ang)) * ringRadius;
+            SpawnZombieAt(spot, siegeWander);
         }
+
+        // 村庄区域游荡丧尸：散布在各分区之间（远离南入口，避免刚进关就贴脸），村域大徘徊区。
+        var villageWander = new Rect2(WallT + 60, WallT + 60, LevelW - WallT * 2 - 120, LevelH - WallT * 2 - 120);
+        Vector2[] wanderSpots =
+        {
+            new(700f, 780f),   // 民居区北
+            new(1500f, 1150f), // 村中心南—村尾东南之间
+            new(1750f, 560f),  // 村尾/卫生所—祠堂之间
+            new(1000f, 460f),  // 锁屋以西空地
+        };
+        for (int i = 0; i < VillageWanderZombieCount && i < wanderSpots.Length; i++)
+            SpawnZombieAt(wanderSpots[i], villageWander);
     }
 
     // ---------------- 探索发现点 ----------------
@@ -378,14 +444,112 @@ public sealed partial class TestExploration : ExplorationLevel
                 label: "遗体");
     }
 
-    /// <summary>守望者森林小屋：哥顿上吊尸（门口树上）+ 日记B 发现点。与金手指帮根据地异地，独立一处。</summary>
-    private void SetupGordonHangedDiscovery()
+    /// <summary>
+    /// 守林人小屋（小点样板，用户 [SPEC-B11-补] 拍板；内部路由键＝守望者森林小屋 <see cref="WorldMapPanel.WatchersCabinName"/>，显示名正名为「守林人小屋」）：
+    /// 屋子（含**屋中屋**——里屋一道内门/暗间，小点也有层次）+ **后院老树上哥顿上吊尸**（发现点）+ 日记B + 两处物资搜刮点（里屋碗柜/后院柴房，小点量级）。
+    /// 哥顿一致性（设计文档 §3/§8.7）：帮主哥顿早已独自走进林中孤屋、上吊自杀于树上——此处按用户最新口径落**后院**老树（原文档为门口，已随正名同步）。
+    /// 屋/树为占位视觉（无碰撞、不进导航；正式空间/美术待后续，同瞭望台/广播台占位口径）；发现点/搜刮点走既有 <see cref="AddDiscoveryPoint"/> 链路，
+    /// 掉落解析在 CampMain.OnExplorationDiscovery（哥顿走 <see cref="GoldfingerDiscovery.Resolve"/>、两搜刮点走 <see cref="ExplorationCache.Resolve"/>）。
+    /// </summary>
+    private void SetupRangersCabin()
     {
+        // —— 屋子（外屋）+ 里屋（暗间）占位轮廓：小点也有「屋中屋」层次 ——
+        AddRoomOutline(new Rect2(980, 520, 480, 380), new Color(0.34f, 0.30f, 0.24f, 0.95f), RoomEdge.Bottom, "守林人小屋");
+        AddRoomOutline(new Rect2(1180, 630, 210, 200), new Color(0.28f, 0.25f, 0.21f, 0.95f), RoomEdge.Top, "里屋（暗间）");
+
+        // 里屋碗柜（暗间内、路径较浅）：小点日常储粮/急救小物。
+        AddDiscoveryPoint(
+            ExplorationCache.RangersCabinPantryId,
+            new Vector2(1285, 730),
+            markerColor: new Color(0.55f, 0.5f, 0.4f),
+            label: "碗柜");
+
+        // —— 后院：老树 + 哥顿上吊尸占位 + 柴房搜刮点 ——
+        AddBackyardTree(new Vector2(1720, 700));
+        // 哥顿上吊尸（后院老树横枝）+ 日记B 发现点。与金手指帮根据地异地，独立一处。
         AddDiscoveryPoint(
             GoldfingerDiscovery.GordonHangedId,
-            new Vector2(2000, 1220),
+            new Vector2(1720, 760),
             markerColor: new Color(0.55f, 0.5f, 0.45f),
             label: "上吊尸");
+        // 后院柴房（藏深）：木料/绳/钉。
+        AddDiscoveryPoint(
+            ExplorationCache.RangersCabinShedId,
+            new Vector2(1720, 920),
+            markerColor: new Color(0.5f, 0.44f, 0.34f),
+            label: "柴房");
+    }
+
+    /// <summary>房间占位轮廓的门洞所在边。</summary>
+    private enum RoomEdge { Top, Bottom, Left, Right }
+
+    /// <summary>画一圈房间占位轮廓（纯视觉、无碰撞、不进导航）：四条细墙边，<paramref name="doorEdge"/> 那条中段留门洞，附房间名标签。</summary>
+    private void AddRoomOutline(Rect2 rect, Color color, RoomEdge doorEdge, string label)
+    {
+        const float t = 8f;    // 墙厚
+        const float door = 64f; // 门洞宽
+        AddWallStrip(rect.Position, new Vector2(rect.Size.X, t), color, doorEdge == RoomEdge.Top, door);
+        AddWallStrip(new Vector2(rect.Position.X, rect.End.Y - t), new Vector2(rect.Size.X, t), color, doorEdge == RoomEdge.Bottom, door);
+        AddWallStrip(rect.Position, new Vector2(t, rect.Size.Y), color, doorEdge == RoomEdge.Left, door);
+        AddWallStrip(new Vector2(rect.End.X - t, rect.Position.Y), new Vector2(t, rect.Size.Y), color, doorEdge == RoomEdge.Right, door);
+
+        var tag = new Label { Text = label, Position = rect.Position + new Vector2(6, -20), ZIndex = 12 };
+        tag.AddThemeFontSizeOverride("font_size", 12);
+        tag.AddThemeColorOverride("font_color", new Color(0.85f, 0.8f, 0.65f));
+        tag.AddThemeColorOverride("font_outline_color", new Color(0, 0, 0, 0.9f));
+        tag.AddThemeConstantOverride("outline_size", 3);
+        AddChild(tag);
+    }
+
+    /// <summary>一条墙边占位（纯视觉）：横竖由 size 长边判断；<paramref name="withDoor"/> 则中段留门洞、画成两段。</summary>
+    private void AddWallStrip(Vector2 pos, Vector2 size, Color color, bool withDoor, float doorWidth)
+    {
+        if (!withDoor)
+        {
+            AddChild(new Polygon2D { Polygon = Quad(pos, size), Color = color, ZIndex = 6 });
+            return;
+        }
+        bool horizontal = size.X >= size.Y;
+        if (horizontal)
+        {
+            float seg = (size.X - doorWidth) / 2f;
+            AddChild(new Polygon2D { Polygon = Quad(pos, new Vector2(seg, size.Y)), Color = color, ZIndex = 6 });
+            AddChild(new Polygon2D { Polygon = Quad(new Vector2(pos.X + seg + doorWidth, pos.Y), new Vector2(seg, size.Y)), Color = color, ZIndex = 6 });
+        }
+        else
+        {
+            float seg = (size.Y - doorWidth) / 2f;
+            AddChild(new Polygon2D { Polygon = Quad(pos, new Vector2(size.X, seg)), Color = color, ZIndex = 6 });
+            AddChild(new Polygon2D { Polygon = Quad(new Vector2(pos.X, pos.Y + seg + doorWidth), new Vector2(size.X, seg)), Color = color, ZIndex = 6 });
+        }
+    }
+
+    /// <summary>后院老树占位（纯视觉）：树干 + 树冠 + 一段吊绳，示意哥顿上吊处。<paramref name="basePos"/>＝树根位置。</summary>
+    private void AddBackyardTree(Vector2 basePos)
+    {
+        AddChild(new Polygon2D // 树干
+        {
+            Polygon = Quad(basePos + new Vector2(-10, -60), new Vector2(20, 90)),
+            Color = new Color(0.30f, 0.22f, 0.14f),
+            ZIndex = 4,
+        });
+        AddChild(new Polygon2D // 树冠（粗略多边形）
+        {
+            Polygon = new Vector2[]
+            {
+                basePos + new Vector2(-72, -60), basePos + new Vector2(-42, -132),
+                basePos + new Vector2(28, -152), basePos + new Vector2(82, -104),
+                basePos + new Vector2(58, -52),
+            },
+            Color = new Color(0.20f, 0.30f, 0.18f, 0.95f),
+            ZIndex = 5,
+        });
+        AddChild(new Polygon2D // 横枝垂下的吊绳（示意上吊处，正上方即哥顿发现点）
+        {
+            Polygon = Quad(basePos + new Vector2(-2, -96), new Vector2(3, 58)),
+            Color = new Color(0.55f, 0.5f, 0.4f),
+            ZIndex = 5,
+        });
     }
 
     /// <summary>
@@ -516,10 +680,231 @@ public sealed partial class TestExploration : ExplorationLevel
             label: "备件仓库");
     }
 
+    /// <summary>
+    /// 南林村庄（道格与布鲁斯正史入队地，用户 [SPEC-B11]）：几栋占位民居 + 一栋**上锁的屋子**（道格布鲁斯被困其中）。
+    /// 触发链（时序）：调查团自南侧入关 → 靠近锁屋**中距离**（<see cref="VillageRescue.BarkTriggerRadius"/>）→
+    /// 布鲁斯**吠叫**（_Process 距离轮询 + "汪！"飘字，引导玩家循声找过去；围困丧尸由 <see cref="SpawnVillageSiegeZombies"/> 布好）→
+    /// 玩家清/绕丧尸 → 踏入锁屋门（救援发现区）→ 上报 <see cref="VillageRescue.RescueDiscoveryId"/> →
+    /// CampMain 走 <see cref="VillageRescue.Resolve"/> 出救援叙事 + 置 rescued 旗标 → 回营正史注入道格布鲁斯（饿昏迷低档）。
+    /// 占位美术：视觉墙体 + 门缺口 + 二人一狗屋内占位；碰撞实体化墙 + 导航重烘焙为遗留精修（当前墙纯视觉、不挡路，
+    /// 救援触发靠门发现区，队伍自南门自然进屋即触发）。
+    /// </summary>
+    private void SetupSouthForestVillage()
+    {
+        _villageActive = true; // 开 _Process 吠叫轮询
+
+        // ——空间分区（大点，[SPEC-B11-补]"5天+探索量"）：村口 → 民居区 → 村中心 → 村尾/藏深，锁屋救援只是其中一区——
+        // 各区占位民居（纯视觉，示意聚落；正式布局/美术待后续）。搜刮点/叙事在 ExplorationCache，落地走 CampMain.OnExplorationDiscovery→ExplorationCache.Resolve。
+
+        // 村口/杂物区（南入口侧，先被遇到）：废弃皮卡。
+        DrawHousePlaceholder(new Vector2(700f, 1300f), new Vector2(160f, 120f)); // 村口小屋
+        AddCachePoint(ExplorationCache.VillageRoadsideCarId, new Vector2(450f, 1300f), "皮卡");
+
+        // 民居区（西/中南，几户人家）：厨房 / 卧室衣柜 / 储藏间。
+        DrawHousePlaceholder(new Vector2(500f, 900f), new Vector2(230f, 180f));
+        AddCachePoint(ExplorationCache.VillageKitchenId, new Vector2(500f, 900f), "厨房碗柜");
+        DrawHousePlaceholder(new Vector2(870f, 1080f), new Vector2(210f, 170f));
+        AddCachePoint(ExplorationCache.VillageWardrobeId, new Vector2(870f, 1080f), "卧室衣柜");
+        DrawHousePlaceholder(new Vector2(470f, 560f), new Vector2(200f, 170f));
+        AddCachePoint(ExplorationCache.VillageBackRoomId, new Vector2(470f, 560f), "储藏间");
+
+        // 村中心（中部，公共设施）：小卖部 + 水井旁工具箱。
+        DrawHousePlaceholder(new Vector2(1200f, 1080f), new Vector2(240f, 170f)); // 小卖部
+        AddCachePoint(ExplorationCache.VillageShopShelfId, new Vector2(1200f, 1080f), "小卖部");
+        DrawWellPlaceholder(new Vector2(1120f, 860f));
+        AddCachePoint(ExplorationCache.VillageWellToolboxId, new Vector2(1120f, 860f), "水井工具箱");
+
+        // 村尾/藏深（东/北远角，难度梯度尾）：农具棚 / 祠堂 / 卫生所。
+        DrawHousePlaceholder(new Vector2(1950f, 1180f), new Vector2(250f, 170f)); // 农具棚
+        AddCachePoint(ExplorationCache.VillageToolShedId, new Vector2(1950f, 1180f), "农具棚");
+        DrawHousePlaceholder(new Vector2(2000f, 420f), new Vector2(220f, 190f)); // 祠堂
+        AddCachePoint(ExplorationCache.VillageShrineId, new Vector2(2000f, 420f), "祠堂");
+        DrawHousePlaceholder(new Vector2(1850f, 760f), new Vector2(210f, 180f)); // 卫生所
+        AddCachePoint(ExplorationCache.VillageClinicId, new Vector2(1850f, 760f), "卫生所");
+
+        // ——核心区：上锁的屋子（道格布鲁斯被困，中北部）——
+        // 四面视觉墙 + 南墙门缺口。
+        DrawLockedHouse();
+
+        // 屋内被困的道格 + 布鲁斯占位标记（真正的 Pawn/Dog 于回营时由 CampMain 正史注入，此处仅示意"饿昏迷的人 + 守着他的狗"）。
+        DrawTrappedPlaceholders();
+
+        // 上锁的门＝救援发现点：踏入门缺口即上报救援 id（zone 略大于门口，稳稳接住"撬门进屋"这一刻）。
+        // 挂点：CampMain.OnExplorationDiscovery → VillageRescue.Resolve（出救援叙事 + 置 rescued 旗标）；真正入队延到回营。
+        // 救援为主线入队触发，**不计入**物资完成度 X/Y（同瞭望台望远镜口径，见 ExplorationProgress）。
+        // 破锁"耗时/交互进度条"为遗留可选（当前＝直接开，最小侵入）。
+        AddDiscoveryPoint(
+            VillageRescue.RescueDiscoveryId,
+            VillageDoorPosition,
+            markerColor: new Color(0.78f, 0.66f, 0.42f),
+            label: "门（上锁）",
+            zoneSize: new Vector2(130f, 130f));
+    }
+
+    /// <summary>铺一处村庄物资搜刮点（发现点式，踏入即经 ExplorationCache.Resolve 落地掉落+叙事）。棕黄标记区别于剧情点。</summary>
+    private void AddCachePoint(string cacheId, Vector2 pos, string label)
+        => AddDiscoveryPoint(cacheId, pos, markerColor: new Color(0.55f, 0.48f, 0.36f), label: label);
+
+    /// <summary>画一口占位水井（纯视觉：石圈 + 井口深色，无碰撞）：村中心地标。</summary>
+    private void DrawWellPlaceholder(Vector2 center)
+    {
+        var ring = new Polygon2D
+        {
+            Polygon = Quad(center - new Vector2(40f, 40f), new Vector2(80f, 80f)),
+            Color = new Color(0.36f, 0.34f, 0.30f, 0.95f),
+            ZIndex = 4,
+        };
+        AddChild(ring);
+        var mouth = new Polygon2D
+        {
+            Polygon = Quad(center - new Vector2(26f, 26f), new Vector2(52f, 52f)),
+            Color = new Color(0.08f, 0.09f, 0.10f, 0.95f),
+            ZIndex = 5,
+        };
+        AddChild(mouth);
+    }
+
+    /// <summary>画一栋占位民居（纯视觉方框 + 描边，无碰撞）：示意村庄里的其他房屋。</summary>
+    private void DrawHousePlaceholder(Vector2 center, Vector2 size)
+    {
+        var body = new Polygon2D
+        {
+            Polygon = Quad(center - size / 2f, size),
+            Color = new Color(0.30f, 0.27f, 0.23f, 0.85f),
+            ZIndex = 4,
+        };
+        AddChild(body);
+        var roof = new Polygon2D
+        {
+            Polygon = Quad(center - size / 2f - new Vector2(6f, 6f), new Vector2(size.X + 12f, 10f)),
+            Color = new Color(0.22f, 0.19f, 0.16f, 0.9f),
+            ZIndex = 5,
+        };
+        AddChild(roof);
+    }
+
+    /// <summary>
+    /// 画上锁的屋子：四面视觉墙（纯 Polygon2D、无碰撞），南墙留一处门缺口（<see cref="VillageDoorPosition"/> 处）。
+    /// 墙不挡路（碰撞+导航重烘焙为遗留）；"上锁/被困"靠门发现区 + 屋内占位 + 围困丧尸表达。
+    /// </summary>
+    private void DrawLockedHouse()
+    {
+        Vector2 c = VillageHouseCenter;
+        float hw = VillageHouseHalfW, hh = VillageHouseHalfH, t = 16f;
+        var wallColor = new Color(0.34f, 0.30f, 0.25f, 0.95f);
+
+        // 北墙（整条）
+        AddWallVisual(new Rect2(c.X - hw, c.Y - hh - t, hw * 2f + t, t), wallColor);
+        // 西墙、东墙（整条）
+        AddWallVisual(new Rect2(c.X - hw - t, c.Y - hh, t, hh * 2f), wallColor);
+        AddWallVisual(new Rect2(c.X + hw, c.Y - hh, t, hh * 2f + t), wallColor);
+        // 南墙：中间留 90px 门缺口，拆两段
+        const float doorHalf = 45f;
+        float southY = c.Y + hh;
+        AddWallVisual(new Rect2(c.X - hw, southY, (c.X - doorHalf) - (c.X - hw), t), wallColor); // 门左段
+        AddWallVisual(new Rect2(c.X + doorHalf, southY, (c.X + hw) - (c.X + doorHalf), t), wallColor); // 门右段
+
+        // 地板底色（示意室内），ZIndex 低于占位标记。
+        var floor = new Polygon2D
+        {
+            Polygon = Quad(new Vector2(c.X - hw, c.Y - hh), new Vector2(hw * 2f, hh * 2f)),
+            Color = new Color(0.24f, 0.22f, 0.19f, 0.8f),
+            ZIndex = 3,
+        };
+        AddChild(floor);
+    }
+
+    /// <summary>纯视觉墙段（无碰撞 StaticBody，区别于 <see cref="AddWall"/>）：占位屋墙用。</summary>
+    private void AddWallVisual(Rect2 rect, Color color)
+    {
+        var vis = new Polygon2D
+        {
+            Polygon = Quad(rect.Position, rect.Size),
+            Color = color,
+            ZIndex = 4,
+        };
+        AddChild(vis);
+    }
+
+    /// <summary>屋内占位：饿昏迷的道格（横卧色块）+ 守在身边的布鲁斯（小色块），纯视觉示意。</summary>
+    private void DrawTrappedPlaceholders()
+    {
+        // 道格：屋内靠里，横卧姿态（宽扁色块）示意"倒地昏迷"。
+        var doug = new Polygon2D
+        {
+            Polygon = Quad(VillageHouseCenter + new Vector2(-46f, -30f), new Vector2(52f, 22f)),
+            Color = new Color(0.62f, 0.56f, 0.42f, 0.95f),
+            ZIndex = 7,
+        };
+        AddChild(doug);
+        // 布鲁斯：守在道格身侧的小色块。
+        var bruce = new Polygon2D
+        {
+            Polygon = Quad(VillageHouseCenter + new Vector2(24f, -14f), new Vector2(26f, 16f)),
+            Color = new Color(0.45f, 0.38f, 0.30f, 0.95f),
+            ZIndex = 7,
+        };
+        AddChild(bruce);
+
+        var tag = new Label
+        {
+            Text = "？",
+            Position = VillageHouseCenter + new Vector2(-8f, -64f),
+            ZIndex = 12,
+        };
+        tag.AddThemeFontSizeOverride("font_size", 15);
+        tag.AddThemeColorOverride("font_color", new Color(0.9f, 0.85f, 0.7f));
+        tag.AddThemeColorOverride("font_outline_color", new Color(0, 0, 0, 0.9f));
+        tag.AddThemeConstantOverride("outline_size", 3);
+        AddChild(tag);
+    }
+
+    /// <summary>
+    /// 每帧：南林村庄的布鲁斯吠叫轮询（[SPEC-B11]"调查团靠近中距离→布鲁斯开始叫"）。
+    /// 取存活探索队到锁屋门的最近距离喂 <see cref="VillageRescue.ShouldStartBarking"/>/<see cref="VillageRescue.InBarkRange"/>：
+    /// 进中距离即起吠、每 <see cref="VillageRescue.BarkIntervalSeconds"/> 秒飘一声"汪！"（音频无资产的占位提示）；
+    /// 离开中距离即停吠；救援已触发（本关内已上报救援 id）即静音（人被救走）。
+    /// 吠叫仅引导玩家、不额外驱赶丧尸（围困已由初始布局承载，避免过度惩罚，见 SpawnVillageSiegeZombies）。
+    /// </summary>
+    public override void _Process(double delta)
+    {
+        if (!_villageActive)
+            return;
+        if (_firedDiscoveries.Contains(VillageRescue.RescueDiscoveryId))
+        {
+            _villageBarking = false; // 已救援：静音
+            return;
+        }
+
+        float nearest = float.MaxValue;
+        foreach (Pawn p in ExpeditionTeam)
+            if (p.Alive)
+                nearest = Mathf.Min(nearest, p.GlobalPosition.DistanceTo(VillageDoorPosition));
+
+        if (!VillageRescue.InBarkRange(nearest))
+        {
+            _villageBarking = false; // 离开中距离：停吠（下次再进重新起吠）
+            return;
+        }
+
+        if (VillageRescue.ShouldStartBarking(nearest, _villageBarking))
+        {
+            _villageBarking = true;
+            _villageBarkCooldown = 0.0; // 进范围立即先叫一声
+        }
+
+        _villageBarkCooldown -= delta;
+        if (_villageBarkCooldown <= 0.0)
+        {
+            FloatingText.Spawn(this, VillageDoorPosition + new Vector2(0f, -46f), VillageRescue.BarkText, new Color(0.95f, 0.9f, 0.55f));
+            _villageBarkCooldown = VillageRescue.BarkIntervalSeconds;
+        }
+    }
+
     /// <summary>造一个发现点：地面标记 + 文字标签 + 触发 Area2D（踏入一次即上报，本关内不重复）。
     /// 标记+标签挂在一个容器 Node2D 下，登记进 <see cref="_discoveryVisuals"/> 供视野检测层隐藏（视野外不揭示）；
     /// 触发 Area2D 独立不受隐藏影响（视野外踏入仍可发现，"看不见但撞上了"）。</summary>
-    private void AddDiscoveryPoint(string discoveryId, Vector2 pos, Color markerColor, string label)
+    private void AddDiscoveryPoint(string discoveryId, Vector2 pos, Color markerColor, string label, Vector2? zoneSize = null)
     {
         // 视觉容器（隐藏用）：标记+标签挂其下，隐藏容器即隐藏两者。
         var visual = new Node2D();
@@ -549,7 +934,7 @@ public sealed partial class TestExploration : ExplorationLevel
         _discoveryVisuals.Add((visual, pos));
 
         var zone = new Area2D { Position = pos };
-        zone.AddChild(new CollisionShape2D { Shape = new RectangleShape2D { Size = new Vector2(70, 70) } });
+        zone.AddChild(new CollisionShape2D { Shape = new RectangleShape2D { Size = zoneSize ?? new Vector2(70, 70) } });
         zone.CollisionMask = 0b0001u; // 与返回区一致：只感知玩家 Pawn 所在层
         zone.BodyEntered += body =>
         {

@@ -57,4 +57,11 @@ public sealed class DogHungerState
         Value = Math.Clamp(Value + delta, StarvedValue, Cap);
         return IsStarved;
     }
+
+    /// <summary>
+    /// 把刻度直接压到指定档（**仅降不升**）：用于剧情设定态（如布鲁斯随道格"饿昏迷"入队时压到低档）。
+    /// 目标 clamp 到 [0, <see cref="Cap"/>]；已比目标更低则不动。压到 0 即饿死（终态）。与人类 <see cref="HungerState.DrainTo"/> 同义。
+    /// </summary>
+    public void DrainTo(int level)
+        => Value = Math.Min(Value, Math.Clamp(level, StarvedValue, Cap));
 }

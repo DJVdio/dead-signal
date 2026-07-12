@@ -8,7 +8,7 @@ namespace DeadSignal.Godot;
 // 金手指帮根据地有**两具尸体**（用户拍板，设计文档 §8.7）：
 //   · 帮众尸体（GangMemberCorpse）：被克莉丝汀反杀的金手指帮成员，时间线早于探索、各分支都可见，配日记A；
 //   · 克莉丝汀本人尸体（ChristineCorpse）：仅复仇线（她三拒后独走复仇而死）才有，点名叙事、不再另给书。
-// 哥顿上吊尸（门口树上）+日记B 在异地的守望者森林小屋（与金手指帮根据地异地，用户拍板）。
+// 哥顿上吊尸（后院树上）+日记B 在异地的守林人小屋（内部路由键仍＝守望者森林小屋 WatchersCabinName，显示名正名为「守林人小屋」；与金手指帮根据地异地，用户拍板）。
 // 本类按 discoveryId 解析、与目的地无关（目的地→发现点的铺设/门控在 TestExploration；克莉丝汀本人尸体点仅复仇线铺出，本类亦守卫返回 null）。
 // 叙事为 draft 草稿，最终由用户优化；本类只保证"读值→判定→出叙事"可跑、可测，不碰 Godot、不写 flag。
 
@@ -100,7 +100,7 @@ public static class GoldfingerDiscovery
     private const string ChristineCorpseTitle = "废墟深处的一具遗体";
 
     // draft 待用户改
-    private const string GordonHangedTitle = "小屋门口，树上的尸体";
+    private const string GordonHangedTitle = "小屋后院，树上的尸体";
 
     // draft 待用户改 —— 帮众尸体环境叙事：被克莉丝汀反杀的金手指帮成员（男性帮众；各分支都可见）
     private const string GangMemberNarrative =
@@ -118,9 +118,9 @@ public static class GoldfingerDiscovery
         "尸体的姿态、身上的痕迹，无声地讲完了她没能讲给你听的那段过去。\n\n" +
         "她想要的从来不是你们的兵，只是有人肯陪她走这一趟。";
 
-    // draft 待用户改 —— 哥顿上吊尸环境叙事（守望者森林小屋，门口老树上）
+    // draft 待用户改 —— 哥顿上吊尸环境叙事（守林人小屋，后院老树上）
     private const string GordonNarrative =
-        "林子深处，一栋孤零零的守望者小屋。门口那棵老树的横枝上，吊着一具男尸——" +
+        "林子深处，一栋孤零零的守林人小屋。绕到后院，那棵老树的横枝上，吊着一具男尸——" +
         "绳子早已勒进发黑的皮肉，风一过，尸身便轻轻转上半圈。他在这儿挂了有些日子了。\n\n" +
         "没有挣扎的痕迹，没有被丧尸啃噬的伤口。脚下没有可供踩踏的东西——" +
         "他是自己爬上去，自己松的手。\n\n" +

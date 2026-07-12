@@ -58,6 +58,14 @@ public sealed class HungerState
     }
 
     /// <summary>
+    /// 把刻度直接压到指定档（**仅降不升**）：用于剧情设定态（如道格"饿昏迷"入队时压到营养不良档）。
+    /// 目标 clamp 到 [0, <see cref="Cap"/>]；已比目标更低（更饿）则不动（不因设定态回填）。压到 0 即饿死（终态）。
+    /// </summary>
+    /// <param name="level">目标刻度（越小越饿）；高于当前刻度时不生效（本方法只饿不喂）。</param>
+    public void DrainTo(int level)
+        => Value = Math.Min(Value, Math.Clamp(level, StarvedValue, Cap));
+
+    /// <summary>
     /// 一次昼夜相位结算（净模型，一次性施加，避免"decay 落 0 → feed 被短路"的跨 0 误杀）：
     /// 无条件 -1，吃到饭再 +1 —— 净变化 = 吃到 ? 0（维持） : -1（前进一级）。餐后 clamp 到该角色上限。
     /// **进餐前**已饿死者（终态）不复活：直接维持 0。返回结算后是否饿死（刻度归 0）。

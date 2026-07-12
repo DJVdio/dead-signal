@@ -36,6 +36,8 @@ public static class ExplorationCache
     // ——目的地名（与 WorldMapPanel 的 Destination.Name 一致，务必同步）——
     public const string RiversideCabinName = "河边小屋";
     public const string HarvesterWarehouseName = "联合收割机仓库";
+    /// <summary>守林人小屋目的地名（＝内部路由键，须与 <c>WorldMapPanel.WatchersCabinName</c> 一致；显示名正名为「守林人小屋」，本类脱 Godot 单测故持副本）。</summary>
+    public const string WatchersCabinName = "守望者森林小屋";
     /// <summary>城市之巅瞭望观景台目的地名，须与 <c>WorldMapPanel.CityRooftopLookoutName</c> 一致（本类脱 Godot 单测，故本地持有副本）。</summary>
     public const string CityRooftopLookoutName = "城市之巅瞭望观景台";
     /// <summary>广播台目的地名，须与 <c>WorldMapPanel.BroadcastStationName</c> 一致（本类脱 Godot 单测，故本地持有副本）。</summary>
@@ -56,6 +58,21 @@ public static class ExplorationCache
     //   · 备件仓库（藏深）：广播设备维护间的电子件/线材/燃油等零碎。
     public const string BroadcastBreakRoomId = "cache_broadcast_break_room";
     public const string BroadcastPartsStoreId = "cache_broadcast_parts_store";
+    // 守林人小屋（小点样板，2 处搜刮点＝小点物资量级）：屋中屋暗间的碗柜（近，屋内里屋）+ 后院柴房（藏深，与哥顿上吊尸同区）。
+    //   · 里屋碗柜（暗间）：守林人独居的储粮/急救小物；· 后院柴房：劈柴/修屋的木料工具。哥顿上吊尸+日记B 由 GoldfingerDiscovery 另管（非物资搜刮）。
+    public const string RangersCabinPantryId = "cache_rangers_cabin_pantry";
+    public const string RangersCabinShedId = "cache_rangers_cabin_shed";
+    // 南林村庄（**大点**，[SPEC-B11-补]"5天+探索量"）：一个空间分区的小聚落，铺 9 处搜刮点（救援锁屋另由 VillageRescue 管、不计物资完成度）。
+    //   分区：村口/杂物(1) · 民居区(3) · 村中心(2) · 村尾/藏深(3)。近入口在前、藏深在后。
+    public const string VillageRoadsideCarId = "cache_village_roadside_car";     // 村口·废弃皮卡后备箱（近）
+    public const string VillageKitchenId = "cache_village_kitchen";              // 民居·厨房碗柜
+    public const string VillageWardrobeId = "cache_village_wardrobe";            // 民居·卧室衣柜
+    public const string VillageBackRoomId = "cache_village_back_room";           // 民居·储藏间木箱
+    public const string VillageShopShelfId = "cache_village_shop_shelf";         // 村中心·小卖部货架
+    public const string VillageWellToolboxId = "cache_village_well_toolbox";     // 村中心·水井旁工具箱
+    public const string VillageToolShedId = "cache_village_tool_shed";           // 村尾·农具棚（深）
+    public const string VillageShrineId = "cache_village_shrine";                // 村尾·祠堂供桌（深）
+    public const string VillageClinicId = "cache_village_clinic";                // 村尾·卫生所药柜（深）
 
     // ——一次性 flag（防重复搜刮，跨关持久）——
     public const string RiversideGunCabinetFlag = "searched_riverside_gun_cabinet";
@@ -66,6 +83,17 @@ public static class ExplorationCache
     public const string LookoutWardensRoomFlag = "searched_lookout_wardens_room";
     public const string BroadcastBreakRoomFlag = "searched_broadcast_break_room";
     public const string BroadcastPartsStoreFlag = "searched_broadcast_parts_store";
+    public const string RangersCabinPantryFlag = "searched_rangers_cabin_pantry";
+    public const string RangersCabinShedFlag = "searched_rangers_cabin_shed";
+    public const string VillageRoadsideCarFlag = "searched_village_roadside_car";
+    public const string VillageKitchenFlag = "searched_village_kitchen";
+    public const string VillageWardrobeFlag = "searched_village_wardrobe";
+    public const string VillageBackRoomFlag = "searched_village_back_room";
+    public const string VillageShopShelfFlag = "searched_village_shop_shelf";
+    public const string VillageWellToolboxFlag = "searched_village_well_toolbox";
+    public const string VillageToolShedFlag = "searched_village_tool_shed";
+    public const string VillageShrineFlag = "searched_village_shrine";
+    public const string VillageClinicFlag = "searched_village_clinic";
 
     // ——关键投放物标识（须与 WeaponTable / BookLibrary 一致）——
     /// <summary>栓动猎枪武器名，须与 <c>WeaponTable.BoltActionHuntingRifle().Name</c> 一致。</summary>
@@ -88,7 +116,45 @@ public static class ExplorationCache
         CityRooftopLookoutName => new[] { LookoutGiftShopId, LookoutWardensRoomId },
         // 发出设备定点(TransmitterDiscoveryId)不在此列——那是 RadioMainline 管的取设备+推进状态，非物资搜刮。
         BroadcastStationName => new[] { BroadcastBreakRoomId, BroadcastPartsStoreId },
+        // 守林人小屋（小点）：里屋碗柜(近) + 后院柴房(深)。哥顿上吊尸+日记B 不在此列——那是 GoldfingerDiscovery 管的剧情发现点。
+        WatchersCabinName => new[] { RangersCabinPantryId, RangersCabinShedId },
+        // 南林村庄（大点）：9 处搜刮点，近入口→藏深排序（村口→民居→村中心→村尾）。救援锁屋(VillageRescue)不在此列——那是主线入队触发点，不计物资完成度。
+        VillageRescue.DestinationName => new[]
+        {
+            VillageRoadsideCarId,
+            VillageKitchenId, VillageWardrobeId, VillageBackRoomId,
+            VillageShopShelfId, VillageWellToolboxId,
+            VillageToolShedId, VillageShrineId, VillageClinicId,
+        },
         _ => Array.Empty<string>(),
+    };
+
+    /// <summary>
+    /// 搜刮点 id → 其一次性 flag（供完成度聚合 <c>ExplorationProgress</c> 反查；未知 id 返回空串）。
+    /// 与 <see cref="Resolve"/> 内的 id↔flag 配对保持同步。
+    /// </summary>
+    public static string FlagForCache(string cacheId) => cacheId switch
+    {
+        RiversideGunCabinetId => RiversideGunCabinetFlag,
+        RiversideBedChestId => RiversideBedChestFlag,
+        WarehouseToolCabinetId => WarehouseToolCabinetFlag,
+        WarehouseAtticChestId => WarehouseAtticChestFlag,
+        LookoutGiftShopId => LookoutGiftShopFlag,
+        LookoutWardensRoomId => LookoutWardensRoomFlag,
+        BroadcastBreakRoomId => BroadcastBreakRoomFlag,
+        BroadcastPartsStoreId => BroadcastPartsStoreFlag,
+        RangersCabinPantryId => RangersCabinPantryFlag,
+        RangersCabinShedId => RangersCabinShedFlag,
+        VillageRoadsideCarId => VillageRoadsideCarFlag,
+        VillageKitchenId => VillageKitchenFlag,
+        VillageWardrobeId => VillageWardrobeFlag,
+        VillageBackRoomId => VillageBackRoomFlag,
+        VillageShopShelfId => VillageShopShelfFlag,
+        VillageWellToolboxId => VillageWellToolboxFlag,
+        VillageToolShedId => VillageToolShedFlag,
+        VillageShrineId => VillageShrineFlag,
+        VillageClinicId => VillageClinicFlag,
+        _ => "",
     };
 
     /// <summary>
@@ -184,6 +250,113 @@ public static class ExplorationCache
                 },
                 BroadcastPartsStoreTitle, BroadcastPartsStoreNarrative),
 
+            // 守林人小屋（小点，量级克制）：里屋碗柜＝独居储粮+急救小物；后院柴房＝木料/绳/钉。
+            RangersCabinPantryId when NotYet(flags, RangersCabinPantryFlag) => new CacheResult(
+                RangersCabinPantryFlag,
+                new[]
+                {
+                    LootItem.Food(2),                       // 守林人独居的过冬存粮
+                    LootItem.Material("bandage", 1),        // 应急急救小物
+                },
+                RangersCabinPantryTitle, RangersCabinPantryNarrative),
+
+            RangersCabinShedId when NotYet(flags, RangersCabinShedFlag) => new CacheResult(
+                RangersCabinShedFlag,
+                new[]
+                {
+                    LootItem.Material("wood", 3),           // 劈好的柴/木料
+                    LootItem.Material("rope", 1),           // 修屋用的绳
+                    LootItem.Material("nails", 2),          // 零散铁钉
+                },
+                RangersCabinShedTitle, RangersCabinShedNarrative),
+
+            // —— 南林村庄（大点，量级中档、分区铺设；draft 待用户改）——
+            VillageRoadsideCarId when NotYet(flags, VillageRoadsideCarFlag) => new CacheResult(
+                VillageRoadsideCarFlag,
+                new[]
+                {
+                    LootItem.Food(1),                       // 逃难者车里没带走的干粮
+                    LootItem.Material("scrap_metal", 2),    // 撬下的车壳碎金属
+                    LootItem.Material("fuel", 1),           // 油箱里抽出的一点余油
+                },
+                VillageRoadsideCarTitle, VillageRoadsideCarNarrative),
+
+            VillageKitchenId when NotYet(flags, VillageKitchenFlag) => new CacheResult(
+                VillageKitchenFlag,
+                new[]
+                {
+                    LootItem.Food(2),                       // 碗柜里没坏的罐头/干货
+                    LootItem.Material("cloth", 1),          // 抽屉里的旧桌布/抹布
+                },
+                VillageKitchenTitle, VillageKitchenNarrative),
+
+            VillageWardrobeId when NotYet(flags, VillageWardrobeFlag) => new CacheResult(
+                VillageWardrobeFlag,
+                new[]
+                {
+                    LootItem.Material("cloth", 2),          // 衣柜里的衣物
+                    LootItem.Material("scrap_cloth", 2),    // 撕开的碎布
+                },
+                VillageWardrobeTitle, VillageWardrobeNarrative),
+
+            VillageBackRoomId when NotYet(flags, VillageBackRoomFlag) => new CacheResult(
+                VillageBackRoomFlag,
+                new[]
+                {
+                    LootItem.Food(1),                       // 储藏间角落的存粮
+                    LootItem.Material("nails", 2),          // 杂物里的铁钉
+                    LootItem.Material("rope", 1),           // 一卷麻绳
+                },
+                VillageBackRoomTitle, VillageBackRoomNarrative),
+
+            VillageShopShelfId when NotYet(flags, VillageShopShelfFlag) => new CacheResult(
+                VillageShopShelfFlag,
+                new[]
+                {
+                    LootItem.Food(2),                       // 小卖部货架上没抢光的食水
+                    LootItem.Material("bandage", 2),        // 柜台后的常备创可贴/绷带
+                },
+                VillageShopShelfTitle, VillageShopShelfNarrative),
+
+            VillageWellToolboxId when NotYet(flags, VillageWellToolboxFlag) => new CacheResult(
+                VillageWellToolboxFlag,
+                new[]
+                {
+                    LootItem.Material("nails", 2),          // 修井/修屋的铁钉
+                    LootItem.Material("wood", 2),           // 井台边码的木料
+                    LootItem.Material("wire", 1),           // 一卷铁丝
+                },
+                VillageWellToolboxTitle, VillageWellToolboxNarrative),
+
+            VillageToolShedId when NotYet(flags, VillageToolShedFlag) => new CacheResult(
+                VillageToolShedFlag,
+                new[]
+                {
+                    LootItem.Material("wood", 3),           // 农具棚的成堆木料
+                    LootItem.Material("rope", 1),           // 捆农具的粗绳
+                    LootItem.Material("nails", 3),          // 一盒铁钉
+                },
+                VillageToolShedTitle, VillageToolShedNarrative),
+
+            VillageShrineId when NotYet(flags, VillageShrineFlag) => new CacheResult(
+                VillageShrineFlag,
+                new[]
+                {
+                    LootItem.Food(2),                       // 祠堂供桌上没腐坏的供品/存粮
+                    LootItem.Material("bone", 2),           // 祭祀用的骨器/兽骨
+                },
+                VillageShrineTitle, VillageShrineNarrative),
+
+            VillageClinicId when NotYet(flags, VillageClinicFlag) => new CacheResult(
+                VillageClinicFlag,
+                new[]
+                {
+                    LootItem.Material("bandage", 2),        // 卫生所药柜的绷带
+                    LootItem.Material("antibiotics", 1),    // 没被搜空的抗生素
+                    LootItem.Material("first_aid_kit", 1),  // 一只完整的急救包
+                },
+                VillageClinicTitle, VillageClinicNarrative),
+
             _ => null,
         };
     }
@@ -256,4 +429,85 @@ public static class ExplorationCache
         "顺着走廊往里，是广播设备的备件仓库。大件的发射组件早被拆走或砸烂，" +
         "货架上却还剩不少零碎：一盒备用的电子元件、几卷粗细不一的信号线材、两桶给备用发电机预留的燃油。\n\n" +
         "被掀翻的机架散在地上，撬下几块结实的碎金属带走。";
+
+    // —— 守林人小屋（小点样板；draft 待用户改；只写日常物资氛围，哥顿上吊尸+日记B 的叙事归 GoldfingerDiscovery）——
+    private const string RangersCabinPantryTitle = "里屋的碗柜";
+
+    private const string RangersCabinPantryNarrative =
+        "外屋一道虚掩的内门通向里屋——一个没有窗的暗间，守林人大概拿它当储藏。" +
+        "墙角的碗柜里，还码着几听没胀气的罐头，抽屉底下压着一小卷干净的绷带。\n\n" +
+        "东西不多，看得出这屋子的主人独自过活，日子过得紧巴。";
+
+    private const string RangersCabinShedTitle = "后院的柴房";
+
+    private const string RangersCabinShedNarrative =
+        "绕到屋后，紧挨着那棵老树是一间半塌的柴房。" +
+        "劈好的木料还码得整整齐齐，墙上挂着一卷修屋用的麻绳，地上散着几枚生锈的铁钉。\n\n" +
+        "斧子不见了——大概是主人最后用它做了别的事。";
+
+    // —— 南林村庄（大点；draft 待用户改；只写日常物资氛围，救援锁屋的剧情归 VillageRescue）——
+    private const string VillageRoadsideCarTitle = "村口的皮卡";
+
+    private const string VillageRoadsideCarNarrative =
+        "村口斜停着一辆爆了胎的皮卡，车门大敞——逃难的人走得急，后备箱却没来得及搬空。" +
+        "翻出几包还没受潮的干粮，撬下几块车壳的碎金属。\n\n" +
+        "油箱里晃荡着一点余油，用管子接了出来。";
+
+    private const string VillageKitchenTitle = "农家的厨房";
+
+    private const string VillageKitchenNarrative =
+        "推开头一户人家的门，灶台还是凉的。碗柜里码着几听没胀气的罐头、一小袋干货，" +
+        "抽屉里塞着几块洗得发白的旧桌布。\n\n" +
+        "墙上的全家福蒙了灰，玻璃裂了道缝。";
+
+    private const string VillageWardrobeTitle = "卧室的衣柜";
+
+    private const string VillageWardrobeNarrative =
+        "里屋的衣柜半开着，挂着几件还能穿的旧衣裳，叠得整整齐齐——像是主人临走前还想着回来。" +
+        "扯下几件厚实的，又撕了些能当绷带、引火的碎布。\n\n" +
+        "床头柜上摆着一张没带走的照片。";
+
+    private const string VillageBackRoomTitle = "储藏间的木箱";
+
+    private const string VillageBackRoomNarrative =
+        "屋子最里头是间堆杂物的储藏间，角落一只木箱压在麻袋底下。" +
+        "箱里还剩点没搬空的存粮，混着一把铁钉和一卷没用完的麻绳。\n\n" +
+        "灰尘厚得能写字，看得出很久没人动过。";
+
+    private const string VillageShopShelfTitle = "村口小卖部";
+
+    private const string VillageShopShelfNarrative =
+        "村里唯一一间小卖部，货架被抢过一轮，横七竖八地倒着。" +
+        "弯下腰在缝里翻，还能捡出几瓶滚到墙根的水、没被踩烂的干粮，" +
+        "柜台后头的抽屉里压着一叠常备的创可贴和绷带。\n\n" +
+        "收银台的抽屉大开着，里头的零钱一分不剩。";
+
+    private const string VillageWellToolboxTitle = "水井旁的工具箱";
+
+    private const string VillageWellToolboxNarrative =
+        "村子中央一口老水井，井台边搁着户人家修井留下的工具箱。" +
+        "大件的家伙没了，只剩些零碎——一把铁钉、几段木料、一卷生了锈的铁丝。\n\n" +
+        "井绳还在，井里却早没了打水的人。";
+
+    private const string VillageToolShedTitle = "村尾的农具棚";
+
+    private const string VillageToolShedNarrative =
+        "村子尽头一间敞口的农具棚，藏在几棵歪脖子树后头，不走到近前不容易发现。" +
+        "棚里成堆的木料还没沤烂，捆农具的粗绳、一盒散开的铁钉都还能用。\n\n" +
+        "锄头镰刀之类的铁器早不见了——不知是搬走了，还是被谁拿去当了别的。";
+
+    private const string VillageShrineTitle = "村头的祠堂";
+
+    private const string VillageShrineNarrative =
+        "村头一间旧祠堂，藏在最深处，门虚掩着。供桌上还摆着没腐坏的供品和一小袋存粮——" +
+        "灾变来时，大概有人在这儿求过最后一回平安。\n\n" +
+        "案上几件祭祀的骨器还在，收了能派上别的用场。神龛后蒙着厚灰，再没人来上香。";
+
+    private const string VillageClinicTitle = "村卫生所";
+
+    private const string VillageClinicNarrative =
+        "村尾一间挂着褪色红十字牌的卫生所，是村里唯一像样的医处，藏在巷子最里头。" +
+        "药柜被翻过，但没搜干净——玻璃门后还剩两卷绷带、一小板没过期的抗生素，" +
+        "抽屉底压着一只没拆封的急救包。\n\n" +
+        "诊桌上的登记本停在灾变那几天，最后几行字迹潦草得几乎认不出。";
 }

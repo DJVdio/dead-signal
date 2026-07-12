@@ -11,6 +11,10 @@ public sealed partial class WorldMapPanel : CanvasLayer
         public string Name;
         public Vector2 Position;
         public int TravelTimeSeconds;
+        /// <summary>调查点规模三级（用户拍板：小 1~2 天 / 中 3~5 天 / 大 5 天以上）。各点定级为数据、拟定待调。</summary>
+        public SizeTier Tier;
+        /// <summary>显示名（缺省 null＝用 Name）。用于「正名」：内部路由键/flag 仍用 Name，地图只改显示。</summary>
+        public string? DisplayName;
     }
 
     /// <summary>金手指帮根据地目的地名（CampMain / 探索关按此名分流发现点，务必一致）。</summary>
@@ -31,25 +35,38 @@ public sealed partial class WorldMapPanel : CanvasLayer
     /// </summary>
     public const string BroadcastStationName = "广播台";
 
+    /// <summary>
+    /// 南林村庄目的地名（前中期探索点，道格与布鲁斯正史入队地；须与 <see cref="VillageRescue.DestinationName"/> 一致，按此名分流关卡布局）。
+    /// 关内核心＝一栋**上锁的屋子**（道格布鲁斯被困其中）+ 周边**丧尸围困**；调查团靠近中距离→布鲁斯吠叫引导→
+    /// 清丧尸→开锁→发现饿昏迷的道格→回营正史入队（见 <c>TestExploration.SetupSouthForestVillage</c> 与 <see cref="VillageRescue"/>）。
+    /// </summary>
+    public const string SouthForestVillageName = VillageRescue.DestinationName;
+
+    // 各点规模定级（Tier）为「拟定待调」：按各关内容量+直觉给档，用户可拍板改。
+    // 大＝剧情重/内容多(5天+)；中＝常规据点(3~5天)；小＝单屋/单点(1~2天)。
     private static readonly Destination[] Destinations =
     {
-        new() { Name = "超市", Position = new Vector2(140, 120), TravelTimeSeconds = 300 },
-        new() { Name = "医院", Position = new Vector2(420, 80), TravelTimeSeconds = 480 },
-        new() { Name = "药店", Position = new Vector2(300, 300), TravelTimeSeconds = 360 },
-        new() { Name = "住宅区", Position = new Vector2(100, 340), TravelTimeSeconds = 240 },
-        new() { Name = "加油站", Position = new Vector2(460, 220), TravelTimeSeconds = 420 },
-        new() { Name = GoldfingerBaseName, Position = new Vector2(210, 210), TravelTimeSeconds = 540 },
+        new() { Name = "超市", Position = new Vector2(140, 120), TravelTimeSeconds = 300, Tier = SizeTier.Medium },
+        new() { Name = "医院", Position = new Vector2(420, 80), TravelTimeSeconds = 480, Tier = SizeTier.Large },
+        new() { Name = "药店", Position = new Vector2(300, 300), TravelTimeSeconds = 360, Tier = SizeTier.Medium },
+        new() { Name = "住宅区", Position = new Vector2(100, 340), TravelTimeSeconds = 240, Tier = SizeTier.Medium },
+        new() { Name = "加油站", Position = new Vector2(460, 220), TravelTimeSeconds = 420, Tier = SizeTier.Medium },
+        new() { Name = GoldfingerBaseName, Position = new Vector2(210, 210), TravelTimeSeconds = 540, Tier = SizeTier.Large },
         // 森林深处、远离城镇：坐标落在城镇方框（80,60,440,260）之外的右侧林地，行程最长（拟定待调）。
-        new() { Name = WatchersCabinName, Position = new Vector2(545, 150), TravelTimeSeconds = 600 },
+        // 守望者森林小屋＝内部路由键/flag；显示名正名为「守林人小屋」（用户最新口径），小点样板（屋中屋+后院哥顿尸+2搜刮）。
+        new() { Name = WatchersCabinName, DisplayName = "守林人小屋", Position = new Vector2(545, 150), TravelTimeSeconds = 600, Tier = SizeTier.Small },
         // 两个前中期探索点（用户拍板"加两个探索点 河边小屋 联合收割机仓库"），搜刮点铺设见 TestExploration，投放见 ExplorationCache。
-        // 河边小屋：城镇以南、临河（坐标落在城镇方框下缘），行程 6 分钟（前中期档，拟定待调）。
-        new() { Name = ExplorationCache.RiversideCabinName, Position = new Vector2(250, 335), TravelTimeSeconds = 360 },
-        // 联合收割机仓库：城镇东侧田野（方框之外的右下林地/农地），行程 7 分钟（前中期档，拟定待调）。
-        new() { Name = ExplorationCache.HarvesterWarehouseName, Position = new Vector2(555, 285), TravelTimeSeconds = 420 },
-        // 城市之巅瞭望观景台：城镇北缘的高层建筑（坐标落城镇方框内偏北，正北可望见尸潮），前中期偏中档，行程 8 分钟（危险度/行程拟定待调）。
-        new() { Name = CityRooftopLookoutName, Position = new Vector2(360, 110), TravelTimeSeconds = 480 },
-        // 广播台：城镇北侧山脊上的通讯发射塔（坐标落城镇方框北缘外的高地），主线中后期解锁位、路程最远，行程 11 分钟（中后期定位/危险度/行程拟定待调）。
-        new() { Name = BroadcastStationName, Position = new Vector2(500, 55), TravelTimeSeconds = 660 },
+        // 河边小屋：城镇以南、临河（坐标落在城镇方框下缘），行程 6 分钟（前中期档，拟定待调）。单间猎人小屋＝小点。
+        new() { Name = ExplorationCache.RiversideCabinName, Position = new Vector2(250, 335), TravelTimeSeconds = 360, Tier = SizeTier.Small },
+        // 联合收割机仓库：城镇东侧田野（方框之外的右下林地/农地），行程 7 分钟（前中期档，拟定待调）。农机棚+阁楼＝中点。
+        new() { Name = ExplorationCache.HarvesterWarehouseName, Position = new Vector2(555, 285), TravelTimeSeconds = 420, Tier = SizeTier.Medium },
+        // 城市之巅瞭望观景台：城镇北缘的高层建筑（坐标落城镇方框内偏北，正北可望见尸潮），前中期偏中档，行程 8 分钟（危险度/行程拟定待调）。用户口径瞭望台＝小点。
+        new() { Name = CityRooftopLookoutName, Position = new Vector2(360, 110), TravelTimeSeconds = 480, Tier = SizeTier.Small },
+        // 广播台：城镇北侧山脊上的通讯发射塔（坐标落城镇方框北缘外的高地），主线中后期解锁位、路程最远，行程 11 分钟（中后期定位/危险度/行程拟定待调）。机房+值班+备件＝中点。
+        new() { Name = BroadcastStationName, Position = new Vector2(500, 55), TravelTimeSeconds = 660, Tier = SizeTier.Medium },
+        // 南林村庄：城镇以南林地边缘的一处小聚落（坐标落城镇方框下缘外的南侧林带，与临河的河边小屋分开），
+        // 道格布鲁斯正史入队地，用户拍板＝大调查点（按大点规格铺内容，doug-village 负责），行程 7 分钟（危险度/行程拟定待调）。
+        new() { Name = SouthForestVillageName, Position = new Vector2(400, 330), TravelTimeSeconds = 420, Tier = SizeTier.Large },
     };
 
     private Control _root = null!;
@@ -87,7 +104,8 @@ public sealed partial class WorldMapPanel : CanvasLayer
         foreach (var dest in Destinations)
         {
             var markerLabel = new Label();
-            markerLabel.Text = $"{dest.Name}（{dest.TravelTimeSeconds / 60} 分钟）";
+            // 显示名用 DisplayName（正名，如「守林人小屋」）回退到 Name；规模/预计天数/完成度按用户拍板不对玩家外显。
+            markerLabel.Text = $"{dest.DisplayName ?? dest.Name}（{dest.TravelTimeSeconds / 60} 分钟）";
             markerLabel.AddThemeFontSizeOverride("font_size", 12);
             markerLabel.AddThemeColorOverride("font_color", new Color(0.8f, 0.75f, 0.6f));
             markerLabel.AddThemeColorOverride("font_outline_color", new Color(0, 0, 0, 0.9f));
