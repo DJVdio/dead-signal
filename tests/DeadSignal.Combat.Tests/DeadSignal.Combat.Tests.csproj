@@ -70,6 +70,8 @@
     <Compile Include="..\..\godot\scripts\MealBubbles.cs" Link="Consumed\MealBubbles.cs" />
     <!-- 克莉丝汀请求线状态机纯逻辑（无 Godot 依赖）：收留开线/递进请求门控/答应停播/累计拒绝离开。 -->
     <Compile Include="..\..\godot\scripts\ChristineRequestLogic.cs" Link="Consumed\ChristineRequestLogic.cs" />
+    <!-- 南林村庄救援入队纯逻辑（无 Godot 依赖）：中距离吠叫触发判定 + 锁屋救援解析(去重) + 回营正史入队条件 + 饿昏迷饥饿低档常量。 -->
+    <Compile Include="..\..\godot\scripts\VillageRescue.cs" Link="Consumed\VillageRescue.cs" />
     <!-- 物品模型 + 营地共享库存纯数据地基（无 Godot 依赖）：Item 五类值对象 / BookData 已读+配方桩 / InventoryStore 增删查。 -->
     <Compile Include="..\..\godot\scripts\Item.cs" Link="Consumed\Item.cs" />
     <Compile Include="..\..\godot\scripts\BookData.cs" Link="Consumed\BookData.cs" />
@@ -90,8 +92,10 @@
     <Compile Include="..\..\godot\scripts\ContainerLoot.cs" Link="Consumed\ContainerLoot.cs" />
     <!-- 金手指帮根据地发现点纯逻辑（无 Godot 依赖）：discoveryId → flag/日记书/环境叙事；克莉丝汀尸体按支线 flag 分支措辞。 -->
     <Compile Include="..\..\godot\scripts\GoldfingerDiscovery.cs" Link="Consumed\GoldfingerDiscovery.cs" />
-    <!-- 探索点搜刮缓存纯逻辑（无 Godot 依赖）：cacheId → flag/一批掉落/环境叙事（河边小屋/联合收割机仓库/城市之巅瞭望观景台）。 -->
+    <!-- 探索点搜刮缓存纯逻辑（无 Godot 依赖）：cacheId → flag/一批掉落/环境叙事（河边小屋/联合收割机仓库/城市之巅瞭望观景台/守林人小屋）。 -->
     <Compile Include="..\..\godot\scripts\ExplorationCache.cs" Link="Consumed\ExplorationCache.cs" />
+    <!-- 调查点规模三级 + 探索完成度聚合纯逻辑（无 Godot 依赖）：SizeTier 枚举/TierLabel + 目的地登记点位集 vs StoryFlags 旗标 → 已调查 X/Y。 -->
+    <Compile Include="..\..\godot\scripts\ExplorationProgress.cs" Link="Consumed\ExplorationProgress.cs" />
     <!-- 瞭望台望远镜瞭望尸潮发现点纯逻辑（无 Godot 依赖）：discoveryId → 置 HordeTimeline.SightedFlag + 环境叙事。 -->
     <Compile Include="..\..\godot\scripts\LookoutSighting.cs" Link="Consumed\LookoutSighting.cs" />
     <!-- 武器持械模型纯逻辑（无 Godot 依赖）：左右手持械 → GripMode 推导 / 断手禁持 / 主手武器选取。 -->
@@ -138,6 +142,10 @@
     <Compile Include="..\..\godot\scripts\RubbleDig.cs" Link="Consumed\RubbleDig.cs" />
     <!-- 批次6 夜防对抗运行时编排辅助纯逻辑（night-response，无 Godot 依赖）：岗哨加成映射/威胁分档/营地多守卫对抗聚合。 -->
     <Compile Include="..\..\godot\scripts\NightRaidLogic.cs" Link="Consumed\NightRaidLogic.cs" />
+    <!-- 批次11 三结局 CG 定稿+全灭结局路由纯逻辑（endgame-flow，无 Godot 依赖）：CG①尸潮/②军袭全灭变体/③南逃 分段文本 + ForGameOver 路由。 -->
+    <Compile Include="..\..\godot\scripts\EndingCg.cs" Link="Consumed\EndingCg.cs" />
+    <!-- 批次11 南方营地三问考验纯逻辑（endgame-flow，无 Godot 依赖）：三问表/逐题回答记录/整体基调→启程旁白变体/CG③组装/启程去重。 -->
+    <Compile Include="..\..\godot\scripts\SouthTrial.cs" Link="Consumed\SouthTrial.cs" />
   </ItemGroup>
 
 </Project>

@@ -285,17 +285,20 @@ public static class WeaponTable
     };
 
     /// <summary>
-    /// 布鲁斯（狗）撕咬：天生近战锐器，穿透 10%。**低伤害**（用户口径：布鲁斯难以独自击杀敌人，靠缠斗拖住给道格
-    /// 创造输出窗口），比爪击更快（犬类机敏）。天生武器（同爪击不入 <see cref="Arsenal"/>，玩家不可穿脱）。全部拟定待调。
+    /// 布鲁斯（狗）撕咬：天生近战锐器，穿透 10%。**极低伤害**（用户口径：布鲁斯难以独自击杀敌人，靠缠斗拖住给道格
+    /// 创造输出窗口）。天生武器（同爪击不入 <see cref="Arsenal"/>，玩家不可穿脱）。
+    /// 校准依据（param-calibration，dogcal 4000 种子）：三身份特质（高闪避+低伤+快咬）全拉满 → solo 胜率 84%（远超目标 30~45%）；
+    /// 设计定义以「高闪避+低伤」为核心对，「咬比爪快」为最弱 flavor 故让出——咬合放缓到 2.3s（=爪击同速）、伤害压到 1-4，
+    /// 配 <c>Dog.DodgeChance</c>=0.45 → solo 胜率 39%（band 中位）、平均时长 33s（≫匕首基线 14.5s，缠斗感成立）。
     /// </summary>
     public static Weapon DogBite() => new()
     {
         Name = "撕咬",
-        DamageMin = 2,           // 拟定待调（低伤：难独自击杀）
-        DamageMax = 6,           // 拟定待调
+        DamageMin = 1,           // 校准：低伤→极低伤（难独自击杀），2→1
+        DamageMax = 4,           // 校准：6→4
         Penetration = 0.10,      // 拟定待调
         DamageType = DamageType.Sharp,
-        AttackInterval = 1.6,    // 拟定待调（比爪击 2.3 快：犬类快速撕咬）
+        AttackInterval = 2.3,    // 校准：1.6→2.3（=爪击同速，让出"咬比爪快"以把 solo 胜率压进 30~45%）
     };
 
     /// <summary>

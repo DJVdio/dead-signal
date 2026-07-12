@@ -18,6 +18,49 @@ if (args.Length > 0 && args[0] == "duel")
     return;
 }
 
+if (args.Length > 0 && args[0] == "dogcal")
+{
+    string dogOut = args.Length > 1 ? args[1] : "docs/research/2026-07-12-dog-calibration.md";
+    DogCalibration.Run(dogOut);
+    return;
+}
+
+if (args.Length > 0 && args[0] == "dogsweep")
+{
+    DogCalibration.Sweep();
+    return;
+}
+
+if (args.Length > 0 && args[0] == "baselinecal")
+{
+    DogCalibration.Baselines();
+    return;
+}
+
+if (args.Length > 0 && args[0] == "visioncal")
+{
+    VisionCalibration.Run();
+    return;
+}
+
+if (args.Length > 0 && args[0] == "watchcal")
+{
+    WatchCalibration.Run();
+    return;
+}
+
+if (args.Length > 0 && args[0] == "watchsweep")
+{
+    WatchCalibration.Sweep();
+    return;
+}
+
+if (args.Length > 0 && args[0] == "endgamecal")
+{
+    EndgameCalibration.Run();
+    return;
+}
+
 const int Iterations = 100_000;
 int seed = 20260705;
 string outPath = args.Length > 0

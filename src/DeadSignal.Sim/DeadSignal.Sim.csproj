@@ -4,6 +4,19 @@
     <ProjectReference Include="..\DeadSignal.Combat\DeadSignal.Combat.csproj" />
   </ItemGroup>
 
+  <!-- 视野/警戒/日程纯逻辑（无 Godot 依赖）以 Link 编入，供解析校准 harness 用真实常量与函数（保真，防公式漂移）。 -->
+  <ItemGroup>
+    <Compile Include="..\..\godot\scripts\DayPhase.cs" Link="Consumed\DayPhase.cs" />
+    <Compile Include="..\..\godot\scripts\VisionLogic.cs" Link="Consumed\VisionLogic.cs" />
+    <Compile Include="..\..\godot\scripts\GuardPost.cs" Link="Consumed\GuardPost.cs" />
+    <Compile Include="..\..\godot\scripts\NightWatchContest.cs" Link="Consumed\NightWatchContest.cs" />
+    <Compile Include="..\..\godot\scripts\NightRaidLogic.cs" Link="Consumed\NightRaidLogic.cs" />
+    <Compile Include="..\..\godot\scripts\ShiftSchedule.cs" Link="Consumed\ShiftSchedule.cs" />
+    <Compile Include="..\..\godot\scripts\DougBruceBond.cs" Link="Consumed\DougBruceBond.cs" />
+    <Compile Include="..\..\godot\scripts\HordeTimeline.cs" Link="Consumed\HordeTimeline.cs" />
+    <Compile Include="..\..\godot\scripts\RaidWave.cs" Link="Consumed\RaidWave.cs" />
+  </ItemGroup>
+
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net8.0</TargetFramework>

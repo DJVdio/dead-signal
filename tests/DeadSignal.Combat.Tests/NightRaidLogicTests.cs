@@ -81,4 +81,39 @@ public sealed class NightRaidLogicTests
         Assert.True(detected);
         Assert.Equal(0, rng.Remaining);
     }
+
+    // ── 疲劳调整警戒：非疲劳=ComputeAlertness 原值 ──
+    [Fact]
+    public void FatigueAdjustedAlertness_NotFatigued_EqualsComputeAlertness()
+    {
+        float baseline = NightWatchContest.ComputeAlertness(0.5f, 120f, 0.1f, 1f, 1f, NightWatchContest.HearingBaseRange);
+        float adj = NightRaidLogic.FatigueAdjustedAlertness(0.5f, 120f, 0.1f, 1f, fatigued: false, NightWatchContest.HearingBaseRange);
+        Assert.Equal(baseline, adj, 4);
+    }
+
+    // ── 疲劳调整警戒：听力项在范围内时，疲劳按系数削去听力贡献的一部分 ──
+    [Fact]
+    public void FatigueAdjustedAlertness_Fatigued_ReducesByHearingPortion()
+    {
+        const float dist = 120f, acuity = 0.5f, structBonus = 0.1f, watchEff = 1f;
+        float notFat = NightRaidLogic.FatigueAdjustedAlertness(acuity, dist, structBonus, watchEff, false, NightWatchContest.HearingBaseRange);
+        float fat = NightRaidLogic.FatigueAdjustedAlertness(acuity, dist, structBonus, watchEff, true, NightWatchContest.HearingBaseRange);
+        Assert.True(fat < notFat); // 疲劳削听力 → 警戒降低
+
+        // 精确：削去的量 = 听力贡献 × (1 - 系数)
+        float hearingContrib = NightWatchContest.HearingWeight
+            * NightWatchContest.HearingFalloff(dist, NightWatchContest.HearingBaseRange) * watchEff;
+        float expected = notFat - hearingContrib * (1f - NightRaidLogic.FatigueHearingMult);
+        Assert.Equal(expected, fat, 4);
+    }
+
+    // ── 疲劳调整警戒：听力范围外（无听力可削）时，疲劳与非疲劳相等 ──
+    [Fact]
+    public void FatigueAdjustedAlertness_BeyondHearing_NoDifference()
+    {
+        float far = NightWatchContest.HearingBaseRange + 50f; // 听力衰减到 0
+        float notFat = NightRaidLogic.FatigueAdjustedAlertness(0.3f, far, 0f, 1f, false, NightWatchContest.HearingBaseRange);
+        float fat = NightRaidLogic.FatigueAdjustedAlertness(0.3f, far, 0f, 1f, true, NightWatchContest.HearingBaseRange);
+        Assert.Equal(notFat, fat, 4);
+    }
 }

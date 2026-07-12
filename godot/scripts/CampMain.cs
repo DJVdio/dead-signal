@@ -222,6 +222,14 @@ public sealed partial class CampMain : Node2D
     private readonly Dictionary<int, float> _guardPostSightById = new();       // 守卫/犬 id → 岗位视野倍率（岗哨建筑加成源，StationGuards 采集）
     private const float NightRaiderRaidChance = 0.35f;      // 合法夜袭击者潜入概率（拟定待调）
     private const int NightRaiderCountBase = 2;             // 袭击者基数（随天数缓增，拟定待调）
+    // 对抗掷点时机（param-calibration 校准）：袭击者边缘生成时距守卫≈256px 超夜视134/听力220 → 单次掷点发现率≈0。
+    // 改为随尖兵**逼近**到各距离带（对最近守卫的距离）时分段各掷一次（帧率无关，检测累积）；深入到营心 StrikeDistance 仍未发现 → 未发现后果兑现。
+    // 带集 param-calibration 复扫定值（watchcal/watchsweep，真实营地几何）：{170,120,80} 三带累积 → 裸营(单守卫)63% 偏高；
+    // 改 {150,90} 两带 → 裸营 48%（落目标 35-55%）、且若守卫覆盖逼近轴满配 85%（落 80-90%）。见 docs/research/2026-07-12-watch-calibration.md。
+    private static readonly float[] NightRaidContestBands = { 150f, 90f }; // 尖兵→最近守卫距离带，逐带一次对抗掷点
+    private const float NightRaidStrikeDistance = 150f;     // 尖兵深入到营心此半径内仍未被发现 → 兑现未发现后果（拟定待调）
+    private bool _nightRaidResolved;                        // 本波对抗是否已决出（发现/未发现兑现后 true；决出前守卫未警觉不迎战）
+    private readonly HashSet<int> _nightRaidRolledBands = new(); // 本波已掷过的距离带下标（防同带重复掷，帧率无关）
     private int _prevRaidResponseSpeed;                     // 响应面板冻结前时标（速度档）
     private bool _prevRaidResponsePaused;                  // 响应面板冻结前时标（暂停态）
     // 双班硬日程（SPEC-B6①）：当日探险名册。夜里 DayCrew=强制睡；ExpeditionIds 在 DayReturn 即清空，故本类自存作夜间班别真源。
@@ -246,6 +254,9 @@ public sealed partial class CampMain : Node2D
     private bool _siegeActive;
     private int _siegeWaveIndex;        // 已投放波次序号（0=首波）
     private double _siegeWaveElapsed;    // 距上一波投放已过秒（逐帧累积，喂 HordeTimeline.NextWave）
+    // 结局②军袭全灭上下文（预留）：军方白天来袭屠杀留守者时，若恰全员在营被屠尽 → 全灭走 CG②（背叛全灭变体）。
+    // 军袭事件本体未实装（TryTriggerMilitaryRaid 目前 no-op），故此位恒 false；实装军袭时在其屠杀分支置位（见 TODO）。
+    private bool _militaryRaidWipeContext;
     private GuardPostKind _debugPlaceKind = GuardPostKind.Watchtower; // 调试放置轮换类型
     private const float BreachRadius = 420f;  // 破防线：丧尸摸进营心此半径内 = 破防（随 2400×1800 地图放大调，拟定待调）
 
@@ -1373,10 +1384,13 @@ public sealed partial class CampMain : Node2D
     }
 
     /// <summary>
-    /// 注入道格（可入队幸存者）+ 布鲁斯（其犬类伙伴）到营地。入队时机/剧情=用户手写，本批经调试键（DEBUG 下 Key.G）
-    /// 调用作验证路径；幂等（道格在场即跳过）。道格照常参与聚餐/读书/医疗/守卫/探索；布鲁斯跟随道格、自主缠斗、可站岗。
+    /// 注入道格（可入队幸存者）+ 布鲁斯（其犬类伙伴）到营地。**正史入队路径**＝南林村庄救援回营
+    /// （<see cref="MaybeSpawnRescuedDougAndBruce"/> 以"饿昏迷"低饥饿调用本方法，[SPEC-B11]）；DEBUG 下 Key.G 仍保留
+    /// 一条**满档即时注入**的验证路径。幂等（道格在场即跳过）。道格照常参与聚餐/读书/医疗/守卫/探索；布鲁斯跟随道格、自主缠斗、可站岗。
     /// </summary>
-    public void SpawnDougAndBruce()
+    /// <param name="dougHunger">道格入队时的初始饥饿刻度（默认满档；南林村庄救援传 <see cref="VillageRescue.DougEnlistHunger"/> 低档=饿昏迷）。</param>
+    /// <param name="bruceHunger">布鲁斯入队时的初始饥饿刻度（默认满档；南林村庄救援传 <see cref="VillageRescue.BruceEnlistHunger"/> 低档）。</param>
+    public void SpawnDougAndBruce(int dougHunger = HungerState.DefaultCap, int bruceHunger = DogHungerState.Cap)
     {
         if (_doug is { Alive: true })
             return; // 幂等：已在场不重复注入
@@ -1412,8 +1426,30 @@ public sealed partial class CampMain : Node2D
         // · 布鲁斯 2 级视距 +10%：自主缠斗侦测半径按 BruceRangeMult 缩放（依道格存活）。
         bruce.SetDetectRangeMultProvider(() => DougBruceBond.BruceRangeMult(BondLevel, _doug is { Alive: true }));
 
+        // 入队饥饿设定（[SPEC-B11]）："饿昏迷"正史入队时把二人一狗压到低档（须靠聚餐喂回）；
+        // 满档调用（DEBUG 键）时 DrainTo 仅降不升 → 无副作用。
+        doug.Hunger.DrainTo(dougHunger);
+        bruce.Hunger.DrainTo(bruceHunger);
+        // 羁绊天数从入队日起算（本方法幂等只跑一次；显式归零以文档化"起点"，AdvanceBondDay 在道格入队前从不累加）。
+        _bondDaysBothAlive = 0;
+
         _cardBar?.SetSurvivors(_survivors); // 道格入队：卡牌栏加卡（布鲁斯为犬类不占卡）
-        GD.Print("[DougBruce] 道格 + 布鲁斯 已注入营地（调试）。");
+        GD.Print("[DougBruce] 道格 + 布鲁斯 已注入营地。");
+    }
+
+    /// <summary>
+    /// 回营正史入队钩子（[SPEC-B11]）：探索队从南林村庄救出道格布鲁斯（关内已置 <see cref="VillageRescue.RescuedFlag"/>）后回营，
+    /// 在此真正注入二人一狗——道格 + 布鲁斯饥饿压到"饿昏迷"低档，并置 <see cref="VillageRescue.EnlistedFlag"/> 硬守卫
+    /// （注入一次，道格日后身故 _doug 置 null 也不因本钩子复注入）。判定与门控走纯逻辑 <see cref="VillageRescue.ShouldEnlistOnReturn"/>。
+    /// 由 <see cref="UnloadExplorationLevel"/> 在探索队回营、营地恢复后调用。
+    /// </summary>
+    private void MaybeSpawnRescuedDougAndBruce()
+    {
+        if (!VillageRescue.ShouldEnlistOnReturn(_storyFlags))
+            return;
+        SpawnDougAndBruce(VillageRescue.DougEnlistHunger, VillageRescue.BruceEnlistHunger); // 饿昏迷低档
+        _storyFlags.Set(VillageRescue.EnlistedFlag, "true"); // 注入一次硬守卫
+        GD.Print("[DougBruce] 南林村庄救援回营 → 道格 + 布鲁斯正史入队（饿昏迷低档）。");
     }
 
 #if DEBUG
@@ -1503,7 +1539,14 @@ public sealed partial class CampMain : Node2D
             if (!_gameOver && GameOverCondition.AllSurvivorsDead(_survivors.Count(s => s.Alive)))
             {
                 _gameOver = true;
-                GameOverPanel.Show(_hud);
+                // 全灭结局路由（[SPEC-B11] 三结局 CG）：尸潮围攻全灭→CG①；军袭致全员在营全灭→CG②（预留，军袭本体待实装）；
+                // 其余普通全灭→保留原 GameOverPanel「营地无人生还」行为。
+                var kind = EndingCg.ForGameOver(_siegeActive, _militaryRaidWipeContext);
+                if (kind == EndingKind.Normal)
+                    GameOverPanel.Show(_hud);
+                else
+                    EndingPanel.Show(_hud, EndingCg.ForKind(kind),
+                        kind == EndingKind.HordeSiege ? EndingCg.HordeSiegeTitle : EndingCg.MilitaryWipeTitle);
             }
         }
     }
@@ -1644,7 +1687,8 @@ public sealed partial class CampMain : Node2D
                 DebugDamageStructureAtMouse();
                 break;
             case Key.G:
-                // 调试：注入道格 + 布鲁斯（狗）到营地，验证跟随/缠斗/站岗（正式入队时机由用户手写剧情驱动）。
+                // 调试：满档即时注入道格 + 布鲁斯（狗）到营地，验证跟随/缠斗/站岗。
+                // 正式入队＝南林村庄救援回营（MaybeSpawnRescuedDougAndBruce，低饥饿）；本键为保留的即时验证路径。
                 SpawnDougAndBruce();
                 break;
             case Key.H:
@@ -2668,6 +2712,18 @@ public sealed partial class CampMain : Node2D
             return;
         }
 
+        // ——南林村庄「上锁的屋子」救援挂点（道格布鲁斯正史入队，[SPEC-B11]）——
+        // 踏入锁屋门发现区即到此：出救援叙事 + 置 village_doug_rescued 旗标（去重）。
+        // 真正的道格/布鲁斯注入**延到探索队回营**（见 UnloadExplorationLevel → MaybeSpawnRescuedDougAndBruce）——
+        // 救援发生在关内、道格饿昏迷无法作战，叙事＝架回营地；延后注入也避免在关内把营地态布鲁斯注入后跨场景追敌。
+        RescueOutcome? rescue = VillageRescue.Resolve(discoveryId, _storyFlags);
+        if (rescue != null)
+        {
+            _storyFlags.Set(rescue.Value.StoryFlag, "true"); // 置 village_doug_rescued（去重 + 待回营注入标记）
+            ShowDiscoveryNarrative(rescue.Value.Title, rescue.Value.Narrative);
+            return;
+        }
+
         DiscoveryResult? r = GoldfingerDiscovery.Resolve(discoveryId, _storyFlags);
         if (r != null)
         {
@@ -2812,6 +2868,9 @@ public sealed partial class CampMain : Node2D
         _campNavRegion.Enabled = true;
         _camera.MakeCurrent();
         SetCampVisible(true);
+
+        // 南林村庄救援回营：营地恢复后，若本次（或此前）在村庄救出道格布鲁斯而尚未入队 → 正史注入二人一狗（饿昏迷低档）。
+        MaybeSpawnRescuedDougAndBruce();
     }
 
     private void SetCampVisible(bool visible)
@@ -3055,16 +3114,13 @@ public sealed partial class CampMain : Node2D
 
         _nightRaidIntent = intent;
         _respondingIds.Clear();
+        _nightRaidResolved = false;
+        _nightRaidRolledBands.Clear();
         SpawnNightRaiders(System.Math.Max(1, count));
         _nightRaidActive = true;
-
-        bool detected = RunNightRaidContest();
-        GD.Print($"[NightRaid] 第 {_clock.Day} 天袭击者潜入：{_nightRaiders.Count} 人，意图 {intent}，{(detected ? "被守卫发现" : "未被发现")}。");
-
-        if (detected)
-            ShowRaidResponsePanel();
-        else
-            ResolveUndetected();
+        // ★对抗掷点不再在生成瞬间（边缘 ~256px 超感知 → 恒未发现）：改由 UpdateNightRaid 随尖兵逼近到各距离带分段掷点，
+        // 深入营心仍未发现才兑现未发现后果（param-calibration 校准）。决出前守卫未警觉、不迎战（潜行涌现）。
+        GD.Print($"[NightRaid] 第 {_clock.Day} 天袭击者潜入：{_nightRaiders.Count} 人，意图 {intent}，逼近对抗中……");
     }
 
     /// <summary>门外错峰生成一波袭击者（目标池=幸存者+布鲁斯；持匕首=消音近战贴合潜入，拟定待调）。</summary>
@@ -3096,21 +3152,17 @@ public sealed partial class CampMain : Node2D
     }
 
     /// <summary>
-    /// 结算「警戒 vs 潜行」对抗：取最深潜入者（离营心最近）为尖兵，每个守卫（含犬，站岗效率 75%）用其视力（VisionLogic 锥+光照+遮挡）、
-    /// 听力、岗哨建筑加成、疲劳系数得警戒力，对尖兵潜行力（局部光照/距离/遮蔽）各自掷点——任一守卫掷中即全营发现。无守卫=没人望风=未发现。
+    /// 结算一次「警戒 vs 潜行」对抗（对已选尖兵）：每个存活守卫（含犬，站岗效率 0.75）用其视力（VisionLogic 锥+光照+遮挡，
+    /// 疲劳者视锥经 FatigueDebuff 缩放）、听力、岗哨建筑加成得警戒力，对尖兵潜行力（局部光照/距离/遮蔽）各自掷点——
+    /// 任一守卫掷中即全营发现（ResolveCampDetection 聚合全营=该轴感知内守卫警戒有效、远处贡献≈0，覆盖「该轴所有守卫」口径）。
+    /// 无守卫=没人望风=未发现。逼近分段调用（每距离带一次），检测跨带累积。
     /// </summary>
-    private bool RunNightRaidContest()
+    private bool RunNightRaidContest(Raider point)
     {
-        var raiders = _nightRaiders.Where(r => r.Alive).ToList();
-        if (raiders.Count == 0)
-            return false;
-
-        // 尖兵 = 离营心最近者（最深、最该被发现）。
-        Raider point = raiders.OrderBy(r => r.GlobalPosition.DistanceSquaredTo(_cameraCenter)).First();
         Vector2 pPos = point.GlobalPosition;
         float pLight = SampleCampLight(pPos);
 
-        // 守卫（人+犬）名单及其站岗效率/岗哨加成。
+        // 守卫（人+犬）名单及其站岗效率。
         var watchers = new List<(Actor actor, float watchEff)>();
         foreach (Pawn g in _raidGuards)
             if (g.Alive) watchers.Add((g, 1f));
@@ -3128,13 +3180,18 @@ public sealed partial class CampMain : Node2D
         {
             float gLight = SampleCampLight(w.actor.GlobalPosition);
             VisionLogic.VisionCone cone = VisionLogic.ConeFor(gLight);
+            // ★疲劳双路径（param-calibration 校准）：被唤醒守卫次相位——视力项经视锥缩窄(此处) + 听力项经系数削减(FatigueAdjustedAlertness)。
+            bool fatigued = w.actor is Pawn wp && _activeFatigue.TryGetValue(wp.Id, out var fd) && fd.IsActive;
+            if (fatigued && w.actor is Pawn wp2)
+                cone = cone.Scaled(_activeFatigue[wp2.Id].VisionRangeMult, _activeFatigue[wp2.Id].VisionAngleMult);
             bool occluded = SelfSightOccluded(w.actor.GlobalPosition, pPos);
             bool canSee = VisionLogic.CanSee(Sn(w.actor.GlobalPosition), FacingUnit(w.actor.FacingAngle), Sn(pPos), cone, occluded);
             float dist = w.actor.GlobalPosition.DistanceTo(pPos);
             float acuity = NightWatchContest.VisionAcuity(canSee, dist, cone);
             float structBonus = NightRaidLogic.StructureBonusFrom(_guardPostSightById.GetValueOrDefault(ActorId(w.actor), 1f));
-            float fatigue = FatigueMultiplierFor(w.actor); // 被唤醒守卫更迟钝（一般守卫为夜班=1）
-            alertness.Add(NightWatchContest.ComputeAlertness(acuity, dist, structBonus, fatigue, w.watchEff));
+            // 疲劳双路径：视力已经视锥削(上)，听力项经 FatigueHearingMult 削(此)——不叠全局警戒标量，避免双重惩罚（单一真源与 Sim 校准同调）。
+            alertness.Add(NightRaidLogic.FatigueAdjustedAlertness(
+                acuity, dist, structBonus, w.watchEff, fatigued, NightWatchContest.HearingBaseRange));
         }
 
         return NightRaidLogic.ResolveCampDetection(alertness, stealth, _raidContestRng);
@@ -3209,6 +3266,7 @@ public sealed partial class CampMain : Node2D
     /// <summary>未被发现的后果：Looter 静默偷物资后悄然撤离（晨间才发现）；Killer 潜行先手 1.5x 后惊动全营转入战斗。</summary>
     private void ResolveUndetected()
     {
+        _nightRaidResolved = true; // 决出（未发现）：此后守卫方允许迎战（Killer 惊营后）/或已撤离（Looter）
         if (_nightRaidIntent == RaiderIntent.Looter)
         {
             ApplySilentTheft();
@@ -3257,7 +3315,10 @@ public sealed partial class CampMain : Node2D
         _pendingTheftAmount = 0;
     }
 
-    /// <summary>夜袭者实时推进（节流）：守卫/犬/被点名参战者无目标时锁最近袭击者；袭击者清光即收尾。防御方伤亡由实时战斗自然产生。</summary>
+    /// <summary>
+    /// 夜袭者实时推进（节流）：<b>决出前</b>随尖兵逼近分段掷对抗（守卫未警觉不迎战——潜行涌现）；
+    /// <b>决出后</b>守卫/犬/被点名参战者无目标时锁最近袭击者迎战。袭击者清光/撤离即收尾。防御方伤亡由实时战斗自然产生。
+    /// </summary>
     private void UpdateNightRaid(double delta)
     {
         _nightRaidUpdateElapsed += delta;
@@ -3268,7 +3329,14 @@ public sealed partial class CampMain : Node2D
         var raiders = _nightRaiders.Where(r => r.Alive).ToList();
         if (raiders.Count == 0)
         {
-            EndNightRaid(); // 全部袭击者伏诛 → 守住收尾
+            EndNightRaid(); // 全部袭击者伏诛/撤离 → 收尾
+            return;
+        }
+
+        // 决出前：逼近分段对抗（守卫尚未警觉，不迎战）。
+        if (!_nightRaidResolved)
+        {
+            TickApproachContest(raiders);
             return;
         }
 
@@ -3293,6 +3361,43 @@ public sealed partial class CampMain : Node2D
             Raider? near = NearestRaiderTo(p.GlobalPosition, raiders);
             if (near != null) p.CommandAttack(near);
         }
+    }
+
+    /// <summary>
+    /// 逼近分段对抗（决出前每节流帧调，param-calibration 校准）：尖兵=离营心最近袭击者；对最近守卫的距离每跨过一条
+    /// <see cref="NightRaidContestBands"/> 距离带即掷一次对抗（检测跨带累积，任一带掷中→发现→暂停+响应面板）；
+    /// 若深入到营心 <see cref="NightRaidStrikeDistance"/> 仍未发现（含无守卫），兑现未发现后果（先手/偷窃）。
+    /// </summary>
+    private void TickApproachContest(List<Raider> raiders)
+    {
+        Raider point = raiders.OrderBy(r => r.GlobalPosition.DistanceSquaredTo(_cameraCenter)).First();
+        Vector2 pPos = point.GlobalPosition;
+
+        float nearestGuardDist = float.MaxValue;
+        foreach (Pawn g in _raidGuards)
+            if (g.Alive) nearestGuardDist = Mathf.Min(nearestGuardDist, g.GlobalPosition.DistanceTo(pPos));
+        foreach (Dog d in _raidGuardDogs)
+            if (d.Alive) nearestGuardDist = Mathf.Min(nearestGuardDist, d.GlobalPosition.DistanceTo(pPos));
+
+        for (int b = 0; b < NightRaidContestBands.Length; b++)
+        {
+            if (_nightRaidRolledBands.Contains(b))
+                continue;
+            if (nearestGuardDist > NightRaidContestBands[b])
+                continue; // 尖兵尚未逼近到本距离带
+            _nightRaidRolledBands.Add(b);
+            if (RunNightRaidContest(point))
+            {
+                _nightRaidResolved = true;
+                GD.Print($"[NightRaid] 第 {b} 距离带（≤{NightRaidContestBands[b]:0}px）守卫掷中——发现袭击者！");
+                ShowRaidResponsePanel();
+                return;
+            }
+        }
+
+        // 深入营心仍未发现 → 兑现未发现后果（先手/偷窃）。
+        if (pPos.DistanceTo(_cameraCenter) <= NightRaidStrikeDistance)
+            ResolveUndetected();
     }
 
     /// <summary>夜袭收尾：清残留袭击者、复位响应态（EndRaid 天亮调 + 全灭袭击者时调）。</summary>
@@ -3824,6 +3929,16 @@ public sealed partial class CampMain : Node2D
     /// </summary>
     private void OpenRadio()
     {
+        // 已呼叫南方（结局③）：电台成为南逃指挥入口——未答满三问则续答，答满则提供启程南逃。
+        if (RadioMainline.Stage(_storyFlags) == RadioMainlineStage.CalledSouth)
+        {
+            if (!SouthTrial.IsComplete(_storyFlags))
+                StartSouthTrial(); // 三问未答满（如中途离开）：从当前题续答
+            else if (!SouthTrial.HasDeparted(_storyFlags))
+                PromptSouthDeparture(); // 已通过考验、尚未启程：提供启程入口
+            // 已启程则终局已由 CG③ 接管，不会再走到此
+            return;
+        }
         if (RadioMainline.IsDecisionAvailable(_storyFlags))
         {
             PromptRadioDecision();
@@ -3913,7 +4028,8 @@ public sealed partial class CampMain : Node2D
             else
             {
                 RadioMainline.CallSouth(_storyFlags);
-                GD.Print("[电台] 已呼叫南方营地，南逃线开启（结局③，后续流程待实装）。");
+                GD.Print("[电台] 已呼叫南方营地，南逃线开启（结局③）。开始南方三问考验。");
+                StartSouthTrial(); // 呼叫南方 → 南方营地经电台抛来三问考验（结局③·南逃最小闭环）
             }
         };
     }
@@ -3929,8 +4045,133 @@ public sealed partial class CampMain : Node2D
         if (!RadioMainline.TryFireMilitaryRaidHook(_storyFlags, _clock.Day))
             return;
         // TODO(结局②·军方白天来袭)：此处触发 authored 军袭事件——白天屠杀留守者、外出探险队幸存归来见营地覆灭、
-        //   游戏不强制结束（仅全员在营时才自然全灭）。本批为安全 no-op：仅记录钩子已触发，不改变现状。
+        //   游戏不强制结束（仅全员在营时才自然全灭）。军方动机保持不解释（[SPEC-B11] 留白）。
+        //   ★军袭全灭 → CG②接线：实装时，若军袭屠尽留守者且此刻全员在营（无人外出）导致全灭，
+        //     在屠杀分支置 _militaryRaidWipeContext = true，再让 Pawn.Died 走 OnSurvivorDied 全灭路由 → EndingCg.ForGameOver 选 CG②。
+        //     CG② 文本已定稿（EndingCg.MilitaryWipe）、结局路由已就位，此处只差军袭事件本体（战斗结算）。
+        // 本批为安全 no-op：仅记录钩子已触发，不改变现状（_militaryRaidWipeContext 保持 false）。
         GD.Print($"[电台] 第 {_clock.Day} 天：军方白天来袭到期（结局②事件钩子已触发，事件本体待实装，本批 no-op）。");
+    }
+
+    // ============ 结局③：南逃最小闭环（三问考验 → 启程 → CG③） ============
+
+    /// <summary>
+    /// 南方营地三问考验（呼叫南方后经电台逐题抛出，复用 <see cref="ChoicePanel"/>）。
+    /// **叙事性拷问——任何选择都放行**（[SPEC-B11]），三次回答基调择启程旁白临别一句（<see cref="SouthTrial.Variant"/>）。
+    /// 可从当前已答进度续答（中途离开再回电台续问）；答满三问 → 南方裁决 + 临时开路。
+    /// </summary>
+    private void StartSouthTrial()
+    {
+        var q = SouthTrial.CurrentQuestion(_storyFlags);
+        if (q == null)
+        {
+            ShowSouthVerdict(); // 已答满（幂等兜底）：直接给裁决
+            return;
+        }
+        AskSouthQuestion(q.Value);
+    }
+
+    /// <summary>抛出一道考题（三个基调各异的回答，选后记录并推进；未答满续下一题，答满走裁决）。</summary>
+    private void AskSouthQuestion(SouthTrial.TrialQuestion question)
+    {
+        double prevScale = Engine.TimeScale;
+        Engine.TimeScale = 0;
+
+        var opts = new List<ChoicePanel.ChoiceOption>();
+        foreach (var a in question.Answers)
+            opts.Add(new ChoicePanel.ChoiceOption { Value = (int)a.Tone, Label = a.Label, Accent = new Color(0.4f, 0.42f, 0.46f) });
+
+        var panel = new ChoicePanel();
+        AddChild(panel);
+        panel.Setup(question.SouthLine + "\n\n" + question.Prompt, opts);
+        panel.Confirmed += v =>
+        {
+            Engine.TimeScale = prevScale <= 0 ? 1 : prevScale;
+            panel.QueueFree();
+            SouthTrial.RecordAnswer(_storyFlags, (SouthTrial.Tone)v);
+            var next = SouthTrial.CurrentQuestion(_storyFlags);
+            if (next != null)
+                AskSouthQuestion(next.Value); // 下一题
+            else
+                ShowSouthVerdict(); // 三问答满 → 南方裁决 + 开路
+        };
+    }
+
+    /// <summary>南方裁决（无对错放行）：告知路已开、回电台启程、尸潮不等人（须抢在第 40 天前）。</summary>
+    private void ShowSouthVerdict()
+        => ShowDiscoveryNarrative(SouthTrial.VerdictTitle, SouthTrial.VerdictNarrative);
+
+    /// <summary>
+    /// 南逃启程入口（考验通过后回营地电台交互时）：提供「启程南逃 / 再等等」。
+    /// 选启程 → <see cref="ConfirmSouthDeparture"/> 二次确认。
+    /// </summary>
+    private void PromptSouthDeparture()
+    {
+        double prevScale = Engine.TimeScale;
+        Engine.TimeScale = 0;
+
+        var panel = new ChoicePanel();
+        AddChild(panel);
+        panel.Setup(
+            SouthTrial.DeparturePrompt,
+            new List<ChoicePanel.ChoiceOption>
+            {
+                new() { Value = 1, Label = SouthTrial.DepartOptionLabel,
+                        Description = "只带背得动的，走出营门就不再回头", Accent = new Color(0.35f, 0.55f, 0.38f) },
+                new() { Value = 0, Label = SouthTrial.DepartDeferLabel,
+                        Description = "先备好物资再来", Accent = new Color(0.45f, 0.42f, 0.4f) },
+            });
+        panel.Confirmed += v =>
+        {
+            Engine.TimeScale = prevScale <= 0 ? 1 : prevScale;
+            panel.QueueFree();
+            if (v == 1)
+                ConfirmSouthDeparture();
+        };
+    }
+
+    /// <summary>
+    /// 南逃启程二次确认（不可逆）。尸潮已至（第 40 天到期或围攻已起）→ 错过窗口，路走不成（兜底叙事）。
+    /// 确认 → 一次性置启程 flag + 停全灭路由 + 播 CG③（启程旁白含三问变体 + 南逃结尾段），终局由 EndingPanel 接管。
+    /// </summary>
+    private void ConfirmSouthDeparture()
+    {
+        // 尸潮 Arrived 后不可再逃（[SPEC-B11]：40 天时限内才可走）。
+        if (_siegeActive || _clock.Day >= HordeTimeline.DeadlineDay)
+        {
+            ShowDiscoveryNarrative(SouthTrial.TooLateTitle, SouthTrial.TooLateNarrative);
+            return;
+        }
+
+        double prevScale = Engine.TimeScale;
+        Engine.TimeScale = 0;
+
+        var panel = new ChoicePanel();
+        AddChild(panel);
+        panel.Setup(
+            SouthTrial.DepartConfirmPrompt,
+            new List<ChoicePanel.ChoiceOption>
+            {
+                new() { Value = 1, Label = "启程", Description = "这一步收不回来了",
+                        Accent = new Color(0.35f, 0.55f, 0.38f) },
+                new() { Value = 0, Label = "再想想", Description = "先回到上一步",
+                        Accent = new Color(0.45f, 0.42f, 0.4f) },
+            });
+        panel.Confirmed += v =>
+        {
+            Engine.TimeScale = prevScale <= 0 ? 1 : prevScale;
+            panel.QueueFree();
+            if (v != 1)
+            {
+                PromptSouthDeparture(); // 再想想：回到启程入口
+                return;
+            }
+            if (!SouthTrial.MarkDeparted(_storyFlags))
+                return; // 已启程过（幂等去重）
+            _gameOver = true; // 南逃成功＝终局，停掉其余全灭/围攻路由
+            GD.Print($"[电台] 第 {_clock.Day} 天：南逃启程（结局③·唯一生路），播 CG③。");
+            EndingPanel.Show(_hud, SouthTrial.EscapeCg(_storyFlags), EndingCg.SouthEscapeTitle);
+        };
     }
 
     /// <summary>

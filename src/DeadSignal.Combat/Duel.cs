@@ -37,6 +37,14 @@ public sealed class DuelFighter
 
     /// <summary>身体工厂（默认人类；丧尸等亦复用人体结构）。</summary>
     public Func<Body> BodyFactory { get; init; } = HumanBody.NewBody;
+
+    /// <summary>
+    /// 整次闪避概率 [0,1]（默认 0=不闪避）：每次来袭以此概率整发躲开（无伤、无效果）。
+    /// 忠实映射运行时 <c>Actor.EvadeIncoming</c>（如布鲁斯 <c>Dog.DodgeChance</c>）——引擎本无闪避轴，
+    /// 本字段让对决 Sim 能校准"高闪避低伤缠斗单元"。默认 0 时 <see cref="DuelEngine"/> 不掷点、不消耗随机流
+    /// （既有对决位级不变）。
+    /// </summary>
+    public double DodgeChance { get; init; }
 }
 
 /// <summary>
@@ -379,6 +387,15 @@ public sealed class DuelEngine
 
     private DuelEvent DoAttack(Runtime actor, Runtime target, WeaponMount mount, double now)
     {
+        // 整次闪避：目标以 DodgeChance 概率整发躲开（无伤、无效果）。仅 >0 时掷点——默认 0 不消耗随机流，
+        // 既有对决位级一致。攻击方冷却照常在调用点推进（挥空也过冷却）。
+        if (target.Def.DodgeChance > 0 && _rng.Range(0.0, 1.0) < target.Def.DodgeChance)
+        {
+            return new DuelEvent(
+                now, actor.Def.Name, target.Def.Name, mount.Weapon.Name, "",
+                "闪避", 0, mount.Weapon.DamageType, 0, new[] { "闪避" });
+        }
+
         var alive = target.Body.Parts.Values.Where(p => !target.Body.IsGone(p.Name)).ToList();
         var part = _hit.Select(alive);
         var armor = CombatResolver.OrderOuterToInner(target.Def.Armor);

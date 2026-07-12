@@ -114,6 +114,12 @@ public static class DuelReport
             return string.Create(CultureInfo.InvariantCulture, $"[t={e.Time:F1}s] {e.Attacker} {body}");
         }
 
+        // 闪避事件（整发躲开，无伤无效果）
+        if (e.Tags.Contains("闪避"))
+        {
+            return string.Create(CultureInfo.InvariantCulture, $"[t={e.Time:F1}s] {e.Attacker} {e.Weapon}→{e.Defender}：**被闪避**（无伤）");
+        }
+
         var sb = new StringBuilder();
         sb.Append(CultureInfo.InvariantCulture, $"[t={e.Time:F1}s] {e.Attacker} {e.Weapon}→{e.Defender}·{e.Part}：{e.PenetrationDesc}，伤害{e.Damage}");
 

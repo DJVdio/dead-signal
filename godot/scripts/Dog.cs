@@ -43,10 +43,13 @@ public sealed partial class Dog : Actor
     public const float GuardEfficiency = DougBruceBond.BruceGuardEfficiency;
 
     /// <summary>
-    /// 闪避概率 [0,1]（高闪避，拟定待调）：每次来袭（近战/远程皆吃）以此概率整次躲开。配合低伤害构成
-    /// "难独自击杀、难被速杀"的缠斗定位。数值靠 Sim/用户校准。
+    /// 闪避概率 [0,1]（高闪避）：每次来袭（近战/远程皆吃）以此概率整次躲开。配合极低伤害构成
+    /// "难独自击杀、难被速杀"的缠斗定位。
+    /// 校准依据（param-calibration，dogcal 4000 种子）：保留"高闪避"身份取 0.45，配 DogBite 1-4/2.3s →
+    /// 布鲁斯 solo vs 丧尸胜率 39%（目标 30~45% 中位）、平均时长 33s（≫匕首基线 14.5s，缠斗感成立）；
+    /// 道格(棍棒布衣)+布鲁斯 2v1 稳赢（全胜率≈100%）。
     /// </summary>
-    private const float DodgeChance = 0.5f;
+    private const float DodgeChance = 0.45f;
 
     private Func<Actor?>? _masterProvider;                 // 主人（道格）当前实例，离场/身故返回 null
     private Func<IEnumerable<Actor>>? _hostileProvider;    // 场上潜在敌对单位（狗自行按 IsHostile 过滤）

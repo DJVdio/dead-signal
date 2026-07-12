@@ -75,4 +75,34 @@ public static class NightRaidLogic
         }
         return detected;
     }
+
+    /// <summary>
+    /// 疲劳守卫听力项系数（param-calibration 校准）：视锥疲劳(<see cref="VisionLogic.VisionCone.Scaled"/>)单路径对满配检测饱和(~4pp，
+    /// 大头是听力+岗哨结构地板)，够不到目标劣化 15~25pp → 补一道听力项折减。乘到疲劳守卫的听力贡献上。拟定待调，不动 ShiftSchedule 共享系数。
+    /// </summary>
+    public const float FatigueHearingMult = 0.40f;
+
+    /// <summary>
+    /// 疲劳调整后的警戒力（对抗消费点单一真源，运行时与 Sim 校准同调）：在 <see cref="NightWatchContest.ComputeAlertness"/> 基础上，
+    /// 若 <paramref name="fatigued"/> 则把**听力项**乘 <see cref="FatigueHearingMult"/>（视力项的疲劳已由调用方经视锥 <see cref="VisionLogic.VisionCone.Scaled"/> 体现，
+    /// 此处只补听力路径，二者共同构成疲劳劣化，不与全局警戒标量叠罚）。<paramref name="visionAcuity"/> 须由调用方用疲劳缩放后的视锥算出。
+    /// </summary>
+    public static float FatigueAdjustedAlertness(
+        float visionAcuity,
+        float distance,
+        float structureBonus,
+        float watchEfficiency,
+        bool fatigued,
+        float hearingRange)
+    {
+        float alert = NightWatchContest.ComputeAlertness(
+            visionAcuity, distance, structureBonus, fatigueMultiplier: 1f, watchEfficiency, hearingRange);
+        if (!fatigued)
+            return alert;
+        // 精确扣掉听力贡献里被疲劳削去的那一份（= HearingW×falloff×watchEff×(1−系数)），等价于「听力项 ×系数」，不重算整式（防公式漂移）。
+        float hearingContrib = NightWatchContest.HearingWeight
+            * NightWatchContest.HearingFalloff(distance, hearingRange)
+            * Math.Max(0f, watchEfficiency);
+        return Math.Max(0f, alert - hearingContrib * (1f - FatigueHearingMult));
+    }
 }

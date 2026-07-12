@@ -40,9 +40,11 @@ public static class VisionLogic
     /// <summary>全黑时锥形半角（全角约 60°）。</summary>
     public const float DarkHalfAngleDeg = 30f;
 
-    // ── 暴露代价（拟定待调）─────────────────────────────────────────────────
-    /// <summary>全黑中持满强度光源时，被发现距离的最大加成（0.6 = 最多 +60% 视距被别人看见）。</summary>
-    public const float MaxExposureBonus = 0.6f;
+    // ── 暴露代价 ─────────────────────────────────────────────────
+    /// <summary>全黑中持满强度光源时，被发现距离的最大加成（0.7 = 最多 +70% 视距被别人看见）。
+    /// 校准依据（param-calibration，visioncal 解析）：夜间持火把(I=0.70)代价 =1+本值×0.70×(1-0.15)。0.6→+35.7%（＜目标 40%）；
+    /// 上调 0.7→+41.7%，使"持火把自身视距 134→241(+80%) 换 被发现距离 +41.7%"成为有意义的攻守权衡（差距≥40% 达标）。</summary>
+    public const float MaxExposureBonus = 0.7f;
 
     private const float Epsilon = 1e-4f;
     private const float RadToDeg = 180f / MathF.PI;
