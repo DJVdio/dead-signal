@@ -50,6 +50,8 @@ public sealed partial class TestExploration : ExplorationLevel
 
     private CameraController _camera = null!;
     private readonly List<Zombie> _zombies = new();
+    // [SPEC-B13] 超市骗局：关内敌对幸存者（Raider 阵营）。轻信被诱入内圈伏击、或拒绝后闯内圈时按需生成（见 SpawnSupermarketRaiders）。
+    private readonly List<Raider> _levelRaiders = new();
     private readonly Dictionary<Actor, Node2D> _markers = new();
     private readonly List<Rect2> _obstructions = new();
     private Area2D _returnZone = null!;
@@ -92,10 +94,20 @@ public sealed partial class TestExploration : ExplorationLevel
             SetupHarvesterWarehouseCaches();
         else if (DestinationName == WorldMapPanel.CityRooftopLookoutName)
             SetupCityRooftopLookout();
+        else if (DestinationName == NurseRecruit.DestinationName)
+            SetupNightingalePharmacy();
         else if (DestinationName == WorldMapPanel.BroadcastStationName)
             SetupBroadcastStation();
         else if (DestinationName == VillageRescue.DestinationName)
             SetupSouthForestVillage();
+        else if (DestinationName == ExplorationCache.EastNewVillageName)
+            SetupEastNewVillage();
+        else if (DestinationName == ExplorationCache.GasStationName)
+            SetupGasStation();
+        else if (DestinationName == ExplorationCache.SupermarketName)
+            SetupSupermarket();
+        else if (DestinationName == ExplorationCache.HospitalName)
+            SetupHospital();
 
         // 叙事调查点（极乐迪斯科式，[SPEC-B12]）：按目的地迭代注册表铺 Area2D（与物资/主线点并存，命名空间隔离）。
         // 须在 SetupVisionMask 之前（视觉容器进 _discoveryVisuals，供视野外隐藏）。
@@ -340,12 +352,15 @@ public sealed partial class TestExploration : ExplorationLevel
             yield return dog;
     }
 
-    /// <summary>本关存活敌对单位＝存活丧尸（供随队布鲁斯经 CampMain 敌对 provider 自主缠斗）。</summary>
+    /// <summary>本关存活敌对单位＝存活丧尸 + 关内敌对幸存者（超市骗局伏击的 Raider）——供随队布鲁斯经 CampMain 敌对 provider 自主缠斗、视野揭示。</summary>
     public override IEnumerable<Actor> LevelHostiles()
     {
         foreach (Zombie z in _zombies)
             if (z.Alive)
                 yield return z;
+        foreach (Raider r in _levelRaiders)
+            if (r.Alive)
+                yield return r;
     }
 
     private void SpawnZombies()
@@ -354,6 +369,39 @@ public sealed partial class TestExploration : ExplorationLevel
         if (DestinationName == VillageRescue.DestinationName)
         {
             SpawnVillageSiegeZombies();
+            return;
+        }
+
+        // 金手指帮根据地（[SPEC-B12-补] 中型·以战斗为主）：敌对密度较默认散布加强，向 gauntlet 中段与深处 loot 区（北侧）加权，
+        // 逼玩家"打过才拿"深处的军械柜/头目区。数量/布点拟定待调，归 param-calibration 校准（勿铺成安全搜刮关）。
+        if (DestinationName == WorldMapPanel.GoldfingerBaseName)
+        {
+            SpawnGoldfingerGuards();
+            return;
+        }
+
+        // [SPEC-B13·拟设定待确认] 东部新村：游荡丧尸中等（7 只，band 6~8），散布在工地/老屋区，避开南侧排屋入口。
+        if (DestinationName == ExplorationCache.EastNewVillageName)
+        {
+            SpawnZombiesAt(EastNewVillageZombieSpots);
+            return;
+        }
+
+        // [SPEC-B13·拟设定待确认] 加油站：中低密度游荡丧尸（5 只，band 4~6），散布在便利店/修车棚/油罐区，避开南侧加油区入口。
+        if (DestinationName == ExplorationCache.GasStationName)
+        {
+            SpawnZombiesAt(GasStationZombieSpots);
+            return;
+        }
+
+        // [SPEC-B13] 超市：幸存者据点，无丧尸——威胁来自那伙人（骗局伏击的 Raider），不铺游荡丧尸。
+        if (DestinationName == ExplorationCache.SupermarketName)
+            return;
+
+        // [SPEC-B13] 医院：丧尸巢废墟，密度显著高于他图（14 只，band 12~16），向住院部/药房/手术层深区扎堆——"大量丧尸占据"是其身份，数值拟定待调（归 param-calibration）。
+        if (DestinationName == ExplorationCache.HospitalName)
+        {
+            SpawnZombiesAt(HospitalZombieSpots);
             return;
         }
 
@@ -371,6 +419,49 @@ public sealed partial class TestExploration : ExplorationLevel
             SpawnZombieAt(spot, wander);
     }
 
+    /// <summary>[SPEC-B13] 在给定点位各造一只丧尸、共享一个覆盖全关的徘徊区（用于东部新村/加油站等按分区手铺敌对的关卡）。</summary>
+    private void SpawnZombiesAt(IReadOnlyList<Vector2> spots)
+    {
+        var wander = new Rect2(WallT + 40, WallT + 40, LevelW - WallT * 2 - 80, LevelH - WallT * 2 - 80);
+        foreach (Vector2 spot in spots)
+            SpawnZombieAt(spot, wander);
+    }
+
+    /// <summary>[SPEC-B13·拟设定待确认] 东部新村游荡丧尸布点（中等 7 只，band 6~8）：散在工地/老屋分区之间，远离南侧排屋入口，数量/布点拟定待调（归 param-calibration）。</summary>
+    private static readonly Vector2[] EastNewVillageZombieSpots =
+    {
+        new(720f, 980f),   // 工地·料场附近
+        new(1080f, 900f),  // 工地·脚手架下
+        new(1450f, 960f),  // 工地·工具棚附近
+        new(900f, 720f),   // 工地·钢筋料区
+        new(700f, 520f),   // 老屋区西
+        new(1150f, 440f),  // 老屋区中
+        new(1900f, 400f),  // 工头储物柜深处（守着高价值柜）
+    };
+
+    /// <summary>[SPEC-B13·拟设定待确认] 加油站游荡丧尸布点（中低 5 只，band 4~6）：散在便利店/修车棚/油罐区，远离南侧加油区入口，数量/布点拟定待调（归 param-calibration）。</summary>
+    private static readonly Vector2[] GasStationZombieSpots =
+    {
+        new(1080f, 1050f), // 便利店·冷饮柜附近
+        new(1020f, 720f),  // 修车棚·工位
+        new(1480f, 760f),  // 修车棚·零件区
+        new(1150f, 420f),  // 油罐区·油罐车旁
+        new(1980f, 360f),  // 地下储油间深处（守着高价值燃油）
+    };
+
+    /// <summary>[SPEC-B13] 医院游荡丧尸布点（丧尸巢·高密度 14 只，band 12~16）：显著高于他图，向住院部/药房/手术层深区扎堆，"大量丧尸占据"是其身份。数量/布点拟定待调（归 param-calibration）。</summary>
+    private static readonly Vector2[] HospitalZombieSpots =
+    {
+        // 门诊/急诊大厅（南·近，2·稀）
+        new(700f, 1150f), new(1500f, 1200f),
+        // 住院部（中，4）
+        new(600f, 850f), new(1100f, 780f), new(1600f, 900f), new(900f, 650f),
+        // 药房（北·深，4·扎堆守医疗）
+        new(1200f, 450f), new(700f, 400f), new(1600f, 420f), new(2000f, 500f),
+        // 手术层（最北·最深，4·扎堆守高价值医疗）
+        new(1000f, 220f), new(1400f, 200f), new(1800f, 240f), new(500f, 260f),
+    };
+
     /// <summary>造一只关内丧尸（与营地同 combat/clock、含随队布鲁斯的目标池、局部光照感知）并登记标记。</summary>
     private void SpawnZombieAt(Vector2 pos, Rect2 wander)
     {
@@ -381,6 +472,84 @@ public sealed partial class TestExploration : ExplorationLevel
         _actorLayer.AddChild(z);
         _zombies.Add(z);
         _markers[z] = CreateActorMarker(z, new Color(0.45f, 0.6f, 0.35f));
+    }
+
+    // ——超市骗局伏击（[SPEC-B13]）——
+    /// <summary>超市幸存者据点内圈中心（关内世界坐标）：接触点在门口、内圈房间在此、伏击/闯入的 Raider 在此周围生成。</summary>
+    private static readonly Vector2 SupermarketDenCenter = new(1200f, 380f);
+
+    /// <summary>
+    /// [SPEC-B13] 生成超市骗局的敌对幸存者（Raider 阵营，近战匕首＝"背刺"语义），并可选施加潜行先手一击。
+    /// CampMain 在玩家「轻信跟随」被诱入内圈（<paramref name="preemptiveStrike"/>=true）、或「拒绝」后闯入内圈抢物资（false，公平战）时调用。
+    /// 先手一击复用 <see cref="NightWatchContest.PreemptiveStrikeMultiplier"/>(1.5x)、走既有承伤管道（<c>ReceiveAttack(damageFactor)</c>），不改战斗规则。
+    /// 去重由 CampMain 侧 <see cref="SupermarketAmbush.AmbushSprungFlag"/> 负责（同一趟探索不重复刷敌）。
+    /// </summary>
+    public void SpawnSupermarketRaiders(int count, bool preemptiveStrike)
+    {
+        Vector2 center = SupermarketDenCenter;
+        // 紧凑徘徊区（贴内圈房间），使他们围着玩家打转、堵住退路。
+        var wander = new Rect2(center.X - 300f, center.Y - 220f, 600f, 440f);
+        Raider? first = null;
+        for (int i = 0; i < count; i++)
+        {
+            float ang = Mathf.Tau * i / System.Math.Max(1, count) - Mathf.Pi / 2f;
+            Vector2 pos = center + new Vector2(Mathf.Cos(ang), Mathf.Sin(ang)) * 90f;
+            var r = Raider.Create(wander, LevelTargets, usePistol: false, displayName: "据点幸存者");
+            r.Inject(Combat, Clock);
+            r.ConfigurePerception(localLightAt: SampleLevelLight);
+            r.Position = pos;
+            _actorLayer.AddChild(r);
+            _levelRaiders.Add(r);
+            _markers[r] = CreateActorMarker(r, new Color(0.72f, 0.26f, 0.22f)); // 暗红：敌对幸存者（同 Raider.Create 体色，与丧尸绿/己方一眼区分）
+            first ??= r;
+        }
+
+        if (preemptiveStrike && first is { } ambusher)
+            ApplySupermarketPreemptiveStrike(ambusher, center);
+    }
+
+    /// <summary>潜行先手一击：以匕首对最近探索队员施一次 1.5x 承伤（背刺）。走既有承伤管道，不改战斗规则。</summary>
+    private void ApplySupermarketPreemptiveStrike(Raider ambusher, Vector2 center)
+    {
+        Pawn? victim = null;
+        float best = float.MaxValue;
+        foreach (Pawn p in ExpeditionTeam)
+        {
+            if (!p.Alive)
+                continue;
+            float d = p.GlobalPosition.DistanceSquaredTo(center);
+            if (d < best) { best = d; victim = p; }
+        }
+        if (victim is null)
+            return;
+        victim.ReceiveAttack(ambusher, CombatData.Dagger(), Combat, damageFactor: NightWatchContest.PreemptiveStrikeMultiplier);
+        GD.Print($"[Supermarket] 背刺先手 ×{NightWatchContest.PreemptiveStrikeMultiplier:0.0} 命中 {victim.DisplayName}。");
+    }
+
+    /// <summary>金手指帮根据地守备丧尸数（中型·战斗为主，较默认 5 加强，拟定待调，归 param-calibration 校准）。</summary>
+    private const int GoldfingerGuardZombieCount = 8;
+
+    /// <summary>
+    /// 金手指帮根据地守备布防（[SPEC-B12-补]）：<see cref="GoldfingerGuardZombieCount"/> 只丧尸，向根据地深处（北侧远角，
+    /// 军械柜/头目区所在）与中段 gauntlet 加权布点，使深处 loot 必须打穿才能取。数量/布点拟定待调。
+    /// </summary>
+    private void SpawnGoldfingerGuards()
+    {
+        // 深处/中段加权：多数落在关卡上半（y 小＝北，深处 loot 区），少数在中段与近入口，逼出"打过才拿"。
+        Vector2[] spots =
+        {
+            new(LevelW * 0.78f, LevelH * 0.18f), // 深·头目/银库区
+            new(LevelW * 0.90f, LevelH * 0.15f), // 深·银库暗格侧
+            new(LevelW * 0.70f, LevelH * 0.24f), // 深·军械柜侧
+            new(LevelW * 0.55f, LevelH * 0.32f), // 中深·修械/弹药区
+            new(LevelW * 0.62f, LevelH * 0.45f), // 中·皮件/gauntlet
+            new(LevelW * 0.38f, LevelH * 0.40f), // 中·铺位/油料区
+            new(LevelW * 0.30f, LevelH * 0.62f), // 中前·前院
+            new(LevelW * 0.50f, LevelH * 0.72f), // 近入口·岗哨侧
+        };
+        var wander = new Rect2(WallT + 40, WallT + 40, LevelW - WallT * 2 - 80, LevelH - WallT * 2 - 80);
+        for (int i = 0; i < GoldfingerGuardZombieCount && i < spots.Length; i++)
+            SpawnZombieAt(spots[i], wander);
     }
 
     /// <summary>村庄区域游荡丧尸数（大点区域危险，锁屋 5 围困之外散布在各分区间，拟定待调）。</summary>
@@ -446,6 +615,23 @@ public sealed partial class TestExploration : ExplorationLevel
                 new Vector2(1950, 380),
                 markerColor: new Color(0.78f, 0.15f, 0.28f),
                 label: "遗体");
+
+        // [SPEC-B12-补] 中型·战斗为主：11 处帮派储备物资点（发现点式；掉落/叙事在 ExplorationCache.Resolve）。
+        // "打过才拿"——近入口(南侧)少、gauntlet 中段与根据地深处(北侧远角)多；与上方两具尸体发现点命名空间独立不冲突。
+        // 近入口(2)：岗哨/前院。
+        AddCachePoint(ExplorationCache.GoldfingerCheckpointId, new Vector2(600f, 1200f), "岗哨掩体");
+        AddCachePoint(ExplorationCache.GoldfingerYardWreckId, new Vector2(900f, 1090f), "前院废车堆");
+        // 中区 gauntlet(5)。
+        AddCachePoint(ExplorationCache.GoldfingerBunksId, new Vector2(780f, 850f), "帮众铺位");
+        AddCachePoint(ExplorationCache.GoldfingerAmmoCrateId, new Vector2(1220f, 780f), "弹药箱");
+        AddCachePoint(ExplorationCache.GoldfingerGunBenchId, new Vector2(1050f, 650f), "修械台");
+        AddCachePoint(ExplorationCache.GoldfingerHidePileId, new Vector2(1420f, 900f), "皮件堆");
+        AddCachePoint(ExplorationCache.GoldfingerFuelStashId, new Vector2(700f, 600f), "油料桶");
+        // 深处(4，根据地北侧远角，打穿才拿)：军械柜/头目保险柜/银库暗格/头目急救箱。
+        AddCachePoint(ExplorationCache.GoldfingerArmoryId, new Vector2(1600f, 300f), "军械柜");
+        AddCachePoint(ExplorationCache.GoldfingerBossSafeId, new Vector2(1850f, 250f), "头目保险柜");
+        AddCachePoint(ExplorationCache.GoldfingerSilverCacheId, new Vector2(2010f, 180f), "银库暗格");
+        AddCachePoint(ExplorationCache.GoldfingerBossMedkitId, new Vector2(1750f, 480f), "头目急救箱");
     }
 
     /// <summary>
@@ -571,6 +757,47 @@ public sealed partial class TestExploration : ExplorationLevel
             Color = new Color(0.55f, 0.5f, 0.4f),
             ZIndex = 5,
         });
+    }
+
+    /// <summary>
+    /// 南丁格尔的小药店（[SPEC-B13]，小点 5 物资点 + 护士相遇招募点 + 1 叙事调查点）：小店面 + 后屋药房 + 阁楼，小而有层次。
+    /// 关内核心＝**可招募护士**（柜台后守店的清醒 NPC，踏入其警戒区弹 ChoicePanel 招募对话，见 <see cref="NurseRecruit"/> 与
+    /// CampMain.PromptNurseRecruit）。物资＝基础药品/绷带为主但量薄（大头药品在医院），投放/叙事见 <see cref="ExplorationCache"/>。
+    /// 叙事调查点（柜台留言板）由 <see cref="SetupNarrativeSpots"/> 按目的地自动铺（NarrativeSpotRegistry），此处不重复铺。
+    /// </summary>
+    private void SetupNightingalePharmacy()
+    {
+        // —— 小店面（临街）+ 后屋药房（暗间）+ 阁楼：小而有层次 ——
+        AddRoomOutline(new Rect2(900, 700, 500, 340), new Color(0.30f, 0.32f, 0.34f, 0.95f), RoomEdge.Bottom, "南丁格尔的小药店");
+        AddRoomOutline(new Rect2(1000, 480, 320, 220), new Color(0.26f, 0.28f, 0.30f, 0.95f), RoomEdge.Bottom, "后屋药房");
+        AddRoomOutline(new Rect2(1440, 500, 240, 200), new Color(0.24f, 0.25f, 0.27f, 0.95f), RoomEdge.Left, "阁楼");
+
+        // 柜台（纯视觉占位）：护士就守在它后头。
+        AddChild(new Polygon2D
+        {
+            Polygon = Quad(new Vector2(980, 820), new Vector2(320, 24)),
+            Color = new Color(0.35f, 0.30f, 0.24f, 0.95f),
+            ZIndex = 5,
+        });
+
+        // —— 护士相遇招募点（柜台后，NPC 非物资；踏入弹招募对话）——
+        AddDiscoveryPoint(
+            NurseRecruit.MeetDiscoveryId,
+            new Vector2(1150, 850),
+            markerColor: new Color(0.40f, 0.72f, 0.66f), // 青绿＝友方 NPC，与褐色搜刮点区分
+            label: "护士");
+
+        // —— 5 物资搜刮点：小店面(近) → 后屋药房(深) → 阁楼(最深)。量薄（小药店） ——
+        AddDiscoveryPoint(ExplorationCache.PharmacyCounterId, new Vector2(1000, 950),
+            markerColor: new Color(0.55f, 0.5f, 0.42f), label: "收银台");
+        AddDiscoveryPoint(ExplorationCache.PharmacyShelfId, new Vector2(1330, 950),
+            markerColor: new Color(0.55f, 0.5f, 0.42f), label: "货架");
+        AddDiscoveryPoint(ExplorationCache.PharmacyDispensaryId, new Vector2(1080, 560),
+            markerColor: new Color(0.5f, 0.46f, 0.38f), label: "处方柜");
+        AddDiscoveryPoint(ExplorationCache.PharmacyColdBoxId, new Vector2(1240, 560),
+            markerColor: new Color(0.5f, 0.46f, 0.38f), label: "冷藏箱");
+        AddDiscoveryPoint(ExplorationCache.PharmacyAtticId, new Vector2(1560, 590),
+            markerColor: new Color(0.5f, 0.44f, 0.36f), label: "阁楼杂物");
     }
 
     /// <summary>
@@ -741,6 +968,208 @@ public sealed partial class TestExploration : ExplorationLevel
             new Vector2(1980, 360),
             markerColor: new Color(0.5f, 0.48f, 0.44f),
             label: "备件仓库");
+    }
+
+    /// <summary>[SPEC-B13] 占位分区地台：一片半透明方形地台示意某个区域（纯视觉、无碰撞，同瞭望台/广播台占位口径）。</summary>
+    private void AddZonePad(Vector2 topLeft, Vector2 size, Color color)
+    {
+        var pad = new Polygon2D
+        {
+            Polygon = Quad(topLeft, size),
+            Color = color,
+            ZIndex = 4,
+        };
+        AddChild(pad);
+    }
+
+    /// <summary>
+    /// [SPEC-B13-补3·拟设定待确认] 东部新村（正名，内部路由键「住宅区」）：末日前在建的迁建安置区——半建成铁皮排屋 + 工地料场 + 已入住的几户老屋。
+    /// 用户拍板"物资种类分散、量小，住宅区物资不单一不集中"→**30 处·杂而薄**（每点 1~2 件、品类混杂），戒掉"建材大户"单一身份。三分区近→深，一户户翻：
+    ///   排屋区(南/近，11·每户厨房/衣柜/床底/阳台各一小点) → 工地区(中，8·维持偏建材) → 老屋区(北/深，11·含最深药箱)。
+    /// 占位美术：三片分区地台 + 搜刮点标记（正式空间/美术待后续，同瞭望台/广播台占位口径）；掉落/叙事在 <see cref="ExplorationCache.Resolve"/>。
+    /// 敌对布防见 <see cref="EastNewVillageZombieSpots"/>（游荡中等 7 只）；叙事调查点（乔迁对联/工地打卡板）见 NarrativeSpotRegistry。
+    /// 铺点序＝ExplorationCache.CacheIdsFor(住宅区) 的近→深序；坐标皆拟定待调（点密，间距≥70px 避触发歧义）。
+    /// </summary>
+    private void SetupEastNewVillage()
+    {
+        // 分区占位地台（纯视觉）：排屋(南/暖灰)、工地(中/黄褐)、老屋(北/冷褐)。30 点加密后放宽覆盖范围。
+        AddZonePad(new Vector2(420, 1010), new Vector2(1400, 360), new Color(0.30f, 0.29f, 0.27f, 0.55f));  // 排屋区
+        AddZonePad(new Vector2(540, 560), new Vector2(1540, 480), new Color(0.34f, 0.30f, 0.20f, 0.55f));   // 工地区
+        AddZonePad(new Vector2(540, 240), new Vector2(1460, 380), new Color(0.26f, 0.24f, 0.24f, 0.55f));   // 老屋区
+
+        var near = new Color(0.55f, 0.5f, 0.4f);   // 排屋/近入口
+        var mid = new Color(0.52f, 0.48f, 0.40f);  // 工地中段
+        var deep = new Color(0.5f, 0.46f, 0.42f);  // 老屋深处
+
+        // 排屋区（南/近，11·一户户翻：A/B/C/D 户各厨房/衣柜/床底/阳台等）
+        AddDiscoveryPoint(ExplorationCache.NewVillageShowroomId, new Vector2(500, 1280), markerColor: near, label: "样板间客厅");
+        AddDiscoveryPoint(ExplorationCache.NewVillageRowKitchenId, new Vector2(760, 1280), markerColor: near, label: "A户厨房");
+        AddDiscoveryPoint(ExplorationCache.NewVillageRowAWardrobeId, new Vector2(760, 1140), markerColor: near, label: "A户衣柜");
+        AddDiscoveryPoint(ExplorationCache.NewVillageRowAUnderbedId, new Vector2(600, 1170), markerColor: near, label: "A户床底");
+        AddDiscoveryPoint(ExplorationCache.NewVillageRowBKitchenId, new Vector2(1000, 1300), markerColor: near, label: "B户厨房");
+        AddDiscoveryPoint(ExplorationCache.NewVillageRowBBalconyId, new Vector2(1000, 1160), markerColor: near, label: "B户阳台");
+        AddDiscoveryPoint(ExplorationCache.NewVillageRowBClosetId, new Vector2(1180, 1290), markerColor: near, label: "B户储物间");
+        AddDiscoveryPoint(ExplorationCache.NewVillageUnfinishedId, new Vector2(1390, 1280), markerColor: near, label: "半成品单元");
+        AddDiscoveryPoint(ExplorationCache.NewVillageRowCShoeCabId, new Vector2(1580, 1200), markerColor: near, label: "C户玄关鞋柜");
+        AddDiscoveryPoint(ExplorationCache.NewVillageRowCBathId, new Vector2(1700, 1300), markerColor: near, label: "C户卫生间");
+        AddDiscoveryPoint(ExplorationCache.NewVillageRowDBalconyId, new Vector2(1160, 1040), markerColor: near, label: "D户阳台杂物");
+        // 工地区（中，8·维持偏建材）
+        AddDiscoveryPoint(ExplorationCache.NewVillageLumberYardId, new Vector2(620, 940), markerColor: mid, label: "料场木料垛");
+        AddDiscoveryPoint(ExplorationCache.NewVillageScaffoldId, new Vector2(920, 880), markerColor: mid, label: "脚手架下");
+        AddDiscoveryPoint(ExplorationCache.NewVillageToolShedId, new Vector2(1300, 940), markerColor: mid, label: "工地工具棚");
+        AddDiscoveryPoint(ExplorationCache.NewVillageRebarPileId, new Vector2(760, 720), markerColor: mid, label: "钢筋碎料堆");
+        AddDiscoveryPoint(ExplorationCache.NewVillageSiteOfficeId, new Vector2(1560, 800), markerColor: mid, label: "项目部工棚");
+        AddDiscoveryPoint(ExplorationCache.NewVillageCementPileId, new Vector2(1080, 700), markerColor: mid, label: "水泥料堆");
+        AddDiscoveryPoint(ExplorationCache.NewVillageElectricalBoxId, new Vector2(1400, 720), markerColor: mid, label: "临时配电箱");
+        AddDiscoveryPoint(ExplorationCache.NewVillageForemanLockerId, new Vector2(1950, 620), markerColor: mid, label: "工头储物柜");
+        // 老屋区（北/深，11·一户户翻，最深药箱）
+        AddDiscoveryPoint(ExplorationCache.NewVillageOldKitchenId, new Vector2(620, 520), markerColor: deep, label: "老屋灶间");
+        AddDiscoveryPoint(ExplorationCache.NewVillageOldWardrobeId, new Vector2(620, 380), markerColor: deep, label: "老屋卧室衣柜");
+        AddDiscoveryPoint(ExplorationCache.NewVillageRootCellarId, new Vector2(800, 300), markerColor: deep, label: "老屋菜窖");
+        AddDiscoveryPoint(ExplorationCache.NewVillageOldHallId, new Vector2(860, 480), markerColor: deep, label: "老屋堂屋");
+        AddDiscoveryPoint(ExplorationCache.NewVillageOldUnderbedId, new Vector2(1000, 400), markerColor: deep, label: "老屋床底");
+        AddDiscoveryPoint(ExplorationCache.NewVillageOldAtticId, new Vector2(1040, 560), markerColor: deep, label: "老屋阁楼");
+        AddDiscoveryPoint(ExplorationCache.NewVillageOld2KitchenId, new Vector2(1280, 460), markerColor: deep, label: "二号老屋厨房");
+        AddDiscoveryPoint(ExplorationCache.NewVillageOld2WoodshedId, new Vector2(1280, 320), markerColor: deep, label: "二号老屋柴房");
+        AddDiscoveryPoint(ExplorationCache.NewVillageOld2YardId, new Vector2(1480, 420), markerColor: deep, label: "二号老屋院子");
+        AddDiscoveryPoint(ExplorationCache.NewVillageOld2ShrineId, new Vector2(1680, 320), markerColor: deep, label: "老屋神龛");
+        AddDiscoveryPoint(ExplorationCache.NewVillageOld2MedCabId, new Vector2(1880, 440), markerColor: new Color(0.56f, 0.5f, 0.42f), label: "老屋药箱");
+    }
+
+    /// <summary>
+    /// [SPEC-B13·拟设定待确认] 加油站：公路加油站——加油区 + 便利店 + 修车棚 + 油罐区（地下储油间）。
+    /// **燃油大户**（fuel 为火堆/油灯燃料的主要产出来源，呼应"固定光源耗燃油"点子；投放量拟定待调），
+    /// 便利店食品少量 + 修车棚工具零件；中点下限 10 处搜刮，近→深：加油区(南/近) → 便利店(中) → 修车棚(中) → 油罐区(北/深·高价值)。
+    /// 占位美术：四片分区地台 + 搜刮点标记（正式空间/美术待后续）；掉落/叙事在 <see cref="ExplorationCache.Resolve"/>。
+    /// 敌对布防见 <see cref="GasStationZombieSpots"/>（中低 5 只）；叙事调查点（公路车龙/立柱油价牌）见 NarrativeSpotRegistry。
+    /// </summary>
+    private void SetupGasStation()
+    {
+        // 分区占位地台（纯视觉）：加油区(南/深灰罩棚)、便利店(中/暖光)、修车棚(中/油污)、油罐区(北/警戒黄)。
+        AddZonePad(new Vector2(480, 1120), new Vector2(760, 340), new Color(0.22f, 0.23f, 0.25f, 0.6f));    // 加油区（罩棚）
+        AddZonePad(new Vector2(560, 840), new Vector2(880, 300), new Color(0.30f, 0.28f, 0.22f, 0.55f));    // 便利店
+        AddZonePad(new Vector2(880, 560), new Vector2(1080, 320), new Color(0.24f, 0.23f, 0.20f, 0.6f));    // 修车棚
+        AddZonePad(new Vector2(980, 260), new Vector2(1180, 320), new Color(0.34f, 0.30f, 0.14f, 0.55f));   // 油罐区
+
+        var near = new Color(0.5f, 0.52f, 0.5f);
+        var storeC = new Color(0.55f, 0.5f, 0.4f);
+        var repairC = new Color(0.5f, 0.48f, 0.44f);
+        var fuelC = new Color(0.62f, 0.56f, 0.30f); // 燃油区偏暖黄，凸显燃油大户身份
+
+        // 加油区（南/近）
+        AddDiscoveryPoint(ExplorationCache.GasPumpIslandId, new Vector2(650, 1230), markerColor: fuelC, label: "加油岛");
+        AddDiscoveryPoint(ExplorationCache.GasKioskId, new Vector2(980, 1180), markerColor: near, label: "收银亭");
+        // 便利店（中，食品少量）
+        AddDiscoveryPoint(ExplorationCache.GasStoreSnacksId, new Vector2(720, 1000), markerColor: storeC, label: "便利店零食货架");
+        AddDiscoveryPoint(ExplorationCache.GasStoreDrinksId, new Vector2(1080, 1050), markerColor: storeC, label: "冷饮柜");
+        AddDiscoveryPoint(ExplorationCache.GasStoreBackroomId, new Vector2(1250, 900), markerColor: storeC, label: "便利店里屋");
+        // 修车棚（中，工具零件）
+        AddDiscoveryPoint(ExplorationCache.GasRepairBayId, new Vector2(1020, 720), markerColor: repairC, label: "修车工位");
+        AddDiscoveryPoint(ExplorationCache.GasPartsShelfId, new Vector2(1480, 760), markerColor: repairC, label: "零件货架");
+        AddDiscoveryPoint(ExplorationCache.GasOilRackId, new Vector2(1750, 680), markerColor: fuelC, label: "机油货架");
+        // 油罐区（北/深，燃油大户高价值）
+        AddDiscoveryPoint(ExplorationCache.GasTankerId, new Vector2(1150, 420), markerColor: fuelC, label: "油罐车");
+        AddDiscoveryPoint(ExplorationCache.GasUndergroundTankId, new Vector2(1980, 340), markerColor: fuelC, label: "地下储油间");
+    }
+
+    /// <summary>
+    /// [SPEC-B13] 超市：一伙幸存者据守的卖场——外围卖场/仓储/后巷可搜刮（货架残余，食物身份但单点薄），内圈是他们的据点囤货。
+    /// 骗局（用户原话"轻信会被骗进密闭小房间背刺围攻"）：门口接触点弹 <see cref="ChoicePanel"/> 二选一——
+    ///   · 轻信跟随 → 被诱入内圈密室（<see cref="AddRoomOutline"/> 占位房，"走到房间触发"语义）→ 背刺围攻（<see cref="SpawnSupermarketRaiders"/> 施 1.5x 先手）；
+    ///   · 不轻信 → 警告后可搜外围，内圈物资被占——踏入内圈闯入点即公平开战抢货。
+    /// 分支时序/文本/去重旗标由 <see cref="SupermarketAmbush"/>（纯逻辑）+ CampMain.OnExplorationDiscovery 驱动；本方法只铺空间。
+    /// 占位美术：分区地台 + 据点密室墙体 + 搜刮点标记（正式空间/美术待后续）。骗局后果细节 draft 待确认。
+    /// </summary>
+    private void SetupSupermarket()
+    {
+        // 分区占位地台（纯视觉）：卖场(南/主)、仓储(东北)、后巷(西北)。据点内圈另用密室墙体（AddRoomOutline）示意。
+        AddZonePad(new Vector2(360, 860), new Vector2(1680, 560), new Color(0.24f, 0.25f, 0.27f, 0.55f)); // 卖场
+        AddZonePad(new Vector2(1720, 540), new Vector2(560, 380), new Color(0.22f, 0.21f, 0.19f, 0.6f));  // 仓储区
+        AddZonePad(new Vector2(240, 360), new Vector2(380, 380), new Color(0.18f, 0.19f, 0.18f, 0.62f));  // 后巷卸货区
+
+        var shelfC = new Color(0.55f, 0.48f, 0.36f);  // 外围货架残余（棕黄，物资）
+        var hoardC = new Color(0.60f, 0.50f, 0.34f);  // 内圈幸存者囤货（略暖，缴获感）
+        var dangerC = new Color(0.78f, 0.30f, 0.24f); // 据点接触/闯入点（暗红：这里有人，危险）
+
+        // 外围（近→中，7 处，货架残余）
+        AddDiscoveryPoint(ExplorationCache.SupermarketCheckoutId, new Vector2(700, 1250), markerColor: shelfC, label: "收银台前区");
+        AddDiscoveryPoint(ExplorationCache.SupermarketSnackAisleId, new Vector2(1000, 1050), markerColor: shelfC, label: "零食货架");
+        AddDiscoveryPoint(ExplorationCache.SupermarketCannedAisleId, new Vector2(1400, 1050), markerColor: shelfC, label: "罐头货架");
+        AddDiscoveryPoint(ExplorationCache.SupermarketHouseholdId, new Vector2(1700, 900), markerColor: shelfC, label: "日用百货架");
+        AddDiscoveryPoint(ExplorationCache.SupermarketHardwareId, new Vector2(600, 850), markerColor: shelfC, label: "五金杂货角");
+        AddDiscoveryPoint(ExplorationCache.SupermarketStockroomId, new Vector2(2000, 700), markerColor: shelfC, label: "仓储区货架");
+        AddDiscoveryPoint(ExplorationCache.SupermarketBackAlleyId, new Vector2(400, 500), markerColor: shelfC, label: "后巷卸货区");
+
+        // 内圈·幸存者据点密室（占位墙体，南墙留门＝"密闭小房间"；囤货点落其中，打赢/闯入后可搜）。
+        var den = SupermarketDenCenter; // (1200, 380)
+        AddRoomOutline(new Rect2(den.X - 200f, den.Y - 150f, 400f, 300f), new Color(0.34f, 0.30f, 0.26f, 0.95f), RoomEdge.Bottom, "里屋");
+        AddDiscoveryPoint(ExplorationCache.SupermarketHoardFoodId, new Vector2(den.X - 100f, den.Y - 60f), markerColor: hoardC, label: "他们的囤粮");
+        AddDiscoveryPoint(ExplorationCache.SupermarketHoardMedsId, new Vector2(den.X + 100f, den.Y - 40f), markerColor: hoardC, label: "他们的药箱");
+        AddDiscoveryPoint(ExplorationCache.SupermarketHoardGearId, new Vector2(den.X - 80f, den.Y + 50f), markerColor: hoardC, label: "缴获装备堆");
+        AddDiscoveryPoint(ExplorationCache.SupermarketHoardStashId, new Vector2(den.X + 90f, den.Y + 50f), markerColor: hoardC, label: "头目私囤");
+
+        // 骗局接触点（门口，靠内圈南侧）：踏入弹接触对话（CampMain 走 SupermarketAmbush）。zone 略大稳稳接住。
+        AddDiscoveryPoint(SupermarketAmbush.ContactDiscoveryId, new Vector2(den.X, den.Y + 240f), markerColor: dangerC, label: "有人招呼", zoneSize: new Vector2(150f, 130f));
+        // 内圈闯入点（门槛处，介于接触点与囤货之间）：拒绝招呼后踏入即公平开战抢被占物资。
+        AddDiscoveryPoint(SupermarketAmbush.InnerRingDiscoveryId, new Vector2(den.X, den.Y + 120f), markerColor: dangerC, label: "里屋（有人把守）", zoneSize: new Vector2(140f, 90f));
+    }
+
+    /// <summary>
+    /// [SPEC-B13] 医院：被大量丧尸占据的废墟（丧尸密度显著高于他图，见 <see cref="HospitalZombieSpots"/>），高风险高收益——
+    /// 医疗物资集中投放于药房/手术层（打破全域"禁医疗灌水"的例外点，正是医院身份）。分区近→深：
+    ///   门诊/急诊大厅(南/近) → 住院部(中) → 药房(北/深·医疗集中) → 手术层(最北/最深·手术耗材+高价值医疗)。
+    /// 占位美术：四片分区地台 + 30 处搜刮点标记；掉落/叙事在 <see cref="ExplorationCache.Resolve"/>。叙事调查点（分诊台公告/住院部病房）见 NarrativeSpotRegistry。
+    /// </summary>
+    private void SetupHospital()
+    {
+        // 分区占位地台（纯视觉）：门诊/急诊(南/近)、住院部(中)、药房(深)、手术层(最深)。越深越"洁净"色调、也越危险。
+        AddZonePad(new Vector2(320, 1080), new Vector2(1760, 380), new Color(0.24f, 0.24f, 0.26f, 0.55f)); // 门诊/急诊大厅
+        AddZonePad(new Vector2(300, 620), new Vector2(1820, 420), new Color(0.22f, 0.25f, 0.28f, 0.55f));  // 住院部
+        AddZonePad(new Vector2(400, 380), new Vector2(1780, 220), new Color(0.20f, 0.28f, 0.24f, 0.58f));  // 药房（医疗集中，偏药绿）
+        AddZonePad(new Vector2(300, 120), new Vector2(1900, 240), new Color(0.28f, 0.30f, 0.32f, 0.60f));  // 手术层（无菌灰白，最深）
+
+        var lobbyC = new Color(0.5f, 0.5f, 0.5f);      // 门诊/急诊（非医疗为主）
+        var wardC = new Color(0.5f, 0.54f, 0.56f);     // 住院部
+        var pharmC = new Color(0.42f, 0.62f, 0.44f);   // 药房（医疗，药绿）
+        var orC = new Color(0.62f, 0.66f, 0.62f);      // 手术层（无菌灰白·高价值）
+
+        // 门诊/急诊大厅（近，7·非医疗为主）
+        AddDiscoveryPoint(ExplorationCache.HospitalReceptionId, new Vector2(700, 1300), markerColor: lobbyC, label: "挂号台");
+        AddDiscoveryPoint(ExplorationCache.HospitalTriageId, new Vector2(900, 1150), markerColor: lobbyC, label: "分诊台");
+        AddDiscoveryPoint(ExplorationCache.HospitalWaitingRoomId, new Vector2(1200, 1250), markerColor: lobbyC, label: "候诊区");
+        AddDiscoveryPoint(ExplorationCache.HospitalVendingId, new Vector2(1500, 1300), markerColor: lobbyC, label: "自动贩卖机");
+        AddDiscoveryPoint(ExplorationCache.HospitalErTrolleyId, new Vector2(1750, 1150), markerColor: lobbyC, label: "急诊抢救推车");
+        AddDiscoveryPoint(ExplorationCache.HospitalSecurityId, new Vector2(400, 1150), markerColor: lobbyC, label: "保安室");
+        AddDiscoveryPoint(ExplorationCache.HospitalCafeteriaId, new Vector2(2000, 1250), markerColor: lobbyC, label: "食堂");
+
+        // 住院部（中，8）
+        AddDiscoveryPoint(ExplorationCache.HospitalWardLinenId, new Vector2(600, 900), markerColor: wardC, label: "病房布草间");
+        AddDiscoveryPoint(ExplorationCache.HospitalWardLockerId, new Vector2(900, 850), markerColor: wardC, label: "病床储物柜");
+        AddDiscoveryPoint(ExplorationCache.HospitalNurseStationId, new Vector2(1200, 900), markerColor: pharmC, label: "护士站");
+        AddDiscoveryPoint(ExplorationCache.HospitalDoctorOfficeId, new Vector2(1600, 850), markerColor: wardC, label: "医生办公室");
+        AddDiscoveryPoint(ExplorationCache.HospitalDirtyUtilityId, new Vector2(1900, 950), markerColor: wardC, label: "污物处置间");
+        AddDiscoveryPoint(ExplorationCache.HospitalKitchenetteId, new Vector2(700, 680), markerColor: wardC, label: "配餐间");
+        AddDiscoveryPoint(ExplorationCache.HospitalFloorStoreId, new Vector2(2050, 700), markerColor: wardC, label: "楼层库房");
+        AddDiscoveryPoint(ExplorationCache.HospitalMorgueId, new Vector2(350, 700), markerColor: new Color(0.42f, 0.44f, 0.5f), label: "太平间");
+
+        // 药房（深，7·医疗集中——高价值）
+        AddDiscoveryPoint(ExplorationCache.HospitalPharmacyCounterId, new Vector2(700, 520), markerColor: pharmC, label: "药房前台");
+        AddDiscoveryPoint(ExplorationCache.HospitalPharmacyShelfId, new Vector2(1000, 470), markerColor: pharmC, label: "处方药架");
+        AddDiscoveryPoint(ExplorationCache.HospitalPharmacyFridgeId, new Vector2(1300, 500), markerColor: pharmC, label: "冷藏药柜");
+        AddDiscoveryPoint(ExplorationCache.HospitalPharmacyBackId, new Vector2(1600, 460), markerColor: pharmC, label: "药库后间");
+        AddDiscoveryPoint(ExplorationCache.HospitalNarcoticsCabinetId, new Vector2(1900, 520), markerColor: pharmC, label: "管制药柜");
+        AddDiscoveryPoint(ExplorationCache.HospitalDispensaryId, new Vector2(500, 420), markerColor: pharmC, label: "配药室");
+        AddDiscoveryPoint(ExplorationCache.HospitalMedSupplyRoomId, new Vector2(2100, 460), markerColor: pharmC, label: "医材库");
+
+        // 手术层（最深，8·手术耗材+高价值医疗）
+        AddDiscoveryPoint(ExplorationCache.HospitalOrScrubId, new Vector2(600, 300), markerColor: orC, label: "刷手准备间");
+        AddDiscoveryPoint(ExplorationCache.HospitalOrTheatreId, new Vector2(900, 240), markerColor: orC, label: "手术室");
+        AddDiscoveryPoint(ExplorationCache.HospitalSterileStoreId, new Vector2(1200, 300), markerColor: orC, label: "无菌耗材库");
+        AddDiscoveryPoint(ExplorationCache.HospitalIcuId, new Vector2(1500, 240), markerColor: orC, label: "ICU 重症监护");
+        AddDiscoveryPoint(ExplorationCache.HospitalBloodBankId, new Vector2(1800, 300), markerColor: orC, label: "血库");
+        AddDiscoveryPoint(ExplorationCache.HospitalAnesthesiaId, new Vector2(2050, 240), markerColor: orC, label: "麻醉科");
+        AddDiscoveryPoint(ExplorationCache.HospitalSterilizerId, new Vector2(350, 280), markerColor: orC, label: "器械灭菌室");
+        AddDiscoveryPoint(ExplorationCache.HospitalChiefSafeId, new Vector2(1250, 150), markerColor: new Color(0.72f, 0.68f, 0.5f), label: "主任药品保险柜");
     }
 
     /// <summary>

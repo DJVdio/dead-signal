@@ -299,5 +299,198 @@ public static class NarrativeSpotRegistry
                 "剩下没被圈的那一个，站在最边上——大概，就是最后还留在这里、给他们一个个画上十字的人。",
             },
         },
+
+        // ===== [SPEC-B13·拟设定待确认] 东部新村（中点，ExplorationCache.EastNewVillageName）：2 处 =====
+        new NarrativeSpot
+        {
+            Id = "narrative_newvillage_couplet",
+            Destination = ExplorationCache.EastNewVillageName,
+            X = 1300f, Y = 1080f,          // 排屋门口（避开半成品单元搜刮点 1300,1230）
+            Trigger = NarrativeTrigger.Proximity,
+            Label = "乔迁对联",
+            Title = "没贴完的对联",
+            Pages = new[]
+            {
+                "排屋的一户门口，红纸对联贴了一半。上联端端正正糊在门框右侧，" +
+                "浆糊都还没干透；下联卷成一卷，搁在门槛上，被风掀着一角。",
+
+                "上联写着「乔迁新居迎百福」，墨迹是新的。横批也裁好了，压在下联底下——" +
+                "「安居乐业」。搬进来的头一天，总要图个吉利。",
+
+                "刷浆糊的排刷还搭在半桶浆糊沿上，硬成了一块。贴到一半的人，" +
+                "大概是听见了什么，撂下下联就走了，从此再没回来把它贴完。",
+            },
+        },
+        new NarrativeSpot
+        {
+            Id = "narrative_newvillage_punch_board",
+            Destination = ExplorationCache.EastNewVillageName,
+            X = 1520f, Y = 620f,           // 工地项目部外墙（避开项目部搜刮点 1520,760）
+            Trigger = NarrativeTrigger.Click,   // 翻看打卡板——Click 意图，渲染暂 Proximity
+            Label = "打卡板",
+            Title = "工地的打卡板",
+            Pages = new[]
+            {
+                "项目部工棚外墙挂着块考勤打卡板，一排排铁夹子夹着工人的纸卡，" +
+                "名字是手写的，有的还标着「架子工」「泥工」「电工」。",
+
+                "最后一天的出勤记录还夹在上头。上工那一栏几乎夹满了卡——那天来的人不少；" +
+                "下工那一栏，却空空荡荡，只有零零散散几张。",
+
+                "板子最底下用粉笔写着当天的施工计划：「三号楼封顶」。粉笔字被人潦草地划掉了，" +
+                "底下补了两个字，力透板背——「跑」。",
+            },
+        },
+
+        // ===== [SPEC-B13·拟设定待确认] 加油站（中点，ExplorationCache.GasStationName）：2 处 =====
+        new NarrativeSpot
+        {
+            Id = "narrative_gas_car_queue",
+            Destination = ExplorationCache.GasStationName,
+            X = 1150f, Y = 1150f,          // 加油区通往公路的出口（避开加油岛 650,1230 / 收银亭 980,1180）
+            Trigger = NarrativeTrigger.Proximity,
+            Label = "车龙",
+            Title = "堵死的车龙",
+            Pages = new[]
+            {
+                "加油站连着公路的那个方向，车一辆顶一辆排成了长龙，一直堵到视线尽头。" +
+                "车门大多敞着，有的还挂着挡，仿佛下一秒就能重新发动、往前挪上一格。",
+
+                "排在最前头的几辆早没了油，被人合力推到路肩，好给后面让道——可后面根本没有路了。" +
+                "喇叭大概响过很久，直到一辆接一辆地哑掉。",
+
+                "有辆车的后座还系着儿童安全座椅，安全带扣得整整齐齐，座椅是空的。" +
+                "他们最后都下了车，徒步汇进逃难的人流。往南，所有人都在往南——" +
+                "沿着这条再也开不动的车龙，一直走进你身后那座城的记忆里。",
+            },
+        },
+        new NarrativeSpot
+        {
+            Id = "narrative_gas_price_sign",
+            Destination = ExplorationCache.GasStationName,
+            X = 500f, Y = 1150f,           // 加油区西侧立柱油价牌下（避开零食货架 720,1000 / 加油岛 650,1230 / 收银亭 980,1180，间距均 >150px）
+            Trigger = NarrativeTrigger.Proximity,
+            Label = "油价牌",
+            Title = "立柱上的油价牌",
+            Pages = new[]
+            {
+                "加油站高高的立柱招牌还立着，顶上的价格牌是那种能翻数字的老式牌子。" +
+                "92 号、95 号、0 号，三行价格。",
+
+                "价格的数字被人从下往上一路翻乱了——不是加油站翻的。最上面一格，" +
+                "有人费力爬上去，把数字全拨成了同一个：一整排的「8」，像谁最后开的一个玩笑。",
+
+                "招牌底座的水泥墩上用喷漆写着一行字，箭头指向公路南边：「有油也没用了，走。」" +
+                "喷漆往下淌，拖出长长的泪痕。",
+            },
+        },
+
+        // ===== [SPEC-B13] 超市（中点，ExplorationCache.SupermarketName）：2 处 =====
+        new NarrativeSpot
+        {
+            Id = "narrative_supermarket_notice",
+            Destination = ExplorationCache.SupermarketName,
+            X = 360f, Y = 1300f,           // 入口自动门内侧告示栏（避开收银台/据点接触点）
+            Trigger = NarrativeTrigger.Proximity,
+            Label = "告示",
+            Title = "门内的手写告示",
+            Pages = new[]
+            {
+                "自动门早停了电，被人用购物车顶开一道缝。门内侧的立柱上贴着张手写告示，" +
+                "字迹起初工整，越往后越潦草。",
+
+                "「本店由幸存者互助会接管。凭劳动换取物资，欢迎加入，共渡难关。」——落款的日期停在很早以前。" +
+                "下面又有人补了一行小字，笔锋很急：「别信。进去的没一个出来。」",
+
+                "小字被人用红漆狠狠划掉了，划痕盖住了半张纸。红漆下头，隐约还能认出被涂掉的那句话，" +
+                "像一句没人来得及听完的警告。",
+            },
+        },
+        new NarrativeSpot
+        {
+            Id = "narrative_supermarket_freezer",
+            Destination = ExplorationCache.SupermarketName,
+            X = 1450f, Y = 520f,           // 卖场深处冷柜区（避开货架搜刮点/内圈据点）
+            Trigger = NarrativeTrigger.Proximity,
+            Label = "冷柜",
+            Title = "冷柜里的字条",
+            Pages = new[]
+            {
+                "一长排卧式冷柜断电后成了闷罐，玻璃盖上蒙着一层化了又冻的白霜。" +
+                "最靠里那台的盖子没关严，缝里塞着一张卷起的纸条。",
+
+                "纸条是用记号笔写在收银小票背面的：「他们把新来的锁在里屋。听见敲声别应，" +
+                "那是想让你去开门。」字被冻得发脆，边角一碰就掉渣。",
+
+                "冷柜内壁的霜上有一道道抓痕，从里往外，指甲划过的方向清清楚楚。" +
+                "写字条的人大概最后也没能从这排柜子之间走出去。",
+            },
+        },
+
+        // ===== [SPEC-B13] 医院（大点，ExplorationCache.HospitalName）：2 处 =====
+        new NarrativeSpot
+        {
+            Id = "narrative_hospital_triage_notice",
+            Destination = ExplorationCache.HospitalName,
+            X = 520f, Y = 1250f,           // 急诊入口分诊台旁的公告板（避开分诊搜刮点）
+            Trigger = NarrativeTrigger.Proximity,
+            Label = "公告",
+            Title = "分诊台的最后公告",
+            Pages = new[]
+            {
+                "急诊入口的电子叫号屏碎了，旁边的公告板上还夹着最后一张打印通知，" +
+                "边角被无数只手翻得起了毛。",
+
+                "「即日起停止普通门诊。发热、咳嗽、咬伤患者请由西侧通道单独分流，切勿进入住院部。」" +
+                "红章盖得很重。通知底下，有人用笔加了一句：「西侧通道后来也封了。」",
+
+                "公告板下方的地面上，粉笔画的分流箭头一层盖着一层，方向互相矛盾，" +
+                "像所有人都在最后一刻改了主意，却没有一条线通向出口。" +
+                "箭头最密的地方，粉笔被踩成了灰。",
+            },
+        },
+        new NarrativeSpot
+        {
+            Id = "narrative_hospital_ward",
+            Destination = ExplorationCache.HospitalName,
+            X = 1450f, Y = 700f,           // 住院部一间病房（避开病房搜刮点/护士站）
+            Trigger = NarrativeTrigger.Proximity,
+            Label = "病房",
+            Title = "住院部的病房",
+            Pages = new[]
+            {
+                "住院部一间四人病房，窗帘拉了一半，天光斜进来，照见空着的病床。" +
+                "床头卡还插在卡槽里，名字被日晒褪成了浅浅一道印子。",
+
+                "靠窗那张床收拾得整整齐齐，被角压得方方正正——是出院时才有的样子。" +
+                "床头柜上摆着一只没剥的橘子和一副老花镜，主人像是只出去散个步，随时会回来。",
+
+                "门背后的墙上，用铅笔画着一道道竖线，五根一组，记着什么的天数。" +
+                "计数在某一组画到第三根时戛然而止，那根线拖得很长，一直划到踢脚线，" +
+                "再也没有第四根。",
+            },
+        },
+
+        // ===== [SPEC-B13] 南丁格尔的小药店（小点，NurseRecruit.DestinationName）：1 处 =====
+        new NarrativeSpot
+        {
+            Id = "narrative_pharmacy_prescription_note",
+            Destination = NurseRecruit.DestinationName,
+            X = 1320f, Y = 780f,           // 前台旁的处方留言板（避开护士相遇点 1150,850 与收银台搜刮点 1000,950）
+            Trigger = NarrativeTrigger.Click,   // 翻看留言板——Click 意图，渲染暂 Proximity（见关卡层 [HANDOFF]）
+            Label = "留言板",
+            Title = "柜台旁的留言板",
+            Pages = new[]
+            {
+                "前台侧面钉着一块软木留言板，本该贴促销海报的地方，如今层层叠叠全是手写的便签，" +
+                "字迹潦草，日期越来越近。",
+
+                "「张阿姨的降压药，帮忙留一盒」——底下用另一支笔补了行小字：「已停诊」。" +
+                "「三楼小孩发烧，退烧药还有吗」——旁边打了个勾。「胰岛素！急！」——这张被人反复描过，墨都透了纸背。",
+
+                "留言板最下角别着一张没写收件人的便签，字迹和别的都不一样，工整、用力："
+                + "「能治的我都治了。治不了的，我陪着。——护士台，值班」。",
+            },
+        },
     };
 }

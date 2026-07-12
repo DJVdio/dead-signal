@@ -48,10 +48,15 @@ public sealed partial class WorldMapPanel : CanvasLayer
     {
         new() { Name = "超市", Position = new Vector2(140, 120), TravelTimeSeconds = 300, Tier = SizeTier.Medium },
         new() { Name = "医院", Position = new Vector2(420, 80), TravelTimeSeconds = 480, Tier = SizeTier.Large },
-        new() { Name = "药店", Position = new Vector2(300, 300), TravelTimeSeconds = 360, Tier = SizeTier.Medium },
-        new() { Name = "住宅区", Position = new Vector2(100, 340), TravelTimeSeconds = 240, Tier = SizeTier.Medium },
-        new() { Name = "加油站", Position = new Vector2(460, 220), TravelTimeSeconds = 420, Tier = SizeTier.Medium },
-        new() { Name = GoldfingerBaseName, Position = new Vector2(210, 210), TravelTimeSeconds = 540, Tier = SizeTier.Large },
+        // 南丁格尔的小药店（[SPEC-B13]）：正名"药店→南丁格尔的小药店"（内部路由键/flag 仍用 Name="药店"，只改 DisplayName，同守林人小屋先例）；
+        // 用户口径"**小**药店"→定级 Small（5 物资点，band 下限；大头药品在医院）。关内核心＝可招募护士（见 TestExploration.SetupNightingalePharmacy 与 NurseRecruit）。
+        new() { Name = NurseRecruit.DestinationName, DisplayName = NurseRecruit.DisplayName, Position = new Vector2(300, 300), TravelTimeSeconds = 360, Tier = SizeTier.Small },
+        // [SPEC-B13·拟设定待确认] 住宅区正名「东部新村」：内部路由键 Name="住宅区" 不动（守林人小屋先例），显示名走 DisplayName。半建成迁建安置区＝建材工具大户，中点 12 处（见 ExplorationCache/TestExploration）。
+        new() { Name = ExplorationCache.EastNewVillageName, DisplayName = "东部新村", Position = new Vector2(100, 340), TravelTimeSeconds = 240, Tier = SizeTier.Medium },
+        // [SPEC-B13·拟设定待确认] 加油站（无正名）＝燃油大户，中点下限 10 处（加油区/便利店/修车棚/油罐区，见 ExplorationCache/TestExploration）。
+        new() { Name = ExplorationCache.GasStationName, Position = new Vector2(460, 220), TravelTimeSeconds = 420, Tier = SizeTier.Medium },
+        // [SPEC-B12-补] 用户改口径「金手指帮＝中型探索点·以战斗为主」：Large→Medium（配 11 处帮派储备点，见 ExplorationCache）。
+        new() { Name = GoldfingerBaseName, Position = new Vector2(210, 210), TravelTimeSeconds = 540, Tier = SizeTier.Medium },
         // 森林深处、远离城镇：坐标落在城镇方框（80,60,440,260）之外的右侧林地，行程最长（拟定待调）。
         // 守望者森林小屋＝内部路由键/flag；显示名正名为「守林人小屋」（用户最新口径），小点样板（屋中屋+后院哥顿尸+2搜刮）。
         new() { Name = WatchersCabinName, DisplayName = "守林人小屋", Position = new Vector2(545, 150), TravelTimeSeconds = 600, Tier = SizeTier.Small },
