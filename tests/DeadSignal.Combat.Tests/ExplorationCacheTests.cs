@@ -103,7 +103,11 @@ public class ExplorationCacheTests
             ExplorationCache.CacheIdsFor(ExplorationCache.CityRooftopLookoutName).ToArray());
         // 广播台：10 处（茶水间近→备件仓库最深）。
         Assert.Equal(10, ExplorationCache.CacheIdsFor(ExplorationCache.BroadcastStationName).Count);
-        Assert.Empty(ExplorationCache.CacheIdsFor("超市"));
+        // [SPEC-B13] 超市/医院已落真探索关：超市 11 处（外围 7 + 内圈 4）、医院 30 处（丧尸巢·药房手术层医疗集中）。
+        Assert.Equal(11, ExplorationCache.CacheIdsFor(ExplorationCache.SupermarketName).Count);
+        Assert.Equal(30, ExplorationCache.CacheIdsFor(ExplorationCache.HospitalName).Count);
+        // 未登记的目的地仍返回空清单。
+        Assert.Empty(ExplorationCache.CacheIdsFor("不存在的目的地"));
     }
 
     [Fact]
@@ -164,5 +168,46 @@ public class ExplorationCacheTests
     {
         // 搜刮点给的武器名必须与 WeaponTable 一致（否则 Item.Weapon 名对不上装备/展示）。
         Assert.Equal(ExplorationCache.BoltActionRifleName, DeadSignal.Combat.WeaponTable.BoltActionHuntingRifle().Name);
+    }
+
+    [Fact]
+    public void GangSmgName_MatchesWeaponTable()
+    {
+        // 金手指帮军械柜招牌武器名须与 WeaponTable.Smg 一致。
+        Assert.Equal(ExplorationCache.GangSmgName, DeadSignal.Combat.WeaponTable.Smg().Name);
+    }
+
+    [Fact]
+    public void GoldfingerCaches_GangStockpileSemantics_NoFoodMedicalCapped()
+    {
+        // [SPEC-B12-补] 中型·战斗为主：帮派储备＝弹药火药/碎金属/武器配件/白银/皮革布料；
+        // 禁食物医疗灌水——全 11 点无食物，含医疗(bandage/antibiotics/first_aid_kit)的点至多 1 处（头目急救箱封顶）。
+        var ids = ExplorationCache.CacheIdsFor(ExplorationCache.GoldfingerBaseName);
+        Assert.Equal(11, ids.Count);
+
+        int medicalPoints = 0;
+        bool hasSilver = false, hasWeapon = false, hasGunpowder = false;
+        foreach (string id in ids)
+        {
+            CacheResult r = ExplorationCache.Resolve(id, new StoryFlags())!.Value;
+            Assert.DoesNotContain(r.Loot, l => l.Kind == LootKind.Food); // 无食物
+            bool med = r.Loot.Any(l => l.Kind == LootKind.Material &&
+                (l.RefId == "bandage" || l.RefId == "antibiotics" || l.RefId == "first_aid_kit"));
+            if (med) medicalPoints++;
+            if (r.Loot.Any(l => l.Kind == LootKind.Material && l.RefId == "silver")) hasSilver = true;
+            if (r.Loot.Any(l => l.Kind == LootKind.Weapon)) hasWeapon = true;
+            if (r.Loot.Any(l => l.Kind == LootKind.Material && l.RefId == "gunpowder")) hasGunpowder = true;
+        }
+        Assert.True(medicalPoints <= 1, $"金手指帮含医疗点应≤1，实际 {medicalPoints}");
+        Assert.True(hasSilver, "帮派储备应含白银（硬通货）");
+        Assert.True(hasWeapon, "帮派军械柜应含武器（打过才拿）");
+        Assert.True(hasGunpowder, "帮派储备应含火药（弹药料）");
+    }
+
+    [Fact]
+    public void GoldfingerCaches_EveryPlacedId_Resolves()
+    {
+        foreach (string id in ExplorationCache.CacheIdsFor(ExplorationCache.GoldfingerBaseName))
+            Assert.NotNull(ExplorationCache.Resolve(id, new StoryFlags()));
     }
 }

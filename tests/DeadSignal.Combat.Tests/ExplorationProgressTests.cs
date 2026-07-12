@@ -50,15 +50,30 @@ public class ExplorationProgressTests
     [Fact]
     public void GoldfingerBase_RevengeLine_AddsChristineCorpsePoint()
     {
-        // 非复仇线：仅帮众尸体一处登记点。
+        // [SPEC-B12-补] 金手指帮改中型·铺 11 物资点：登记点＝剧情尸体点 + 11 物资搜刮点。
+        // 非复仇线：帮众尸体 1 + 物资 11 = 12。
         var noRevenge = ExplorationProgress.PointFlagsFor(ExplorationProgress.GoldfingerBaseName, christineLeftForRevenge: false);
-        Assert.Single(noRevenge);
+        Assert.Equal(1 + 11, noRevenge.Count);
         Assert.Contains(GoldfingerDiscovery.GangMemberCorpseFlag, noRevenge);
+        Assert.DoesNotContain(GoldfingerDiscovery.ChristineCorpseFlag, noRevenge);
 
-        // 复仇线：另加克莉丝汀本人尸体点，总 2。
+        // 复仇线：另加克莉丝汀本人尸体点 → 2 尸体 + 11 物资 = 13。
         var revenge = ExplorationProgress.PointFlagsFor(ExplorationProgress.GoldfingerBaseName, christineLeftForRevenge: true);
-        Assert.Equal(2, revenge.Count);
+        Assert.Equal(2 + 11, revenge.Count);
         Assert.Contains(GoldfingerDiscovery.ChristineCorpseFlag, revenge);
+        // 剧情尸体点与物资点命名空间独立、共存不干扰。
+        Assert.Contains(ExplorationCache.GoldfingerArmoryFlag, revenge);
+    }
+
+    [Fact]
+    public void GoldfingerBase_IsMediumTier_ElevenMaterialCaches()
+    {
+        // 中型点=11 物资搜刮点（band 10~30 下限）。
+        Assert.Equal(11, ExplorationCache.CacheIdsFor(ExplorationCache.GoldfingerBaseName).Count);
+        // 完成度＝尸体点 + 物资点（非复仇线 1+11）。
+        var (done, total) = ExplorationProgress.Completion(ExplorationProgress.GoldfingerBaseName, new StoryFlags(), false);
+        Assert.Equal(0, done);
+        Assert.Equal(12, total);
     }
 
     [Fact]
@@ -78,8 +93,9 @@ public class ExplorationProgressTests
     [Fact]
     public void BackgroundDestination_NoRegisteredPoints_TotalZero()
     {
-        // 无登记调查点的目的地（如超市）→ total=0，调用方据此不显示完成度。
-        Assert.Equal((0, 0), ExplorationProgress.Completion("超市", new StoryFlags(), false));
+        // 无登记调查点的目的地（未建真探索关的字符串）→ total=0，调用方据此不显示完成度。
+        // 注：超市/医院等已在 [SPEC-B13] 落真探索关+搜刮点，改用一个确实未登记的名字验证空态路径。
+        Assert.Equal((0, 0), ExplorationProgress.Completion("不存在的目的地", new StoryFlags(), false));
     }
 
     [Fact]
