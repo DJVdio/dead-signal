@@ -19,6 +19,16 @@ public sealed class SurvivorPerks
     public void GrantBookworm() => Bookworm ??= new BookwormPerk();
 
     /// <summary>
+    /// 本 pawn 是否为南丁格尔（护士三级专属效果的**身份标记**）。效果规则/等级/计数皆走静态
+    /// <see cref="NightingalePerk"/> + <c>StoryFlags</c>（[SPEC-B13-补2] 计数持久化走旗标，RadioMainline 回复日先例），
+    /// 本处只标"这人是不是南丁格尔"（供 <c>CampMain</c> 判施术者/找营地护士）。其余角色恒 false。
+    /// </summary>
+    public bool IsNightingale { get; private set; }
+
+    /// <summary>把本 pawn 标记为南丁格尔（赋予护士三级专属效果身份）。建角时对南丁格尔调用一次（<c>Pawn.Create</c> 按名授予）。</summary>
+    public void GrantNightingale() => IsNightingale = true;
+
+    /// <summary>
     /// 本 pawn 作为读者的**自身**读速加成（加法，非倍率）：持有书虫按其等级取（0.25/0.50/0.50），否则 0（无 perk 零影响）。
     /// 丧尸/非诺蒂无 perk → 0。全营加成不含在此，另由 <see cref="ReadingSpeed.Effective"/> 汇总加进来。
     /// </summary>
@@ -86,6 +96,97 @@ public sealed class BookwormPerk
             return true;
         }
         return false;
+    }
+}
+
+/// <summary>
+/// **南丁格尔·护士三级专属效果**（纯逻辑·authored perk，[SPEC-B13-补]/[SPEC-B13-补2] 用户拍板，替换早前"固定+15"草案）。
+/// 三级效果（用户原话，数值**非拟定**）：
+///   · 1级：她本人手术基础点数 15→30（仅她施术时生效，她死即失）；
+///   · 2级：卫生意识让床铺更干净，全营感染率 −15%（需她**在营存活**维持，不在营/死亡即失效）；
+///   · 3级：卫生意识深入人心，全营手术基础点 +5、全营感染率**再** −10%——**永续遗产**（她死/离营依旧生效，知识已传承）；
+///     3级在她存活时与 2级叠加（感染合计 −25%）。
+/// 升级轴（[SPEC-B13-补2] 用户拍板）＝她本人**执行过的手术台数**（成败都计、重做每次计）：入队即 L1，累计
+/// <see cref="Level2ThresholdSurgeries"/> 台→L2，累计 <see cref="Level3ThresholdSurgeries"/> 台→L3。**台数阈值拟定待调**。
+///
+/// 设计澄清：这**不复活**已删的**通用**医疗技能系统（那是人人一档的等级）；本 perk 是**单角色 authored 效果**，
+/// 与诺蒂"书虫"、道格"羁绊"同型。手术侧走"per-surgeon 手术基础点数"（PerformSurgery 的 surgeryBasePoints 参数化），
+/// 感染侧走"营地感染率乘子"（TickDay 的 infectionChanceMultiplier）。
+/// L3 的永续遗产由营地层置永久旗标（<c>NurseRecruit.L3LegacyFlag</c>）承载——她死/离营后仍读，故本类的营地级查询
+/// 收 <c>l3LegacyActive</c> 布尔（＝该旗标），而非依赖她的存活状态。
+///
+/// **无实例状态**：等级由她本人累计手术台数派生（<see cref="EvaluateLevel"/>），台数**持久化在 StoryFlags**
+/// （[SPEC-B13-补2] "字符串承载整数"，RadioMainline 回复日 <c>ReplyDayKey</c> 同款）——与她的 Pawn 生命周期解耦，
+/// 她死后计数天然冻结（不再有她施术→不再 RecordSurgery），L3 遗产旗标照旧永续。身份标记＝<c>SurvivorPerks.IsNightingale</c>。
+/// </summary>
+public static class NightingalePerk
+{
+    // —— 升级阈值（[SPEC-B13-补2]，台数=她本人执行手术数；拟定待调）——
+    /// <summary>升到 L2 所需她本人累计手术台数（拟定待调）。</summary>
+    public const int Level2ThresholdSurgeries = 3;
+    /// <summary>升到 L3 所需她本人累计手术台数（拟定待调）。</summary>
+    public const int Level3ThresholdSurgeries = 8;
+
+    // —— 三级效果数值（[SPEC-B13-补] 用户原话，**非拟定，勿标待调**）——
+    /// <summary>常人手术基础点数（原 <c>HealthConditionSet.SurgeryBasePoints</c>）。</summary>
+    public const int DefaultSurgeryBasePoints = 15;
+    /// <summary>1级：南丁格尔本人手术基础点数（15→30）。</summary>
+    public const int NightingaleSurgeryBasePoints = 30;
+    /// <summary>3级：全营手术基础点 +5（永续遗产）。</summary>
+    public const int CampSurgeryBaseBonus = 5;
+    /// <summary>2级：全营感染率 −15%（她在营存活时生效）。</summary>
+    public const double Level2InfectionReduction = 0.15;
+    /// <summary>3级：全营感染率再 −10%（永续遗产）。</summary>
+    public const double Level3InfectionReduction = 0.10;
+
+    /// <summary>她本人累计手术台数的持久化旗标 key（字符串承载整数，RadioMainline 回复日先例）。</summary>
+    public const string SurgeryCountFlag = "nightingale_surgery_count";
+
+    /// <summary>读她本人累计已执行手术台数（未设置/不可解析 → 0）。</summary>
+    public static int SurgeriesPerformed(StoryFlags flags)
+        => flags != null && int.TryParse(flags.Get(SurgeryCountFlag), out int n) ? n : 0;
+
+    /// <summary>
+    /// 记一台**她本人执行**的手术（成败都计；门槛未过/重做冷却未真正施术者不计——由调用方按 SurgeryStatus 过滤）：
+    /// 累计台数 +1、写回 <see cref="SurgeryCountFlag"/>，返回**新台数**。调用方据 <see cref="EvaluateLevel"/> 判是否达 L3 并置永续遗产旗标。
+    /// </summary>
+    public static int RecordSurgery(StoryFlags flags)
+    {
+        int n = SurgeriesPerformed(flags) + 1;
+        flags.Set(SurgeryCountFlag, n.ToString());
+        return n;
+    }
+
+    /// <summary>由累计手术台数派生等级（入队即 L1；≥<see cref="Level2ThresholdSurgeries"/>→L2；≥<see cref="Level3ThresholdSurgeries"/>→L3）。</summary>
+    public static int EvaluateLevel(int surgeriesPerformed)
+        => surgeriesPerformed >= Level3ThresholdSurgeries ? 3
+         : surgeriesPerformed >= Level2ThresholdSurgeries ? 2
+         : 1;
+
+    /// <summary>由 StoryFlags 直接取她当前等级（读台数→派生）。</summary>
+    public static int LevelOf(StoryFlags flags) => EvaluateLevel(SurgeriesPerformed(flags));
+
+    /// <summary>
+    /// 某台手术的**基础点数**（per-surgeon）：施术者是南丁格尔→<see cref="NightingaleSurgeryBasePoints"/>(30)、常人→
+    /// <see cref="DefaultSurgeryBasePoints"/>(15)；再叠加 L3 全营遗产 <see cref="CampSurgeryBaseBonus"/>(+5，若 <paramref name="l3LegacyActive"/>)。
+    /// 供 <c>CampMain.OnSurgeryRequested</c> 喂 <c>PerformSurgery(surgeryBasePoints:…)</c>。纯静态、可脱实例（遗产在她死后仍算）。
+    /// </summary>
+    public static int SurgeryBasePoints(bool surgeonIsNightingale, bool l3LegacyActive)
+        => (surgeonIsNightingale ? NightingaleSurgeryBasePoints : DefaultSurgeryBasePoints)
+           + (l3LegacyActive ? CampSurgeryBaseBonus : 0);
+
+    /// <summary>
+    /// 全营**感染率乘子**：2级 −15%（<paramref name="nurseAliveInCamp"/> 且 <paramref name="nurseLevel"/>≥2）
+    /// + 3级 −10%（<paramref name="l3LegacyActive"/>，永续遗产，她死/离营仍生效）。减免走**加法**（用户口径"合计 −25%"）：
+    /// 存活 L3 = ×(1−0.15−0.10)=×0.75；死后/离营仅遗产 = ×0.90；仅 L2 存活 = ×0.85；无 = ×1.0。
+    /// 供 <c>CampMain.AdvanceSurvivorsHealthDay</c> 喂各幸存者 <c>TickDay(infectionChanceMultiplier:…)</c>。纯静态、可脱实例。
+    /// </summary>
+    public static double CampInfectionMultiplier(int nurseLevel, bool nurseAliveInCamp, bool l3LegacyActive)
+    {
+        double reduction = 0.0;
+        if (nurseAliveInCamp && nurseLevel >= 2) reduction += Level2InfectionReduction;
+        if (l3LegacyActive) reduction += Level3InfectionReduction;
+        return 1.0 - reduction;
     }
 }
 

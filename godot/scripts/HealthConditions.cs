@@ -392,6 +392,10 @@ public sealed class HealthConditionSet
     /// <param name="surgeonBookBonus">施术者已读医疗书加点合计（调用方从其 ReadBookSet ∩ <see cref="MedicalBookPoints"/> 求和，靠书籍知识、非 Medical 技能）。</param>
     /// <param name="selfSurgery">是否对自己手术（true → 池 ×0.60）。</param>
     /// <param name="operationCapability">施术者操作能力 0..1（满=1.0，残疾&lt;1；接入波从 Pawn 操作能力映射；池 ×它）。</param>
+    /// <param name="surgeryBasePoints">
+    /// 本台手术的**基础点数**（默认 null → 用常量 <see cref="SurgeryBasePoints"/>=15）。per-surgeon 可变入口
+    /// （[SPEC-B13-补] 南丁格尔三级特长：她本人 30、L3 后全营 +5，由调用方经 <c>NightingalePerk.SurgeryBasePoints</c> 算好传入）。
+    /// </param>
     public SurgeryResult PerformSurgery(
         HealthCondition condition,
         IReadOnlyList<string>? materials,
@@ -399,7 +403,8 @@ public sealed class HealthConditionSet
         IRandomSource rng,
         int surgeonBookBonus = 0,
         bool selfSurgery = false,
-        double operationCapability = 1.0)
+        double operationCapability = 1.0,
+        int? surgeryBasePoints = null)
     {
         if (condition.Type != HealthConditionType.Bleeding && condition.Type != HealthConditionType.Fracture)
         {
@@ -446,7 +451,7 @@ public sealed class HealthConditionSet
 
         // 有效池 P = (基础 + 床 + 材料 + 医疗书) × 操作能力 × 自体系数，取整。
         double cap = Math.Clamp(operationCapability, 0.0, 1.0);
-        int rawPoints = SurgeryBasePoints + (onBed ? BedBonusPoints : 0) + supplies.Sum(s => s.Points) + Math.Max(0, surgeonBookBonus);
+        int rawPoints = (surgeryBasePoints ?? SurgeryBasePoints) + (onBed ? BedBonusPoints : 0) + supplies.Sum(s => s.Points) + Math.Max(0, surgeonBookBonus);
         int pool = (int)Math.Round(rawPoints * cap * (selfSurgery ? SelfSurgeryFactor : 1.0), MidpointRounding.AwayFromZero);
 
         // 门槛：P < 15 凑不出可行手术 → 不 roll、不消耗、不改病状。
@@ -550,7 +555,11 @@ public sealed class HealthConditionSet
     /// <param name="rng">未手术开放伤口感染 roll 用（<see cref="IRandomSource.Range"/>(0,1)）。</param>
     /// <param name="resting">本昼夜是否卧床休养（减缓感染/疾病恶化、×<see cref="RestHealBonus"/> 加速术后愈合）。</param>
     /// <param name="restedInBed">本昼夜是否**在床上睡觉休息**（而非地铺）：术后愈合恢复效率**加算 +<see cref="BedSleepHealBonusPct"/> 个百分点**。默认 false，接入层按睡眠处是床/地铺传入。</param>
-    public HealthTickResult TickDay(IRandomSource rng, bool resting, bool restedInBed = false)
+    /// <param name="infectionChanceMultiplier">
+    /// 全营感染率乘子（默认 1.0＝无影响）：[SPEC-B13-补] 南丁格尔三级特长的营地卫生减免（她 L2 在营 ×0.85 / L3 遗产叠加至 ×0.75 等），
+    /// 由调用方经 <c>NightingalePerk.CampInfectionMultiplier</c> 算好传入；只缩放本昼夜的开放伤口感染几率，不改其余恶化/愈合。
+    /// </param>
+    public HealthTickResult TickDay(IRandomSource rng, bool resting, bool restedInBed = false, double infectionChanceMultiplier = 1.0)
     {
         if (IsDead)
         {
@@ -600,7 +609,7 @@ public sealed class HealthConditionSet
                     // 窗口过后不再新感染 → 放任小伤不累积到 100% 坏疽，成为有限概率赌局。
                     if (c.DaysElapsed < InfectionWindowDays && c.Severity >= WoundClosedThreshold)
                     {
-                        double chance = InfectionBaseChance * c.Severity * c.InfectionProneness * (c.IsOperated ? OperatedInfectionFactor : 1.0);
+                        double chance = InfectionBaseChance * c.Severity * c.InfectionProneness * (c.IsOperated ? OperatedInfectionFactor : 1.0) * Math.Max(0.0, infectionChanceMultiplier);
                         if (TryContractInfection(c, chance, rng, newConditions))
                         {
                             contracted = true;

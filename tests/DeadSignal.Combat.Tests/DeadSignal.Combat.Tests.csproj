@@ -94,6 +94,8 @@
     <Compile Include="..\..\godot\scripts\GoldfingerDiscovery.cs" Link="Consumed\GoldfingerDiscovery.cs" />
     <!-- 探索点搜刮缓存纯逻辑（无 Godot 依赖）：cacheId → flag/一批掉落/环境叙事（河边小屋/联合收割机仓库/城市之巅瞭望观景台/守林人小屋）。 -->
     <Compile Include="..\..\godot\scripts\ExplorationCache.cs" Link="Consumed\ExplorationCache.cs" />
+    <!-- 超市幸存者骗局纯逻辑（无 Godot 依赖，[SPEC-B13]）：接触对话一次性/拒绝后内圈敌对/伏击去重旗标 + 草稿文本。 -->
+    <Compile Include="..\..\godot\scripts\SupermarketAmbush.cs" Link="Consumed\SupermarketAmbush.cs" />
     <!-- 调查点规模三级 + 探索完成度聚合纯逻辑（无 Godot 依赖）：SizeTier 枚举/TierLabel + 目的地登记点位集 vs StoryFlags 旗标 → 已调查 X/Y。 -->
     <Compile Include="..\..\godot\scripts\ExplorationProgress.cs" Link="Consumed\ExplorationProgress.cs" />
     <!-- 瞭望台望远镜瞭望尸潮发现点纯逻辑（无 Godot 依赖）：discoveryId → 置 HordeTimeline.SightedFlag + 环境叙事。 -->
@@ -148,6 +150,7 @@
     <Compile Include="..\..\godot\scripts\EndingCg.cs" Link="Consumed\EndingCg.cs" />
     <!-- 批次11 南方营地三问考验纯逻辑（endgame-flow，无 Godot 依赖）：三问表/逐题回答记录/整体基调→启程旁白变体/CG③组装/启程去重。 -->
     <Compile Include="..\..\godot\scripts\SouthTrial.cs" Link="Consumed\SouthTrial.cs" />
+    <Compile Include="..\..\godot\scripts\NurseRecruit.cs" Link="Consumed\NurseRecruit.cs" />
   </ItemGroup>
 
 </Project>

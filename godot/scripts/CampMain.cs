@@ -1452,6 +1452,78 @@ public sealed partial class CampMain : Node2D
         GD.Print("[DougBruce] 南林村庄救援回营 → 道格 + 布鲁斯正史入队（饿昏迷低档）。");
     }
 
+    /// <summary>
+    /// 药店护士招募对话（[SPEC-B13]，复用通用 <see cref="ChoicePanel"/>）：护士清醒可对话，探索队踏入其警戒区时弹出。
+    /// 接受＝值 1 → 置 <see cref="NurseRecruit.AgreedFlag"/>（待回营注入标记 + 对话去重）+ 弹接受叙事；
+    /// 婉拒＝值 0 → **不置任何旗**（可再访药店再谈）+ 弹婉拒叙事。冻结探索实时层、选完恢复。
+    /// 真正的护士 Pawn 注入延到回营（见 <see cref="MaybeRecruitNurse"/>）——探索队出发时名单已定、不在关内临时增员。
+    /// </summary>
+    private void PromptNurseRecruit(NurseRecruitOffer offer)
+    {
+        double prevScale = Engine.TimeScale;
+        Engine.TimeScale = 0; // 冻结探索实时层，专注对话
+
+        var panel = new ChoicePanel();
+        AddChild(panel);
+        panel.Setup(
+            offer.Prompt,
+            new List<ChoicePanel.ChoiceOption>
+            {
+                new() { Value = 1, Label = offer.AcceptLabel, Description = offer.AcceptDescription,
+                        Accent = new Color(0.3f, 0.6f, 0.3f) },
+                new() { Value = 0, Label = offer.DeclineLabel, Description = offer.DeclineDescription,
+                        Accent = new Color(0.45f, 0.42f, 0.4f) },
+            });
+        panel.Confirmed += v =>
+        {
+            Engine.TimeScale = prevScale <= 0 ? 1 : prevScale;
+            panel.QueueFree();
+            if (v == 1)
+            {
+                _storyFlags.Set(NurseRecruit.AgreedFlag, "true"); // 答应 → 待回营注入 + 相遇对话去重
+                ShowDiscoveryNarrative(NurseRecruit.AcceptTitle, NurseRecruit.AcceptNarrative);
+            }
+            else
+            {
+                // 婉拒：不置任何旗 → ShouldOfferRecruitment 仍为真，可再访药店再谈。
+                ShowDiscoveryNarrative(NurseRecruit.DeclineTitle, NurseRecruit.DeclineNarrative);
+            }
+        };
+    }
+
+    /// <summary>
+    /// 回营正史入队钩子（[SPEC-B13]）：探索队在药店招募护士（关内已答应、置 <see cref="NurseRecruit.AgreedFlag"/>）后回营，
+    /// 在此真正注入护士 Pawn（<see cref="SpawnNurse"/>）并置 <see cref="NurseRecruit.EnlistedFlag"/> 硬守卫（注入一次，日后身故也不复注入）。
+    /// 判定与门控走纯逻辑 <see cref="NurseRecruit.ShouldEnlistOnReturn"/>。由 <see cref="UnloadExplorationLevel"/> 在探索队回营后调用。
+    /// </summary>
+    private void MaybeRecruitNurse()
+    {
+        if (!NurseRecruit.ShouldEnlistOnReturn(_storyFlags))
+            return;
+        SpawnNurse();
+        _storyFlags.Set(NurseRecruit.EnlistedFlag, "true"); // 注入一次硬守卫
+        GD.Print("[Nurse] 药店招募回营 → 南丁格尔正史入队。");
+    }
+
+    /// <summary>
+    /// 注入护士 Pawn（[SPEC-B13]）：普通幸存者，医疗特长走 authored 专属 perk（<see cref="SurvivorPerks.NursePerk"/>，
+    /// 由 <c>Pawn.Create</c> 按名 <see cref="NurseRecruit.NurseName"/> 授予，见 Pawn.cs）。加入 <c>_survivors</c> + 刷新卡牌栏后，
+    /// 走标准管道（聚餐分粮/双班守夜/医疗面板施术者）自然生效。幂等：已在营（按名存活）则不重复注入。
+    /// 姓名"南丁格尔"为占位关联名（draft·用户后改）；性格/台词=用户手写。
+    /// </summary>
+    private void SpawnNurse()
+    {
+        if (_survivors.Any(s => s.Alive && s.DisplayName == NurseRecruit.NurseName))
+            return; // 幂等：已在场不重复
+
+        var nurse = Pawn.Create(NurseRecruit.NurseName, usePistol: false, new Color(0.78f, 0.74f, 0.70f));
+        nurse.Position = _cameraCenter + new Vector2(40f, 0f);
+        AddActor(nurse);
+        _survivors.Add(nurse);
+        _cardBar?.SetSurvivors(_survivors); // 护士入队：卡牌栏加卡
+        GD.Print("[Nurse] 南丁格尔 已注入营地。");
+    }
+
 #if DEBUG
     /// <summary>
     /// 调试：把库存里的狗装备（Item.Armor，RefKey∈<see cref="DogGearCatalog"/>）穿到布鲁斯身上，验证护甲进受击结算
@@ -2309,13 +2381,21 @@ public sealed partial class CampMain : Node2D
         var toKill = new List<Pawn>();
         var notes = new List<string>();
 
+        // 南丁格尔护士三级特长（[SPEC-B13-补]）：营地卫生减免全营感染率——2级(她在营存活,−15%)+3级(永续遗产,−10%,合计−25%)。
+        // 默认只营地内休养的伤口吃减免（本处即营地每昼夜健康推进；探索关实时层伤口不经此，故天然满足"只营地伤口吃"，标待确认）。
+        Pawn? nightingale = _survivors.FirstOrDefault(s => s.Perks.IsNightingale);
+        int nurseLevel = NightingalePerk.LevelOf(_storyFlags); // 等级由持久化台数派生（她死后仍在，但下方 aliveInCamp 门控 L2）
+        bool nurseAliveInCamp = nightingale is { Alive: true } && nightingale.Role != PawnRole.Expedition; // 在营存活=活着且未外出探索
+        bool nurseL3Legacy = _storyFlags.Has(NurseRecruit.L3LegacyFlag);
+        double infectionMult = NightingalePerk.CampInfectionMultiplier(nurseLevel, nurseAliveInCamp, nurseL3Legacy);
+
         foreach (Pawn p in living)
         {
             bool resting = p.Role != PawnRole.Guard; // 守卫整夜值岗=不休养；其余卧床休养
             // 睡床 +10pp 加算：地铺 vs 床尚未在营地建模（睡眠点=住宅/仓库室内中心，无床位容量），暂将卧床休养一律视作睡床。
             // 待确认：床位建模后应按该幸存者睡的是床/地铺区分（仅睡床者得加算）。
             bool restedInBed = resting;
-            HealthTickResult r = p.AdvanceHealthDay(_healthRng, resting, restedInBed);
+            HealthTickResult r = p.AdvanceHealthDay(_healthRng, resting, restedInBed, infectionMult);
 
             foreach (HealthTickEvent e in r.Events)
             {
@@ -2712,6 +2792,22 @@ public sealed partial class CampMain : Node2D
             return;
         }
 
+        // ——超市幸存者骗局挂点（[SPEC-B13]，用户原话"轻信会被骗进密闭小房间背刺围攻"）——
+        // 门口接触点：弹 ChoicePanel 二选一（骗局未决出时）；已决出（轻信打过/拒过）则据点门口不再招呼（no-op）。
+        if (discoveryId == SupermarketAmbush.ContactDiscoveryId)
+        {
+            if (SupermarketAmbush.ShouldOfferContact(_storyFlags))
+                ShowSupermarketContact();
+            return;
+        }
+        // 内圈闯入点：拒绝招呼后踏入据点内圈抢被占物资 → 公平开战（无先手）；未拒绝/已生成过则 no-op。
+        if (discoveryId == SupermarketAmbush.InnerRingDiscoveryId)
+        {
+            if (SupermarketAmbush.ShouldSpawnInnerRingFight(_storyFlags))
+                SpringSupermarketInnerBreach();
+            return;
+        }
+
         // ——南林村庄「上锁的屋子」救援挂点（道格布鲁斯正史入队，[SPEC-B11]）——
         // 踏入锁屋门发现区即到此：出救援叙事 + 置 village_doug_rescued 旗标（去重）。
         // 真正的道格/布鲁斯注入**延到探索队回营**（见 UnloadExplorationLevel → MaybeSpawnRescuedDougAndBruce）——
@@ -2721,6 +2817,17 @@ public sealed partial class CampMain : Node2D
         {
             _storyFlags.Set(rescue.Value.StoryFlag, "true"); // 置 village_doug_rescued（去重 + 待回营注入标记）
             ShowDiscoveryNarrative(rescue.Value.Title, rescue.Value.Narrative);
+            return;
+        }
+
+        // ——南丁格尔的小药店·护士相遇招募挂点（可招募护士角色，[SPEC-B13]）——
+        // 踏入护士警戒区即到此：护士**清醒、可对话**（与道格饿昏迷被动救援不同）→ 弹 ChoicePanel 招募对话
+        // （邀请入队 / 暂不）。接受→置 pharmacy_nurse_agreed（待回营注入 + 对话去重）；婉拒→**不置旗**（可再访药店再谈）。
+        // 真正的护士注入**延到探索队回营**（见 UnloadExplorationLevel → MaybeRecruitNurse），同道格延后注入口径。
+        NurseRecruitOffer? nurse = NurseRecruit.Resolve(discoveryId, _storyFlags);
+        if (nurse != null)
+        {
+            PromptNurseRecruit(nurse.Value);
             return;
         }
 
@@ -2821,6 +2928,64 @@ public sealed partial class CampMain : Node2D
         Engine.TimeScale = _prevDiscoveryTimeScale <= 0 ? 1 : _prevDiscoveryTimeScale;
     }
 
+    // ============ 超市幸存者骗局（[SPEC-B13]，纯逻辑=SupermarketAmbush，空间执行=TestExploration.SpawnSupermarketRaiders）============
+
+    /// <summary>据点门口接触对话：暂停世界 + 弹 ChoicePanel 二选一（对方招呼"进来说话"）。选项处理见 <see cref="OnSupermarketContactChosen"/>。</summary>
+    private void ShowSupermarketContact()
+    {
+        CapturePanelTimeState(out int savedSpeed, out bool savedPaused);
+
+        var panel = new ChoicePanel();
+        AddChild(panel);
+        panel.Setup(
+            SupermarketAmbush.ContactPrompt,
+            new List<ChoicePanel.ChoiceOption>
+            {
+                new() { Value = SupermarketAmbush.ChoiceTrust, Label = SupermarketAmbush.TrustLabel,
+                        Description = SupermarketAmbush.TrustDescription, Accent = new Color(0.35f, 0.55f, 0.35f) },
+                new() { Value = SupermarketAmbush.ChoiceRefuse, Label = SupermarketAmbush.RefuseLabel,
+                        Description = SupermarketAmbush.RefuseDescription, Accent = new Color(0.6f, 0.5f, 0.25f) },
+            });
+        panel.Confirmed += v =>
+        {
+            panel.QueueFree();
+            RestorePanelTimeState(savedSpeed, savedPaused);
+            OnSupermarketContactChosen(v);
+        };
+    }
+
+    /// <summary>
+    /// 接触对话选定：骗局一次性置 <see cref="SupermarketAmbush.ScamResolvedFlag"/>。
+    ///   · 轻信跟随 → 被诱入密室背刺围攻：生成敌对幸存者 + 1.5x 潜行先手（<see cref="TestExploration.SpawnSupermarketRaiders"/>），弹发难旁白；
+    ///   · 不轻信 → 置 <see cref="SupermarketAmbush.RefusedFlag"/>（据点转占内圈的敌对方），弹警告旁白，外围可搜、内圈踏入闯入点方开战。
+    /// </summary>
+    private void OnSupermarketContactChosen(int value)
+    {
+        _storyFlags.Set(SupermarketAmbush.ScamResolvedFlag, "true"); // 一次性：门口不再招呼
+
+        if (value == SupermarketAmbush.ChoiceTrust)
+        {
+            _storyFlags.Set(SupermarketAmbush.AmbushSprungFlag, "true"); // 去重：内圈闯入点不再另刷敌
+            if (_currentLevel is TestExploration lvl)
+                lvl.SpawnSupermarketRaiders(SupermarketAmbush.AmbushRaiderCount, preemptiveStrike: true);
+            ShowDiscoveryNarrative(SupermarketAmbush.AmbushSprungTitle, SupermarketAmbush.AmbushSprungNarrative);
+        }
+        else
+        {
+            _storyFlags.Set(SupermarketAmbush.RefusedFlag, "true"); // 据点转敌对占内圈
+            ShowDiscoveryNarrative(SupermarketAmbush.RefuseWarningTitle, SupermarketAmbush.RefuseWarningNarrative);
+        }
+    }
+
+    /// <summary>拒绝招呼后踏入内圈闯入点：据点敌对化、公平开战（无先手）抢被占物资。去重靠 <see cref="SupermarketAmbush.AmbushSprungFlag"/>。</summary>
+    private void SpringSupermarketInnerBreach()
+    {
+        _storyFlags.Set(SupermarketAmbush.AmbushSprungFlag, "true"); // 去重：只生成一次
+        if (_currentLevel is TestExploration lvl)
+            lvl.SpawnSupermarketRaiders(SupermarketAmbush.AmbushRaiderCount, preemptiveStrike: false);
+        ShowDiscoveryNarrative(SupermarketAmbush.InnerRingBreachTitle, SupermarketAmbush.InnerRingBreachNarrative);
+    }
+
     private void LoadExplorationLevel(string destinationName)
     {
         if (_levelRoot != null)
@@ -2897,6 +3062,8 @@ public sealed partial class CampMain : Node2D
 
         // 南林村庄救援回营：营地恢复后，若本次（或此前）在村庄救出道格布鲁斯而尚未入队 → 正史注入二人一狗（饿昏迷低档）。
         MaybeSpawnRescuedDougAndBruce();
+        // 药店招募回营：若在药店已答应护士入队而尚未注入 → 正史注入护士（[SPEC-B13]）。
+        MaybeRecruitNurse();
     }
 
     private void SetCampVisible(bool visible)
@@ -5386,9 +5553,26 @@ public sealed partial class CampMain : Node2D
         double capability = surgeon.OperationCapability;
         bool self = ReferenceEquals(patient, surgeon);
 
+        // 南丁格尔护士三级特长（[SPEC-B13-补]）：手术**基础点数** per-surgeon——她本人 30、常人 15；L3 后全营遗产 +5（读永续旗标）。
+        // 不复活已删的通用医疗技能系统（authored 专属 perk，身份走 SurvivorPerks.IsNightingale）；数值 15/30/+5 为用户原话非拟定。
+        bool surgeonIsNightingale = surgeon.Perks.IsNightingale;
+        bool l3Legacy = _storyFlags.Has(NurseRecruit.L3LegacyFlag);
+        int basePoints = NightingalePerk.SurgeryBasePoints(surgeonIsNightingale, l3Legacy);
+
         SurgeryResult result = patient.Health.PerformSurgery(
             condition, materials, onBed, _healthRng,
-            surgeonBookBonus: bookBonus, selfSurgery: self, operationCapability: capability);
+            surgeonBookBonus: bookBonus, selfSurgery: self, operationCapability: capability,
+            surgeryBasePoints: basePoints);
+
+        // 升级轴＝她本人执行过的手术台数（[SPEC-B13-补2]，成败都计、重做每次计；门槛未过/重做冷却未真正施术不计）。
+        // 计数持久化走 StoryFlags（字符串承载整数，RadioMainline 回复日先例）；升到 L3 那一刻置永续遗产旗标（她死/离营后 3级效果仍生效）。
+        if (surgeonIsNightingale
+            && (result.Status == SurgeryStatus.Success || result.Status == SurgeryStatus.Failed))
+        {
+            int count = NightingalePerk.RecordSurgery(_storyFlags);
+            if (NightingalePerk.EvaluateLevel(count) >= 3)
+                _storyFlags.Set(NurseRecruit.L3LegacyFlag, "true");
+        }
 
         if (result.Status == SurgeryStatus.NotAllowed)
         {

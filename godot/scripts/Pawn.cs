@@ -243,10 +243,10 @@ public sealed partial class Pawn : Actor
     /// </summary>
     /// <param name="rng">感染 roll 随机源。</param>
     /// <param name="resting">本昼夜是否卧床休养（减缓感染/疾病恶化、加速术后愈合）。</param>
-    public HealthTickResult AdvanceHealthDay(IRandomSource rng, bool resting, bool restedInBed = false)
+    public HealthTickResult AdvanceHealthDay(IRandomSource rng, bool resting, bool restedInBed = false, double infectionChanceMultiplier = 1.0)
     {
         ArchiveWounds();
-        HealthTickResult result = Health.TickDay(rng, resting, restedInBed);
+        HealthTickResult result = Health.TickDay(rng, resting, restedInBed, infectionChanceMultiplier);
 
         foreach (string part in result.MaimedParts)
         {
@@ -345,9 +345,11 @@ public sealed partial class Pawn : Actor
         p.Body = CombatData.NewHumanoidBody();
 
         // 通用技能系统已删——角色能力改由 authored 专属效果 + 读过的书承载，此处不再直设初始技能。
-        // 首个 authored 专属效果：诺蒂天生"书虫"L1（读得快、越读越快）。其余角色无 perk。
+        // authored 专属效果按名授予：诺蒂天生"书虫"L1（读得快、越读越快）；南丁格尔天生"外科手"（手术点数池加点，[SPEC-B13]）。其余角色无 perk。
         if (name == "诺蒂")
             p.Perks.GrantBookworm();
+        else if (name == NurseRecruit.NurseName)
+            p.Perks.GrantNightingale();
 
         // 初始武器进【持械模型】主手（右手）：手枪→远程、匕首→近战。EquipToHand 自动按 TwoHanded 分流。
         p._loadout.EquipToHand(usePistol ? CombatData.Pistol() : CombatData.Dagger(), Hand.Right);
