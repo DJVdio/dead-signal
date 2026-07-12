@@ -2740,6 +2740,19 @@ public sealed partial class CampMain : Node2D
             return;
         }
 
+        // ——叙事调查点（极乐迪斯科式，[SPEC-B12]）——
+        // 踏入/点击调查点即到此：冻结时标 + **分页**弹环境叙事（不走时间）+ 一次性点置去重旗标。
+        // 不给书、不入库、不计物资完成度（第三类，与物资搜刮/主线触发并存）。
+        NarrativeSpotResult? spot = NarrativeSpotRegistry.Resolve(discoveryId, _storyFlags);
+        if (spot != null)
+        {
+            NarrativeSpotResult s = spot.Value;
+            if (!s.Repeatable && !string.IsNullOrEmpty(s.StoryFlag))
+                _storyFlags.Set(s.StoryFlag, "true"); // 持久去重（可重读点空旗标不置）
+            ShowNarrativeSpot(s.Title, s.Pages);
+            return;
+        }
+
         // 探索点搜刮缓存（河边小屋/联合收割机仓库）：整批掉落落地（武器/书/材料/食物/工具），同构营地搜刮。
         CacheResult? c = ExplorationCache.Resolve(discoveryId, _storyFlags);
         if (c == null)
@@ -2785,6 +2798,19 @@ public sealed partial class CampMain : Node2D
         _prevDiscoveryTimeScale = Engine.TimeScale;
         Engine.TimeScale = 0; // 冻结探索实时层，专注读叙事
         _discoveryPanel.Show(title, narrative);
+        _discoveryPanel.Visible = true;
+    }
+
+    /// <summary>
+    /// 冻结探索实时层、**分页**弹叙事面板（叙事调查点 [SPEC-B12]，一段 2~4 屏，「不走时间」）。
+    /// 复用同一冻结/恢复机制（<see cref="_prevDiscoveryTimeScale"/> + <see cref="OnDiscoveryContinued"/>）——
+    /// 面板内部逐屏推进，末屏「继续」才回调关闭+恢复时标。
+    /// </summary>
+    private void ShowNarrativeSpot(string title, IReadOnlyList<string> pages)
+    {
+        _prevDiscoveryTimeScale = Engine.TimeScale;
+        Engine.TimeScale = 0; // 冻结探索实时层，专注读 CG（呈现期间时钟暂停＝不走时间）
+        _discoveryPanel.ShowPaged(title, pages);
         _discoveryPanel.Visible = true;
     }
 
