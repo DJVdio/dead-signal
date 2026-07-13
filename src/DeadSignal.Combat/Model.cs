@@ -28,6 +28,9 @@ public sealed class Weapon
 {
     public string Name { get; init; } = "";
 
+    /// <summary>玩家可见的一行风味描述（黑色幽默；空串=无）。仅供 UI 展示，不参与战斗结算。</summary>
+    public string Description { get; init; } = "";
+
     /// <summary>伤害区间下限（含）。全程小数运算。</summary>
     public double DamageMin { get; init; }
 
@@ -141,6 +144,9 @@ public sealed class Weapon
 public sealed class ArmorLayer
 {
     public string Name { get; init; } = "";
+
+    /// <summary>玩家可见的一行风味描述（黑色幽默；空串=无）。仅供 UI 展示，不参与战斗结算。</summary>
+    public string Description { get; init; } = "";
 
     /// <summary>对锐器的防御值。设计口径：锐防普遍约为钝防两倍，板甲更高。</summary>
     public double SharpDefense { get; init; }

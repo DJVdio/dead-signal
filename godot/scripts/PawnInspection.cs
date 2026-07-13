@@ -35,6 +35,10 @@ public sealed class PartStatus
 public sealed class WeaponInfo
 {
     public string Name { get; init; } = "";
+
+    /// <summary>玩家可见的一行风味描述（黑色幽默；空串=无）。装备 UI 悬停展示用。</summary>
+    public string Description { get; init; } = "";
+
     public double DamageMin { get; init; }
     public double DamageMax { get; init; }
     public double Penetration { get; init; }
@@ -46,6 +50,7 @@ public sealed class WeaponInfo
     public static WeaponInfo? From(Weapon? w) => w is null ? null : new WeaponInfo
     {
         Name = w.Name,
+        Description = w.Description,
         DamageMin = w.DamageMin,
         DamageMax = w.DamageMax,
         Penetration = w.Penetration,

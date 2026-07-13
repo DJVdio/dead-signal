@@ -55,6 +55,23 @@ public static class CampStructureTable
     /// <summary>某类结构的基础（未升级）等级。</summary>
     public static StructureTier BaseTier(CampStructureKind kind) =>
         kind == CampStructureKind.Gate ? StructureTier.GateBasic : StructureTier.FenceBasic;
+
+    /// <summary>
+    /// 「结构等级 → 一行风味描述」（黑色幽默，玩家可见文案）。
+    /// 注：营地结构不是库存物品、当前无建造/查看面板承接此文案（不同于武器/护甲经 StashPanel 上屏）——
+    /// 字段与文案先备齐（含全 7 档），待日后建造 UI 落地即可直接展示（团队裁决：先落数据，无 UI 则说明取舍）。
+    /// </summary>
+    public static string Blurb(StructureTier tier) => tier switch
+    {
+        StructureTier.FenceBasic      => "几根木桩钉起来的围栏，能挡君子，挡不住饿疯的东西。",
+        StructureTier.FenceReinforced => "加了支柱的围栏，结实了些——至少能让它们多撞几下。",
+        StructureTier.FenceSheetMetal => "钉了铁皮的围栏，好看不好看两说，扛揍是真扛揍。",
+        StructureTier.FenceFullMetal  => "全金属围栏，密不透风——把外面的世界关在外面，也把你关在里面。",
+        StructureTier.GateBasic       => "一扇基础大门，关得住的时候是门，关不住的时候是纸。",
+        StructureTier.GateSheetMetal  => "铁皮加固的大门，推起来沉，撞起来更沉。",
+        StructureTier.GateCastMetal   => "金属浇筑的大门，固若金汤——只要开门的人还靠得住。",
+        _ => "",
+    };
 }
 
 /// <summary>

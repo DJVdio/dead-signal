@@ -1,4 +1,5 @@
 using System;
+using DeadSignal.Combat; // WeaponTable / ArmorTable 风味文案查询（纯 C# 引擎类型，无 Godot 依赖）
 
 namespace DeadSignal.Godot;
 
@@ -74,13 +75,34 @@ public sealed record Item
         MaterialQuantity = materialQuantity;
     }
 
-    /// <summary>造一件武器物品（<paramref name="weaponName"/> 即 WeaponTable 的武器名，同时作显示名与引用键）。</summary>
+    /// <summary>
+    /// 造一件武器物品（<paramref name="weaponName"/> 即 WeaponTable 的武器名，同时作显示名与引用键）。
+    /// 未显式给描述时，自动按武器名从 <see cref="WeaponTable.DescriptionOf"/> 填充一行风味文案（供库存 UI 展示）。
+    /// </summary>
     public static Item Weapon(string weaponName, string description = "")
-        => new(ItemCategory.Weapon, weaponName, description, weaponName, 0, 0);
+        => new(ItemCategory.Weapon, weaponName,
+            string.IsNullOrEmpty(description) ? WeaponTable.DescriptionOf(weaponName) : description,
+            weaponName, 0, 0);
 
-    /// <summary>造一件护甲物品（<paramref name="armorName"/> 即 ArmorTable 的护甲名，同时作显示名与引用键）。</summary>
+    /// <summary>
+    /// 造一件护甲物品（<paramref name="armorName"/> 即 ArmorTable 的护甲名，同时作显示名与引用键）。
+    /// 未显式给描述时，自动填充风味文案：先查布鲁斯狗装备目录（含无甲的口袋狗衣），再退回人类护甲表。
+    /// </summary>
     public static Item Armor(string armorName, string description = "")
-        => new(ItemCategory.Armor, armorName, description, armorName, 0, 0);
+        => new(ItemCategory.Armor, armorName,
+            string.IsNullOrEmpty(description) ? ResolveArmorDescription(armorName) : description,
+            armorName, 0, 0);
+
+    /// <summary>护甲风味文案解析：狗装备（DogGearCatalog，含口袋狗衣）优先，其次人类护甲表（ArmorTable）。查不到返回空串。</summary>
+    private static string ResolveArmorDescription(string armorName)
+    {
+        var dogGear = DogGearCatalog.Get(armorName);
+        if (dogGear is not null && !string.IsNullOrEmpty(dogGear.Description))
+        {
+            return dogGear.Description;
+        }
+        return ArmorTable.DescriptionOf(armorName);
+    }
 
     /// <summary>造一件书物品（引用键=书 id；显示名=书标题）。已读标记/正文在 <see cref="BookData"/> 上，本对象只做引用。</summary>
     public static Item Book(string bookId, string title, string description = "")
@@ -102,7 +124,9 @@ public sealed record Item
     /// 手电经搜刮/投放入库、火把经配方产出（见 <c>CraftOutputFactory</c>）。持起占一只手走 <see cref="HeldLightState"/>。
     /// </summary>
     public static Item Light(string lightKey, string displayName, string description = "")
-        => new(ItemCategory.Light, displayName, description, lightKey, 0, 0);
+        => new(ItemCategory.Light, displayName,
+            string.IsNullOrEmpty(description) ? (LightSource.Find(lightKey)?.Description ?? "") : description,
+            lightKey, 0, 0);
 
     /// <summary>是否可装备（武器或护甲）。W3 装备接入据此从库存筛可上身之物。</summary>
     public bool IsEquippable => Category is ItemCategory.Weapon or ItemCategory.Armor;

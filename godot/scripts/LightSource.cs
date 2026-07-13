@@ -59,10 +59,10 @@ public static class LightSource
     // draft：以下强度/半径均为占位草稿，最终由 Sim/用户目视校准(对齐 SPEC-B4 白天满档、黑暗~0.35 环境光的量级)。
     private static readonly IReadOnlyDictionary<string, LightProfile> _byKey = ToMap(new[]
     {
-        new LightProfile(FlashlightKey, "手电", 0.90f, 340f, LightKind.Handheld, "聚焦的电筒亮束，黑暗中照得远，也让自己成为显眼的目标。"),
-        new LightProfile(TorchKey, "火把", 0.70f, 240f, LightKind.Handheld, "布条裹木棒蘸燃油点燃的火把，暖光一圈，燃着就藏不住行踪。"),
-        new LightProfile(LampKey, "油灯", 0.75f, 300f, LightKind.Fixed, "挂在营地里的油灯，照亮一片起居空间。"),
-        new LightProfile(CampfireKey, "火堆", 0.95f, 460f, LightKind.Fixed, "营地中央的火堆，大范围驱散黑暗，也把营地暴露在远处的视线里。"),
+        new LightProfile(FlashlightKey, "手电", 0.90f, 340f, LightKind.Handheld, "一束聚焦的电光，帮你看清黑暗里的东西，也帮黑暗里的东西看清你。"),
+        new LightProfile(TorchKey, "火把", 0.70f, 240f, LightKind.Handheld, "布条裹木棒、蘸油点着的火把，暖光一圈，浪漫又暴露——燃着就别想藏行踪。"),
+        new LightProfile(LampKey, "油灯", 0.75f, 300f, LightKind.Fixed, "挂在营地里的油灯，照亮一小片起居，也照亮「我们还没散伙」这件事。"),
+        new LightProfile(CampfireKey, "火堆", 0.95f, 460f, LightKind.Fixed, "营地中央的火堆，驱散黑暗、烤暖人心，顺便把「这儿有人」写在夜空上，给远处看。"),
     });
 
     private static IReadOnlyDictionary<string, LightProfile> ToMap(IReadOnlyList<LightProfile> list)

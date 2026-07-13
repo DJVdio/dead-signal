@@ -22,6 +22,7 @@ public static class WeaponTable
     public static Weapon Dagger() => new()
     {
         Name = "匕首",
+        Description = "小巧、贴身、安静——很多故事都是从背后一把匕首开始的。",
         DamageMin = 4,           // 拟定待调
         DamageMax = 10,          // 拟定待调
         Penetration = 0.09,
@@ -34,6 +35,7 @@ public static class WeaponTable
     public static Weapon Shortsword() => new()
     {
         Name = "短剑",
+        Description = "一把趁手的短剑，比匕首多一寸，也多一分底气。",
         DamageMin = 6,           // 拟定待调
         DamageMax = 20,          // 拟定待调
         Penetration = 0.12,
@@ -45,6 +47,7 @@ public static class WeaponTable
     public static Weapon Rapier() => new()
     {
         Name = "刺剑",
+        Description = "轻巧的刺剑，讲究的是一击致命，而不是大力出奇迹。",
         DamageMin = 7,           // 拟定待调（刺击：区间窄）
         DamageMax = 18,          // 拟定待调
         Penetration = 0.15,      // 拟定待调（刺击穿透略高于短剑 12%）
@@ -57,6 +60,7 @@ public static class WeaponTable
     public static Weapon Longsword() => new()
     {
         Name = "长剑",
+        Description = "双手长剑，一寸长一寸强——前提是你抡得动。",
         DamageMin = 10,          // 拟定待调
         DamageMax = 30,          // 拟定待调
         Penetration = 0.18,
@@ -69,6 +73,7 @@ public static class WeaponTable
     public static Weapon Greatsword() => new()
     {
         Name = "重剑",
+        Description = "沉重的大剑，挥一下费半条命，中一下要一条命。",
         DamageMin = 14,          // 拟定待调
         DamageMax = 40,          // 拟定待调
         Penetration = 0.24,
@@ -81,6 +86,7 @@ public static class WeaponTable
     public static Weapon Pitchfork() => new()
     {
         Name = "草叉",
+        Description = "农具改的草叉，本来是叉草的，现在叉什么全看你。",
         DamageMin = 9,           // 拟定待调
         DamageMax = 26,          // 拟定待调
         Penetration = 0.16,      // 拟定待调（多齿刺击，略低于长剑 18%）
@@ -95,6 +101,7 @@ public static class WeaponTable
     public static Weapon Club() => new()
     {
         Name = "棍棒",
+        Description = "一根结实的棍棒，简单、可靠、不讲道理。",
         DamageMin = 7,           // 拟定待调
         DamageMax = 9,           // 拟定待调
         Penetration = 0.03,
@@ -106,6 +113,7 @@ public static class WeaponTable
     public static Weapon SpikeHammer() => new()
     {
         Name = "尖头锤",
+        Description = "带尖的锤子，砸不服的，就扎服。",
         DamageMin = 12,          // 拟定待调
         DamageMax = 16,          // 拟定待调
         Penetration = 0.05,
@@ -120,6 +128,7 @@ public static class WeaponTable
     public static Weapon Warhammer() => new()
     {
         Name = "破甲锤",
+        Description = "专治各种不服的破甲锤，铁皮罐头也照开不误。",
         DamageMin = 20,          // 拟定待调
         DamageMax = 28,          // 拟定待调
         Penetration = 0.35,      // 拟定待调（20%→35%，破甲专精，全近战最高穿透）
@@ -136,6 +145,7 @@ public static class WeaponTable
     public static Weapon Zipgun() => new()
     {
         Name = "土制枪",
+        Description = "枪口冒着火焰，让你有大声说话的底气。",
         DamageMin = 11,          // 拟定待调（8→11，小幅提伤配合缩间隔，脱离全场垫底）
         DamageMax = 22,          // 拟定待调（16→22）
         Penetration = 0.10,
@@ -157,6 +167,7 @@ public static class WeaponTable
     public static Weapon Pistol() => new()
     {
         Name = "手枪",
+        Description = "一把手枪，几次讲道理的机会，还能换只手接着讲。",
         DamageMin = 8,           // 拟定待调
         DamageMax = 14,          // 拟定待调
         Penetration = 0.15,
@@ -180,6 +191,7 @@ public static class WeaponTable
     public static Weapon Smg() => new()
     {
         Name = "冲锋枪",
+        Description = "三连发的冲锋枪，子弹管够的时候，谁跟你讲道理。",
         DamageMin = 10,          // 拟定待调
         DamageMax = 18,          // 拟定待调
         Penetration = 0.18,
@@ -207,6 +219,7 @@ public static class WeaponTable
     public static Weapon Rifle() => new()
     {
         Name = "步枪",
+        Description = "军用步枪，站得远、打得准，让对话在安全距离进行。",
         DamageMin = 20,          // 拟定待调
         DamageMax = 35,          // 拟定待调
         Penetration = 0.21,
@@ -230,6 +243,7 @@ public static class WeaponTable
     public static Weapon BoltActionHuntingRifle() => new()
     {
         Name = "栓动猎枪",
+        Description = "民用栓动猎枪，一枪一栓，郑重其事——毕竟每一发都得省着用。",
         DamageMin = 16,          // 拟定待调（介于步枪 20 与土制枪 11 之间）
         DamageMax = 28,          // 拟定待调（介于步枪 35 与土制枪 22 之间）
         Penetration = 0.16,      // 拟定待调（介于步枪 21% 与土制枪 10% 之间）
@@ -251,6 +265,7 @@ public static class WeaponTable
     public static Weapon SniperRifle() => new()
     {
         Name = "狙击枪",
+        Description = "狙击枪，你还没听见响，事情就已经结束了。",
         DamageMin = 40,          // 拟定待调
         DamageMax = 70,          // 拟定待调
         Penetration = 0.70,
@@ -274,6 +289,7 @@ public static class WeaponTable
     public static Weapon ZombieClaw() => new()
     {
         Name = "爪击",
+        Description = "腐烂的指甲，钝、脏、带菌，被挠一下够你担惊受怕好几天。",
         DamageMin = 3,           // 拟定待调
         DamageMax = 9,           // 拟定待调
         Penetration = 0.05,
@@ -294,6 +310,7 @@ public static class WeaponTable
     public static Weapon DogBite() => new()
     {
         Name = "撕咬",
+        Description = "一口尖牙，咬住了就不松口——布鲁斯拖住敌人，剩下的交给道格。",
         DamageMin = 1,           // 校准：低伤→极低伤（难独自击杀），2→1
         DamageMax = 4,           // 校准：6→4
         Penetration = 0.10,      // 拟定待调
@@ -311,4 +328,31 @@ public static class WeaponTable
         Club(), SpikeHammer(), Warhammer(),
         Zipgun(), Pistol(), Smg(), Rifle(), BoltActionHuntingRifle(), SniperRifle(),
     };
+
+    // ---- 玩家可见风味文案（黑色幽默）：武器名 → 一行描述 ----
+    // 由库存物品 UI（StashPanel/CharacterPanel）经 Item.Weapon 自动填充展示，不参与战斗结算。
+    // 覆盖 Arsenal 全表 + 天生武器（爪击/撕咬）+ 无 Weapon 工厂的可制作武器（骨刀/自制弓）。
+
+    // [锚点·预留] 「长矛」这把武器游戏中暂无（最近的是草叉/长剑）；用户锚点原句「用尖的那端」在此登记，
+    // 一旦 WeaponTable 新增 Spear() 工厂，把它的 Description 填成该句、并从下方补一条 "长矛" 即可。
+    private static readonly System.Collections.Generic.Dictionary<string, string> _flavorByName = BuildFlavor();
+
+    private static System.Collections.Generic.Dictionary<string, string> BuildFlavor()
+    {
+        var d = new System.Collections.Generic.Dictionary<string, string>();
+        foreach (var w in Arsenal())
+        {
+            d[w.Name] = w.Description;
+        }
+        d[ZombieClaw().Name] = ZombieClaw().Description;
+        d[DogBite().Name] = DogBite().Description;
+        // 可制作武器（无 Weapon 工厂，产物走 CraftOutputFactory）：
+        d["骨刀"] = "削骨磨出的刀，粗糙、发黄，但捅进去一样疼。";
+        d["自制弓"] = "自己削的弓，安静、省子弹，就是得离得够近、手够稳。";
+        return d;
+    }
+
+    /// <summary>按武器显示名取一行风味描述（查不到返回空串）。供消费层 Item.Weapon 自动填充库存物品描述。</summary>
+    public static string DescriptionOf(string name)
+        => name != null && _flavorByName.TryGetValue(name, out var d) ? d : "";
 }

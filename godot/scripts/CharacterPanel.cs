@@ -288,6 +288,11 @@ public sealed partial class CharacterPanel : PanelContainer
         var val = new Label { Text = weapon?.Name ?? "空手", SizeFlagsHorizontal = SizeFlags.ExpandFill };
         val.AddThemeFontSizeOverride("font_size", 13);
         val.AddThemeColorOverride("font_color", weapon is null ? ColMuted : ColText);
+        // 悬停已装武器名 → 原生 tooltip 显示其一行风味描述（自然位置，不另起一行挤压紧凑排布）。
+        if (weapon is not null && !string.IsNullOrEmpty(weapon.Description))
+        {
+            val.TooltipText = weapon.Description;
+        }
         row.AddChild(val);
 
         if (weapon is not null && _onUnequipWeapon is { } unequip)
@@ -314,6 +319,17 @@ public sealed partial class CharacterPanel : PanelContainer
         var val = new Label { Text = text, SizeFlagsHorizontal = SizeFlags.ExpandFill };
         val.AddThemeFontSizeOverride("font_size", 13);
         val.AddThemeColorOverride("font_color", col);
+        // 悬停已装护甲名 → 原生 tooltip 显示其一行风味描述（狗装备优先查目录，其次人类护甲表）。
+        if (slot.ItemName is { } equipped && !slot.IsDisabled)
+        {
+            string flavor = DogGearCatalog.Get(equipped)?.Description is { Length: > 0 } dg
+                ? dg
+                : ArmorTable.DescriptionOf(equipped);
+            if (!string.IsNullOrEmpty(flavor))
+            {
+                val.TooltipText = flavor;
+            }
+        }
         row.AddChild(val);
 
         if (slot.ItemName is { } item && !slot.IsDisabled && _onUnequipApparel is { } unequip)

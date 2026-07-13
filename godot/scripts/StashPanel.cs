@@ -17,6 +17,7 @@ public sealed partial class StashPanel : CanvasLayer
     private Control _root = null!;
     private Label _foodLabel = null!;
     private Label _noticeLabel = null!;
+    private Label _descLabel = null!;
     private VBoxContainer _listContainer = null!;
 
     /// <summary>点某本书的「阅读」按钮：emit 该书 id（<see cref="Item.RefKey"/>）。CampMain 据此弹阅读面板。</summary>
@@ -92,6 +93,15 @@ public sealed partial class StashPanel : CanvasLayer
         _listContainer.AddThemeConstantOverride("separation", 4);
         scroll.AddChild(_listContainer);
 
+        // 悬停某物品行时，底部显示其一行风味描述（最小展示面；不做大 tooltip 系统）。
+        _descLabel = new Label();
+        _descLabel.Position = new Vector2(24, 452);
+        _descLabel.Size = new Vector2(420, 56);
+        _descLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        _descLabel.AddThemeFontSizeOverride("font_size", 13);
+        _descLabel.AddThemeColorOverride("font_color", new Color(0.62f, 0.6f, 0.52f));
+        panel.AddChild(_descLabel);
+
         var closeBtn = new Button();
         closeBtn.Text = "关闭";
         closeBtn.Position = new Vector2(456, 460);
@@ -109,6 +119,7 @@ public sealed partial class StashPanel : CanvasLayer
     {
         _foodLabel.Text = $"食物：{foodPortions} 份";
         _noticeLabel.Text = notice ?? "";
+        _descLabel.Text = "";
         UiStyle.ClearChildren(_listContainer);
 
         AddSection("武器", inventory.Weapons, isBookRead);
@@ -154,6 +165,10 @@ public sealed partial class StashPanel : CanvasLayer
         hbox.MouseFilter = Control.MouseFilterEnum.Pass;
         hbox.AddThemeConstantOverride("separation", 8);
 
+        // 悬停整行（或其名字标签）时，把该物品描述打到底部 _descLabel。无描述则清空。
+        string desc = item.Description ?? "";
+        hbox.MouseEntered += () => _descLabel.Text = desc;
+
         var nameLabel = new Label();
         string suffix = item.Category == ItemCategory.Food ? $" ×{item.FoodQuantity}" : "";
         string readTag = item.Category == ItemCategory.Book && item.RefKey != null && isBookRead(item.RefKey)
@@ -162,6 +177,8 @@ public sealed partial class StashPanel : CanvasLayer
         nameLabel.Text = $"{item.DisplayName}{suffix}{readTag}";
         nameLabel.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
         nameLabel.CustomMinimumSize = new Vector2(360, 30);
+        nameLabel.MouseFilter = Control.MouseFilterEnum.Pass;
+        nameLabel.MouseEntered += () => _descLabel.Text = desc;
         nameLabel.VerticalAlignment = VerticalAlignment.Center;
         nameLabel.AddThemeFontSizeOverride("font_size", 14);
         nameLabel.AddThemeColorOverride("font_color", new Color(0.85f, 0.82f, 0.75f));

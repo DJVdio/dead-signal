@@ -43,7 +43,8 @@ public sealed record DogGearDef(
     string DisplayName,
     DogEquipSlot Slot,
     System.Func<ArmorLayer>? ArmorFactory,
-    float CarryCapacityBonus = 0f)
+    float CarryCapacityBonus = 0f,
+    string Description = "")
 {
     /// <summary>这件装备提供的护甲层（无甲件返回 null）。每次现取（不缓存，护甲数值随 ArmorTable 变）。</summary>
     public ArmorLayer? Armor() => ArmorFactory?.Invoke();
@@ -74,11 +75,16 @@ public static class DogGearCatalog
     /// <summary>五件套定义（键 → 定义）。</summary>
     public static readonly IReadOnlyDictionary<string, DogGearDef> Defs = new Dictionary<string, DogGearDef>
     {
-        [ClothVestKey] = new(ClothVestKey, "布制狗衣", DogEquipSlot.Body, ArmorTable.DogClothVest),
-        [LeatherVestKey] = new(LeatherVestKey, "皮制狗衣", DogEquipSlot.Body, ArmorTable.DogLeatherVest),
-        [PocketVestKey] = new(PocketVestKey, "口袋狗衣", DogEquipSlot.Body, ArmorFactory: null, CarryCapacityBonus: PocketVestCapacity),
-        [IronHelmetKey] = new(IronHelmetKey, "铁皮头甲", DogEquipSlot.Head, ArmorTable.DogIronHelmet),
-        [WireHelmetKey] = new(WireHelmetKey, "铁丝头甲", DogEquipSlot.Head, ArmorTable.DogWireHelmet),
+        [ClothVestKey] = new(ClothVestKey, "布制狗衣", DogEquipSlot.Body, ArmorTable.DogClothVest,
+            Description: "给布鲁斯的布背心，暖和，还能挡一点小磕碰。"),
+        [LeatherVestKey] = new(LeatherVestKey, "皮制狗衣", DogEquipSlot.Body, ArmorTable.DogLeatherVest,
+            Description: "布鲁斯的皮背心，比布的扛揍，狗子穿上也精神。"),
+        [PocketVestKey] = new(PocketVestKey, "口袋狗衣", DogEquipSlot.Body, ArmorFactory: null, CarryCapacityBonus: PocketVestCapacity,
+            Description: "带口袋的狗背心，让布鲁斯也能替你背点东西——尽职的驮兽。"),
+        [IronHelmetKey] = new(IronHelmetKey, "铁皮头甲", DogEquipSlot.Head, ArmorTable.DogIronHelmet,
+            Description: "给狗戴的铁皮头盔，护头一流，就是有点压脖子。"),
+        [WireHelmetKey] = new(WireHelmetKey, "铁丝头甲", DogEquipSlot.Head, ArmorTable.DogWireHelmet,
+            Description: "铁丝编的狗头笼，轻便，防护也一样轻便。"),
     };
 
     /// <summary>该键是否为已登记的狗装备。</summary>
