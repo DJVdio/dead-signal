@@ -140,6 +140,31 @@ public static class BookLibrary
         grantsRecipeStub: null, // 无配方，纯 lore
         readHours: 6); // draft：纯 lore 日记，读得快
 
+    /// <summary>《弓与箭之道》书 id（稳定键）。<b>不解锁任何配方</b>——它给的是被动加成，见下。</summary>
+    public const string WayOfBowAndArrowId = "way_of_bow_and_arrow";
+
+    /// <summary>
+    /// 《弓与箭之道》——**项目里第一本"给被动加成"而非"解锁配方"的书**（用户拍板）。
+    /// <para>
+    /// 效果：箭矢回收率 <b>25% → 50%</b>（<see cref="Archery.ArrowRecoveryRate"/>）。射手**本人**读完才算数
+    /// （判据＝其 <see cref="ReadBookSet"/>，与配方书门槛同一个对象）。
+    /// </para>
+    /// <para>
+    /// 这不是新架构：<c>MedicalBookPoints</c>（读过的医疗书 → 手术加点）早就确立了同一套模式——
+    /// 引擎只吃一个值，"读没读过"由调用方从读者的已读书集里取。本书照抄该模式。
+    /// </para>
+    /// <para>
+    /// <b>不可制作</b>（无配方，只能搜刮）：书就该是捡的。基础 25% 的回收率意味着弓弩养起来很吃力，
+    /// 而这本书正好把它减半——于是它是**弓弩流的硬前置**：找不到它，你就养不起一个弓手。
+    /// </para>
+    /// </summary>
+    public static BookData WayOfBowAndArrow() => new(
+        id: WayOfBowAndArrowId,
+        title: "弓与箭之道",
+        body: WayOfBowAndArrowBody,
+        grantsRecipeStub: null, // 刻意为空：它不解锁配方，给的是被动加成（回收率翻倍）
+        readHours: 18);         // draft：技艺书，比纯 lore 长、比工程手册短
+
     /// <summary>全部内置书的全新实例（每次调用新建，已读态不共享）。</summary>
     public static IReadOnlyList<BookData> All() => new[]
     {
@@ -149,9 +174,20 @@ public static class BookLibrary
         FolkChemistryNotes(),
         CarpentryBasics(),
         AdvancedCarpentry(),
+        WayOfBowAndArrow(),
         GoldfingerDiaryA(),
         GoldfingerDiaryB(),
     };
+
+    // draft 待用户改 —— 技艺书《弓与箭之道》：不解锁配方，读完把箭矢回收率 25% → 50%
+    private const string WayOfBowAndArrowBody =
+        "一本薄薄的射艺小册，封面上是一张画得极认真的弓。扉页题着一句话：\n\n" +
+        "\"射出去的箭，一半的功夫在把它捡回来。\"\n\n" +
+        "书里没怎么讲怎么瞄准——作者显然觉得那是各人的事。整整三章都在讲别的：" +
+        "怎么挑不劈的木头，怎么让箭杆经得起一次次撞击，怎么从尸体、树干和泥里把箭起出来而不折断它，" +
+        "以及最要紧的——射之前先想好，这一箭你捡不捡得回来。\n\n" +
+        "\"新手一天能射光一筒箭。老手一筒箭能用一个月。\"\n" +
+        "\"区别不在准头。在于老手每射一箭之前，都已经知道那支箭会落在哪里。\"";
 
     // draft 待用户改
     private const string WildernessSurvivalGuideBody =
