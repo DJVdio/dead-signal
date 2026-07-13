@@ -13,6 +13,12 @@ public sealed partial class ExpeditionPanel : CanvasLayer
         public string WeaponSummary;
         public string ArmorSummary;
 
+        /// <summary>
+        /// 这个人（或狗）这一趟能背多少（kg）。人＝<c>CarryCapacity.For(操作能力, 山姆乘子)</c>；
+        /// 狗＝口袋狗衣的驮运容量。断手/饿肚子的人这里会明显偏低——**队伍运力就是选人的一部分**。
+        /// </summary>
+        public double CapacityKg;
+
         /// <summary>随队伙伴（布鲁斯·狗）：不占 3 人上限、可与人类同勾。带狗须道格同队的约束由 CampMain 在确认时裁定。</summary>
         public bool IsCompanion;
     }
@@ -21,6 +27,7 @@ public sealed partial class ExpeditionPanel : CanvasLayer
     private VBoxContainer _listContainer = null!;
     private Label _emptyHint = null!;
     private Label _destinationLabel = null!;
+    private Label _capacityLabel = null!;
     private Button _destBtn = null!;
     private Button _confirmBtn = null!;
     private Button _cancelBtn = null!;
@@ -90,6 +97,14 @@ public sealed partial class ExpeditionPanel : CanvasLayer
         _destinationLabel.AddThemeColorOverride("font_color", new Color(0.7f, 0.7f, 0.65f));
         panel.AddChild(_destinationLabel);
 
+        // 队伍运力：勾谁不勾谁，直接改变这趟能背回来多少东西（含布鲁斯的口袋狗衣）。
+        _capacityLabel = new Label();
+        _capacityLabel.Position = new Vector2(300, 308);
+        _capacityLabel.Text = "";
+        _capacityLabel.AddThemeFontSizeOverride("font_size", 14);
+        _capacityLabel.AddThemeColorOverride("font_color", new Color(0.62f, 0.68f, 0.5f));
+        panel.AddChild(_capacityLabel);
+
         _destBtn = new Button();
         _destBtn.Text = "选择目的地";
         _destBtn.Position = new Vector2(24, 338);
@@ -157,6 +172,15 @@ public sealed partial class ExpeditionPanel : CanvasLayer
             armorLabel.AddThemeColorOverride("font_color", new Color(0.6f, 0.6f, 0.55f));
             hbox.AddChild(armorLabel);
 
+            // 运力：这趟这个人能背多少。断手/挨饿的人这里会矮一截——选谁去，就是选带多少东西回来。
+            var carryLabel = new Label();
+            carryLabel.Text = $"{p.CapacityKg:0.0}kg";
+            carryLabel.CustomMinimumSize = new Vector2(64, 0);
+            carryLabel.HorizontalAlignment = HorizontalAlignment.Right;
+            carryLabel.AddThemeFontSizeOverride("font_size", 12);
+            carryLabel.AddThemeColorOverride("font_color", new Color(0.62f, 0.68f, 0.5f));
+            hbox.AddChild(carryLabel);
+
             var separator = new HSeparator();
             separator.AddThemeColorOverride("default_color", new Color(0.2f, 0.2f, 0.2f, 0.5f));
             _listContainer.AddChild(hbox);
@@ -178,11 +202,17 @@ public sealed partial class ExpeditionPanel : CanvasLayer
     {
         // 只数人类（狗=companion 不占人头上限、不受满员禁用）。
         int humanChecked = 0;
+        double capacity = 0;
         for (int i = 0; i < _checkBoxes.Count; i++)
         {
-            if (_checkBoxes[i].ButtonPressed && i < _pawns.Count && !_pawns[i].IsCompanion)
+            if (!_checkBoxes[i].ButtonPressed || i >= _pawns.Count)
+                continue;
+
+            capacity += _pawns[i].CapacityKg; // 人 + 狗一起进同一套负重账
+            if (!_pawns[i].IsCompanion)
                 humanChecked++;
         }
+        _capacityLabel.Text = capacity > 0 ? $"队伍运力：{capacity:0.0} kg" : "";
         bool limitOk = humanChecked > 0 && humanChecked <= 3; // 至少 1 人、至多 3 人
         for (int i = 0; i < _checkBoxes.Count; i++)
         {

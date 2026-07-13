@@ -35,6 +35,25 @@ public sealed partial class StashPanel : CanvasLayer
     /// </summary>
     public event Action<string>? LightHoldRequested;
 
+    /// <summary>
+    /// 点某件东西的「拆解」按钮：emit 其引用键（<see cref="Item.RefKey"/>）。CampMain 据此走
+    /// <see cref="SalvageService.Salvage"/> 把它拆回材料（返还 50%；木材走 25% 木料 + 25% 废木料的例外）。
+    /// 只有**造得出来**的东西才有这个按钮（<see cref="SalvageLogic.CanSalvageKey"/>）——搜刮来的军用枪没有配方，也就无从拆起。
+    /// </summary>
+    public event Action<string>? SalvageRequested;
+
+    /// <summary>
+    /// 点「摆放」（沙袋）：emit 其引用键。CampMain 据此进入放置模式——下一次点地面就把它垒在那儿
+    /// （校验见 <see cref="SandbagSpec.CanPlace"/>），并从库存扣掉这一件。
+    /// </summary>
+    public event Action<string>? PlaceRequested;
+
+    /// <summary>
+    /// 探索中点某件背包物品的「扔掉」：emit 它在 <c>ExpeditionBag.Contents</c> 里的下标。
+    /// CampMain 据此从背包丢弃并刷新面板——腾出的容量立刻可以拿别的东西。
+    /// </summary>
+    public event Action<int>? BagDropRequested;
+
     /// <summary>点「关闭」：CampMain 据此隐藏面板并恢复时标。</summary>
     public event Action? Closed;
 
@@ -112,17 +131,87 @@ public sealed partial class StashPanel : CanvasLayer
     }
 
     /// <summary>
+    /// 探索中：展示**远征背包**（这趟搬得动的东西），而不是营地库存。
+    /// 顶部是「背了多少 / 上限多少」，每行一个「扔掉」——负重上限是硬的，想拿新东西就得先舍旧的。
+    /// </summary>
+    /// <param name="contents">背包内容（<c>ExpeditionBag.Contents</c>）。</param>
+    /// <param name="carriedKg">已背重量。</param>
+    /// <param name="capacityKg">本趟队伍运力上限。</param>
+    /// <param name="notice">可空的一行搜刮反馈（如"背包塞不下，木料留在了原地"）。</param>
+    public void ShowExpeditionBag(
+        IReadOnlyList<LootItem> contents, double carriedKg, double capacityKg, string? notice)
+    {
+        bool full = carriedKg >= capacityKg - 1e-9;
+        _foodLabel.Text = $"背包：{CarryCapacity.Format(carriedKg, capacityKg)}" + (full ? "（已满）" : "");
+        _foodLabel.AddThemeColorOverride(
+            "font_color",
+            full ? new Color(0.85f, 0.45f, 0.35f) : new Color(0.75f, 0.72f, 0.6f));
+        _noticeLabel.Text = notice ?? "";
+        _descLabel.Text = "";
+        UiStyle.ClearChildren(_listContainer);
+
+        if (contents.Count == 0)
+        {
+            var empty = new Label();
+            empty.Text = "背包是空的。";
+            empty.AddThemeFontSizeOverride("font_size", 14);
+            empty.AddThemeColorOverride("font_color", new Color(0.55f, 0.55f, 0.5f));
+            _listContainer.AddChild(empty);
+            return;
+        }
+
+        for (int i = 0; i < contents.Count; i++)
+        {
+            _listContainer.AddChild(BuildBagRow(contents[i], i));
+        }
+    }
+
+    private Control BuildBagRow(LootItem loot, int index)
+    {
+        var hbox = new HBoxContainer();
+        hbox.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        hbox.MouseFilter = Control.MouseFilterEnum.Pass;
+
+        var name = new Label();
+        name.Text = LootDisplay.NameOf(loot);
+        name.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        name.AddThemeFontSizeOverride("font_size", 14);
+        name.AddThemeColorOverride("font_color", new Color(0.85f, 0.82f, 0.75f));
+        hbox.AddChild(name);
+
+        var kg = new Label();
+        kg.Text = $"{ItemWeights.OfLoot(loot):0.0} kg";
+        kg.CustomMinimumSize = new Vector2(70, 0);
+        kg.HorizontalAlignment = HorizontalAlignment.Right;
+        kg.AddThemeFontSizeOverride("font_size", 13);
+        kg.AddThemeColorOverride("font_color", new Color(0.62f, 0.68f, 0.5f));
+        hbox.AddChild(kg);
+
+        var drop = new Button();
+        drop.Text = "扔掉";
+        drop.CustomMinimumSize = new Vector2(64, 28);
+        int captured = index;
+        drop.Pressed += () => BagDropRequested?.Invoke(captured);
+        UiStyle.StyleButton(drop, new Color(0.5f, 0.3f, 0.2f));
+        hbox.AddChild(drop);
+
+        return hbox;
+    }
+
+    /// <summary>
     /// 刷新并展示库存内容。<paramref name="foodPortions"/> = 当前营地食物份数（搜到的食物归此，不列在物品里）；
     /// <paramref name="notice"/> = 可空的一行搜刮反馈；<paramref name="isBookRead"/> = 按书 id 查是否已读（标「已读」）。
     /// </summary>
     public void ShowStash(InventoryStore inventory, int foodPortions, string? notice, Func<string, bool> isBookRead)
     {
         _foodLabel.Text = $"食物：{foodPortions} 份";
+        _foodLabel.AddThemeColorOverride("font_color", new Color(0.75f, 0.72f, 0.6f));
         _noticeLabel.Text = notice ?? "";
         _descLabel.Text = "";
         UiStyle.ClearChildren(_listContainer);
 
         AddSection("武器", inventory.Weapons, isBookRead);
+        AddAmmoSection(inventory);
         AddSection("护甲", inventory.Armors, isBookRead);
         AddSection("光源", inventory.ByCategory(ItemCategory.Light), isBookRead);
         AddSection("书", inventory.Books, isBookRead);
@@ -135,6 +224,36 @@ public sealed partial class StashPanel : CanvasLayer
             empty.AddThemeFontSizeOverride("font_size", 14);
             empty.AddThemeColorOverride("font_color", new Color(0.55f, 0.55f, 0.5f));
             _listContainer.AddChild(empty);
+        }
+    }
+
+    /// <summary>
+    /// 弹药分区（批次18）：紧跟「武器」之后——枪的战力现在完全由弹药供给决定，这个数字得和枪摆在一起看。
+    /// 弹药是可堆叠材料，库存里可能散成好几堆，故按弹药类型**合计**成一行（"子弹 ×23"），而非逐堆列出。
+    /// 余量为 0 的弹药类型仍然列出（灰字）：让"我打空了"这件事可见，而不是让那一行凭空消失。
+    /// </summary>
+    private void AddAmmoSection(InventoryStore inventory)
+    {
+        var ammoDefs = Materials.InCategory(MaterialCategory.Ammo).ToList();
+        var carried = ammoDefs
+            .Select(def => (Def: def, Count: inventory.MaterialCount(def.Key)))
+            .Where(x => x.Count > 0)
+            .ToList();
+
+        if (carried.Count == 0)
+        {
+            return;
+        }
+
+        var head = new Label();
+        head.Text = "弹药";
+        head.AddThemeFontSizeOverride("font_size", 15);
+        head.AddThemeColorOverride("font_color", new Color(0.72f, 0.68f, 0.55f));
+        _listContainer.AddChild(head);
+
+        foreach ((MaterialDef def, int count) in carried)
+        {
+            _listContainer.AddChild(BuildRow(def.ToItem(count), _ => false));
         }
     }
 
@@ -170,7 +289,13 @@ public sealed partial class StashPanel : CanvasLayer
         hbox.MouseEntered += () => _descLabel.Text = desc;
 
         var nameLabel = new Label();
-        string suffix = item.Category == ItemCategory.Food ? $" ×{item.FoodQuantity}" : "";
+        // 数量后缀：食物按份、材料（含弹药）按堆叠数。其余（武器/护甲/书/光源）单件无数量。
+        string suffix = item.Category switch
+        {
+            ItemCategory.Food => $" ×{item.FoodQuantity}",
+            ItemCategory.Material => $" ×{item.MaterialQuantity}",
+            _ => "",
+        };
         string readTag = item.Category == ItemCategory.Book && item.RefKey != null && isBookRead(item.RefKey)
             ? "（已读）"
             : "";
@@ -227,6 +352,70 @@ public sealed partial class StashPanel : CanvasLayer
                 break;
         }
 
+        AddPlaceButton(hbox, item);
+        AddSalvageButton(hbox, item);
         return hbox;
+    }
+
+    /// <summary>
+    /// 「摆放」按钮——目前只有<b>沙袋</b>有（项目里第一件玩家能自己往地上摆的防御工事）。
+    /// 点它进入放置模式，再点地面落位（CampMain 校验位置：不能摆到墙里/营外/另一垛沙袋上）。
+    /// 摆错了可以 Shift+右键拆走，返还一半材料。
+    /// </summary>
+    private void AddPlaceButton(HBoxContainer hbox, Item item)
+    {
+        if ((item.RefKey ?? "") != SandbagSpec.ItemKey)
+        {
+            hbox.AddChild(new Control { CustomMinimumSize = new Vector2(76, 30) });
+            return;
+        }
+
+        var btn = new Button();
+        btn.Text = "摆放";
+        btn.CustomMinimumSize = new Vector2(76, 30);
+        btn.TooltipText = "选好位置垒起来。它挡不住任何人走过去——只是让子弹更可能打在它身上，而不是你身上。\n"
+            + "（贴着它才算数；敌人绕到你背后，它就白垒了——而且他们也能蹲在它后面。）";
+        btn.Pressed += () => PlaceRequested?.Invoke(SandbagSpec.ItemKey);
+        UiStyle.StyleButton(btn, new Color(0.45f, 0.42f, 0.3f), fontSize: 13);
+        hbox.AddChild(btn);
+    }
+
+    /// <summary>
+    /// 「拆解」按钮：只挂给**拆得动**的东西（有单件产物配方者，见 <see cref="SalvageLogic.CanSalvageKey"/>）。
+    /// 悬停提示里直接把返还清单摊开——玩家该在按下去之前就知道自己会拿回什么、以及拿不回什么。
+    /// </summary>
+    private void AddSalvageButton(HBoxContainer hbox, Item item)
+    {
+        string key = item.RefKey ?? "";
+        RecipeData? recipe = SalvageLogic.RecipeFor(key);
+        if (recipe is null)
+        {
+            hbox.AddChild(new Control { CustomMinimumSize = new Vector2(76, 30) });
+            return;
+        }
+
+        var btn = new Button();
+        btn.Text = "拆解";
+        btn.CustomMinimumSize = new Vector2(76, 30);
+        btn.TooltipText = SalvagePreview(recipe);
+        btn.Pressed += () => SalvageRequested?.Invoke(key);
+        UiStyle.StyleButton(btn, new Color(0.42f, 0.34f, 0.3f), fontSize: 13);
+        hbox.AddChild(btn);
+    }
+
+    /// <summary>拆解预览文案：拆多久、拿回什么。木材那条会明说"废木料要配胶水才变得回木料"——这是本作最容易被误解的一条规则。</summary>
+    private static string SalvagePreview(RecipeData recipe)
+    {
+        IReadOnlyDictionary<string, int> yield = SalvageLogic.YieldOfRecipe(recipe);
+        if (yield.Count == 0)
+        {
+            return $"拆 {SalvageLogic.WorkMinutesOf(recipe)} 分钟，一点渣都剩不下——太小了。";
+        }
+
+        string list = string.Join("、", yield.Select(kv => $"{Materials.Find(kv.Key)?.DisplayName ?? kv.Key}×{kv.Value}"));
+        string tail = yield.ContainsKey(SalvageLogic.ScrapWoodKey)
+            ? "\n（废木料得在锯片工作台上配胶水，才粘得回木料）"
+            : "";
+        return $"拆 {SalvageLogic.WorkMinutesOf(recipe)} 分钟，拿回：{list}{tail}";
     }
 }

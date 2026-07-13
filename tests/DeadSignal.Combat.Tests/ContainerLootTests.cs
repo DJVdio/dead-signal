@@ -130,6 +130,38 @@ public class ContainerLootTests
         Assert.Empty(registry);
     }
 
+    // ---- Remove：动态容器（尸体）被回收时注销，避免登记表无限膨胀 ----
+
+    /// <summary>尸体被回收 ⇒ 它的藏物清单与已搜标记都得清掉，否则一局几百具尸体的登记会永远留在字典里。</summary>
+    [Fact]
+    public void Remove_clears_both_the_table_and_the_searched_mark()
+    {
+        var loot = new ContainerLoot();
+        loot.Register("丧尸的尸体 #1", new[] { LootItem.Armor("牛仔外套") });
+        loot.Search("丧尸的尸体 #1");
+        Assert.True(loot.Has("丧尸的尸体 #1"));
+        Assert.True(loot.IsSearched("丧尸的尸体 #1"));
+
+        loot.Remove("丧尸的尸体 #1");
+
+        Assert.False(loot.Has("丧尸的尸体 #1"));
+        Assert.False(loot.IsSearched("丧尸的尸体 #1"));
+    }
+
+    /// <summary>注销不存在的容器 / 空名：静默无事（回收路径不该因为一具没登记过的光尸体而炸）。</summary>
+    [Fact]
+    public void Remove_is_a_noop_for_unknown_or_empty_names()
+    {
+        var loot = new ContainerLoot();
+        loot.Register("储物柜", new[] { LootItem.Food(2) });
+
+        loot.Remove("从没存在过的尸体");
+        loot.Remove("");
+        loot.Remove(null!);
+
+        Assert.True(loot.Has("储物柜"));   // 别的容器不受牵连
+    }
+
     // ---- CampResources.AddFood ----
 
     [Fact]

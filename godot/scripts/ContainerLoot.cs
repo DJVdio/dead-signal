@@ -64,6 +64,7 @@ public sealed class ContainerLoot
 {
     private readonly Dictionary<string, List<LootItem>> _tables = new();
     private readonly HashSet<string> _searched = new();
+    private readonly HashSet<string> _partial = new();   // 动过但没搜完（逐件搜刮中途走人）
 
     /// <summary>登记一个容器的藏物清单（按容器名，重复登记覆盖）。空名忽略。</summary>
     public void Register(string container, IEnumerable<LootItem> loot)
@@ -78,11 +79,33 @@ public sealed class ContainerLoot
     /// <summary>该容器是否已登记藏物清单。</summary>
     public bool Has(string container) => container != null && _tables.ContainsKey(container);
 
+    /// <summary>
+    /// 注销一个容器（清掉它的藏物清单与已搜标记）。给<b>动态容器</b>用——尸体是一次性的、会被回收
+    /// （<c>CorpseYard</c> 场上上限 240 具，超限淘汰最老的），若只从场景里摘掉节点而不在这里注销，
+    /// 一局打下来几百具尸体的清单会永远留在字典里。营地里那些**固定**容器（储物柜/废墟/祖母的尸体）
+    /// 一局到底，不用调它。
+    /// </summary>
+    public void Remove(string container)
+    {
+        if (string.IsNullOrEmpty(container))
+        {
+            return;
+        }
+        _tables.Remove(container);
+        _searched.Remove(container);
+        _partial.Remove(container);
+    }
+
     /// <summary>该容器是否已被搜过（搜过则不再产出）。</summary>
     public bool IsSearched(string container) => container != null && _searched.Contains(container);
 
     /// <summary>
     /// 搜一个容器：首次返回其藏物清单并标记已搜；已搜或未登记返回空列表。
+    /// <para>
+    /// ⚠️ 这是**一次性语义**（一把抽干）。玩家可搜刮点已改为**逐件搜刮**（见 <see cref="LootSession"/> /
+    /// <see cref="TakeNext"/>），本方法只留给"不该有暴露时间"的路径——开局 storage 容器整批入库、
+    /// 以及不经玩家站桩的系统性投放。**玩家点开的容器一律不要走这里**，否则"点一下全拿走"就复活了。
+    /// </para>
     /// </summary>
     public IReadOnlyList<LootItem> Search(string container)
     {
@@ -92,6 +115,45 @@ public sealed class ContainerLoot
         }
         _searched.Add(container);
         return loot;
+    }
+
+    /// <summary>
+    /// 还留在容器里的件（逐件搜刮的事实源）。未登记/已搜空返回空列表。
+    /// <see cref="LootSession"/> 开工时拿它作起始清单，中途走开则剩下的**原样留在这里**——回来接着搜。
+    /// </summary>
+    public IReadOnlyList<LootItem> Remaining(string container)
+        => container != null && !_searched.Contains(container) && _tables.TryGetValue(container, out List<LootItem>? loot)
+            ? loot
+            : Array.Empty<LootItem>();
+
+    /// <summary>还剩几件没拿（悬停提示用："还剩 3 件"）。</summary>
+    public int RemainingCount(string container) => Remaining(container).Count;
+
+    /// <summary>已经动过、但没搜完（悬停提示据此区分"没搜过"/"搜了一半"/"搜过了"）。</summary>
+    public bool IsPartiallySearched(string container)
+        => container != null && _partial.Contains(container) && !_searched.Contains(container);
+
+    /// <summary>
+    /// 从容器里**转出一件**（逐件搜刮的实扣入口，由 <see cref="LootSession"/> 报出件后调用）：
+    /// 弹出清单头一件返回；容器**被拿空的那一刻**才标记已搜。已搜/未登记/已空返回 <c>null</c>。
+    /// <para>拿到一半跑掉 ⇒ 剩下的还在清单里、容器不算已搜 —— 这正是"回头再来搜完"成立的地方。</para>
+    /// </summary>
+    public LootItem? TakeNext(string container)
+    {
+        if (container == null || _searched.Contains(container)
+            || !_tables.TryGetValue(container, out List<LootItem>? loot) || loot.Count == 0)
+        {
+            return null;
+        }
+
+        LootItem taken = loot[0];
+        loot.RemoveAt(0);
+        _partial.Add(container);
+        if (loot.Count == 0)
+        {
+            _searched.Add(container); // 拿空了才算搜过
+        }
+        return taken;
     }
 
     /// <summary>工具标识名 → 工作台槽（calipers/sawblade/beaker，大小写不敏感）；未知返回 <c>null</c>。</summary>
