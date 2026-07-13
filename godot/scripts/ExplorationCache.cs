@@ -863,6 +863,8 @@ public static class ExplorationCache
                     LootItem.Material("wood", 3),           // 劈好的柴/木料
                     LootItem.Material("rope", 1),           // 修屋用的绳
                     LootItem.Material("nails", 2),          // 零散铁钉
+                    LootItem.Material("dandelion", 1),      // [SPEC-B14] 后院墙根的蒲公英
+                    LootItem.Material("rosehip", 1),        // [SPEC-B14] 篱边野蔷薇的玫瑰果
                 },
                 RangersCabinShedTitle, RangersCabinShedNarrative),
 
@@ -890,12 +892,12 @@ public static class ExplorationCache
 
             RiversideFishingId when NotYet(flags, RiversideFishingFlag) => new CacheResult(
                 RiversideFishingFlag,
-                new[] { LootItem.Material("rope", 1), LootItem.Material("wire", 1) },
+                new[] { LootItem.Material("rope", 1), LootItem.Material("wire", 1), LootItem.Material("dandelion", 1), LootItem.Material("laojunxu", 1) }, // [SPEC-B14] 河边野草：蒲公英/老君须
                 RiversideFishingTitle, RiversideFishingNarrative),
 
             RiversideCellarId when NotYet(flags, RiversideCellarFlag) => new CacheResult(
                 RiversideCellarFlag,
-                new[] { LootItem.Food(1), LootItem.Material("bone", 1) },
+                new[] { LootItem.Food(1), LootItem.Material("bone", 1), LootItem.Material("rosehip", 1) }, // [SPEC-B14] 窖里阴干的玫瑰果
                 RiversideCellarTitle, RiversideCellarNarrative),
 
             // —— [SPEC-B12] 瞭望台补 3 处（小点）——
@@ -1084,7 +1086,7 @@ public static class ExplorationCache
 
             VillageBackhillKilnId when NotYet(flags, VillageBackhillKilnFlag) => new CacheResult(
                 VillageBackhillKilnFlag,
-                new[] { LootItem.Material("wood", 2), LootItem.Material("fuel", 1) },
+                new[] { LootItem.Material("wood", 2), LootItem.Material("fuel", 1), LootItem.Material("laojunxu", 1), LootItem.Material("dandelion", 1) }, // [SPEC-B14] 后山坡的老君须/蒲公英
                 VillageBackhillKilnTitle, VillageBackhillKilnNarrative),
 
             VillageBackhillCaveId when NotYet(flags, VillageBackhillCaveFlag) => new CacheResult(
@@ -1100,7 +1102,7 @@ public static class ExplorationCache
 
             VillageRiverbankShackId when NotYet(flags, VillageRiverbankShackFlag) => new CacheResult(
                 VillageRiverbankShackFlag,
-                new[] { LootItem.Food(1), LootItem.Material("bone", 1) },
+                new[] { LootItem.Food(1), LootItem.Material("bone", 1), LootItem.Material("dandelion", 1) }, // [SPEC-B14] 河滩草丛的蒲公英
                 VillageRiverbankShackTitle, VillageRiverbankShackNarrative),
 
             VillageRiverbankPumpId when NotYet(flags, VillageRiverbankPumpFlag) => new CacheResult(
@@ -1154,12 +1156,12 @@ public static class ExplorationCache
 
             GoldfingerBossSafeId when NotYet(flags, GoldfingerBossSafeFlag) => new CacheResult(
                 GoldfingerBossSafeFlag,
-                new[] { LootItem.Material("silver", 6), LootItem.Material("components", 1) },
+                new[] { LootItem.Material("silver", Silver.FromWhole(6)), LootItem.Material("components", 1) },
                 GoldfingerBossSafeTitle, GoldfingerBossSafeNarrative),
 
             GoldfingerSilverCacheId when NotYet(flags, GoldfingerSilverCacheFlag) => new CacheResult(
                 GoldfingerSilverCacheFlag,
-                new[] { LootItem.Material("silver", 4), LootItem.Material("leather", 1) },
+                new[] { LootItem.Material("silver", Silver.FromWhole(4)), LootItem.Material("leather", 1) },
                 GoldfingerSilverCacheTitle, GoldfingerSilverCacheNarrative),
 
             GoldfingerBossMedkitId when NotYet(flags, GoldfingerBossMedkitFlag) => new CacheResult(
@@ -1406,14 +1408,14 @@ public static class ExplorationCache
 
             NewVillageOld2MedCabId when NotYet(flags, NewVillageOld2MedCabFlag) => new CacheResult(
                 NewVillageOld2MedCabFlag,
-                new[] { LootItem.Material("antibiotics", 1) },
+                new[] { LootItem.Material("antibiotics", 1), LootItem.Material("rosehip", 1) }, // [SPEC-B14] 老屋药柜里存的干玫瑰果
                 NewVillageOld2MedCabTitle, NewVillageOld2MedCabNarrative),
 
             // —— [SPEC-B13·拟设定待确认] 加油站（燃油大户：fuel 为主要产出；便利店食品少量+修车零件；draft 待用户改）——
             // 加油区(近)：加油岛/收银亭，油枪残油+零食。
             GasPumpIslandId when NotYet(flags, GasPumpIslandFlag) => new CacheResult(
                 GasPumpIslandFlag,
-                new[] { LootItem.Material("fuel", 3) },
+                new[] { LootItem.Material("fuel", 3), LootItem.Material("dandelion", 1) }, // [SPEC-B14] 泵岛裂缝里钻出的蒲公英
                 GasPumpIslandTitle, GasPumpIslandNarrative),
 
             GasKioskId when NotYet(flags, GasKioskFlag) => new CacheResult(
@@ -1519,7 +1521,7 @@ public static class ExplorationCache
 
             SupermarketHoardStashId when NotYet(flags, SupermarketHoardStashFlag) => new CacheResult(
                 SupermarketHoardStashFlag,
-                new[] { LootItem.Material("silver", 3), LootItem.Material("fuel", 1) },
+                new[] { LootItem.Material("silver", Silver.FromWhole(3)), LootItem.Material("fuel", 1) },
                 SupermarketHoardStashTitle, SupermarketHoardStashNarrative),
 
             // —— [SPEC-B13] 医院（丧尸巢废墟·高风险高收益；非医疗区克制，医疗集中药房/手术层——打破"禁医疗灌水"的例外点；draft 待用户改）——

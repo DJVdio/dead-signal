@@ -208,14 +208,14 @@ public class EffectTests
     [Fact]
     public void Concussion_Torso_LowerProbabilityThanHead()
     {
-        // 同样 initialRoll，躯干概率应远低于头
+        // 同样 initialRoll，躯干（细分后=胸，MaxHp16，Region.Torso 仍震荡易发）概率应低于头
         double headP = 0.9 * 20 / 16;   // 1.125（未截顶原值；实际 cap .85）
-        double torsoP = 0.25 * 20 / 28; // ≈0.1786
-        Assert.True(torsoP < headP);
+        double chestP = 0.25 * 20 / 20; // 0.25（胸 MaxHp20；[SPEC-B17]，Sim 校准）
+        Assert.True(chestP < headP);
 
         var body = HumanBody.NewBody();
-        var res = Hit(body, HumanBody.Torso, dmg: 0, DamageType.Sharp, initialRoll: 20);
-        var rng = new SequenceRandomSource(0.20); // 0.20 >= 0.1786 → 躯干不震荡
+        var res = Hit(body, HumanBody.Chest, dmg: 0, DamageType.Sharp, initialRoll: 20);
+        var rng = new SequenceRandomSource(0.35); // 0.35 >= 0.25 → 胸不震荡
         var outcome = new CombatEffectResolver(rng).Apply(body, BluntW, res);
         Assert.DoesNotContain(outcome.Effects, e => e.Kind == DamageEffectKind.Concussion);
     }
@@ -226,9 +226,9 @@ public class EffectTests
     public void Fracture_NativeBlunt_OnDamage()
     {
         var body = HumanBody.NewBody();
-        // 腿 maxHp21, dmg11 → p=clamp(0.4*11/21,.6)≈0.2095（FractureK 默认 0.4）
+        // 大腿 maxHp12（[SPEC-B17]）, dmg11 → p=clamp(0.4*11/12,.6)≈0.3667（FractureK 默认 0.4；dmg<maxHp 不切除）
         var res = Hit(body, HumanBody.LeftLeg, dmg: 11, DamageType.Blunt, initialRoll: 12);
-        var rng = new SequenceRandomSource(0.15); // 腿非震荡部位 → 仅骨折 roll；0.15<0.2095 触发
+        var rng = new SequenceRandomSource(0.15); // 腿非震荡部位 → 仅骨折 roll；0.15<0.3667 触发
         var outcome = new CombatEffectResolver(rng).Apply(body, BluntW, res);
         Assert.Contains(outcome.Effects, e => e.Kind == DamageEffectKind.Fracture);
     }
@@ -239,7 +239,7 @@ public class EffectTests
         // 用户拍板：骨折要落到 Body 持久态，供角色面板"健康页签"查询（狠辣向健康展示，非平衡问题）。
         // 复现：一次会触发骨折的天然钝器命中后，Body 应能持久查询该部位已骨折。
         var body = HumanBody.NewBody();
-        var res = Hit(body, HumanBody.LeftLeg, dmg: 11, DamageType.Blunt, initialRoll: 12); // p≈0.2095 (K=0.4)
+        var res = Hit(body, HumanBody.LeftLeg, dmg: 11, DamageType.Blunt, initialRoll: 12); // p≈0.3667 (大腿maxHp12,K=0.4;[SPEC-B17])
         var rng = new SequenceRandomSource(0.15); // 0.15<0.2095 → 触发骨折
 
         Assert.False(body.IsFractured(HumanBody.LeftLeg)); // 命中前未骨折
@@ -288,7 +288,7 @@ public class EffectTests
     public void Fracture_NotMarked_WhenRollAboveProbability()
     {
         var body = HumanBody.NewBody();
-        var res = Hit(body, HumanBody.LeftLeg, dmg: 11, DamageType.Blunt, initialRoll: 12); // p≈0.2095 (K=0.4)
+        var res = Hit(body, HumanBody.LeftLeg, dmg: 11, DamageType.Blunt, initialRoll: 12); // p≈0.3667 (大腿maxHp12,K=0.4;[SPEC-B17])
         var rng = new SequenceRandomSource(0.99); // 0.99>=0.2095 → 不触发
         var outcome = new CombatEffectResolver(rng).Apply(body, BluntW, res);
         Assert.DoesNotContain(outcome.Effects, e => e.Kind == DamageEffectKind.Fracture);

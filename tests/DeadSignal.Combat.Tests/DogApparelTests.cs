@@ -145,7 +145,7 @@ public class DogApparelTests
         a.TryEquip(DogGearCatalog.IronHelmetKey, out _);
         var layers = a.ArmorLayers();
         Assert.Equal(2, layers.Count);
-        Assert.Contains(layers, l => l.CoversParts!.Contains(HumanBody.Torso)); // 身体甲护躯干
+        Assert.Contains(layers, l => l.CoversParts!.Contains(HumanBody.Chest)); // 身体甲护躯干（细分后=胸+腹）
         Assert.Contains(layers, l => l.CoversParts!.Contains(HumanBody.Head));  // 头甲护头
     }
 

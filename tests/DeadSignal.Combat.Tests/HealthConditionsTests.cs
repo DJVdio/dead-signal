@@ -572,37 +572,22 @@ public class HealthConditionsTests
     }
 
     [Fact]
-    public void Minor_bleed_wound_untreated_festers_into_infection_and_maims_the_limb()
+    public void Minor_bleed_wound_untreated_festers_into_infection_then_kills_if_ignored()
     {
-        // 小咬伤不失血死，但若放任 → 感染 → 坏疽截肢（肢体致残、非致死）。
+        // 小咬伤不失血死，但若放任 → 感染（TickDay 新生）→ 竞速封顶**致死**（补7：放任不治终究死，肢体也不自动截肢）。
         var (set, c) = SetWith(new HealthCondition(
             HealthConditionType.Bleeding, 0.35, "右手", onLimb: true, lethalBleed: false));
         var alwaysInfect = new SequenceRandomSource(Enumerable.Repeat(0.0, 40).ToArray());
-        var maimed = new List<string>();
-        for (int day = 0; day < 30 && maimed.Count == 0 && !set.IsDead; day++)
-        {
-            maimed.AddRange(set.TickDay(alwaysInfect, resting: false).MaimedParts);
-        }
-        Assert.Contains("右手", maimed);
-        Assert.False(set.IsDead, "肢体只感染不致命失血：终局是截肢致残而非死亡");
-    }
-
-    // ---- 时间线提前：新感染更快封顶 ----
-
-    [Fact]
-    public void Fresh_infection_untreated_reaches_terminal_within_five_days()
-    {
-        // 感染时间线提前（draft）：初始严重度的躯干感染，未用药应在 5 昼夜内败血症致死。
-        var (set, c) = SetWith(new HealthCondition(HealthConditionType.Infection, 0.20, "躯干", onLimb: false));
-        bool died = false;
-        int dayDied = -1;
-        for (int day = 1; day <= 5 && !died; day++)
-        {
-            died = set.TickDay(NoInfection(), resting: false).AnyDeath;
-            if (died) dayDied = day;
-        }
-        Assert.True(died, $"新感染应在 5 昼夜内封顶致死（实际未死）");
-        Assert.True(dayDied <= 5);
+        // 先在感染窗内新生感染。
+        for (int day = 0; day < HealthConditionSet.InfectionWindowDays && !set.Has(HealthConditionType.Infection); day++)
+            set.TickDay(alwaysInfect, resting: false);
+        Assert.Contains(set.Conditions, x => x.Type == HealthConditionType.Infection && x.BodyPart == "右手");
+        // 再放任感染竞速到封顶致死。
+        InfectionRaceResult rr = default;
+        for (int day = 0; day < 20 && rr.Outcome == ConditionOutcome.None && !rr.Cured; day++)
+            rr = set.AdvanceInfectionRace(1.0, medicated: false, medicine: null);
+        Assert.Equal(ConditionOutcome.Death, rr.Outcome);
+        Assert.True(set.IsDead, "放任感染不治终究致死（保留狠辣，别软化）");
     }
 
     // ---- 播种分类：小部位=只感染不致命、大部位=致命失血 ----
@@ -916,53 +901,32 @@ public class HealthConditionsTests
     }
 
     [Fact]
-    public void Limb_infection_untreated_maims_the_limb_not_kills()
+    public void Limb_infection_untreated_kills_unless_amputated()
     {
+        // [SPEC-B14-补7] 肢体感染放任到 100% 也**致死**（不再自动截肢）；玩家须主动截肢才能保命。
         var set = new HealthConditionSet();
-        var infection = new HealthCondition(HealthConditionType.Infection, 0.5, "左手", onLimb: true);
-        set.Add(infection);
-
-        var maimed = new List<string>();
-        for (int day = 0; day < 20 && !set.IsDead && maimed.Count == 0; day++)
-        {
-            maimed.AddRange(set.TickDay(NoInfection(), resting: false).MaimedParts);
-        }
-        Assert.False(set.IsDead, "肢体感染封顶应致残而非致死");
-        Assert.Contains("左手", maimed);
-        Assert.DoesNotContain(infection, set.Conditions);
+        set.Add(new HealthCondition(HealthConditionType.Infection, 0.5, "左手", onLimb: true));
+        InfectionRaceResult rr = default;
+        for (int day = 0; day < 20 && rr.Outcome == ConditionOutcome.None && !rr.Cured; day++)
+            rr = set.AdvanceInfectionRace(1.0, medicated: false, medicine: null);
+        Assert.Equal(ConditionOutcome.Death, rr.Outcome);
+        Assert.True(set.IsDead, "肢体感染放任封顶应致死（补7 取消自动截肢）");
     }
 
     [Fact]
     public void Torso_infection_untreated_kills()
     {
+        // [SPEC-B14/终稿] 非肢体感染封顶=败血症致死（走 AdvanceInfectionRace）。
         var set = new HealthConditionSet();
         set.Add(new HealthCondition(HealthConditionType.Infection, 0.5, "躯干", onLimb: false));
-
-        bool died = false;
-        for (int day = 0; day < 20 && !died; day++)
-        {
-            died = set.TickDay(NoInfection(), resting: false).AnyDeath;
-        }
-        Assert.True(died, "非肢体感染封顶应致死（败血症）");
+        InfectionRaceResult rr = default;
+        for (int day = 0; day < 20 && rr.Outcome == ConditionOutcome.None && !rr.Cured; day++)
+            rr = set.AdvanceInfectionRace(1.0, medicated: false, medicine: null);
+        Assert.Equal(ConditionOutcome.Death, rr.Outcome);
         Assert.True(set.IsDead);
     }
 
-    // ================= 感染/疾病：药品治疗路径（保留，与手术无关）=================
-
-    [Fact]
-    public void Antibiotics_reduce_infection_severity()
-    {
-        HealthCondition MakeInf() => new(HealthConditionType.Infection, 0.9, "右上臂", onLimb: true);
-        Medicine? abx = MedicineCatalog.For("antibiotics");
-
-        var set = new HealthConditionSet(); var ci = MakeInf(); set.Add(ci);
-        double before = ci.Severity;
-        set.TreatIllness(ci, abx);
-
-        // 疗效固定基数（通用技能已删）：单次降 severity = Potency(0.5) × 0.8 = 0.4。
-        Assert.True(ci.Severity < before, "抗生素降低感染 severity");
-        Assert.Equal(before - 0.5 * 0.8, ci.Severity, 3);
-    }
+    // ================= 疾病：药品治疗路径（感染改竞速后此处仅疾病）=================
 
     [Fact]
     public void Medicine_cures_disease()
@@ -976,19 +940,8 @@ public class HealthConditionsTests
         Assert.DoesNotContain(disease, set.Conditions);
     }
 
-    [Fact]
-    public void Resting_slows_infection_progression()
-    {
-        HealthCondition MakeInf() => new(HealthConditionType.Infection, 0.3, "右上臂", onLimb: true);
-
-        var rest = new HealthConditionSet(); var cr = MakeInf(); rest.Add(cr);
-        rest.TickDay(NoInfection(), resting: true);
-
-        var noRest = new HealthConditionSet(); var cn = MakeInf(); noRest.Add(cn);
-        noRest.TickDay(NoInfection(), resting: false);
-
-        Assert.True(cr.Severity < cn.Severity, "休养减缓感染恶化");
-    }
+    // 注：旧 Resting_slows_infection_progression 已随补3独立竞速删除（感染进度不再受休养影响，
+    // 替代断言见 Resting_no_longer_slows_infection_progress）。疾病休养减缓仍保留（下方 Disease 相关）。
 
     [Fact]
     public void TreatIllness_has_no_effect_on_wrong_type_or_on_bleeding()
@@ -1046,6 +999,433 @@ public class HealthConditionsTests
             Assert.True(Materials.Has(key), $"医疗物品缺失：{key}");
             Assert.Equal(MaterialCategory.Medical, Materials.Find(key)!.Value.Category);
         }
+    }
+
+    // ============ [SPEC-B14/终稿·三档双效] 感染双进度竞速：治疗效率 + 恶化减缓 ============
+    // 内核：Severity=感染/死亡进度、CureProgress=治疗进度；每时间片 dt 天推进 AdvanceInfectionRace。
+    // 用药期间：感染进度按档 ×WorsenMultiplier 减缓、治疗进度按 Efficacy×基准速率 累进；先到 1.0 者胜。全程 double 不取整。
+
+    private static HealthCondition FreshInfection(double progress = 0.0, string part = "右上臂", bool onLimb = true)
+        => new(HealthConditionType.Infection, progress, part, onLimb);
+
+    // 一整日(dt=1)推进感染竞速：medKey=null 为未用药。返回 (天数, 是否治愈, 是否输(死/残))。
+    private static (int days, bool cured, bool lost) RunDailyRace(HealthConditionSet set, string? medKey, int maxDays = 20)
+    {
+        for (int d = 1; d <= maxDays; d++)
+        {
+            Medicine? med = medKey is null ? null : MedicineCatalog.For(medKey);
+            InfectionRaceResult rr = set.AdvanceInfectionRace(1.0, medKey is not null, med);
+            if (rr.Cured) return (d, true, false);
+            if (rr.Outcome is ConditionOutcome.Death or ConditionOutcome.Maim) return (d, false, true);
+        }
+        return (maxDays, false, false);
+    }
+
+    // 三档双效目录值（用户原话非拟定）：治疗效率 100/35/15，恶化减缓 ×0.50/0.75/0.85。
+    [Fact]
+    public void Infection_remedies_have_dual_effect_catalogue_values()
+    {
+        Medicine abx = MedicineCatalog.For("antibiotics")!.Value;
+        Medicine salve = MedicineCatalog.For("herbal_salve")!.Value;
+        Medicine tea = MedicineCatalog.For("dandelion_tea")!.Value;
+        Assert.Equal(1.00, abx.Efficacy, 3); Assert.Equal(0.50, abx.WorsenMultiplier, 3);
+        Assert.Equal(0.35, salve.Efficacy, 3); Assert.Equal(0.75, salve.WorsenMultiplier, 3);
+        Assert.Equal(0.15, tea.Efficacy, 3); Assert.Equal(0.85, tea.WorsenMultiplier, 3);
+    }
+
+    // 未用药一时间片：感染进度按满速累积、无治疗进度。
+    [Fact]
+    public void Untreated_race_step_accrues_infection_at_full_rate_no_cure()
+    {
+        double ri = 1.0 / 6.0;
+        var set = new HealthConditionSet(); var inf = FreshInfection(0.30); set.Add(inf);
+        set.AdvanceInfectionRace(1.0, medicated: false, medicine: null);
+        Assert.Equal(0.30 + ri, inf.Severity, 6); // 满速
+        Assert.Equal(0.0, inf.CureProgress, 6);
+    }
+
+    // 用药一时间片：感染进度按档减缓、治疗进度按效率累进（抗生素 ×0.50 减缓 + 1.00 效率）。
+    [Fact]
+    public void Medicated_race_step_slows_worsening_and_builds_cure_by_tier()
+    {
+        double ri = 1.0 / 6.0, rate = HealthConditionSet.CureProgressBaseRate;
+        var set = new HealthConditionSet(); var inf = FreshInfection(0.30); set.Add(inf);
+        set.AdvanceInfectionRace(1.0, medicated: true, MedicineCatalog.For("antibiotics"));
+        Assert.Equal(0.30 + ri * 0.50, inf.Severity, 6); // 恶化 ×0.50
+        Assert.Equal(1.00 * rate, inf.CureProgress, 6);  // 治疗 1.00×基准
+    }
+
+    // 恶化减缓按档单调：抗生素(×0.50) 比 草药膏(×0.75) 比 蒲公英茶(×0.85) 压得更狠（用药日感染涨得更少）。
+    [Fact]
+    public void Worsening_slowdown_is_monotonic_by_tier()
+    {
+        double Step(string key)
+        {
+            var set = new HealthConditionSet(); var inf = FreshInfection(0.30); set.Add(inf);
+            set.AdvanceInfectionRace(1.0, true, MedicineCatalog.For(key));
+            return inf.Severity;
+        }
+        double abx = Step("antibiotics"), salve = Step("herbal_salve"), tea = Step("dandelion_tea"), none = 0.30 + 1.0 / 6.0;
+        Assert.True(abx < salve && salve < tea && tea < none, "恶化减缓须 抗生素<草药膏<蒲公英茶<未用药");
+    }
+
+    // 治疗进度跨药持续累计（先茶垫场、后抗生素接力，进度不清零）。
+    [Fact]
+    public void Cure_progress_accumulates_across_different_medicines()
+    {
+        double rate = HealthConditionSet.CureProgressBaseRate;
+        var set = new HealthConditionSet(); var inf = FreshInfection(0.10); set.Add(inf);
+        set.AdvanceInfectionRace(1.0, true, MedicineCatalog.For("dandelion_tea"));  // +0.15×rate
+        set.AdvanceInfectionRace(1.0, true, MedicineCatalog.For("antibiotics"));    // +1.00×rate，累计
+        Assert.Equal((0.15 + 1.00) * rate, inf.CureProgress, 6);
+    }
+
+    // 不取整通则：连续 3 时间片茶治疗进度精确累计无截断（0.15×0.67×3）。
+    [Fact]
+    public void Cure_progress_keeps_full_decimal_precision_no_rounding()
+    {
+        double rate = HealthConditionSet.CureProgressBaseRate;
+        var set = new HealthConditionSet(); var inf = FreshInfection(0.05); set.Add(inf);
+        for (int i = 0; i < 3; i++) set.AdvanceInfectionRace(1.0, true, MedicineCatalog.For("dandelion_tea"));
+        Assert.Equal(3 * 0.15 * rate, inf.CureProgress, 9); // 9 位精度：不得中途 round/floor
+    }
+
+    // 相位级=整日等价（不取整）：8 个 dt=1/8 片累计 == 1 个 dt=1 片（进度累积无粒度损失）。
+    [Fact]
+    public void Phase_level_steps_sum_equals_one_daily_step()
+    {
+        var daily = new HealthConditionSet(); var cd = FreshInfection(0.20); daily.Add(cd);
+        daily.AdvanceInfectionRace(1.0, true, MedicineCatalog.For("herbal_salve"));
+
+        var phased = new HealthConditionSet(); var cp = FreshInfection(0.20); phased.Add(cp);
+        for (int i = 0; i < 8; i++) phased.AdvanceInfectionRace(1.0 / 8.0, true, MedicineCatalog.For("herbal_salve"));
+
+        Assert.Equal(cd.Severity, cp.Severity, 6);
+        Assert.Equal(cd.CureProgress, cp.CureProgress, 6);
+    }
+
+    // 治疗抢先：治疗进度先到顶 → 清除感染（Cured），条目移除。
+    [Fact]
+    public void Cure_reaching_full_clears_infection_treatment_wins_ties()
+    {
+        var set = new HealthConditionSet(); var inf = FreshInfection(0.0); set.Add(inf);
+        var (days, cured, lost) = RunDailyRace(set, "antibiotics");
+        Assert.True(cured && !lost);
+        Assert.DoesNotContain(set.Conditions, c => c.Type == HealthConditionType.Infection);
+    }
+
+    // 锚点：抗生素从新鲜感染通常 1~2 天痊愈（用户原话）。
+    [Fact]
+    public void Antibiotics_cure_fresh_infection_within_one_to_two_days()
+    {
+        var set = new HealthConditionSet(); var inf = FreshInfection(0.0, "躯干", onLimb: false); set.Add(inf);
+        var (days, cured, _) = RunDailyRace(set, "antibiotics");
+        Assert.True(cured);
+        Assert.InRange(days, 1, 2);
+    }
+
+    // 未用药约第 6 昼夜致死（T_i=6，与失血 7 天死线错开）。
+    [Fact]
+    public void Untreated_infection_kills_around_day_six()
+    {
+        var set = new HealthConditionSet(); var inf = FreshInfection(0.0, "躯干", onLimb: false); set.Add(inf);
+        var (days, cured, lost) = RunDailyRace(set, null);
+        Assert.True(lost && !cured);
+        Assert.InRange(days, 5, 7);
+    }
+
+    // 草药膏须趁早：从新鲜感染开工能赢；感染已高(0.6)才开工则来不及，输。
+    [Fact]
+    public void Herbal_salve_wins_only_if_started_early()
+    {
+        var early = new HealthConditionSet(); early.Add(FreshInfection(0.0, "躯干", onLimb: false));
+        var (_, curedEarly, _) = RunDailyRace(early, "herbal_salve");
+        Assert.True(curedEarly, "草药膏从新鲜感染开工应赢");
+
+        var late = new HealthConditionSet(); late.Add(FreshInfection(0.6, "躯干", onLimb: false));
+        var (_, curedLate, lostLate) = RunDailyRace(late, "herbal_salve");
+        Assert.True(!curedLate && lostLate, "草药膏在感染已高时开工来不及，应输");
+    }
+
+    // 蒲公英茶单用赢不了，但拖延死线（比未用药更晚死）并攒下可观治疗进度（混合策略垫场）。
+    [Fact]
+    public void Dandelion_tea_alone_loses_but_delays_death_and_banks_progress()
+    {
+        var untreated = new HealthConditionSet(); untreated.Add(FreshInfection(0.0, "躯干", onLimb: false));
+        var (dNone, _, _) = RunDailyRace(untreated, null);
+
+        var teaSet = new HealthConditionSet(); var teaInf = FreshInfection(0.0, "躯干", onLimb: false); teaSet.Add(teaInf);
+        var (dTea, curedTea, lostTea) = RunDailyRace(teaSet, "dandelion_tea");
+        Assert.True(!curedTea && lostTea, "纯茶赢不了");
+        Assert.True(dTea > dNone, "茶应把死线拖得比未用药更晚");
+    }
+
+    // 混合策略成立：先茶 3 日垫场，再换抗生素接力 → 治愈（跨药累计的意义）。
+    [Fact]
+    public void Mixed_strategy_tea_then_antibiotics_wins()
+    {
+        var set = new HealthConditionSet(); var inf = FreshInfection(0.0, "躯干", onLimb: false); set.Add(inf);
+        for (int d = 0; d < 3; d++) set.AdvanceInfectionRace(1.0, true, MedicineCatalog.For("dandelion_tea"));
+        Assert.Contains(set.Conditions, c => c.Type == HealthConditionType.Infection); // 3 日茶未死未愈
+        var (_, cured, _) = RunDailyRace(set, "antibiotics");
+        Assert.True(cured, "茶垫场后换抗生素应接力治愈");
+    }
+
+    // [SPEC-B14-补7] 感染到 100% **一律立刻死亡**（肢体不再自动坏疽截肢——想活得玩家主动截肢）。
+    [Fact]
+    public void Infection_terminal_kills_regardless_of_limb()
+    {
+        foreach (var (part, onLimb) in new[] { ("左大腿", true), ("躯干", false) })
+        {
+            var set = new HealthConditionSet(); set.Add(FreshInfection(0.0, part, onLimb));
+            InfectionRaceResult rr = default;
+            for (int d = 0; d < 12 && rr.Outcome == ConditionOutcome.None && !rr.Cured; d++)
+                rr = set.AdvanceInfectionRace(1.0, false, null);
+            Assert.Equal(ConditionOutcome.Death, rr.Outcome);
+            Assert.NotEqual(ConditionOutcome.Maim, rr.Outcome); // 不再自动截肢
+            Assert.True(set.IsDead);
+        }
+    }
+
+    // [SPEC-B14-补7] 主动截肢手术（可选保命手段）：成功=移除感染部位+双条清零；调用方据此 Body.Sever。
+    [Fact]
+    public void Amputation_success_clears_infection_on_the_limb()
+    {
+        var set = new HealthConditionSet();
+        var inf = new HealthCondition(HealthConditionType.Infection, 0.7, "左大腿", onLimb: true);
+        set.Add(inf);
+        // 池=基础15+床10+急救包60=85 → RollRange[0,85]；给 roll=50(>失败阈值10) → 成功。
+        SurgeryResult r = set.PerformAmputation(inf, new[] { "first_aid_kit" }, onBed: true,
+            new SequenceRandomSource(new[] { 50.0 }), operationCapability: 1.0);
+        Assert.Equal(SurgeryStatus.Success, r.Status);
+        Assert.DoesNotContain(set.Conditions, c => c.Type == HealthConditionType.Infection);
+    }
+
+    // 截肢失败：耗材照耗、感染保留（未中止竞速），需重来。
+    [Fact]
+    public void Amputation_failure_keeps_infection_and_consumes_materials()
+    {
+        var set = new HealthConditionSet();
+        var inf = new HealthCondition(HealthConditionType.Infection, 0.7, "左大腿", onLimb: true);
+        set.Add(inf);
+        // 徒手(无耗材) + roll 落在失败区(≤10)。徒手池=15 → RollRange[0,15]，取 0 → 失败。
+        SurgeryResult r = set.PerformAmputation(inf, materials: null, onBed: false,
+            new SequenceRandomSource(new[] { 0.0 }), operationCapability: 1.0);
+        Assert.Equal(SurgeryStatus.Failed, r.Status);
+        Assert.Contains(set.Conditions, c => c.Type == HealthConditionType.Infection); // 感染保留
+    }
+
+    // 截肢只能针对感染的肢体：非肢体感染抛异常（无肢可截）。
+    [Fact]
+    public void Amputation_rejects_non_limb_infection()
+    {
+        var set = new HealthConditionSet();
+        var inf = new HealthCondition(HealthConditionType.Infection, 0.7, "躯干", onLimb: false);
+        set.Add(inf);
+        Assert.Throws<System.ArgumentException>(() =>
+            set.PerformAmputation(inf, null, false, new SequenceRandomSource(new[] { 0.99 })));
+    }
+
+    // [SPEC-B14-补8] 安装假肢也是手术：走点数池/耗材/成败流程（纯 roll，装配由调用方在成功时做）。
+    [Fact]
+    public void Prosthetic_surgery_succeeds_with_high_roll()
+    {
+        var set = new HealthConditionSet();
+        // 池=基础15+床10+急救包60=85 → RollRange[0,85]；roll=50>10 → 成功。
+        SurgeryResult r = set.PerformProstheticSurgery(new[] { "first_aid_kit" }, onBed: true,
+            new SequenceRandomSource(new[] { 50.0 }), operationCapability: 1.0);
+        Assert.Equal(SurgeryStatus.Success, r.Status);
+    }
+
+    [Fact]
+    public void Prosthetic_surgery_fails_with_low_roll_and_consumes_supplies()
+    {
+        var set = new HealthConditionSet();
+        // 池=基础15+床10+绷带15=40 → RollRange[0,40]；roll=0≤10 → 失败；止血耗材照耗。
+        SurgeryResult r = set.PerformProstheticSurgery(new[] { "bandage" }, onBed: true,
+            new SequenceRandomSource(new[] { 0.0 }), operationCapability: 1.0);
+        Assert.Equal(SurgeryStatus.Failed, r.Status);
+        Assert.Contains("bandage", r.ConsumedMaterials);
+    }
+
+    [Fact]
+    public void Prosthetic_surgery_not_allowed_when_pool_too_low()
+    {
+        var set = new HealthConditionSet();
+        // 徒手 + 操作能力残缺 → 池 <15 → 门槛未过（不 roll、零消耗）。
+        SurgeryResult r = set.PerformProstheticSurgery(materials: null, onBed: false,
+            new SequenceRandomSource(System.Array.Empty<double>()), operationCapability: 0.3);
+        Assert.Equal(SurgeryStatus.NotAllowed, r.Status);
+        Assert.Empty(r.ConsumedMaterials);
+    }
+
+    // 感染以人为单位：已有感染时，另一开放伤口本昼夜不再新开感染条（忽略并入）。
+    [Fact]
+    public void Only_one_infection_race_per_pawn()
+    {
+        var set = new HealthConditionSet();
+        set.Add(FreshInfection(0.3, "右手", onLimb: true));            // 既有感染
+        set.Add(new HealthCondition(HealthConditionType.Bleeding, 0.9, "左大腿", onLimb: true)); // 另一开放大伤口
+        set.TickDay(new SequenceRandomSource(new[] { 0.0, 0.0, 0.0, 0.0 }), resting: false); // 必中感染 rng
+        Assert.Single(set.Conditions.Where(x => x.Type == HealthConditionType.Infection));
+    }
+
+    // ---- 疗程指派（护栏①）每昼夜扣药决策纯逻辑 ----
+
+    [Fact]
+    public void DecideDose_no_assignment_is_no_course()
+    {
+        var set = new HealthConditionSet(); set.Add(FreshInfection(0.3));
+        InfectionDoseDecision d = InfectionCourseLogic.DecideDose(set, null, 5);
+        Assert.Equal(InfectionCourseStep.NoCourse, d.Step);
+        Assert.False(d.ConsumedDose); Assert.False(d.Medicated);
+    }
+
+    [Fact]
+    public void DecideDose_no_infection_reports_and_does_not_dose()
+    {
+        var set = new HealthConditionSet(); // 无感染
+        InfectionDoseDecision d = InfectionCourseLogic.DecideDose(set, "antibiotics", 5);
+        Assert.Equal(InfectionCourseStep.NoInfection, d.Step);
+        Assert.False(d.ConsumedDose);
+    }
+
+    [Fact]
+    public void DecideDose_out_of_stock_breaks_without_dosing()
+    {
+        var set = new HealthConditionSet(); set.Add(FreshInfection(0.3));
+        InfectionDoseDecision d = InfectionCourseLogic.DecideDose(set, "antibiotics", 0);
+        Assert.Equal(InfectionCourseStep.OutOfStock, d.Step);
+        Assert.False(d.ConsumedDose); Assert.False(d.Medicated);
+    }
+
+    [Fact]
+    public void DecideDose_dosed_consumes_and_medicates_with_tier()
+    {
+        var set = new HealthConditionSet(); set.Add(FreshInfection(0.3));
+        InfectionDoseDecision d = InfectionCourseLogic.DecideDose(set, "herbal_salve", 3);
+        Assert.Equal(InfectionCourseStep.Dosed, d.Step);
+        Assert.True(d.ConsumedDose); Assert.True(d.Medicated);
+        Assert.Equal(0.35, d.Medicine!.Value.Efficacy, 3); // 本时段用草药膏档驱动竞速
+    }
+
+    // 显示分档：坏疽降为高进度呈现层（0-33 初期 / 34-66 扩散 / 67-99 濒坏疽）。
+    [Fact]
+    public void Infection_stage_word_bands_by_progress()
+    {
+        Assert.Equal("初期", HealthConditionSet.InfectionStageWord(0.10));
+        Assert.Equal("扩散", HealthConditionSet.InfectionStageWord(0.50));
+        Assert.Equal("濒坏疽", HealthConditionSet.InfectionStageWord(0.80));
+    }
+
+    // 草药膏/蒲公英茶治感染，成药仍只治疾病：目录归类正确、不串轴。
+    [Fact]
+    public void Herbal_remedies_registered_for_infection_only()
+    {
+        Assert.Equal(HealthConditionType.Infection, MedicineCatalog.For("herbal_salve")!.Value.Treats);
+        Assert.Equal(HealthConditionType.Infection, MedicineCatalog.For("dandelion_tea")!.Value.Treats);
+        Assert.Equal(0.35, MedicineCatalog.For("herbal_salve")!.Value.Efficacy, 3);
+        Assert.Equal(0.15, MedicineCatalog.For("dandelion_tea")!.Value.Efficacy, 3);
+        Assert.Equal(1.00, MedicineCatalog.For("antibiotics")!.Value.Efficacy, 3);
+        // 成药只治疾病：对感染 TreatIllness 无效（感染改走竞速，不从此路一次性消退）。
+        var set = new HealthConditionSet(); var inf = FreshInfection(0.5, "右手"); set.Add(inf);
+        Assert.Equal(TreatmentStatus.NoEffect, set.TreatIllness(inf, MedicineCatalog.For("medicine")).Status);
+    }
+
+    // 新草药材料与产物均在 Medical 类目录中（供 UI 分组 / 配方引用 / 掉落投放）。
+    [Fact]
+    public void Herbal_materials_and_products_exist_in_medical_category()
+    {
+        foreach (string key in new[] { "dandelion", "rosehip", "laojunxu", "herbal_salve", "dandelion_tea" })
+        {
+            Assert.True(Materials.Has(key), $"草药物品缺失：{key}");
+            Assert.Equal(MaterialCategory.Medical, Materials.Find(key)!.Value.Category);
+        }
+    }
+
+    // 草药膏/蒲公英茶配方存在、无书门槛（民间方子人人会）、工时制、材料对齐目录。
+    [Fact]
+    public void Herbal_recipes_are_bookless_worktime_and_use_catalogued_ingredients()
+    {
+        RecipeData salve = RecipeBook.Find("herbal_salve")!;
+        Assert.Empty(salve.RequiredBookIds);
+        Assert.Empty(salve.RequiredTools);
+        Assert.True(salve.WorkMinutes > 0);
+        Assert.Equal("herbal_salve", salve.OutputKey);
+        foreach (string ing in new[] { "dandelion", "rosehip", "laojunxu" })
+        {
+            Assert.True(salve.MaterialCosts.ContainsKey(ing), $"草药膏配方缺原料：{ing}");
+            Assert.True(Materials.Has(ing));
+        }
+
+        RecipeData tea = RecipeBook.Find("dandelion_tea")!;
+        Assert.Empty(tea.RequiredBookIds);
+        Assert.Empty(tea.RequiredTools);
+        Assert.True(tea.WorkMinutes > 0);
+        Assert.Equal("dandelion_tea", tea.OutputKey);
+        Assert.True(tea.MaterialCosts.ContainsKey("dandelion"), "蒲公英茶只用蒲公英，不引入水资源");
+        Assert.Single(tea.MaterialCosts); // 最简：仅蒲公英
+    }
+
+    // ---- [SPEC-B14-补] 草药绷带：止血手术供点 25（普通绷带上位替代）----
+
+    [Fact]
+    public void Herbal_bandage_gives_25_surgery_points_for_bleeding()
+    {
+        SurgerySupply hb = SurgeryCatalog.For("herbal_bandage")!.Value;
+        Assert.Equal(25, hb.Points);                     // 用户原话：草药绷带 25（普通绷带 15）
+        Assert.True(hb.CanTreat(HealthConditionType.Bleeding));
+        Assert.False(hb.CanTreat(HealthConditionType.Fracture));
+        Assert.False(hb.Exclusive);                       // 非独占（散件）
+        Assert.Equal(15, SurgeryCatalog.For("bandage")!.Value.Points); // 普通绷带 15 不变
+        Assert.True(Materials.Has("herbal_bandage"));
+        Assert.Equal(MaterialCategory.Medical, Materials.Find("herbal_bandage")!.Value.Category);
+    }
+
+    [Fact]
+    public void Herbal_bandage_recipe_is_laojunxu_plus_bandage_worktime_bookless()
+    {
+        RecipeData r = RecipeBook.Find("herbal_bandage")!;
+        Assert.Empty(r.RequiredBookIds);
+        Assert.Empty(r.RequiredTools);
+        Assert.True(r.WorkMinutes > 0);
+        Assert.Equal("herbal_bandage", r.OutputKey);
+        Assert.True(r.MaterialCosts.ContainsKey("laojunxu"));
+        Assert.True(r.MaterialCosts.ContainsKey("bandage"));
+    }
+
+    // ---- [SPEC-B14-补2] 玫瑰果茶：24h 恢复 +9pp（与睡床加成同族加算）----
+
+    [Fact]
+    public void Rosehip_tea_bonus_speeds_post_surgery_healing_additively()
+    {
+        // 同一术后出血伤，带 +9pp 恢复加成的当昼夜愈合应比不带更多（加算进恢复效率）。
+        HealthCondition Operated() { var c = Bleed(0.5); return c; }
+
+        var withBonus = new HealthConditionSet(); var cb = Operated(); withBonus.Add(cb);
+        var noBonus = new HealthConditionSet(); var cn = Operated(); noBonus.Add(cn);
+        // 先各进入同等愈合态（内部 setter 可及：源以 Link 编入本测试程序集）。
+        cb.SetRecoveryEfficiency(50); cn.SetRecoveryEfficiency(50);
+
+        withBonus.TickDay(NoInfection(), resting: false, restedInBed: false, infectionChanceMultiplier: 1.0, extraHealBonusPct: Pawn_RosehipBonus);
+        noBonus.TickDay(NoInfection(), resting: false, restedInBed: false, infectionChanceMultiplier: 1.0, extraHealBonusPct: 0.0);
+
+        Assert.True(cb.Severity < cn.Severity, "玫瑰果茶恢复加成应加快术后愈合");
+    }
+
+    private const double Pawn_RosehipBonus = 9.0;
+
+    [Fact]
+    public void Rosehip_tea_material_and_recipe_exist()
+    {
+        Assert.True(Materials.Has("rosehip_tea"));
+        Assert.Equal(MaterialCategory.Medical, Materials.Find("rosehip_tea")!.Value.Category);
+        RecipeData r = RecipeBook.Find("rosehip_tea")!;
+        Assert.Empty(r.RequiredBookIds);
+        Assert.Empty(r.RequiredTools);
+        Assert.True(r.WorkMinutes > 0);
+        Assert.Equal("rosehip_tea", r.OutputKey);
+        Assert.True(r.MaterialCosts.ContainsKey("rosehip"));
     }
 
     // ================= 与战斗既有状态的只读映射 =================

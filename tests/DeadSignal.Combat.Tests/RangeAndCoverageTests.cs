@@ -95,7 +95,7 @@ public class RangeAndCoverageTests
     private static readonly BodyPart LeftHandPart = Part(HumanBody.LeftHand);
     private static readonly BodyPart RightHandPart = Part(HumanBody.RightHand);
     private static readonly BodyPart LeftFingerPart = Part(HumanBody.LeftIndex);
-    private static readonly BodyPart TorsoPart = Part(HumanBody.Torso);
+    private static readonly BodyPart TorsoPart = Part(HumanBody.Chest);
 
     [Fact]
     public void WorkGlove_Left_CoversLeftHandAndFingers_NotRightNorTorso()

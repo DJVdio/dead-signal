@@ -200,6 +200,31 @@ public sealed partial class Pawn : Actor
     public bool HasHealthConditions => Health.Conditions.Count > 0;
 
     /// <summary>
+    /// [SPEC-B14-补3·护栏①] 感染**疗程指派**：当前指派用于治疗本人感染的药 key（抗生素/草药膏/蒲公英茶），null=未指派疗程。
+    /// 营地每昼夜黎明自动扣一份该药并累进治疗进度，直到治愈/断药/撤销（防"忘点一天=冤死"）。以人为单位：一人一份疗程。
+    /// </summary>
+    public string? InfectionTreatmentMedKey { get; private set; }
+
+    /// <summary>指派一档药做感染疗程（覆盖旧指派）。</summary>
+    public void AssignInfectionTreatment(string medKey) => InfectionTreatmentMedKey = string.IsNullOrEmpty(medKey) ? null : medKey;
+
+    /// <summary>撤销感染疗程（治愈/断药/玩家停止/无感染时清空）。</summary>
+    public void ClearInfectionTreatment() => InfectionTreatmentMedKey = null;
+
+    /// <summary>[SPEC-B14-补2] 玫瑰果茶恢复加成的恢复效率加算量（**百分点**，加算，用户原话非拟定）：喝下后 24 游戏小时内伤病恢复速度 +此值。</summary>
+    public const double RosehipTeaHealBonusPct = 9.0;
+
+    /// <summary>剩余恢复加成的**昼夜恢复次数**（玫瑰果茶 buff）：≥1 时下次 <see cref="AdvanceHealthDay"/> 加 <see cref="RosehipTeaHealBonusPct"/>pp 后自减。
+    /// 24 游戏小时≈一昼夜恢复结算，故 1 次覆盖一整天的恢复（GameClock 无细游戏小时读数，以昼夜恢复次数近似，draft 待确认）。</summary>
+    private int _rosehipTeaHealTicks;
+
+    /// <summary>玫瑰果茶恢复加成当前是否生效（供 UI 显示）。</summary>
+    public bool HasRosehipTeaHealBuff => _rosehipTeaHealTicks > 0;
+
+    /// <summary>饮用玫瑰果茶：激活 24 游戏小时（≈一次昼夜恢复结算）的 +9pp 恢复加成（覆盖旧计时=续杯刷新，不叠加层数）。</summary>
+    public void DrinkRosehipTea() => _rosehipTeaHealTicks = 1;
+
+    /// <summary>
     /// 施术者操作能力 0..1（= 1 − 残疾操作惩罚，再并饥饿净值；断手/饥饿拉低）。喂给
     /// <see cref="HealthConditionSet.PerformSurgery"/> 的 operationCapability（与战斗出手间隔同源口径）。
     /// </summary>
@@ -246,7 +271,14 @@ public sealed partial class Pawn : Actor
     public HealthTickResult AdvanceHealthDay(IRandomSource rng, bool resting, bool restedInBed = false, double infectionChanceMultiplier = 1.0)
     {
         ArchiveWounds();
-        HealthTickResult result = Health.TickDay(rng, resting, restedInBed, infectionChanceMultiplier);
+        // [SPEC-B14-补2] 玫瑰果茶恢复加成：生效则本昼夜恢复效率 +RosehipTeaHealBonusPct 个百分点，随后自减一次计时。
+        double extraHealBonusPct = 0.0;
+        if (_rosehipTeaHealTicks > 0)
+        {
+            extraHealBonusPct = RosehipTeaHealBonusPct;
+            _rosehipTeaHealTicks--;
+        }
+        HealthTickResult result = Health.TickDay(rng, resting, restedInBed, infectionChanceMultiplier, extraHealBonusPct);
 
         foreach (string part in result.MaimedParts)
         {
@@ -282,6 +314,34 @@ public sealed partial class Pawn : Actor
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// [SPEC-B14/终稿+补7] 推进本人感染竞速一个时间片（相位级 dt&lt;1 或整日 dt=1）：调 <see cref="HealthConditionSet.AdvanceInfectionRace"/>
+    /// （感染进度累积、用药期间按档减缓+累进治疗进度、治疗先到顶清除、**感染到 100% 立刻死亡**——不再自动截肢）。
+    /// 是否致死经返回结果 <see cref="InfectionRaceResult.Outcome"/> 交营地统一走死亡路径。保命的主动截肢走 <see cref="AmputateInfectedLimb"/>。
+    /// </summary>
+    /// <param name="dtDays">时间片天数（相位级传 1/相位数，整日传 1.0）。</param>
+    /// <param name="medicated">本时段是否在用药（疗程指派且有药）。</param>
+    /// <param name="medicine">本时段所用感染药（medicated 为真时给，取 Efficacy/WorsenMultiplier）。</param>
+    public InfectionRaceResult AdvanceInfectionRace(double dtDays, bool medicated, Medicine? medicine)
+        => Health.AdvanceInfectionRace(dtDays, medicated, medicine);
+
+    /// <summary>
+    /// [SPEC-B14-补7] 主动截肢一处感染的肢体（玩家抉择的保命手术）：调 <see cref="HealthConditionSet.PerformAmputation"/> 判成败，
+    /// **成功即就地 <see cref="Body.Sever"/> 断肢**（感染双条已清零；装备联动由每帧 ReconcileSeverance 兜底）。返回手术结果供 UI 出模糊反馈。
+    /// </summary>
+    public SurgeryResult AmputateInfectedLimb(
+        HealthCondition infection, IReadOnlyList<string>? materials, bool onBed, IRandomSource rng,
+        int surgeonBookBonus = 0, bool selfSurgery = false, double operationCapability = 1.0, int? surgeryBasePoints = null)
+    {
+        string? part = infection.BodyPart;
+        SurgeryResult r = Health.PerformAmputation(infection, materials, onBed, rng, surgeonBookBonus, selfSurgery, operationCapability, surgeryBasePoints);
+        if (r.Success && part != null)
+        {
+            Body.Sever(part); // 截肢成功：切除该肢
+        }
+        return r;
     }
 
     /// <summary>因伤病恶化不治身故：走统一非战斗死亡路径（触发 Died 事件 → 营地名单清理 + 可能触发全灭）。</summary>
@@ -353,13 +413,12 @@ public sealed partial class Pawn : Actor
 
         // 初始武器进【持械模型】主手（右手）：手枪→远程、匕首→近战。EquipToHand 自动按 TwoHanded 分流。
         p._loadout.EquipToHand(usePistol ? CombatData.Pistol() : CombatData.Dagger(), Hand.Right);
-        // 初始护甲两层（皮夹克/贴身布衣）进【穿戴模型】对应躯干层槽。
-        foreach (ArmorLayer layer in CombatData.SurvivorArmor())
-        {
-            p.EquipArmorLayer(layer);
-        }
+        // 开局发三件基础衣物：长袖布衣（贴身层护上身）+ 长裤（裤子槽护腿）+ 运动鞋（脚槽护双脚，[SPEC-B16-补2]）。
+        // 不带皮夹克等特殊护甲——特殊装备/护甲只能靠搜刮/制作获得（[SPEC-B16-补·护甲纠错]）。走 EquipApparel 统一路径（目录占槽+登记防御层）。
+        p.EquipApparel(ArmorTable.LongSleeveShirt().Name);
+        p.EquipApparel(ArmorTable.Trousers().Name);
+        p.EquipApparel(ArmorTable.Sneakers().Name);
         // 由两模型投影出生效战斗数据：AttackWeapon=PrimaryWeapon(+手感/IsRanged)、DefenderArmor=已穿护甲层。
-        // 与旧逻辑等价：手枪→range260/cd1.1/远程；匕首→range26/cd0.7/近战；护甲=SurvivorArmor 两层。
         p.SyncCombatFromEquipment();
         return p;
     }
@@ -383,6 +442,22 @@ public sealed partial class Pawn : Actor
     {
         Body.AttachProsthetic(Prosthetic.OfGrade(grade, replacesRegion, ProstheticDisplayName(grade)));
         return Inspect();
+    }
+
+    /// <summary>
+    /// [SPEC-B14-补8] 以**手术**方式给一个失去的肢体安装假肢：走 <see cref="HealthConditionSet.PerformProstheticSurgery"/> 判成败，
+    /// **成功才 <see cref="EquipProsthetic"/> 装上**（假肢本体消耗由营地在成功时扣；失败默认不损耗、可重试）。返回手术结果供 UI 出模糊反馈。
+    /// </summary>
+    public SurgeryResult InstallProstheticSurgery(
+        BodyRegion replacesRegion, ProstheticGrade grade, IReadOnlyList<string>? materials, bool onBed, IRandomSource rng,
+        int surgeonBookBonus = 0, bool selfSurgery = false, double operationCapability = 1.0, int? surgeryBasePoints = null)
+    {
+        SurgeryResult r = Health.PerformProstheticSurgery(materials, onBed, rng, surgeonBookBonus, selfSurgery, operationCapability, surgeryBasePoints);
+        if (r.Success)
+        {
+            EquipProsthetic(replacesRegion, grade); // 成功：假肢就位、能力恢复即时重算
+        }
+        return r;
     }
 
     /// <summary>假肢等级中文显示名（木制/简易/仿生）。</summary>
@@ -416,6 +491,8 @@ public sealed partial class Pawn : Actor
         foreach (ArmorLayer l in ArmorTable.SurvivorArmor()) d[l.Name] = l;         // 皮夹克 / 贴身布衣
         foreach (ArmorLayer l in new[]
         {
+            ArmorTable.LongSleeveShirt(), ArmorTable.Trousers(), ArmorTable.Sneakers(),  // 开局基础衣物（三件套）
+            ArmorTable.ChestPlate(), ArmorTable.Shorts(), ArmorTable.CoarseClothVest(),  // 部位细分示例装备 + 可制作布甲
             ArmorTable.Cloth(), ArmorTable.Leather(), ArmorTable.Plate(),
             ArmorTable.CoarseClothCoat(), ArmorTable.WorkGlove(leftHand: true), ArmorTable.WorkGlove(leftHand: false),
         })
@@ -548,18 +625,6 @@ public sealed partial class Pawn : Actor
             _apparelLayers.Remove(apparelName);
             SyncCombatFromEquipment();
         }
-    }
-
-    /// <summary>把一层原始护甲穿进对应躯干层槽（仅供初始填充/躯干层：Plate/Outer/Skin→层槽），并登记其防御数值。</summary>
-    private EquipOutcome EquipArmorLayer(ArmorLayer layer)
-    {
-        EquipOutcome outcome = _apparel.TryEquip(
-            layer.Name, TorsoSlotSet(layer.Slot), out _, layer.CoversParts, SeveredParts(), replace: true);
-        if (outcome == EquipOutcome.Equipped)
-        {
-            _apparelLayers[layer.Name] = layer;
-        }
-        return outcome;
     }
 
     /// <summary>护甲层 <see cref="ArmorSlot"/> → 躯干三层穿戴槽（局部护甲如手套不走此路，另由目录定义占手/脚槽）。</summary>

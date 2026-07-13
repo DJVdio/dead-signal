@@ -25,7 +25,7 @@ public class BloodTests
         var body = HumanBody.NewBody();
         body.BleedRatePerWound = 1.0;
         body.RegisterBleed(HumanBody.LeftHand);
-        body.RegisterBleed(HumanBody.Torso);
+        body.RegisterBleed(HumanBody.Chest);
         body.TickBleed(2); // 2 伤口 × 1.0 × 2s = 4
 
         Assert.Equal(96, body.Blood, 9);

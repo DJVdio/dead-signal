@@ -9,7 +9,8 @@ public class BodyTests
     public void NewBody_AllPartsFullHp()
     {
         var body = HumanBody.NewBody();
-        Assert.Equal(28, body.HpOf(HumanBody.Torso));
+        Assert.Equal(20, body.HpOf(HumanBody.Chest));   // 躯干细分：胸 20（[SPEC-B17]，Sim 校准）
+        Assert.Equal(16, body.HpOf(HumanBody.Abdomen)); // 腹 16
         Assert.Equal(16, body.HpOf(HumanBody.LeftHand));
         Assert.False(body.IsDead);
     }
@@ -18,8 +19,8 @@ public class BodyTests
     public void VitalPart_ZeroHp_CausesDeath()
     {
         var body = HumanBody.NewBody();
-        body.ApplyDamage(HumanBody.Torso, 28);
-        Assert.Equal(0, body.HpOf(HumanBody.Torso));
+        body.ApplyDamage(HumanBody.Chest, 20); // 胸=致死部位（沿原躯干档）
+        Assert.Equal(0, body.HpOf(HumanBody.Chest));
         Assert.True(body.IsDead);
     }
 
@@ -27,7 +28,7 @@ public class BodyTests
     public void LimbPart_ZeroHp_Disabled_NotDead()
     {
         var body = HumanBody.NewBody();
-        body.ApplyDamage(HumanBody.LeftLeg, 21);
+        body.ApplyDamage(HumanBody.LeftLeg, 12); // 大腿细分后 HP 12
         Assert.True(body.IsDisabled(HumanBody.LeftLeg));
         Assert.False(body.IsDead);
     }
@@ -97,13 +98,13 @@ public class BodyTests
     [Fact]
     public void ErodeMaxHp_VitalPart_ToZero_CausesDeath()
     {
-        // 致死部位（躯干）上限磨损归 0 = 死亡（锤烂胸腔）
+        // 致死部位（胸，沿原躯干档）上限磨损归 0 = 死亡（锤烂胸腔）
         var body = HumanBody.NewBody();
-        var er = body.ErodeMaxHp(HumanBody.Torso, 28); // 28 → 0
+        var er = body.ErodeMaxHp(HumanBody.Chest, 20); // 20 → 0
         Assert.True(er.Destroyed);
         Assert.True(er.CausedDeath);
         Assert.True(body.IsDead);
-        Assert.True(body.IsDestroyed(HumanBody.Torso));
+        Assert.True(body.IsDestroyed(HumanBody.Chest));
     }
 
     [Fact]

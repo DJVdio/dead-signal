@@ -153,7 +153,7 @@ public sealed partial class CampMain : Node2D
     // ---------------- 神秘商人（中立到访者 + 货币交易） ----------------
     // 每 1~5 天夜晚到访、天亮离开（游戏白天=探险队视角、夜晚=营地视角，商人须与营地可操作窗口重合）；
     // 只卖《木匠入门》（架子数据驱动可扩展）；货币=白银，走共享库存实扣实产。
-    private const int MerchantStartingCurrency = 40; // draft：开局起步白银（让交易闭环开箱即跑；掉落来源/经济量级待用户设计，见 TODO）
+    private const int MerchantStartingCurrency = 40; // draft：开局起步白银（**整银**，grant 时经 Silver.FromWhole 转分；让交易闭环开箱即跑；掉落来源/经济量级待用户设计，见 TODO）
     private MerchantPanel _merchantPanel = null!;
     private MerchantSchedule _merchantSchedule = null!;
     private readonly MerchantShelf _merchantShelf = MerchantShelf.Default();
@@ -431,6 +431,11 @@ public sealed partial class CampMain : Node2D
         _medicalPanel.Visible = false;
         _medicalPanel.SurgeryRequested += OnSurgeryRequested;
         _medicalPanel.TreatRequested += OnTreatRequested;
+        _medicalPanel.TreatmentAssigned += OnInfectionCourseAssigned;
+        _medicalPanel.TreatmentCancelled += OnInfectionCourseCancelled;
+        _medicalPanel.RosehipTeaRequested += OnRosehipTeaRequested;
+        _medicalPanel.AmputationRequested += OnAmputationRequested;
+        _medicalPanel.ProstheticSurgeryRequested += OnProstheticSurgeryRequested;
         _medicalPanel.Closed += CloseMedical;
 
         // 制作/搜刮一行瞬时提示（HUD 之上，独立高层，时标冻结下靠手动显隐）。
@@ -445,7 +450,7 @@ public sealed partial class CampMain : Node2D
         if (MerchantStartingCurrency > 0)
         {
             string coinName = Materials.Find(Materials.CurrencyKey)?.DisplayName ?? "白银";
-            _inventory.Add(Item.Material(Materials.CurrencyKey, coinName, MerchantStartingCurrency));
+            _inventory.Add(Item.Material(Materials.CurrencyKey, coinName, Silver.FromWhole(MerchantStartingCurrency))); // 整银→分（[SPEC-B14-补6]）
         }
         _merchantSchedule = new MerchantSchedule(new SystemRandomSource(), _clock.Day);
 
@@ -2409,6 +2414,9 @@ public sealed partial class CampMain : Node2D
 
             if (r.AnyDeath)
                 toKill.Add(p);
+
+            // [SPEC-B14/终稿·护栏①] 感染双进度竞速：黎明扣一份指派药（或断药中断），推进 感染进度 vs 治疗进度 一整日(dt=1.0)。
+            AdvanceInfectionRaceDay(p, notes, toKill);
         }
 
         foreach (Pawn p in toKill)
@@ -2416,6 +2424,48 @@ public sealed partial class CampMain : Node2D
 
         if (notes.Count > 0)
             _campToast.Show(string.Join("；", notes), CampToast.Bad);
+    }
+
+    /// <summary>
+    /// [SPEC-B14/终稿·护栏①] 感染双进度竞速一整日推进（每昼夜黎明，dt=1.0）：
+    ///   · 无感染 → 若挂着疗程则静默清疗程，返回；
+    ///   · 有感染：按疗程指派扣一份药（<see cref="InfectionCourseLogic.DecideDose"/>）——缺药则清疗程+醒目断药提示（防冤死）；
+    ///   · 推进竞速一整日（<see cref="Pawn.AdvanceInfectionRace"/>，用药期间按档减缓恶化+累进治疗进度）：治愈清疗程+记事 / 坏疽截肢记事 / 败血症致死入 <paramref name="toKill"/>。
+    /// 注：相位级细分（每昼夜多次）是后续项；当前整日推进——全程 double 不取整，累积数值等价，仅跨阈值解析在整日边界（草药膏胜负窗见回报待办）。
+    /// </summary>
+    private void AdvanceInfectionRaceDay(Pawn p, List<string> notes, List<Pawn> toKill)
+    {
+        bool infected = p.Health.Conditions.Any(c => c.Type == HealthConditionType.Infection);
+        if (!infected)
+        {
+            if (p.InfectionTreatmentMedKey is not null)
+                p.ClearInfectionTreatment(); // 感染已不在（治愈/截肢清除）→ 静默结束疗程
+            return;
+        }
+
+        string? medKey = p.InfectionTreatmentMedKey;
+        int stock = medKey is null ? 0 : CraftingService.MaterialTotal(_inventory.ByCategory(ItemCategory.Material), medKey);
+        InfectionDoseDecision dose = InfectionCourseLogic.DecideDose(p.Health, medKey, stock);
+        if (dose.ConsumedDose)
+            ConsumeMaterials(new[] { medKey! });
+        if (dose.Step == InfectionCourseStep.OutOfStock)
+        {
+            p.ClearInfectionTreatment();
+            notes.Add($"{p.DisplayName} 的{Materials.Find(medKey!)?.DisplayName ?? medKey}用完了，治疗中断"); // 断药醒目提示
+        }
+
+        InfectionRaceResult rr = p.AdvanceInfectionRace(1.0, dose.Medicated, dose.Medicine);
+        if (rr.Cured)
+        {
+            p.ClearInfectionTreatment();
+            notes.Add($"{p.DisplayName} 的感染痊愈了");
+        }
+        else if (rr.Outcome == ConditionOutcome.Death) // [SPEC-B14-补7] 感染到顶=立刻死（不再自动截肢；保命须玩家主动截肢）
+        {
+            notes.Add($"{p.DisplayName} 因感染不治身故");
+            if (!toKill.Contains(p))
+                toKill.Add(p);
+        }
     }
 
     /// <summary>把存活幸存者映射成分粮输入：饥饿刻度 + 是否伤员（急性伤：昏迷/出血/骨折需养伤，供 WoundedFirst 优先）。</summary>
@@ -5021,7 +5071,7 @@ public sealed partial class CampMain : Node2D
         switch (MerchantTrade.SellOne(_inventory, row.UnitItem))
         {
             case SellStatus.Ok:
-                _campToast.Show($"卖出「{row.DisplayName}」，进账 {row.UnitSellPrice} 白银。", CampToast.Ok);
+                _campToast.Show($"卖出「{row.DisplayName}」，进账 {Silver.Format(row.UnitSellPrice)} 白银。", CampToast.Ok); // 分→两位小数（[SPEC-B14-补6]）
                 break;
             case SellStatus.NoneOwned:
                 _campToast.Show($"没有多余的「{row.DisplayName}」可卖了。", CampToast.Bad);
@@ -5248,12 +5298,13 @@ public sealed partial class CampMain : Node2D
         }
     }
 
-    /// <summary>打开/刷新角色检视面板：喂只读健康快照 + 装备态快照 + 装假肢/卸下入口（皆死数据/闭包，面板不持 live Pawn）。</summary>
+    /// <summary>打开/刷新角色检视面板：喂只读健康快照 + 装备态快照 + 卸下入口。
+    /// [SPEC-B14-补8] 装假肢改为医务面板手术（不再即时装配），故此处**不再给角色面板装假肢入口**（onEquip=null，只显示缺肢/已装假肢态）。</summary>
     private void ShowInspect(Pawn p)
         => _characterPanel.ShowFor(
             p.Inspect(),
             SnapshotEquipment(p),
-            (region, grade) => p.EquipProsthetic(region, grade),
+            null, // 假肢安装走 MedicalPanel 手术（补8），角色面板不再即时装
             hand => UnequipWeaponToStash(p, hand),
             name => UnequipApparelToStash(p, name));
 
@@ -5591,12 +5642,92 @@ public sealed partial class CampMain : Node2D
     }
 
     /// <summary>
-    /// 面板「用药」→ 按伤类取药（感染→抗生素 / 疾病→成药），调 <see cref="HealthConditionSet.TreatIllness"/>（疗效固定基数，通用技能已删）；
-    /// 见效则扣 1 份药、给模糊提示（好转/康复）。药不对症或缺药不消耗。随后刷新面板。
+    /// [SPEC-B14-补7] 面板「截肢」→ 对感染的肢体走 <see cref="Pawn.AmputateInfectedLimb"/>（既有手术点数池/耗材/成败流程，护士基础点数同手术）：
+    /// 成功=断肢+感染双条清零、失败=耗材照耗需重来；门槛未过给提示、零消耗。玩家抉择，无自动触发。随后刷新面板。
     /// </summary>
-    private void OnTreatRequested(Pawn patient, HealthCondition condition, Pawn surgeon)
+    private void OnAmputationRequested(Pawn patient, HealthCondition infection, IReadOnlyList<string> materials, bool onBed, Pawn surgeon)
     {
-        string medKey = condition.Type == HealthConditionType.Infection ? "antibiotics" : "medicine";
+        int bookBonus = MedicalBookPoints.SumFor(surgeon.ReadBookIds);
+        double capability = surgeon.OperationCapability;
+        bool self = ReferenceEquals(patient, surgeon);
+        int basePoints = NightingalePerk.SurgeryBasePoints(surgeon.Perks.IsNightingale, _storyFlags.Has(NurseRecruit.L3LegacyFlag));
+
+        SurgeryResult result = patient.AmputateInfectedLimb(
+            infection, materials, onBed, _healthRng,
+            surgeonBookBonus: bookBonus, selfSurgery: self, operationCapability: capability, surgeryBasePoints: basePoints);
+
+        // 南丁格尔升级轴：真正施术（成功/失败）计一台。
+        if (surgeon.Perks.IsNightingale
+            && (result.Status == SurgeryStatus.Success || result.Status == SurgeryStatus.Failed))
+        {
+            int count = NightingalePerk.RecordSurgery(_storyFlags);
+            if (NightingalePerk.EvaluateLevel(count) >= 3)
+                _storyFlags.Set(NurseRecruit.L3LegacyFlag, "true");
+        }
+
+        if (result.Status == SurgeryStatus.NotAllowed)
+        {
+            _campToast.Show(result.PlayerMessage ?? SurgeryResult.NotAllowedMessage, CampToast.Bad);
+            RefreshMedical();
+            return;
+        }
+
+        ConsumeMaterials(result.ConsumedMaterials); // 成败都扣耗材
+        _campToast.Show(
+            result.Success
+                ? $"{surgeon.DisplayName} 为 {patient.DisplayName} 截肢：切除了{infection.BodyPart}，感染中止"
+                : $"{surgeon.DisplayName} 为 {patient.DisplayName} 截肢失败，得重来",
+            result.Success ? CampToast.Ok : CampToast.Bad);
+        GD.Print($"[截肢] {surgeon.DisplayName}→{patient.DisplayName} {infection.BodyPart} {(result.Success ? "成功" : "失败")}");
+        RefreshMedical();
+    }
+
+    /// <summary>
+    /// [SPEC-B14-补8] 面板「安装假肢」→ 走 <see cref="Pawn.InstallProstheticSurgery"/>（既有手术点数池/耗材/成败，护士基础点数同手术）：
+    /// 成功=假肢就位（能力恢复）、失败=按手术失败惯例（假肢本体默认不损耗，可重试——现假肢非库存物品，本体消耗待假肢物品化后接，标待确认）。随后刷新面板。
+    /// </summary>
+    private void OnProstheticSurgeryRequested(Pawn patient, BodyRegion region, ProstheticGrade grade, IReadOnlyList<string> materials, bool onBed, Pawn surgeon)
+    {
+        int bookBonus = MedicalBookPoints.SumFor(surgeon.ReadBookIds);
+        double capability = surgeon.OperationCapability;
+        bool self = ReferenceEquals(patient, surgeon);
+        int basePoints = NightingalePerk.SurgeryBasePoints(surgeon.Perks.IsNightingale, _storyFlags.Has(NurseRecruit.L3LegacyFlag));
+
+        SurgeryResult result = patient.InstallProstheticSurgery(
+            region, grade, materials, onBed, _healthRng,
+            surgeonBookBonus: bookBonus, selfSurgery: self, operationCapability: capability, surgeryBasePoints: basePoints);
+
+        if (surgeon.Perks.IsNightingale
+            && (result.Status == SurgeryStatus.Success || result.Status == SurgeryStatus.Failed))
+        {
+            int count = NightingalePerk.RecordSurgery(_storyFlags);
+            if (NightingalePerk.EvaluateLevel(count) >= 3)
+                _storyFlags.Set(NurseRecruit.L3LegacyFlag, "true");
+        }
+
+        if (result.Status == SurgeryStatus.NotAllowed)
+        {
+            _campToast.Show(result.PlayerMessage ?? SurgeryResult.NotAllowedMessage, CampToast.Bad);
+            RefreshMedical();
+            return;
+        }
+
+        ConsumeMaterials(result.ConsumedMaterials); // 止血耗材成败都扣；假肢本体待物品化后于成功时扣（现无本体物品）
+        _campToast.Show(
+            result.Success
+                ? $"{surgeon.DisplayName} 为 {patient.DisplayName} 装上了假肢，行动恢复了些"
+                : $"{surgeon.DisplayName} 为 {patient.DisplayName} 安装假肢失败，得重来",
+            result.Success ? CampToast.Ok : CampToast.Bad);
+        GD.Print($"[假肢] {surgeon.DisplayName}→{patient.DisplayName} {region} {grade} {(result.Success ? "成功" : "失败")}");
+        RefreshMedical();
+    }
+
+    /// <summary>
+    /// 面板「用药」→ 用玩家所选药 <paramref name="medKey"/>（感染可选抗生素/草药膏/蒲公英茶，疾病用成药），调 <see cref="HealthConditionSet.TreatIllness"/>
+    /// （单次消退量 = Potency×照护系数×治疗效率；抗生素满效、草药膏 45%、蒲公英茶 10%）；见效则扣 1 份药、给模糊提示（好转/康复）。药不对症或缺药不消耗。随后刷新面板。
+    /// </summary>
+    private void OnTreatRequested(Pawn patient, HealthCondition condition, string medKey, Pawn surgeon)
+    {
         if (CraftingService.MaterialTotal(_inventory.ByCategory(ItemCategory.Material), medKey) <= 0)
         {
             _campToast.Show($"缺{Materials.Find(medKey)?.DisplayName ?? medKey}", CampToast.Bad);
@@ -5620,6 +5751,42 @@ public sealed partial class CampMain : Node2D
             : $"{patient.DisplayName} 用药后有所好转，但尚未痊愈";
         _campToast.Show(msg, CampToast.Ok);
         GD.Print($"[用药] {surgeon.DisplayName}→{patient.DisplayName} {condition.Type} {result.Status}");
+        RefreshMedical();
+    }
+
+    /// <summary>[SPEC-B14-补3] 面板「指派感染疗程」→ 记该幸存者的感染疗程药档（每昼夜黎明自动用药，见 <see cref="AutoTreatInfectionCourse"/>）。当昼夜不立即用药。</summary>
+    private void OnInfectionCourseAssigned(Pawn patient, string medKey)
+    {
+        patient.AssignInfectionTreatment(medKey);
+        _campToast.Show($"已为 {patient.DisplayName} 指派疗程：{Materials.Find(medKey)?.DisplayName ?? medKey}（每日黎明自动用药）", CampToast.Ok);
+        RefreshMedical();
+    }
+
+    /// <summary>[SPEC-B14-补3] 面板「停止感染疗程」→ 清指派，当昼夜起不再自动用药。</summary>
+    private void OnInfectionCourseCancelled(Pawn patient)
+    {
+        patient.ClearInfectionTreatment();
+        _campToast.Show($"已停止 {patient.DisplayName} 的感染疗程", CampToast.Ok);
+        RefreshMedical();
+    }
+
+    /// <summary>[SPEC-B14-补2] 面板「喝玫瑰果茶」→ 扣 1 份玫瑰果茶、激活该幸存者 24 小时 +9pp 恢复加成。缺茶/已在 buff 中不消耗。</summary>
+    private void OnRosehipTeaRequested(Pawn patient)
+    {
+        if (patient.HasRosehipTeaHealBuff)
+        {
+            RefreshMedical();
+            return;
+        }
+        if (CraftingService.MaterialTotal(_inventory.ByCategory(ItemCategory.Material), "rosehip_tea") <= 0)
+        {
+            _campToast.Show("缺玫瑰果茶", CampToast.Bad);
+            RefreshMedical();
+            return;
+        }
+        ConsumeMaterials(new[] { "rosehip_tea" });
+        patient.DrinkRosehipTea();
+        _campToast.Show($"{patient.DisplayName} 喝下玫瑰果茶，恢复加快（+9% · 24 小时）", CampToast.Ok);
         RefreshMedical();
     }
 

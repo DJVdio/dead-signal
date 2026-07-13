@@ -27,6 +27,7 @@ public static class DuelReport
         [HumanBody.LeftArm] = sleeve, [HumanBody.RightArm] = sleeve,
         [HumanBody.LeftHand] = glove, [HumanBody.RightHand] = glove,
         [HumanBody.LeftLeg] = legwear, [HumanBody.RightLeg] = legwear,
+        [HumanBody.LeftCalf] = legwear, [HumanBody.RightCalf] = legwear,
     };
 
     private static (DuelFighter, DuelFighter)[] Matchups() => new[]
@@ -121,7 +122,7 @@ public static class DuelReport
         }
 
         var sb = new StringBuilder();
-        sb.Append(CultureInfo.InvariantCulture, $"[t={e.Time:F1}s] {e.Attacker} {e.Weapon}→{e.Defender}·{e.Part}：{e.PenetrationDesc}，伤害{e.Damage}");
+        sb.Append(CultureInfo.InvariantCulture, $"[t={e.Time:F1}s] {e.Attacker} {e.Weapon}→{e.Defender}·{e.Part}：{e.PenetrationDesc}，伤害{e.Damage:0.#}");
 
         bool severed = e.Tags.Any(t => t.StartsWith("切除:", StringComparison.Ordinal));
         bool destroyed = e.Tags.Any(t => t.StartsWith("损毁:", StringComparison.Ordinal));

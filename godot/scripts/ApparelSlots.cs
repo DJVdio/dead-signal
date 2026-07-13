@@ -250,6 +250,15 @@ public static class ApparelCatalog
     {
         // 单槽：粗布外套 = 外套层；沿用 ArmorTable 口径全覆盖（CoversParts=null）。
         ["粗布外套"] = new("粗布外套", S(EquipSlot.OuterLayer), null, ArmorSlot.Outer),
+        // 开局基础衣物：长裤 = 裤子槽，护双腿（[SPEC-B16-补]）。长袖布衣走贴身层，无需目录登记（EquipApparel 按 ArmorLayer.Slot 兜底）。
+        ["长裤"] = new("长裤", S(EquipSlot.Pants), new HashSet<string> { HumanBody.LeftLeg, HumanBody.RightLeg, HumanBody.LeftCalf, HumanBody.RightCalf }, ArmorSlot.Skin),
+        // 开局基础衣物：运动鞋 = 左右脚槽，护双脚（含脚趾子树，[SPEC-B16-补2]）。11 槽已有左右脚槽，无需上抛。
+        ["运动鞋"] = new("运动鞋", S(EquipSlot.LeftFoot, EquipSlot.RightFoot), HumanBody.SubtreeNames(HumanBody.LeftFoot, HumanBody.RightFoot), ArmorSlot.Skin),
+        // 部位细分示例装备（[SPEC-B17-补]）：胸甲 = 装甲层仅护胸（不防腹）；短裤 = 裤子槽仅护大腿（不防小腿），与长裤同槽互斥。
+        ["胸甲"] = new("胸甲", S(EquipSlot.PlateLayer), new HashSet<string> { HumanBody.Chest }, ArmorSlot.Plate),
+        ["短裤"] = new("短裤", S(EquipSlot.Pants), new HashSet<string> { HumanBody.LeftLeg, HumanBody.RightLeg }, ArmorSlot.Skin),
+        // 可制作布甲：粗布背心 = 外套层护胸+腹（无袖不护臂），补独立覆盖层前走 Item.Armor 全覆盖（[SPEC-B17]）。
+        ["粗布背心"] = new("粗布背心", S(EquipSlot.OuterLayer), new HashSet<string> { HumanBody.Chest, HumanBody.Abdomen }, ArmorSlot.Outer),
         // 成对：左/右手套各一件，各只覆盖对应那只手（含五指），贴身层。
         ["左手套"] = new("左手套", S(EquipSlot.LeftHand), HumanBody.SubtreeNames(HumanBody.LeftHand), ArmorSlot.Skin),
         ["右手套"] = new("右手套", S(EquipSlot.RightHand), HumanBody.SubtreeNames(HumanBody.RightHand), ArmorSlot.Skin),

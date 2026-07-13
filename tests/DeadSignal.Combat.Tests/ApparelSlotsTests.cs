@@ -176,7 +176,7 @@ public class ApparelSlotsTests
         Assert.Contains(HumanBody.LeftHand, covered);
         Assert.Contains(HumanBody.LeftThumb, covered);
         Assert.Contains(HumanBody.RightHand, covered);
-        Assert.DoesNotContain(HumanBody.Torso, covered); // 未穿躯干甲则躯干不在覆盖并集
+        Assert.DoesNotContain(HumanBody.Chest, covered); // 未穿躯干甲则胸不在覆盖并集
     }
 
     [Fact]

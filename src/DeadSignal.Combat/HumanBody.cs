@@ -2,13 +2,17 @@ namespace DeadSignal.Combat;
 
 /// <summary>
 /// 人类细部位表工厂（数据驱动）。HP 与体积命中权重均为**拟定待调**（参考 CDDA/RimWorld 量级）。
-/// 树形层级用于切除连带：手挂在上臂下、脚挂在大腿下、眼/鼻/下巴挂在头下；头直接挂躯干（无颈部位）。
-/// 归零后果：头/躯干=致死；四肢/手/脚=致残；眼=致盲；鼻/下巴=毁容（无系统后果）。
+/// 树形层级用于切除连带：手挂在上臂下、脚挂在小腿下、小腿挂在大腿下、眼/鼻/下巴挂在头下；
+/// 躯干细分为**胸+腹**（[SPEC-B17]）：胸为根，头/双臂挂胸，腹挂胸、双腿挂腹（解剖上头臂经胸廓、腿经骨盆/腹）。
+/// 细分为**纯结构性**（[SPEC-B17-修]）：胸/腹沿原躯干通用档、大/小腿沿原腿通用档，性质由 Region/Category 通用规则自然归类，不做手工特化。
+/// 归零后果：胸/腹（Vital，沿躯干）=致死；四肢/手/脚=致残；眼=致盲；鼻/下巴=毁容（无系统后果）。
 /// </summary>
 public static class HumanBody
 {
     // 部位名常量，避免字符串散落。
-    public const string Torso = "躯干";
+    // 躯干细分（[SPEC-B17]）：胸=树根（头/双臂挂其下），腹挂胸下、双腿挂腹下。二者均沿原躯干档（Region.Torso / Vital）。
+    public const string Chest = "胸";
+    public const string Abdomen = "腹";
     public const string Head = "头";
     public const string LeftEye = "左眼";
     public const string RightEye = "右眼";
@@ -20,8 +24,11 @@ public static class HumanBody
     public const string RightArm = "右上臂";
     public const string LeftHand = "左手";
     public const string RightHand = "右手";
+    // 下肢细分（[SPEC-B17]）：大腿→小腿→脚，逐级挂载。大/小腿均 Region.Leg（沿原腿通用档，骨折/移动同档）。
     public const string LeftLeg = "左大腿";
     public const string RightLeg = "右大腿";
+    public const string LeftCalf = "左小腿";
+    public const string RightCalf = "右小腿";
     public const string LeftFoot = "左脚";
     public const string RightFoot = "右脚";
 
@@ -52,10 +59,16 @@ public static class HumanBody
     /// <summary>返回全套人类部位定义（不可变模板）。数值拟定待调。</summary>
     public static IReadOnlyList<BodyPart> Parts() => new[]
     {
-        // 躯干（根）。VolumeWeight 34→36：吸收移除的"颈"部位原 2 点体积权重（保持整体命中分布）。
-        new BodyPart { Name = Torso, VolumeWeight = 36, MaxHp = 28, Region = BodyRegion.Torso, MacroRegion = BodyMacroRegion.Torso, Category = BodyPartCategory.Vital, Parent = null },
-        // 头（颅）→ 直接挂躯干（已移除颈部位：颈无对应装备槽防护）
-        new BodyPart { Name = Head, VolumeWeight = 6, MaxHp = 16, Region = BodyRegion.Head, MacroRegion = BodyMacroRegion.Head, Category = BodyPartCategory.Vital, Parent = Torso },
+        // 躯干细分为胸+腹（[SPEC-B17]）：权重 20+16=36（=原躯干，按体表拆胸略大）。HP 胸20/腹16=36（拟定待调）。
+        // 均 Region.Torso / Macro.Torso / Vital（沿原躯干通用档，纯结构性拆分）。
+        // ⚠HP 由原躯干 28 上调至 36（Sim 校准）：细分把可流血部位数近乎翻倍（躯干 1→2、腿 2→4），
+        //   而失血 = Σ伤口数×流速（Body.TickBleed 按 _bleeding 部位集合计数），故等 HP 下战斗因失血显著变短、
+        //   拉低对决基线（匕首vs丧尸 91%→86%）。上调致死池 HP 令时长/胜率回到 91%/79%±3pp（详见 return/journal 的 [DECISION] 记录）。
+        // 胸=树根（Parent=null）：头/双臂经胸廓挂胸下；腹经胸下、双腿再挂腹（解剖：腿经骨盆/腹）。
+        new BodyPart { Name = Chest, VolumeWeight = 20, MaxHp = 20, Region = BodyRegion.Torso, MacroRegion = BodyMacroRegion.Torso, Category = BodyPartCategory.Vital, Parent = null },
+        new BodyPart { Name = Abdomen, VolumeWeight = 16, MaxHp = 16, Region = BodyRegion.Torso, MacroRegion = BodyMacroRegion.Torso, Category = BodyPartCategory.Vital, Parent = Chest },
+        // 头（颅）→ 挂胸（经颈/胸廓；已移除颈部位：颈无对应装备槽防护）
+        new BodyPart { Name = Head, VolumeWeight = 6, MaxHp = 16, Region = BodyRegion.Head, MacroRegion = BodyMacroRegion.Head, Category = BodyPartCategory.Vital, Parent = Chest },
         // 头部细部位（含左右耳；耳归零仅毁容、无系统后果）
         new BodyPart { Name = LeftEye, VolumeWeight = 0.4, MaxHp = 6, Region = BodyRegion.Eye, MacroRegion = BodyMacroRegion.Head, Category = BodyPartCategory.Eye, Parent = Head },
         new BodyPart { Name = RightEye, VolumeWeight = 0.4, MaxHp = 6, Region = BodyRegion.Eye, MacroRegion = BodyMacroRegion.Head, Category = BodyPartCategory.Eye, Parent = Head },
@@ -64,30 +77,35 @@ public static class HumanBody
         new BodyPart { Name = LeftEar, VolumeWeight = 0.5, MaxHp = 8, Region = BodyRegion.Ear, MacroRegion = BodyMacroRegion.Head, Category = BodyPartCategory.Minor, Parent = Head },
         new BodyPart { Name = RightEar, VolumeWeight = 0.5, MaxHp = 8, Region = BodyRegion.Ear, MacroRegion = BodyMacroRegion.Head, Category = BodyPartCategory.Minor, Parent = Head },
         // 上肢 → 手（手掌本体占手部大部分权重）→ 五指（低权重，独立部位）
-        new BodyPart { Name = LeftArm, VolumeWeight = 8, MaxHp = 21, Region = BodyRegion.Arm, MacroRegion = BodyMacroRegion.Arm, Category = BodyPartCategory.Limb, Parent = Torso },
+        new BodyPart { Name = LeftArm, VolumeWeight = 8, MaxHp = 21, Region = BodyRegion.Arm, MacroRegion = BodyMacroRegion.Arm, Category = BodyPartCategory.Limb, Parent = Chest },
         new BodyPart { Name = LeftHand, VolumeWeight = 3, MaxHp = 16, Region = BodyRegion.Hand, MacroRegion = BodyMacroRegion.Hand, Category = BodyPartCategory.Limb, Parent = LeftArm },
         new BodyPart { Name = LeftThumb, VolumeWeight = 0.35, MaxHp = 10, Region = BodyRegion.Finger, MacroRegion = BodyMacroRegion.Hand, Category = BodyPartCategory.Limb, Parent = LeftHand },
         new BodyPart { Name = LeftIndex, VolumeWeight = 0.3, MaxHp = 10, Region = BodyRegion.Finger, MacroRegion = BodyMacroRegion.Hand, Category = BodyPartCategory.Limb, Parent = LeftHand },
         new BodyPart { Name = LeftMiddle, VolumeWeight = 0.3, MaxHp = 10, Region = BodyRegion.Finger, MacroRegion = BodyMacroRegion.Hand, Category = BodyPartCategory.Limb, Parent = LeftHand },
         new BodyPart { Name = LeftRing, VolumeWeight = 0.3, MaxHp = 10, Region = BodyRegion.Finger, MacroRegion = BodyMacroRegion.Hand, Category = BodyPartCategory.Limb, Parent = LeftHand },
         new BodyPart { Name = LeftPinky, VolumeWeight = 0.25, MaxHp = 10, Region = BodyRegion.Finger, MacroRegion = BodyMacroRegion.Hand, Category = BodyPartCategory.Limb, Parent = LeftHand },
-        new BodyPart { Name = RightArm, VolumeWeight = 8, MaxHp = 21, Region = BodyRegion.Arm, MacroRegion = BodyMacroRegion.Arm, Category = BodyPartCategory.Limb, Parent = Torso },
+        new BodyPart { Name = RightArm, VolumeWeight = 8, MaxHp = 21, Region = BodyRegion.Arm, MacroRegion = BodyMacroRegion.Arm, Category = BodyPartCategory.Limb, Parent = Chest },
         new BodyPart { Name = RightHand, VolumeWeight = 3, MaxHp = 16, Region = BodyRegion.Hand, MacroRegion = BodyMacroRegion.Hand, Category = BodyPartCategory.Limb, Parent = RightArm },
         new BodyPart { Name = RightThumb, VolumeWeight = 0.35, MaxHp = 10, Region = BodyRegion.Finger, MacroRegion = BodyMacroRegion.Hand, Category = BodyPartCategory.Limb, Parent = RightHand },
         new BodyPart { Name = RightIndex, VolumeWeight = 0.3, MaxHp = 10, Region = BodyRegion.Finger, MacroRegion = BodyMacroRegion.Hand, Category = BodyPartCategory.Limb, Parent = RightHand },
         new BodyPart { Name = RightMiddle, VolumeWeight = 0.3, MaxHp = 10, Region = BodyRegion.Finger, MacroRegion = BodyMacroRegion.Hand, Category = BodyPartCategory.Limb, Parent = RightHand },
         new BodyPart { Name = RightRing, VolumeWeight = 0.3, MaxHp = 10, Region = BodyRegion.Finger, MacroRegion = BodyMacroRegion.Hand, Category = BodyPartCategory.Limb, Parent = RightHand },
         new BodyPart { Name = RightPinky, VolumeWeight = 0.25, MaxHp = 10, Region = BodyRegion.Finger, MacroRegion = BodyMacroRegion.Hand, Category = BodyPartCategory.Limb, Parent = RightHand },
-        // 下肢 → 脚（脚掌本体占脚部大部分权重）→ 五趾（低权重，独立部位）
-        new BodyPart { Name = LeftLeg, VolumeWeight = 12, MaxHp = 21, Region = BodyRegion.Leg, MacroRegion = BodyMacroRegion.Leg, Category = BodyPartCategory.Limb, Parent = Torso },
-        new BodyPart { Name = LeftFoot, VolumeWeight = 3, MaxHp = 16, Region = BodyRegion.Foot, MacroRegion = BodyMacroRegion.Foot, Category = BodyPartCategory.Limb, Parent = LeftLeg },
+        // 下肢细分为大腿+小腿（[SPEC-B17]）→ 脚 → 五趾。权重 大腿(7)+小腿(5)=原腿 12（按体表拆大腿略粗）。HP 大腿12/小腿11=23（拟定待调）。
+        // 大/小腿均 Region.Leg / Macro.Leg / Limb（沿原腿通用档，骨折与移动同档）。
+        // 小腿 HP 11>匕首上限 10：避免细分后小腿被单击秒切、平添流血伤口（腿非致死池，HP 对胜率不敏感，仅经切除→流血；Sim 验证腿 21→23 胜率≈不变）。
+        // 双腿挂腹（解剖：经骨盆/腹）。切除按解剖连带：截大腿 → 连带远端小腿+脚+趾。
+        new BodyPart { Name = LeftLeg, VolumeWeight = 7, MaxHp = 12, Region = BodyRegion.Leg, MacroRegion = BodyMacroRegion.Leg, Category = BodyPartCategory.Limb, Parent = Abdomen },
+        new BodyPart { Name = LeftCalf, VolumeWeight = 5, MaxHp = 11, Region = BodyRegion.Leg, MacroRegion = BodyMacroRegion.Leg, Category = BodyPartCategory.Limb, Parent = LeftLeg },
+        new BodyPart { Name = LeftFoot, VolumeWeight = 3, MaxHp = 16, Region = BodyRegion.Foot, MacroRegion = BodyMacroRegion.Foot, Category = BodyPartCategory.Limb, Parent = LeftCalf },
         new BodyPart { Name = LeftBigToe, VolumeWeight = 0.3, MaxHp = 10, Region = BodyRegion.Toe, MacroRegion = BodyMacroRegion.Foot, Category = BodyPartCategory.Limb, Parent = LeftFoot },
         new BodyPart { Name = LeftToe2, VolumeWeight = 0.2, MaxHp = 10, Region = BodyRegion.Toe, MacroRegion = BodyMacroRegion.Foot, Category = BodyPartCategory.Limb, Parent = LeftFoot },
         new BodyPart { Name = LeftToe3, VolumeWeight = 0.2, MaxHp = 10, Region = BodyRegion.Toe, MacroRegion = BodyMacroRegion.Foot, Category = BodyPartCategory.Limb, Parent = LeftFoot },
         new BodyPart { Name = LeftToe4, VolumeWeight = 0.2, MaxHp = 10, Region = BodyRegion.Toe, MacroRegion = BodyMacroRegion.Foot, Category = BodyPartCategory.Limb, Parent = LeftFoot },
         new BodyPart { Name = LeftToe5, VolumeWeight = 0.15, MaxHp = 10, Region = BodyRegion.Toe, MacroRegion = BodyMacroRegion.Foot, Category = BodyPartCategory.Limb, Parent = LeftFoot },
-        new BodyPart { Name = RightLeg, VolumeWeight = 12, MaxHp = 21, Region = BodyRegion.Leg, MacroRegion = BodyMacroRegion.Leg, Category = BodyPartCategory.Limb, Parent = Torso },
-        new BodyPart { Name = RightFoot, VolumeWeight = 3, MaxHp = 16, Region = BodyRegion.Foot, MacroRegion = BodyMacroRegion.Foot, Category = BodyPartCategory.Limb, Parent = RightLeg },
+        new BodyPart { Name = RightLeg, VolumeWeight = 7, MaxHp = 12, Region = BodyRegion.Leg, MacroRegion = BodyMacroRegion.Leg, Category = BodyPartCategory.Limb, Parent = Abdomen },
+        new BodyPart { Name = RightCalf, VolumeWeight = 5, MaxHp = 11, Region = BodyRegion.Leg, MacroRegion = BodyMacroRegion.Leg, Category = BodyPartCategory.Limb, Parent = RightLeg },
+        new BodyPart { Name = RightFoot, VolumeWeight = 3, MaxHp = 16, Region = BodyRegion.Foot, MacroRegion = BodyMacroRegion.Foot, Category = BodyPartCategory.Limb, Parent = RightCalf },
         new BodyPart { Name = RightBigToe, VolumeWeight = 0.3, MaxHp = 10, Region = BodyRegion.Toe, MacroRegion = BodyMacroRegion.Foot, Category = BodyPartCategory.Limb, Parent = RightFoot },
         new BodyPart { Name = RightToe2, VolumeWeight = 0.2, MaxHp = 10, Region = BodyRegion.Toe, MacroRegion = BodyMacroRegion.Foot, Category = BodyPartCategory.Limb, Parent = RightFoot },
         new BodyPart { Name = RightToe3, VolumeWeight = 0.2, MaxHp = 10, Region = BodyRegion.Toe, MacroRegion = BodyMacroRegion.Foot, Category = BodyPartCategory.Limb, Parent = RightFoot },

@@ -27,9 +27,9 @@ public class PawnInspectionTests
         Assert.False(snap.IsFullyBlind);
         Assert.Equal(BloodLossTier.None, snap.BloodTier);
         Assert.Equal(1.0, snap.BloodRatio, 3);
-        // 满员人体细部位数 = 36（已移除"颈"部位；含两级命中：左右耳 2 + 十指 10 + 十趾 10）。
+        // 满员人体细部位数 = 39（[SPEC-B17] 躯干→胸+腹、腿→大腿+小腿：原 36 + 腹 + 左右小腿 = 39；含两级命中：左右耳 2 + 十指 10 + 十趾 10）。
         Assert.Equal(body.Parts.Count, snap.Parts.Count);
-        Assert.Equal(36, snap.Parts.Count);
+        Assert.Equal(39, snap.Parts.Count);
     }
 
     [Fact]
@@ -38,21 +38,22 @@ public class PawnInspectionTests
         Body body = FreshBody();
         PawnInspection snap = PawnInspection.FromBody(body, null, System.Array.Empty<ArmorLayer>(), "x");
 
-        PartStatus torso = snap.Parts.Single(p => p.Name == HumanBody.Torso);
-        Assert.Equal(body.HpOf(HumanBody.Torso), torso.Hp);
-        Assert.Equal(body.MaxHpOf(HumanBody.Torso), torso.MaxHp);
-        Assert.Equal(BodyRegion.Torso, torso.Region);
-        Assert.Equal(BodyPartCategory.Vital, torso.Category);
-        Assert.Null(torso.ParentName);
-        Assert.False(torso.IsSevered);
-        Assert.False(torso.IsDestroyed);
-        Assert.False(torso.IsDisabled);
-        Assert.False(torso.IsFractured);
-        Assert.False(torso.IsBleeding);
+        // 胸=躯干细分后的树根（[SPEC-B17]）：Region.Torso / Vital / 无父。
+        PartStatus chest = snap.Parts.Single(p => p.Name == HumanBody.Chest);
+        Assert.Equal(body.HpOf(HumanBody.Chest), chest.Hp);
+        Assert.Equal(body.MaxHpOf(HumanBody.Chest), chest.MaxHp);
+        Assert.Equal(BodyRegion.Torso, chest.Region);
+        Assert.Equal(BodyPartCategory.Vital, chest.Category);
+        Assert.Null(chest.ParentName);
+        Assert.False(chest.IsSevered);
+        Assert.False(chest.IsDestroyed);
+        Assert.False(chest.IsDisabled);
+        Assert.False(chest.IsFractured);
+        Assert.False(chest.IsBleeding);
 
-        // 头直接挂躯干下（已移除颈部位）：ParentName 映射父部位名。
+        // 头挂胸下（已移除颈部位）：ParentName 映射父部位名。
         PartStatus head = snap.Parts.Single(p => p.Name == HumanBody.Head);
-        Assert.Equal(HumanBody.Torso, head.ParentName);
+        Assert.Equal(HumanBody.Chest, head.ParentName);
     }
 
     [Fact]
@@ -114,11 +115,11 @@ public class PawnInspectionTests
         Body body = FreshBody();
         PawnInspection snap = PawnInspection.FromBody(body, null, System.Array.Empty<ArmorLayer>(), "x");
 
-        double torsoHpBefore = snap.Parts.Single(p => p.Name == HumanBody.Torso).Hp;
-        // 快照拍完后重创躯干：快照里的旧值不应变化。
-        body.ApplyDamage(HumanBody.Torso, 20);
+        double chestHpBefore = snap.Parts.Single(p => p.Name == HumanBody.Chest).Hp;
+        // 快照拍完后重创胸：快照里的旧值不应变化。
+        body.ApplyDamage(HumanBody.Chest, 10);
 
-        Assert.Equal(torsoHpBefore, snap.Parts.Single(p => p.Name == HumanBody.Torso).Hp);
-        Assert.True(body.HpOf(HumanBody.Torso) < torsoHpBefore);
+        Assert.Equal(chestHpBefore, snap.Parts.Single(p => p.Name == HumanBody.Chest).Hp);
+        Assert.True(body.HpOf(HumanBody.Chest) < chestHpBefore);
     }
 }

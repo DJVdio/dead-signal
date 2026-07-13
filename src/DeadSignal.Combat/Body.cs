@@ -320,7 +320,7 @@ public sealed class Body
 
     /// <summary>
     /// 切除部位：连带移除其所有后代（切上臂→连带手），触发装备掉落回调。
-    /// 若被移除集合含致死部位（头/颈/躯干）→ 角色死亡（斩首/开膛，不生成断肢实体）。
+    /// 若被移除集合含致死部位（头/胸/腹）→ 角色死亡（斩首/开膛，不生成断肢实体）。
     /// </summary>
     public SeverResult Sever(string partName)
     {

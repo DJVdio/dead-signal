@@ -113,6 +113,13 @@ public sealed class HealthCondition
     /// <summary>手术恢复效率 %（≥0，可 &gt;100）：0=未手术（流血/骨折不愈合、出血继续恶化）；&gt;10=手术成功，逐日按此愈合（100=正常速度，&gt;100=过载/超常发挥、愈合更快更好）。</summary>
     public int RecoveryEfficiency { get; private set; }
 
+    /// <summary>
+    /// [SPEC-B14-补3·感染双进度竞速] **治疗进度** 0..1（仅 <see cref="HealthConditionType.Infection"/> 有意义）：与 <see cref="Severity"/>（此处即"感染/死亡进度"）赛跑。
+    /// 每次用药 <see cref="HealthConditionSet.TreatIllness"/> 按 <c>药物治疗效率(Efficacy) × 基准积累速率</c> 累加、**跨药持续累计**（先茶垫后抗生素接力有意义）；
+    /// 先到 1.0 → 感染清除（双条清零、条目移除）。**治疗不减缓感染进度**（独立竞速，用户拍板）：感染进度照常在 <see cref="HealthConditionSet.TickDay"/> 累积，谁先到顶谁赢。
+    /// </summary>
+    public double CureProgress { get; private set; }
+
     /// <summary>是否已成功手术（流血/骨折进入愈合态）。</summary>
     public bool IsOperated => RecoveryEfficiency > 0;
 
@@ -135,27 +142,45 @@ public sealed class HealthCondition
     internal void MarkTended() => Tended = true;
     internal void ClearTended() => Tended = false;
     internal void SetRecoveryEfficiency(int eff) => RecoveryEfficiency = Math.Max(0, eff); // 不封顶 100：允许过载效率 >100
+    internal void AddCureProgress(double d) => CureProgress = Math.Clamp(CureProgress + d, 0.0, 1.0);
     internal void AdvanceDay() => DaysElapsed++;
 }
 
-/// <summary>一条药品的治疗语义（物品数据在 <see cref="Materials"/>，此处只描述"治哪种病状 + 药效强度"）。仅覆盖**感染/疾病**（流血/骨折走手术，不在此）。</summary>
+/// <summary>一条药品的治疗语义（物品数据在 <see cref="Materials"/>，此处只描述"治哪种病状 + 药效强度 + 治疗效率"）。仅覆盖**感染/疾病**（流血/骨折走手术，不在此）。</summary>
 /// <param name="MaterialKey">对应 <see cref="MaterialDef.Key"/>（搜刮入库/治疗消耗按此扣减）。</param>
 /// <param name="Treats">该药主治的病状类别（Infection/Disease）。</param>
-/// <param name="Potency">药效基数 0..1（乘施治者医疗技能系数得单次降severity量）。</param>
-public readonly record struct Medicine(string MaterialKey, HealthConditionType Treats, double Potency);
+/// <param name="Potency">药效基数 0..1（乘固定照护系数得该药"满效"下的单次降severity量）。</param>
+/// <param name="Efficacy">
+/// **治疗效率** 0..1（[SPEC-B14/终稿] 用户拍板值，非拟定）：
+///   · 感染（双进度竞速·三档双效）——**治疗进度积累速率乘子**：用药期间累加治疗进度 = <c>Efficacy × <see cref="HealthConditionSet.CureProgressBaseRate"/> × dt</c>，跨药累计、先到 1.0 清除。
+///     抗生素=1.00（通常 1~2 天痊愈）、草药膏=0.35（须趁早的次选）、蒲公英茶=0.15（只能延缓、单用赢不了、混合策略先垫进度再换药）。
+///   · 疾病——仍走 severity 消退模型，消退量 = <c>Potency × 照护系数 × Efficacy</c>（成药 Efficacy=1.00，行为不变）。
+/// 默认 1.00。与南丁格尔特长的"预防感染率乘子"(TickDay.infectionChanceMultiplier)是**正交两轴**：那个压"会不会感染"，本轴调"已感染治得多快"。
+/// </param>
+/// <param name="WorsenMultiplier">
+/// **感染恶化减缓乘子** 0..1（[SPEC-B14/终稿] 用户拍板值，非拟定；仅感染用药有意义）：用药期间感染进度累积速率 ×此值。
+/// 抗生素=0.50、草药膏=0.75、蒲公英茶=0.85（越强的药越能压住恶化）。默认 1.00（不减缓/非感染药）。这是三档"双效"的第二效——与 <see cref="Efficacy"/> 同为用户终稿定值。
+/// </param>
+public readonly record struct Medicine(string MaterialKey, HealthConditionType Treats, double Potency, double Efficacy = 1.0, double WorsenMultiplier = 1.0);
 
 /// <summary>
-/// 药品目录（**draft**）：材料标识名 → 治疗语义。**只含感染/疾病用药**（抗生素/成药）；
-/// 流血/骨折不吃药、只做手术（见 <see cref="SurgeryCatalog"/>）。供 <see cref="HealthConditionSet.TreatIllness"/> 消费。
+/// 药品目录（**draft**，但 <see cref="Medicine.Efficacy"/> 三档百分比为 [SPEC-B14] 用户原话定值）：材料标识名 → 治疗语义。
+/// **只含感染/疾病用药**（抗生素/草药膏/蒲公英茶治感染，成药治疾病）；流血/骨折不吃药、只做手术（见 <see cref="SurgeryCatalog"/>）。
+/// 供 <see cref="HealthConditionSet.TreatIllness"/> 消费。感染三档共用同一 Potency 基数，仅治疗效率(Efficacy)不同——玩家据此权衡"用珍贵抗生素还是自制草药"。
 /// </summary>
 public static class MedicineCatalog
 {
     private static readonly IReadOnlyDictionary<string, Medicine> _byKey = new[]
     {
-        // 抗生素：对抗感染，需连续几天见效。
-        new Medicine("antibiotics", HealthConditionType.Infection, 0.5),
-        // 成药：缓解泛化疾病。
-        new Medicine("medicine", HealthConditionType.Disease, 0.6),
+        // [SPEC-B14/终稿·三档双效] 感染三档=治疗效率 + 恶化减缓（六值皆用户原话非拟定）：
+        // 抗生素：治疗效率 1.00 + 恶化 ×0.50（通常 1~2 天痊愈）。
+        new Medicine("antibiotics", HealthConditionType.Infection, 0.5, Efficacy: 1.00, WorsenMultiplier: 0.50),
+        // 草药膏（蒲公英+玫瑰果+老君须）：治疗效率 0.35 + 恶化 ×0.75（须趁早的次选）。
+        new Medicine("herbal_salve", HealthConditionType.Infection, 0.5, Efficacy: 0.35, WorsenMultiplier: 0.75),
+        // 蒲公英茶：治疗效率 0.15 + 恶化 ×0.85（只能延缓，单用赢不了）。
+        new Medicine("dandelion_tea", HealthConditionType.Infection, 0.5, Efficacy: 0.15, WorsenMultiplier: 0.85),
+        // 成药：缓解泛化疾病，满效（疾病走 severity 消退模型，不涉恶化减缓）。
+        new Medicine("medicine", HealthConditionType.Disease, 0.6, Efficacy: 1.00),
     }.ToDictionary(m => m.MaterialKey);
 
     /// <summary>按材料标识名查药品治疗语义；非药品返回 null。</summary>
@@ -180,7 +205,7 @@ public readonly record struct SurgerySupply(string MaterialKey, int Points, bool
 /// <summary>
 /// 手术耗材目录（**draft**）：材料标识名 → 手术点数/适用伤类/是否独占。与 <see cref="Materials"/> 里
 /// <see cref="MaterialCategory.Medical"/> 手术耗材一一对应，供 <see cref="HealthConditionSet.PerformSurgery"/> 消费。
-///   · 流血：绷带 +15 / 针线 +15（可叠加=同用 +30）；或急救包 +60（独占）。
+///   · 流血：绷带 +15 / 草药绷带 +25（绷带上位替代）/ 针线 +15（非独占可叠加）；或急救包 +60（独占）。
 ///   · 骨折：夹板 +25；或急救包 +60（独占）。
 /// </summary>
 public static class SurgeryCatalog
@@ -188,6 +213,8 @@ public static class SurgeryCatalog
     private static readonly IReadOnlyDictionary<string, SurgerySupply> _byKey = new[]
     {
         new SurgerySupply("bandage", 15, false, new[] { HealthConditionType.Bleeding }),
+        // [SPEC-B14-补] 草药绷带：普通绷带的上位替代，止血手术供点 25（15/25 用户原话非拟定）。非独占，按现有加算模型可与针线叠加。
+        new SurgerySupply("herbal_bandage", 25, false, new[] { HealthConditionType.Bleeding }),
         new SurgerySupply("needle_thread", 15, false, new[] { HealthConditionType.Bleeding }),
         new SurgerySupply("splint", 25, false, new[] { HealthConditionType.Fracture }),
         new SurgerySupply("first_aid_kit", 60, true, new[] { HealthConditionType.Bleeding, HealthConditionType.Fracture }),
@@ -293,8 +320,13 @@ public sealed class HealthConditionSet
     // ---- 恶化速率（每昼夜，draft）----
     private const double BleedWorsenPerDay = 0.10;       // 未手术出血逐日加重；draft：0.15→0.10 放宽操作窗（致命伤死亡线第 5→约第 8 昼夜后移，仍必死）
     private const double InfectionBaseChance = 0.45;     // 开放伤口感染几率基数（× 出血严重度 × 伤口大小系数）
-    private const double InfectionInitialSeverity = 0.22;// 新感染初始严重度
-    private const double InfectionWorsenPerDay = 0.20;   // 感染逐日恶化 → 未治约第 4 昼夜封顶坏疽/败血症
+    private const double InfectionInitialSeverity = 0.0; // 新感染初始"感染进度"（死亡赛道起点，终稿：从 0 起算）
+    // [SPEC-B14/终稿·三档双效] 感染双进度竞速：Severity 即"感染/死亡进度"，按 dt 天数累积；用药期间按档 ×WorsenMultiplier 减缓（非"不减速"）。封顶 1.0=坏疽/败血症。
+    // draft：r_i = 1/6 天≈0.1667/日 → 未用药约第 6 昼夜封顶（T_i=6 天，与失血 7 天死线错开）。用 Sim 校准。**全程 double 不取整**（[SPEC-B14-补4]）。
+    private const double InfectionWorsenPerDay = 1.0 / 6.0;
+    /// <summary>[SPEC-B14/终稿] 治疗进度基准积累速率（每日，效率 1.0 满效值，draft）：用药期间累加治疗进度 = <see cref="Medicine.Efficacy"/> × 本值 × dt天数。
+    /// draft 0.67：锚点=抗生素(1.00)通常 1~2 天痊愈（用户原话）；草药膏(0.35→0.2345/日)须趁早的次选(~4.3 天连续)；蒲公英茶(0.15→0.1005/日)只能延缓、单用赢不了。用 Sim 校准。</summary>
+    public const double CureProgressBaseRate = 0.67;
     private const double DiseaseWorsenPerDay = 0.12;     // 疾病逐日恶化
     private const double RestWorsenFactor = 0.5;         // 休养减缓感染/疾病恶化系数（抗生素才是正解、卧床只拖延）
     private const double FractureMalunionPerDay = 0.05;  // 未手术骨折逐日畸形化（封顶致残）
@@ -369,6 +401,13 @@ public sealed class HealthConditionSet
         }
         return (100, p - 100);
     }
+
+    /// <summary>
+    /// [SPEC-B14-补3] 感染进度(Severity 0..1)的**显示分档**（"坏疽"降为高进度呈现层，非独立终态）：
+    /// 0–33% 初期 / 34–66% 扩散 / 67–99% 濒坏疽。供 UI 给感染条着色/措辞；100% 才是真终态（坏疽截肢/败血症死）。
+    /// </summary>
+    public static string InfectionStageWord(double severity)
+        => severity < 0.34 ? "初期" : severity < 0.67 ? "扩散" : "濒坏疽";
 
     /// <summary>
     /// 该已手术伤口现在是否可**重做手术**（重新 roll 恢复效率、覆盖旧值）：需已手术且距上次手术 &gt; <see cref="RedoSurgeryCooldownDays"/> 昼夜。
@@ -498,29 +537,227 @@ public sealed class HealthConditionSet
     }
 
     /// <summary>
-    /// 用药治疗一处**感染/疾病**（流血/骨折不吃药、走 <see cref="PerformSurgery"/>）：给定病状、药品，
-    /// 降 severity，归 0 → 治愈并移除。药不对症或病状非感染/疾病 → <see cref="TreatmentStatus.NoEffect"/>。
-    /// 疗效取固定基数（<see cref="TreatmentPotencyFactor"/>，通用医疗技能已删）；<see cref="TickDay"/> resting 减缓恶化。
+    /// 用药治疗一处**疾病**（流血/骨折走手术、感染走 <see cref="AdvanceInfectionRace"/> 竞速，均不经此）：severity 消退 =
+    /// <c>Potency × <see cref="TreatmentPotencyFactor"/> × Efficacy</c>，归 0 治愈；用药当日 <see cref="HealthCondition.Tended"/> 置真跳过自然恶化。
+    /// 药不对症或病状非疾病 → <see cref="TreatmentStatus.NoEffect"/>。（感染改双进度竞速后不再从此走一次性消退。）
     /// </summary>
     public TreatmentResult TreatIllness(HealthCondition condition, Medicine? medicine)
     {
         double before = condition.Severity;
 
-        bool isIllness = condition.Type == HealthConditionType.Infection || condition.Type == HealthConditionType.Disease;
-        bool matches = isIllness && medicine.HasValue && medicine.Value.Treats == condition.Type;
+        bool matches = condition.Type == HealthConditionType.Disease && medicine.HasValue && medicine.Value.Treats == HealthConditionType.Disease;
         if (!matches)
         {
             return new TreatmentResult { Status = TreatmentStatus.NoEffect, SeverityBefore = before, SeverityAfter = before, Removed = false };
         }
 
         condition.MarkTended();
-        condition.AddSeverity(-medicine!.Value.Potency * TreatmentPotencyFactor);
+        condition.AddSeverity(-medicine!.Value.Potency * TreatmentPotencyFactor * medicine.Value.Efficacy);
         if (condition.Severity <= 0)
         {
             _conditions.Remove(condition);
             return new TreatmentResult { Status = TreatmentStatus.Cured, SeverityBefore = before, SeverityAfter = 0, Removed = true };
         }
         return new TreatmentResult { Status = TreatmentStatus.Applied, SeverityBefore = before, SeverityAfter = condition.Severity, Removed = false };
+    }
+
+    /// <summary>
+    /// [SPEC-B14/终稿·三档双效] 推进本人**唯一一场**感染竞速一个时间片 <paramref name="dtDays"/>（天，可 &lt;1=相位级细分；全程 double 不取整）：
+    ///   · 感染进度(Severity) += <c><see cref="InfectionWorsenPerDay"/> × dt × (用药? medicine.WorsenMultiplier : 1)</c>（用药期间按档减缓恶化）；
+    ///   · 用药期间治疗进度(CureProgress) += <c>medicine.Efficacy × <see cref="CureProgressBaseRate"/> × dt</c>（跨药累计）；
+    ///   · **治疗进度先到 1.0** → 清除感染（治疗抢先，双条随条目移除）；否则感染进度到 1.0 → 坏疽截肢(肢体)/败血症死(非肢体)。
+    /// <paramref name="medicated"/>=false 表示本时间片未用药（无疗程/断药）：只累积感染、不减缓、不加治疗。无感染条目 → 返回 <see cref="ConditionOutcome.None"/>。
+    /// </summary>
+    /// <param name="dtDays">本时间片天数（相位级传 1/相位数；整日传 1.0）。</param>
+    /// <param name="medicated">本时间片是否在用药（疗程指派且有药）。</param>
+    /// <param name="medicine">所用药（<paramref name="medicated"/> 为真时必给感染药，取其 Efficacy/WorsenMultiplier）。</param>
+    public InfectionRaceResult AdvanceInfectionRace(double dtDays, bool medicated, Medicine? medicine)
+    {
+        HealthCondition? inf = _conditions.FirstOrDefault(c => c.Type == HealthConditionType.Infection);
+        if (inf is null || dtDays <= 0.0)
+        {
+            return new InfectionRaceResult { Outcome = ConditionOutcome.None };
+        }
+
+        bool useMed = medicated && medicine is { } m0 && m0.Treats == HealthConditionType.Infection;
+        double worsenMult = useMed ? medicine!.Value.WorsenMultiplier : 1.0;
+        inf.AddSeverity(InfectionWorsenPerDay * dtDays * worsenMult);
+        if (useMed)
+        {
+            inf.AddCureProgress(medicine!.Value.Efficacy * CureProgressBaseRate * dtDays);
+        }
+
+        // 治疗抢先：治疗进度先到顶 → 清除感染（≥ 比较，不取整）。
+        if (inf.CureProgress >= 1.0)
+        {
+            _conditions.Remove(inf);
+            return new InfectionRaceResult { Outcome = ConditionOutcome.None, Cured = true };
+        }
+        // [SPEC-B14-补7] 感染进度到顶(≥100%) → **当相位立刻死亡**（无论肢体/非肢体，不再自动坏疽截肢）。
+        // 想保命只能在到顶前由玩家主动选做 <see cref="PerformAmputation"/> 截肢（可选手术、需抉择），系统不自动截肢、不弹建议。
+        if (inf.Severity >= 1.0)
+        {
+            IsDead = true;
+            return new InfectionRaceResult { Outcome = ConditionOutcome.Death };
+        }
+        return new InfectionRaceResult { Outcome = ConditionOutcome.None };
+    }
+
+    /// <summary>
+    /// [SPEC-B14-补7] **主动截肢手术**（可选、玩家抉择，非系统自动）：切除一处**感染的肢体**以中止感染竞速——最后的保命手段。
+    /// 走既有手术点数池/耗材/成败流程：有效池 <c>P = round((基础15+床10+止血耗材+医疗书) × 操作能力 × (自体?0.60:1))</c>；
+    /// P&lt;15 → <see cref="SurgeryStatus.NotAllowed"/>；否则按 <see cref="RollRange"/> 分段 roll，roll &gt; <see cref="SurgeryFailThreshold"/>=成功。
+    /// **成功**：移除该感染（双条清零）+ 消解该部位其余病状（残端后果照既有规则：**保留仍在活动的致命失血=残端失血**，不软化）→ 调用方 <see cref="Body.Sever"/> 断肢；
+    /// **失败**：耗材照耗、部位保留、感染继续竞速（未中止）。耗材取止血类（绷带/针线/草药绷带/急救包，关合残端）；点数/roll 不对玩家展示。
+    /// </summary>
+    /// <param name="infection">目标感染（须在本集内、Type=Infection 且 <see cref="HealthCondition.OnLimb"/>，否则抛 <see cref="ArgumentException"/>）。</param>
+    /// <param name="materials">投入的止血耗材 Key（关合残端；非止血/不适用者忽略、不消耗；急救包独占）。</param>
+    public SurgeryResult PerformAmputation(
+        HealthCondition infection,
+        IReadOnlyList<string>? materials,
+        bool onBed,
+        IRandomSource rng,
+        int surgeonBookBonus = 0,
+        bool selfSurgery = false,
+        double operationCapability = 1.0,
+        int? surgeryBasePoints = null)
+    {
+        if (infection.Type != HealthConditionType.Infection)
+        {
+            throw new ArgumentException("截肢手术只针对感染的肢体。", nameof(infection));
+        }
+        if (!infection.OnLimb)
+        {
+            throw new ArgumentException("只能截除肢体部位（非肢体感染无肢可截）。", nameof(infection));
+        }
+        if (!_conditions.Contains(infection))
+        {
+            throw new ArgumentException("该感染不在本伤病集内。", nameof(infection));
+        }
+
+        // 止血耗材（关合残端）：SurgeryCatalog 里能治 Bleeding 的供点计入。
+        var supplies = new List<SurgerySupply>();
+        if (materials != null)
+        {
+            foreach (string key in materials)
+            {
+                if (SurgeryCatalog.For(key) is SurgerySupply sup && sup.CanTreat(HealthConditionType.Bleeding))
+                {
+                    supplies.Add(sup);
+                }
+            }
+        }
+        if (supplies.Any(s => s.Exclusive) && supplies.Count > 1)
+        {
+            throw new ArgumentException("急救包为独占耗材，不可与其他耗材叠加。", nameof(materials));
+        }
+
+        double cap = Math.Clamp(operationCapability, 0.0, 1.0);
+        int rawPoints = (surgeryBasePoints ?? SurgeryBasePoints) + (onBed ? BedBonusPoints : 0) + supplies.Sum(s => s.Points) + Math.Max(0, surgeonBookBonus);
+        int pool = (int)Math.Round(rawPoints * cap * (selfSurgery ? SelfSurgeryFactor : 1.0), MidpointRounding.AwayFromZero);
+
+        if (pool < SurgeryMinPoints)
+        {
+            return new SurgeryResult
+            {
+                Status = SurgeryStatus.NotAllowed,
+                Roll = 0,
+                Efficiency = 0,
+                PointPool = pool,
+                ConsumedMaterials = Array.Empty<string>(),
+                PlayerMessage = SurgeryResult.NotAllowedMessage,
+            };
+        }
+
+        (int lo, int hi) = RollRange(pool);
+        int roll = hi <= lo ? lo : Math.Clamp((int)rng.Range(lo, hi + 1), lo, hi);
+        bool success = roll > SurgeryFailThreshold;
+        var consumed = supplies.Select(s => s.MaterialKey).ToList();
+
+        if (success)
+        {
+            string? part = infection.BodyPart;
+            _conditions.Remove(infection); // 双条随条目移除清零
+            // 残端后果照既有规则：该部位其余病状消解，但仍在活动的致命失血例外（残端失血，别软化）。
+            if (part != null)
+            {
+                _conditions.RemoveAll(h => h.BodyPart == part
+                    && !(h.Type == HealthConditionType.Bleeding && h.LethalBleed && !h.IsOperated));
+            }
+        }
+        // 失败：耗材照耗、部位保留、感染未中止（继续竞速）。
+
+        return new SurgeryResult
+        {
+            Status = success ? SurgeryStatus.Success : SurgeryStatus.Failed,
+            Roll = roll,
+            Efficiency = success ? roll : 0,
+            PointPool = pool,
+            ConsumedMaterials = consumed,
+        };
+    }
+
+    /// <summary>
+    /// [SPEC-B14-补8] **安装假肢手术**的成败判定（纯 roll，无病状目标、无副作用）：给一个失去的肢体装假肢也是手术——
+    /// 走既有点数池/耗材/成败流程。有效池 <c>P = round((基础15+床10+止血耗材+医疗书) × 操作能力 × (自体?0.60:1))</c>；
+    /// P&lt;15 → <see cref="SurgeryStatus.NotAllowed"/>；否则 <see cref="RollRange"/> 分段 roll，roll &gt; <see cref="SurgeryFailThreshold"/>=成功。
+    /// 本方法只判成败并返回耗材清单；假肢就位（<c>Body.AttachProsthetic</c>）与假肢本体消耗由调用方按结果处理
+    /// （失败默认假肢本体不损耗、留库存可重试，见 Pawn/CampMain 接线）。耗材取止血类（关合残端）。
+    /// </summary>
+    public SurgeryResult PerformProstheticSurgery(
+        IReadOnlyList<string>? materials,
+        bool onBed,
+        IRandomSource rng,
+        int surgeonBookBonus = 0,
+        bool selfSurgery = false,
+        double operationCapability = 1.0,
+        int? surgeryBasePoints = null)
+    {
+        var supplies = new List<SurgerySupply>();
+        if (materials != null)
+        {
+            foreach (string key in materials)
+            {
+                if (SurgeryCatalog.For(key) is SurgerySupply sup && sup.CanTreat(HealthConditionType.Bleeding))
+                {
+                    supplies.Add(sup);
+                }
+            }
+        }
+        if (supplies.Any(s => s.Exclusive) && supplies.Count > 1)
+        {
+            throw new ArgumentException("急救包为独占耗材，不可与其他耗材叠加。", nameof(materials));
+        }
+
+        double cap = Math.Clamp(operationCapability, 0.0, 1.0);
+        int rawPoints = (surgeryBasePoints ?? SurgeryBasePoints) + (onBed ? BedBonusPoints : 0) + supplies.Sum(s => s.Points) + Math.Max(0, surgeonBookBonus);
+        int pool = (int)Math.Round(rawPoints * cap * (selfSurgery ? SelfSurgeryFactor : 1.0), MidpointRounding.AwayFromZero);
+
+        if (pool < SurgeryMinPoints)
+        {
+            return new SurgeryResult
+            {
+                Status = SurgeryStatus.NotAllowed,
+                Roll = 0,
+                Efficiency = 0,
+                PointPool = pool,
+                ConsumedMaterials = Array.Empty<string>(),
+                PlayerMessage = SurgeryResult.NotAllowedMessage,
+            };
+        }
+
+        (int lo, int hi) = RollRange(pool);
+        int roll = hi <= lo ? lo : Math.Clamp((int)rng.Range(lo, hi + 1), lo, hi);
+        bool success = roll > SurgeryFailThreshold;
+
+        return new SurgeryResult
+        {
+            Status = success ? SurgeryStatus.Success : SurgeryStatus.Failed,
+            Roll = roll,
+            Efficiency = success ? roll : 0,
+            PointPool = pool,
+            ConsumedMaterials = supplies.Select(s => s.MaterialKey).ToList(),
+        };
     }
 
     /// <summary>
@@ -533,8 +770,9 @@ public sealed class HealthConditionSet
         {
             return false;
         }
+        // [SPEC-B14-补3·护栏] 感染以人为单位：一名幸存者同时只跑**一场**感染竞速。已有任何感染 → 新伤口不再重开条（忽略并入，最简）。
         bool alreadyInfected = _conditions.Concat(newConditions)
-            .Any(x => x.Type == HealthConditionType.Infection && x.BodyPart == wound.BodyPart);
+            .Any(x => x.Type == HealthConditionType.Infection);
         if (alreadyInfected)
         {
             return false;
@@ -559,7 +797,11 @@ public sealed class HealthConditionSet
     /// 全营感染率乘子（默认 1.0＝无影响）：[SPEC-B13-补] 南丁格尔三级特长的营地卫生减免（她 L2 在营 ×0.85 / L3 遗产叠加至 ×0.75 等），
     /// 由调用方经 <c>NightingalePerk.CampInfectionMultiplier</c> 算好传入；只缩放本昼夜的开放伤口感染几率，不改其余恶化/愈合。
     /// </param>
-    public HealthTickResult TickDay(IRandomSource rng, bool resting, bool restedInBed = false, double infectionChanceMultiplier = 1.0)
+    /// <param name="extraHealBonusPct">
+    /// [SPEC-B14-补2] 额外恢复效率加成（**百分点**，加算，默认 0）：与睡床加算 <see cref="BedSleepHealBonusPct"/> **同族叠加**，只作用术后流血/骨折的逐日愈合速度。
+    /// 玫瑰果茶 buff 生效时由调用方传 <c>+9</c>（Pawn 上 24 游戏小时计时）；不改感染/疾病恶化。
+    /// </param>
+    public HealthTickResult TickDay(IRandomSource rng, bool resting, bool restedInBed = false, double infectionChanceMultiplier = 1.0, double extraHealBonusPct = 0.0)
     {
         if (IsDead)
         {
@@ -584,8 +826,8 @@ public sealed class HealthConditionSet
                 case HealthConditionType.Bleeding:
                     if (c.IsOperated)
                     {
-                        // 已手术：按恢复效率愈合（睡床加算 +BedSleepHealBonusPct 个百分点，加算非乘算）。
-                        double effPct = c.RecoveryEfficiency + (restedInBed ? BedSleepHealBonusPct : 0.0);
+                        // 已手术：按恢复效率愈合（睡床 +BedSleepHealBonusPct 与玫瑰果茶 +extraHealBonusPct 同族加算，非乘算）。
+                        double effPct = c.RecoveryEfficiency + (restedInBed ? BedSleepHealBonusPct : 0.0) + Math.Max(0.0, extraHealBonusPct);
                         double heal = BleedHealPerDay * (effPct / 100.0) * (resting ? RestHealBonus : 1.0);
                         c.AddSeverity(-heal);
                     }
@@ -624,22 +866,15 @@ public sealed class HealthConditionSet
                     break;
 
                 case HealthConditionType.Infection:
-                    if (!c.Tended)
-                    {
-                        double w = InfectionWorsenPerDay * (resting ? RestWorsenFactor : 1.0);
-                        c.AddSeverity(w);
-                    }
-                    if (c.Severity >= 1.0)
-                    {
-                        outcome = c.OnLimb ? ConditionOutcome.Maim : ConditionOutcome.Death; // 坏疽截肢 / 败血症
-                    }
+                    // [SPEC-B14/终稿] 感染进度/治疗进度的推进不在此日结算——移到相位级 <see cref="AdvanceInfectionRace"/>（每昼夜多次，dt 细分），
+                    // 以免整日粒度吃掉草药膏的胜利窗口。TickDay 只保留"新伤口按几率新生感染(TryContractInfection)"与"截肢连带清感染"。此处对既有感染无操作。
                     break;
 
                 case HealthConditionType.Fracture:
                     if (c.IsOperated)
                     {
-                        // 睡床加算 +BedSleepHealBonusPct 个百分点（加算非乘算）。
-                        double effPct = c.RecoveryEfficiency + (restedInBed ? BedSleepHealBonusPct : 0.0);
+                        // 睡床 +BedSleepHealBonusPct 与玫瑰果茶 +extraHealBonusPct 同族加算（非乘算）。
+                        double effPct = c.RecoveryEfficiency + (restedInBed ? BedSleepHealBonusPct : 0.0) + Math.Max(0.0, extraHealBonusPct);
                         double heal = FractureHealPerDay * (effPct / 100.0) * (resting ? RestHealBonus : 1.0);
                         c.AddSeverity(-heal);
                     }
@@ -694,8 +929,9 @@ public sealed class HealthConditionSet
             }
 
             // 完全愈合（severity 归 0，如手术后养好的出血/骨折、或微小伤新鲜期自愈）→ 移除。
+            // **感染除外**：其 severity=感染/死亡进度（新鲜感染从 0 起算，非"愈合"），移除由 AdvanceInfectionRace（治愈/坏疽）负责，这里不得按 ≤0 误删。
             // Body 侧止血由接入波（Pawn.AdvanceHealthDay）按"该部位已无活跃出血条目"统一 StopBleed 同步，此处不额外出清单。
-            if (c.Severity <= 0 && outcome == ConditionOutcome.None)
+            if (c.Severity <= 0 && outcome == ConditionOutcome.None && c.Type != HealthConditionType.Infection)
             {
                 toRemove.Add(c);
             }
@@ -762,6 +998,17 @@ public sealed class HealthTickEvent
     public ConditionOutcome Outcome { get; init; }
     /// <summary>本事件是否为"新感染"（开放伤口本昼夜感染而新生的感染条目）。</summary>
     public bool ContractedInfection { get; init; }
+}
+
+/// <summary>[SPEC-B14/终稿] 一个时间片感染竞速推进的结果（供运行时施加截肢/死亡/清疗程）。</summary>
+public readonly record struct InfectionRaceResult
+{
+    /// <summary>本时间片终态：None（继续竞速）/ Maim（坏疽截肢，见 <see cref="MaimedPart"/>）/ Death（败血症致死）。</summary>
+    public ConditionOutcome Outcome { get; init; }
+    /// <summary>治疗进度先到顶、感染被清除（胜局）。</summary>
+    public bool Cured { get; init; }
+    /// <summary>坏疽截肢的部位名（Outcome=Maim 时非空）。</summary>
+    public string? MaimedPart { get; init; }
 }
 
 /// <summary>一次 TickDay 的汇总。</summary>
