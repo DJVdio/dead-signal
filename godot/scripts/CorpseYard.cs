@@ -37,6 +37,22 @@ public sealed partial class CorpseYard : Node
     public int PhaseTick => _phaseTick;
 
     /// <summary>
+    /// 读档：把相位计数摆回存档那一刻。<b>必须在重建尸体之前调用</b>——
+    /// 尸体的"还剩几个相位烂没"是 <c>SpawnPhaseTick</c> 与本计数的差值，计数错了，一地尸体要么当场全烂光、
+    /// 要么永远不烂。
+    /// </summary>
+    public void RestorePhaseTick(int phaseTick) => _phaseTick = Math.Max(0, phaseTick);
+
+    /// <summary>读档：尸体容器 id 的水位（避免新尸体的 id 与存档里恢复的尸体撞号、把登记顶掉）。</summary>
+    public void RestoreNextId(int nextId) => _nextId = Math.Max(0, nextId);
+
+    /// <summary>尸体容器 id 水位（存档用）。</summary>
+    public int NextId => _nextId;
+
+    /// <summary>场上全部尸体（存档用；顺序即生成顺序，表头最老）。</summary>
+    public IReadOnlyList<Corpse> Live => _live;
+
+    /// <summary>
     /// 这个可搜刮点还剩几个相位就烂没了（供悬停提示）。<b>不在场上的返回 -1</b>——
     /// 祖母那具 authored 尸体不是本 Yard 的尸体（她永远躺在那儿，没有倒计时），已清走的也一样。
     /// 「还剩多久」是纯粹的决策信息（我先扒哪具？值不值得为它多待一个相位），藏起来只会制造挫败感。
@@ -124,6 +140,34 @@ public sealed partial class CorpseYard : Node
             RecycleCorpse(oldest);
         }
 
+        return corpse;
+    }
+
+    /// <summary>
+    /// 读档：原样摆回一具尸体。
+    /// <para>
+    /// <b>不走 <see cref="Spawn"/></b>：那条路会重新跑推挤算法（同格不堆叠、外扩找空位）——而存档里的尸体
+    /// <b>早就找好位置了</b>。重跑推挤会把整片尸堆挪位（因为恢复顺序未必等于当初的倒下顺序），
+    /// 玩家读档后会发现尸体都不在他记得的地方。这里直接按存下来的格与坐标落回去。
+    /// </para>
+    /// <para>调用前须先 <see cref="RestorePhaseTick"/>——尸体的"还剩几个相位烂没"是差值算的。</para>
+    /// </summary>
+    public Corpse? RestoreCorpse(
+        Vector2 cartPos, CorpseCell cell, Color bodyTint, float radius,
+        string containerId, int spawnPhaseTick, IEnumerable<LootItem> loot)
+    {
+        if (GetTree()?.GetFirstNodeInGroup("iso_layer") is not Node2D isoLayer)
+        {
+            return null;   // 视觉层未就位（headless）：与 Spawn 同口径，不落节点
+        }
+
+        _field.Occupy(cell);
+        var corpse = Corpse.Spawn(isoLayer, Iso.Project(cartPos), cell, bodyTint, radius);
+        corpse.CartPosition = cartPos;
+        corpse.ContainerId = containerId;
+        corpse.SpawnPhaseTick = spawnPhaseTick;
+        corpse.Loot.AddRange(loot);
+        _live.Add(corpse);
         return corpse;
     }
 

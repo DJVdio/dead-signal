@@ -110,6 +110,25 @@ public sealed class WeaponLoadout
         return true;
     }
 
+    /// <summary>
+    /// 读档：把持械态直接摆回去，<b>绕过 <see cref="EquipToHand"/> 的规则校验</b>。
+    /// <para>
+    /// 为什么不重放 EquipToHand：那些校验（断手禁持、双持要求两把都 <see cref="Weapon.CanDualWield"/>）
+    /// 是给「玩家现在要装备」用的。读档不是装备动作，是把世界摆回它存档那一刻的样子——
+    /// 而那一刻的持械态<b>本来就是过了校验才形成的</b>。
+    /// </para>
+    /// <para>
+    /// ⚠️ 真正的危险在于：重放一旦被拒，<b>武器就静默消失了</b>——不报错、不提示，玩家只是发现自己空着手。
+    /// 存档最恶劣的 bug 就长这样。所以这里直接赋值。
+    /// </para>
+    /// </summary>
+    public void Restore(Weapon? leftHand, Weapon? rightHand, bool twoHandGrip)
+    {
+        LeftHand = leftHand;
+        RightHand = rightHand;
+        TwoHandGrip = twoHandGrip;
+    }
+
     /// <summary>卸下：双手握时两手一起清空；否则仅清该手。</summary>
     public void Unequip(Hand hand)
     {

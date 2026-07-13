@@ -466,4 +466,90 @@ public sealed class Body
 
         return Math.Min(1.0, total); // 两侧全失 = -100%，上限锁 100%。
     }
+
+    // ---- 存档：状态快照与恢复（见 BodySnapshot） ----
+
+    /// <summary>
+    /// 导出全部**可变**状态（部位模板不含在内——那是代码里的数据表，由工厂重建）。
+    /// </summary>
+    public BodySnapshot Capture() => new()
+    {
+        Hp = new Dictionary<string, double>(_hp),
+        MaxHp = new Dictionary<string, double>(_maxHp),
+        Severed = _severed.ToList(),
+        Destroyed = _destroyed.ToList(),
+        Disabled = _disabled.ToList(),
+        Bleeding = _bleeding.ToList(),
+        Fractured = _fractured.ToList(),
+        TreatedFractures = _treatedFractures.ToList(),
+        Blood = Blood,
+        BloodMax = BloodMax,
+        BleedRatePerWound = BleedRatePerWound,
+        BledOut = BledOut,
+        IsDead = IsDead,
+        Prosthetics = _prosthetics.Select(p => new ProstheticSnapshot
+        {
+            Name = p.Name,
+            Grade = p.Grade,
+            ReplacesRegion = p.ReplacesRegion,
+            RestoreRatio = p.RestoreRatio,
+        }).ToList(),
+    };
+
+    /// <summary>
+    /// 把快照覆盖回本体（读档）。调用前本体应是刚由工厂按模板造出的**全新** Body——
+    /// 本方法只覆盖可变状态，不重建部位树。
+    /// <para>
+    /// 快照里没有的部位（模板演化新增的）保留模板默认值；快照里有而模板没有的（部位被删了）静默丢弃——
+    /// 二者都不该在正常读档里发生（版本闸门先拦），此处只是不让它炸。
+    /// </para>
+    /// </summary>
+    public void Restore(BodySnapshot s)
+    {
+        foreach (var kv in s.Hp)
+        {
+            if (_hp.ContainsKey(kv.Key)) _hp[kv.Key] = kv.Value;
+        }
+        foreach (var kv in s.MaxHp)
+        {
+            if (_maxHp.ContainsKey(kv.Key)) _maxHp[kv.Key] = kv.Value;
+        }
+
+        RefillSet(_severed, s.Severed);
+        RefillSet(_destroyed, s.Destroyed);
+        RefillSet(_disabled, s.Disabled);
+        RefillSet(_bleeding, s.Bleeding);
+        RefillSet(_fractured, s.Fractured);
+        RefillSet(_treatedFractures, s.TreatedFractures);
+
+        BloodMax = s.BloodMax;
+        Blood = s.Blood;
+        BleedRatePerWound = s.BleedRatePerWound;
+        BledOut = s.BledOut;
+        IsDead = s.IsDead;
+
+        _prosthetics.Clear();
+        foreach (var p in s.Prosthetics)
+        {
+            _prosthetics.Add(new Prosthetic
+            {
+                Name = p.Name,
+                Grade = p.Grade,
+                ReplacesRegion = p.ReplacesRegion,
+                RestoreRatio = p.RestoreRatio,
+            });
+        }
+
+        // 惩罚是派生量（切除部位 + 假肢 → 操作/移动净惩罚），恢复完重算一次即可，不必存。
+        RecalculatePenalties();
+    }
+
+    private static void RefillSet(HashSet<string> target, List<string> source)
+    {
+        target.Clear();
+        foreach (string s in source)
+        {
+            target.Add(s);
+        }
+    }
 }

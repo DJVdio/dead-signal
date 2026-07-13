@@ -195,6 +195,41 @@ public sealed class ApparelSlots
         return EquipOutcome.Equipped;
     }
 
+    // ---- 存档：穿戴态的快照与恢复 ----
+
+    /// <summary>一件在身装备的存档形态：物品名 + 它占的槽 + 它覆盖的部位。</summary>
+    public readonly record struct WornSnapshot(string Item, IReadOnlyList<EquipSlot> Slots, IReadOnlyList<string> Covers);
+
+    /// <summary>
+    /// 导出穿戴态（存档用）。<b>逐件导出，不是导出物品名列表</b>——因为成对品（手套/鞋）同名可在身两件，
+    /// 只存名字会丢"哪只在左、哪只在右"，读回来就成了两只左手套。
+    /// </summary>
+    public IReadOnlyList<WornSnapshot> Snapshot()
+        => _worn.Select(w => new WornSnapshot(w.Item, w.Slots.ToList(), w.Covers.ToList())).ToList();
+
+    /// <summary>
+    /// 读档：清空并逐件摆回穿戴态。
+    /// <para>
+    /// <b>刻意绕过 <see cref="TryEquip"/> 的校验</b>：读档不是"重新穿一遍衣服"，是把身体摆回它存档那一刻的样子。
+    /// 走 TryEquip 会拿断肢集合再判一次禁装——而那件装备当初能穿上，本身就证明它当时是合法的。
+    /// 再判一次只会引入"读档后装备莫名消失"这类幽灵 bug。
+    /// </para>
+    /// </summary>
+    public void Restore(IEnumerable<WornSnapshot> worn)
+    {
+        _slotOwner.Clear();
+        _worn.Clear();
+        foreach (WornSnapshot w in worn)
+        {
+            var inst = new Worn(w.Item, new HashSet<EquipSlot>(w.Slots), new HashSet<string>(w.Covers));
+            foreach (EquipSlot s in inst.Slots)
+            {
+                _slotOwner[s] = inst;
+            }
+            _worn.Add(inst);
+        }
+    }
+
     /// <summary>把一个在身实例从槽表与在身清单里摘掉。</summary>
     private void Remove(Worn worn)
     {

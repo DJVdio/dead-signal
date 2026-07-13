@@ -28,4 +28,20 @@ public sealed class ReadingProgress
 
     /// <summary>某书是否已读满（累计小时 ≥ 该书 <see cref="BookData.ReadHours"/>）。</summary>
     public bool IsComplete(string bookId, double bookReadHours) => HoursOn(bookId) >= bookReadHours;
+
+    /// <summary>
+    /// 导出全部进度（存档用）。<see cref="HoursOn"/> 只能按已知书名逐本查，读档时我们并不知道
+    /// 这个读者半途而废过哪几本——故必须能整本字典倒出来。
+    /// </summary>
+    public IReadOnlyDictionary<string, double> Snapshot() => new Dictionary<string, double>(_hours);
+
+    /// <summary>读档：覆盖全部进度（先清空，再灌入）。</summary>
+    public void Restore(IEnumerable<KeyValuePair<string, double>> entries)
+    {
+        _hours.Clear();
+        foreach (var kv in entries)
+        {
+            _hours[kv.Key] = kv.Value;
+        }
+    }
 }

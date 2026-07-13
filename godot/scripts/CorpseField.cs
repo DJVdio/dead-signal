@@ -96,6 +96,16 @@ public sealed class CorpseField
     public bool IsOccupied(CorpseCell cell) => _occupied.Contains(cell);
 
     /// <summary>
+    /// 读档：直接把某格标为已占，<b>不跑推挤</b>。
+    /// <para>
+    /// 平时占格只能经 <see cref="Resolve"/>（同格不堆叠 → 螺旋外扩找空位）。但存档里的尸体
+    /// <b>当初就已经推挤好了</b>，重跑一遍反而会把整片尸堆挪位——恢复顺序未必等于当初的倒下顺序，
+    /// 同一个算法喂不同的顺序会吐出不同的布局。读档要的是"原样摆回去"，不是"重新算一遍"。
+    /// </para>
+    /// </summary>
+    public void Occupy(CorpseCell cell) => _occupied.Add(cell);
+
+    /// <summary>
     /// 只算不登记：给定死亡点与通行谓词，返回尸体该躺哪一格。纯函数（不改状态），供预览/测试用。
     /// <paramref name="passable"/> 收格中心的世界坐标，返回该处是否可通行（墙/水/不可通行区 → false）。
     /// </summary>

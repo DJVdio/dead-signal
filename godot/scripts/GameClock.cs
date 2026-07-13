@@ -43,6 +43,32 @@ public sealed partial class GameClock : Node
     private double _travelElapsed;
     private bool _warningFired;
 
+    /// <summary>相位内已流逝的秒数（存档用；相位切换时归零）。</summary>
+    public double PhaseElapsed => _phaseElapsed;
+
+    /// <summary>路上已走的秒数（存档用）。</summary>
+    public double TravelElapsed => _travelElapsed;
+
+    /// <summary>“该回来了”的警告是否已在本相位发过（存档用；不存的话读档会重复弹一次）。</summary>
+    public bool WarningFired => _warningFired;
+
+    /// <summary>
+    /// 读档：把时钟摆回存档那一刻。<b>不触发 <see cref="OnPhaseChanged"/></b>——
+    /// 读档不是"相位切换"，世界是被摆回去的，不是走过去的；发事件会让订阅方（结算/刷怪/尸体腐化）
+    /// 把一个已经结算过的相位再结算一遍。
+    /// </summary>
+    public void Restore(int day, DayPhase phase, double phaseElapsed, double travelElapsed, bool warningFired, int speedIndex)
+    {
+        Day = Math.Max(0, day);
+        CurrentPhase = phase;
+        _phaseElapsed = Math.Max(0, phaseElapsed);
+        _travelElapsed = Math.Max(0, travelElapsed);
+        _warningFired = warningFired;
+        SpeedIndex = Math.Clamp(speedIndex, 0, Speeds.Length - 1);
+        _userPaused = false;
+        Engine.TimeScale = Speeds[SpeedIndex];
+    }
+
     public event Action<DayPhase>? OnPhaseChanged;
     public event Action? OnExploreWarning;
 
@@ -148,6 +174,20 @@ public sealed partial class GameClock : Node
             or DayPhase.DawnMeal or DayPhase.DuskMeal)
             return;
         _userPaused = !_userPaused;
+        ApplyPhaseTimeScale();
+    }
+
+    /// <summary>
+    /// 显式设定暂停态（模态面板开合用：开面板停表、关面板还原）。
+    /// <para>
+    /// 与 <see cref="TogglePause"/> 不同，本方法<b>不看相位</b>——那几个"本来就不流动"的相位
+    /// （筹备/聚餐/回营）里 Toggle 会直接 return，但面板还是得能把状态存下来再还原回去，
+    /// 否则关面板时会把一个从没设过的值写回去。
+    /// </para>
+    /// </summary>
+    public void SetPaused(bool paused)
+    {
+        _userPaused = paused;
         ApplyPhaseTimeScale();
     }
 

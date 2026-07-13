@@ -30,12 +30,31 @@ public sealed class MerchantSchedule
     /// 首次调度即 <c>currentDay + roll</c>（默认 1~5 天后首访，不在开局当天）。
     /// </summary>
     public MerchantSchedule(IRandomSource rng, int currentDay, int minGap = 1, int maxGap = 5)
+        : this(rng, minGap, maxGap)
+    {
+        NextVisitDay = currentDay + RollGap();
+    }
+
+    /// <summary>不掷骰的共用构造：只装配参数，到访日由调用方决定（新开局掷骰 / 读档灌回）。</summary>
+    private MerchantSchedule(IRandomSource rng, int minGap, int maxGap)
     {
         _rng = rng ?? throw new ArgumentNullException(nameof(rng));
         MinGap = Math.Max(1, minGap);
         MaxGap = Math.Max(MinGap, maxGap);
-        NextVisitDay = currentDay + RollGap();
     }
+
+    /// <summary>
+    /// 读档专用：直接把已排定的到访日灌回来，<b>一次骰都不掷</b>。
+    /// <para>
+    /// 玩家存档时商人后天来，读回来必须还是后天来——否则 S/L 就成了刷商人日程的作弊器。
+    /// </para>
+    /// <para>
+    /// ⚠️ 不能走公开构造器再改值：那个构造器<b>一造就掷一次骰</b>，会平白消耗掉随机序列的一个值。
+    /// 对系统随机源无害，但会让可复现的测试序列错位——而"读档不消耗随机性"本身就是这条规则的一部分。
+    /// </para>
+    /// </summary>
+    public static MerchantSchedule Restore(IRandomSource rng, int nextVisitDay, int minGap = 1, int maxGap = 5)
+        => new MerchantSchedule(rng, minGap, maxGap) { NextVisitDay = nextVisitDay };
 
     /// <summary>
     /// 今天商人是否到访：<paramref name="currentDay"/> 未到 <see cref="NextVisitDay"/> → false（还没到日子）；

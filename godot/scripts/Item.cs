@@ -128,6 +128,16 @@ public sealed record Item
             string.IsNullOrEmpty(description) ? (LightSource.Find(lightKey)?.Description ?? "") : description,
             lightKey, 0, 0);
 
+    /// <summary>
+    /// 读档：按存下来的六个字段原样重建一件物品，<b>不经任何目录查表</b>。
+    /// <para>
+    /// 其余工厂（<see cref="Weapon"/>/<see cref="Armor"/>…）都会去目录里补描述文案——那对读档是错的：
+    /// 玩家存档时背包里那把枪的描述是什么，读回来就该是什么。走目录意味着改一句文案就会**悄悄改写旧存档里的物品**。
+    /// </para>
+    /// </summary>
+    public static Item Restore(ItemCategory category, string displayName, string description, string? refKey, int foodQuantity, int materialQuantity)
+        => new(category, displayName, description, refKey, Math.Max(0, foodQuantity), Math.Max(0, materialQuantity));
+
     /// <summary>是否可装备（武器或护甲）。W3 装备接入据此从库存筛可上身之物。</summary>
     public bool IsEquippable => Category is ItemCategory.Weapon or ItemCategory.Armor;
 

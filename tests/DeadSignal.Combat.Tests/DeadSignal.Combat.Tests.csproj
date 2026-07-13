@@ -216,6 +216,14 @@
          远征背包硬上限(ExpeditionBag：>80kg 装不下就是拿不走 / 成堆材料只拿得走装得下的几件 / 扔掉腾容量) +
          上限门面(CarryCapacity：80kg × 承载能力(残缺×饥饿) × authored 专属乘子(山姆连乘))。三档 debuff 数学在引擎 Loadout。 -->
     <Compile Include="..\..\godot\scripts\CarryWeight.cs" Link="Consumed\CarryWeight.cs" />
+    <!-- 存档系统（无 Godot 依赖）：SaveData 状态树 DTO / SaveCodec 编解码+版本闸门（版本不符即拒读，不做迁移）/ SaveMapper 纯逻辑状态⇄DTO 双向映射。磁盘侧在 SaveManager（Godot 层，不 Link）。 -->
+    <Compile Include="..\..\godot\scripts\SaveData.cs" Link="Consumed\SaveData.cs" />
+    <Compile Include="..\..\godot\scripts\SaveCodec.cs" Link="Consumed\SaveCodec.cs" />
+    <Compile Include="..\..\godot\scripts\SaveMapper.cs" Link="Consumed\SaveMapper.cs" />
+    <!-- 自动存档轮转策略（纯逻辑）：一天存两次=清晨/黄昏聚餐两个相位；保留最近 6 个（≈三天）。玩家无手动存档，故留一串历史档是设计前提。 -->
+    <Compile Include="..\..\godot\scripts\SaveRotation.cs" Link="Consumed\SaveRotation.cs" />
+    <!-- 幸存者角色枚举（存档要存 Role，故 Link 进来）。 -->
+    <Compile Include="..\..\godot\scripts\PawnRole.cs" Link="Consumed\PawnRole.cs" />
   </ItemGroup>
 
 </Project>

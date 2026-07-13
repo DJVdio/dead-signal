@@ -608,6 +608,8 @@ public sealed partial class CampMain : Node2D
         _campToast = new CampToast { Layer = 26 };
         AddChild(_campToast);
 
+        SetupSavePanel();   // 存档 / 读档面板（F5），见 CampMain.Save.cs
+
         // storage 容器（住宅柜子）的开局藏物：食物入 _resources.Food、书/武器/护甲入共享库存、材料入库存、工具装工作台。
         ApplyStorageInitialStock();
 
@@ -2749,6 +2751,9 @@ public sealed partial class CampMain : Node2D
         _ambient.Color = _clock.CurrentAmbientColor();
         bool exploring = _currentLevel != null;
 
+        // 战斗跨过了存档相位 ⇒ 存档欠着，打完这一仗立刻补上（见 CampMain.Save.cs）。
+        TickPendingAutosave();
+
         // HUD 状态行仅在内容实际变化的帧重建（脏缓存）——空闲营地不再每帧造大字符串+调 SetStatus。
         // 信号全是廉价 int/enum/bool：Count(s=>s.Alive) 的 lambda 无捕获，编译期缓存为静态委托不分配。
         int hudPhase = (int)_clock.CurrentPhase;
@@ -2866,6 +2871,9 @@ public sealed partial class CampMain : Node2D
     {
         switch (key)
         {
+            case Key.F5:
+                ToggleSavePanel();   // 存档 / 读档面板（见 CampMain.Save.cs）
+                break;
             case Key.Space:
                 _clock.TogglePause();
                 break;
@@ -4509,6 +4517,11 @@ public sealed partial class CampMain : Node2D
         // **置于 switch 之后**是有原因的：DayReturn 分支里的 UnloadExplorationLevel 才刚把营地导航区重新启用，
         // 早于它去闩门就会在一个 Enabled=false 的 NavigationRegion 上重烘焙。
         SecureCampDoors(phase);
+
+        // 自动存档（**唯一的存档途径**，玩家没有手动存档）：只在清晨聚餐/黄昏聚餐两个相位落地，一天两次。
+        // **必须是本方法的最后一步**——上面那些分支还在改世界（触发围攻/夜袭/闩门），
+        // 早于它们存档，存下的就是一个"半个相位"的世界。战斗中欠着，打完再补（见 AutosaveOnPhaseChange）。
+        AutosaveOnPhaseChange(phase);
     }
 
     /// <summary>

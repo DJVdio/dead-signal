@@ -144,6 +144,24 @@ public sealed class HealthCondition
     internal void SetRecoveryEfficiency(int eff) => RecoveryEfficiency = Math.Max(0, eff); // 不封顶 100：允许过载效率 >100
     internal void AddCureProgress(double d) => CureProgress = Math.Clamp(CureProgress + d, 0.0, 1.0);
     internal void AdvanceDay() => DaysElapsed++;
+
+    /// <summary>
+    /// 读档：把全部可变进度覆盖回来。不变量（<see cref="Type"/>/<see cref="BodyPart"/>/致命性…）走构造器，
+    /// 本方法只管"病到哪一步了"。
+    /// <para>
+    /// ⚠️ 为什么不复用 <see cref="MarkSurgeryDay"/>：那个只能把手术日记成"此刻"，而读档要还原的是
+    /// <b>历史上的某一天</b>（"三天前动过刀" ≠ "刚动过刀"，重做手术冷却会因此算错）。
+    /// </para>
+    /// </summary>
+    internal void RestoreState(double severity, int recoveryEfficiency, double cureProgress, bool tended, int daysElapsed, int lastSurgeryDay)
+    {
+        Severity = Math.Clamp(severity, 0.0, 1.0);
+        RecoveryEfficiency = Math.Max(0, recoveryEfficiency);
+        CureProgress = Math.Clamp(cureProgress, 0.0, 1.0);
+        Tended = tended;
+        DaysElapsed = Math.Max(0, daysElapsed);
+        LastSurgeryDay = lastSurgeryDay;
+    }
 }
 
 /// <summary>一条药品的治疗语义（物品数据在 <see cref="Materials"/>，此处只描述"治哪种病状 + 药效强度 + 治疗效率"）。仅覆盖**感染/疾病**（流血/骨折走手术，不在此）。</summary>
@@ -380,6 +398,20 @@ public sealed class HealthConditionSet
 
     /// <summary>登记一条病状（战斗产出/环境衍生皆经此入库）。</summary>
     public void Add(HealthCondition condition) => _conditions.Add(condition);
+
+    /// <summary>
+    /// 读档：清空并灌回全套病状，同时还原"是否已病死"这个终态。
+    /// <para>
+    /// <see cref="IsDead"/> 平时只由 <c>TickDay</c>/手术置位，没有 setter——这是对的（生死不该被随便写）。
+    /// 但读档必须能还原一个已经死于感染的人，否则读回来他会诈尸。故开这个唯一的恢复入口。
+    /// </para>
+    /// </summary>
+    internal void Restore(IEnumerable<HealthCondition> conditions, bool isDead)
+    {
+        _conditions.Clear();
+        _conditions.AddRange(conditions);
+        IsDead = isDead;
+    }
 
     /// <summary>单次药效固定基数（draft，仅感染/疾病用药）：通用医疗技能已删，疗效不再随人变，取一个"照护得当"的固定系数，用 Sim 校准。</summary>
     private const double TreatmentPotencyFactor = 0.8;

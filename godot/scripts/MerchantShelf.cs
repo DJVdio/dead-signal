@@ -59,6 +59,19 @@ public sealed class MerchantShelf
     public void Add(MerchantOffer offer) => _offers.Add(offer ?? throw new ArgumentNullException(nameof(offer)));
 
     /// <summary>
+    /// 读档：清空货架并灌回存下来的条目（<b>含剩余库存</b>——否则 S/L 就能把买空的货架刷回满货）。
+    /// <para>就地覆盖而非换一个新架子：持有方把 <c>_merchantShelf</c> 声明成了 readonly。</para>
+    /// </summary>
+    public void Restore(IEnumerable<MerchantOffer> offers)
+    {
+        _offers.Clear();
+        foreach (MerchantOffer o in offers)
+        {
+            _offers.Add(o);
+        }
+    }
+
+    /// <summary>
     /// 第一版货架（draft）：只卖《木匠入门》×1。书 id = <c>carpentry_basics</c>（同 <see cref="BookLibrary.CarpentryBasics"/>）。
     /// 日后要卖别的，往这里 <see cref="Add"/> 新 <see cref="MerchantOffer"/> 即可（数据驱动，逻辑零改）。
     /// </summary>

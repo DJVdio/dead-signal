@@ -64,4 +64,10 @@ public sealed class DogHungerState
     /// </summary>
     public void DrainTo(int level)
         => Value = Math.Min(Value, Math.Clamp(level, StarvedValue, Cap));
+
+    /// <summary>
+    /// 读档：把刻度直接设回去（<b>可升可降</b>）。同 <see cref="HungerState.Restore"/>——
+    /// <see cref="DrainTo"/> 只饿不喂，拿它读档会静默丢状态。
+    /// </summary>
+    internal void Restore(int value) => Value = Math.Clamp(value, StarvedValue, Cap);
 }

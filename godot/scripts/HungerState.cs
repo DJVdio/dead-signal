@@ -66,6 +66,16 @@ public sealed class HungerState
         => Value = Math.Min(Value, Math.Clamp(level, StarvedValue, Cap));
 
     /// <summary>
+    /// 读档：把刻度直接设回去（<b>可升可降</b>）。
+    /// <para>
+    /// ⚠️ 不能借 <see cref="DrainTo"/> 恢复——那个方法**只饿不喂**（刻意的：剧情设定态不该把人喂饱）。
+    /// 拿它读档会静默丢掉"吃撑"这类高于默认值的状态：新造的人是满刻度 5，存档里的 6 灌不进去，
+    /// 而且不会有任何报错。
+    /// </para>
+    /// </summary>
+    internal void Restore(int value) => Value = Math.Clamp(value, StarvedValue, Cap);
+
+    /// <summary>
     /// 一次昼夜相位结算（净模型，一次性施加，避免"decay 落 0 → feed 被短路"的跨 0 误杀）：
     /// 无条件 -1，吃到饭再 +1 —— 净变化 = 吃到 ? 0（维持） : -1（前进一级）。餐后 clamp 到该角色上限。
     /// **进餐前**已饿死者（终态）不复活：直接维持 0。返回结算后是否饿死（刻度归 0）。

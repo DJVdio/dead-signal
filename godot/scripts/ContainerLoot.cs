@@ -156,6 +156,44 @@ public sealed class ContainerLoot
         return taken;
     }
 
+    // ---- 存档：搜刮进度的事实源 ----
+
+    /// <summary>
+    /// 导出全部容器的<b>剩余</b>藏物（存档用）。<see cref="TakeNext"/> 是从这份清单里弹件的，
+    /// 所以"这个柜子被搜了一半"这件事**天然就在这里**——不需要另外记账。
+    /// </summary>
+    public IReadOnlyDictionary<string, IReadOnlyList<LootItem>> SnapshotTables()
+        => _tables.ToDictionary(kv => kv.Key, kv => (IReadOnlyList<LootItem>)kv.Value.ToList());
+
+    /// <summary>已搜空的容器（存档用）。</summary>
+    public IReadOnlyCollection<string> SnapshotSearched() => _searched.ToList();
+
+    /// <summary>动过但没搜完的容器（存档用；悬停提示"搜了一半"靠它）。</summary>
+    public IReadOnlyCollection<string> SnapshotPartial() => _partial.ToList();
+
+    /// <summary>读档：整体覆盖三份账（先清空再灌入）。</summary>
+    public void Restore(
+        IEnumerable<KeyValuePair<string, IReadOnlyList<LootItem>>> tables,
+        IEnumerable<string> searched,
+        IEnumerable<string> partial)
+    {
+        _tables.Clear();
+        _searched.Clear();
+        _partial.Clear();
+        foreach (var kv in tables)
+        {
+            _tables[kv.Key] = kv.Value.ToList();
+        }
+        foreach (string s in searched)
+        {
+            _searched.Add(s);
+        }
+        foreach (string p in partial)
+        {
+            _partial.Add(p);
+        }
+    }
+
     /// <summary>工具标识名 → 工作台槽（calipers/sawblade/beaker，大小写不敏感）；未知返回 <c>null</c>。</summary>
     public static ToolSlot? ParseToolSlot(string? toolKey) => toolKey?.Trim().ToLowerInvariant() switch
     {
