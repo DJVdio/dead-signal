@@ -6,7 +6,7 @@ namespace DeadSignal.Combat.Tests;
 
 /// <summary>
 /// §6 穿戴槽纯逻辑单测：11 槽占用、多槽占多槽、成对手套各占一手、断肢禁装、
-/// 替换/卸装、护甲覆盖聚合，以及装备目录映射表（粗布外套/左右手套/防毒面具/一体板甲、刺剑草叉非穿戴）。
+/// 替换/卸装、护甲覆盖聚合，以及装备目录映射表（粗布外套/劳保手套/防毒面具/板甲、刺剑草叉非穿戴）。
 /// 数值/覆盖集合皆"拟定待调"，测试锁的是规则形态。
 /// </summary>
 public class ApparelSlotsTests
@@ -52,24 +52,49 @@ public class ApparelSlotsTests
     {
         var a = new ApparelSlots();
         a.TryEquip("裤子甲", Slots(EquipSlot.Pants), displaced: out _);
-        // 一体板甲要占 装甲层+裤子，裤子已被占 → 冲突不穿。
-        var r = a.TryEquip("一体板甲", Slots(EquipSlot.PlateLayer, EquipSlot.Pants), displaced: out _);
+        // 板甲要占 装甲层+裤装，裤子已被占 → 冲突不穿。
+        var r = a.TryEquip("板甲", Slots(EquipSlot.PlateLayer, EquipSlot.Pants), displaced: out _);
         Assert.Equal(EquipOutcome.BlockedSlotOccupied, r);
-        Assert.False(a.IsEquipped("一体板甲"));
+        Assert.False(a.IsEquipped("板甲"));
         Assert.False(a.IsOccupied(EquipSlot.PlateLayer)); // 冲突时不得残留占用装甲层
     }
 
-    // ---- 成对手套各占一手 ----
+    // ---- 同名多实例：成对品不分左右，同名两件各占一手（[SPEC-B18-补]）----
 
     [Fact]
-    public void Equip_PairGloves_EachOccupiesOneHand()
+    public void Equip_SameNameTwice_DifferentSlots_KeepsBothItems()
     {
         var a = new ApparelSlots();
-        a.TryEquip("左手套", Slots(EquipSlot.LeftHand), displaced: out _);
-        a.TryEquip("右手套", Slots(EquipSlot.RightHand), displaced: out _);
-        Assert.Equal("左手套", a.ItemAt(EquipSlot.LeftHand));
-        Assert.Equal("右手套", a.ItemAt(EquipSlot.RightHand));
-        Assert.Equal(2, a.EquippedItems.Count); // 两件独立
+        a.TryEquip("劳保手套", Slots(EquipSlot.LeftHand), coversParts: Parts(HumanBody.LeftHand), displaced: out _);
+        a.TryEquip("劳保手套", Slots(EquipSlot.RightHand), coversParts: Parts(HumanBody.RightHand), displaced: out _);
+
+        Assert.Equal("劳保手套", a.ItemAt(EquipSlot.LeftHand));
+        Assert.Equal("劳保手套", a.ItemAt(EquipSlot.RightHand));
+        Assert.Equal(2, a.EquippedItems.Count);   // 同名两件都在身（不互相顶替）
+        Assert.Equal(Slots(EquipSlot.LeftHand, EquipSlot.RightHand), a.SlotsOf("劳保手套"));
+        // 覆盖是两件之并。
+        Assert.Contains(HumanBody.LeftHand, a.CoveredParts());
+        Assert.Contains(HumanBody.RightHand, a.CoveredParts());
+    }
+
+    [Fact]
+    public void Equip_SameNameSameSlot_IsIdempotentRewear()
+    {
+        var a = new ApparelSlots();
+        a.TryEquip("劳保手套", Slots(EquipSlot.LeftHand), coversParts: Parts(HumanBody.LeftHand), displaced: out _);
+        a.TryEquip("劳保手套", Slots(EquipSlot.LeftHand), coversParts: Parts(HumanBody.LeftHand), displaced: out _);
+        Assert.Single(a.EquippedItems);   // 同名穿到自己已占的槽 = 重穿，不新增一件
+    }
+
+    [Fact]
+    public void Unequip_ByName_RemovesAllItemsOfThatName()
+    {
+        var a = new ApparelSlots();
+        a.TryEquip("劳保手套", Slots(EquipSlot.LeftHand), coversParts: Parts(HumanBody.LeftHand), displaced: out _);
+        a.TryEquip("劳保手套", Slots(EquipSlot.RightHand), coversParts: Parts(HumanBody.RightHand), displaced: out _);
+        Assert.True(a.Unequip("劳保手套"));   // 按名卸 = 两只一起脱
+        Assert.Empty(a.EquippedItems);
+        Assert.Empty(a.CoveredParts());
     }
 
     // ---- 断肢禁装 ----
@@ -79,9 +104,9 @@ public class ApparelSlotsTests
     {
         var a = new ApparelSlots();
         var severed = Parts(HumanBody.LeftHand);
-        var r = a.TryEquip("左手套", Slots(EquipSlot.LeftHand), severedParts: severed, displaced: out _);
+        var r = a.TryEquip("劳保手套", Slots(EquipSlot.LeftHand), severedParts: severed, displaced: out _);
         Assert.Equal(EquipOutcome.BlockedSeveredLimb, r);
-        Assert.False(a.IsEquipped("左手套"));
+        Assert.False(a.IsEquipped("劳保手套"));
     }
 
     [Fact]
@@ -89,8 +114,8 @@ public class ApparelSlotsTests
     {
         var a = new ApparelSlots();
         var severed = Parts(HumanBody.LeftHand);
-        var r = a.TryEquip("右手套", Slots(EquipSlot.RightHand), severedParts: severed, displaced: out _);
-        Assert.Equal(EquipOutcome.Equipped, r);
+        var r = a.TryEquip("劳保手套", Slots(EquipSlot.RightHand), severedParts: severed, displaced: out _);
+        Assert.Equal(EquipOutcome.Equipped, r);   // 断左手不妨碍右手那只
     }
 
     [Fact]
@@ -210,17 +235,81 @@ public class ApparelSlotsTests
         Assert.Equal(ArmorSlot.Outer, def.Layer);
     }
 
+    // ---- 成对品（劳保手套/运动鞋）：物品定义不分左右，但一件只占一个槽——护住双手/双脚要两件 [SPEC-B18-补] ----
+
     [Fact]
-    public void Catalog_Gloves_ArePairedPerHandWithSubtreeCoverage()
+    public void Catalog_WorkGloves_ArePaired_OneDefTwoCandidateSlots()
     {
-        var left = ApparelCatalog.Get("左手套")!;
-        var right = ApparelCatalog.Get("右手套")!;
-        Assert.Equal(Slots(EquipSlot.LeftHand), left.Slots);
-        Assert.Equal(Slots(EquipSlot.RightHand), right.Slots);
-        // 覆盖连带该手手指子树，且不越到另一只手。
-        Assert.Contains(HumanBody.LeftHand, left.CoversParts!);
-        Assert.Contains(HumanBody.LeftThumb, left.CoversParts!);
-        Assert.DoesNotContain(HumanBody.RightHand, left.CoversParts!);
+        var gloves = ApparelCatalog.Get("劳保手套")!;
+        Assert.True(gloves.Paired);                                          // 成对品：一件占一槽，可装左或右
+        Assert.Equal(Slots(EquipSlot.LeftHand, EquipSlot.RightHand), gloves.Slots);  // 候选槽（不是"同时占两个"）
+        // 按槽取实际覆盖：装左手只护左手（含左五指），不越到右手。
+        IReadOnlySet<string> left = gloves.CoversFor(EquipSlot.LeftHand)!;
+        Assert.Contains(HumanBody.LeftHand, left);
+        Assert.Contains(HumanBody.LeftThumb, left);
+        Assert.DoesNotContain(HumanBody.RightHand, left);
+        IReadOnlySet<string> right = gloves.CoversFor(EquipSlot.RightHand)!;
+        Assert.Contains(HumanBody.RightHand, right);
+        Assert.Contains(HumanBody.RightPinky, right);
+        Assert.DoesNotContain(HumanBody.LeftHand, right);
+    }
+
+    [Fact]
+    public void Catalog_TwoWorkGloves_CoverBothHands_AsTwoSeparateItems()
+    {
+        var a = new ApparelSlots();
+        Assert.Equal(EquipOutcome.Equipped, ApparelCatalog.Equip(a, "劳保手套", EquipSlot.LeftHand));
+        Assert.Equal(EquipOutcome.Equipped, ApparelCatalog.Equip(a, "劳保手套", EquipSlot.RightHand));
+
+        // 两件独立在身（同名两实例），双手都护住。
+        Assert.Equal(2, a.EquippedItems.Count);
+        Assert.Equal("劳保手套", a.ItemAt(EquipSlot.LeftHand));
+        Assert.Equal("劳保手套", a.ItemAt(EquipSlot.RightHand));
+        Assert.Contains(HumanBody.LeftHand, a.CoveredParts());
+        Assert.Contains(HumanBody.RightHand, a.CoveredParts());
+    }
+
+    [Fact]
+    public void Catalog_OneWorkGlove_CoversOnlyThatHand()
+    {
+        var a = new ApparelSlots();
+        ApparelCatalog.Equip(a, "劳保手套", EquipSlot.LeftHand);
+
+        Assert.Single(a.EquippedItems);
+        Assert.Null(a.ItemAt(EquipSlot.RightHand));
+        Assert.Contains(HumanBody.LeftHand, a.CoveredParts());
+        Assert.DoesNotContain(HumanBody.RightHand, a.CoveredParts());   // 只装一只 = 只护一边（用户要的粒度）
+    }
+
+    [Fact]
+    public void Catalog_UnequipSlot_RemovesOnlyThatGlove()
+    {
+        var a = new ApparelSlots();
+        ApparelCatalog.Equip(a, "劳保手套", EquipSlot.LeftHand);
+        ApparelCatalog.Equip(a, "劳保手套", EquipSlot.RightHand);
+
+        Assert.Equal("劳保手套", a.UnequipSlot(EquipSlot.LeftHand));
+        // 右手那只还在（同名不连坐）。
+        Assert.Single(a.EquippedItems);
+        Assert.Equal("劳保手套", a.ItemAt(EquipSlot.RightHand));
+        Assert.DoesNotContain(HumanBody.LeftHand, a.CoveredParts());
+        Assert.Contains(HumanBody.RightHand, a.CoveredParts());
+    }
+
+    [Fact]
+    public void Catalog_Sneakers_ArePaired_TwoShoesForTwoFeet()
+    {
+        var shoes = ApparelCatalog.Get("运动鞋")!;
+        Assert.True(shoes.Paired);
+        Assert.Equal(Slots(EquipSlot.LeftFoot, EquipSlot.RightFoot), shoes.Slots);
+
+        var a = new ApparelSlots();
+        ApparelCatalog.Equip(a, "运动鞋", EquipSlot.LeftFoot);
+        Assert.Contains(HumanBody.LeftFoot, a.CoveredParts());
+        Assert.DoesNotContain(HumanBody.RightFoot, a.CoveredParts());   // 一只鞋只护一只脚
+        ApparelCatalog.Equip(a, "运动鞋", EquipSlot.RightFoot);
+        Assert.Contains(HumanBody.RightFoot, a.CoveredParts());
+        Assert.Equal(2, a.EquippedItems.Count);
     }
 
     [Fact]
@@ -241,18 +330,26 @@ public class ApparelSlotsTests
     [Fact]
     public void Catalog_Equip_WiresSlotsAndCoverage()
     {
+        // 不指定槽 → 成对品自动落到第一只空闲候选槽（左优先）。
         var a = new ApparelSlots();
-        var r = ApparelCatalog.Equip(a, "左手套");
+        var r = ApparelCatalog.Equip(a, "劳保手套");
         Assert.Equal(EquipOutcome.Equipped, r);
-        Assert.Equal("左手套", a.ItemAt(EquipSlot.LeftHand));
+        Assert.Equal("劳保手套", a.ItemAt(EquipSlot.LeftHand));
+        Assert.Null(a.ItemAt(EquipSlot.RightHand));   // 一件只占一槽
         Assert.Contains(HumanBody.LeftHand, a.CoveredParts());
     }
 
     [Fact]
     public void Catalog_Equip_RespectsSeveredLimb()
     {
+        // 指定断掉的那只手 → 穿不上。
         var a = new ApparelSlots();
-        var r = ApparelCatalog.Equip(a, "左手套", severedParts: Parts(HumanBody.LeftHand));
+        var r = ApparelCatalog.Equip(a, "劳保手套", EquipSlot.LeftHand, severedParts: Parts(HumanBody.LeftHand));
         Assert.Equal(EquipOutcome.BlockedSeveredLimb, r);
+
+        // 不指定槽 → 自动跳过断手，落到还在的右手。
+        var b = new ApparelSlots();
+        Assert.Equal(EquipOutcome.Equipped, ApparelCatalog.Equip(b, "劳保手套", severedParts: Parts(HumanBody.LeftHand)));
+        Assert.Equal("劳保手套", b.ItemAt(EquipSlot.RightHand));
     }
 }

@@ -35,7 +35,7 @@ public enum DogEquipOutcome
 }
 
 /// <summary>
-/// 一件狗装备的静态定义：占用槽 + 护甲层（null＝纯功能件，如口袋狗衣无甲）+ 携带容量加成（口袋狗衣才 &gt;0）。
+/// 一件狗装备的静态定义：占用槽 + 护甲层（null＝纯功能件，当前五件皆有甲）+ 携带容量加成（口袋狗衣才 &gt;0）。
 /// <see cref="Armor"/> 从 <see cref="ArmorTable"/> 现取（工厂委托，保证与唯一护甲真源同步）。
 /// </summary>
 public sealed record DogGearDef(
@@ -62,29 +62,30 @@ public static class DogGearCatalog
     public const string ClothVestKey = "布制狗衣";
     /// <summary>皮制狗衣（身体·外套甲）。</summary>
     public const string LeatherVestKey = "皮制狗衣";
-    /// <summary>口袋狗衣（身体·无甲·携带容量）。</summary>
+    /// <summary>口袋狗衣（身体·薄甲 2/1 + 携带容量，[SPEC-B18]）。</summary>
     public const string PocketVestKey = "口袋狗衣";
     /// <summary>铁皮头甲（头·高防）。</summary>
     public const string IronHelmetKey = "铁皮头甲";
     /// <summary>铁丝头甲（头·轻便）。</summary>
     public const string WireHelmetKey = "铁丝头甲";
 
-    /// <summary>口袋狗衣携带容量加成（探索出队负重，草稿；量级参照 <see cref="Loadout.CapacityPerStrength"/>）。</summary>
-    public const float PocketVestCapacity = 12f;
+    /// <summary>口袋狗衣携带容量加成（探索出队负重）：数据表『护甲表』定 6kg（[SPEC-B18]，旧值 12kg 作废）。</summary>
+    public const float PocketVestCapacity = 6f;
 
     /// <summary>五件套定义（键 → 定义）。</summary>
     public static readonly IReadOnlyDictionary<string, DogGearDef> Defs = new Dictionary<string, DogGearDef>
     {
+        // 文案全部取自数据表『护甲表』说明列（[SPEC-B18]，与 ArmorLayer.Description 同源）。
         [ClothVestKey] = new(ClothVestKey, "布制狗衣", DogEquipSlot.Body, ArmorTable.DogClothVest,
-            Description: "给布鲁斯的布背心，暖和，还能挡一点小磕碰。"),
+            Description: "给可爱的狗狗穿上可爱的衣服。"),
         [LeatherVestKey] = new(LeatherVestKey, "皮制狗衣", DogEquipSlot.Body, ArmorTable.DogLeatherVest,
-            Description: "布鲁斯的皮背心，比布的扛揍，狗子穿上也精神。"),
-        [PocketVestKey] = new(PocketVestKey, "口袋狗衣", DogEquipSlot.Body, ArmorFactory: null, CarryCapacityBonus: PocketVestCapacity,
-            Description: "带口袋的狗背心，让布鲁斯也能替你背点东西——尽职的驮兽。"),
+            Description: "狗皮外的另一层皮。"),
+        [PocketVestKey] = new(PocketVestKey, "口袋狗衣", DogEquipSlot.Body, ArmorTable.DogPocketVest, CarryCapacityBonus: PocketVestCapacity,
+            Description: "好狗，好狗。"),
         [IronHelmetKey] = new(IronHelmetKey, "铁皮头甲", DogEquipSlot.Head, ArmorTable.DogIronHelmet,
-            Description: "给狗戴的铁皮头盔，护头一流，就是有点压脖子。"),
+            Description: "狗狗也戴头盔。"),
         [WireHelmetKey] = new(WireHelmetKey, "铁丝头甲", DogEquipSlot.Head, ArmorTable.DogWireHelmet,
-            Description: "铁丝编的狗头笼，轻便，防护也一样轻便。"),
+            Description: "曾经他是不让狗咬你的，现在他是用来保护狗咬你的。"),
     };
 
     /// <summary>该键是否为已登记的狗装备。</summary>

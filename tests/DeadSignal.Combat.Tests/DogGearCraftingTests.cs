@@ -60,7 +60,7 @@ public class DogGearCraftingTests
         RecipeData r = RecipeBook.Find("dog_cloth_vest")!;
         // 材料充足，但门槛判据返回阻塞说明（如非道格/羁绊不足）。
         CraftAvailability a = CraftingLogic.CanCraft(
-            r, Have(("cloth", 9), ("scrap_cloth", 9)), _ => true, NoTools,
+            r, Have(("cloth", 9)), _ => true, NoTools,
             crafterGate: _ => "需道格制作、且与布鲁斯羁绊达 2 级");
         Assert.False(a.CanCraft);
         Assert.Contains(a.Blocks, b => b.Reason == CraftBlockReason.CrafterLocked);
@@ -72,7 +72,7 @@ public class DogGearCraftingTests
         RecipeData r = RecipeBook.Find("dog_cloth_vest")!;
         // 材料充足但没传 crafterGate → fail-closed 拦下（不误放）。
         CraftAvailability a = CraftingLogic.CanCraft(
-            r, Have(("cloth", 9), ("scrap_cloth", 9)), _ => true, NoTools);
+            r, Have(("cloth", 9)), _ => true, NoTools);
         Assert.False(a.CanCraft);
         Assert.Contains(a.Blocks, b => b.Reason == CraftBlockReason.CrafterLocked);
     }
@@ -82,7 +82,7 @@ public class DogGearCraftingTests
     {
         RecipeData r = RecipeBook.Find("dog_cloth_vest")!;
         CraftAvailability a = CraftingLogic.CanCraft(
-            r, Have(("cloth", 9), ("scrap_cloth", 9)), _ => true, NoTools,
+            r, Have(("cloth", 9)), _ => true, NoTools,
             crafterGate: _ => null); // null=满足
         Assert.True(a.CanCraft);
         Assert.Empty(a.Blocks);
@@ -104,7 +104,7 @@ public class DogGearCraftingTests
         // 火把无制作者门槛：不传 crafterGate 也应可做（回归保护）。
         RecipeData r = RecipeBook.Find("torch")!;
         CraftAvailability a = CraftingLogic.CanCraft(
-            r, Have(("wood", 9), ("scrap_cloth", 9), ("fuel", 9)), _ => true, NoTools);
+            r, Have(("wood", 9), ("cloth", 9), ("fuel", 9)), _ => true, NoTools);
         Assert.True(a.CanCraft);
     }
 
@@ -119,7 +119,7 @@ public class DogGearCraftingTests
                 ? null : "需道格制作、且与布鲁斯羁绊达 2 级";
 
         RecipeData r = RecipeBook.Find("dog_wire_helmet")!;
-        var mats = Have(("wire", 9), ("scrap_cloth", 9));
+        var mats = Have(("wire", 9), ("cloth", 9));
 
         // 1 级（共存 0 天）→ 挡下。
         Assert.False(CraftingLogic.CanCraft(r, mats, _ => true, NoTools, gateFor(0, true)).CanCraft);
@@ -142,7 +142,7 @@ public class DogGearCraftingTests
     public void CraftingService_Craft_BlockedByGate_NoMutation()
     {
         RecipeData r = RecipeBook.Find("dog_cloth_vest")!;
-        var inv = InvWith(("cloth", 4), ("scrap_cloth", 4));
+        var inv = InvWith(("cloth", 8));
         int before = inv.Count;
         CraftResult res = CraftingService.Craft(
             r, _ => true, new WorkbenchState(), inv, 1, CraftOutputFactory.Create,

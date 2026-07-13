@@ -97,7 +97,7 @@ public static class RecipeBook
             Category: RecipeCategory.Misc,
             OutputKey: "bone_knife",
             OutputQuantity: 1,
-            MaterialCosts: Cost(("bone", 2), ("scrap_cloth", 1)),
+            MaterialCosts: Cost(("bone", 2), ("cloth", 1)),
             RequiredTools: Tools(),
             RequiredBookIds: Books(WildernessSurvivalGuideBookId),
             WorkMinutes: 45),
@@ -109,10 +109,23 @@ public static class RecipeBook
             Category: RecipeCategory.Tailoring,
             OutputKey: "cloth_vest",
             OutputQuantity: 1,
-            MaterialCosts: Cost(("cloth", 2), ("scrap_cloth", 2)),
+            MaterialCosts: Cost(("cloth", 4)),
             RequiredTools: Tools(),
             RequiredBookIds: Books(TailorsNotesBookId),
             WorkMinutes: 90),
+
+        // 布夹克：同读《裁缝手记》解锁；比粗布背心多两条袖子（覆盖双臂）、料更足，故材料/工时都翻一档（拟定待调）。
+        // 牛仔外套不可制作——厚牛仔布不在材料表，只能靠搜刮（见 camp.json 住宅-衣柜）。
+        new RecipeData(
+            Id: "cloth_jacket",
+            DisplayName: "布夹克",
+            Category: RecipeCategory.Tailoring,
+            OutputKey: "cloth_jacket",
+            OutputQuantity: 1,
+            MaterialCosts: Cost(("cloth", 6)),
+            RequiredTools: Tools(),
+            RequiredBookIds: Books(TailorsNotesBookId),
+            WorkMinutes: 150),
 
         // 板凳（低级椅）：家具梯度最低档——无书门槛、无工具槽，**人人可造、开局即可做**（用户拍板：开局可做板凳，不必做中级木椅）。
         // 材料是木椅的打折版（仅 wood 2、去 nails，拟定待调）。产物 key 不在武器/护甲/材料集 → 走 CraftOutputFactory 家具/杂项分支落地。
@@ -140,6 +153,56 @@ public static class RecipeBook
             RequiredBookIds: Books(CarpentryBasicsBookId),
             WorkMinutes: 150),
 
+        // ── [批次20·掩体] 沙袋：**用户拍板"可自由建造摆放"**——项目里第一件玩家能自己往地上摆的防御工事 ──
+        // 为什么沙袋能建而**墙不能建**（"墙不能建"是用户为防 kill box 拍的板，别以为规则不一致而"统一"掉）：
+        // 沙袋**不阻挡移动、不改变寻路**（SandbagSpec.IsSolid/CarvesNavHole 恒 false）⇒ 敌人照样直线冲过来、
+        // 不会被墙的迷宫牵着绕 ⇒ **摆不出 kill box**；它只给 25% 远程无伤，**而且敌人也能蹲在你的沙袋后面用**
+        // （CoverLogic 双向对称）。玩家能经营防御位置，但摆不出必胜阵型。完整论证见 SandbagSpec 的类注。
+        // 材料：布 2（袋子）+ 石料 4（往里装的东西）。**无书无工具门槛**——往麻袋里铲土不是手艺活，
+        // 开局第一夜就该能垒起来。工时 30 分：一个人铲一垛的量。全部数值拟定待调。
+        // 拆除走通用规则（SalvageLogic：50% 向下取整 ⇒ 布 1 + 石料 2），不设特例。
+        new RecipeData(
+            Id: "sandbag",
+            DisplayName: "沙袋",
+            Category: RecipeCategory.Misc,
+            OutputKey: "sandbag",
+            OutputQuantity: 1,
+            MaterialCosts: Cost(("cloth", 2), ("stone", 4)),
+            RequiredTools: Tools(),
+            RequiredBookIds: Books(),
+            WorkMinutes: 30),
+
+        // ── [批次20·拆除回收] 回收木料：**用户拍板的第三条规则**（4 废木料 + 1 胶水 → 4 木料，需锯片工作台）──
+        // 拆一件吃 16 木料的东西，只直接掉回 4 木料 + 4 废木料；这条配方就是那"另外 25%"的赎回券——
+        // 走一趟它，木材的总回收率才追平别的材料的 50%，**代价是一份胶水**（见 Materials 的 glue：它吃燃料，稀缺是刻意的）。
+        // **不设书门槛**（拆除是"建错了地方"的退出机制，不该被一本还没搜到的书卡死；粘木板是苦力活，不是手艺活）。
+        // 工时 40 分：比造把椅子快，但也不是白得——你得站在锯台前把一堆碎料拼齐、刨平、压住。数值拟定待调。
+        new RecipeData(
+            Id: "wood_from_scrap",
+            DisplayName: "回收木料",
+            Category: RecipeCategory.Woodwork,
+            OutputKey: "wood",
+            OutputQuantity: 4,
+            MaterialCosts: Cost(("scrap_wood", 4), ("glue", 1)),
+            RequiredTools: Tools(ToolSlot.SawBlade),
+            RequiredBookIds: Books(),
+            WorkMinutes: 40),
+
+        // ── [批次20·拆除回收] 熬骨胶：胶水的**唯一**产出途径（守门测试盯着这一点）──
+        // 三重稀缺是设计而非疏漏：① 吃**燃料**——火把/发电机/火药/全部枪弹都在抢同一桶油；
+        // ② 吃**骨头**——得先有动物或尸骨；③ 要烧杯槽 + 《土法化学笔记》——开局这两样都没有。
+        // ⇒ 前几天你拆错位置的墙，木料**就是回不满**。这正是「胶水税」该有的痛感。
+        new RecipeData(
+            Id: "glue",
+            DisplayName: "熬骨胶",
+            Category: RecipeCategory.Chemistry,
+            OutputKey: "glue",
+            OutputQuantity: 2,
+            MaterialCosts: Cost(("bone", 4), ("fuel", 1)),
+            RequiredTools: Tools(ToolSlot.Beaker),
+            RequiredBookIds: Books(FolkChemistryNotesBookId),
+            WorkMinutes: 60),
+
         // 火药：烧杯类化学 + 读过《土法化学笔记》解锁。
         new RecipeData(
             Id: "gunpowder",
@@ -164,10 +227,14 @@ public static class RecipeBook
             RequiredBookIds: Books(FolkChemistryNotesBookId),
             WorkMinutes: 60),
 
-        // 自制弓：卡尺类精工 + 读过《木匠入门》解锁（用户拍板：木椅/自制弓也要读木工书）。
+        // 短弓（原名「自制弓」）：卡尺类精工 + 读过《木匠入门》解锁（用户拍板：木椅/弓也要读木工书）。
+        // **改名说明**：用户拍板的 5 把弓是「短弓/反曲弓/长弓/竞技复合弓/狩猎弓」，没有「自制弓」——
+        // 留着它就是凭空多出第 6 把弓。而「木料 2 + 绳 1」＝一根木头 + 一根弦，本来就是最朴素的短弓，
+        // 故这条配方由「短弓」承接（它此前是**悬空引用**：有配方，WeaponTable 却查不到武器数值）。
+        // Id / OutputKey 仍是 handmade_bow（内部键，改它会无谓地波及 CraftOutputFactory 与一批既有测试）。
         new RecipeData(
             Id: "handmade_bow",
-            DisplayName: "自制弓",
+            DisplayName: "短弓",
             Category: RecipeCategory.Precision,
             OutputKey: "handmade_bow",
             OutputQuantity: 1,
@@ -176,16 +243,235 @@ public static class RecipeBook
             RequiredBookIds: Books(CarpentryBasicsBookId),
             WorkMinutes: 120),
 
+        // 自制猎枪（批次18b，用户拍板新增；旧「土制枪」已删）：唯一**能自己造**的枪。
+        // 工具槽取卡尺类精工（同自制弓——枪管/击发机构是精工活）；书门槛取《土法化学笔记》而非木工书：
+        // 该书本就解锁"火药"，"懂土法化学 → 能自己攒枪"这条链最自然，且不必新造一本枪匠书（会带出新的投放/掉落缺口）。
+        // 材料全部取自现有 Materials 目录（未新造材料）：金属锭 2（枪管）+ 木料 2（枪托）+ 机械零件 2（击发机构）。
+        // 工时 240 分＝全表最长（自制弓 120 / 木椅 150），造一把枪本就该比削张弓费事。数值皆拟定待调。
+        new RecipeData(
+            Id: "improvised_hunting_gun",
+            DisplayName: "自制猎枪",
+            Category: RecipeCategory.Precision,
+            OutputKey: "improvised_hunting_gun",
+            OutputQuantity: 1,
+            MaterialCosts: Cost(("metal_ingot", 2), ("wood", 2), ("components", 2)),
+            RequiredTools: Tools(ToolSlot.Calipers),
+            RequiredBookIds: Books(FolkChemistryNotesBookId),
+            WorkMinutes: 240),
+
+        // 自制霰弹枪（多弹丸武器）：**全表最好造的枪**——它就是一根钢管 + 击针，没有线膛、没有精密瞄具。
+        // 故比自制猎枪更便宜也更快：用**废金属**（而非猎枪的金属锭=需先熔炼提纯）、机械零件只要 1 个（简单击发）、
+        // 工时 150 分（猎枪 240）。代价全在数值上：射程最短、衰减最重、扩散最大、对披甲目标几乎无效。
+        // 同样需卡尺精工 + 读过《土法化学笔记》（懂火药的人才造得了枪）。材料全取自现有 Materials 目录，未新造。
+        // 枪本身不吃火药——火药是**弹药**（鹿弹 ammo_buck）的成本，见下方弹药配方。数值皆拟定待调。
+        new RecipeData(
+            Id: "improvised_shotgun",
+            DisplayName: "自制霰弹枪",
+            Category: RecipeCategory.Precision,
+            OutputKey: "improvised_shotgun",
+            OutputQuantity: 1,
+            MaterialCosts: Cost(("scrap_metal", 3), ("wood", 2), ("components", 1)),
+            RequiredTools: Tools(ToolSlot.Calipers),
+            RequiredBookIds: Books(FolkChemistryNotesBookId),
+            WorkMinutes: 150),
+
+        // ══════════════ [批次18] 子弹零件 + 四种子弹（用户拍板）══════════════
+        // 产物 key 同时是 Materials 目录项 → CraftOutputFactory 走材料分支落地为可堆叠材料堆。
+        //
+        // 【稀缺梯度＝用户拍板的制作比】1 个「子弹零件」→ **短 8 / 中 5 / 鹿 4 / 长 2** 发。
+        // 同一份原料，能喂手枪 8 次、喂步枪 5 次（而步枪一次扣扳机吞 2 发 → 实际只够 2 次半）、
+        // 喂狙击枪 2 次。**越强的枪，同一份料能打的次数越少** —— 这就是"强，但打不起"的算式。
+        //
+        // 【后勤代价的两条腿】
+        //  ① 子弹零件：弹壳/底火/弹头坯——**没法用土办法糊弄的精密件**，主要靠搜刮（见下方那条配方：
+        //     能造，但吃机械零件，贵）。它是四种子弹的**唯一共同瓶颈**。
+        //  ② 火药：每炉弹药还要 1 包火药，而火药 = 石料1 + **燃料1**（见上面 gunpowder 那条）。
+        //     燃料同时是火把/发电机的命根子 → **「多打两枪」和「今晚有没有灯」落进同一个预算。**
+        //     这正是用户要的：**不削枪的数值，用后勤代价平衡。**
+        //
+        // 工具/书门槛四条统一：烧杯类化学 + 《土法化学笔记》（该书本就解锁火药与自制猎枪——
+        // 懂土法化学 → 能攒枪、也能攒弹，这条链最自然，不必新造一本枪匠书）。数值皆拟定待调。
+
+        // 子弹零件：**唯一允许新增的材料**（用户点名）。能造，但刻意贵——机械零件是拆精密装置才有的东西。
+        // 定位：搜刮为主、制作兜底。搜刮断供时你还能造，但每造一个都在啃别的系统的料。
+        new RecipeData(
+            Id: "bullet_parts",
+            DisplayName: "子弹零件",
+            Category: RecipeCategory.Precision,
+            OutputKey: "bullet_parts",
+            OutputQuantity: 1,
+            MaterialCosts: Cost(("scrap_metal", 2), ("components", 1)),
+            RequiredTools: Tools(ToolSlot.Calipers),
+            RequiredBookIds: Books(FolkChemistryNotesBookId),
+            WorkMinutes: 60),
+
+        // 短子弹（手枪/冲锋枪）：1 零件 + 1 火药 → **8 发**。最便宜的枪弹。
+        new RecipeData(
+            Id: "ammo_short",
+            DisplayName: "短子弹",
+            Category: RecipeCategory.Chemistry,
+            OutputKey: "ammo_short",
+            OutputQuantity: 8,
+            MaterialCosts: Cost(("bullet_parts", 1), ("gunpowder", 1)),
+            RequiredTools: Tools(ToolSlot.Beaker),
+            RequiredBookIds: Books(FolkChemistryNotesBookId),
+            WorkMinutes: 45),
+
+        // 中子弹（自制猎枪/步枪/栓动猎枪）：1 零件 + 1 火药 → **5 发**。
+        // 步枪二连发 → 一炉只够它扣 2 次半扳机。它 93.5% 的命中，代价就在这行。
+        new RecipeData(
+            Id: "ammo_medium",
+            DisplayName: "中子弹",
+            Category: RecipeCategory.Chemistry,
+            OutputKey: "ammo_medium",
+            OutputQuantity: 5,
+            MaterialCosts: Cost(("bullet_parts", 1), ("gunpowder", 1)),
+            RequiredTools: Tools(ToolSlot.Beaker),
+            RequiredBookIds: Books(FolkChemistryNotesBookId),
+            WorkMinutes: 45),
+
+        // 鹿弹（自制霰弹枪）：1 零件 + 1 火药 → **4 发**。一发塞 8 颗铅丸，用料本就比中子弹重。
+        new RecipeData(
+            Id: "ammo_buck",
+            DisplayName: "鹿弹",
+            Category: RecipeCategory.Chemistry,
+            OutputKey: "ammo_buck",
+            OutputQuantity: 4,
+            MaterialCosts: Cost(("bullet_parts", 1), ("gunpowder", 1)),
+            RequiredTools: Tools(ToolSlot.Beaker),
+            RequiredBookIds: Books(FolkChemistryNotesBookId),
+            WorkMinutes: 45),
+
+        // 长子弹（狙击枪）：1 零件 + 1 火药 → **只有 2 发**。全表最贵的一发子弹。
+        // 拿它打丧尸＝用金子砸苍蝇；它存在的意义是"这一枪必须命中一个人"。
+        new RecipeData(
+            Id: "ammo_long",
+            DisplayName: "长子弹",
+            Category: RecipeCategory.Chemistry,
+            OutputKey: "ammo_long",
+            OutputQuantity: 2,
+            MaterialCosts: Cost(("bullet_parts", 1), ("gunpowder", 1)),
+            RequiredTools: Tools(ToolSlot.Beaker),
+            RequiredBookIds: Books(FolkChemistryNotesBookId),
+            WorkMinutes: 45),
+
+        // ==================== 箭（3 种可制作；碳纤维箭无配方，只能搜刮） ====================
+        //
+        // 箭一律**不吃火药、不吃子弹零件** —— 这是弓弩的立身之本。枪弹的原料稀缺且与别的东西竞争；
+        // 箭只吃木料/废金属/金属锭，而且**射出去还能捡回来一些**。枪强而打不起，弓弩弱而打得久 —— 两条路子由此分野。
+        //
+        // ⚠ **但箭绝不便宜**，这是刻意的。用户拍板的回收率是 **25%**（读过《弓与箭之道》才 50%）——
+        // 射出四支只捡回一支，箭是**持续消耗品**。若造箭近乎白送，"跑回战场把箭捡回来"就不值得玩家冒一次险，
+        // 回收率这条机制也就白设计了。故除了应急用的木箭，**每一支箭都要吃到金属**（废金属 / 金属锭）。
+        //
+        // 三种箭的门槛梯度（拟定待调）：木箭「什么都不要」→ 自制箭「要卡尺 + 废金属」→ 重头箭「要卡尺 + 金属锭」。
+        // 注意**造箭一律不要书**：削一根箭是苦力活，不是手艺活（要读书的是造**弓**；《弓与箭之道》管的是回收率，不是配方）。
+
+        // 削尖的木箭：应急货。木料 1 → 4 支，无工具槽、无书门槛 —— **开局第一天就能做**。
+        // 它的意义是"没箭了也不至于打不响"，不是"用得起"：伤害 ×0.70、破甲 ×0.55，遇甲基本等于挠痒。
+        new RecipeData(
+            Id: "ammo_arrow_stick",
+            DisplayName: "削尖的木箭",
+            Category: RecipeCategory.Precision,
+            OutputKey: "ammo_arrow_stick",
+            OutputQuantity: 3,
+            MaterialCosts: Cost(("wood", 1)),
+            RequiredTools: Tools(),
+            RequiredBookIds: Books(),
+            WorkMinutes: 20),
+
+        // 自制箭：**基线**（修正系数全 1.00）。木杆 + 铁头 + 布尾羽，要卡尺找平直度。一批 5 支 / 30 工时。
+        new RecipeData(
+            Id: "ammo_arrow_handmade",
+            DisplayName: "自制箭",
+            Category: RecipeCategory.Precision,
+            OutputKey: "ammo_arrow_handmade",
+            OutputQuantity: 4,
+            MaterialCosts: Cost(("wood", 2), ("scrap_metal", 1), ("cloth", 1)),
+            RequiredTools: Tools(ToolSlot.Calipers),
+            RequiredBookIds: Books(),
+            WorkMinutes: 45),
+
+        // 重头箭：**破甲专精**（用户原话「破甲能力更高，但射程和攻速有所削弱」）。箭头要灌实心金属 → 吃金属锭（贵）。
+        // 一批 4 支 / 40 工时。专门留着对付披甲的劫掠者——打丧尸用它是浪费。
+        new RecipeData(
+            Id: "ammo_arrow_heavy",
+            DisplayName: "重头箭",
+            Category: RecipeCategory.Precision,
+            OutputKey: "ammo_arrow_heavy",
+            OutputQuantity: 3,
+            MaterialCosts: Cost(("wood", 2), ("metal_ingot", 1)),
+            RequiredTools: Tools(ToolSlot.Calipers),
+            RequiredBookIds: Books(),
+            WorkMinutes: 60),
+
+        // 碳纤维箭：**没有配方，这是有意的**。工厂早就停工了——它只能搜刮（超市/守林人小屋/金手指帮/河边小屋）。
+        // 稀缺是它唯一的、也是足够的代价：四项全优还更准，谁也不该造得出来。
+
+        // ==================== 弓弩（4 把可制作；竞技复合弓/狩猎弓/复合弩无配方，只能搜刮） ====================
+        //
+        // 「短弓」的配方是既有的 handmade_bow（见上，Id 未动）。以下 4 把是它的进阶：一律**卡尺槽 + 《木匠入门》**
+        //（同一本书管全部弓弩——不新造"弩匠书"，那会带出新的书籍投放缺口）。梯度体现在**材料贵贱与工时**上。
+
+        // 反曲弓：标准均衡款。比短弓多一根木料 + 一块皮革（贴片/握把）。
+        new RecipeData(
+            Id: "recurve_bow",
+            DisplayName: "反曲弓",
+            Category: RecipeCategory.Precision,
+            OutputKey: "recurve_bow",
+            OutputQuantity: 1,
+            MaterialCosts: Cost(("wood", 3), ("rope", 1), ("leather", 1)),
+            RequiredTools: Tools(ToolSlot.Calipers),
+            RequiredBookIds: Books(CarpentryBasicsBookId),
+            WorkMinutes: 180),
+
+        // 长弓：射程之王。一张比人还高的弓 → 料最多的**纯木**配方（木料 5 + 绳 2），工时 240。
+        new RecipeData(
+            Id: "longbow",
+            DisplayName: "长弓",
+            Category: RecipeCategory.Precision,
+            OutputKey: "longbow",
+            OutputQuantity: 1,
+            MaterialCosts: Cost(("wood", 5), ("rope", 2)),
+            RequiredTools: Tools(ToolSlot.Calipers),
+            RequiredBookIds: Books(CarpentryBasicsBookId),
+            WorkMinutes: 240),
+
+        // 单手轻弩：弩＝木身 + 弩机。弩机是机械活 → 首次出现 components（机械零件）。
+        new RecipeData(
+            Id: "light_crossbow",
+            DisplayName: "单手轻弩",
+            Category: RecipeCategory.Precision,
+            OutputKey: "light_crossbow",
+            OutputQuantity: 1,
+            MaterialCosts: Cost(("wood", 2), ("scrap_metal", 2), ("rope", 1), ("components", 1)),
+            RequiredTools: Tools(ToolSlot.Calipers),
+            RequiredBookIds: Books(CarpentryBasicsBookId),
+            WorkMinutes: 200),
+
+        // 双手重弩：**全表最贵、最费时的配方**（320 分 ＞ 自制猎枪 240）。钢制弩臂 → 吃金属锭。
+        // 它的回报是 65% 穿透（可制作里最高）—— 想打穿板甲，就得先付出这个代价。
+        new RecipeData(
+            Id: "heavy_crossbow",
+            DisplayName: "双手重弩",
+            Category: RecipeCategory.Precision,
+            OutputKey: "heavy_crossbow",
+            OutputQuantity: 1,
+            MaterialCosts: Cost(("wood", 4), ("metal_ingot", 2), ("rope", 2), ("components", 2)),
+            RequiredTools: Tools(ToolSlot.Calipers),
+            RequiredBookIds: Books(CarpentryBasicsBookId),
+            WorkMinutes: 320),
+
         // 火把（手持光源，批次4 光照）：木棒裹布蘸燃油即成——基础求生造物，无书门槛、无工具槽、开局可做。
         // 产物 key="torch"（对齐 LightSource.TorchKey），经 CraftOutputFactory 落地为 Item.Light（非武器/护甲/材料）。
-        // 材料拟定待调：木料 1 + 破布 1 + 燃料 1。手电不可制作（拾取/投放获得）。
+        // 材料拟定待调：木料 1 + 布 1 + 燃料 1。手电不可制作（拾取/投放获得）。
         new RecipeData(
             Id: "torch",
             DisplayName: "火把",
             Category: RecipeCategory.Misc,
             OutputKey: "torch",
             OutputQuantity: 1,
-            MaterialCosts: Cost(("wood", 1), ("scrap_cloth", 1), ("fuel", 1)),
+            MaterialCosts: Cost(("wood", 1), ("cloth", 1), ("fuel", 1)),
             RequiredTools: Tools(),
             RequiredBookIds: Books(),
             WorkMinutes: 20),
@@ -254,7 +540,7 @@ public static class RecipeBook
             Category: RecipeCategory.Tailoring,
             OutputKey: "布制狗衣",
             OutputQuantity: 1,
-            MaterialCosts: Cost(("cloth", 2), ("scrap_cloth", 1)),
+            MaterialCosts: Cost(("cloth", 3)),
             RequiredTools: Tools(),
             RequiredBookIds: Books(),
             WorkMinutes: 50,
@@ -273,14 +559,14 @@ public static class RecipeBook
             WorkMinutes: 70,
             RequiredCrafterGates: Books(DogGearCrafterGate)),
 
-        // 口袋狗衣：身体无甲，缝多口袋给布鲁斯携带容量（探索负重）。布 + 破布 + 绳（背带）。
+        // 口袋狗衣：身体无甲，缝多口袋给布鲁斯携带容量（探索负重）。布 + 绳（背带）。
         new RecipeData(
             Id: "dog_pocket_vest",
             DisplayName: "口袋狗衣",
             Category: RecipeCategory.Tailoring,
             OutputKey: "口袋狗衣",
             OutputQuantity: 1,
-            MaterialCosts: Cost(("cloth", 1), ("scrap_cloth", 2), ("rope", 1)),
+            MaterialCosts: Cost(("cloth", 3), ("rope", 1)),
             RequiredTools: Tools(),
             RequiredBookIds: Books(),
             WorkMinutes: 60,
@@ -299,14 +585,14 @@ public static class RecipeBook
             WorkMinutes: 70,
             RequiredCrafterGates: Books(DogGearCrafterGate)),
 
-        // 铁丝头甲：头部轻便甲（防护弱于铁皮）。铁丝编笼 + 破布衬。
+        // 铁丝头甲：头部轻便甲（防护弱于铁皮）。铁丝编笼 + 布衬。
         new RecipeData(
             Id: "dog_wire_helmet",
             DisplayName: "铁丝头甲",
             Category: RecipeCategory.Misc,
             OutputKey: "铁丝头甲",
             OutputQuantity: 1,
-            MaterialCosts: Cost(("wire", 2), ("scrap_cloth", 1)),
+            MaterialCosts: Cost(("wire", 2), ("cloth", 1)),
             RequiredTools: Tools(),
             RequiredBookIds: Books(),
             WorkMinutes: 55,

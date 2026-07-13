@@ -58,7 +58,7 @@ public class NewEquipmentDataTests
         Assert.Contains("草叉", names);
     }
 
-    // ---- 栓动猎枪：新增民用猎枪，入 Arsenal（自动进 WeaponCatalog/掉落可得），数值介于步枪与土制枪之间 ----
+    // ---- 栓动猎枪：新增民用猎枪，入 Arsenal（自动进 WeaponCatalog/掉落可得），数值介于步枪与自制猎枪之间 ----
 
     [Fact]
     public void BoltActionHuntingRifle_InArsenal_WithBetweenStats()
@@ -68,15 +68,17 @@ public class NewEquipmentDataTests
 
         Weapon bolt = WeaponTable.BoltActionHuntingRifle();
         Weapon rifle = WeaponTable.Rifle();
-        Weapon zip = WeaponTable.Zipgun();
+        Weapon zip = WeaponTable.ImprovisedHuntingGun();
 
         Assert.True(bolt.IsRanged);
         Assert.True(bolt.TwoHanded);
         Assert.Equal(1, bolt.BurstCount);                       // 单发，非连发
         Assert.Equal(4.5, bolt.AttackInterval, 6);              // 栓动慢冷却锚点
-        // 伤害/穿透/射程介于步枪（军用强）与土制枪（土制弱）之间
+        // 伤害/射程介于步枪（军用强）与自制猎枪（土法弱）之间。
+        // ⚠ 穿透不再夹在中间：自制猎枪经用户拍板改为 25%（>步枪 21%，"打得不重但钻得深"），
+        // 故栓动猎枪 16% 现在是全枪械最低，穿透维度改为只与步枪比。
         Assert.InRange(bolt.DamageMax, zip.DamageMax, rifle.DamageMax);
-        Assert.InRange(bolt.Penetration, zip.Penetration, rifle.Penetration);
+        Assert.True(bolt.Penetration < rifle.Penetration);
         Assert.InRange(bolt.MaxRange!.Value, zip.MaxRange!.Value, rifle.MaxRange!.Value);
     }
 
@@ -94,23 +96,25 @@ public class NewEquipmentDataTests
         Assert.True(coat.SharpDefense > 0 && coat.BluntDefense > 0);
     }
 
-    // ---- 劳保手套：手部轻护甲层（当前无 12 槽系统，先作一层轻护甲） ----
+    // ---- 劳保手套：物品定义不分左右（表里只有一行），表口径覆盖双手含五指；
+    //      实际一件只占一只手槽、只护那一只手，双手要两件（[SPEC-B18-补]，见 ApparelSlotsTests）----
 
     [Fact]
-    public void WorkGloves_IsPairOfLightArmorLayers()
+    public void WorkGloves_AreOneUnsidedDef_TableCoversBothHands()
     {
-        // 一副 = 左手套 + 右手套两件独立护甲（装备槽按左右分）。
-        IReadOnlyList<ArmorLayer> pair = ArmorTable.WorkGloves();
-        Assert.Equal(2, pair.Count);
-        Assert.Contains(pair, g => g.Name == "左手套");
-        Assert.Contains(pair, g => g.Name == "右手套");
+        // 表口径（这件"能"护的部位类别）；穿戴时按槽裁剪成单只手。
+        ArmorLayer gloves = ArmorTable.WorkGloves();
+        Assert.Equal("劳保手套", gloves.Name);
+        Assert.Equal(ArmorSlot.Skin, gloves.Slot);
+        Assert.NotNull(gloves.CoversParts);
+        Assert.Contains(HumanBody.LeftHand, gloves.CoversParts!);
+        Assert.Contains(HumanBody.RightHand, gloves.CoversParts!);
+        Assert.Contains(HumanBody.LeftThumb, gloves.CoversParts!);   // 连带五指子树
+        Assert.Contains(HumanBody.RightPinky, gloves.CoversParts!);
+        Assert.DoesNotContain(HumanBody.Chest, gloves.CoversParts!);
 
-        foreach (ArmorLayer glove in pair)
-        {
-            // 防护极低（轻护甲）。
-            Assert.True(glove.SharpDefense > 0 && glove.SharpDefense <= 2, "手套锐防应为轻护甲");
-            Assert.True(glove.BluntDefense > 0 && glove.BluntDefense <= 2, "手套钝防应为轻护甲");
-            Assert.True(glove.SharpDefense < ArmorTable.CoarseClothCoat().SharpDefense, "手套防护应低于粗布外套");
-        }
+        // 全身最轻的一件（覆盖面最小）。
+        Assert.True(gloves.Weight < ArmorTable.CoarseClothCoat().Weight, "手套应比粗布外套轻");
+        Assert.True(gloves.SharpDefense > 0 && gloves.BluntDefense > 0);
     }
 }

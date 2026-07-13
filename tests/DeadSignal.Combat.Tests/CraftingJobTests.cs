@@ -131,7 +131,7 @@ public class CraftingWorktimeServiceTests
         bench.InstallTool(ToolSlot.Beaker);
         var inv = new InventoryStore();
         inv.Add(Item.Material("wood", "木料", 4));
-        inv.Add(Item.Material("cloth", "布料", 2));
+        inv.Add(Item.Material("cloth", "布", 2));
         return (bench, inv);
     }
 
@@ -159,7 +159,7 @@ public class CraftingWorktimeServiceTests
         bench.InstallTool(ToolSlot.Beaker);
         var inv = new InventoryStore();
         inv.Add(Item.Material("wood", "木料", 6));
-        inv.Add(Item.Material("cloth", "布料", 2));
+        inv.Add(Item.Material("cloth", "布", 2));
         CraftStartResult r = CraftingService.StartJob(MakeRecipe(40), _ => true, bench, inv, times: 2);
         Assert.True(r.Success);
         Assert.Equal(80, r.Job!.TotalWorkMinutes); // 工时线性放大

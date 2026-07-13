@@ -33,23 +33,25 @@ public class DogApparelTests
         Assert.False(DogGearCatalog.IsDogGear(null));
     }
 
+    /// <summary>[SPEC-B18] 五件套<b>全部</b>有甲——口袋狗衣也从无甲改为薄甲(2/1)。</summary>
     [Fact]
-    public void Catalog_VestsHaveArmor_PocketVestHasNone_HelmetsHaveArmor()
+    public void Catalog_AllFiveGearsHaveArmor()
     {
         Assert.NotNull(DogGearCatalog.Get(DogGearCatalog.ClothVestKey)!.Armor());
         Assert.NotNull(DogGearCatalog.Get(DogGearCatalog.LeatherVestKey)!.Armor());
-        Assert.Null(DogGearCatalog.Get(DogGearCatalog.PocketVestKey)!.Armor()); // 口袋狗衣无甲
+        Assert.NotNull(DogGearCatalog.Get(DogGearCatalog.PocketVestKey)!.Armor()); // 口袋狗衣：薄甲 + 6kg 负重
         Assert.NotNull(DogGearCatalog.Get(DogGearCatalog.IronHelmetKey)!.Armor());
         Assert.NotNull(DogGearCatalog.Get(DogGearCatalog.WireHelmetKey)!.Armor());
     }
 
+    /// <summary>[SPEC-B18] 铁皮头甲锐防更高但更重；钝防两者持平（表值 18/12 vs 12/12）——铁丝是"轻便档"而非纯劣档。</summary>
     [Fact]
-    public void Catalog_IronHelmet_OutDefendsWireHelmet()
+    public void Catalog_IronHelmet_OutDefendsWireHelmet_OnSharpOnly()
     {
         ArmorLayer iron = DogGearCatalog.Get(DogGearCatalog.IronHelmetKey)!.Armor()!;
         ArmorLayer wire = DogGearCatalog.Get(DogGearCatalog.WireHelmetKey)!.Armor()!;
         Assert.True(iron.SharpDefense > wire.SharpDefense);
-        Assert.True(iron.BluntDefense > wire.BluntDefense);
+        Assert.Equal(iron.BluntDefense, wire.BluntDefense);   // 钝防持平（表口径）
         // 铁丝更轻便。
         Assert.True(wire.Weight < iron.Weight);
     }
@@ -88,7 +90,7 @@ public class DogApparelTests
     {
         var a = new DogApparelSlots();
         a.TryEquip(DogGearCatalog.ClothVestKey, out _);
-        // 皮衣与布衣同占身体槽 → 顶替。
+        // 皮制狗衣与布制狗衣同占身体槽 → 顶替。
         Assert.Equal(DogEquipOutcome.Replaced, a.TryEquip(DogGearCatalog.LeatherVestKey, out var displaced));
         Assert.Equal(DogGearCatalog.ClothVestKey, displaced);
         Assert.Equal(DogGearCatalog.LeatherVestKey, a.ItemAt(DogEquipSlot.Body));
@@ -138,7 +140,7 @@ public class DogApparelTests
     // ---- 护甲聚合 ----
 
     [Fact]
-    public void ArmorLayers_AggregatesEquippedArmor_ExcludesArmorlessPocketVest()
+    public void ArmorLayers_AggregatesEquippedArmor()
     {
         var a = new DogApparelSlots();
         a.TryEquip(DogGearCatalog.LeatherVestKey, out _);
@@ -149,12 +151,19 @@ public class DogApparelTests
         Assert.Contains(layers, l => l.CoversParts!.Contains(HumanBody.Head));  // 头甲护头
     }
 
+    /// <summary>[SPEC-B18] 口袋狗衣不再是"无甲纯容器"：表给了 2/1 薄甲，穿上应产出一层身体甲。</summary>
     [Fact]
-    public void ArmorLayers_PocketVestOnly_ProducesNoLayer()
+    public void ArmorLayers_PocketVest_ProducesThinBodyLayer()
     {
         var a = new DogApparelSlots();
         a.TryEquip(DogGearCatalog.PocketVestKey, out _);
-        Assert.Empty(a.ArmorLayers());
+        var layer = Assert.Single(a.ArmorLayers());
+        Assert.Equal("口袋狗衣", layer.Name);
+        Assert.Contains(HumanBody.Chest, layer.CoversParts!);
+        Assert.Contains(HumanBody.Abdomen, layer.CoversParts!);
+        // 最薄的一件身体甲：弱于布制狗衣（拿容量换防护）。
+        Assert.True(layer.SharpDefense < ArmorTable.DogClothVest().SharpDefense);
+        Assert.True(layer.BluntDefense < ArmorTable.DogClothVest().BluntDefense);
     }
 
     // ---- 携带容量 ----
@@ -165,8 +174,15 @@ public class DogApparelTests
         var a = new DogApparelSlots();
         Assert.Equal(0f, a.TotalCarryCapacity());
         a.TryEquip(DogGearCatalog.ClothVestKey, out _);
-        Assert.Equal(0f, a.TotalCarryCapacity()); // 布衣无容量
-        a.TryEquip(DogGearCatalog.PocketVestKey, out _); // 顶替布衣
+        Assert.Equal(0f, a.TotalCarryCapacity()); // 布制狗衣无容量
+        a.TryEquip(DogGearCatalog.PocketVestKey, out _); // 顶替布制狗衣
         Assert.Equal(DogGearCatalog.PocketVestCapacity, a.TotalCarryCapacity());
+    }
+
+    /// <summary>[SPEC-B18] 口袋狗衣负重以护甲表为准：为狗提供 6kg（旧值 12kg 作废）。</summary>
+    [Fact]
+    public void PocketVestCapacity_MatchesArmorTable_SixKg()
+    {
+        Assert.Equal(6f, DogGearCatalog.PocketVestCapacity);
     }
 }

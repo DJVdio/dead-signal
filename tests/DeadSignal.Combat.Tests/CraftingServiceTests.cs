@@ -84,7 +84,7 @@ public class CraftExecutionTests
         // 跨两堆凑 wood=4，cloth=2。
         inv.Add(Item.Material("wood", "木料", 3));
         inv.Add(Item.Material("wood", "木料", 1));
-        inv.Add(Item.Material("cloth", "布料", 2));
+        inv.Add(Item.Material("cloth", "布", 2));
         return (bench, inv);
     }
 

@@ -86,7 +86,8 @@ public class StartingGearTests
 
         ApparelCatalog.ApparelDef? def = ApparelCatalog.Get("运动鞋");
         Assert.NotNull(def);
-        Assert.Equal(new HashSet<EquipSlot> { EquipSlot.LeftFoot, EquipSlot.RightFoot }, def!.Slots);
+        Assert.True(def!.Paired);   // 成对品：一只鞋一只脚槽（[SPEC-B18-补]）
+        Assert.Equal(new HashSet<EquipSlot> { EquipSlot.LeftFoot, EquipSlot.RightFoot }, def.Slots);
     }
 
     // ---- 三件同穿无冲突（2→3，[SPEC-B16-补2]）：贴身层 + 裤子槽 + 双脚槽，覆盖并集 = 上身 + 腿 + 脚 ----
@@ -100,15 +101,17 @@ public class StartingGearTests
         // 长袖布衣走贴身层（原始护甲层路径）。
         EquipOutcome shirtOutcome = apparel.TryEquip(
             shirt.Name, new HashSet<EquipSlot> { EquipSlot.SkinLayer }, out _, shirt.CoversParts);
-        // 长裤 + 运动鞋走目录（裤子槽 / 双脚槽）。
+        // 长裤 + 一双运动鞋走目录（裤子槽 / 左右脚槽各一只鞋）。
         EquipOutcome pantsOutcome = ApparelCatalog.Equip(apparel, "长裤");
-        EquipOutcome shoesOutcome = ApparelCatalog.Equip(apparel, "运动鞋");
+        EquipOutcome leftShoe = ApparelCatalog.Equip(apparel, "运动鞋", EquipSlot.LeftFoot);
+        EquipOutcome rightShoe = ApparelCatalog.Equip(apparel, "运动鞋", EquipSlot.RightFoot);
 
         Assert.Equal(EquipOutcome.Equipped, shirtOutcome);
         Assert.Equal(EquipOutcome.Equipped, pantsOutcome);
-        Assert.Equal(EquipOutcome.Equipped, shoesOutcome);
-        // 开局三件套：三件独立穿戴品，互不占槽冲突。
-        Assert.Equal(3, apparel.EquippedItems.Count);
+        Assert.Equal(EquipOutcome.Equipped, leftShoe);
+        Assert.Equal(EquipOutcome.Equipped, rightShoe);
+        // 开局三件套 = 4 件穿戴实例（一双鞋算两只，[SPEC-B18-补]），互不占槽冲突。
+        Assert.Equal(4, apparel.EquippedItems.Count);
         Assert.Equal("长袖布衣", apparel.ItemAt(EquipSlot.SkinLayer));
         Assert.Equal("长裤", apparel.ItemAt(EquipSlot.Pants));
         Assert.Equal("运动鞋", apparel.ItemAt(EquipSlot.LeftFoot));

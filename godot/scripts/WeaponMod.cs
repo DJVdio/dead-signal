@@ -220,25 +220,9 @@ public static class WeaponMods
         return baseName + "（" + string.Join("・", mods.Select(m => m.Name)) + "）";
     }
 
-    private static string ClassLabel(WeaponClass c) => c switch
-    {
-        WeaponClass.Firearm => "枪械",
-        WeaponClass.Blade => "近战锐器",
-        WeaponClass.Blunt => "近战钝器",
-        _ => c.ToString(),
-    };
+    private static string ClassLabel(WeaponClass c) => DisplayNames.Of(c);
 
-    private static string PartLabel(WeaponPart p) => p switch
-    {
-        WeaponPart.Stock => "枪托",
-        WeaponPart.Barrel => "枪管",
-        WeaponPart.Muzzle => "枪口",
-        WeaponPart.Blade => "刃",
-        WeaponPart.Handle => "柄",
-        WeaponPart.Grip => "缠手",
-        WeaponPart.Shaft => "杆",
-        _ => p.ToString(),
-    };
+    private static string PartLabel(WeaponPart p) => DisplayNames.Of(p);
 
     /// <summary>
     /// 可变武器草稿：从 <see cref="Weapon"/> 取全部字段进可变槽，施加增量后 <see cref="Build"/> 回不可变 Weapon。

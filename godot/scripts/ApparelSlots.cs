@@ -53,12 +53,15 @@ public enum EquipOutcome
 /// </summary>
 public sealed class ApparelSlots
 {
-    // 槽 → 占用它的物品标识。多槽装备会让多个槽映射到同一标识。
-    private readonly Dictionary<EquipSlot, string> _slotOwner = new();
-    // 物品标识 → 它占用的全部槽（多槽/成对的反查）。
-    private readonly Dictionary<string, HashSet<EquipSlot>> _itemSlots = new();
-    // 物品标识 → 它覆盖的身体部位名集合（Equip 时给入，供覆盖聚合）。
-    private readonly Dictionary<string, IReadOnlySet<string>> _itemCovers = new();
+    // 一件"在身的穿戴实例"：物品标识 + 它占的槽 + 它覆盖的部位。
+    // 键是**实例**而非物品名——因为成对品（劳保手套/运动鞋）不分左右，同名可同时在身两件
+    // （一只左手/一只右手），各覆盖自己那一边（[SPEC-B18-补]）。
+    private sealed record Worn(string Item, HashSet<EquipSlot> Slots, IReadOnlySet<string> Covers);
+
+    // 槽 → 占用它的穿戴实例（多槽装备如板甲会让多个槽映射到同一实例）。
+    private readonly Dictionary<EquipSlot, Worn> _slotOwner = new();
+    // 全部在身实例（同名可有多件）。
+    private readonly List<Worn> _worn = new();
 
     /// <summary>
     /// 每个"可被断肢禁用"的槽 → 该槽依附的身体部位名（<see cref="HumanBody"/> 常量）。
@@ -97,28 +100,38 @@ public sealed class ApparelSlots
         => SlotAnchor.Keys.Where(s => IsSlotDisabled(s, severedParts)).ToHashSet();
 
     /// <summary>某槽当前装了什么（空则 null）。</summary>
-    public string? ItemAt(EquipSlot slot) => _slotOwner.TryGetValue(slot, out var it) ? it : null;
+    public string? ItemAt(EquipSlot slot) => _slotOwner.TryGetValue(slot, out var w) ? w.Item : null;
 
     /// <summary>某槽是否已被占用。</summary>
     public bool IsOccupied(EquipSlot slot) => _slotOwner.ContainsKey(slot);
 
-    /// <summary>某件装备占用哪些槽（未穿则空集）。</summary>
+    /// <summary>该名装备占用哪些槽（同名多件则为并集；未穿则空集）。</summary>
     public IReadOnlySet<EquipSlot> SlotsOf(string item)
-        => _itemSlots.TryGetValue(item, out var s) ? s : (IReadOnlySet<EquipSlot>)new HashSet<EquipSlot>();
+    {
+        var slots = new HashSet<EquipSlot>();
+        foreach (Worn w in _worn.Where(w => w.Item == item))
+        {
+            slots.UnionWith(w.Slots);
+        }
+        return slots;
+    }
 
-    /// <summary>某件装备是否已穿。</summary>
-    public bool IsEquipped(string item) => _itemSlots.ContainsKey(item);
+    /// <summary>该名装备是否至少穿了一件。</summary>
+    public bool IsEquipped(string item) => _worn.Any(w => w.Item == item);
 
-    /// <summary>当前已穿的全部装备标识（去重）。</summary>
-    public IReadOnlyCollection<string> EquippedItems => _itemSlots.Keys;
+    /// <summary>当前在身的全部穿戴品，<b>逐件</b>列出（成对品穿两只则同名出现两次）。</summary>
+    public IReadOnlyCollection<string> EquippedItems => _worn.Select(w => w.Item).ToList();
 
     /// <summary>
     /// 尝试穿戴 <paramref name="item"/>，占用 <paramref name="occupiesSlots"/> 声明的全部槽。
     /// 校验：声明槽非空、无被断肢禁用的槽、目标槽全空（除非 <paramref name="replace"/>）。
     /// <paramref name="replace"/>=true 时，先整件卸下占了目标任一槽的旧装备（含其其它槽），再穿新的。
     /// </summary>
-    /// <param name="item">装备标识（如护甲名）。已穿同标识会被视为"重复穿戴"——先内部卸下再穿（幂等）。</param>
-    /// <param name="occupiesSlots">这件装备占用的槽集合（单槽/多槽/成对由调用方声明）。</param>
+    /// <param name="item">
+    /// 装备标识（如护甲名）。同名可穿多件——只要落在不同槽（成对品：一只左手、一只右手）。
+    /// 同名穿到<b>已被自己占的槽</b>视为重复穿戴，就地重穿（幂等），不新增一件。
+    /// </param>
+    /// <param name="occupiesSlots">这件装备占用的槽集合（单槽/多槽由调用方声明；成对品每件只声明一个槽）。</param>
     /// <param name="coversParts">这件装备覆盖的身体部位名集合（供覆盖聚合；null=不提供覆盖信息）。</param>
     /// <param name="severedParts">哪些身体部位已切除（断肢禁装判定入参）。</param>
     /// <param name="replace">目标槽被占时是否顶替旧装备。</param>
@@ -144,65 +157,74 @@ public sealed class ApparelSlots
             return EquipOutcome.BlockedSeveredLimb;
         }
 
-        // 2) 占用冲突：收集占了目标槽的旧装备（排除自己——重复穿戴视为幂等重穿）。
-        var conflicts = occupiesSlots
+        // 2) 占用冲突：收集占了目标槽的在身实例。同名实例=重复穿戴（幂等重穿，不算冲突）；
+        //    异名实例=真冲突，需 replace 才顶替。同名的**其它**实例（如另一只手上的手套）不受影响。
+        var occupants = occupiesSlots
             .Where(_slotOwner.ContainsKey)
             .Select(s => _slotOwner[s])
-            .Where(owner => owner != item)
             .Distinct()
             .ToList();
+        var conflicts = occupants.Where(w => w.Item != item).ToList();
 
         if (conflicts.Count > 0 && !replace)
         {
             return EquipOutcome.BlockedSlotOccupied;
         }
 
-        // 3) 顶替：整件卸下冲突旧装备；自身若已穿也先卸（幂等重穿到新槽集）。
+        // 3) 顶替：整件卸下冲突旧装备；占了目标槽的同名实例先卸（幂等重穿）。
         var removed = new List<string>();
-        foreach (var c in conflicts)
+        foreach (Worn c in conflicts)
         {
-            if (Unequip(c)) removed.Add(c);
+            Remove(c);
+            removed.Add(c.Item);
         }
-        Unequip(item); // 幂等：清掉自身旧占用，再按新槽集穿
+        foreach (Worn self in occupants.Where(w => w.Item == item))
+        {
+            Remove(self);
+        }
 
-        // 4) 落位。
-        var slots = new HashSet<EquipSlot>(occupiesSlots);
-        foreach (var s in slots)
+        // 4) 落位（一件 = 一个实例）。
+        var worn = new Worn(item, new HashSet<EquipSlot>(occupiesSlots), coversParts ?? new HashSet<string>());
+        foreach (EquipSlot s in worn.Slots)
         {
-            _slotOwner[s] = item;
+            _slotOwner[s] = worn;
         }
-        _itemSlots[item] = slots;
-        _itemCovers[item] = coversParts ?? new HashSet<string>();
+        _worn.Add(worn);
 
         displaced = removed;
         return EquipOutcome.Equipped;
     }
 
-    /// <summary>整件卸下某装备（清空它占的全部槽）。返回是否确实卸下了。</summary>
-    public bool Unequip(string item)
+    /// <summary>把一个在身实例从槽表与在身清单里摘掉。</summary>
+    private void Remove(Worn worn)
     {
-        if (!_itemSlots.TryGetValue(item, out var slots))
-        {
-            return false;
-        }
-        foreach (var s in slots)
+        foreach (EquipSlot s in worn.Slots)
         {
             _slotOwner.Remove(s);
         }
-        _itemSlots.Remove(item);
-        _itemCovers.Remove(item);
-        return true;
+        _worn.Remove(worn);
     }
 
-    /// <summary>卸下占用某槽的装备（连带它占的其它槽）。返回被卸下的装备标识（该槽本空则 null）。</summary>
+    /// <summary>卸下该名装备的<b>全部</b>在身件（成对品两只一起脱）。返回是否确实卸下了。要只脱一只用 <see cref="UnequipSlot"/>。</summary>
+    public bool Unequip(string item)
+    {
+        List<Worn> mine = _worn.Where(w => w.Item == item).ToList();
+        foreach (Worn w in mine)
+        {
+            Remove(w);
+        }
+        return mine.Count > 0;
+    }
+
+    /// <summary>卸下占用某槽的那一件（连带它占的其它槽；同名的另一只不受影响）。返回被卸下的装备标识（该槽本空则 null）。</summary>
     public string? UnequipSlot(EquipSlot slot)
     {
-        if (!_slotOwner.TryGetValue(slot, out var item))
+        if (!_slotOwner.TryGetValue(slot, out Worn? worn))
         {
             return null;
         }
-        Unequip(item);
-        return item;
+        Remove(worn);
+        return worn.Item;
     }
 
     // ---- 护甲覆盖聚合：供战斗层 DefenderArmor 只读消费 ----
@@ -214,19 +236,20 @@ public sealed class ApparelSlots
     public IReadOnlySet<string> CoveredParts()
     {
         var union = new HashSet<string>();
-        foreach (var cover in _itemCovers.Values)
+        foreach (Worn w in _worn)
         {
-            union.UnionWith(cover);
+            union.UnionWith(w.Covers);
         }
         return union;
     }
 
     /// <summary>
     /// 逐件覆盖清单（物品标识 + 其覆盖部位集），供战斗层把每件映射成带防御值的护甲层。
+    /// 成对品穿两只则出现两条同名记录，各带自己那一边的覆盖。
     /// 本类不持有防御数值——防御来自 <see cref="ArmorTable"/>，此处只交代"哪件防哪些部位"。
     /// </summary>
     public IReadOnlyList<(string Item, IReadOnlySet<string> CoversParts)> ActiveCoverage()
-        => _itemCovers.Select(kv => (kv.Key, kv.Value)).ToList();
+        => _worn.Select(w => (w.Item, w.Covers)).ToList();
 }
 
 /// <summary>
@@ -236,36 +259,93 @@ public sealed class ApparelSlots
 /// </summary>
 public static class ApparelCatalog
 {
-    /// <summary>一件穿戴品的静态定义：占用槽 + 覆盖部位（null=全覆盖，向后兼容旧护甲）+ 所属护甲层。</summary>
+    /// <summary>
+    /// 一件穿戴品的静态定义：占用槽 + 覆盖部位（null=全覆盖，向后兼容旧护甲）+ 所属护甲层。
+    /// <para>
+    /// <b>成对品</b>（<paramref name="Paired"/>=true，如劳保手套/运动鞋，[SPEC-B18-补]）：物品定义<b>不分左右</b>，
+    /// 但一件<b>只占一个槽</b>——护住双手/双脚要<b>两件</b>。此时 <paramref name="Slots"/> 是<b>候选槽</b>
+    /// （可装入其中任一），<paramref name="CoversParts"/> 是两侧合计（表口径/UI 展示），
+    /// 实际生效覆盖按装入的那一侧取 <see cref="CoversFor"/>。
+    /// </para>
+    /// </summary>
     public sealed record ApparelDef(
         string Name,
         IReadOnlySet<EquipSlot> Slots,
         IReadOnlySet<string>? CoversParts,
-        ArmorSlot? Layer);
+        ArmorSlot? Layer,
+        bool Paired = false,
+        IReadOnlyDictionary<EquipSlot, IReadOnlySet<string>>? CoversBySlot = null)
+    {
+        /// <summary>这件装进 <paramref name="slot"/> 时实际占用的槽集（成对品=只占那一个；其余=全部声明槽）。</summary>
+        public IReadOnlySet<EquipSlot> SlotsFor(EquipSlot slot)
+            => Paired ? new HashSet<EquipSlot> { slot } : Slots;
+
+        /// <summary>这件装进 <paramref name="slot"/> 时实际覆盖的部位（成对品=那一侧；其余=固定覆盖）。</summary>
+        public IReadOnlySet<string>? CoversFor(EquipSlot slot)
+            => Paired && CoversBySlot is not null && CoversBySlot.TryGetValue(slot, out IReadOnlySet<string>? c)
+                ? c
+                : CoversParts;
+    }
 
     private static IReadOnlySet<EquipSlot> S(params EquipSlot[] slots) => new HashSet<EquipSlot>(slots);
 
-    /// <summary>已登记的穿戴品（拟定待扩）。键为装备标识。</summary>
-    public static readonly IReadOnlyDictionary<string, ApparelDef> Defs = new Dictionary<string, ApparelDef>
+    /// <summary>
+    /// 已登记的穿戴品。键为装备标识（= 护甲名 = 库存 Item.RefKey）。
+    /// 人形 13 件的**占槽**在此、**覆盖部位与数值**在 <see cref="ArmorTable"/>（本表直接取其 CoversParts，
+    /// 单一事实源=数据表『护甲表』[SPEC-B18]，两处不再各写一份）。
+    /// </summary>
+    public static readonly IReadOnlyDictionary<string, ApparelDef> Defs = BuildDefs();
+
+    private static Dictionary<string, ApparelDef> BuildDefs()
     {
-        // 单槽：粗布外套 = 外套层；沿用 ArmorTable 口径全覆盖（CoversParts=null）。
-        ["粗布外套"] = new("粗布外套", S(EquipSlot.OuterLayer), null, ArmorSlot.Outer),
-        // 开局基础衣物：长裤 = 裤子槽，护双腿（[SPEC-B16-补]）。长袖布衣走贴身层，无需目录登记（EquipApparel 按 ArmorLayer.Slot 兜底）。
-        ["长裤"] = new("长裤", S(EquipSlot.Pants), new HashSet<string> { HumanBody.LeftLeg, HumanBody.RightLeg, HumanBody.LeftCalf, HumanBody.RightCalf }, ArmorSlot.Skin),
-        // 开局基础衣物：运动鞋 = 左右脚槽，护双脚（含脚趾子树，[SPEC-B16-补2]）。11 槽已有左右脚槽，无需上抛。
-        ["运动鞋"] = new("运动鞋", S(EquipSlot.LeftFoot, EquipSlot.RightFoot), HumanBody.SubtreeNames(HumanBody.LeftFoot, HumanBody.RightFoot), ArmorSlot.Skin),
-        // 部位细分示例装备（[SPEC-B17-补]）：胸甲 = 装甲层仅护胸（不防腹）；短裤 = 裤子槽仅护大腿（不防小腿），与长裤同槽互斥。
-        ["胸甲"] = new("胸甲", S(EquipSlot.PlateLayer), new HashSet<string> { HumanBody.Chest }, ArmorSlot.Plate),
-        ["短裤"] = new("短裤", S(EquipSlot.Pants), new HashSet<string> { HumanBody.LeftLeg, HumanBody.RightLeg }, ArmorSlot.Skin),
-        // 可制作布甲：粗布背心 = 外套层护胸+腹（无袖不护臂），补独立覆盖层前走 Item.Armor 全覆盖（[SPEC-B17]）。
-        ["粗布背心"] = new("粗布背心", S(EquipSlot.OuterLayer), new HashSet<string> { HumanBody.Chest, HumanBody.Abdomen }, ArmorSlot.Outer),
-        // 成对：左/右手套各一件，各只覆盖对应那只手（含五指），贴身层。
-        ["左手套"] = new("左手套", S(EquipSlot.LeftHand), HumanBody.SubtreeNames(HumanBody.LeftHand), ArmorSlot.Skin),
-        ["右手套"] = new("右手套", S(EquipSlot.RightHand), HumanBody.SubtreeNames(HumanBody.RightHand), ArmorSlot.Skin),
-        // 多槽示例（待扩数值）：防毒面具 = 眼镜 + 面部；一体板甲 = 装甲层 + 裤子。
-        ["防毒面具"] = new("防毒面具", S(EquipSlot.Eyes, EquipSlot.Face), new HashSet<string> { HumanBody.LeftEye, HumanBody.RightEye, HumanBody.Nose }, null),
-        ["一体板甲"] = new("一体板甲", S(EquipSlot.PlateLayer, EquipSlot.Pants), null, ArmorSlot.Plate),
-    };
+        var d = new Dictionary<string, ApparelDef>();
+        void Add(ArmorLayer l, params EquipSlot[] slots)
+            => d[l.Name] = new ApparelDef(l.Name, S(slots), l.CoversParts, l.Slot);
+
+        // 成对品（[SPEC-B18-补]）：一个 def 不分左右，一件占一只手/脚槽——两件才护全。
+        void AddPaired(ArmorLayer l, EquipSlot left, EquipSlot right, string leftPart, string rightPart)
+            => d[l.Name] = new ApparelDef(
+                l.Name, S(left, right), l.CoversParts, l.Slot, Paired: true,
+                CoversBySlot: new Dictionary<EquipSlot, IReadOnlySet<string>>
+                {
+                    [left] = HumanBody.SubtreeNames(leftPart),
+                    [right] = HumanBody.SubtreeNames(rightPart),
+                });
+
+        // 开局三件套：长袖布衣=贴身层(胸腹双臂)、长裤=裤装槽(双腿)、运动鞋=一只脚一只鞋(含趾)。
+        Add(ArmorTable.LongSleeveShirt(), EquipSlot.SkinLayer);
+        // 花衬衫：与长袖布衣同占贴身层（互斥），数值同档。开局营地那具尸体身上扒下来的就是它。
+        Add(ArmorTable.FloralShirt(), EquipSlot.SkinLayer);
+        Add(ArmorTable.Trousers(), EquipSlot.Pants);
+        AddPaired(ArmorTable.Sneakers(), EquipSlot.LeftFoot, EquipSlot.RightFoot, HumanBody.LeftFoot, HumanBody.RightFoot);
+        // 短裤：与长裤同占裤装槽（互斥），仅护大腿=不防小腿（覆盖取舍，[SPEC-B17-补]）。
+        Add(ArmorTable.Shorts(), EquipSlot.Pants);
+        // 外套层五件（互斥）：粗布背心(无袖不护臂) / 粗布外套 / 布夹克 / 牛仔外套 / 皮夹克——后四件同覆盖，防护递增。
+        Add(ArmorTable.CoarseClothVest(), EquipSlot.OuterLayer);
+        Add(ArmorTable.CoarseClothCoat(), EquipSlot.OuterLayer);
+        Add(ArmorTable.ClothJacket(), EquipSlot.OuterLayer);
+        Add(ArmorTable.DenimJacket(), EquipSlot.OuterLayer);
+        Add(ArmorTable.LeatherJacket(), EquipSlot.OuterLayer);
+        // 装甲层三件（互斥·**只管上身**）：皮革胸甲(仅护胸) / 皮甲 / 板甲——板甲多占裤装槽，故与长裤/短裤也互斥。
+        Add(ArmorTable.ChestPlate(), EquipSlot.PlateLayer);
+        Add(ArmorTable.Leather(), EquipSlot.PlateLayer);
+        Add(ArmorTable.Plate(), EquipSlot.PlateLayer, EquipSlot.Pants);
+        // 头盔两件（[SPEC-B19]，同占头槽互斥）：
+        //   军用头盔 → 只占头槽 ⇒ 眼/面还空着，能再扣一张防毒面具；脸也因此完全裸露（挖眼照旧有效）。
+        //   防暴头盔 → 头 + 眼镜 + 面部三槽（面罩罩住整张脸）⇒ 与防毒面具互斥（戴着面罩没法再扣面具）。
+        // 两者都**不占装甲层槽**（PlateLayer）⇒ 戴头盔与穿板甲/皮甲互不冲突。
+        // 用户口径：「装甲层是只针对上身的装备层……头盔这类肯定不在装甲层」——头盔占的是 EquipSlot.Head，
+        // 这里正是那句话在代码里的落点（ArmorSlot 是伤害层序，与"占哪个槽"无关，别混）。
+        Add(ArmorTable.MilitaryHelmet(), EquipSlot.Head);
+        Add(ArmorTable.RiotHelmet(), EquipSlot.Head, EquipSlot.Eyes, EquipSlot.Face);
+        // 劳保手套：物品不分左右，一件占一只手槽、护那一只手（含五指）——双手要两件（[SPEC-B18-补]）。
+        AddPaired(ArmorTable.WorkGloves(), EquipSlot.LeftHand, EquipSlot.RightHand, HumanBody.LeftHand, HumanBody.RightHand);
+        // 纯覆盖品（无护甲数值，Layer=null）：防毒面具 = 眼镜 + 面部两槽。
+        d["防毒面具"] = new ApparelDef(
+            "防毒面具", S(EquipSlot.Eyes, EquipSlot.Face),
+            new HashSet<string> { HumanBody.LeftEye, HumanBody.RightEye, HumanBody.Nose }, null);
+        return d;
+    }
 
     /// <summary>该标识是否为穿戴品（刺剑/草叉等武器返回 false）。</summary>
     public static bool IsApparel(string name) => Defs.ContainsKey(name);
@@ -273,14 +353,45 @@ public static class ApparelCatalog
     /// <summary>取穿戴品定义（未登记返回 null）。</summary>
     public static ApparelDef? Get(string name) => Defs.TryGetValue(name, out var d) ? d : null;
 
-    /// <summary>便捷：按目录定义把某件穿到 <paramref name="slots"/> 上（未登记则不动，返回 BlockedNoSlots）。</summary>
-    public static EquipOutcome Equip(ApparelSlots slots, string name, IReadOnlySet<string>? severedParts = null, bool replace = false)
+    /// <summary>
+    /// 便捷：按目录定义把某件穿到 <paramref name="slots"/> 上（未登记则不动，返回 BlockedNoSlots）。
+    /// 成对品（手套/鞋）必须落到某一侧：<paramref name="slot"/> 显式指定；不指定则自动挑第一只
+    /// 「未被断肢禁用且空着」的候选槽（左优先），全占满则退回第一只可用槽（配合 replace 顶替）。
+    /// </summary>
+    public static EquipOutcome Equip(
+        ApparelSlots slots, string name, EquipSlot? slot = null,
+        IReadOnlySet<string>? severedParts = null, bool replace = false)
     {
-        var def = Get(name);
+        ApparelDef? def = Get(name);
         if (def is null)
         {
             return EquipOutcome.BlockedNoSlots;
         }
-        return slots.TryEquip(name, def.Slots, out _, def.CoversParts, severedParts, replace);
+        if (!def.Paired)
+        {
+            return slots.TryEquip(name, def.Slots, out _, def.CoversParts, severedParts, replace);
+        }
+
+        EquipSlot? target = slot;
+        if (target is null)
+        {
+            // 候选槽按枚举序（左手/左脚在前）取：先要空闲的，没有空闲则取任一可用的。
+            List<EquipSlot> usable = def.Slots
+                .Where(s => ApparelSlots.IsSlotUsable(s, severedParts))
+                .OrderBy(s => (int)s)
+                .ToList();
+            target = usable.Cast<EquipSlot?>().FirstOrDefault(s => !slots.IsOccupied(s!.Value))
+                     ?? usable.Cast<EquipSlot?>().FirstOrDefault();
+        }
+        if (target is null)
+        {
+            return EquipOutcome.BlockedSeveredLimb;   // 两侧肢体都没了
+        }
+        if (!def.Slots.Contains(target.Value))
+        {
+            return EquipOutcome.BlockedNoSlots;       // 指定了不属于这件的槽（如把手套往脚上穿）
+        }
+        return slots.TryEquip(
+            name, def.SlotsFor(target.Value), out _, def.CoversFor(target.Value), severedParts, replace);
     }
 }

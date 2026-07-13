@@ -16,11 +16,19 @@ namespace DeadSignal.Godot;
 public static class CraftOutputFactory
 {
     // 产物 key → 大类（草稿，随配方增补）。材料类产物（gunpowder/tanning_solution）不列此表——走 Materials 目录判定。
-    private static readonly IReadOnlySet<string> WeaponOutputs = new HashSet<string> { "bone_knife", "handmade_bow" };
-    // 护甲类产物：粗布背心 + 布鲁斯狗装备五件套（DogGearCatalog 键）。落地为 Item.Armor，
+    private static readonly IReadOnlySet<string> WeaponOutputs = new HashSet<string>
+    {
+        "bone_knife", "handmade_bow", "improvised_hunting_gun", "improvised_shotgun",
+        // 弓弩（可制作的 4 把进阶款；"handmade_bow" 就是「短弓」，键沿用未改）。
+        // 竞技复合弓/狩猎弓/复合弩**不在此列，也不该在**——它们没有配方，只能搜刮。
+        "recurve_bow", "longbow", "light_crossbow", "heavy_crossbow",
+    };
+    // 箭（4 种）不必登记：它们的产物 key 同时是**材料键**（ammo_arrow_*），
+    // 走上面 Materials.Has(outputKey) 那条分支自动落地为一堆材料。
+    // 护甲类产物：粗布背心 / 布夹克 + 布鲁斯狗装备五件套（DogGearCatalog 键）。落地为 Item.Armor，
     // RefKey=产物 key（狗装备穿戴走 DogApparelSlots 按此键查 DogGearCatalog）。
     private static readonly IReadOnlySet<string> ArmorOutputs = new HashSet<string>(
-        new[] { "cloth_vest" }.Concat(DogGearCatalog.AllKeys));
+        new[] { "cloth_vest", "cloth_jacket" }.Concat(DogGearCatalog.AllKeys));
     // 光源类产物（火把）：落地为 Item.Light，refKey=产物 key（对齐 LightSource 目录）。手电不可制作，不列此表。
     private static readonly IReadOnlySet<string> LightOutputs = new HashSet<string> { "torch" };
 
@@ -56,7 +64,14 @@ public static class CraftOutputFactory
             yield break;
         }
 
-        // 家具/杂项（木椅等）：暂无家具类别，作杂项材料堆入库（显示名取配方名）。
-        yield return Item.Material(outputKey, display, qty);
+        // 家具/杂项（木椅/沙袋等）：暂无家具类别，作杂项材料堆入库（显示名取配方名，描述取 flavor）。
+        yield return Item.Material(outputKey, display, qty, FurnitureFlavor(outputKey));
     }
+
+    /// <summary>家具/杂项产物的物品描述（黑色幽默 flavor）。未收录者留空——空描述在库存面板里只是不显示那一行。</summary>
+    private static string FurnitureFlavor(string outputKey) => outputKey switch
+    {
+        SandbagSpec.ItemKey => SandbagSpec.ItemDescription,
+        _ => "",
+    };
 }

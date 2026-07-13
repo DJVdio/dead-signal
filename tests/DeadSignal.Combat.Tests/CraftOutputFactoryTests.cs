@@ -18,9 +18,11 @@ public class CraftOutputFactoryTests
         Assert.Equal(ItemCategory.Weapon, knife.Category);
         Assert.Equal("骨刀", knife.DisplayName); // 配方 DisplayName，对齐武器表中文命名惯例
 
+        // handmade_bow 是「短弓」的内部键（配方 Id/OutputKey 未改，只把 DisplayName 从「自制弓」改成了
+        // 「短弓」——用户拍板的 5 把弓里没有「自制弓」这个名字，见 WeaponTable.ShortBow）。
         Item bow = Assert.Single(CraftOutputFactory.Create("handmade_bow", 1));
         Assert.Equal(ItemCategory.Weapon, bow.Category);
-        Assert.Equal("自制弓", bow.DisplayName);
+        Assert.Equal("短弓", bow.DisplayName);
     }
 
     [Fact]

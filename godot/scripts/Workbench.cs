@@ -28,13 +28,8 @@ public enum ToolSlot
 /// <summary>工具插槽中文显示名（供 UI/日志读取）。</summary>
 public static class ToolSlotExtensions
 {
-    public static string Label(this ToolSlot slot) => slot switch
-    {
-        ToolSlot.Calipers => "卡尺",
-        ToolSlot.SawBlade => "锯片",
-        ToolSlot.Beaker => "烧杯",
-        _ => slot.ToString(),
-    };
+    /// <summary>单一事实源在 <see cref="DisplayNames"/>。</summary>
+    public static string Label(this ToolSlot slot) => DisplayNames.Of(slot);
 }
 
 /// <summary>

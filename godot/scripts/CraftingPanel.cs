@@ -655,23 +655,7 @@ public sealed partial class CraftingPanel : CanvasLayer
         _listContainer.AddChild(empty);
     }
 
-    private static string ClassLabel(WeaponClass c) => c switch
-    {
-        WeaponClass.Firearm => "枪械",
-        WeaponClass.Blade => "近战锐器",
-        WeaponClass.Blunt => "近战钝器",
-        _ => c.ToString(),
-    };
+    private static string ClassLabel(WeaponClass c) => DisplayNames.Of(c);
 
-    private static string PartLabel(WeaponPart p) => p switch
-    {
-        WeaponPart.Stock => "枪托",
-        WeaponPart.Barrel => "枪管",
-        WeaponPart.Muzzle => "枪口",
-        WeaponPart.Blade => "刃",
-        WeaponPart.Handle => "柄",
-        WeaponPart.Grip => "缠手",
-        WeaponPart.Shaft => "杆",
-        _ => p.ToString(),
-    };
+    private static string PartLabel(WeaponPart p) => DisplayNames.Of(p);
 }

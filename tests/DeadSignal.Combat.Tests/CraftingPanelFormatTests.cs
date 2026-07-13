@@ -14,18 +14,31 @@ public class CraftingPanelFormatTests
     {
         IReadOnlyList<RecipeToolGroup> groups = CraftingPanelFormat.GroupByTool(RecipeBook.All);
 
-        // RecipeBook 声明顺序：骨刀(无)、粗布背心(无)、板凳(无)、木椅(锯片)、火药(烧杯)、鞣制药水(烧杯)、自制弓(卡尺)、火把(无)、
-        //   草药膏(无)、蒲公英茶(无)、草药绷带(无)、玫瑰果茶(无)、狗装备五件套(布/皮/口袋狗衣·铁皮/铁丝头甲，皆无工具)。
-        // 桶按首次出现顺序：无 → 锯片 → 烧杯 → 卡尺，共 4 组（火把 + 草药膏/蒲公英茶/草药绷带/玫瑰果茶 + 狗装备五件套无工具，归入"无"桶末尾）。
+        // 桶按工具需求的**首次出现顺序**排列：无工具 → 锯片 → 烧杯 → 卡尺。
+        // 断言按**语义**写（分桶正确性），不锁死每桶的配方条数——配方表在持续增补（新武器/弹药/装备各批次都在加），
+        // 硬编码计数会让任何一条新配方无端打红这个跟它无关的测试。
         Assert.Equal(4, groups.Count);
+
         Assert.Empty(groups[0].Tools);
-        Assert.Equal(13, groups[0].Recipes.Count);           // 骨刀+粗布背心+板凳+火把+草药膏+蒲公英茶+草药绷带+玫瑰果茶 + 狗装备五件套(5)
         Assert.Equal(new[] { ToolSlot.SawBlade }, groups[1].Tools);
-        Assert.Single(groups[1].Recipes);                    // 木椅
         Assert.Equal(new[] { ToolSlot.Beaker }, groups[2].Tools);
-        Assert.Equal(2, groups[2].Recipes.Count);            // 火药 + 鞣制药水
         Assert.Equal(new[] { ToolSlot.Calipers }, groups[3].Tools);
-        Assert.Single(groups[3].Recipes);                    // 自制弓
+
+        // 每个桶里的配方，其工具需求必须与桶头一致（分桶的本质）。
+        foreach (RecipeToolGroup g in groups)
+        {
+            Assert.All(g.Recipes, r => Assert.Equal(g.Tools.OrderBy(t => t), r.RequiredTools.OrderBy(t => t)));
+        }
+
+        // 全部配方恰好被分掉一次（不漏不重）。
+        Assert.Equal(RecipeBook.All.Count, groups.Sum(g => g.Recipes.Count));
+
+        // 各桶的代表配方（锚点，防止分桶逻辑把东西丢错桶）。
+        Assert.Contains(groups[0].Recipes, r => r.Id == "bone_knife");   // 骨刀：无工具
+        Assert.Contains(groups[1].Recipes, r => r.Id == "chair");        // 木椅：锯片
+        Assert.Contains(groups[2].Recipes, r => r.Id == "gunpowder");    // 火药：烧杯
+        Assert.Contains(groups[3].Recipes, r => r.Id == "handmade_bow"); // 自制弓：卡尺
+        Assert.Contains(groups[3].Recipes, r => r.Id == "improvised_shotgun"); // 自制霰弹枪：卡尺精工
     }
 
     [Fact]
