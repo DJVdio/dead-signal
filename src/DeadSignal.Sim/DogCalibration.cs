@@ -26,19 +26,21 @@ public static class DogCalibration
         DodgeChance = 0.45, // = Dog.DodgeChance（校准定值）
     };
 
+    // 丧尸穿生前的破衣服：每场按 ZombieOutfit 的加权预设现抽（80% 至少还剩一件），叠在腐皮之外。
+    // 光身丧尸（旧口径）的对照见 NakedZombie()。
     private static DuelFighter Zombie() => new()
     {
         Name = "丧尸",
         Weapons = new[] { new WeaponMount { Weapon = WeaponTable.ZombieClaw(), RequiresHand = false } },
-        Armor = System.Array.Empty<ArmorLayer>(),
+        ArmorFactory = ZombieOutfit.RollArmor,
     };
 
-    // 低配武器道格：布衣 + 棍棒（"低配"基线，验证 2v1 稳赢）。
+    // 低配武器道格：长袖布衣 + 棍棒（"低配"基线，验证 2v1 稳赢）。
     private static DuelFighter DougLowKit() => new()
     {
         Name = "道格",
         Weapons = new[] { new WeaponMount { Weapon = WeaponTable.Club() } },
-        Armor = new[] { ArmorTable.Cloth() },
+        Armor = new[] { ArmorTable.LongSleeveShirt() },
     };
 
     // 人类武器对决基线（时长参照物）：匕首幸存者 vs 丧尸。
@@ -46,15 +48,15 @@ public static class DogCalibration
     {
         Name = "匕首幸存者",
         Weapons = new[] { new WeaponMount { Weapon = WeaponTable.Dagger() } },
-        Armor = new[] { ArmorTable.Cloth() },
+        Armor = new[] { ArmorTable.LongSleeveShirt() },
     };
 
     /// <summary>批次1~2 战斗基线复核（里程碑7）：确认新系统未破坏旧基线。控制台输出。</summary>
     public static void Baselines()
     {
         var zombie = Zombie();
-        // 对称护甲（皮+布），隔离武器相对强度——步枪的射程/先手优势在纯数值对决里不建模，故 stat-duel 会低估步枪。
-        ArmorLayer[] sym() => new[] { ArmorTable.Leather(), ArmorTable.Cloth() };
+        // 对称护甲（皮夹克+长袖布衣），隔离武器相对强度——步枪的射程/先手优势在纯数值对决里不建模，故 stat-duel 会低估步枪。
+        ArmorLayer[] sym() => new[] { ArmorTable.LeatherJacket(), ArmorTable.LongSleeveShirt() };
         DuelFighter Rifle() => new()
         {
             Name = "步枪手",
@@ -124,7 +126,7 @@ public static class DogCalibration
         sb.AppendLine("|---|---:|---:|---:|");
         Emit(sb, "布鲁斯 vs 丧尸", bruceVsZombie);
         Emit(sb, "匕首幸存者 vs 丧尸（基线）", daggerVsZombie);
-        Emit(sb, "道格·棍棒布衣 vs 丧尸", dougVsZombie);
+        Emit(sb, "道格·棍棒长袖布衣 vs 丧尸", dougVsZombie);
         sb.AppendLine();
 
         // 2v1 道格(低配)+布鲁斯 vs 丧尸

@@ -15,6 +15,11 @@
     <Compile Include="..\..\godot\scripts\DougBruceBond.cs" Link="Consumed\DougBruceBond.cs" />
     <Compile Include="..\..\godot\scripts\HordeTimeline.cs" Link="Consumed\HordeTimeline.cs" />
     <Compile Include="..\..\godot\scripts\RaidWave.cs" Link="Consumed\RaidWave.cs" />
+    <Compile Include="..\..\godot\scripts\CampStructure.cs" Link="Consumed\CampStructure.cs" />
+    <Compile Include="..\..\godot\scripts\StructureDamage.cs" Link="Consumed\StructureDamage.cs" />
+    <!-- 破防「攻击位名额」：Sim 没有碰撞体积/攻击距离，靠这份与运行时同源的规则显式建模「一处只站得下几只」。 -->
+    <Compile Include="..\..\godot\scripts\BreachLogic.cs" Link="Consumed\BreachLogic.cs" />
+    <Compile Include="..\..\godot\scripts\BreachSlots.cs" Link="Consumed\BreachSlots.cs" />
   </ItemGroup>
 
   <PropertyGroup>

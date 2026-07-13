@@ -15,26 +15,27 @@ public static class EndgameCalibration
 {
     private const int Seeds = 2000;
 
-    // 典型营地战力：4 幸存者 = 2 近战(长剑+皮甲) + 2 远程(手枪+布衣)。远程假设弹道命中（同 Sim 口径）。
+    // 典型营地战力：4 幸存者 = 2 近战(长剑+皮甲) + 2 远程(手枪+长袖布衣)。远程假设弹道命中（同 Sim 口径）。
     private static DuelFighter Melee() => new()
     {
         Name = "近战幸存者",
         Weapons = new[] { new WeaponMount { Weapon = WeaponTable.Longsword() } },
-        Armor = new[] { ArmorTable.Leather(), ArmorTable.Cloth() },
+        Armor = new[] { ArmorTable.Leather(), ArmorTable.LongSleeveShirt() },
     };
 
     private static DuelFighter Ranged() => new()
     {
         Name = "远程幸存者",
         Weapons = new[] { new WeaponMount { Weapon = WeaponTable.Pistol() } },
-        Armor = new[] { ArmorTable.Cloth() },
+        Armor = new[] { ArmorTable.LongSleeveShirt() },
     };
 
+    // 丧尸穿生前的破衣服：每场逐只按 ZombieOutfit 的加权预设现抽（一波 M 只各穿各的），叠在腐皮之外。
     private static DuelFighter Zombie() => new()
     {
         Name = "丧尸",
         Weapons = new[] { new WeaponMount { Weapon = WeaponTable.ZombieClaw(), RequiresHand = false } },
-        Armor = System.Array.Empty<ArmorLayer>(),
+        ArmorFactory = ZombieOutfit.RollArmor,
     };
 
     private static System.Collections.Generic.List<DuelFighter> Camp(int n)

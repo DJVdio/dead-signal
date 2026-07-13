@@ -9,12 +9,34 @@ using DeadSignal.Combat;
 //
 // 模式（命令行开关）：
 //   duel [outPath]   → 对决战报模式（1v1 到死叙事）
+//   zombiecloth [p]  → 丧尸穿「生前的破衣服」前后对比（挡下率 0% → ?、玩家胜率变化）
 //   [outPath]        → 聚合蒙特卡洛模式（默认）
 
 if (args.Length > 0 && args[0] == "duel")
 {
     string duelOut = args.Length > 1 ? args[1] : "docs/research/2026-07-05-duel-log.md";
     DuelReport.Run(duelOut);
+    return;
+}
+
+if (args.Length > 0 && args[0] == "zombiecloth")
+{
+    string zcOut = args.Length > 1 ? args[1] : "docs/research/2026-07-13-zombie-cloth.md";
+    ZombieClothCalibration.Run(zcOut);
+    return;
+}
+
+if (args.Length > 0 && args[0] == "shotgun")
+{
+    string sgOut = args.Length > 1 ? args[1] : "docs/research/2026-07-13-shotgun-calibration.md";
+    ShotgunCalibration.Run(sgOut);
+    return;
+}
+
+if (args.Length > 0 && args[0] == "archery")
+{
+    string arOut = args.Length > 1 ? args[1] : "docs/research/2026-07-13-archery-calibration.md";
+    ArcheryCalibration.Run(arOut);
     return;
 }
 
@@ -61,6 +83,29 @@ if (args.Length > 0 && args[0] == "endgamecal")
     return;
 }
 
+if (args.Length > 0 && args[0] == "wallcal")
+{
+    // ⚠ 默认出口**不能**指向人写的分析报告（`2026-07-13-wall-hp-analysis.md`）——那份是手写结论，
+    // 复跑 harness 会把它整篇覆盖掉（本单踩过这颗雷）。harness 只写自己的机器生成表。
+    string wcOut = args.Length > 1 ? args[1] : "docs/research/2026-07-13-wall-breach-calibration.md";
+    WallCalibration.Run(wcOut);
+    return;
+}
+
+if (args.Length > 0 && args[0] == "userplan")
+{
+    string upOut = args.Length > 1 ? args[1] : "docs/research/2026-07-13-weapon-recalib.md";
+    UserPlanCalibration.Run(upOut);
+    return;
+}
+
+if (args.Length > 0 && args[0] == "weaponsweep")
+{
+    string wcOut = args.Length > 1 ? args[1] : "docs/research/2026-07-13-weapon-recalib.md";
+    WeaponCalibration.Run(wcOut);
+    return;
+}
+
 const int Iterations = 100_000;
 int seed = 20260705;
 string outPath = args.Length > 0
@@ -70,13 +115,15 @@ string outPath = args.Length > 0
 // ---- 武器表（权威数据源 WeaponTable；穿透/类型来自设计文档第 5 节，伤害区间拟定待调）----
 var weapons = WeaponTable.Arsenal().ToList();
 
-// ---- 护甲层（权威数据源 ArmorTable；锐防≈2×钝防，板甲比例更高）----
+// ---- 护甲层（权威数据源 ArmorTable = 数据表『护甲表』[SPEC-B18]）----
+// 三档甲组按"层"叠穿（贴身/外套/护甲层各一件），覆盖部位以表为准——护甲不再全身覆盖，
+// 头/手/脚等未覆盖部位为裸命中，故甲组的实际减伤低于其防御值字面量。
 var combos = new List<(string Name, ArmorLayer[] Layers)>
 {
     ("无甲", Array.Empty<ArmorLayer>()),
-    ("布衣", new[] { ArmorTable.Cloth() }),
-    ("皮甲+布衣", new[] { ArmorTable.Leather(), ArmorTable.Cloth() }),
-    ("板甲+皮甲+布衣", new[] { ArmorTable.Plate(), ArmorTable.Leather(), ArmorTable.Cloth() }),
+    ("长袖布衣", new[] { ArmorTable.LongSleeveShirt() }),
+    ("皮夹克+长袖布衣", new[] { ArmorTable.LeatherJacket(), ArmorTable.LongSleeveShirt() }),
+    ("板甲+粗布外套+长袖布衣", new[] { ArmorTable.Plate(), ArmorTable.CoarseClothCoat(), ArmorTable.LongSleeveShirt() }),
 };
 
 var bodyParts = HumanBody.Parts();
@@ -165,7 +212,7 @@ sb.AppendLine();
 sb.AppendLine(CultureInfo.InvariantCulture, $"日期：2026-07-05　样本：每组合 {Iterations:N0} 次　种子：{seed}");
 sb.AppendLine();
 sb.AppendLine("> 武器伤害区间、护甲防御值、效果概率系数、部位 HP/命中权重均为原型期**拟定值待调**（穿透/伤害类型来自设计文档第 5 节）。");
-sb.AppendLine("> 护甲组合（从外到内）：板甲(锐34/钝11) → 皮甲(锐12/钝6) → 布衣(锐4/钝2)，套在全身各部位。");
+sb.AppendLine("> 护甲组合（从外到内）：板甲(锐50/钝25，护躯干+双臂+双腿) → 粗布外套(锐6/钝3，护胸腹双臂) → 长袖布衣(锐6/钝3，护胸腹双臂)。**头/手/脚不在覆盖内**（[SPEC-B18] 覆盖收窄）。");
 sb.AppendLine("> 命中部位按人体细部位表体积加权随机分配（躯干/头/四肢/手脚/眼/鼻/下巴）。效果打在满血人体上统计。");
 sb.AppendLine("> **远程武器（⌖）期望伤害假设弹道命中**——几何误差角 miss 不在本模拟范围（属实时层）。");
 sb.AppendLine();
@@ -206,15 +253,15 @@ sb.AppendLine();
 sb.AppendLine("## 数值观察");
 sb.AppendLine();
 sb.AppendLine(CultureInfo.InvariantCulture,
-    $"1. **锐器无甲流血高发**：匕首/长剑/重剑无甲流血率 {Get("匕首", "无甲").BleedRate:P0}/{Get("长剑", "无甲").BleedRate:P0}/{Get("重剑", "无甲").BleedRate:P0}——锐器\"见血\"手感成立；套满甲后长剑流血率降到 {Get("长剑", "板甲+皮甲+布衣").BleedRate:P0}（甲把伤害压到降解阈值以下）。");
+    $"1. **锐器无甲流血高发**：匕首/长剑/重剑无甲流血率 {Get("匕首", "无甲").BleedRate:P0}/{Get("长剑", "无甲").BleedRate:P0}/{Get("重剑", "无甲").BleedRate:P0}——锐器\"见血\"手感成立；套满甲后长剑流血率降到 {Get("长剑", "板甲+粗布外套+长袖布衣").BleedRate:P0}（甲把伤害压到降解阈值以下）。");
 sb.AppendLine(CultureInfo.InvariantCulture,
-    $"2. **切除偏高，需拍板【存疑】**：无甲切除率 狙击枪 {Get("狙击枪", "无甲").SeverRate:P1}、步枪 {Get("步枪", "无甲").SeverRate:P1}、重剑 {Get("重剑", "无甲").SeverRate:P1}——因规则\"单击≥部位MaxHP即切除\"叠加细部位低血量（眼6/指趾10、手脚16，胸20/腹16/大腿12/小腿11/上臂21/头16；[SPEC-B17] 躯干腿已细分），强武器打中小部位几乎必断。若不想角色被频繁肢解，需上调细部位 HP 或把切除门槛收紧（如仅四肢可断、或 dmg≥MaxHP×系数）。满甲后大幅回落（狙击 {Get("狙击枪", "板甲+皮甲+布衣").SeverRate:P1}）。");
+    $"2. **切除偏高，需拍板【存疑】**：无甲切除率 狙击枪 {Get("狙击枪", "无甲").SeverRate:P1}、步枪 {Get("步枪", "无甲").SeverRate:P1}、重剑 {Get("重剑", "无甲").SeverRate:P1}——因规则\"单击≥部位MaxHP即切除\"叠加细部位低血量（眼6/指趾10、手脚16，胸20/腹16/大腿12/小腿11/上臂21/头16；[SPEC-B17] 躯干腿已细分），强武器打中小部位几乎必断。若不想角色被频繁肢解，需上调细部位 HP 或把切除门槛收紧（如仅四肢可断、或 dmg≥MaxHP×系数）。满甲后大幅回落（狙击 {Get("狙击枪", "板甲+粗布外套+长袖布衣").SeverRate:P1}）。");
 sb.AppendLine(CultureInfo.InvariantCulture,
-    $"3. **钝器震荡隔甲生效**：破甲锤对满甲震荡率 {Get("破甲锤", "板甲+皮甲+布衣").ConcussionRate:P1} 与无甲 {Get("破甲锤", "无甲").ConcussionRate:P1} 接近——因震荡用初始武器 roll、不吃护甲，验证\"甲没破人被锤懵\"落地正确。");
+    $"3. **钝器震荡隔甲生效**：破甲锤对满甲震荡率 {Get("破甲锤", "板甲+粗布外套+长袖布衣").ConcussionRate:P1} 与无甲 {Get("破甲锤", "无甲").ConcussionRate:P1} 接近——因震荡用初始武器 roll、不吃护甲，验证\"甲没破人被锤懵\"落地正确。");
 sb.AppendLine(CultureInfo.InvariantCulture,
-    $"4. **钝器满甲仍能骨折**：破甲锤满甲骨折率 {Get("破甲锤", "板甲+皮甲+布衣").FractureRate:P1}、期望伤害 {Get("破甲锤", "板甲+皮甲+布衣").ExpectedDamage:F2}；同期锐器长剑满甲骨折率 0（骨折仅天然钝器）。钝器作为\"破甲/致残\"路线的定位在数值上成立。");
+    $"4. **钝器满甲仍能骨折**：破甲锤满甲骨折率 {Get("破甲锤", "板甲+粗布外套+长袖布衣").FractureRate:P1}、期望伤害 {Get("破甲锤", "板甲+粗布外套+长袖布衣").ExpectedDamage:F2}；同期锐器长剑满甲骨折率 0（骨折仅天然钝器）。钝器作为\"破甲/致残\"路线的定位在数值上成立。");
 sb.AppendLine(CultureInfo.InvariantCulture,
-    $"5. **高穿透碾压多层甲**：狙击枪满甲期望穿透层数 {Get("狙击枪", "板甲+皮甲+布衣").ExpectedPenLayers:F2}（满层=3）、期望伤害 {Get("狙击枪", "板甲+皮甲+布衣").ExpectedDamage:F2}，与匕首满甲 {Get("匕首", "板甲+皮甲+布衣").ExpectedDamage:F2} 形成数量级差，弹药稀缺是唯一约束——需靠掉落/上弹时间限制。");
+    $"5. **高穿透碾压多层甲**：狙击枪满甲期望穿透层数 {Get("狙击枪", "板甲+粗布外套+长袖布衣").ExpectedPenLayers:F2}（满层=3）、期望伤害 {Get("狙击枪", "板甲+粗布外套+长袖布衣").ExpectedDamage:F2}，与匕首满甲 {Get("匕首", "板甲+粗布外套+长袖布衣").ExpectedDamage:F2} 形成数量级差，弹药稀缺是唯一约束——需靠掉落/上弹时间限制。");
 sb.AppendLine();
 sb.AppendLine("> 效果概率系数（流血 k=1.0/cap0.9、骨折 k=0.8/cap0.6、震荡头 k=0.9/cap0.85、震荡躯干 k=0.25/cap0.4）与部位 HP 均拟定待调；上表用于校准方向，非终值。");
 

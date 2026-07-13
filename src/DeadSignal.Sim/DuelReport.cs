@@ -17,8 +17,10 @@ public static class DuelReport
     private static Weapon Pistol() => WeaponTable.Pistol();
     private static Weapon ZombieClaw() => WeaponTable.ZombieClaw();
 
-    private static ArmorLayer Cloth() => ArmorTable.Cloth();
-    private static ArmorLayer Leather() => ArmorTable.Leather();
+    // 三档甲组同 Program.cs（数据表『护甲表』[SPEC-B18]）：贴身=长袖布衣、外套=皮夹克/粗布外套、护甲层=板甲。
+    private static ArmorLayer Shirt() => ArmorTable.LongSleeveShirt();
+    private static ArmorLayer Jacket() => ArmorTable.LeatherJacket();
+    private static ArmorLayer Coat() => ArmorTable.CoarseClothCoat();
     private static ArmorLayer Plate() => ArmorTable.Plate();
 
     // ---- 装备名映射（部位→掉落物名，供切除战报）----
@@ -33,19 +35,19 @@ public static class DuelReport
     private static (DuelFighter, DuelFighter)[] Matchups() => new[]
     {
         (
-            new DuelFighter { Name = "匕首幸存者", Weapons = new[] { new WeaponMount { Weapon = Dagger() } }, Armor = new[] { Cloth() }, Equipment = Kit("布袖", "布手套", "布裤") },
-            new DuelFighter { Name = "游荡丧尸", Weapons = new[] { new WeaponMount { Weapon = ZombieClaw(), RequiresHand = false } }, Armor = Array.Empty<ArmorLayer>() }
+            new DuelFighter { Name = "匕首幸存者", Weapons = new[] { new WeaponMount { Weapon = Dagger() } }, Armor = new[] { Shirt() }, Equipment = Kit("布袖", "布手套", "布裤") },
+            new DuelFighter { Name = "游荡丧尸", Weapons = new[] { new WeaponMount { Weapon = ZombieClaw(), RequiresHand = false } }, ArmorFactory = ZombieOutfit.RollArmor }
         ),
         (
-            new DuelFighter { Name = "长剑手", Weapons = new[] { new WeaponMount { Weapon = Longsword() } }, Armor = new[] { Leather(), Cloth() }, Equipment = Kit("皮护臂", "皮手套", "皮护腿") },
-            new DuelFighter { Name = "棍棒劫掠者", Weapons = new[] { new WeaponMount { Weapon = Club() } }, Armor = new[] { Cloth() }, Equipment = Kit("布袖", "布手套", "布裤") }
+            new DuelFighter { Name = "长剑手", Weapons = new[] { new WeaponMount { Weapon = Longsword() } }, Armor = new[] { Jacket(), Shirt() }, Equipment = Kit("皮护臂", "皮手套", "皮护腿") },
+            new DuelFighter { Name = "棍棒劫掠者", Weapons = new[] { new WeaponMount { Weapon = Club() } }, Armor = new[] { Shirt() }, Equipment = Kit("布袖", "布手套", "布裤") }
         ),
         (
-            new DuelFighter { Name = "破甲锤手", Weapons = new[] { new WeaponMount { Weapon = Warhammer() } }, Armor = new[] { Leather(), Cloth() }, Equipment = Kit("皮护臂", "皮手套", "皮护腿") },
-            new DuelFighter { Name = "板甲重装", Weapons = new[] { new WeaponMount { Weapon = Longsword() } }, Armor = new[] { Plate(), Leather(), Cloth() }, Equipment = Kit("板护臂", "板手套", "板护腿") }
+            new DuelFighter { Name = "破甲锤手", Weapons = new[] { new WeaponMount { Weapon = Warhammer() } }, Armor = new[] { Jacket(), Shirt() }, Equipment = Kit("皮护臂", "皮手套", "皮护腿") },
+            new DuelFighter { Name = "板甲重装", Weapons = new[] { new WeaponMount { Weapon = Longsword() } }, Armor = new[] { Plate(), Coat(), Shirt() }, Equipment = Kit("板护臂", "板手套", "板护腿") }
         ),
         (
-            new DuelFighter { Name = "双持枪手", DualWielding = true, Weapons = new[] { new WeaponMount { Weapon = Pistol() }, new WeaponMount { Weapon = Pistol() } }, Armor = new[] { Cloth() }, Equipment = Kit("布袖", "布手套", "布裤") },
+            new DuelFighter { Name = "双持枪手", DualWielding = true, Weapons = new[] { new WeaponMount { Weapon = Pistol() }, new WeaponMount { Weapon = Pistol() } }, Armor = new[] { Shirt() }, Equipment = Kit("布袖", "布手套", "布裤") },
             new DuelFighter { Name = "匕首刺客", Weapons = new[] { new WeaponMount { Weapon = Dagger() } }, Armor = Array.Empty<ArmorLayer>() }
         ),
     };
@@ -61,6 +63,7 @@ public static class DuelReport
         sb.AppendLine("日期：2026-07-05　每组固定种子跑 3 场可复现");
         sb.AppendLine();
         sb.AppendLine("> 武器攻速、流血/失血/攻速惩罚参数、装备名均**拟定待调**。远程武器**假设弹道命中**（几何误差角 miss 属实时层）。");
+        sb.AppendLine("> 丧尸**穿着生前的破衣服**（每场按加权预设现抽：80% 至少还剩一件布衣/裤，头手脚恒裸），布衣叠在腐皮之外——故同一对局不同场次，丧尸的实际防护会不一样。");
         sb.AppendLine("> 效果实际生效：流血按 tick 扣储血量（不扣部位 HP），储血分级 <75%轻度/<50%中度/<25%重度昏迷/归零出血致死；震荡与手部骨折降攻速；切除/损毁移除部位（连带下游）；致死部位归零或出血致死判死。");
         sb.AppendLine();
 

@@ -17,6 +17,9 @@ public static class Arena
     {
         public required DuelFighter Def;
         public required Body Body;
+
+        /// <summary>本场生效的护甲，已归一为由外到内（入场解析一次；随机装束在此定死，不逐次命中重抽）。</summary>
+        public required IReadOnlyList<ArmorLayer> Armor;
         public required int Team;
         public double NextTime;
         public double SpeedMult = 1.0;
@@ -45,8 +48,8 @@ public static class Arena
         var effects = new CombatEffectResolver(rng, cfg.Effects);
 
         var units = new List<Unit>();
-        foreach (var d in teamA) units.Add(MakeUnit(d, 0, cfg));
-        foreach (var d in teamB) units.Add(MakeUnit(d, 1, cfg));
+        foreach (var d in teamA) units.Add(MakeUnit(d, 0, cfg, rng));
+        foreach (var d in teamB) units.Add(MakeUnit(d, 1, cfg, rng));
 
         double now = 0;
         int aStart = teamA.Count;
@@ -111,12 +114,18 @@ public static class Arena
     private static bool Fightable(Unit u) =>
         !u.Body.IsDead && !u.Body.IsUnconscious && u.Body.DisabilityModifiers.OperationPenalty < 1.0;
 
-    private static Unit MakeUnit(DuelFighter d, int team, DuelConfig cfg)
+    private static Unit MakeUnit(DuelFighter d, int team, DuelConfig cfg, IRandomSource rng)
     {
         var body = d.BodyFactory();
         body.BleedRatePerWound = cfg.BleedRatePerWound;
         body.SetBloodMax(cfg.BloodMax);
-        var u = new Unit { Def = d, Body = body, Team = team };
+        // 挂了 ArmorFactory 的（丧尸的「生前装束」）在此逐只现抽——一波 M 只丧尸各穿各的，且每场重抽。
+        // 无工厂者走静态 Armor、不碰随机源 → 既有基线随机流零漂移。
+        var u = new Unit
+        {
+            Def = d, Body = body, Team = team,
+            Armor = CombatResolver.OrderOuterToInner(d.RollArmor(rng)),
+        };
         u.NextTime = EffectiveInterval(u, cfg);
         return u;
     }
@@ -146,11 +155,23 @@ public static class Arena
             return;
         }
         var w = actor.Def.Weapons[0].Weapon;
-        var alive = target.Body.Parts.Values.Where(p => !target.Body.IsGone(p.Name)).ToList();
-        if (alive.Count == 0) return;
-        var part = hit.Select(alive);
-        var armor = CombatResolver.OrderOuterToInner(target.Def.Armor);
-        var result = resolver.Resolve(w, armor, part);
-        effects.Apply(target.Body, w, result);
+        var armor = target.Armor; // 入场已解析并归一（随机装束在 MakeUnit 定死，逐次命中不重抽）
+
+        // 多弹丸（霰弹 PelletCount=8）：一发同时打出 N 颗，每颗**各自**选部位、各自逐层结算、各自触发效果。
+        // PelletCount 默认 1 → 恰好一次（选部位 → 结算 → 效果），与改造前逐行等价，既有团队战基线零漂移。
+        // 注意：本 Arena 是**无空间**模型，8 颗全部落在同一个目标身上（贴脸口径）——真实的"一枪扫到多只丧尸"
+        // 由 Godot 空间层的 N 枚独立 Projectile 各自碰撞给出，引擎侧不建模。
+        int pellets = Math.Max(1, w.PelletCount);
+        for (int i = 0; i < pellets; i++)
+        {
+            var alive = target.Body.Parts.Values.Where(p => !target.Body.IsGone(p.Name)).ToList();
+            if (alive.Count == 0) return;
+
+            var part = hit.Select(alive);
+            var result = resolver.Resolve(w, armor, part);
+            effects.Apply(target.Body, w, result);
+
+            if (target.Body.IsDead) return; // 目标已死：剩余弹丸不再结算
+        }
     }
 }
