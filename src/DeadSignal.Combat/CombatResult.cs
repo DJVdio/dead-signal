@@ -68,4 +68,39 @@ public sealed class CombatResult
     /// 供震荡判定使用——契合"钝器隔甲生效"，与最终穿透伤害解耦。
     /// </summary>
     public double InitialAttackRoll { get; init; }
+
+    /// <summary>
+    /// 本次命中的最终三段判定结果：取<b>最外那一层</b>的结局——被挡下(Blocked)看的就是挡下它的那层；
+    /// 半伤/全伤取第一层的结局（后续层是"穿进去之后"的事）。无甲直击恒为 <see cref="LayerOutcome.Full"/>。
+    /// 供多弹丸统计（挡下率/进肉率）与战报读数用。
+    /// </summary>
+    public LayerOutcome Outcome() =>
+        Terminated ? LayerOutcome.Blocked
+        : Layers.Count == 0 ? LayerOutcome.Full
+        : Layers[0].Outcome;
+}
+
+/// <summary>
+/// 一次<b>齐射</b>（一发多弹丸）的汇总结果。<see cref="Weapon.PelletCount"/> = 1 时退化为单元素列表
+/// （既有单弹丸武器语义不变）。
+///
+/// 每个 <see cref="CombatResult"/> 是一颗弹丸的<b>完整独立</b>判定链结果（自己的命中部位、自己的逐层结算）——
+/// 「8 颗弹丸单独计算」（用户原话）在数据结构上就长这样：8 个彼此无关的 CombatResult，而不是一个乘了 8 的伤害。
+/// </summary>
+public sealed class VolleyResult
+{
+    /// <summary>逐颗弹丸的独立结算结果（按发射顺序）。单弹丸武器只有 1 个元素。</summary>
+    public IReadOnlyList<CombatResult> Pellets { get; init; } = Array.Empty<CombatResult>();
+
+    /// <summary>进肉的弹丸数（穿透了全部护甲层，含半伤）。</summary>
+    public int LandedCount => Pellets.Count(p => !p.Terminated);
+
+    /// <summary>被护甲挡下的弹丸数（<see cref="CombatResult.Terminated"/>）。</summary>
+    public int BlockedCount => Pellets.Count(p => p.Terminated);
+
+    /// <summary>本次齐射作用到身体的总伤害（各颗 <see cref="CombatResult.FinalDamage"/> 之和；被挡的记 0）。</summary>
+    public double TotalDamage => Pellets.Sum(p => p.FinalDamage);
+
+    /// <summary>各颗弹丸命中的部位名（可重复——两颗都中胸就出现两次）。</summary>
+    public IReadOnlyList<string> HitParts => Pellets.Select(p => p.HitPart.Name).ToList();
 }

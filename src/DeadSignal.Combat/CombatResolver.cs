@@ -24,10 +24,58 @@ public sealed class CombatResolver
     }
 
     /// <summary>
-    /// 结算一次命中。<paramref name="layers"/> 须按从外到内顺序排列
-    /// （可用 <see cref="OrderOuterToInner"/> 归一）。
+    /// 结算<b>一发</b>攻击——含霰弹的多弹丸（<see cref="Weapon.PelletCount"/> &gt; 1）。
+    ///
+    /// <para><b>「8 颗弹丸单独计算」（用户原话）的落地方式</b>：循环 N 次，每颗弹丸
+    /// ①<b>独立</b>调 <paramref name="selectPart"/> 选自己的命中部位（故一枪可同时中头、胸、左臂）；
+    /// ②<b>独立</b>走一整条 <see cref="Resolve"/> 判定链（自己的攻 roll、自己的防 roll、自己的三段判定、
+    /// 自己的穿透逐层生效）。**不是**"结算一次伤害再 ×N"——弹丸之间不共享任何 roll。</para>
+    ///
+    /// <para><b>向后兼容（零漂移）</b>：<see cref="Weapon.PelletCount"/> 默认 1 → 恰好一次
+    /// <paramref name="selectPart"/> + 一次 <see cref="Resolve"/>，随机流消耗与既有"选部位→结算"路径
+    /// <b>位级一致</b>，既有 Sim 基线不漂移。</para>
+    ///
+    /// <paramref name="selectPart"/> 每颗弹丸调一次（由调用方注入，通常是
+    /// <see cref="VolumeWeightedHitSelector"/> 对当前存活部位的加权抽取——部位选择本身也走可注入随机源）。
     /// </summary>
-    public CombatResult Resolve(Weapon weapon, IReadOnlyList<ArmorLayer> layers, BodyPart part)
+    /// <param name="incomingDamageReduction">
+    /// 防方**乘算减伤**（0=无减免，默认；见 <see cref="Resolve"/>）。每颗弹丸各自减免（对多弹丸等价于整发减免同一比例）。
+    /// </param>
+    public VolleyResult ResolveVolley(Weapon weapon, IReadOnlyList<ArmorLayer> layers, Func<BodyPart> selectPart,
+        double incomingDamageReduction = 0.0)
+    {
+        int pellets = Math.Max(1, weapon.PelletCount);
+        var results = new List<CombatResult>(pellets);
+
+        for (int i = 0; i < pellets; i++)
+        {
+            // 每颗弹丸：先独立选自己的命中部位，再独立走完整判定链。
+            BodyPart part = selectPart();
+            results.Add(Resolve(weapon, layers, part, incomingDamageReduction));
+        }
+
+        return new VolleyResult { Pellets = results };
+    }
+
+    /// <summary>
+    /// 结算一次命中（<b>单颗</b>弹丸/单发）。<paramref name="layers"/> 须按从外到内顺序排列
+    /// （可用 <see cref="OrderOuterToInner"/> 归一）。多弹丸走 <see cref="ResolveVolley"/>。
+    /// </summary>
+    /// <param name="incomingDamageReduction">
+    /// <b>防方乘算减伤层</b>（比例 0..1，<b>默认 0＝无减免</b>）：作用在**护甲三段判定之后**——
+    /// 护甲先按既有规则吃一遍（攻/防 roll、半伤转钝、挡下终止都不受本参数影响），
+    /// **穿透后剩下的伤害**再 ×(1−reduction)。被甲挡下(<see cref="CombatResult.Terminated"/>)时仍是 0 伤，
+    /// 减伤不会把 0 抬回 <see cref="MinLandedDamage"/>。
+    ///
+    /// <para><see cref="CombatResult.RawDamage"/> 保持为**护甲结算后、减伤前**的值（战报诚实：能看出"甲挡了多少、
+    /// 体格又免了多少"），减伤只体现在 <see cref="CombatResult.FinalDamage"/>。</para>
+    ///
+    /// <para><b>零回归</b>：不传即 0 → 不乘任何东西、不消耗随机流，与既有路径**逐位一致**（既有 Sim 基线不漂移）。
+    /// 现阶段唯一的非零来源是**山姆 1 级"比常人耐揍"−10%**（<c>SamPerk.IncomingDamageReduction</c>）；
+    /// 其余角色恒 0。这是引擎里**第一层"按比例减伤"**——此前只有护甲的三段判定，没有乘算减伤。</para>
+    /// </param>
+    public CombatResult Resolve(Weapon weapon, IReadOnlyList<ArmorLayer> layers, BodyPart part,
+        double incomingDamageReduction = 0.0)
     {
         // 只应用覆盖命中「该具体部位」的护甲层。默认全覆盖（CoversParts=null）→ 现有护甲行为不变；
         // 局部护甲（如左手套仅左手）在其它部位命中（含右手）时被过滤，等效于该部位无此层。
@@ -121,8 +169,12 @@ public sealed class CombatResolver
         double rawDamage;
         double finalDamage;
 
+        // 防方乘算减伤（护甲之后的**独立一层**）：0=无减免 → 乘 1.0，行为与既有逐位一致。
+        double keep = 1.0 - Math.Clamp(incomingDamageReduction, 0, 1);
+
         if (terminated)
         {
+            // 被甲挡下：0 伤。减伤层不介入（不把 0 抬成 MinLandedDamage）。
             rawDamage = 0;
             finalDamage = 0;
         }
@@ -131,12 +183,12 @@ public sealed class CombatResolver
             // 无甲直击：武器伤害直接作用到部位。
             rawDamage = _rng.Range(weapon.DamageMin, weapon.DamageMax);
             initialAttackRoll = rawDamage;
-            finalDamage = LandedMin(rawDamage);
+            finalDamage = LandedMin(rawDamage * keep);
         }
         else
         {
             rawDamage = carriedDamage;
-            finalDamage = LandedMin(rawDamage);
+            finalDamage = LandedMin(rawDamage * keep);
         }
 
         return new CombatResult

@@ -78,8 +78,23 @@ public class GunBurstCooldownTests
     {
         Assert.Equal(3, WeaponTable.Smg().BurstCount);
         Assert.True(WeaponTable.Smg().BurstInterval > 0);
-        Assert.Equal(1, WeaponTable.Rifle().BurstCount);
+        Assert.Equal(2, WeaponTable.Rifle().BurstCount);   // 批次18b 用户拍板：步枪改二连发
         Assert.Equal(1, WeaponTable.Pistol().BurstCount);
-        Assert.Equal(1, WeaponTable.Zipgun().BurstCount);
+        Assert.Equal(1, WeaponTable.ImprovisedHuntingGun().BurstCount);
+    }
+
+    /// <summary>
+    /// 冲锋枪失衡校准（用户拍板：削冷却、不削伤害，保住三连发手感）：冷却 1.8 → 2.6 秒。
+    /// 伤害区间 10~18 与三连发保持原样——批次18「锐器下移」只作用于近战，
+    /// 枪械经用户拍板<b>不降下限</b>（子弹没有"擦破皮"这一说），故此处伤害断言依旧有效。见 <c>WeaponRecalibTests</c>。
+    /// </summary>
+    [Fact]
+    public void Smg_CooldownIsRebalancedTo2Point6_DamageUntouched()
+    {
+        var smg = WeaponTable.Smg();
+        Assert.Equal(2.6, smg.AttackInterval, 3);
+        Assert.Equal(10, smg.DamageMin);
+        Assert.Equal(18, smg.DamageMax);
+        Assert.Equal(3, smg.BurstCount);
     }
 }

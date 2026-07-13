@@ -39,6 +39,18 @@ public sealed class DuelFighter
     public Func<Body> BodyFactory { get; init; } = HumanBody.NewBody;
 
     /// <summary>
+    /// 护甲工厂（可选，默认 null = 直接用静态的 <see cref="Armor"/>，随机流零漂移）。
+    /// 设了它，就在<b>每场开打时</b>用该场的随机源现抽一套护甲（如丧尸的「生前装束」
+    /// <see cref="ZombieOutfit.RollArmor"/>）。存在的理由：蒙特卡洛里 <see cref="DuelFighter"/> 是**跨场复用的
+    /// 只读定义**，若在构造 def 时抽一次，那一套会被几千场沿用 = 分布根本没被采样到；挂工厂才是每场一抽。
+    /// </summary>
+    public Func<IRandomSource, IReadOnlyList<ArmorLayer>>? ArmorFactory { get; init; }
+
+    /// <summary>解析本场生效的护甲：有工厂就现抽，否则用静态 <see cref="Armor"/>。</summary>
+    public IReadOnlyList<ArmorLayer> RollArmor(IRandomSource rng) =>
+        ArmorFactory is null ? Armor : ArmorFactory(rng);
+
+    /// <summary>
     /// 整次闪避概率 [0,1]（默认 0=不闪避）：每次来袭以此概率整发躲开（无伤、无效果）。
     /// 忠实映射运行时 <c>Actor.EvadeIncoming</c>（如布鲁斯 <c>Dog.DodgeChance</c>）——引擎本无闪避轴，
     /// 本字段让对决 Sim 能校准"高闪避低伤缠斗单元"。默认 0 时 <see cref="DuelEngine"/> 不掷点、不消耗随机流
@@ -117,6 +129,9 @@ public sealed class DuelEngine
     {
         public DuelFighter Def = null!;
         public Body Body = null!;
+
+        /// <summary>本场生效的护甲，已归一为由外到内（开场解析一次；随机装束在此定死，不逐次命中重抽）。</summary>
+        public IReadOnlyList<ArmorLayer> Armor = Array.Empty<ArmorLayer>();
         public double[] NextTime = Array.Empty<double>();
         public double SpeedMult = 1.0;
         public BloodLossTier LastTier = BloodLossTier.None;
@@ -213,13 +228,15 @@ public sealed class DuelEngine
                     // 一次"射击"= BurstCount 发（默认 1）；每发独立命中/伤害 roll（DoAttack 内各自采样）。
                     // 连发内每弹间隔 BurstInterval（远小于 BleedStep，故不在连发中细分失血 tick）；
                     // 冷却在整轮连发之后才起算：下次出手 = 末发时刻 + 有效冷却。
+                    // 一"发"内还可能有多颗弹丸（霰弹 PelletCount=8，同时飞出、逐颗独立结算）→ DoAttack 返回多条事件；
+                    // actions 计的是"出手/发数"，不按弹丸数膨胀（8 颗弹丸仍是一发）。
                     var weapon = actor.Def.Weapons[mountIdx].Weapon;
                     int burst = Math.Max(1, weapon.BurstCount);
                     double burstGap = Math.Max(0, weapon.BurstInterval);
                     double shotTime = now;
                     for (int k = 0; k < burst; k++)
                     {
-                        events.Add(DoAttack(actor, target, actor.Def.Weapons[mountIdx], shotTime));
+                        events.AddRange(DoAttack(actor, target, actor.Def.Weapons[mountIdx], shotTime));
                         actions++;
 
                         dead = FirstDead(a, b);
@@ -267,6 +284,7 @@ public sealed class DuelEngine
         {
             Def = def,
             Body = def.BodyFactory(),
+            Armor = CombatResolver.OrderOuterToInner(def.RollArmor(_rng)),
             NextTime = new double[def.Weapons.Count],
         };
         rt.Body.BleedRatePerWound = _cfg.BleedRatePerWound;
@@ -385,20 +403,60 @@ public sealed class DuelEngine
         return new DuelEvent(now, rt.Def.Name, "", "", "", "", 0, DamageType.Sharp, 0, new[] { $"失血:{label}:{pct}" });
     }
 
-    private DuelEvent DoAttack(Runtime actor, Runtime target, WeaponMount mount, double now)
+    /// <summary>
+    /// 打出<b>一发</b>攻击，返回它产生的全部战报事件。
+    /// <para>
+    /// 单弹丸武器（<see cref="Weapon.PelletCount"/>=1，即全部既有武器）→ 恰好 1 个事件，
+    /// 随机流消耗与改造前<b>位级一致</b>（闪避 → 选部位 → 逐层结算 → 效果），既有基线零漂移。
+    /// </para>
+    /// <para>
+    /// 霰弹（PelletCount=8）→ 每颗弹丸<b>各自</b>选部位、各自逐层结算、各自触发效果，产生各自的事件
+    /// （同一时刻 <paramref name="now"/>，因为它们是同时飞出去的）。故一枪的战报可能是
+    /// "中头 4.2 / 中胸 3.1 / 左臂被长袖布衣挡下 / ..."。
+    /// 闪避是<b>整发</b>判定（躲开就是 8 颗全躲开，不逐颗掷点）。
+    /// 目标中途被打死则剩余弹丸不再结算（打尸体无意义，且存活部位可能已空）。
+    /// </para>
+    /// </summary>
+    private IReadOnlyList<DuelEvent> DoAttack(Runtime actor, Runtime target, WeaponMount mount, double now)
     {
         // 整次闪避：目标以 DodgeChance 概率整发躲开（无伤、无效果）。仅 >0 时掷点——默认 0 不消耗随机流，
         // 既有对决位级一致。攻击方冷却照常在调用点推进（挥空也过冷却）。
         if (target.Def.DodgeChance > 0 && _rng.Range(0.0, 1.0) < target.Def.DodgeChance)
         {
-            return new DuelEvent(
-                now, actor.Def.Name, target.Def.Name, mount.Weapon.Name, "",
-                "闪避", 0, mount.Weapon.DamageType, 0, new[] { "闪避" });
+            return new[]
+            {
+                new DuelEvent(
+                    now, actor.Def.Name, target.Def.Name, mount.Weapon.Name, "",
+                    "闪避", 0, mount.Weapon.DamageType, 0, new[] { "闪避" }),
+            };
         }
 
+        int pellets = Math.Max(1, mount.Weapon.PelletCount);
+        var shots = new List<DuelEvent>(pellets);
+
+        for (int i = 0; i < pellets; i++)
+        {
+            shots.Add(ResolvePellet(actor, target, mount, now));
+
+            // 目标已死：剩余弹丸不再结算（存活部位可能已被打空，且打尸体无战报意义）。
+            if (target.Body.IsDead)
+            {
+                break;
+            }
+        }
+
+        return shots;
+    }
+
+    /// <summary>
+    /// 结算<b>一颗</b>弹丸（单弹丸武器即"一次命中"）：独立选部位 → 独立逐层结算 → 独立触发效果 → 出一条战报事件。
+    /// 霰弹的 8 颗各自完整走一遍本方法，彼此不共享任何 roll——这就是用户口径「8 颗弹丸单独计算」。
+    /// </summary>
+    private DuelEvent ResolvePellet(Runtime actor, Runtime target, WeaponMount mount, double now)
+    {
         var alive = target.Body.Parts.Values.Where(p => !target.Body.IsGone(p.Name)).ToList();
         var part = _hit.Select(alive);
-        var armor = CombatResolver.OrderOuterToInner(target.Def.Armor);
+        var armor = target.Armor; // 开场已解析并归一（随机装束在 Init 定死，逐次命中不重抽）
 
         double partMaxAtHit = target.Body.MaxHpOf(part.Name);
         var result = _resolver.Resolve(mount.Weapon, armor, part);

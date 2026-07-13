@@ -52,38 +52,94 @@ public class DualWieldTests
     }
 }
 
+/// <summary>
+/// 负重三档 + 硬上限（用户口径）：&lt;30kg 无影响 / 30~50kg 有 debuff / 50~80kg debuff 加重 / **不能超过 80kg**。
+/// 基准人（无残缺、不饿、无专属加成）的上限就是 80kg，故这里直接按公斤数断言。
+/// </summary>
 public class LoadoutTests
 {
+    private static readonly double Limit = Loadout.CarryLimit(); // 基准人 = 80kg
+
     [Fact]
-    public void UnderFiftyPercent_NoPenalty()
+    public void UserSpec_TheThreeNumbersAre_30_50_80()
     {
-        double cap = 100;
-        Assert.Equal(LoadoutTier.Unencumbered, Loadout.TierOf(40, cap));
-        Assert.Equal(1.0, Loadout.SpeedMultiplier(40, cap), 9);
-        Assert.Equal(1.0, Loadout.SpeedMultiplier(50, cap), 9); // 边界
+        Assert.Equal(80.0, Loadout.BaseCarryLimitKg, 9);
+        Assert.Equal(30.0, Loadout.FreeThresholdKg, 9);
+        Assert.Equal(50.0, Loadout.StrainThresholdKg, 9);
+        Assert.Equal(80.0, Limit, 9);
     }
 
     [Fact]
-    public void FiftyToHundred_LinearPenalty()
+    public void Under30kg_NoPenaltyAtAll()
     {
-        double cap = 100;
-        Assert.Equal(LoadoutTier.Encumbered, Loadout.TierOf(75, cap));
-        Assert.Equal(0.85, Loadout.SpeedMultiplier(75, cap), 9);  // 半程线性
-        Assert.Equal(0.70, Loadout.SpeedMultiplier(100, cap), 9); // 满负重
+        Assert.Equal(LoadoutTier.Unencumbered, Loadout.TierOf(29, Limit));
+        Assert.Equal(LoadoutTier.Unencumbered, Loadout.TierOf(30, Limit)); // 边界含
+        Assert.Equal(1.0, Loadout.SpeedMultiplier(30, Limit), 9);
+        Assert.Equal(1.0, Loadout.AttackSpeedMultiplier(30, Limit), 9);
     }
 
     [Fact]
-    public void OverHundred_SteepPenalty_Floored()
+    public void Between30And50kg_LightDebuff_MoveOnly()
     {
-        double cap = 100;
-        Assert.Equal(LoadoutTier.Overloaded, Loadout.TierOf(150, cap));
-        Assert.Equal(0.30, Loadout.SpeedMultiplier(150, cap), 9); // 0.7 - 0.5*0.8
-        Assert.Equal(0.10, Loadout.SpeedMultiplier(1000, cap), 9); // 下限
+        Assert.Equal(LoadoutTier.Encumbered, Loadout.TierOf(40, Limit));
+        Assert.Equal(0.925, Loadout.SpeedMultiplier(40, Limit), 9);       // 半程线性：1.0 → 0.85
+        Assert.Equal(Loadout.SpeedAtStrain, Loadout.SpeedMultiplier(50, Limit), 9);
+        Assert.Equal(1.0, Loadout.AttackSpeedMultiplier(50, Limit), 9);   // 轻度档不罚攻速
     }
 
     [Fact]
-    public void CapacityFromStrength_Scales()
+    public void Between50And80kg_HeavyDebuff_AlsoSlowsAttacks()
     {
-        Assert.Equal(60, Loadout.CapacityFromStrength(10), 9);
+        Assert.Equal(LoadoutTier.Strained, Loadout.TierOf(65, Limit));
+        Assert.Equal(0.70, Loadout.SpeedMultiplier(65, Limit), 9);        // 半程：0.85 → 0.55
+        Assert.Equal(Loadout.SpeedAtLimit, Loadout.SpeedMultiplier(80, Limit), 9);
+        Assert.Equal(Loadout.AttackSpeedAtLimit, Loadout.AttackSpeedMultiplier(80, Limit), 9);
+    }
+
+    [Fact]
+    public void HeavyTierIsSteeperThanLightTier()
+    {
+        // "debuff 加重"必须真的更陡：重度档每公斤扣的速度 > 轻度档
+        double lightPerKg = (1.0 - Loadout.SpeedAtStrain) / (50 - 30);
+        double heavyPerKg = (Loadout.SpeedAtStrain - Loadout.SpeedAtLimit) / (80 - 50);
+        Assert.True(heavyPerKg > lightPerKg, $"重度 {heavyPerKg}/kg 应陡于轻度 {lightPerKg}/kg");
+    }
+
+    [Fact]
+    public void Over80kg_IsNotAllowed()
+    {
+        Assert.True(Loadout.CanCarry(80, Limit));
+        Assert.False(Loadout.CanCarry(80.1, Limit)); // 用户："不能超过 80kg"
+    }
+
+    [Fact]
+    public void OverloadTier_OnlyReachableWhenLimitDropsMidTrip_AndCrawls()
+    {
+        // 硬上限拦住拾取，所以 >100% 只在**上限中途下降**时出现（关内断手/饿掉一档）：东西不消失，但你快走不动了
+        double injured = Loadout.CarryLimit(0.5); // 断一手 → 40kg
+        Assert.Equal(LoadoutTier.Overloaded, Loadout.TierOf(80, injured));
+        Assert.True(Loadout.SpeedMultiplier(80, injured) < Loadout.SpeedAtLimit);
+        Assert.Equal(0.10, Loadout.SpeedMultiplier(1000, Limit), 9); // 下限
+    }
+
+    /// <summary>
+    /// 上限＝全员统一基数 × 承载能力 × authored 专属乘子。
+    /// **没有"力量/体力"属性**（旧签名 CapacityFromStrength(strength) 的 strength 是虚构属性，已退役）。
+    /// </summary>
+    [Fact]
+    public void CarryLimit_UniformBase_ScaledByCapability()
+    {
+        Assert.Equal(Loadout.BaseCarryLimitKg, Loadout.CarryLimit(), 9);       // 全员同一个基数
+        Assert.Equal(40.0, Loadout.CarryLimit(0.5), 9);                        // 断一手 → 背不动一半
+    }
+
+    [Fact]
+    public void Thresholds_ScaleWithTheLimit_NotHardcodedKilograms()
+    {
+        // 残缺把上限压到 40kg → 三档整体收紧到 15 / 25 / 40（而不是还按 30/50 算）
+        double injured = Loadout.CarryLimit(0.5);
+        Assert.Equal(15.0, Loadout.FreeThresholdFor(injured), 9);
+        Assert.Equal(25.0, Loadout.StrainThresholdFor(injured), 9);
+        Assert.Equal(LoadoutTier.Encumbered, Loadout.TierOf(20, injured)); // 健全人背 20kg 毫无感觉，断手的人已经吃力
     }
 }

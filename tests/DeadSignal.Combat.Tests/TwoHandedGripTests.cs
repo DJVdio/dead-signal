@@ -73,9 +73,13 @@ public class TwoHandedGripTests
     [Fact]
     public void AllRangedWeapons_HaveStockProfile()
     {
-        foreach (Weapon w in WeaponTable.Arsenal().Where(w => w.IsRanged))
+        // ⚠ 收窄：不是所有远程武器都有"枪托"——**弓/弩没有枪托**（HasMeleeProfile=false，这是对的：
+        // 弓身砸人不是"枪托钝击"这套机制）。故本不变式只约束**枪械**。
+        // 判据走 Archery.UsesArrows（按弹药类别键，吃箭的即弓弩）而非硬编码武器名：
+        // 「自制弓」已按用户拍板改名「短弓」并扩成 8 把弓弩，按名字排除会随每次改名/增弓而失效。
+        foreach (Weapon w in WeaponTable.Arsenal().Where(w => w.IsRanged && !Archery.UsesArrows(w)))
         {
-            Assert.True(w.HasMeleeProfile, $"{w.Name} 远程武器应有枪托近战 profile");
+            Assert.True(w.HasMeleeProfile, $"{w.Name} 枪械应有枪托近战 profile");
             Assert.Equal(DamageType.Blunt, w.MeleeProfile()!.DamageType);
         }
     }
@@ -98,7 +102,7 @@ public class TwoHandedGripTests
     {
         Assert.False(WeaponTable.Dagger().TwoHanded);
         Assert.False(WeaponTable.Pistol().TwoHanded);
-        Assert.False(WeaponTable.Zipgun().TwoHanded);
+        Assert.True(WeaponTable.ImprovisedHuntingGun().TwoHanded);   // 自制猎枪＝长枪，双手
         Assert.False(WeaponTable.Shortsword().TwoHanded);
         Assert.False(WeaponTable.Club().TwoHanded);
     }

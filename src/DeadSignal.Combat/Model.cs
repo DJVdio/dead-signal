@@ -77,6 +77,108 @@ public sealed class Weapon
     /// </summary>
     public double BurstInterval { get; init; }
 
+    // ---- 多弹丸（霰弹：一次击发同时打出 N 颗弹丸）----
+
+    /// <summary>
+    /// 弹丸数：<b>一发</b>子弹里同时打出的独立弹丸数。默认 1 = 单弹丸（全部既有武器，行为与随机流均不变）；
+    /// 自制霰弹枪 = 8（用户拍板）。
+    /// <para>
+    /// 与 <see cref="BurstCount"/> 正交：连发是"一次射击打出 N <b>发</b>、有时间间隔"，
+    /// 弹丸是"一发之内 N 颗<b>同时</b>飞出、无时间间隔"。
+    /// </para>
+    /// <para>
+    /// 语义是<b>「单独计算」</b>（用户原话）：每颗弹丸各自独立选命中部位、独立过护甲三段判定、独立结算伤害与效果
+    /// ——**不是**一次伤害 ×N。故一枪可以同时中头、胸、左臂，且每颗各自被挡下/半伤/全伤。
+    /// 见 <see cref="CombatResolver.ResolveVolley"/>。
+    /// </para>
+    /// 空间侧（每颗弹丸各自的锥形散射方向）由 Godot 实时层逐颗调 <see cref="Ballistics.SampleDeflectionDegrees"/>；
+    /// 引擎层不涉几何。
+    /// </summary>
+    public int PelletCount { get; init; } = 1;
+
+    // ---- 弹药（枪必须有后勤代价：强，但打不起）----
+
+    /// <summary>
+    /// 所需弹药类型（<see cref="AmmoKeys"/> 之一：子弹/霰弹/箭矢）。
+    /// <b>默认空串 = 不消耗弹药</b> —— 全部近战武器、爪击/撕咬、以及 <see cref="MeleeProfile"/> 派生的枪托近战
+    /// 均不填此字段，行为与随机流一律不变（既有基线零漂移）。
+    /// <para>
+    /// 设计意图（用户拍板）：把枪的碾压从"平衡问题"变成<b>资源管理问题</b>。步枪照样 93.5% 命中、二连发、穿透 40%，
+    /// 但每次扣动扳机烧掉两颗子弹，而子弹靠搜刮/制作（火药→燃料）换来。<b>不削数值，用后勤代价平衡。</b>
+    /// </para>
+    /// </summary>
+    public string AmmoKey { get; init; } = "";
+
+    /// <summary>本武器是否消耗弹药（<see cref="AmmoKey"/> 非空）。近战恒 <c>false</c>。</summary>
+    public bool UsesAmmo => !string.IsNullOrEmpty(AmmoKey);
+
+    /// <summary>
+    /// 一次"射击"消耗的弹药数 = 连发数（打几发就扣几发）。不吃弹药的武器恒 0。
+    /// <para>
+    /// <b>由 <see cref="BurstCount"/> 派生而非另填一个字段</b>：两者永远不会不同步，且这正是物理事实——
+    /// 打出两发就是两个弹壳。这也是弹药系统真正的平衡杠杆：步枪二连发 = 2 发/次、冲锋枪三连发 = 3 发/次，
+    /// 越强的枪每次扣扳机越贵。
+    /// </para>
+    /// <para>
+    /// <b><see cref="PelletCount"/> 不参与相乘</b>：霰弹枪一发壳里 8 颗弹丸同时飞出（8 次独立判定），
+    /// 但消耗的是<b>一发</b>霰弹，不是 8 发。
+    /// </para>
+    /// </summary>
+    public int AmmoPerAttack => UsesAmmo ? Math.Max(1, BurstCount) : 0;
+
+    // ---- 噪音（潜行：响声会把敌人引过来）----
+
+    /// <summary>
+    /// 开火/挥击的噪音半径（世界单位）。<b>默认 0 = 完全无声</b>（近战武器、天生武器不填此字段，
+    /// 行为与随机流一律不变 —— <b>既有 Sim 基线零漂移</b>：Sim 是纯引擎对决、无空间层，根本不跑噪音）。
+    /// <para>
+    /// 语义：每次攻击在攻击者位置发出一次噪音。半径内**当前没有攻击目标**的**敌对** Actor
+    /// （丧尸 + 劫掠者，用户拍板全量版）会走过去**侦查一次**——不是直接锁定你，是"听见动静、过来看看"。
+    /// 空间侧的广播与寻路归 Godot 实时层（<c>Actor.EmitNoise</c>），引擎只出这个数据字段与
+    /// <c>NoiseLogic</c> 的纯判定函数。
+    /// </para>
+    /// <para>
+    /// <b>设计意图（用户拍板）</b>：「弓箭可以设计成潜行武器，但是也会发出一定声响」——
+    /// 弓<b>不是无声</b>，只是声音小。目标手感是<b>「你能悄悄干掉一个，但干不掉一群」</b>。
+    /// 故梯度锚在两个既有常量上：<b>弓 ≈ 丧尸嗅觉半径</b>（<c>Zombie.SmellSenseRadius</c> = 70px：
+    /// 听得见你放箭的丧尸，本来就已经闻得到你 → 放箭不额外招怪）；
+    /// <b>枪 ≫ 丧尸夜间视距</b>（≈219px：一枪把视野外、屏幕外的丧尸全拽过来）。
+    /// </para>
+    /// <b>噪音不吃墙遮挡</b>（声音会绕、会穿——与吃遮挡的视线/气味不同）。数值拟定待调。
+    /// </summary>
+    public double NoiseRadius { get; init; }
+
+    /// <summary>
+    /// 枪托贴脸砸人的噪音（钝器量级 ≈ 棍棒）。**枪本体的大噪音不继承到枪托**——砸不是打，没有枪声；
+    /// 但砸人也绝不是哑剧，故不是 0。由 <see cref="MeleeProfile"/> 写入。拟定待调。
+    /// </summary>
+    public const double StockMeleeNoise = 110;
+
+    // ---- 砸墙（对营地结构：围栏/大门/门板）----
+
+    /// <summary>
+    /// **砸墙系数**：这把武器打**结构**（围栏/大门/门板，非血肉）时，伤害相对其平均伤害的倍率。
+    /// 砸墙每击伤害 = 「砸墙有效武器」平均伤害 × 本系数（规则见 <c>StructureDamage</c>，消费层纯逻辑）。
+    /// <para>
+    /// <b>为什么需要它</b>：墙没有护甲、没有部位、不吃穿透——它只有一个血条。锐器那套「切开血肉」的数值
+    /// 打在木头铁皮上毫无意义（拿匕首捅墙本来就该没用），而锤子恰恰相反。此系数就是「这把家伙对付**死物**
+    /// 有多好使」，与它对付**活物**的伤害是两回事。
+    /// </para>
+    /// <para>
+    /// <b>枪械</b>：本系数作用于 <see cref="MeleeProfile"/>（枪托）的伤害与节奏，**不是子弹伤害**——
+    /// 子弹打不穿承重墙，抡枪托砸门才是真事。故枪的这一格填的是「抡枪托的效率」。
+    /// </para>
+    /// <para>
+    /// <b>弓弩</b>：没有枪托可抡，系数作用于箭伤且取全表最低——射箭砸墙是全游戏最徒劳的行为。
+    /// </para>
+    /// <para>
+    /// <c>null</c> = 未填，按伤害类型兜底（钝器/锐器各一档缺省值，见 <c>StructureDamage.DefaultBluntFactor</c>）——
+    /// 新武器忘填不会变成"砸墙零伤害"。数值拟定待调，用户在 <c>docs/weapons-calc.xlsx</c>『武器表』的
+    /// 「砸墙系数」列调。
+    /// </para>
+    /// </summary>
+    public double? StructureFactor { get; init; }
+
     // ---- 远程射程与射程内衰减（仅远程武器填；近战留 null=无射程模型）----
 
     /// <summary>
@@ -126,6 +228,9 @@ public sealed class Weapon
             return null;
         }
 
+        // AmmoKey **不复制**（空枪仍能抡枪托）。
+        // NoiseRadius **不继承枪本体的大噪音**（砸不是打，没有枪声），但也**不是 0**——
+        // 抡枪托砸人显然有动静，按近战量级给 <see cref="StockMeleeNoise"/>。
         return new Weapon
         {
             Name = Name + "（枪托）",
@@ -133,6 +238,7 @@ public sealed class Weapon
             DamageMax = StockMeleeDamageMax!.Value,
             Penetration = StockMeleePenetration ?? 0,
             DamageType = DamageType.Blunt,
+            NoiseRadius = StockMeleeNoise,
             TwoHanded = TwoHanded,
             IsRanged = false,
             AttackInterval = StockMeleeInterval ?? AttackInterval,

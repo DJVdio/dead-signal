@@ -98,35 +98,27 @@ public class RangeAndCoverageTests
     private static readonly BodyPart TorsoPart = Part(HumanBody.Chest);
 
     [Fact]
-    public void WorkGlove_Left_CoversLeftHandAndFingers_NotRightNorTorso()
+    public void WorkGloves_CoverBothHandsAndFingers_NotTorso()
     {
-        ArmorLayer left = ArmorTable.WorkGlove(leftHand: true);
-        Assert.Equal("左手套", left.Name);
-        Assert.True(left.Covers(LeftHandPart));            // 左手
-        Assert.True(left.Covers(LeftFingerPart));          // 连带左手指
-        Assert.False(left.Covers(RightHandPart));          // 不防右手
-        Assert.False(left.Covers(Part(HumanBody.RightIndex))); // 不防右手指
-        Assert.False(left.Covers(TorsoPart));              // 不防躯干
+        ArmorLayer gloves = ArmorTable.WorkGloves();
+        Assert.Equal("劳保手套", gloves.Name);
+        Assert.True(gloves.Covers(LeftHandPart));               // 左手
+        Assert.True(gloves.Covers(RightHandPart));              // 右手（合一件后两手都护，[SPEC-B18]）
+        Assert.True(gloves.Covers(LeftFingerPart));             // 连带手指子树
+        Assert.True(gloves.Covers(Part(HumanBody.RightIndex)));
+        Assert.False(gloves.Covers(TorsoPart));                 // 不防躯干
+        Assert.False(gloves.Covers(Part(HumanBody.LeftArm)));   // 不防上臂
     }
 
     [Fact]
-    public void WorkGlove_Right_CoversRightHandOnly()
+    public void FullBodyArmor_NoCoversParts_CoversEverything()
     {
-        ArmorLayer right = ArmorTable.WorkGlove(leftHand: false);
-        Assert.Equal("右手套", right.Name);
-        Assert.True(right.Covers(RightHandPart));
-        Assert.False(right.Covers(LeftHandPart));
-    }
-
-    [Fact]
-    public void LegacyArmor_NoCoversParts_CoversEverything()
-    {
-        // 现有护甲不填 CoversParts → 默认全覆盖（向后兼容）。
-        var jacket = ArmorTable.SurvivorArmor()[0];
-        Assert.Null(jacket.CoversParts);
+        // 不填 CoversParts → 默认全覆盖（腐皮=丧尸自带全身皮，表里防护部位写"全身"）。
+        var hide = ArmorTable.ZombieHide()[0];
+        Assert.Null(hide.CoversParts);
         foreach (BodyPart p in HumanBody.Parts())
         {
-            Assert.True(jacket.Covers(p));
+            Assert.True(hide.Covers(p));
         }
     }
 

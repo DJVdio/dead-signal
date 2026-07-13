@@ -7,13 +7,13 @@ using Xunit;
 namespace DeadSignal.Combat.Tests;
 
 /// <summary>
-/// [SPEC-B17-补]（部位细分=装备覆盖取舍：胸甲更轻不防腹 / 短裤更凉快不防小腿）+
+/// [SPEC-B17-补]（部位细分=装备覆盖取舍：皮革胸甲更轻不防腹 / 短裤更凉快不防小腿）+
 /// [SPEC-B16-补2]（运动鞋脚部装备）+ 粗布背心补独立覆盖层 的规则形态校验。
 /// 三新件 + 粗布背心走覆盖体系任意子集能力；数值皆"拟定待调"，测试锁规则形态不锁具体数字。
 /// </summary>
 public class PartGearTests
 {
-    // ---- 胸甲：仅护胸（不防腹），防护高于布衣、低于板甲，重量轻于板甲 ----
+    // ---- 皮革胸甲：仅护胸（不防腹），防护高于长袖布衣、低于板甲，重量轻于板甲 ----
 
     [Fact]
     public void ChestPlate_CoversChestOnly_NotAbdomen()
@@ -25,15 +25,15 @@ public class PartGearTests
     }
 
     [Fact]
-    public void ChestPlate_DefenseBetweenClothAndPlate_LighterThanPlate()
+    public void ChestPlate_DefenseBetweenShirtAndPlate_LighterThanPlate()
     {
         ArmorLayer chest = ArmorTable.ChestPlate();
-        ArmorLayer cloth = ArmorTable.Cloth();
+        ArmorLayer shirt = ArmorTable.LongSleeveShirt();
         ArmorLayer plate = ArmorTable.Plate();
 
-        // 防护高于布衣、低于全躯干板甲。
-        Assert.True(chest.SharpDefense > cloth.SharpDefense && chest.SharpDefense < plate.SharpDefense);
-        Assert.True(chest.BluntDefense > cloth.BluntDefense && chest.BluntDefense < plate.BluntDefense);
+        // 防护高于长袖布衣、低于全躯干板甲。
+        Assert.True(chest.SharpDefense > shirt.SharpDefense && chest.SharpDefense < plate.SharpDefense);
+        Assert.True(chest.BluntDefense > shirt.BluntDefense && chest.BluntDefense < plate.BluntDefense);
         // 重量轻于板甲。
         Assert.True(chest.Weight < plate.Weight);
         Assert.False(string.IsNullOrWhiteSpace(chest.Description));
@@ -42,7 +42,7 @@ public class PartGearTests
     [Fact]
     public void ChestPlate_InCatalog_OccupiesPlateSlot()
     {
-        ApparelCatalog.ApparelDef? def = ApparelCatalog.Get("胸甲");
+        ApparelCatalog.ApparelDef? def = ApparelCatalog.Get("皮革胸甲");
         Assert.NotNull(def);
         Assert.Equal(new HashSet<EquipSlot> { EquipSlot.PlateLayer }, def!.Slots);
     }
@@ -111,11 +111,14 @@ public class PartGearTests
     }
 
     [Fact]
-    public void Sneakers_InCatalog_OccupyBothFootSlots()
+    public void Sneakers_InCatalog_ArePaired_OneShoePerFootSlot()
     {
+        // [SPEC-B18-补] 鞋不分左右（一个 def），但一只鞋只占一只脚槽——两只才护全。
         ApparelCatalog.ApparelDef? def = ApparelCatalog.Get("运动鞋");
         Assert.NotNull(def);
-        Assert.Equal(new HashSet<EquipSlot> { EquipSlot.LeftFoot, EquipSlot.RightFoot }, def!.Slots);
+        Assert.True(def!.Paired);
+        Assert.Equal(new HashSet<EquipSlot> { EquipSlot.LeftFoot, EquipSlot.RightFoot }, def.Slots);  // 候选槽
+        Assert.DoesNotContain(HumanBody.RightFoot, def.CoversFor(EquipSlot.LeftFoot)!);               // 左脚那只不护右脚
     }
 
     // ---- 粗布背心：补独立覆盖层，仅护胸+腹（无袖不护臂），不再是全覆盖 null ----
@@ -140,7 +143,7 @@ public class PartGearTests
         Assert.NotNull(def.CoversParts);   // 覆盖信息落地，不再空
     }
 
-    // ---- 覆盖体系任意子集：胸甲(仅胸)叠长袖布衣(胸+腹+臂)，命中胸有双层、命中腹只有布衣 ----
+    // ---- 覆盖体系任意子集：皮革胸甲(仅胸)叠长袖布衣(胸+腹+臂)，命中胸有双层、命中腹只有布衣 ----
 
     [Fact]
     public void ChestPlateOverShirt_ChestDoubleCovered_AbdomenSingleCovered()
@@ -148,15 +151,15 @@ public class PartGearTests
         var apparel = new ApparelSlots();
         ArmorLayer shirt = ArmorTable.LongSleeveShirt();
         apparel.TryEquip(shirt.Name, new HashSet<EquipSlot> { EquipSlot.SkinLayer }, out _, shirt.CoversParts);
-        ApparelCatalog.Equip(apparel, "胸甲");
+        ApparelCatalog.Equip(apparel, "皮革胸甲");
 
-        // 命中胸：胸甲 + 长袖布衣两件都覆盖。
+        // 命中胸：皮革胸甲 + 长袖布衣两件都覆盖。
         var coversChest = apparel.ActiveCoverage().Where(c => c.CoversParts.Contains(HumanBody.Chest)).Select(c => c.Item).ToHashSet();
-        Assert.Contains("胸甲", coversChest);
+        Assert.Contains("皮革胸甲", coversChest);
         Assert.Contains("长袖布衣", coversChest);
-        // 命中腹：只有长袖布衣覆盖（胸甲不防腹）。
+        // 命中腹：只有长袖布衣覆盖（皮革胸甲不防腹）。
         var coversAbdomen = apparel.ActiveCoverage().Where(c => c.CoversParts.Contains(HumanBody.Abdomen)).Select(c => c.Item).ToHashSet();
-        Assert.DoesNotContain("胸甲", coversAbdomen);
+        Assert.DoesNotContain("皮革胸甲", coversAbdomen);
         Assert.Contains("长袖布衣", coversAbdomen);
     }
 }

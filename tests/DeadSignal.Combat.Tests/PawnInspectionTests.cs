@@ -95,8 +95,8 @@ public class PawnInspectionTests
 
         Assert.Equal(2, snap.Armor.Count);
         ArmorInfo jacket = snap.Armor.Single(a => a.Name == "皮夹克");
-        Assert.Equal(6, jacket.SharpDefense);
-        Assert.Equal(3, jacket.BluntDefense);
+        Assert.Equal(12, jacket.SharpDefense);   // 表值（[SPEC-B18]）
+        Assert.Equal(6, jacket.BluntDefense);
         Assert.Equal(ArmorSlot.Outer, jacket.Slot);
     }
 
