@@ -155,6 +155,10 @@ public sealed partial class CampMain : Node2D
     private (Pawn pawn, CampStructureInstance site, double elapsed, double need)? _dismantling;
     private (Pawn pawn, CampStructureInstance site, double timer)? _bashing;
 
+    // 砌墙（加固 / 修补）在办作业：一条边一份，**逐格推进**。见 BeginFenceWork / TickFenceWork。
+    private FenceWorkSession? _fenceWork;
+    private int _nextRunId; // 建图时给每条边（每整条围栏 / 每扇大门）发一个号
+
     private (Pawn pawn, CampStructureInstance door, double elapsed, double need)? _picking;
     private readonly IRandomSource _pickRng = new SystemRandomSource(); // 撬锁 roll（项目铁律：随机走可注入源）
     private const float PendingInteractStandoff = 20f;      // 停在容器最近边缘外的间距
@@ -375,6 +379,22 @@ public sealed partial class CampMain : Node2D
 
         /// <summary>是围栏（网格：看得穿/射得穿/挡移动/挡近战/是半身掩体），而非实心大门。摧毁时据此撤掩体登记。</summary>
         public bool IsFence;
+
+        /// <summary>
+        /// 这一格属于哪"<b>一条边</b>"（camp.json 里的一整条围栏 = 一条边；每扇大门自成一条边）。
+        /// <b>-1 = 不属于任何可加固的边</b>（民居的门体、山体…）。
+        /// <para>
+        /// 升级/修复<b>按边下令、按格结算</b>（见 <see cref="FenceUpgradeLogic.PlanUpgrade"/>）：敌人是**就近**挑一格砸的，
+        /// 你事先不知道它撞哪一格 ⇒「防线强度 = 最弱那一格」⇒ 只升一格等于白花料。<b>能改变结果的最小单位是一整面墙。</b>
+        /// </para>
+        /// </summary>
+        public int RunId = -1;
+
+        /// <summary>建这一格用的样式/随机种/高度/瓦片尺寸 —— <b>升级换档、修复补洞时要照着重建视觉</b>，故留档。</summary>
+        public PixelStyle Style = null!;
+        public int Seed;
+        public float Height;
+        public float Cell;
 
         // ---- 以下仅门（Door）用 ----
         /// <summary>非 null = 这是一扇门（可开关）。围栏/不可开关的结构为 null。</summary>
@@ -709,10 +729,13 @@ public sealed partial class CampMain : Node2D
         {
             if (ToRect(f.rect) is { } r)
             {
+                // camp.json 里的**一整条围栏 = 一条边**（"南墙"）：切成的这些格共用一个 RunId，
+                // 玩家日后就是对着这条边下"加固/修补"的令（按边下令、按格结算，见 FenceUpgradeLogic）。
+                int runId = _nextRunId++;
                 foreach (Rect2 seg in SplitFence(r))
                 {
                     AddStructure(seg, fenceStyle, seed: 11, (float)_heights.fence, CellFence,
-                        StructureTier.FenceBasic, blocking: true, fence: true);
+                        StructureTier.FenceBasic, blocking: true, fence: true, runId: runId);
                 }
             }
         }
@@ -1274,7 +1297,7 @@ public sealed partial class CampMain : Node2D
     /// false = <b>大门</b>：实心，留在墙层3，照常挡视线挡弹道，也不是掩体。
     /// </param>
     private CampStructureInstance AddStructure(Rect2 rect, PixelStyle style, int seed, float height, float cell,
-        StructureTier tier, bool blocking, bool fence = false)
+        StructureTier tier, bool blocking, bool fence = false, int runId = -1)
     {
         var inst = new CampStructureInstance
         {
@@ -1282,6 +1305,11 @@ public sealed partial class CampMain : Node2D
             Rect = rect,
             Blocking = blocking,
             IsFence = fence,
+            RunId = runId,
+            Style = style,
+            Seed = seed,
+            Height = height,
+            Cell = cell,
         };
 
         if (blocking)
@@ -1304,10 +1332,24 @@ public sealed partial class CampMain : Node2D
                 CoverLogic.DefaultCoverChance, blocksMelee: true);
         }
 
-        AddOccluderVisual(rect, style, seed, height, cell, inst.Visuals);
+        AddOccluderVisual(rect, TierStyle(tier, style), seed, height, cell, inst.Visuals);
         _structures.Add(inst);
         return inst;
     }
+
+    /// <summary>
+    /// 档次 → 这一格<b>长什么样</b>（升级后墙必须<b>看得出来变了</b>：木头 → 加了支柱 → 钉了铁皮 → 全金属）。
+    /// 一次看不出差别的升级，玩家会怀疑自己那 64 木料是不是白花了。
+    /// </summary>
+    private static PixelStyle TierStyle(StructureTier tier, PixelStyle fallback) => tier switch
+    {
+        StructureTier.FenceReinforced => new PixelStyle { color = new[] { 0.33, 0.24, 0.15 }, jitter = 0.12 }, // 深一号的木头
+        StructureTier.FenceSheetMetal => new PixelStyle { color = new[] { 0.45, 0.44, 0.42 }, jitter = 0.10 }, // 灰铁皮
+        StructureTier.FenceFullMetal  => new PixelStyle { color = new[] { 0.55, 0.56, 0.58 }, jitter = 0.07 }, // 冷金属
+        StructureTier.GateSheetMetal  => new PixelStyle { color = new[] { 0.42, 0.40, 0.36 }, jitter = 0.09 },
+        StructureTier.GateCastMetal   => new PixelStyle { color = new[] { 0.52, 0.53, 0.55 }, jitter = 0.06 },
+        _ => fallback,
+    };
 
     /// <summary>
     /// 加一扇大门（可破坏结构，HP=基础大门 250）：**默认关闭**——和围栏一样建成实心屏障
@@ -1347,7 +1389,11 @@ public sealed partial class CampMain : Node2D
             initial: DoorState.Barred,   // 自家的门当然闩着（零回归：它此前就是默认挡路的实心结构）
             lockTier: LockTier.None,     // 闩不是锁：自己人一抬就开，不需要铁丝（见 DoorState.Barred）
             doorName: name,
-            barrable: true);             // 关上即闩上——不做单独的"闩门"交互（用户偏好简化）
+            barrable: true,              // 关上即闩上——不做单独的"闩门"交互（用户偏好简化）
+            // **每扇大门自成一条边**（它不切格，就是孤零零一处）⇒ 它也能加固（250 → 400 → 800）。
+            // 「先大门，后围栏」这条硬顺序正是从这儿来的：一笔料砸在大门上是实打实的 +150 血，
+            // 摊到 16 格的围栏上却连两格都升不满。
+            runId: _nextRunId++);
         // 门槛不随门体走：门被砸烂后，地上那条门槛还在（那是地面，不是门板）。
     }
 
@@ -1369,10 +1415,11 @@ public sealed partial class CampMain : Node2D
     /// </summary>
     private CampStructureInstance AddDoor(
         Rect2 rect, PixelStyle style, int seed, float height, float cell,
-        StructureTier tier, DoorState initial, LockTier lockTier, string doorName, bool barrable = false)
+        StructureTier tier, DoorState initial, LockTier lockTier, string doorName, bool barrable = false,
+        int runId = -1)
     {
         // 先按"关着"建（实心 + 导航洞），再按初始态开/关——这样只有一条建造路径，开着的门也是同一个 Body。
-        CampStructureInstance inst = AddStructure(rect, style, seed, height, cell, tier, blocking: true);
+        CampStructureInstance inst = AddStructure(rect, style, seed, height, cell, tier, blocking: true, runId: runId);
         inst.Door = DoorState.Closed;
         inst.Lock = lockTier;
         inst.DoorName = doorName;
@@ -2760,6 +2807,7 @@ public sealed partial class CampMain : Node2D
         TickLockPick(delta);            // 撬锁推进（实时秒；撬开=门开，失败=断根铁丝接着撬）
         UpdatePendingSite(delta);       // 右键动作菜单：轮询"走到门/围栏前"的到达 → 开干
         TickDismantle(delta);           // 静默拆除推进（安静 30、慢；拆满=一个真的洞）
+        TickFenceWork(delta);           // 砌墙推进（加固/补窟窿；逐格结算，中断即作废当前这格）
         TickBash(delta);                // 破坏推进（武器派生伤害/节奏；每下 180 噪音）
         UpdateHover();                   // 悬停辨识：鼠标下容器 → 跟随小标签
 
@@ -3033,7 +3081,13 @@ public sealed partial class CampMain : Node2D
     //   破坏走 StructureDamage.PerHit/Interval（**由武器派生，与丧尸/劫掠者砸墙同一套**）。
     //   玩家没有后门，AI 也没有。
 
-    /// <summary>右键命中的门或围栏（门优先；围栏取命中矩形者）。都没命中返回 null。</summary>
+    /// <summary>
+    /// 右键命中的门 / 围栏（门优先）。
+    /// <para>
+    /// <b>⚠️ 被砸穿的围栏格（缺口）也算命中</b> —— 那正是玩家要点开来<b>修</b>的地方（"墙不能建"，补窟窿只能走升级/修补这条路）。
+    /// 缺口用<b>不外扩</b>的判定（不像完好的墙那样 Grow(8)）：缺口就是条能走人的通道，判定放宽会抢走"右键穿过缺口"的移动令。
+    /// </para>
+    /// </summary>
     private CampStructureInstance? SiteAt(Vector2 cart)
     {
         if (DoorAt(cart) is { } d)
@@ -3042,7 +3096,15 @@ public sealed partial class CampMain : Node2D
         }
         foreach (CampStructureInstance s in _structures)
         {
-            if (!s.Removed && !s.IsDoor && s.State.Kind == CampStructureKind.Fence && s.Rect.Grow(8f).HasPoint(cart))
+            if (s.State.Kind == CampStructureKind.Door)
+            {
+                continue; // 民居的门体：活着的归 DoorAt，砸烂的不走"加固墙"这条路（门是装上去的东西，见 FenceUpgradeLogic.CanImprove）
+            }
+            if (s.IsDoor && !s.Removed)
+            {
+                continue; // 活着的大门归 DoorAt
+            }
+            if (s.Rect.Grow(s.Removed ? 0f : 8f).HasPoint(cart))
             {
                 return s;
             }
@@ -3050,15 +3112,261 @@ public sealed partial class CampMain : Node2D
         return null;
     }
 
-    /// <summary>这个人对着这处门/围栏，此刻能干什么（纯逻辑出内容；铁丝数从共享库存现取）。</summary>
+    /// <summary>
+    /// 这个人对着这处门/围栏，此刻能干什么（纯逻辑出内容；铁丝数从共享库存现取）。
+    /// <para>
+    /// <b>两张单子拼起来</b>：<see cref="SiteActions.ForFence"/>/<see cref="SiteActions.ForDoor"/> 是「对着<b>一处结构</b>你能干什么」
+    /// （撬 / 拆 / 砸——潜入手段），<see cref="SiteActions.ForOwnStructure"/> 是「对着<b>自家这面墙</b>你能干什么」
+    /// （加固 / 修补——建造经济）。后者要看的是<b>整条边</b>的状态，不是这一格。
+    /// </para>
+    /// </summary>
     private IReadOnlyList<SiteActionOption> OptionsFor(Pawn pawn, CampStructureInstance site)
-        => site.IsDoor
+    {
+        var opts = new List<SiteActionOption>();
+        opts.AddRange(site.IsDoor && !site.Removed
             ? SiteActions.ForDoor(site.Door!.Value, site.Lock, pawn.Faction, isAnimal: false,
                 _inventory.MaterialCount(DoorLogic.LockpickMaterialKey))
             : SiteActions.ForFence(pawn.Faction, isAnimal: false,
-                site.State.Kind, site.State.Tier, site.Removed);
+                site.State.Kind, site.State.Tier, site.Removed));
+
+        if (site.RunId >= 0)
+        {
+            opts.AddRange(SiteActions.ForOwnStructure(
+                pawn.Faction, isAnimal: false, site.State.Kind, RunStates(site), _inventory.MaterialCount));
+        }
+        return opts;
+    }
 
     private static string SiteName(CampStructureInstance s) => s.IsDoor ? s.DoorName : "围栏";
+
+    // ================= 砌墙：加固（升一档）/ 修补（补回原档）=================
+    //
+    // 用户拍板：「**墙不能建，只能升级开局自带的围栏**」（理由是防 kill box —— 可自由摆墙 ⇒ 玩家用墙的迷宫
+    // 牵着敌人寻路，架空视野锥/噪音/包抄/掩体/岗哨整套系统）。这一段就是那句话**唯一的落点**。
+    //
+    // ⚠️ **这里没有、也永远不会有"新建一格墙"的代码路径**：本段只对着 _structures 里**已经存在**的格下手
+    //（它们只在建图时由 BuildFences 从 camp.json 切出来，全仓唯一一处 `fence: true`）。
+    //  被砸穿的缺口之所以补得回来，是因为**那一格本来就在名册上**（Removed=true，位置/档次都还记着）——
+    //  玩家能补的洞，只有"原来那儿本来就有墙"的洞。**kill box 的门从这里就是关死的**（有单测钉着，见 FenceUpgradeTests）。
+    //
+    // 规则/成本/工时全在纯逻辑 FenceUpgradeLogic；本段只做空间执行：派人走过去、逐格立墙、扣料、重建碰撞/导航/掩体/视觉。
+
+    /// <summary>一趟砌墙作业：一个人，一条边，一张<b>逐格</b>的施工计划。</summary>
+    private sealed class FenceWorkSession
+    {
+        public Pawn Worker = null!;
+        public List<CampStructureInstance> Run = null!; // 这条边上的每一格（下标对齐 FenceWorkStep.SegmentIndex）
+        public FenceWorkPlan Plan = null!;
+        public int StepIndex;                           // 干到第几步了
+        public double Elapsed;                          // 当前这一格已投入的**工作秒**（中断即作废）
+        public string RunName = "";
+    }
+
+    /// <summary>这一格所属的**那一条边**（按 <see cref="_structures"/> 的顺序 = 沿墙的顺序）。</summary>
+    private List<CampStructureInstance> RunOf(CampStructureInstance site)
+        => _structures.Where(s => s.RunId >= 0 && s.RunId == site.RunId).ToList();
+
+    /// <summary>把一条边翻译成纯逻辑看得懂的样子（<b>只有档次和血量，没有位置</b>——规则不该知道墙在哪，见 FenceSegmentState）。</summary>
+    private List<FenceSegmentState> RunStates(CampStructureInstance site)
+        => RunOf(site)
+            .Select(s => new FenceSegmentState(s.State.Tier, s.Removed ? 0d : s.State.HealthFraction))
+            .ToList();
+
+    /// <summary>这条边叫什么（"南墙" / "北大门"）——玩家得知道自己在给哪面墙花料。</summary>
+    private string RunName(CampStructureInstance site)
+    {
+        if (site.IsDoor)
+        {
+            return site.DoorName;
+        }
+
+        List<CampStructureInstance> run = RunOf(site);
+        Vector2 mid = run.Aggregate(Vector2.Zero, (acc, s) => acc + s.Rect.GetCenter()) / Mathf.Max(1, run.Count);
+        Vector2 campMid = _structures.Where(s => s.IsFence).Aggregate(Vector2.Zero, (acc, s) => acc + s.Rect.GetCenter())
+                          / Mathf.Max(1, _structures.Count(s => s.IsFence));
+
+        Rect2 first = run[0].Rect, last = run[^1].Rect;
+        bool horizontal = Mathf.Abs(last.Position.X - first.Position.X) >= Mathf.Abs(last.Position.Y - first.Position.Y);
+        return horizontal
+            ? (mid.Y >= campMid.Y ? "南墙" : "北墙")
+            : (mid.X >= campMid.X ? "东墙" : "西墙");
+    }
+
+    /// <summary>
+    /// 下"加固 / 修补"的令：算出这条边的施工计划 → 校验料 → 派人去干第一格。
+    /// <para><b>料在每一格<b>完工那一刻</b>才扣</b>（不是开工就扣）——中断即作废当前这一格的进度，但<b>不白亏料</b>。
+    /// 与逐件搜刮"已经取出来的件带得走、手上这件作废"是同一条规则。</para>
+    /// </summary>
+    private void BeginFenceWork(Pawn pawn, CampStructureInstance site, FenceWorkKind kind)
+    {
+        List<CampStructureInstance> run = RunOf(site);
+        List<FenceSegmentState> states = RunStates(site);
+        FenceWorkPlan plan = kind == FenceWorkKind.Upgrade
+            ? FenceUpgradeLogic.PlanUpgrade(site.State.Kind, states)
+            : FenceUpgradeLogic.PlanRepair(site.State.Kind, states);
+
+        if (plan.IsEmpty)
+        {
+            _campToast.Show(kind == FenceWorkKind.Upgrade ? "这面墙没得升了。" : "这面墙好好的，没什么可补。", CampToast.Bad);
+            return;
+        }
+        if (!FenceUpgradeLogic.CanAfford(plan.TotalCost, _inventory.MaterialCount))
+        {
+            _campToast.Show(
+                $"料不够——还缺 {SiteActions.Bill(FenceUpgradeLogic.Missing(plan.TotalCost, _inventory.MaterialCount))}。",
+                CampToast.Bad);
+            return;
+        }
+
+        _fenceWork = new FenceWorkSession
+        {
+            Worker = pawn,
+            Run = run,
+            Plan = plan,
+            RunName = RunName(site),
+        };
+        string what = kind == FenceWorkKind.Upgrade
+            ? $"加固{_fenceWork.RunName}（{SiteActions.TierName(plan.TargetTier!.Value)}）"
+            : $"修补{_fenceWork.RunName}";
+        _campToast.Show(
+            $"{pawn.DisplayName} 开始{what}：{plan.Steps.Count} 格 · 料 {SiteActions.Bill(plan.TotalCost)} · 约 {plan.TotalWorkSeconds:0} 秒。",
+            CampToast.Ok);
+        GoToStep(_fenceWork);
+    }
+
+    /// <summary>派人走到"当前这一格"跟前（每干完一格就往下一格挪——他是沿着墙一格一格砌过去的）。</summary>
+    private void GoToStep(FenceWorkSession w)
+    {
+        CampStructureInstance seg = w.Run[w.Plan.Steps[w.StepIndex].SegmentIndex];
+        w.Elapsed = 0;
+        w.Worker.CommandMoveTo(NearestEdgeStandPoint(seg.Rect, w.Worker.GlobalPosition));
+    }
+
+    /// <summary>
+    /// 砌墙推进（<b>实时秒 × 工作效率</b>——与搜刮/制作同一条乘子链 <see cref="WorkEfficiencyOf"/>，<b>乘算通则</b>，
+    /// 山姆缺两指就砌得慢）。
+    /// <para>
+    /// <b>为什么是实时秒、不是工作台那套工时制</b>：砌墙是<b>站在墙边</b>干的活。走工时制就意味着它只能在生产相位推进 ——
+    /// 而"趁两波尸潮之间把缺口补上"恰恰是这机制存在的全部意义。它跟撬锁/静默拆除/逐件搜刮是同一个形态：
+    /// <b>非模态、可派人、站着不动就是暴露、中断即作废</b>。
+    /// </para>
+    /// <para><b>逐格结算</b>：每立好一格才扣那一格的料。中途被袭营拉走 ⇒ <b>已经立好的格保住</b>，
+    /// 手上这格的进度作废、料没扣。半面加固的墙是个诚实的结果，不是 bug。</para>
+    /// </summary>
+    private void TickFenceWork(double delta)
+    {
+        if (_fenceWork is not { } w)
+        {
+            return;
+        }
+        if (!w.Worker.Alive || !w.Worker.IsControllable || !_survivors.Contains(w.Worker) || w.StepIndex >= w.Plan.Steps.Count)
+        {
+            _fenceWork = null;
+            return;
+        }
+
+        FenceWorkStep step = w.Plan.Steps[w.StepIndex];
+        CampStructureInstance seg = w.Run[step.SegmentIndex];
+
+        // 还没走到这一格跟前：不推进（他得站在墙边才砌得了墙）。
+        if (!seg.Rect.Grow(w.Worker.Radius + PendingArriveMargin).HasPoint(w.Worker.GlobalPosition))
+        {
+            if (w.Worker.IsNavigationFinished())
+            {
+                _campToast.Show($"走不到{w.RunName}那一段，活停了。", CampToast.Bad);
+                _fenceWork = null;
+            }
+            return;
+        }
+
+        w.Elapsed += delta * WorkEfficiencyOf(w.Worker); // 效率≤0（断了双手的人）⇒ 永远砌不完，这是乘算的必然结果
+        if (w.Elapsed < step.WorkSeconds)
+        {
+            return;
+        }
+
+        // ---- 这一格立起来了：扣料 → 换档/补洞 ----
+        // 再校验一次料（开工到现在，别的活可能把木料吃掉了）：不够就停在这儿，不凭空造墙。
+        if (!FenceUpgradeLogic.CanAfford(step.Cost, _inventory.MaterialCount))
+        {
+            _campToast.Show($"料用光了——{w.RunName}只砌到一半。", CampToast.Bad);
+            _fenceWork = null;
+            return;
+        }
+        foreach (KeyValuePair<string, int> kv in step.Cost)
+        {
+            _inventory.TrySpendMaterial(kv.Key, kv.Value);
+        }
+        RaiseSegment(seg, step.TargetTier);
+
+        w.StepIndex++;
+        if (w.StepIndex >= w.Plan.Steps.Count)
+        {
+            _fenceWork = null;
+            _campToast.Show(
+                w.Plan.Kind == FenceWorkKind.Upgrade
+                    ? $"{w.RunName}加固完了（{SiteActions.TierName(step.TargetTier)}）——它们得多啃一阵子了。"
+                    : $"{w.RunName}补好了。缺口没了，但那道疤还在。",
+                CampToast.Ok);
+            return;
+        }
+        GoToStep(w);
+    }
+
+    /// <summary>
+    /// <b>把一格墙按某档重新立起来</b>（升级换档 / 补上缺口 / 修回满血，<b>是同一件事</b>）：
+    /// 换 <see cref="CampStructureState"/>（新档 + 满血）→ 重画视觉 → 若原先是个洞，则<b>把碰撞体、导航洞、半身掩体一并装回来</b>。
+    /// <para>
+    /// ⚠️ <b>它只认一个已经在 <see cref="_structures"/> 名册上的格</b> —— 不新增任何结构、不接受任何坐标。
+    /// 这就是"修复不等于建墙"这句话在消费层的兑现（全仓生出围栏格的地方只有 <c>BuildFences</c> 那一处 `fence: true`）。
+    /// </para>
+    /// </summary>
+    private void RaiseSegment(CampStructureInstance s, StructureTier tier)
+    {
+        bool wasHole = s.Removed;
+        s.State = new CampStructureState(tier); // 新档、满血（"按新档重立一遍"，旧料一点不退）
+
+        foreach (Node2D v in s.Visuals)
+        {
+            if (IsInstanceValid(v))
+            {
+                v.QueueFree();
+            }
+        }
+        s.Visuals.Clear();
+        AddOccluderVisual(s.Rect, TierStyle(tier, s.Style), s.Seed, s.Height, s.Cell, s.Visuals);
+
+        if (!wasHole)
+        {
+            return; // 墙还在，只是换了档：碰撞/导航/掩体原地不动
+        }
+
+        // 缺口补回来了：把当初 DestroyStructure 摘掉的那几样一件件装回去。
+        s.Removed = false;
+        s.Blocking = true;
+        if (s.IsDoor)
+        {
+            s.Door = DoorLogic.ClosedRestingState(s.Barrable); // 重立的大门当然是闩着的
+        }
+
+        var body = new StaticBody2D { Position = s.Rect.Position + s.Rect.Size / 2 };
+        body.CollisionLayer = s.IsFence ? 0b1_0000u : 0b0100u; // 围栏→层5（看得穿射得穿）；大门→层3 墙（挡一切）
+        body.CollisionMask = 0;
+        body.AddChild(new CollisionShape2D { Shape = new RectangleShape2D { Size = s.Rect.Size } });
+        _logicLayer.AddChild(body);
+        s.Body = body;
+
+        if (s.IsFence)
+        {
+            // 半身掩体跟着墙一起回来（掩体属性**不随档次变**——围栏所有档位都是半身掩体，impl-cover 的口径）。
+            _coverField.Add(s.Rect.Position.X, s.Rect.Position.Y, s.Rect.Size.X, s.Rect.Size.Y,
+                CoverLogic.DefaultCoverChance, blocksMelee: true);
+        }
+
+        _navHoles.Add(s.Rect);
+        _breachCandidatesDirty = true; // 这一格又挡路了 ⇒ 重新进破防候选表（丧尸得重新把它当墙啃）
+        RebakeNavigation();
+    }
 
     /// <summary>
     /// 右键门/围栏：<b>真有得选才弹菜单</b>，否则直接干那一件事。
@@ -3158,6 +3466,14 @@ public sealed partial class CampMain : Node2D
 
             case SiteAction.Bash:
                 BeginBash(pawn, site);
+                break;
+
+            case SiteAction.Upgrade:
+                BeginFenceWork(pawn, site, FenceWorkKind.Upgrade); // 加固整条边（升一档）
+                break;
+
+            case SiteAction.Repair:
+                BeginFenceWork(pawn, site, FenceWorkKind.Repair);  // 补窟窿（回原档，不升档）
                 break;
         }
     }

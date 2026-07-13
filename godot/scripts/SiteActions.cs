@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using DeadSignal.Combat; // Faction（纯 C# 引擎类型，无 Godot 依赖）
@@ -25,6 +26,18 @@ public enum SiteAction
 
     /// <summary>破坏：<b>快、很响</b>。整条街都听得见。</summary>
     Bash,
+
+    /// <summary>
+    /// <b>加固这面墙</b>（自家的围栏 / 大门，整条边一起升一档）。
+    /// 用户拍板「墙不能建，<b>只能升级开局自带的围栏</b>」——这是那句话的落点。规则见 <see cref="FenceUpgradeLogic"/>。
+    /// </summary>
+    Upgrade,
+
+    /// <summary>
+    /// <b>修补这面墙</b>（把被啃烂/砸穿的格恢复到原档，<b>不升档</b>）。
+    /// <b>只能补"原来就有墙"的洞</b>——这不是"建墙"，见 <see cref="FenceUpgradeLogic.PlanRepair"/>。
+    /// </summary>
+    Repair,
 }
 
 /// <summary>
@@ -195,11 +208,146 @@ public static class SiteActions
                 true, ""));
         }
 
-        opts.Add(new SiteActionOption(SiteAction.Bash, "破坏",
-            $"快，但**很响**（{NoiseOf(SiteAction.Bash):0} 半径 —— 整个据点会瞬间警觉，然后他们包抄你）", true, ""));
+        // 已经拆没了的墙**没得砸**（那儿现在是个洞）。此前这里恒列"破坏"，是因为玩家根本点不到被砸穿的格；
+        // 现在缺口可点了（要在原地把它修回来，见 ForOwnStructure），"砸一个洞"这条就得关掉。
+        if (!destroyed)
+        {
+            opts.Add(new SiteActionOption(SiteAction.Bash, "破坏",
+                $"快，但**很响**（{NoiseOf(SiteAction.Bash):0} 半径 —— 整个据点会瞬间警觉，然后他们包抄你）", true, ""));
+        }
 
         return opts;
     }
+
+    // ---------------- 自家的墙（加固 / 修补）----------------
+    //
+    // ⚠️ **为什么另起一个函数，而不是往 ForFence 里塞两项**：ForFence 是「对着**别人家**的围栏你能干什么」
+    //（静默拆除 / 破坏 —— 潜入手段）。「加固 / 修补」是「对着**自家**的围栏你能干什么」（建造经济）。
+    // 两者的受众、时机、代价完全不同，混成一个菜单只会让玩家在潜入敌营时看见"升级敌人的墙"。
+    // 调用方（CampMain）对自家结构把两张单子**拼起来**即可。
+
+    /// <summary>
+    /// <b>对着自家的一面墙（一条边的全部格 / 一扇大门），此刻能干什么</b>：<b>加固</b>（升一档）/ <b>修补</b>（补回原档）。
+    ///
+    /// <para>
+    /// <b>成本与收益都写在提示里</b>（这是硬要求）：要多少料、要干多久、每格血量 X→Y、静默拆除耗时 +多少秒。
+    /// <b>玩家必须能在按下之前就看出值不值</b> —— 一个看不出收益的升级按钮，等于没有这个按钮。
+    /// </para>
+    ///
+    /// <para>
+    /// <b>料不够也照样列出来</b>（灰掉 + 写明还缺什么）。把"加固"藏掉，玩家会以为墙不能升级；
+    /// 列出来写着"还缺 32 根钉子"，他才知道下一趟该去搜什么。
+    /// </para>
+    /// </summary>
+    /// <param name="kind">这条边是围栏还是大门（<b>门体返回空</b> —— 门不走这条路，见 <see cref="FenceUpgradeLogic.CanImprove"/>）。</param>
+    /// <param name="run">这条边上的每一格（大门 = 只有一格的边）。<b>空列表 ⇒ 空菜单</b>：没有墙的地方造不出墙。</param>
+    /// <param name="materialCount">库存里某种料还有多少（<c>InventoryStore.MaterialCount</c>）。</param>
+    public static IReadOnlyList<SiteActionOption> ForOwnStructure(
+        Faction faction, bool isAnimal,
+        CampStructureKind kind,
+        IReadOnlyList<FenceSegmentState> run,
+        Func<string, int> materialCount)
+    {
+        var opts = new List<SiteActionOption>();
+        if (!DoorLogic.CanOperateDoors(faction, isAnimal) || !FenceUpgradeLogic.CanImprove(kind) || run is null || run.Count == 0)
+        {
+            return opts;
+        }
+
+        FenceWorkPlan upgrade = FenceUpgradeLogic.PlanUpgrade(kind, run);
+        if (!upgrade.IsEmpty && upgrade.TargetTier is { } target)
+        {
+            // 收益说清楚：**每一格**都更厚（丧尸要多啃），**每一格**都更难无声拆开（劫掠者要多花时间，
+            // 而那些时间正是守夜人的发现机会）。这两条是升级唯一的理由，不写出来玩家就看不见。
+            StructureTier before = run[0].Tier;
+            foreach (FenceSegmentState s in run)
+            {
+                if (FenceUpgradeLogic.TierStep(s.Tier) < FenceUpgradeLogic.TierStep(before))
+                {
+                    before = s.Tier;
+                }
+            }
+            string gain =
+                $"每格 {CampStructureTable.MaxHp(before)} → {CampStructureTable.MaxHp(target)} 血" +
+                (kind == CampStructureKind.Fence
+                    ? $" · 静默拆开一格要 {SilentDismantleLogic.SecondsFor(before, SilentDismantleParams.Default):0} → " +
+                      $"{SilentDismantleLogic.SecondsFor(target, SilentDismantleParams.Default):0} 秒（守夜人多几次机会）"
+                    : "");
+
+            bool afford = FenceUpgradeLogic.CanAfford(upgrade.TotalCost, materialCount);
+            opts.Add(new SiteActionOption(
+                SiteAction.Upgrade,
+                $"加固（{TierName(target)}）",
+                $"{upgrade.Steps.Count} 格 · 料：{Bill(upgrade.TotalCost)} · 约 {upgrade.TotalWorkSeconds:0} 秒 · {gain}",
+                afford,
+                afford ? "" : $"料不够——还缺 {Bill(FenceUpgradeLogic.Missing(upgrade.TotalCost, materialCount))}"));
+        }
+        else if (upgrade.IsEmpty && FenceUpgradeLogic.NextTier(LowestTier(run)) is null)
+        {
+            // 满档：**照样列出来**（灰掉）。否则玩家会一直找"升级键在哪"。
+            opts.Add(new SiteActionOption(SiteAction.Upgrade, "加固", "", false, "已经是最高档了——没有更硬的墙了。"));
+        }
+
+        FenceWorkPlan repair = FenceUpgradeLogic.PlanRepair(kind, run);
+        if (!repair.IsEmpty)
+        {
+            bool afford = FenceUpgradeLogic.CanAfford(repair.TotalCost, materialCount);
+            int holes = 0;
+            foreach (FenceSegmentState s in run)
+            {
+                if (s.IsHole)
+                {
+                    holes++;
+                }
+            }
+            string what = holes > 0 ? $"{repair.Steps.Count} 格（其中 {holes} 格是洞）" : $"{repair.Steps.Count} 格";
+            opts.Add(new SiteActionOption(
+                SiteAction.Repair,
+                "修补",
+                $"{what} · 料：{Bill(repair.TotalCost)} · 约 {repair.TotalWorkSeconds:0} 秒 · 补回原档（不升档），血量回满",
+                afford,
+                afford ? "" : $"料不够——还缺 {Bill(FenceUpgradeLogic.Missing(repair.TotalCost, materialCount))}"));
+        }
+
+        return opts;
+    }
+
+    /// <summary>这条边上最低的那一档（"一条防线的强度 = 最弱那一格"）。</summary>
+    private static StructureTier LowestTier(IReadOnlyList<FenceSegmentState> run)
+    {
+        StructureTier lowest = run[0].Tier;
+        foreach (FenceSegmentState s in run)
+        {
+            if (FenceUpgradeLogic.TierStep(s.Tier) < FenceUpgradeLogic.TierStep(lowest))
+            {
+                lowest = s.Tier;
+            }
+        }
+        return lowest;
+    }
+
+    /// <summary>把一张料单写成人话（"64 木料 + 32 铁钉"）。材料名走 <see cref="Materials"/> 目录，不硬编码。</summary>
+    public static string Bill(IReadOnlyDictionary<string, int> cost)
+        => cost.Count == 0
+            ? "不要料"
+            : string.Join(" + ", cost.Select(kv =>
+                $"{kv.Value} {(Materials.Find(kv.Key) is { } d ? d.DisplayName : kv.Key)}"));
+
+    /// <summary>档次的中文名（菜单/提示用）。</summary>
+    public static string TierName(StructureTier tier) => tier switch
+    {
+        StructureTier.FenceBasic      => "基础围栏",
+        StructureTier.FenceReinforced => "支柱加固围栏",
+        StructureTier.FenceSheetMetal => "铁皮围栏",
+        StructureTier.FenceFullMetal  => "全金属围栏",
+        StructureTier.GateBasic       => "基础大门",
+        StructureTier.GateSheetMetal  => "铁皮加固大门",
+        StructureTier.GateCastMetal   => "金属浇筑大门",
+        StructureTier.DoorWood        => "木门",
+        StructureTier.DoorReinforced  => "加固木门",
+        StructureTier.DoorMetal       => "金属门",
+        _ => "结构",
+    };
 
     // ---------------- 弹不弹菜单 ----------------
 

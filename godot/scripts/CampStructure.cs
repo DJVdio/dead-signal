@@ -143,14 +143,21 @@ public static class StructureBuildCost
     /// <summary>
     /// 某档结构的建造材料（材料键 → 数量）。
     /// <b>围栏档＝升级到该档要付的料</b>（不是"新建"——墙不能建）；门/大门档兼作拆除返还的依据。
+    /// <para>
+    /// ⚠️ <b>围栏那几档是「<b>一格 100px</b>」的料，不是一整面墙的</b>（围栏已切格，见 <c>CampMain.FenceSegment</c>；
+    /// 升级下令按边、结算按格，见 <see cref="FenceUpgradeLogic"/>）。一条 16 格的南墙升到支柱加固 = 16 × (4 木料 + 2 铁钉)
+    /// ＝ <b>64 木料 + 32 铁钉</b>。<b>大门则是单独一处</b>（不切格），故它那几行就是整扇门的料 —— 这正是
+    /// 「<b>先大门，后围栏</b>」这条硬顺序的来处：同样一笔料，砸在大门上厚了 400-250=150 血，
+    /// 摊到 16 格围栏上却只够升不到两格。
+    /// </para>
     /// </summary>
     public static IReadOnlyDictionary<string, int> Of(StructureTier tier) => tier switch
     {
-        // 围栏：木桩 → 加支柱 → 钉铁皮 → 全金属。木料逐档让位给金属。**只能升上去，拆不下来。**
-        StructureTier.FenceBasic      => Cost(("wood", 16)),
-        StructureTier.FenceReinforced => Cost(("wood", 16), ("nails", 8)),
-        StructureTier.FenceSheetMetal => Cost(("wood", 8), ("scrap_metal", 12), ("nails", 8)),
-        StructureTier.FenceFullMetal  => Cost(("metal_ingot", 16), ("components", 4)),
+        // 围栏（**每格 100px**）：木桩 → 加支柱 → 钉铁皮 → 全金属。木料逐档让位给金属。**只能升上去，拆不下来。**
+        StructureTier.FenceBasic      => Cost(("wood", 4)),
+        StructureTier.FenceReinforced => Cost(("wood", 4), ("nails", 2)),
+        StructureTier.FenceSheetMetal => Cost(("wood", 2), ("scrap_metal", 3), ("nails", 2)),
+        StructureTier.FenceFullMetal  => Cost(("metal_ingot", 4), ("components", 1)),
         // 大门：比同档围栏更费料（它得又大又能开）。
         StructureTier.GateBasic       => Cost(("wood", 24), ("nails", 8)),
         StructureTier.GateSheetMetal  => Cost(("wood", 12), ("scrap_metal", 16), ("nails", 8)),
@@ -162,7 +169,14 @@ public static class StructureBuildCost
         _ => throw new ArgumentOutOfRangeException(nameof(tier), tier, "未知结构等级"),
     };
 
-    /// <summary>某档结构的建造工时（游戏分钟；拆解取其一半，见 <see cref="SalvageLogic.WorkMinutesOfStructure"/>）。</summary>
+    /// <summary>
+    /// 某档结构的建造工时（游戏分钟；拆解取其一半，见 <see cref="SalvageLogic.WorkMinutesOfStructure"/>）。
+    /// <para>
+    /// ⚠️ <b>围栏那几行是死数</b>：墙拆不了（<see cref="SalvageLogic.WorkMinutesOfStructure"/> 对围栏恒 0），
+    /// 而**砌墙是站在墙边干的活、按实时秒推进**（与搜刮/撬锁/静默拆除同一形态，可中断、非模态），
+    /// 不是工作台上的工时制 —— 故围栏升级/修复的耗时另有单一真源：<see cref="FenceUpgradeLogic.BuildWorkSeconds"/>。
+    /// </para>
+    /// </summary>
     public static int BuildMinutes(StructureTier tier) => tier switch
     {
         StructureTier.FenceBasic      => 120,
@@ -209,6 +223,20 @@ public sealed class CampStructureState
         Kind = CampStructureTable.KindOf(tier);
         MaxHp = CampStructureTable.MaxHp(tier);
         Hp = MaxHp;
+    }
+
+    /// <summary>
+    /// 读档：按等级重建结构并直接把血量灌回去（夹到 [0, MaxHp]）。
+    /// <para>
+    /// 本类刻意<b>只有 <see cref="TakeDamage"/>、没有加血通道</b>——围栏砸坏了就是砸坏了，这是设计（墙不可修不可拆）。
+    /// 读档不是"修墙"，是把世界摆回它本来的样子，所以走这个独立入口，而不是给 TakeDamage 开一个负伤害的后门。
+    /// </para>
+    /// </summary>
+    public static CampStructureState Restore(StructureTier tier, double hp)
+    {
+        var s = new CampStructureState(tier);
+        s.Hp = Math.Clamp(hp, 0, s.MaxHp);
+        return s;
     }
 
     /// <summary>

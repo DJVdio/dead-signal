@@ -200,6 +200,7 @@
     <Compile Include="..\..\godot\scripts\SilentDismantleLogic.cs" Link="Consumed\SilentDismantleLogic.cs" />
     <Compile Include="..\..\godot\scripts\IntrusionLogic.cs" Link="Consumed\IntrusionLogic.cs" />
     <!-- 玩家侧右键动作菜单的内容规则（无 Godot 依赖）：门→撬锁/破坏、围栏→静默拆除/破坏；真有得选才弹菜单；耗时/噪音全部转发单一真源（玩家与 AI 同一套）。 -->
+    <Compile Include="..\..\godot\scripts\FenceUpgradeLogic.cs" Link="Consumed\FenceUpgradeLogic.cs" />
     <Compile Include="..\..\godot\scripts\SiteActions.cs" Link="Consumed\SiteActions.cs" />
     <!-- 尸体不堆叠推挤纯逻辑（impl-corpse-push，无 Godot 依赖）：连续坐标 → 尸体概念格(CellSize) + 同格只躺一具 +
          预计算搜索窗由近及远找空位(正交先于对角，确定性无随机) + 不可通行格排除(墙/水，谓词由 Godot 导航层注入) + 全满退化堆叠。
