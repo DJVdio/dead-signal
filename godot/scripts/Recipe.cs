@@ -190,6 +190,58 @@ public static class RecipeBook
             RequiredBookIds: Books(),
             WorkMinutes: 20),
 
+        // ── [SPEC-B14] 草药医疗自制药（无书门槛：民间方子人人会；无工具槽；工时制）──────────────
+        // 产物 key=herbal_salve / dandelion_tea，同时是 Materials 目录项 → CraftOutputFactory 走材料分支落地为 Item.Material，
+        // 据 Key 查 MedicineCatalog 治感染（草药膏 0.45 / 蒲公英茶 0.10 治疗效率）。材料/工时皆拟定待调。
+
+        // 草药膏：蒲公英 1 + 玫瑰果 1 + 老君须 1 捣制，工时 ~40 分。
+        new RecipeData(
+            Id: "herbal_salve",
+            DisplayName: "草药膏",
+            Category: RecipeCategory.Misc,
+            OutputKey: "herbal_salve",
+            OutputQuantity: 1,
+            MaterialCosts: Cost(("dandelion", 1), ("rosehip", 1), ("laojunxu", 1)),
+            RequiredTools: Tools(),
+            RequiredBookIds: Books(),
+            WorkMinutes: 40),
+
+        // 蒲公英茶：蒲公英 2 煮制（最简，不引入"水"新资源），工时 ~15 分。
+        new RecipeData(
+            Id: "dandelion_tea",
+            DisplayName: "蒲公英茶",
+            Category: RecipeCategory.Misc,
+            OutputKey: "dandelion_tea",
+            OutputQuantity: 1,
+            MaterialCosts: Cost(("dandelion", 2)),
+            RequiredTools: Tools(),
+            RequiredBookIds: Books(),
+            WorkMinutes: 15),
+
+        // [SPEC-B14-补] 草药绷带：老君须 1 + 绷带 1，工时 ~20 分。止血手术供点 25（普通绷带的上位替代，见 SurgeryCatalog）。
+        new RecipeData(
+            Id: "herbal_bandage",
+            DisplayName: "草药绷带",
+            Category: RecipeCategory.Misc,
+            OutputKey: "herbal_bandage",
+            OutputQuantity: 1,
+            MaterialCosts: Cost(("laojunxu", 1), ("bandage", 1)),
+            RequiredTools: Tools(),
+            RequiredBookIds: Books(),
+            WorkMinutes: 20),
+
+        // [SPEC-B14-补2] 玫瑰果茶：玫瑰果 2 煮制，工时 ~15 分。饮用后 24 游戏小时伤病恢复速度 +9pp（见 Pawn 恢复加成 buff）。
+        new RecipeData(
+            Id: "rosehip_tea",
+            DisplayName: "玫瑰果茶",
+            Category: RecipeCategory.Misc,
+            OutputKey: "rosehip_tea",
+            OutputQuantity: 1,
+            MaterialCosts: Cost(("rosehip", 2)),
+            RequiredTools: Tools(),
+            RequiredBookIds: Books(),
+            WorkMinutes: 15),
+
         // ── 布鲁斯（狗）装备五件套（批次5，道格 2 级解锁）────────────────────────────
         // 制作者门槛＝道格且羁绊≥2 级（RequiredCrafterGates: DogGearCrafterGate，判定委托营地层）；
         // 无书门槛、无工具槽（道格手工为伙伴打造）。材料/工时/护甲值皆**拟定待调**。

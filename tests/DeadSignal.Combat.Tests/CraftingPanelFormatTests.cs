@@ -15,11 +15,11 @@ public class CraftingPanelFormatTests
         IReadOnlyList<RecipeToolGroup> groups = CraftingPanelFormat.GroupByTool(RecipeBook.All);
 
         // RecipeBook 声明顺序：骨刀(无)、粗布背心(无)、板凳(无)、木椅(锯片)、火药(烧杯)、鞣制药水(烧杯)、自制弓(卡尺)、火把(无)、
-        //   狗装备五件套(布/皮/口袋狗衣·铁皮/铁丝头甲，皆无工具)。
-        // 桶按首次出现顺序：无 → 锯片 → 烧杯 → 卡尺，共 4 组（火把 + 狗装备五件套无工具，归入"无"桶末尾）。
+        //   草药膏(无)、蒲公英茶(无)、草药绷带(无)、玫瑰果茶(无)、狗装备五件套(布/皮/口袋狗衣·铁皮/铁丝头甲，皆无工具)。
+        // 桶按首次出现顺序：无 → 锯片 → 烧杯 → 卡尺，共 4 组（火把 + 草药膏/蒲公英茶/草药绷带/玫瑰果茶 + 狗装备五件套无工具，归入"无"桶末尾）。
         Assert.Equal(4, groups.Count);
         Assert.Empty(groups[0].Tools);
-        Assert.Equal(9, groups[0].Recipes.Count);            // 骨刀 + 粗布背心 + 板凳 + 火把 + 狗装备五件套(5)
+        Assert.Equal(13, groups[0].Recipes.Count);           // 骨刀+粗布背心+板凳+火把+草药膏+蒲公英茶+草药绷带+玫瑰果茶 + 狗装备五件套(5)
         Assert.Equal(new[] { ToolSlot.SawBlade }, groups[1].Tools);
         Assert.Single(groups[1].Recipes);                    // 木椅
         Assert.Equal(new[] { ToolSlot.Beaker }, groups[2].Tools);

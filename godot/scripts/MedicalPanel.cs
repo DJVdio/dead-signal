@@ -25,8 +25,23 @@ public sealed partial class MedicalPanel : CanvasLayer
     /// <summary>点「手术」：emit (病人, 目标伤=流血/骨折, 投入耗材 key 列表, 是否床上, 施术者)。营地据此实做手术+扣材料。</summary>
     public event Action<Pawn, HealthCondition, IReadOnlyList<string>, bool, Pawn>? SurgeryRequested;
 
-    /// <summary>点「用药」：emit (病人, 目标病状=感染/疾病, 施术者)。营地按伤类取药（抗生素/成药）+ 施术者医疗技能实做。</summary>
-    public event Action<Pawn, HealthCondition, Pawn>? TreatRequested;
+    /// <summary>点「用药」：emit (病人, 目标病状=疾病, 所选药 key, 施术者)。**仅疾病走单发用药**（成药）；感染改疗程指派（见 <see cref="TreatmentAssigned"/>）。</summary>
+    public event Action<Pawn, HealthCondition, string, Pawn>? TreatRequested;
+
+    /// <summary>[SPEC-B14-补3] 指派感染疗程：emit (病人, 所选药 key)。营地记指派，每昼夜黎明自动扣药累进治疗进度，直到治愈/断药/撤销。</summary>
+    public event Action<Pawn, string>? TreatmentAssigned;
+
+    /// <summary>[SPEC-B14-补3] 停止感染疗程：emit (病人)。营地清指派、当昼夜起不再自动用药。</summary>
+    public event Action<Pawn>? TreatmentCancelled;
+
+    /// <summary>[SPEC-B14-补2] 给病人喝玫瑰果茶：emit (病人)。营地扣 1 份玫瑰果茶、激活其 24 小时 +9pp 恢复加成。</summary>
+    public event Action<Pawn>? RosehipTeaRequested;
+
+    /// <summary>[SPEC-B14-补7] 主动截肢感染的肢体（玩家抉择的保命手术）：emit (病人, 目标感染, 止血耗材, 是否床上, 施术者)。营地走 PerformAmputation 判成败+扣材料+断肢。</summary>
+    public event Action<Pawn, HealthCondition, IReadOnlyList<string>, bool, Pawn>? AmputationRequested;
+
+    /// <summary>[SPEC-B14-补8] 给缺失的肢体安装假肢（也是手术）：emit (病人, 取代区域 手/腿, 假肢等级, 止血耗材, 是否床上, 施术者)。营地走 PerformProstheticSurgery 判成败，成功才装上。</summary>
+    public event Action<Pawn, BodyRegion, ProstheticGrade, IReadOnlyList<string>, bool, Pawn>? ProstheticSurgeryRequested;
 
     /// <summary>点「关闭」：CampMain 据此隐藏面板并恢复时标。</summary>
     public event Action? Closed;
@@ -228,9 +243,17 @@ public sealed partial class MedicalPanel : CanvasLayer
             ? "自体手术：无人搭手，成功率打折。手术数值不外显，只给恢复描述。"
             : "选耗材做手术、或对感染/疾病用药。手术数值不外显，只给恢复描述。";
 
+        // [SPEC-B14-补2] 玫瑰果茶恢复加成（病人级动作，不挂具体伤条）：喝下 24 小时恢复 +9%。
+        AddRosehipTeaRow();
+
+        // [SPEC-B14-补8] 安装假肢也是手术：为任何原因缺失的肢体（战斗切除/截肢）列"安装假肢"手术入口。
+        AddProstheticInstallSection();
+
         var conditions = _patient.Health.Conditions;
         if (conditions.Count == 0)
         {
+            if (_patient.Inspect().ProstheticSlots.Any(s => s.CanEquip))
+                return; // 无伤病但有可装假肢的缺肢：已在上方列出手术入口，不再报"无伤病"
             AddEmpty($"{_patient.DisplayName} 目前无伤病。");
             return;
         }
@@ -239,6 +262,98 @@ public sealed partial class MedicalPanel : CanvasLayer
         {
             _listContainer.AddChild(BuildConditionCard(c));
         }
+    }
+
+    // [SPEC-B14-补8] 假肢等级选项（沿现有 Grade 体系：木制/简易/仿生）。
+    private static readonly (ProstheticGrade Grade, string Label)[] ProstheticGrades =
+    {
+        (ProstheticGrade.Wooden, "木制"), (ProstheticGrade.Simple, "简易"), (ProstheticGrade.Bionic, "仿生"),
+    };
+
+    /// <summary>[SPEC-B14-补8] 缺肢的"安装假肢"手术入口：每个空槽一行——部位 + 三档假肢按钮（点击=走手术判成败，成功才装上）。</summary>
+    private void AddProstheticInstallSection()
+    {
+        if (_patient is null)
+            return;
+        var slots = _patient.Inspect().ProstheticSlots.Where(s => s.CanEquip).ToList();
+        if (slots.Count == 0)
+            return;
+
+        var head = new Label();
+        head.Text = "缺失的肢体（安装假肢也是手术，可能失败）";
+        head.AddThemeFontSizeOverride("font_size", 13);
+        head.AddThemeColorOverride("font_color", HeadColor);
+        _listContainer.AddChild(head);
+
+        foreach (ProstheticSlot slot in slots)
+        {
+            var row = new HBoxContainer();
+            row.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+            row.MouseFilter = Control.MouseFilterEnum.Pass;
+            row.AddThemeConstantOverride("separation", 8);
+
+            var name = new Label();
+            name.Text = $"    {slot.UnitPartName}：";
+            name.AddThemeFontSizeOverride("font_size", 12);
+            name.AddThemeColorOverride("font_color", TextColor);
+            row.AddChild(name);
+
+            foreach ((ProstheticGrade grade, string label) in ProstheticGrades)
+            {
+                var btn = new Button();
+                btn.Text = $"装{label}";
+                btn.CustomMinimumSize = new Vector2(84, 28);
+                BodyRegion region = slot.ReplacesRegion;
+                ProstheticGrade capturedGrade = grade;
+                btn.Pressed += () =>
+                {
+                    if (_patient is not null && _surgeon is not null)
+                        ProstheticSurgeryRequested?.Invoke(_patient, region, capturedGrade, Array.Empty<string>(), _onBed, _surgeon);
+                };
+                UiStyle.StyleButton(btn, new Color(0.4f, 0.5f, 0.4f), fontSize: 12);
+                row.AddChild(btn);
+            }
+            _listContainer.AddChild(row);
+        }
+
+        var sep = new HSeparator();
+        sep.AddThemeColorOverride("default_color", new Color(0.2f, 0.2f, 0.2f, 0.5f));
+        _listContainer.AddChild(sep);
+    }
+
+    /// <summary>玫瑰果茶病人级动作行：显示库存与当前 buff 态；有茶且未在 buff 中才可喝。</summary>
+    private void AddRosehipTeaRow()
+    {
+        if (_patient is null)
+            return;
+        int have = CraftingPanelFormat.MaterialCount(_inventory, "rosehip_tea");
+        bool active = _patient.HasRosehipTeaHealBuff;
+
+        var row = new HBoxContainer();
+        row.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        row.MouseFilter = Control.MouseFilterEnum.Pass;
+        row.AddThemeConstantOverride("separation", 8);
+
+        var hint = new Label();
+        hint.Text = active ? "玫瑰果茶恢复加成生效中（+9% · 24 小时）" : $"玫瑰果茶（恢复+9% · 24 小时）（{have}）";
+        hint.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        hint.VerticalAlignment = VerticalAlignment.Center;
+        hint.AddThemeFontSizeOverride("font_size", 12);
+        hint.AddThemeColorOverride("font_color", active ? OkColor : have > 0 ? TextColor : DimColor);
+        row.AddChild(hint);
+
+        var btn = new Button();
+        btn.Text = "喝玫瑰果茶";
+        btn.CustomMinimumSize = new Vector2(120, 28);
+        btn.Disabled = have <= 0 || active;
+        btn.Pressed += () => { if (_patient is not null) RosehipTeaRequested?.Invoke(_patient); };
+        UiStyle.StyleButton(btn, new Color(0.45f, 0.45f, 0.5f), fontSize: 12);
+        row.AddChild(btn);
+        _listContainer.AddChild(row);
+
+        var sep = new HSeparator();
+        sep.AddThemeColorOverride("default_color", new Color(0.2f, 0.2f, 0.2f, 0.5f));
+        _listContainer.AddChild(sep);
     }
 
     private Control BuildConditionCard(HealthCondition c)
@@ -286,11 +401,12 @@ public sealed partial class MedicalPanel : CanvasLayer
                 break;
 
             case HealthConditionType.Infection:
-                BuildTreatSection(card, c, "antibiotics", "用抗生素", "抗生素");
+                // [SPEC-B14-补3] 感染=双进度竞速 + 疗程指派：显示两条精确进度，选一档药指派疗程（每日自动用药）。
+                BuildInfectionSection(card, c);
                 break;
 
             case HealthConditionType.Disease:
-                BuildTreatSection(card, c, "medicine", "用成药", "成药");
+                BuildTreatSection(card, c, "medicine", "用成药");
                 break;
         }
 
@@ -300,15 +416,18 @@ public sealed partial class MedicalPanel : CanvasLayer
         return card;
     }
 
-    // ---- 手术区（流血/骨折）：耗材勾选（急救包独占互斥）+ 手术按钮 ----
-    private void BuildSurgerySection(VBoxContainer card, HealthCondition c)
+    // ---- 手术区（流血/骨折；截肢复用，见 supplyType/buttonText/onConfirm）：耗材勾选（急救包独占互斥）+ 操作按钮 ----
+    // supplyType=按哪种伤类列耗材（默认目标伤本身；截肢用 Bleeding 关合残端）；buttonText/onConfirm 覆盖默认"手术"/SurgeryRequested。
+    private void BuildSurgerySection(VBoxContainer card, HealthCondition c,
+        HealthConditionType? supplyType = null, string buttonText = "手术", Action<List<string>>? onConfirm = null)
     {
+        HealthConditionType stype = supplyType ?? c.Type;
         HashSet<string> sel = _matSel.TryGetValue(c, out HashSet<string>? s) ? s : (_matSel[c] = new HashSet<string>());
 
         // 适用耗材：Medical 材料中，SurgeryCatalog 里能治该伤类的键。
         List<string> supplyKeys = Materials.InCategory(MaterialCategory.Medical)
             .Select(m => m.Key)
-            .Where(k => SurgeryCatalog.For(k) is { } sup && sup.CanTreat(c.Type))
+            .Where(k => SurgeryCatalog.For(k) is { } sup && sup.CanTreat(stype))
             .ToList();
 
         var matRow = new HBoxContainer();
@@ -383,13 +502,17 @@ public sealed partial class MedicalPanel : CanvasLayer
         RefreshMatStates(); // 初始态：置灰与提示（含首次进入时的独占/缺货判定）
 
         var opBtn = new Button();
-        opBtn.Text = "手术";
-        opBtn.CustomMinimumSize = new Vector2(120, 30);
+        opBtn.Text = buttonText;
+        opBtn.CustomMinimumSize = new Vector2(160, 30);
         HealthCondition captured = c;
         List<string> mats = sel.ToList();
         opBtn.Pressed += () =>
         {
-            if (_patient is not null && _surgeon is not null)
+            if (_patient is null || _surgeon is null)
+                return;
+            if (onConfirm is not null)
+                onConfirm(mats);
+            else
                 SurgeryRequested?.Invoke(_patient, captured, mats, _onBed, _surgeon);
         };
         UiStyle.StyleButton(opBtn, new Color(0.4f, 0.5f, 0.4f), fontSize: 13);
@@ -397,10 +520,90 @@ public sealed partial class MedicalPanel : CanvasLayer
         card.AddChild(opRow);
     }
 
-    // ---- 用药区（感染/疾病）：一个"用药"按钮，药按伤类定，库存不足则灰 ----
-    private void BuildTreatSection(VBoxContainer card, HealthCondition c, string medicineKey, string btnText, string medName)
+    // ---- 感染区（双进度竞速 + 疗程指派）：两条精确进度 + 三档药指派（每日自动用药）+ 停止疗程 ----
+    private static readonly (string Key, string Name)[] InfectionRemedies =
+    {
+        ("antibiotics", "抗生素"), ("herbal_salve", "草药膏"), ("dandelion_tea", "蒲公英茶"),
+    };
+
+    private void BuildInfectionSection(VBoxContainer card, HealthCondition c)
+    {
+        // 两条精确进度：感染进度（死亡赛道，按分档着色）/ 治疗进度（治愈赛道）。玩家核心决策信息，精确显示。
+        int infPct = (int)Math.Round(c.Severity * 100.0);
+        int curePct = (int)Math.Round(c.CureProgress * 100.0);
+        Color infColor = c.Severity >= 0.67 ? UiStyle.Danger : c.Severity >= 0.34 ? UiStyle.Warning : TextColor;
+
+        var infBar = new Label();
+        infBar.Text = $"    感染进度 {infPct}%（{HealthConditionSet.InfectionStageWord(c.Severity)}） · 到 100% 坏疽/败血症";
+        infBar.AddThemeFontSizeOverride("font_size", 12);
+        infBar.AddThemeColorOverride("font_color", infColor);
+        card.AddChild(infBar);
+
+        var cureBar = new Label();
+        cureBar.Text = $"    治疗进度 {curePct}% · 到 100% 清除感染（用药同时减缓感染恶化，两条赛跑先到顶者胜）";
+        cureBar.AddThemeFontSizeOverride("font_size", 12);
+        cureBar.AddThemeColorOverride("font_color", curePct > 0 ? OkColor : DimColor);
+        card.AddChild(cureBar);
+
+        string? course = _patient?.InfectionTreatmentMedKey;
+        if (course is not null)
+        {
+            var status = new Label();
+            status.Text = $"    疗程中：{Materials.Find(course)?.DisplayName ?? course}（每日黎明自动用药，缺药即中断）";
+            status.AddThemeFontSizeOverride("font_size", 12);
+            status.AddThemeColorOverride("font_color", OkColor);
+            card.AddChild(status);
+        }
+
+        // 指派/换用行：三档药各一按钮（按库存与效率标注，缺货灰）；当前档标注"换用"。
+        var row = new HBoxContainer();
+        row.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        row.MouseFilter = Control.MouseFilterEnum.Pass;
+        row.AddThemeConstantOverride("separation", 8);
+        foreach ((string key, string name) in InfectionRemedies)
+        {
+            int have = CraftingPanelFormat.MaterialCount(_inventory, key);
+            bool isCurrent = course == key;
+            var btn = new Button();
+            btn.Text = $"{(isCurrent ? "疗程中·" : "指派")}{name}{EfficacyTag(key)}（{have}）";
+            btn.CustomMinimumSize = new Vector2(180, 30);
+            btn.Disabled = have <= 0 || isCurrent;
+            string capturedKey = key;
+            btn.Pressed += () => { if (_patient is not null) TreatmentAssigned?.Invoke(_patient, capturedKey); };
+            UiStyle.StyleButton(btn, new Color(0.4f, 0.5f, 0.4f), fontSize: 12);
+            row.AddChild(btn);
+        }
+        card.AddChild(row);
+
+        if (course is not null)
+        {
+            var stop = new Button();
+            stop.Text = "停止疗程";
+            stop.CustomMinimumSize = new Vector2(120, 28);
+            stop.Pressed += () => { if (_patient is not null) TreatmentCancelled?.Invoke(_patient); };
+            UiStyle.StyleButton(stop, new Color(0.5f, 0.4f, 0.3f), fontSize: 12);
+            card.AddChild(stop);
+        }
+
+        // [SPEC-B14-补7] 感染的肢体：主动截肢=最后的保命手术（玩家抉择，系统不自动、不建议）。走止血耗材关合残端、既有手术成败流程。
+        if (c.OnLimb)
+        {
+            var ampHint = new Label();
+            ampHint.Text = $"    截肢（保命手段·可能失败）：切除{c.BodyPart ?? "该肢"}以中止感染，残端仍需善后。";
+            ampHint.AddThemeFontSizeOverride("font_size", 12);
+            ampHint.AddThemeColorOverride("font_color", UiStyle.Warning);
+            card.AddChild(ampHint);
+            HealthCondition infCap = c;
+            BuildSurgerySection(card, c, HealthConditionType.Bleeding, "截肢",
+                mats => { if (_patient is not null && _surgeon is not null) AmputationRequested?.Invoke(_patient, infCap, mats, _onBed, _surgeon); });
+        }
+    }
+
+    // ---- 用药区（仅疾病单发）：一档药一行——名+库存，缺货则灰 ----
+    private void BuildTreatSection(VBoxContainer card, HealthCondition c, string medicineKey, string btnText)
     {
         int have = CraftingPanelFormat.MaterialCount(_inventory, medicineKey);
+        string medName = Materials.Find(medicineKey)?.DisplayName ?? medicineKey;
 
         var row = new HBoxContainer();
         row.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
@@ -408,7 +611,7 @@ public sealed partial class MedicalPanel : CanvasLayer
         row.AddThemeConstantOverride("separation", 8);
 
         var hint = new Label();
-        hint.Text = have > 0 ? $"{medName}（{have}）" : $"缺{medName}";
+        hint.Text = $"{medName}{EfficacyTag(medicineKey)}" + (have > 0 ? $"（{have}）" : "（缺）");
         hint.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
         hint.VerticalAlignment = VerticalAlignment.Center;
         hint.AddThemeFontSizeOverride("font_size", 12);
@@ -420,14 +623,24 @@ public sealed partial class MedicalPanel : CanvasLayer
         btn.CustomMinimumSize = new Vector2(120, 30);
         btn.Disabled = have <= 0;
         HealthCondition captured = c;
+        string capturedKey = medicineKey;
         btn.Pressed += () =>
         {
             if (_patient is not null && _surgeon is not null)
-                TreatRequested?.Invoke(_patient, captured, _surgeon);
+                TreatRequested?.Invoke(_patient, captured, capturedKey, _surgeon);
         };
         UiStyle.StyleButton(btn, new Color(0.4f, 0.5f, 0.4f), fontSize: 13);
         row.AddChild(btn);
         card.AddChild(row);
+    }
+
+    /// <summary>药品治疗效率标注（如 " · 效率45%"），单一事实源取自 <see cref="MedicineCatalog"/>；满效(100%)不啰嗦标注。</summary>
+    private static string EfficacyTag(string medicineKey)
+    {
+        Medicine? med = MedicineCatalog.For(medicineKey);
+        if (med is null) return "";
+        int pct = (int)Math.Round(med.Value.Efficacy * 100.0);
+        return pct >= 100 ? "" : $" · 效率{pct}%";
     }
 
     private static string DescribeCondition(HealthCondition c)
@@ -438,7 +651,7 @@ public sealed partial class MedicalPanel : CanvasLayer
         {
             HealthConditionType.Bleeding => c.IsOperated ? $"{part}：伤口已缝合，恢复中" : $"{part}：流血不止（{sev}）",
             HealthConditionType.Fracture => c.IsOperated ? $"{part}：已固定，恢复中" : $"{part}：骨折（{sev}）",
-            HealthConditionType.Infection => $"{part}：伤口感染（{sev}）",
+            HealthConditionType.Infection => $"{part}：伤口感染（{HealthConditionSet.InfectionStageWord(c.Severity)}）",
             HealthConditionType.Disease => $"病症（{sev}）",
             _ => part,
         };
