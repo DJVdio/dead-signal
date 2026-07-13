@@ -185,4 +185,78 @@ public sealed class NightWatchContestTests
         var awoken = NightWatchContest.AwokenSleepers(RaidTier.High, roster).Select(m => m.Id).ToList();
         Assert.Equal(new[] { "exp1" }, awoken);
     }
+
+    // ── 服饰潜行系数：全装备覆盖 + 梯度自洽（[SPEC-B18] 护甲表 20 件的补全） ──────────
+
+    /// <summary>
+    /// 覆盖率门禁：<see cref="ApparelCatalog.Defs"/> 里每一件人形穿戴品都必须在
+    /// <see cref="NightWatchContest.ApparelStealth"/> 登记潜行系数（可以是 0＝已核对为中性，但不许"忘了给"）。
+    /// 这条正是本轮遗留的根因防线——布夹克/牛仔外套/花衬衫当初都是新增护甲时漏登记。
+    /// 新增任何护甲/穿戴品，请同时在 ApparelStealth 补一行。
+    /// </summary>
+    [Fact]
+    public void ApparelStealth_CoversEveryWearableInCatalog()
+    {
+        var missing = ApparelCatalog.Defs.Keys
+            .Where(name => !NightWatchContest.ApparelStealth.ContainsKey(name))
+            .OrderBy(n => n)
+            .ToList();
+
+        Assert.True(
+            missing.Count == 0,
+            $"这些穿戴品没登记潜行系数（新增护甲须同步 NightWatchContest.ApparelStealth）：{string.Join("、", missing)}");
+    }
+
+    /// <summary>外套层梯度：布夹克(轻软) &gt; 粗布外套(基准) &gt; 牛仔外套(厚重挺括) &gt; 皮夹克(反光且吱呀，转负)。</summary>
+    [Fact]
+    public void ApparelStealth_OuterLayerGradient()
+    {
+        float cloth = NightWatchContest.ApparelStealth["布夹克"];
+        float coarse = NightWatchContest.ApparelStealth["粗布外套"];
+        float denim = NightWatchContest.ApparelStealth["牛仔外套"];
+        float leather = NightWatchContest.ApparelStealth["皮夹克"];
+
+        Assert.Equal(0.05f, coarse, 3); // 既定基准不得漂移
+        Assert.True(cloth > coarse, "布夹克(轻软 0.3kg)应优于粗布外套");
+        Assert.True(coarse > denim, "牛仔外套(厚重 0.6kg、摩擦作响)应劣于粗布外套");
+        Assert.True(denim > leather, "皮夹克(表面反光、皮革吱呀)应劣于牛仔外套");
+        Assert.True(leather < 0f, "皮夹克潜行为负");
+    }
+
+    /// <summary>鲜艳/刚性/沉重＝负系数：花衬衫显眼、板甲是会走路的铁罐头（潜行极差）。</summary>
+    [Fact]
+    public void ApparelStealth_LoudAndHeavyGearIsNegative()
+    {
+        float floral = NightWatchContest.ApparelStealth["花衬衫"];
+        float plainShirt = NightWatchContest.ApparelStealth["长袖布衣"];
+        float plate = NightWatchContest.ApparelStealth["板甲"];
+        float leatherArmor = NightWatchContest.ApparelStealth["皮甲"];
+        float chestPlate = NightWatchContest.ApparelStealth["皮革胸甲"];
+
+        Assert.True(floral < 0f, "花衬衫够艳＝夜里一团彩色，潜行为负");
+        Assert.True(plainShirt > 0f, "同款素色长袖布衣应为正（对照组）");
+
+        Assert.True(plate < 0f, "板甲潜行为负");
+        Assert.True(plate < leatherArmor, "板甲(15kg 金属)应比皮甲更差");
+        Assert.True(leatherArmor < chestPlate, "整身皮甲应比只护胸的皮革胸甲更差");
+        // 铁罐头摸黑：一件板甲足以吃掉一整件夜行斗篷的收益，还有余。
+        Assert.True(plate + NightWatchContest.ApparelStealth[NightWatchContest.DarkCloakId] < 0f);
+    }
+
+    /// <summary>负系数真能压低潜行力：板甲 + 花衬衫的合计为负，同光照/距离下潜行力低于赤身。</summary>
+    [Fact]
+    public void ComputeStealth_NegativeApparelLowersStealth()
+    {
+        float bare = NightWatchContest.ApparelStealthSum(System.Array.Empty<string>());
+        float tin = NightWatchContest.ApparelStealthSum(new[] { "板甲", "花衬衫" });
+        Assert.True(tin < bare, "板甲+花衬衫的潜行合计应为负");
+
+        float bareStealth = NightWatchContest.ComputeStealth(0.3f, bare, 150f, 0.2f);
+        float tinStealth = NightWatchContest.ComputeStealth(0.3f, tin, 150f, 0.2f);
+        Assert.True(tinStealth < bareStealth, "穿铁罐头摸黑应比赤身更容易被发现");
+
+        // 一身潜行装反过来抬高潜行力
+        float sneak = NightWatchContest.ApparelStealthSum(new[] { NightWatchContest.DarkCloakId, "软底鞋", "长袖布衣" });
+        Assert.True(NightWatchContest.ComputeStealth(0.3f, sneak, 150f, 0.2f) > bareStealth);
+    }
 }

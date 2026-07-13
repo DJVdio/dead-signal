@@ -25,11 +25,25 @@ public static class CombatData
     /// <summary>丧尸爪击：近战钝器，穿透 3%（文档：棍棒级 3%）。天然钝器逐层保留自身穿透。</summary>
     public static Weapon ZombieClaw() => WeaponTable.ZombieClaw();
 
-    /// <summary>幸存者：外套 + 贴身布衣两层。</summary>
+    /// <summary>人形两层甲：皮夹克(外套) + 长袖布衣(贴身)——劫掠者生成配置/战利品。</summary>
     public static IReadOnlyList<ArmorLayer> SurvivorArmor() => ArmorTable.SurvivorArmor();
 
-    /// <summary>丧尸：一层腐烂硬皮（对钝器略韧）。</summary>
+    /// <summary>丧尸：一层腐烂硬皮（对钝器略韧）。<b>生成丧尸请用 <see cref="ZombieArmor"/></b>——单靠腐皮防护恒为零。</summary>
     public static IReadOnlyList<ArmorLayer> ZombieHide() => ArmorTable.ZombieHide();
+
+    /// <summary>
+    /// 普通丧尸的护甲：随机抽一套<b>日常着装</b>（布衣/夹克/长裤/短裤…，85% 至少还穿着一件）叠在腐皮之外。
+    /// 腐皮锐防/钝防仅 3 → 挡下门槛 1.5 &lt; 任何武器的伤害下限 ⇒ 光靠腐皮<b>对全部武器 0% 阻挡</b>；
+    /// 布类锐防 6 把门槛抬到 3.0，丧尸才真有防护。规则与预设表见 <see cref="ZombieOutfit"/>。
+    /// </summary>
+    public static IReadOnlyList<ArmorLayer> ZombieArmor(IRandomSource rng) => ZombieOutfit.RollArmor(rng);
+
+    /// <summary>
+    /// <b>点名</b>一套装束的丧尸护甲（确定性，不掷骰）——摆放 authored 的**精英丧尸**用，
+    /// 如 <c>CombatData.ZombieArmorNamed("防暴警察丧尸")</c>（穿板甲）。精英预设不在随机池里，只能这样点名。
+    /// 可用名字见 <see cref="ZombieOutfit.ElitePresets"/>（精英）与 <see cref="ZombieOutfit.Presets"/>（日常）。
+    /// </summary>
+    public static IReadOnlyList<ArmorLayer> ZombieArmorNamed(string outfitName) => ZombieOutfit.ArmorOf(outfitName);
 
     // ---- 部位（接入引擎细部位表：15 细部位，含 MaxHp/Region/Category/树形父子） ----
 
@@ -165,12 +179,19 @@ public sealed class CombatEngine
     /// <paramref name="damageFactor"/> 为远程距离衰减系数（(0,1]，见 <see cref="Ballistics.RangedDamageFactor"/>）：
     /// &lt;1 时按系数缩放武器伤害区间后再结算（护甲于其后照常逐层扣减，远射更易被甲挡下）；近战/满伤传 1.0。
     /// </summary>
+    /// <param name="incomingDamageReduction">
+    /// 防方**护甲后**乘算减伤比例（0..1，<b>默认 0＝无减免、零回归</b>）：与 <paramref name="damageFactor"/> 分层——
+    /// 后者缩放**武器伤害区间**（护甲之前，甲再吃缩小后的伤害），本参数在**护甲三段判定之后**才乘
+    /// （见 <see cref="CombatResolver.Resolve"/>）。现阶段唯一来源＝山姆 1 级"比常人耐揍"−10%
+    /// （<c>SamPerk.IncomingDamageReduction</c>，经 <c>Actor.SetIncomingDamageReduction</c> 注入）。
+    /// </param>
     public AttackOutcome ResolveHit(
         Weapon weapon,
         IReadOnlyList<ArmorLayer> defenderArmor,
         Body defenderBody,
         double damageFactor = 1.0,
-        double concussionResistFactor = 1.0)
+        double concussionResistFactor = 1.0,
+        double incomingDamageReduction = 0.0)
     {
         // 远程距离衰减：只在系数 <1 时建缩放副本，满伤/近战路径沿用原武器、逐字节零改动（零回归）。
         Weapon effective = damageFactor < 1.0 ? ScaleWeaponDamage(weapon, damageFactor) : weapon;
@@ -182,7 +203,7 @@ public sealed class CombatEngine
 
         BodyPart part = _hitSelector.Select(candidates);
         IReadOnlyList<ArmorLayer> ordered = CombatResolver.OrderOuterToInner(defenderArmor);
-        CombatResult result = _resolver.Resolve(effective, ordered, part);
+        CombatResult result = _resolver.Resolve(effective, ordered, part, incomingDamageReduction);
         EffectOutcome fx = _effectResolver.Apply(defenderBody, effective, result, concussionResistFactor);
 
         bool bled = false, concussed = false, fractured = false;
@@ -241,6 +262,8 @@ public sealed class CombatEngine
         AttackInterval = w.AttackInterval,
         BurstCount = w.BurstCount,
         BurstInterval = w.BurstInterval,
+        PelletCount = w.PelletCount,   // 批次18补：原先漏拷（副本会静默丢弹丸数，霰弹变单弹丸）
+        AmmoKey = w.AmmoKey,           // 批次18：漏拷会让副本变成"不吃弹药"，枪凭空获得无限弹
         MaxRange = w.MaxRange,
         FalloffStart = w.FalloffStart,
         FalloffFloor = w.FalloffFloor,

@@ -441,10 +441,27 @@ public static class ExplorationCache
     /// <summary>金手指帮军械柜招牌武器＝冲锋枪，须与 <c>WeaponTable.Smg().Name</c> 一致（帮派火力，[SPEC-B12-补]"打过才拿"最深处奖励，量级拟定待调）。</summary>
     public const string GangSmgName = "冲锋枪";
 
+    // —— [批次18] 三把**不可制作**的弓弩：没有配方，**只能从这里搜到**。
+    // 它们的代价不是材料，是稀缺——所以每一把都压在一个"要么藏得深、要么打得赢才拿得到"的点上。
+    // 名字须与 WeaponTable 的对应工厂一致（Item.Weapon 以中文名作 RefKey）。
+
+    /// <summary>狩猎弓（伤害之王）＝守林人小屋阁楼的压箱底。护林员的猎弓——他打猎，最后被猎。须与 <c>WeaponTable.HuntingBow().Name</c> 一致。</summary>
+    public const string HuntingBowName = "狩猎弓";
+
+    /// <summary>竞技复合弓（精度之王）＝超市内圈幸存者囤货（"打赢才拿"）。原是运动区的展示品，被人搬进了自己的窝。须与 <c>WeaponTable.CompetitionCompoundBow().Name</c> 一致。</summary>
+    public const string CompetitionCompoundBowName = "竞技复合弓";
+
+    /// <summary>复合弩（破甲之王）＝金手指帮军械柜（"打过才拿"，最深处）。帮派的高端货，跟冲锋枪锁在同一个柜子里。须与 <c>WeaponTable.CompoundCrossbow().Name</c> 一致。</summary>
+    public const string CompoundCrossbowName = "复合弩";
+
     // 注：《木匠入门》(carpentry_basics) 改由「神秘商人」系统出售，不由本类投放，故此处不再持有其常量。
 
     /// <summary>《进阶木匠技术》书 id，须与 <c>BookLibrary.AdvancedCarpentry</c> 一致。</summary>
     public const string AdvancedCarpentryBookId = "advanced_carpentry";
+
+    /// <summary>《弓与箭之道》书 id（守林人小屋·床底，全局唯一一本），须与 <c>BookLibrary.WayOfBowAndArrowId</c> 一致。
+    /// 读完把箭矢回收率 25% → 50%（<c>Archery.ArrowRecoveryRate</c>）——弓弩流的硬前置。</summary>
+    public const string WayOfBowAndArrowBookId = "way_of_bow_and_arrow";
 
     /// <summary>
     /// 某目的地铺出的搜刮点 id 清单（近入口在前、藏深在后；TestExploration 按此序铺 Area2D）。
@@ -766,7 +783,18 @@ public static class ExplorationCache
                 new[]
                 {
                     LootItem.Weapon(BoltActionRifleName),
-                    LootItem.Material("scrap_cloth", 2),
+                    // 弹药（批次18）：猎人的枪柜里当然压着弹。这是玩家的**第一批枪弹**，刻意只够打几枪。
+                    // 栓动猎枪吃中子弹、1 发/次 → 8 发＝8 次射击。拿到枪 ≠ 能一路突突。
+                    LootItem.Material("ammo_medium", 8),
+                    LootItem.Material("ammo_buck", 4),      // 猎人也打鸟，柜里搁着几发鹿弹
+                    // 子弹零件：**四种子弹的唯一共同瓶颈**。老猎人自己复装，抽屉里躺着几套弹壳底火。
+                    // 2 个零件 = 16 发短子弹 / 10 发中子弹 / 4 发长子弹 —— 梯度当场就能感受到。
+                    LootItem.Material("bullet_parts", 2),
+                    // 箭（批次18）：老派猎人枪柜里总立着一筒箭——枪要弹，箭捡得回来，他两样都留着。
+                    // 这是玩家最早能拿到的箭，够试出"弓到底能不能打"。
+                    LootItem.Material("ammo_arrow_handmade", 6),
+                    LootItem.Material("ammo_arrow_carbon", 2),  // 两支碳纤维箭，他一直没舍得用
+                    LootItem.Material("cloth", 2),
                 },
                 RiversideGunCabinetTitle, RiversideGunCabinetNarrative),
 
@@ -863,6 +891,7 @@ public static class ExplorationCache
                     LootItem.Material("wood", 3),           // 劈好的柴/木料
                     LootItem.Material("rope", 1),           // 修屋用的绳
                     LootItem.Material("nails", 2),          // 零散铁钉
+                    LootItem.Material("ammo_arrow_stick", 5), // [批次18] 柴堆边削了一半的木箭——最简陋的那种，他大概也是临时凑合
                     LootItem.Material("dandelion", 1),      // [SPEC-B14] 后院墙根的蒲公英
                     LootItem.Material("rosehip", 1),        // [SPEC-B14] 篱边野蔷薇的玫瑰果
                 },
@@ -871,12 +900,27 @@ public static class ExplorationCache
             // —— [SPEC-B12] 守林人小屋补 3 处（小点，量级极克制：新增仅 1 处医疗小物）——
             RangersCabinAtticId when NotYet(flags, RangersCabinAtticFlag) => new CacheResult(
                 RangersCabinAtticFlag,
-                new[] { LootItem.Material("cloth", 1), LootItem.Material("wire", 1) },
+                // 弓弩（批次18）：**狩猎弓**（伤害之王，不可制作）压在阁楼箱底——护林员的家伙什。
+                // 他一辈子在这片林子里打猎，最后成了猎物。
+                new[]
+                {
+                    LootItem.Weapon(HuntingBowName),
+                    LootItem.Material("ammo_arrow_handmade", 4),
+                    LootItem.Material("ammo_arrow_carbon", 3),
+                    LootItem.Material("cloth", 1), LootItem.Material("wire", 1),
+                },
                 RangersCabinAtticTitle, RangersCabinAtticNarrative),
 
             RangersCabinUnderbedId when NotYet(flags, RangersCabinUnderbedFlag) => new CacheResult(
                 RangersCabinUnderbedFlag,
-                new[] { LootItem.Material("bandage", 1), LootItem.Material("scrap_metal", 1) },
+                // 《弓与箭之道》（批次18）：**全局唯一**的一本，压在守林人的床底下——他睡前读的就是它。
+                // 读完把箭矢回收率 25% → 50%，是弓弩流的硬前置。
+                // 放这里是因为守林人小屋本就是弓箭的家：阁楼有他的狩猎弓，柴房有他削了一半的木箭，床底有他的书。
+                new[]
+                {
+                    LootItem.Book(WayOfBowAndArrowBookId),
+                    LootItem.Material("bandage", 1), LootItem.Material("scrap_metal", 1),
+                },
                 RangersCabinUnderbedTitle, RangersCabinUnderbedNarrative),
 
             RangersCabinPorchId when NotYet(flags, RangersCabinPorchFlag) => new CacheResult(
@@ -1033,7 +1077,7 @@ public static class ExplorationCache
 
             VillageLoftId when NotYet(flags, VillageLoftFlag) => new CacheResult(
                 VillageLoftFlag,
-                new[] { LootItem.Material("scrap_cloth", 1), LootItem.Material("wood", 1) },
+                new[] { LootItem.Material("cloth", 1), LootItem.Material("wood", 1) },
                 VillageLoftTitle, VillageLoftNarrative),
 
             VillageWoodpileId when NotYet(flags, VillageWoodpileFlag) => new CacheResult(
@@ -1125,7 +1169,7 @@ public static class ExplorationCache
             // 中区 gauntlet(5)：铺位/弹药/修械/皮件/油料。
             GoldfingerBunksId when NotYet(flags, GoldfingerBunksFlag) => new CacheResult(
                 GoldfingerBunksFlag,
-                new[] { LootItem.Material("cloth", 2), LootItem.Material("scrap_cloth", 1) },
+                new[] { LootItem.Material("cloth", 3) },   // 旧：布料2 + 破布1（合并为布3）
                 GoldfingerBunksTitle, GoldfingerBunksNarrative),
 
             GoldfingerAmmoCrateId when NotYet(flags, GoldfingerAmmoCrateFlag) => new CacheResult(
@@ -1151,7 +1195,25 @@ public static class ExplorationCache
             // 深处(4)：军械柜(←冲锋枪)/头目保险柜(←白银)/银库暗格(←白银)/头目急救箱(唯一医疗)。"打过才拿"。
             GoldfingerArmoryId when NotYet(flags, GoldfingerArmoryFlag) => new CacheResult(
                 GoldfingerArmoryFlag,
-                new[] { LootItem.Weapon(GangSmgName), LootItem.Material("gunpowder", 2), LootItem.Material("components", 1) },
+                // 弹药（批次18）：军火帮的弹药库＝**全局唯一的大宗枪弹来源**，且必须打赢一场硬仗才拿得到。
+                // 20 发看着多，但冲锋枪三连发 → 只够 6~7 次射击。军用枪的强，是要用命去换弹的。
+                // 弓弩（批次18）：**复合弩**（破甲之王，不可制作）也锁在这个柜子里——帮派抢来的高端货，
+                // 跟冲锋枪作伴。配 4 支重头箭：他们显然拿它对付过穿甲的人。
+                new[]
+                {
+                    // 弹药（批次18）：军火帮的弹药库＝**全局唯一的大宗来源**，且必须打赢一场硬仗才拿得到。
+                    // 短子弹 24 看着多，但冲锋枪三连发 → 只够 8 次射击。军用枪的强，是要用命去换弹的。
+                    // 长子弹只给 2 发：全表最贵的一发，帮派也攒不出几颗。
+                    LootItem.Weapon(GangSmgName),
+                    LootItem.Material("ammo_short", 24),
+                    LootItem.Material("ammo_medium", 6),
+                    LootItem.Material("ammo_long", 2),
+                    LootItem.Material("bullet_parts", 5),   // 帮派的复装台底料——玩家最大的一笔零件收入
+                    LootItem.Weapon(CompoundCrossbowName),
+                    LootItem.Material("ammo_arrow_heavy", 4),
+                    LootItem.Material("ammo_arrow_carbon", 5),
+                    LootItem.Material("gunpowder", 2), LootItem.Material("components", 1),
+                },
                 GoldfingerArmoryTitle, GoldfingerArmoryNarrative),
 
             GoldfingerBossSafeId when NotYet(flags, GoldfingerBossSafeFlag) => new CacheResult(
@@ -1177,6 +1239,8 @@ public static class ExplorationCache
                     LootItem.Food(1),                       // 逃难者车里没带走的干粮
                     LootItem.Material("scrap_metal", 2),    // 撬下的车壳碎金属
                     LootItem.Material("fuel", 1),           // 油箱里抽出的一点余油
+                    LootItem.Material("ammo_short", 4),     // 手套箱里滚出来的几发手枪弹（民用零星，批次18）
+                    LootItem.Material("bullet_parts", 1),   // 后备箱一小盒复装料
                 },
                 VillageRoadsideCarTitle, VillageRoadsideCarNarrative),
 
@@ -1193,8 +1257,7 @@ public static class ExplorationCache
                 VillageWardrobeFlag,
                 new[]
                 {
-                    LootItem.Material("cloth", 2),          // 衣柜里的衣物
-                    LootItem.Material("scrap_cloth", 2),    // 撕开的碎布
+                    LootItem.Material("cloth", 4),          // 衣柜里的衣物 + 撕开的碎布（旧：布料2 + 破布2）
                 },
                 VillageWardrobeTitle, VillageWardrobeNarrative),
 
@@ -1214,6 +1277,8 @@ public static class ExplorationCache
                 {
                     LootItem.Food(2),                       // 小卖部货架上没抢光的食水
                     LootItem.Material("bandage", 2),        // 柜台后的常备创可贴/绷带
+                    LootItem.Material("ammo_buck", 3),      // 乡下小卖部本就代卖猎枪弹（批次18）
+                    LootItem.Material("bullet_parts", 1),   // 柜台底下一盒没卖掉的复装件
                 },
                 VillageShopShelfTitle, VillageShopShelfNarrative),
 
@@ -1275,7 +1340,7 @@ public static class ExplorationCache
 
             NewVillageRowAUnderbedId when NotYet(flags, NewVillageRowAUnderbedFlag) => new CacheResult(
                 NewVillageRowAUnderbedFlag,
-                new[] { LootItem.Material("scrap_cloth", 1), LootItem.Material("nails", 1) },
+                new[] { LootItem.Material("cloth", 1), LootItem.Material("nails", 1) },
                 NewVillageRowAUnderbedTitle, NewVillageRowAUnderbedNarrative),
 
             NewVillageRowBKitchenId when NotYet(flags, NewVillageRowBKitchenFlag) => new CacheResult(
@@ -1373,7 +1438,7 @@ public static class ExplorationCache
 
             NewVillageOldHallId when NotYet(flags, NewVillageOldHallFlag) => new CacheResult(
                 NewVillageOldHallFlag,
-                new[] { LootItem.Material("scrap_cloth", 1), LootItem.Material("rope", 1) },
+                new[] { LootItem.Material("cloth", 1), LootItem.Material("rope", 1) },
                 NewVillageOldHallTitle, NewVillageOldHallNarrative),
 
             NewVillageOldUnderbedId when NotYet(flags, NewVillageOldUnderbedFlag) => new CacheResult(
@@ -1383,7 +1448,7 @@ public static class ExplorationCache
 
             NewVillageOldAtticId when NotYet(flags, NewVillageOldAtticFlag) => new CacheResult(
                 NewVillageOldAtticFlag,
-                new[] { LootItem.Material("wire", 1), LootItem.Material("scrap_cloth", 1) },
+                new[] { LootItem.Material("wire", 1), LootItem.Material("cloth", 1) },
                 NewVillageOldAtticTitle, NewVillageOldAtticNarrative),
 
             NewVillageOld2KitchenId when NotYet(flags, NewVillageOld2KitchenFlag) => new CacheResult(
@@ -1516,7 +1581,14 @@ public static class ExplorationCache
 
             SupermarketHoardGearId when NotYet(flags, SupermarketHoardGearFlag) => new CacheResult(
                 SupermarketHoardGearFlag,
-                new[] { LootItem.Material("cloth", 2), LootItem.Material("leather", 1), LootItem.Material("components", 1) },
+                // 弓弩（批次18）：**竞技复合弓**（精度之王，不可制作）——本是运动区货架上的展示品，
+                // 被囤货的人搬进了自己的窝。他连碳纤维箭一起搬了，可惜没能用上。
+                new[]
+                {
+                    LootItem.Weapon(CompetitionCompoundBowName),
+                    LootItem.Material("ammo_arrow_carbon", 4),
+                    LootItem.Material("cloth", 2), LootItem.Material("leather", 1), LootItem.Material("components", 1),
+                },
                 SupermarketHoardGearTitle, SupermarketHoardGearNarrative),
 
             SupermarketHoardStashId when NotYet(flags, SupermarketHoardStashFlag) => new CacheResult(
@@ -1564,7 +1636,7 @@ public static class ExplorationCache
             // 住院部(中, 8)：
             HospitalWardLinenId when NotYet(flags, HospitalWardLinenFlag) => new CacheResult(
                 HospitalWardLinenFlag,
-                new[] { LootItem.Material("cloth", 2), LootItem.Material("scrap_cloth", 1) },
+                new[] { LootItem.Material("cloth", 3) },   // 旧：布料2 + 破布1（合并为布3）
                 HospitalWardLinenTitle, HospitalWardLinenNarrative),
 
             HospitalWardLockerId when NotYet(flags, HospitalWardLockerFlag) => new CacheResult(
@@ -1584,7 +1656,7 @@ public static class ExplorationCache
 
             HospitalDirtyUtilityId when NotYet(flags, HospitalDirtyUtilityFlag) => new CacheResult(
                 HospitalDirtyUtilityFlag,
-                new[] { LootItem.Material("scrap_cloth", 2) },
+                new[] { LootItem.Material("cloth", 2) },
                 HospitalDirtyUtilityTitle, HospitalDirtyUtilityNarrative),
 
             HospitalKitchenetteId when NotYet(flags, HospitalKitchenetteFlag) => new CacheResult(
@@ -1702,7 +1774,7 @@ public static class ExplorationCache
 
             PharmacyAtticId when NotYet(flags, PharmacyAtticFlag) => new CacheResult(
                 PharmacyAtticFlag,
-                new[] { LootItem.Material("bandage", 1), LootItem.Material("scrap_cloth", 2), LootItem.Material("components", 1) },
+                new[] { LootItem.Material("bandage", 1), LootItem.Material("cloth", 2), LootItem.Material("components", 1) },
                 PharmacyAtticTitle, PharmacyAtticNarrative),
 
             _ => null,

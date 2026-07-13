@@ -18,6 +18,9 @@ public sealed partial class Projectile : Node2D
     private float _maxDist;
     private float _traveled;
     private Weapon _weapon = null!;
+
+    /// <summary>本发弹药的具体材料键（弓弩＝射出去的那种箭）。仅供箭矢回收；空串＝不吃弹药/不回收。</summary>
+    private string _ammoKey = "";
     private CombatEngine _combat = null!;
     private Actor _shooter = null!;
     // 射手岗位射程倍率（守卫哨塔/屋顶远程 +10%）：把命中距离压回武器原生衰减曲线，令 +射程时衰减曲线整体拉长
@@ -35,9 +38,14 @@ public sealed partial class Projectile : Node2D
     private readonly global::Godot.Collections.Array<Rid> _excluded = new();
     private PhysicsRayQueryParameters2D? _query;
 
+    /// <param name="ammoKey">
+    /// 本发弹药的**具体**材料键（弓弩＝射出去的那种箭；枪＝子弹/霰弹键；不吃弹药＝空串）。
+    /// 只用于**箭矢回收**：`weapon.AmmoKey` 对弓弩而言是类别键（"ammo_arrow"），反推不出是哪种箭，故须显式带上。
+    /// </param>
     public static Projectile Spawn(
         Node parent, Vector2 pos, Vector2 dir, float maxDist,
-        Weapon weapon, CombatEngine combat, Actor shooter, float rangeMultiplier = 1f)
+        Weapon weapon, CombatEngine combat, Actor shooter, float rangeMultiplier = 1f,
+        string ammoKey = "")
     {
         var b = new Projectile
         {
@@ -47,6 +55,7 @@ public sealed partial class Projectile : Node2D
             _combat = combat,
             _shooter = shooter,
             _rangeMultiplier = rangeMultiplier,
+            _ammoKey = ammoKey,
             ZIndex = 50,
         };
         parent.AddChild(b);
@@ -109,7 +118,7 @@ public sealed partial class Projectile : Node2D
             }
 
             // 命中体（敌方/远处友军/墙）即终止：命中已结算，撞墙则落空。
-            QueueFree();
+            Despawn();
             return;
         }
 
@@ -117,8 +126,53 @@ public sealed partial class Projectile : Node2D
         _traveled += step;
         if (_traveled >= _maxDist)
         {
-            QueueFree();
+            Despawn();
         }
+    }
+
+    /// <summary>
+    /// 弹丸消亡（命中了什么 / 飞完了射程）——也就是"箭落地"的那一刻，回收判定在此发生。
+    /// 子弹/霰弹一次性（打出去就没了），**箭可回收**：这是弓相对枪的核心优势。
+    /// </summary>
+    private void Despawn()
+    {
+        TryRecoverArrow();
+        QueueFree();
+    }
+
+    /// <summary>
+    /// 箭矢回收：一枚 Projectile ＝ 一支箭（弓弩 PelletCount=1），逐支独立掷一次
+    /// （<see cref="Archery.RollArrowRecovery"/>）——捡得回来就把**那一种**箭还进射手的弹药源
+    /// （玩家＝营地共享库存；敌方的无限源 Recover 是空实现，不受影响）。
+    /// 回收的是 <see cref="_ammoKey"/>（具体箭种）而非 <c>_weapon.AmmoKey</c>（那是类别键"ammo_arrow"，
+    /// 库存里根本没这种东西）——射出去的是碳纤维箭，捡回来的就得是碳纤维箭。
+    /// 随机走引擎可注入的 <see cref="CombatEngine.Rng"/>，不用 Godot 的随机（保持可复现）。
+    /// <para>
+    /// <b>回收率取决于射手读没读过《弓与箭之道》</b>（用户拍板）：**基础 25%，读过则 50%**。
+    /// 判据是射手**本人**的已读书集（<see cref="Pawn.HasReadBook"/>，与配方书门槛同一个对象）——
+    /// 丧尸/劫掠者不是 <see cref="Pawn"/>，一律按未读算（它们本来也走无限弹药源，回收是空实现）。
+    /// </para>
+    /// <para>
+    /// 25% 意味着射出四支只捡回一支：**弓弩不是免费远程**，它只是后勤压力小于枪。那本书把损耗减半，
+    /// 于是它成了弓弩流的硬前置。
+    /// </para>
+    /// <para>
+    /// 回收即时入库而非在地上生成可拾取物：本作没有"地面掉落物"这一层，且搜刮所得本就直接进营地共享库存
+    /// （<c>LootApplication</c> 同款抽象）——语义是"打完这一仗，你把能捡的箭捡了回来"，捡不回的就是崩断的、
+    /// 射进草丛找不着的、扎在颅骨里拔不出来的那些。
+    /// </para>
+    /// </summary>
+    private void TryRecoverArrow()
+    {
+        if (!ArrowTable.IsArrow(_ammoKey) || !IsInstanceValid(_shooter))
+        {
+            return;
+        }
+
+        bool hasReadArcheryBook = _shooter is Pawn pawn && pawn.HasReadBook(BookLibrary.WayOfBowAndArrowId);
+
+        int recovered = Archery.RollArrowRecovery(1, hasReadArcheryBook, _combat.Rng);
+        _shooter.Ammo.Recover(_ammoKey, recovered);
     }
 
     public override void _Draw()

@@ -20,16 +20,6 @@ public enum HungerLevel
 
 public static class HungerLevels
 {
-    /// <summary>中文显示名（UI 用）。</summary>
-    public static string Label(this HungerLevel level) => level switch
-    {
-        HungerLevel.Starved => "饿死",
-        HungerLevel.Malnourished => "营养不良",
-        HungerLevel.Ravenous => "极度饥饿",
-        HungerLevel.Hungry => "饥饿",
-        HungerLevel.Peckish => "有点饿",
-        HungerLevel.Sated => "正常",
-        HungerLevel.Stuffed => "吃撑",
-        _ => level.ToString(),
-    };
+    /// <summary>中文显示名（UI 用）。单一事实源在 <see cref="DisplayNames"/>。</summary>
+    public static string Label(this HungerLevel level) => DisplayNames.Of(level);
 }

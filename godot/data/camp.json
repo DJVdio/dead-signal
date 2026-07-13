@@ -26,7 +26,8 @@
     { "rect": [2078, 322, 22, 1156] }
   ],
 
-  "_gatesComment": "南北两扇大门——CampMain 建成**默认关闭**的实心可破坏结构（基础大门 250：实心碰撞+挖导航洞+HP）。营地四面围合、门关闭→门外袭营敌人到不了营内，会走到最近围栏/大门前砸墙破防（HP→0 开口涌入）。门控（开关门）机制后续做。side 供门槛朝向。",
+  "_gatesComment": "南北两扇大门——CampMain 建成**默认闩上的真门**（基础大门 250HP：实心碰撞+挖导航洞+HP，且可开关）。选中角色右键前往大门即可抬闩开门 / 关门闩上（**关上即闩上，没有单独的'闩门'动作**）。side 供门槛朝向/门名（北大门/南大门）。",
+  "_gatesBarComment": "⚠️ **大门为什么必须『闩上』而不是『关上』**：门系统刚落地时大门是「关着+没锁」，而**劫掠者会开门** ⇒ 判定链「关着+没锁+够得着→推开」三条全中 ⇒ **劫掠者大摇大摆推门进营，250HP 完全不存在**。对**会拧门把手**的敌人来说，「关着」就等于「没关」。闩 ≠ 锁：门闩是自家的横木、从**里面**插上的 —— 自己人一抬就开（不用铁丝、就是普通开门那一个动作），劫掠者**推不开也撬不了**（撬锁撬的是锁芯，横木在内侧）⇒ **只能砸** ⇒ 250HP 重新说话。而砸门声 180（不分阵营）会把附近的丧尸一并招来咬他们——**攻方自己制造的动静反噬攻方，这是设计意图，别当 bug 修**。丧尸一如既往只会砸。玩家白天开门放探索队出去、回来忘了闩，那就是玩家自己的事了。",
   "gates": [
     { "rect": [1100, 300, 200, 22], "side": "north" },
     { "rect": [1100, 1478, 200, 22], "side": "south" }
@@ -41,12 +42,17 @@
   "gateMarker": { "color": [0.35, 0.28, 0.18] },
   "fenceStyle": { "color": [0.40, 0.30, 0.19], "tile": 12, "jitter": 0.12 },
 
+  "_doorsComment": "建筑的门现在是**真门**（此前只是墙上一个缺口 + 纯视觉门柱，走过去直接穿过）。关着=挡人+挡视线+断寻路（同一个墙层碰撞体+同一条导航洞承载三者）；开着=什么都不挡。丧尸不会开门只会砸（门=可破坏结构，木门60HP，丧尸每爪12→5爪砸穿）；劫掠者会正常开门；狗开不了（没有手）。玩家：选中角色→右键前往门→开着就关上/关着就推开/锁着就撬。开门只有一种动作，不分轻推和踹开。",
+  "_doorSchemaComment": "door 四个可选字段（皆缺省）：state = open(缺省) | closed | locked | barred；lockTier = simple(4秒/70%) | standard(6秒/45%) | sturdy(8秒/25%)，缺省=没装锁，只在 state=locked 时有意义；tier = wood(缺省,60HP) | reinforced(120) | metal(220)；barrable = true 则**关上即闩上**（缺省 false）。撬锁要**铁丝**(材料 wire)：安静(噪音30，比走路40还轻，丧尸嗅觉70根本听不见)但慢，失败断一根铁丝；砸门快但噪音180，把半条街都招来——这就是噪音vs效率的取舍。",
+  "_doorWhoOpensComment": "谁能开哪种门：**开着**=谁都能过。**关着(没锁)**=任何长着手的都推得开，**包括劫掠者**（这不是疏漏，是「关着」的定义）。**闩着**=只有自己人抬得起横木；劫掠者推不开、撬不了，只能砸。**锁着**=谁都推不开，要撬(铁丝)或砸。**丧尸**：以上四种，它永远只会砸。**狗**：没有手，一种都开不了（关着的门就能拦住布鲁斯）。",
+  "_doorsWhyOpenComment": "⚠️ 营内建筑的门**一律默认 open**，这是刻意的：营内幸存者 AI 要自己寻路进屋读书/睡觉/干活，若门默认关着而 AI 不会自己开门，全营的人会卡死在门外。open = 与改造前的『墙上缺口』在寻路上完全等价（零回归）。玩家想关就关——那是新拿到的战术选择（把丧尸关在门外）。营地自家的门也一律不上锁（锁是给别人家的门用的）；locked/lockTier 留给探索关的门。",
+
   "buildings": [
     {
       "name": "住宅",
       "rect": [400, 430, 460, 360],
       "wallThickness": 20,
-      "door": { "side": "south", "gapStart": 180, "gapWidth": 110 },
+      "door": { "side": "south", "gapStart": 180, "gapWidth": 110, "state": "open", "tier": "wood" },
       "wallColor": [0.55, 0.50, 0.42],
       "roof": true,
       "roofColor": [0.50, 0.26, 0.22]
@@ -55,7 +61,7 @@
       "name": "仓库",
       "rect": [1440, 430, 340, 240],
       "wallThickness": 20,
-      "door": { "side": "south", "gapStart": 120, "gapWidth": 100 },
+      "door": { "side": "south", "gapStart": 120, "gapWidth": 100, "state": "open", "tier": "reinforced" },
       "wallColor": [0.50, 0.48, 0.46],
       "roof": true,
       "roofColor": [0.32, 0.34, 0.40]
@@ -64,7 +70,7 @@
       "name": "空牛棚",
       "rect": [1480, 980, 420, 320],
       "wallThickness": 20,
-      "door": { "side": "west", "gapStart": 120, "gapWidth": 110 },
+      "door": { "side": "west", "gapStart": 120, "gapWidth": 110, "state": "open", "tier": "wood" },
       "wallColor": [0.48, 0.42, 0.32],
       "roof": true,
       "roofColor": [0.45, 0.34, 0.20]
@@ -100,8 +106,7 @@
         { "kind": "book", "id": "wilderness_survival_guide" },
         { "kind": "book", "id": "farmer_hundred_questions" },
         { "kind": "material", "id": "bone", "qty": 4 },
-        { "kind": "material", "id": "scrap_cloth", "qty": 4 },
-        { "kind": "material", "id": "cloth", "qty": 3 },
+        { "kind": "material", "id": "cloth", "qty": 7 },
         { "kind": "material", "id": "wood", "qty": 6 },
         { "kind": "material", "id": "nails", "qty": 4 },
         { "kind": "material", "id": "stone", "qty": 3 },
@@ -122,10 +127,11 @@
       "loot": [
         { "kind": "book", "id": "tailors_notes" },
         { "kind": "armor", "id": "粗布外套" },
-        { "kind": "armor", "id": "左手套" },
-        { "kind": "armor", "id": "右手套" },
+        { "kind": "armor", "id": "牛仔外套" },
+        { "kind": "armor", "id": "劳保手套" },
+        { "kind": "armor", "id": "劳保手套" },
         { "kind": "tool", "id": "sawblade" },
-        { "kind": "material", "id": "scrap_cloth", "qty": 3 },
+        { "kind": "material", "id": "cloth", "qty": 3 },
         { "kind": "material", "id": "bandage", "qty": 2 },
         { "kind": "material", "id": "needle_thread", "qty": 1 }
       ],
@@ -140,12 +146,27 @@
       "loot": [
         { "kind": "weapon", "id": "刺剑" },
         { "kind": "tool", "id": "calipers" },
-        { "kind": "material", "id": "antibiotics", "qty": 2 }
+        { "kind": "material", "id": "antibiotics", "qty": 2 },
+        { "kind": "material", "id": "glue", "qty": 1 }
       ],
+      "_glueComment": "[批次20·拆除回收] 全图**唯一一处**胶水投放，而且只有一罐——刻意的。它够把 4 废木料粘回 4 木料，正好一次；之后就得自己熬骨胶（骨头4+燃料1+烧杯+化学书）。胶水一旦遍地都是，「木材完整回收要交胶水税」这条设计就白做了。",
       "rect": [440, 676, 96, 42],
       "color": [0.52, 0.46, 0.34],
       "tile": 10,
       "jitter": 0.07
+    },
+    {
+      "_corpseComment": "祖母的尸体（山姆 authored 背景：他被迫杀死了尸变的祖母，并把她拖到了门外）。role=corpse：非实心地面物（不建碰撞、不挖导航洞——绕不过去反倒挡路），仍登记为可点击容器。首次点击调查=弹叙事(NarrativeSpotRegistry.GrandmotherCorpseId，不走游戏时间、不拿东西)；此后再点=按既有 loot 链路把她身上的花衬衫扒下入库（一次性）。长裤留在她身上（数值与开局三件套重复，无搜刮价值）。位置=住宅（原英雄庄园主屋）南门外空地，开局出生点几步之遥——第一分钟就看得见。坐标拟定待调。",
+      "name": "祖母的尸体",
+      "role": "corpse",
+      "narrativeId": "narrative_camp_grandmother",
+      "loot": [
+        { "kind": "armor", "id": "花衬衫" }
+      ],
+      "rect": [600, 820, 70, 34],
+      "color": [0.62, 0.28, 0.30],
+      "tile": 8,
+      "jitter": 0.14
     },
     {
       "name": "牛棚-草垛A",
@@ -181,6 +202,7 @@
       "_seatComment": "座位家具（role=seat）：CampMain 建成非实心可站点（无碰撞/不挖导航洞→读者能寻路走上就座），登记进 _seats 供读书等指派活动就近认领。MVP 预置 3 把摆在住宅内开阔地板，避开柜子/衣柜/展示柜与南门通道。造椅→摆放留后续。",
       "name": "住宅-座椅A",
       "role": "seat",
+      "cover": true,
       "rect": [600, 580, 34, 34],
       "color": [0.52, 0.42, 0.30],
       "tile": 12,
@@ -189,6 +211,7 @@
     {
       "name": "住宅-座椅B",
       "role": "seat",
+      "cover": true,
       "rect": [660, 580, 34, 34],
       "color": [0.52, 0.42, 0.30],
       "tile": 12,
@@ -197,10 +220,48 @@
     {
       "name": "住宅-座垫C",
       "role": "seat",
+      "cover": true,
       "rect": [622, 642, 34, 34],
       "color": [0.46, 0.40, 0.48],
       "tile": 12,
       "jitter": 0.10
+    },
+    {
+      "_coverComment": "半身掩体（cover:true）——用户拍板：躲在桌子/椅子/沙袋后，被【远程】攻击有 25% 无伤概率（近战不吃：贴身砍你，桌子挡不住）。【方向性】只有掩体落在射击者与目标的连线上才生效，敌人绕后即绕掉掩体；【双向对称】敌人躲沙袋后，你打它也吃 25%。判定见 CoverLogic，不做子弹与掩体的物理碰撞（用户原话：那样不好做）。\n⚠️【半身掩体 ≠ 全身遮挡，是两回事】本表里【不带 cover 的道具（工作台/柜子/衣柜/展示柜/草垛）全是实心物】：碰撞层=墙层 ⇒ 断视线（看不见）+ 挡子弹（打不到）+ 挖导航洞（绕着走）——那叫全身遮挡，跟这 25% 无关。带 cover:true 的一律建成【非实心矮物】：不建碰撞、不挖导航洞、不断视线 ⇒ 看得见、打得到、走得过，只是远程命中后掷 25% 判无效。故【cover:true 与实心互斥】，标了 cover 就不会 AddSolid。\n沙袋摆位：南北两门内侧各一对（敌人从门进，守门的人躲其后打），刻意留出中间通道。数值/位置拟定待调。沙袋能否由玩家自由建造摆放=待用户拍板（沙袋非实心、不改寻路 ⇒ 结构上不会形成 kill box）。",
+      "name": "北门沙袋垒A",
+      "role": "cover",
+      "cover": true,
+      "rect": [1090, 386, 92, 26],
+      "color": [0.56, 0.51, 0.36],
+      "tile": 12,
+      "jitter": 0.18
+    },
+    {
+      "name": "北门沙袋垒B",
+      "role": "cover",
+      "cover": true,
+      "rect": [1220, 386, 92, 26],
+      "color": [0.56, 0.51, 0.36],
+      "tile": 12,
+      "jitter": 0.18
+    },
+    {
+      "name": "南门沙袋垒A",
+      "role": "cover",
+      "cover": true,
+      "rect": [1090, 1394, 92, 26],
+      "color": [0.56, 0.51, 0.36],
+      "tile": 12,
+      "jitter": 0.18
+    },
+    {
+      "name": "南门沙袋垒B",
+      "role": "cover",
+      "cover": true,
+      "rect": [1220, 1394, 92, 26],
+      "color": [0.56, 0.51, 0.36],
+      "tile": 12,
+      "jitter": 0.18
     }
   ],
 
@@ -213,7 +274,7 @@
       "drops": [
         { "kind": "material", "id": "wood", "qty": 4 },
         { "kind": "material", "id": "scrap_metal", "qty": 2 },
-        { "kind": "material", "id": "scrap_cloth", "qty": 2 }
+        { "kind": "material", "id": "cloth", "qty": 2 }
       ],
       "color": [0.40, 0.38, 0.34],
       "tile": 12,
@@ -227,7 +288,7 @@
         { "kind": "material", "id": "wood", "qty": 3 },
         { "kind": "material", "id": "scrap_metal", "qty": 2 },
         { "kind": "material", "id": "nails", "qty": 3 },
-        { "kind": "material", "id": "scrap_cloth", "qty": 2 }
+        { "kind": "material", "id": "cloth", "qty": 2 }
       ],
       "color": [0.39, 0.37, 0.35],
       "tile": 12,
@@ -240,7 +301,7 @@
       "drops": [
         { "kind": "material", "id": "wood", "qty": 3 },
         { "kind": "material", "id": "scrap_metal", "qty": 3 },
-        { "kind": "material", "id": "scrap_cloth", "qty": 2 },
+        { "kind": "material", "id": "cloth", "qty": 2 },
         { "kind": "material", "id": "stone", "qty": 2 }
       ],
       "color": [0.41, 0.38, 0.34],
@@ -257,7 +318,7 @@
       "drops": [
         { "kind": "material", "id": "wood", "qty": 4 },
         { "kind": "material", "id": "scrap_metal", "qty": 2 },
-        { "kind": "material", "id": "scrap_cloth", "qty": 3 },
+        { "kind": "material", "id": "cloth", "qty": 3 },
         { "kind": "material", "id": "components", "qty": 1 }
       ],
       "color": [0.42, 0.39, 0.35],

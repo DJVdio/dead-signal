@@ -55,6 +55,14 @@ public sealed partial class GameClock : Node
         return Math.Max(0, _cfg.DayLengthSeconds - _phaseElapsed);
     }
 
+    /// <summary>
+    /// 天亮前还剩多少实时秒（不在夜里 → 0）。
+    /// 供劫掠者判断「还来不来得及慢慢撬/慢慢拆」（<see cref="IntrusionLogic"/>：天快亮了就改砸）。
+    /// 纯读，不改任何时钟状态。
+    /// </summary>
+    public double GetNightTimeRemaining()
+        => IsNight ? Math.Max(0, _cfg.NightLengthSeconds - _phaseElapsed) : 0;
+
     public void Configure(Config cfg)
     {
         _cfg = cfg;

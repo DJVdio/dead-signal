@@ -51,6 +51,23 @@ public sealed partial class Dog : Actor
     /// </summary>
     private const float DodgeChance = 0.45f;
 
+    /// <summary>
+    /// 脚步噪音：狗比人轻得多（四只软肉垫、体重不到人的四分之一）→ 25px，人是 40px。
+    /// 布鲁斯移速 150 也意味着他脚步更**密**（噪音按位移节流），但每一声都传得更**近** ——
+    /// 净效果是他天然适合被放出去探路。
+    /// </summary>
+    protected override double FootstepNoiseRadius => NoiseLogic.DogWalkNoiseRadius;
+
+    /// <summary>
+    /// 布鲁斯开不了门 —— <b>狗没有手</b>。
+    /// <para>
+    /// 他是 <see cref="Faction.Survivor"/> 阵营，<see cref="DoorLogic.CanOperateDoors"/> 若只看阵营就会把他
+    /// 误判成"会开门"；"是不是动物"因此是独立的一维。玩法后果是对的：把布鲁斯放出去探路时，
+    /// <b>一扇关着的门就能拦住他</b>——他能钻过缺口，但拧不开门把手，只能在门外等人来开。
+    /// </para>
+    /// </summary>
+    public override bool CanOperateDoors => false;
+
     private Func<Actor?>? _masterProvider;                 // 主人（道格）当前实例，离场/身故返回 null
     private Func<IEnumerable<Actor>>? _hostileProvider;    // 场上潜在敌对单位（狗自行按 IsHostile 过滤）
     private readonly RandomNumberGenerator _rng = new();

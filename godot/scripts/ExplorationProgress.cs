@@ -35,14 +35,11 @@ public static class ExplorationProgress
     /// <summary>守林人小屋内部路由键（＝守望者森林小屋），须与 <c>WorldMapPanel.WatchersCabinName</c> 一致；显示名正名为「守林人小屋」。</summary>
     public const string WatchersCabinName = "守望者森林小屋";
 
-    /// <summary>规模标签（含预计探索天数，文案克制）：小·约1-2天 / 中·约3-5天 / 大·约5天+。</summary>
-    public static string TierLabel(SizeTier tier) => tier switch
-    {
-        SizeTier.Small => "小·约1-2天",
-        SizeTier.Medium => "中·约3-5天",
-        SizeTier.Large => "大·约5天+",
-        _ => "",
-    };
+    /// <summary>
+    /// 规模标签（含预计探索天数，文案克制）：小·约1-2天 / 中·约3-5天 / 大·约5天+。
+    /// 单一事实源在 <see cref="DisplayNames"/>。
+    /// </summary>
+    public static string TierLabel(SizeTier tier) => DisplayNames.Of(tier);
 
     /// <summary>
     /// 某目的地登记的"点位完成 flag"清单（物资搜刮点 + 剧情尸体发现点）。随复仇线上下文条件增删

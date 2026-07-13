@@ -16,7 +16,7 @@ public class RubbleDigTests
     {
         LootItem.Material("wood", 3),
         LootItem.Material("scrap_metal", 2),
-        LootItem.Material("scrap_cloth", 2),
+        LootItem.Material("cloth", 2),
     };
 
     // ---- RubbleSite 工时进度（同 CraftingJob 形态） ----
@@ -248,6 +248,6 @@ public class RubbleDigTests
         Assert.Equal(0, food);
         Assert.Equal(3, inv.MaterialCount("wood"));
         Assert.Equal(2, inv.MaterialCount("scrap_metal"));
-        Assert.Equal(2, inv.MaterialCount("scrap_cloth"));
+        Assert.Equal(2, inv.MaterialCount("cloth"));
     }
 }

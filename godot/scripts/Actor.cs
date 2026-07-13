@@ -81,6 +81,18 @@ public abstract partial class Actor : CharacterBody2D
 
     // ---- 战斗（作为防御方的护甲；作为攻击方的武器 + 手感参数） ----
     protected Weapon AttackWeapon = null!;
+
+    /// <summary>
+    /// 本单位当前用于攻击的武器（只读公开）。
+    /// <para>
+    /// <b>存在理由：让"玩家破坏"和"AI 砸墙"共用同一处真源。</b> <c>Raider</c>/<c>Zombie</c> 是子类，
+    /// 能直接拿 <see cref="AttackWeapon"/> 喂 <see cref="StructureDamage.PerHit"/>；而玩家侧的破坏由
+    /// <c>CampMain</c>（非子类）驱动，够不着 protected 字段。若为此另找一个"玩家的武器"入口
+    /// （如 <c>Pawn.PrimaryWeapon</c>），两条路就会漂移——那正是"别给玩家开后门"要防的事。
+    /// 故在此开一个只读口，<b>两边喂进 StructureDamage 的是同一个 Weapon</b>。
+    /// </para>
+    /// </summary>
+    public Weapon CurrentAttackWeapon => AttackWeapon;
     protected float AttackRange = 32f;
     protected double AttackCooldown = 1.0;
     /// <summary>远程武器：攻击时发射锥形散布弹道子弹，而非近战瞬时结算。</summary>
@@ -91,6 +103,12 @@ public abstract partial class Actor : CharacterBody2D
     /// </summary>
     private const float PointBlankRange = 40f;
     protected IReadOnlyList<ArmorLayer> DefenderArmor = Array.Empty<ArmorLayer>();
+
+    /// <summary>
+    /// 此刻身上穿着的护甲层（只读）。倒下时 <see cref="CorpseYard"/> 据此掷出尸体的战利品
+    /// （<see cref="CorpseLoot"/>：软质衣物 50% / 刚性护甲件 90% 完好取下；腐皮等天生层永不掉）。
+    /// </summary>
+    public IReadOnlyList<ArmorLayer> WornArmor => DefenderArmor;
 
     private double _attackTimer;
 
@@ -140,6 +158,27 @@ public abstract partial class Actor : CharacterBody2D
 
     public event Action<Actor>? Died;
 
+    /// <summary>
+    /// <b>任何</b>单位倒下（丧尸/劫掠者/幸存者/布鲁斯/商人，不分阵营、不分场景）。与逐实例的
+    /// <see cref="Died"/> 并行触发，语义完全相同——存在的理由只有一个：<see cref="CorpseYard"/> 要在
+    /// <b>一处</b>接住所有死亡去落尸体、掷战利品，而实例事件的订阅散落在每个生成点
+    /// （CampMain 里丧尸/夜袭者/教学劫掠者/克莉丝汀/商人各订各的），逐个补挂既易漏又要动一堆代码。
+    /// <para>
+    /// ⚠️ <b>静态事件：订阅方必须在 <c>_ExitTree</c> 退订</b>，否则换场景后被回收的旧 CorpseYard 仍会被调用。
+    /// （同 <c>Raider.Escaped</c> 的既有静态事件形态。）
+    /// </para>
+    /// </summary>
+    public static event Action<Actor>? AnyDied;
+
+    /// <summary>
+    /// <b>任何</b>单位挨了一下（含致命的那一下）。与逐子类的 <see cref="OnDamaged"/> 钩子并行，
+    /// 存在的理由是**营地层要在一处接住"挨打"这件事**——目前的订阅方是
+    /// <b>逐件搜刮</b>（<see cref="LootSession"/>）：正在翻箱倒柜的人一挨打就撒手，
+    /// 已经掏出来的东西归你，正在掏的那件掉回箱子里。
+    /// <para>⚠️ <b>静态事件：订阅方必须在 <c>_ExitTree</c> 退订</b>（同 <see cref="AnyDied"/>）。</para>
+    /// </summary>
+    public static event Action<Actor>? AnyDamaged;
+
     public void Inject(CombatEngine combat, GameClock clock)
     {
         Combat = combat;
@@ -181,6 +220,18 @@ public abstract partial class Actor : CharacterBody2D
     private const uint LayerRaider = 0b1000u;
 
     /// <summary>
+    /// 层5 = <b>围栏</b>（网格状，用户口径：「围栏中间有网格空洞」）。**刻意与墙层 3 分开**，因为围栏的
+    /// 阻挡是<b>部分的</b>：
+    ///  - <b>挡移动</b> ✓ —— 故一切 Actor 的物理 mask 都含本层（同墙）。
+    ///  - <b>不挡视线</b> ✓ —— <see cref="VisionOcclusion.WallMask"/> 只含层3，射线不查本层 ⇒ 看得穿网格。
+    ///  - <b>不挡弹道</b> ✓ —— <c>Projectile.HitMask</c>=0b1111 只覆盖层1~4 ⇒ 子弹从网格空洞穿过去。
+    ///  - <b>挡近战</b> ✓ —— 但这条**碰撞体拦不住**（围栏才 22px 厚，丧尸 24px 的够到距离跨得过去），
+    ///    故由 <see cref="CoverLogic.MeleeBlocked"/> 在出手前显式拦（用户拍板"不允许隔着围栏近战"）。
+    /// <b>营地大门不在本层</b>——门是实心的，仍在墙层3，照常挡视线挡弹道。
+    /// </summary>
+    private const uint LayerFence = 0b1_0000u;
+
+    /// <summary>
     /// 按当前 <see cref="Faction"/> 设定碰撞层与 mask。<c>_Ready</c> 与运行时 <see cref="SetFaction"/> 共用，
     /// 保证切阵营后碰撞立即生效。物理 mask 口径（用户反馈#4：角色不穿透）：mask = 墙 + 本阵营层
     /// → 同阵营互挤开、不重叠堆一坨，仍可穿过异阵营（近战靠射程结算、不必贴身）。碰撞形状仍 cartesian 圆（PZ 做法）。
@@ -191,21 +242,21 @@ public abstract partial class Actor : CharacterBody2D
         {
             case Faction.Survivor:
                 CollisionLayer = LayerSurvivor;
-                CollisionMask = LayerWall | LayerSurvivor; // 0b0101
+                CollisionMask = LayerWall | LayerFence | LayerSurvivor;
                 break;
             case Faction.Zombie:
                 CollisionLayer = LayerZombie;
-                CollisionMask = LayerWall | LayerZombie;   // 0b0110
+                CollisionMask = LayerWall | LayerFence | LayerZombie;
                 break;
             case Faction.Raider:
                 CollisionLayer = LayerRaider;
-                CollisionMask = LayerWall | LayerRaider;   // 0b1100
+                CollisionMask = LayerWall | LayerFence | LayerRaider;
                 break;
             case Faction.Neutral:
                 // 中立方（神秘商人等）：不占任何阵营层（谁都不会撞进它、也不被挤开），只避墙自行走位。
                 // 站定停留即可被右键前往交互（走的是容器 Rect 命中，非物理碰撞），无需参与阵营分离。
                 CollisionLayer = 0u;
-                CollisionMask = LayerWall;
+                CollisionMask = LayerWall | LayerFence;
                 break;
         }
     }
@@ -223,6 +274,23 @@ public abstract partial class Actor : CharacterBody2D
 
     /// <summary>子类初始化钩子（在基类节点搭好后调用）。</summary>
     protected virtual void OnReady() { }
+
+    // ---- 导航路径读取（表现层专用：移动路径线 PathOverlay）----
+    // 只**读** NavigationAgent2D 已算好并缓存的当前路径，不触发寻路、不改任何移动状态。
+    // 因此画出来的就是他真会走的那条（门关着 → 导航改道 → 这里读到的就是绕远的那条）。
+
+    /// <summary>当前是否有一条「还没走完」的导航路径（有移动/攻击逼近意图 且 未到终点）。</summary>
+    public bool HasNavPath =>
+        _agent != null
+        && (_moveTarget.HasValue || _attackTarget != null)
+        && NavigationServer2D.MapGetIterationId(_agent.GetNavigationMap()) != 0
+        && !_agent.IsNavigationFinished();
+
+    /// <summary>当前导航路径点（cartesian，含已走过的点；配 <see cref="NavPathIndex"/> 取剩余段）。无路径 → 空数组。</summary>
+    public Vector2[] NavPathCart() => _agent == null ? System.Array.Empty<Vector2>() : _agent.GetCurrentNavigationPath();
+
+    /// <summary>当前推进到的路径点下标（= 下一个要去的点）。</summary>
+    public int NavPathIndex => _agent?.GetCurrentNavigationPathIndex() ?? 0;
 
     // ---- 指令接口 ----
 
@@ -411,7 +479,14 @@ public abstract partial class Actor : CharacterBody2D
         _agent.Velocity = desired;
     }
 
-    /// <summary>避障算出的安全速度回调：真正驱动位移。未开避障时不会触发。</summary>
+    /// <summary>
+    /// 避障算出的安全速度回调：真正驱动位移（<see cref="NavigationAgent2D.AvoidanceEnabled"/> 恒 true，
+    /// 故这是全类**唯一**真实产生位移的地方——别处的 <c>MoveAndSlide()</c> 前一行都是 <c>Velocity = Zero</c>）。
+    /// <para>
+    /// 走路噪音就挂在这里，且量的是 <b>MoveAndSlide 之后的真实位移</b>而非期望速度 ——
+    /// 顶着墙推是走不动的，走不动就不该有脚步声。
+    /// </para>
+    /// </summary>
     private void OnVelocityComputed(Vector2 safeVelocity)
     {
         if (!Alive)
@@ -419,7 +494,9 @@ public abstract partial class Actor : CharacterBody2D
             return;
         }
         Velocity = safeVelocity;
+        Vector2 before = GlobalPosition;
         MoveAndSlide();
+        AccumulateFootstepNoise(GlobalPosition - before);
     }
 
     /// <summary>
@@ -500,23 +577,68 @@ public abstract partial class Actor : CharacterBody2D
             return;
         }
 
+        // 本次射击的**有效远程武器**与**该扣的弹药键**。弓/弩必须先解出"搭的是哪种箭"——
+        // 箭会改写伤害/穿透/射程/冷却/散布（Archery.Combine），故下面的射程门、冷却、弹道一律用
+        // 这把有效武器，而不是弓的裸数值。枪则原样（shot == AttackWeapon）。
+        (Weapon shot, string ammoKey) = ResolveRangedShot();
+
         // 远程武器出手前先定"打什么"：
         // ①贴脸（≤PointBlankRange）→ 改枪托钝击近战（MeleeProfile：必中、无误差角、低伤慢速），不开火；
-        // ②目标超出武器 MaxRange → 本次不出手也不消耗冷却（正常由 _PhysicsProcess 的 MaxRange 交战门先挡下、寻路逼近，此为兜底）。
-        Weapon weapon = AttackWeapon;
+        // ②目标超出武器 MaxRange → 本次不出手也不消耗冷却（正常由 _PhysicsProcess 的 MaxRange 交战门先挡下、寻路逼近，此为兜底）；
+        // ③弹药耗尽 → 开不了火，退化为枪托钝击（枪变烧火棍）；弓弩没枪托可抡 → 这一下根本打不出来。
+        Weapon weapon = shot;
         bool fireRanged = IsRanged;
+        int rounds = 1;  // 本次射击实际打出的发数（连发数，可能被余弹夹紧）；近战恒 1。
         if (IsRanged)
         {
             float dist = GlobalPosition.DistanceTo(target.GlobalPosition);
-            if (!Ballistics.InRange(EffectiveRangeDistance(dist), AttackWeapon))
+            if (!Ballistics.InRange(EffectiveRangeDistance(dist), shot))
             {
                 return;
             }
-            if (dist <= PointBlankRange + Radius + target.Radius && AttackWeapon.MeleeProfile() is { } stock)
+            if (dist <= PointBlankRange + Radius + target.Radius && shot.MeleeProfile() is { } stock)
             {
                 weapon = stock;
                 fireRanged = false;
             }
+
+            if (fireRanged)
+            {
+                // 弹药门（判定走引擎纯函数，实扣在下面真正提交出手时才做——同 CraftingLogic 出判定、
+                // 调用方去 InventoryStore 实扣的分工）。不吃弹药的武器恒过门、扣 0，既有行为零回归。
+                ShotPlan plan = AmmoLogic.PlanShot(shot, AmmoOnHand(shot, ammoKey));
+                if (!plan.CanFire)
+                {
+                    AnnounceDry(shot);
+
+                    // 打空了：能抡枪托就抡（复用贴脸枪托 profile——空枪至少还是根棍子）；
+                    // 没枪托可抡的远程武器（弓/弩）则这一下根本打不出来，也不进冷却。
+                    if (shot.MeleeProfile() is not { } emptyGunStock)
+                    {
+                        return;
+                    }
+                    weapon = emptyGunStock;
+                    fireRanged = false;
+                }
+                else
+                {
+                    _dryAnnounced = false;   // 补上弹了 → 下次打空可以再报一次
+                    rounds = plan.RoundsFired;
+                }
+            }
+        }
+
+        // 不允许隔着围栏近战（用户拍板）：围栏有网格空洞 ⇒ 看得穿、射得穿，但**捅不过去**。
+        // 光靠碰撞体拦不住——围栏才 22px 厚，而丧尸的够到距离是 24+13+12=49px，跨得过去（现状就是
+        // 丧尸能隔着栅栏咬到墙内的你）。故在出手前用线段-矩形几何显式拦掉。
+        // 覆盖一切近战：本身近战武器、贴脸枪托、空枪抡棍（fireRanged=false 的全部路径）。远程不拦（能射穿）。
+        // 拦下时**不进冷却**（这一下压根没打出来），下帧再判——玩家走开/围栏被啃穿后自然恢复。
+        // 这也堵死了"站在安全的墙后拿长矛慢慢捅"的免费杀戮机器，把两难留给玩家：开枪(吃25%+烧子弹+引怪)
+        // / 开门出去打(放弃防线) / 不管(墙被啃穿)。
+        if (!fireRanged && Covers is { } meleeCovers
+            && meleeCovers.MeleeBlockedBetween(ToNumerics(GlobalPosition), ToNumerics(target.GlobalPosition)))
+        {
+            return;
         }
 
         // 残疾操作惩罚：操作能力 = 1 − OperationPenalty（断手/断指净值，实时重算）。对齐 Duel.EffectiveInterval 口径：
@@ -532,30 +654,115 @@ public abstract partial class Actor : CharacterBody2D
         // 冷却随当前生效武器（远程/近战/贴脸枪托）的间隔走，读 WeaponTable 权威值，而非旧的硬编码手感常量。
         _attackTimer = EffectiveAttackInterval(weapon.AttackInterval);
         // 连发模型：冷却在整轮连发之后才起算——把连发跨度补进本次冷却，下一轮不与本轮连发重叠。
-        if (fireRanged && AttackWeapon.BurstCount > 1)
+        // 跨度按**实发数** rounds 算（而非 BurstCount）：余弹只够单发时，冷却也相应短一截。
+        if (fireRanged && rounds > 1)
         {
-            _attackTimer += (AttackWeapon.BurstCount - 1) * System.Math.Max(0, AttackWeapon.BurstInterval);
+            _attackTimer += (rounds - 1) * System.Math.Max(0, shot.BurstInterval);
         }
 
         if (fireRanged)
         {
-            FireProjectile(target);
+            // 实扣弹药：打几发扣几发（霰弹的 8 颗弹丸在同一发壳里，不乘弹药）。
+            // 扣的是 ammoKey——弓/弩扣的是**选中那种箭**的具体键，而非它的类别键（库存里没有类别键那种东西）。
+            SpendAmmo(shot, ammoKey, rounds);
+            FireProjectile(target, rounds, shot, ammoKey);
         }
         else
         {
-            // 贴脸枪托或本就近战武器：必中近战结算（枪托为上面派生的 MeleeProfile）。
+            // 贴脸枪托 / 空枪抡棍 / 本就近战武器：必中近战结算（枪托为上面派生的 MeleeProfile，不吃弹药）。
             target.ReceiveAttack(this, weapon, Combat);
+
+            // 近战噪音（用户拍板：近战「会有一定的噪音」）：挥砍、闷响、扭打——砍人不是哑剧。
+            // 半径按武器走（匕首 90 最静 … 破甲锤 155 最响），一律 **> 弓弩(≤70)**：这正是弓存在的意义,
+            // 远远一箭放倒，好过凑上去砍出一堆动静把邻居全招来。爪击/撕咬同样有声（见 WeaponTable）。
+            EmitNoise(weapon);
         }
     }
 
-    private void FireProjectile(Actor target)
-    {
-        // 一次"射击"= BurstCount 发（默认 1）。首发立即打出，其余 BurstInterval 间隔后逐发补上。
-        // 每发独立锥采样、独立重新瞄准目标当前位置（连发跟枪）。冷却在 TryAttack 已含连发跨度。
-        Weapon weapon = AttackWeapon;   // 捕获当前武器，避免连发途中换枪串味
-        FireOneRound(target, weapon);
+    // ---- 弹药（批次18）：枪必须消耗子弹，打空退化为枪托近战 ----
 
-        int burst = System.Math.Max(1, weapon.BurstCount);
+    /// <summary>
+    /// 本单位的弹药来源。默认 <see cref="UnlimitedAmmoSource"/> —— 丧尸/劫掠者等**无库存模型**的单位
+    /// 恒可开火、不扣弹（既有行为零回归）；玩家幸存者由营地层换成 <see cref="InventoryAmmoSource"/>
+    /// （吃营地共享库存）。敌方的弹药以战利品形式回流给玩家，而非模拟他们的弹匣。
+    /// </summary>
+    public IAmmoSource Ammo { get; set; } = UnlimitedAmmoSource.Instance;
+
+    /// <summary>
+    /// 解出本次射击的**有效远程武器**与**该扣的弹药键**。
+    /// <list type="bullet">
+    /// <item><b>枪</b>：武器原样返回，弹药键 = <see cref="Weapon.AmmoKey"/>（子弹/霰弹是 1 键 : 1 材料）。</item>
+    /// <item><b>弓/弩</b>：箭是「1 类别 : N 材料」——<see cref="Weapon.AmmoKey"/> 只是**类别键**（库存里根本没这种东西）。
+    /// 故先从库存挑一种打得出来的箭（<see cref="Archery.PickCheapestAvailable"/>：**优先烧最差的**，好箭留着），
+    /// 再由 <see cref="Archery.Combine"/> 算出「弓 ⊗ 箭」的有效武器（箭改写伤害/穿透/射程/冷却/散布）。
+    /// 一支箭都没有 → 返回空键 → <see cref="AmmoLogic.PlanShot"/> 拿到余量 0 → 打不出来
+    /// （弓弩没有枪托近战 profile，空弦就只能挨打——潜行武器该付的代价）。</item>
+    /// </list>
+    /// </summary>
+    private (Weapon Shot, string AmmoKey) ResolveRangedShot()
+    {
+        if (!IsRanged)
+        {
+            return (AttackWeapon, "");
+        }
+
+        if (!Archery.UsesArrows(AttackWeapon))
+        {
+            return (AttackWeapon, AttackWeapon.AmmoKey);
+        }
+
+        ArrowDef? arrow = Archery.PickCheapestAvailable(Ammo.Count);
+        return arrow is null
+            ? (AttackWeapon, "")                                    // 箭壶空了
+            : (Archery.Combine(AttackWeapon, arrow), arrow.Key);
+    }
+
+    /// <summary>该弹药键的当前余量。不吃弹药的武器、或吃弹药但一支箭都没有（空键）→ 0。</summary>
+    private int AmmoOnHand(Weapon weapon, string ammoKey)
+        => weapon.UsesAmmo && !string.IsNullOrEmpty(ammoKey) ? Ammo.Count(ammoKey) : 0;
+
+    /// <summary>已就"打空了"报过一次——避免每次抡枪托都刷一行飘字。补上弹后复位。</summary>
+    private bool _dryAnnounced;
+
+    /// <summary>
+    /// "打空了"的一次性反馈：**只在打空的那一刻报一次**（此后一直空着也不再刷屏，补上弹后才复位）。
+    /// 这是引擎里真实存在的状态（余弹 = 0），不是发明出来的手感文案。
+    /// 玩家单位才提示——丧尸/劫掠者用无限弹药源，本就走不到这条路。
+    /// </summary>
+    private void AnnounceDry(Weapon weapon)
+    {
+        if (_dryAnnounced || this is not Pawn || !IsInstanceValid(this))
+        {
+            return;
+        }
+        _dryAnnounced = true;
+
+        string text = weapon.HasMeleeProfile ? "打空了！只能抡枪托" : "没箭了！";
+        FloatingText.Spawn(
+            GetParent(),
+            GlobalPosition + new Vector2(0, -Radius - 10),
+            text,
+            new Color(0.85f, 0.82f, 0.55f));   // 暗黄：警示但非伤害色（不与钝伤黄/锐伤红抢读）
+    }
+
+    /// <summary>实扣 <paramref name="rounds"/> 发弹药；不吃弹药的武器无操作。</summary>
+    private void SpendAmmo(Weapon weapon, string ammoKey, int rounds)
+    {
+        if (weapon.UsesAmmo && !string.IsNullOrEmpty(ammoKey))
+        {
+            Ammo.Spend(ammoKey, rounds);
+        }
+    }
+
+    private void FireProjectile(Actor target, int rounds, Weapon weapon, string ammoKey)
+    {
+        // 一次"射击"= rounds 发（= BurstCount 被余弹夹紧后的实发数，默认 1）。首发立即打出，
+        // 其余 BurstInterval 间隔后逐发补上。每发独立锥采样、独立重新瞄准目标当前位置（连发跟枪）。
+        // 冷却在 TryAttack 已含连发跨度；弹药亦已在 TryAttack 一次性扣清。
+        // weapon = 有效武器（弓弩为「弓 ⊗ 箭」），在此捕获，避免连发途中换枪/换箭串味。
+        FireOneRound(target, weapon, ammoKey);
+
+        int burst = System.Math.Max(1, rounds);
         if (burst <= 1)
         {
             return;
@@ -573,12 +780,13 @@ public abstract partial class Actor : CharacterBody2D
                     return;
                 }
 
-                FireOneRound(target, weapon);
+                FireOneRound(target, weapon, ammoKey);
             };
         }
     }
 
-    private void FireOneRound(Actor target, Weapon weapon)
+    /// <param name="ammoKey">本发打出去的弹药具体键（弓弩＝选中那种箭）。传给弹丸供**箭矢回收**判定；枪弹一次性，用不上。</param>
+    private void FireOneRound(Actor target, Weapon weapon, string ammoKey)
     {
         Vector2 toTarget = target.GlobalPosition - GlobalPosition;
         if (toTarget == Vector2.Zero)
@@ -591,15 +799,237 @@ public abstract partial class Actor : CharacterBody2D
         // 双持两把单手武器时误差角 ×1.25（远程双持代价）；单手/双手一把不变。近战不经此路径。
         double spread = GripCombat.EffectiveSpreadDegrees(weapon.BaseSpreadDegrees, ActiveGrip);
         double aimDeg = Mathf.RadToDeg(toTarget.Angle());
-        double shotDeg = Combat.SampleShotDirectionDegrees(aimDeg, spread);
-        Vector2 dir = Vector2.FromAngle(Mathf.DegToRad((float)shotDeg));
 
         // 子弹最大飞行距离对齐武器 MaxRange × 岗位射程倍率（开火判定同源；超此距离衰减归 0）。
         // 无射程模型的远程武器（罕见）回落到旧的 AttackRange*1.25 兜底（同样吃岗位倍率）。
         float maxDist = (float)((weapon.MaxRange ?? (AttackRange * 1.25)) * _postRangeMultiplier);
-        Projectile.Spawn(GetParent(), GlobalPosition + dir * (Radius + 2f), dir,
-            maxDist, weapon, Combat, this, _postRangeMultiplier);
+
+        // 多弹丸（霰弹 PelletCount=8）：一次击发同时打出 N 颗**各自独立**的弹丸——
+        // 每颗在同一个误差角锥内**各自**采样一个方向（故扩散角越大、弹丸铺得越开），
+        // 各自成为一枚独立 Projectile 独立飞行、独立碰撞、独立结算（撞到谁就对谁走一次完整
+        // ReceiveAttack → 独立选部位 + 独立过护甲三段判定）。
+        // 这正是引擎侧 CombatResolver.ResolveVolley 的空间版：两条路径同一语义（N 次独立判定），
+        // 且**不会叠乘**——空间层的"独立"由 N 枚弹丸天然给出，故此处逐颗调单发结算即可。
+        // 弹丸可分别命中不同目标（贴脸打一群丧尸时尤其明显），也可分别撞墙落空。
+        // PelletCount 默认 1 → 恰好一枚，与改造前逐行等价（既有武器零回归）。
+        int pellets = System.Math.Max(1, weapon.PelletCount);
+        for (int p = 0; p < pellets; p++)
+        {
+            double shotDeg = Combat.SampleShotDirectionDegrees(aimDeg, spread);
+            Vector2 dir = Vector2.FromAngle(Mathf.DegToRad((float)shotDeg));
+            Projectile.Spawn(GetParent(), GlobalPosition + dir * (Radius + 2f), dir,
+                maxDist, weapon, Combat, this, _postRangeMultiplier, ammoKey);
+        }
+
+        // 开火噪音：这一枪（或这一箭）响了，半径内闲着的敌人会过来看看。近战/无声武器 NoiseRadius=0 → 直接返回。
+        EmitNoise(weapon);
     }
+
+    // ---- 开火噪音（潜行：响声把敌人引过来）----
+
+    /// <summary>
+    /// 用这把武器发出一次攻击噪音（开火 or 挥砍，同一个口子）。半径 = <see cref="Weapon.NoiseRadius"/>。
+    /// <para>
+    /// 枪的贴脸 <see cref="Weapon.MeleeProfile"/> 走的是 <see cref="Weapon.StockMeleeNoise"/>（近战量级，
+    /// 不是枪声）——抡枪托砸人有动静，但不会像开枪那样把半条街拽过来。
+    /// </para>
+    /// </summary>
+    private void EmitNoise(Weapon weapon) => EmitNoiseAt(NoiseLogic.NoiseOf(weapon), NoiseKind.Combat);
+
+    /// <summary>
+    /// **通用噪音事件**：在本单位位置发出一次半径为 <paramref name="radius"/> 的噪音。半径内、
+    /// **当前没有攻击目标**的**敌对** Actor（丧尸 + 劫掠者，用户拍板全量版）走过去侦查一次。
+    /// 判定走纯逻辑 <see cref="NoiseLogic.ShouldInvestigateSquared"/>，本方法只负责空间侧的遍历与派发。
+    /// <para>
+    /// 全部四类噪音源（走路 / 挥砍 / 开火 / 砸门破防）都汇到这里，**只有半径不同**。
+    /// </para>
+    /// <para>
+    /// <b>零回归</b>：<paramref name="radius"/> ≤ 0 → 第一行即返回，一个听者也不惊动。
+    /// </para>
+    /// <para>
+    /// <b>听者从场景树取</b>（同一父节点下的 Actor），不需要注入候选池 —— 与 <see cref="Projectile.Spawn"/>
+    /// 挂到 <c>GetParent()</c> 同一口径，故不必改 CampMain/关卡层的任何接线。
+    /// </para>
+    /// <para>
+    /// <b>性能</b>：本方法是**走路噪音的热路径**（每个 Actor 每走一个步幅就来一次，见 <see cref="AccumulateFootstepNoise"/>），
+    /// 故整条路径**一次开方都不做**（<c>DistanceSquaredTo</c> + 平方比较），且把便宜的 bool 短路排在距离计算之前。
+    /// <b>战斗噪音不分阵营（听者候选池变大）并不会让这条热路径变贵</b>：真正的热路径是**脚步**，
+    /// 而脚步是 <see cref="NoiseKind.Movement"/>，仍然分阵营；且 <c>HasActiveTarget</c> 早退照旧
+    /// （围攻时全场都在追人，绝大多数听者在那一行就筛掉了）。
+    /// </para>
+    /// <b>噪音不吃墙遮挡</b>：声音会绕会穿，与吃遮挡的视线/气味不同——隔堵墙开枪，对面照样听得见。
+    /// </summary>
+    /// <param name="kind">
+    /// 噪音类别，决定**敌对那一条查不查**（用户拍板：战斗声不分阵营，脚步声分）。见 <see cref="NoiseKind"/>。
+    /// </param>
+    private void EmitNoiseAt(double radius, NoiseKind kind)
+    {
+        if (radius <= 0)
+        {
+            return; // 无声：零回归
+        }
+
+        Node? parent = GetParent();
+        if (parent is null)
+        {
+            return;
+        }
+
+        Vector2 origin = GlobalPosition;
+        foreach (Node n in parent.GetChildren())
+        {
+            if (n is not Actor listener || listener == this)
+            {
+                continue;
+            }
+
+            // 纯性能早退（**不是**第二份判定真源）：这三个 bool 是全部条件里最便宜的，先挡一道，
+            // 省掉后面那次距离平方与阵营查表。RespondsToNoise 放最前面——它一刀切掉全部玩家单位，
+            // 且围攻时全场丧尸都在追人（HasActiveTarget=true），绝大多数听者在这几行就筛掉了。
+            // ⚠️ 这里**故意不含"敌对"那一条**——敌对是否生效取决于 kind（战斗噪音不查敌对），
+            // 那个分支的权威在 ShouldInvestigateSquared 里，早退不许替它做主。
+            // 语义与下面完全一致——它仍是判定权威，这里只是提前问了它其中三问。
+            if (!listener.RespondsToNoise || !listener.Alive || listener.HasActiveTarget)
+            {
+                continue;
+            }
+
+            if (!NoiseLogic.ShouldInvestigateSquared(
+                    kind: kind,
+                    listenerRespondsToNoise: listener.RespondsToNoise,
+                    listenerAlive: listener.Alive,
+                    listenerHasTarget: listener.HasActiveTarget,
+                    hostileToSource: Factions.IsHostile(listener.Faction, Faction),
+                    distanceSquared: origin.DistanceSquaredTo(listener.GlobalPosition),
+                    noiseRadius: radius))
+            {
+                continue;
+            }
+            listener.HearNoise(origin);
+        }
+    }
+
+    // ---- 走路噪音（用户拍板：「走路会有较小的噪音」）----
+
+    /// <summary>累计未发声的位移（跨帧攒着，攒满一个步幅就响一声）。见 <see cref="AccumulateFootstepNoise"/>。</summary>
+    private double _footstepAccum;
+
+    /// <summary>
+    /// 本单位的脚步噪音半径。默认人类量级（<see cref="NoiseLogic.WalkNoiseRadius"/> = 40，
+    /// **刻意压在丧尸嗅觉半径 70 以下**：否则玩家一迈腿就把周围全招来，地图寸步难行）。
+    /// <see cref="Dog"/> 覆写为更轻的值（软肉垫，几乎无声）。
+    /// </summary>
+    protected virtual double FootstepNoiseRadius => NoiseLogic.WalkNoiseRadius;
+
+    /// <summary>
+    /// 脚步噪音：把本帧真实走过的距离攒进 <see cref="_footstepAccum"/>，**攒满一个步幅才响一声**。
+    /// <para>
+    /// <b>为什么按位移节流、而不是每帧广播</b>：走路是**持续行为**且**每个 Actor 都在走**（玩家 + 队友 + 全场敌人），
+    /// 每帧广播就是每秒 60×N 次 O(N) 遍历 = O(N²) 灾难。按**累计位移**节流后，一个 Actor 最快也只能
+    /// 每 <see cref="NoiseLogic.StrideDistance"/>(48px) 响一次 —— 以人类移速 95px/s 计约 **2 次/秒**。
+    /// </para>
+    /// <para>
+    /// 按<b>位移</b>而非按<b>时间</b>节流还顺手买一送三：站着不动完全不发声；被减速/负重时脚步自动变稀；
+    /// 移速快的（狗 150px/s）脚步自动变密。都是免费的正确物理直觉。
+    /// </para>
+    /// <para>
+    /// <b>谁发脚步声</b>：**所有 Actor，无一例外**（玩家/队友/丧尸/劫掠者/狗），代码里没有任何身份特例。
+    /// "丧尸听不听得见丧尸的脚步"这个问题**不需要专门回答**——<see cref="NoiseLogic.ShouldInvestigateSquared"/>
+    /// 的「与噪音源敌对」那一条天然兜住了：丧尸同阵营 ⇒ 互不惊动；但**劫掠者听得见丧尸的脚步**，
+    /// 丧尸也听得见劫掠者的（三方敌对矩阵）。零特例代码，语义自洽。
+    /// </para>
+    /// </summary>
+    private void AccumulateFootstepNoise(Vector2 movedDelta)
+    {
+        double radius = FootstepNoiseRadius;
+        if (radius <= 0)
+        {
+            return;
+        }
+        if (NoiseLogic.StrideDue(ref _footstepAccum, movedDelta.Length(), NoiseLogic.StrideDistance))
+        {
+            // 脚步 = **移动噪音（分阵营）**：丧尸不会被彼此的脚步声吸引成一坨（抱团震荡护栏）。
+            EmitNoiseAt(radius, NoiseKind.Movement);
+        }
+    }
+
+    /// <summary>
+    /// **砸门/砸围栏/砸墙（破防）**发出的噪音，由 <see cref="BreachController"/> 在每次真正砸中结构时调用。
+    /// 那是抡着家伙砸木头铁皮的动静，理应比任何一次挥砍都大（<see cref="NoiseLogic.BreachNoiseRadius"/> = 180）。
+    /// <para>
+    /// <b>门系统落地后，这里成了取舍的一端</b>：一扇锁着的门，撬（<see cref="EmitLockpickNoise"/>，30，安静但慢）
+    /// 还是砸（180，快但把半条街招来）。<b>丧尸没得选——它不会开门，只会砸</b>（用户拍板）。
+    /// </para>
+    /// </summary>
+    public void EmitBreachNoise() => EmitNoiseAt(NoiseLogic.BreachNoiseRadius, NoiseKind.Combat);
+
+    /// <summary>
+    /// **开门**发出的噪音（<see cref="NoiseLogic.DoorNoiseRadius"/> = 100，近战量级：一扇旧门被推开的吱呀与碰撞）。
+    /// 由 <see cref="CampMain"/>（玩家开门）与 <see cref="Raider"/>（劫掠者路过顺手开门）调用。
+    /// <para>
+    /// <b>只有这一个值，没有第二档</b>——用户拍板「玩家开门只有一种动作，不分轻推和踹开」。
+    /// 半径经 <see cref="DoorLogic.NoiseOfOpening"/> 取，该函数刻意不收力度参数，从签名上挡住两档化。
+    /// </para>
+    /// <para>开门声（100）压过丧尸嗅觉（70）：你推开一扇门，附近闲逛的东西**听得见**。这正是撬锁存在的意义。</para>
+    /// </summary>
+    public void EmitDoorNoise() => EmitNoiseAt(DoorLogic.NoiseOfOpening(), NoiseKind.Combat);
+
+    /// <summary>
+    /// **撬锁**发出的噪音（<see cref="NoiseLogic.LockpickNoiseRadius"/> = 30，<b>全表最轻</b>，比走路 40 还轻）。
+    /// <para>
+    /// 30 &lt; 丧尸嗅觉 70 ⇒ <b>撬锁本身惊动不了任何东西</b>。这是该机制存在的全部理由：撬锁若能招来东西，
+    /// 它就只是"慢速版砸门"，没人会选它。<b>撬锁买的是寂静，付的是时间</b>（坚固锁期望 32 秒 + 3 根铁丝）。
+    /// </para>
+    /// </summary>
+    public void EmitLockpickNoise() => EmitNoiseAt(NoiseLogic.LockpickNoiseRadius, NoiseKind.Combat);
+
+    /// <summary>
+    /// 本单位会不会开门。<b>丧尸恒 false</b>（用户拍板：不会开门，只会砸——门对它就是一堵墙，走破防系统）；
+    /// <b>狗恒 false</b>（<see cref="Dog"/> 覆写：没有手。它是 <see cref="Faction.Survivor"/> 阵营，
+    /// 光看阵营会被误判成能开门，故 <see cref="DoorLogic.CanOperateDoors"/> 把"是不是动物"单列一维）。
+    /// 规则在 <see cref="DoorLogic"/>，此处只做转发。
+    /// </summary>
+    public virtual bool CanOperateDoors => DoorLogic.CanOperateDoors(Faction, isAnimal: false);
+
+    /// <summary>
+    /// 本单位是否**由噪音驱动**（即：是不是 AI）。**默认 false —— 玩家操控的单位（<see cref="Pawn"/>、
+    /// <see cref="Dog"/>）以及中立的 <see cref="Merchant"/> 一律不响应噪音**；只有 <see cref="Zombie"/> /
+    /// <see cref="Raider"/> 覆写为 true。
+    /// <para>
+    /// ⚠️ <b>这是硬安全阀，不是平衡项</b>。<see cref="HearNoise"/> 走的是 <see cref="CommandMoveTo"/> ——
+    /// 那正是**玩家下达移动指令的同一条通道**。若不挡住玩家单位，任何一只丧尸只要走过幸存者 40px 内
+    /// （<see cref="NoiseLogic.WalkNoiseRadius"/>），那个没在攻击的幸存者就会**自己朝丧尸走过去**，
+    /// 玩家的操作被无声覆盖（玩家只会觉得"我的人中邪了"）。走路噪音把这个坑从偶发变成持续灾难。
+    /// </para>
+    /// <para>
+    /// 这也正好落实用户拍板的原话：「<b>丧尸和劫掠者</b>都听得到」—— 用户点名的就是这两类 AI，
+    /// <b>从没说过玩家的人会被声音牵着走</b>。玩家有自己的眼睛和耳朵。
+    /// </para>
+    /// </summary>
+    protected virtual bool RespondsToNoise => false;
+
+    /// <summary>
+    /// 听见噪音：走过去侦查一次。**复用既有的「最后目击点」通道**（<see cref="UpdatePerception"/> 里
+    /// 「丢失视野 → 前往最后目击点」那条路），不新造 AI 状态机、不改寻路 ——
+    /// 到点/超时后由子类的游荡逻辑照常接管。
+    /// <para>
+    /// 只有 <see cref="RespondsToNoise"/> 为 true 的 AI 才会走到这里（<see cref="EmitNoiseAt"/> 已挡）。
+    /// </para>
+    /// </summary>
+    protected virtual void HearNoise(Vector2 pos)
+    {
+        _lastSeenPos = pos;
+        CommandMoveTo(pos);
+    }
+
+    /// <summary>
+    /// 主动发一次噪音（子类用；如劫掠者<b>呼喊增援</b>）。⚠️ 这是唤醒<b>已经在场</b>的 AI 的唯一正道——
+    /// 噪音<b>不生成任何新单位</b>，它只是让半径内闲着的人走过来看。
+    /// </summary>
+    protected void EmitNoise(double radius, NoiseKind kind) => EmitNoiseAt(radius, kind);
+
+    /// <summary>设置朝向（弧度）。哨兵在岗时用它把视野锥钉在岗位朝向上——玩家要绕的就是它。</summary>
+    protected void SetFacing(float radians) => FacingAngle = radians;
 
     // ---- 守卫岗位加成（D 守卫防御战）：只读取岗位属性作用到战斗参数，不改既有攻防逻辑 ----
     private const float GuardBaseSightRadius = 200f; // 守卫巡防基础锁敌半径下限（拟定待调）
@@ -609,8 +1039,50 @@ public abstract partial class Actor : CharacterBody2D
     private float _postBlockChance;          // 哨塔围栏远程抵挡几率（默认 0=不抵挡）
     private bool _firstStrikeAvailable;
 
+    // ---- 半身掩体（桌子/椅子/沙袋）：远程 25% 整发无效 ----
+    /// <summary>
+    /// 当前关卡的半身掩体场（<b>场级唯一</b>）。<c>null</c> = 本关无掩体系统 ⇒ <see cref="ReceiveAttack"/> 里整块短路、
+    /// **不掷点、不动随机流**（Sim/单测/未接线关卡零漂移）。
+    ///
+    /// <para><b>为何是 static</b>：掩体对<b>一切 Actor 双向对称</b>生效（玩家/幸存者/丧尸/劫掠者/狗都躲得、也都躲得过），
+    /// 而 <c>ConfigurePerception</c> 那套逐 spawn 注入只覆盖敌人——漏一个就不对称了。掩体场又是场级唯一的，
+    /// 故照 <see cref="CombatFeed"/> 的 static 约定走。</para>
+    ///
+    /// <para><b>生命周期（务必遵守）</b>：关卡建场时赋值，<b>换关/场景退场时置回 null</b>（<c>_ExitTree</c>），
+    /// 否则下一关会残留上一关的掩体矩形。</para>
+    /// </summary>
+    public static CoverField? Covers { get; set; }
+
+    /// <summary>Godot 坐标 → System.Numerics（<see cref="CoverLogic"/> 等纯逻辑零 Godot 依赖，用后者的 Vector2）。</summary>
+    private static System.Numerics.Vector2 ToNumerics(Vector2 v) => new(v.X, v.Y);
+
+    /// <summary>
+    /// 本单位与 <paramref name="target"/> 之间是否<b>隔着围栏</b>（⇒ 近战打不出去，见 <c>TryAttack</c> 的门）。
+    ///
+    /// <para><b>给 AI 用</b>（HANDOFF → impl-zombie-wall）：丧尸贴着围栏时，距离上"够得着"墙内的人，但这一下
+    /// 会被拦掉。若 AI 仍认为自己在正常近战，它会贴着栅栏空挥、站着发呆。**够不着人 ⇒ 应转去砸围栏**
+    /// （<c>BreachController</c> 的既有分支），本方法就是那个"够不着"的判据。</para>
+    /// </summary>
+    public bool MeleeBlockedByFence(Actor target) =>
+        Covers is { } c && c.MeleeBlockedBetween(ToNumerics(GlobalPosition), ToNumerics(target.GlobalPosition));
+
     /// <summary>是否有存活的攻击目标（供 CampMain 巡防锁敌判定是否需补目标）。</summary>
     public bool HasActiveTarget => CurrentAttackTarget is { Alive: true };
+
+    /// <summary>
+    /// <b>近战被围栏卡死</b>：我是近战单位、有活着的目标、且中间隔着围栏 ⇒ <b>这一下永远打不出去</b>。
+    ///
+    /// <para>
+    /// 袭营 AI 拿它当"够不着人"的判据喂给 <c>BreachLogic.ShouldBreach</c>：成立就转去<b>啃挡在中间的围栏</b>，
+    /// 而不是站在栏外一下一下空挥（<see cref="MeleeBlockedByFence"/> 的类注说的就是这个 bug）。
+    /// </para>
+    /// <para>
+    /// <b>只对近战成立</b>（<see cref="IsRanged"/> 为假）：围栏射得穿——持枪的劫掠者面前有栏也该继续开枪，
+    /// 不该丢下枪去砸墙。
+    /// </para>
+    /// </summary>
+    public bool MeleeStalledByFence =>
+        !IsRanged && CurrentAttackTarget is { Alive: true } t && MeleeBlockedByFence(t);
 
     /// <summary>
     /// 岗位射程倍率下的等效距离（distance / 倍率）：把实际距离压回武器原生射程曲线，据此复用
@@ -677,13 +1149,24 @@ public abstract partial class Actor : CharacterBody2D
         {
             return false;
         }
-        _firstStrikeAvailable = false;
         if (IsRanged)
         {
-            FireProjectile(target);
+            // 弓/弩：先手同样要先搭上箭（有效武器 = 弓 ⊗ 箭）。
+            (Weapon shot, string ammoKey) = ResolveRangedShot();
+
+            // 弹药门：打空了就先手不出来——**也不消耗先手标记**（同射程外的口径：没打成就不算用掉）。
+            ShotPlan plan = AmmoLogic.PlanShot(shot, AmmoOnHand(shot, ammoKey));
+            if (!plan.CanFire)
+            {
+                return false;
+            }
+            _firstStrikeAvailable = false;
+            SpendAmmo(shot, ammoKey, plan.RoundsFired);
+            FireProjectile(target, plan.RoundsFired, shot, ammoKey);
         }
         else
         {
+            _firstStrikeAvailable = false;
             target.ReceiveAttack(this, AttackWeapon, Combat);
         }
         return true;
@@ -702,6 +1185,18 @@ public abstract partial class Actor : CharacterBody2D
 
     /// <summary>注入承伤系数（3 级光环减伤）。null 清除。</summary>
     public void SetIncomingDamageFactor(Func<double>? f) => _incomingDamageFactor = f;
+
+    // ---- 专属效果**护甲后**减伤（山姆 1 级"比常人耐揍"−10%；null=0 零回归）----
+    /// <summary>
+    /// 本单位的**护甲后**乘算减伤比例（0..1，山姆 1 级 = 0.10）。**与上面的 <see cref="_incomingDamageFactor"/> 不是同一层**：
+    /// 那个折进 <c>damageFactor</c> → 缩放**武器伤害区间**，是**护甲之前**（甲随后照常吃缩小后的伤害）；
+    /// 本条走 <c>CombatData.ResolveHit(…, incomingDamageReduction:)</c> → <c>CombatResolver.Resolve</c>，
+    /// 在**护甲三段判定之后**乘算（甲先吃，穿透剩下的伤害再 ×0.9）。山姆的口径是后者（"更耐揍"＝肉更硬，不是让对方武器变钝）。
+    /// </summary>
+    private Func<double>? _incomingDamageReduction;
+
+    /// <summary>注入护甲后减伤比例（山姆 1 级）。null 清除（＝0，零回归）。</summary>
+    public void SetIncomingDamageReduction(Func<double>? f) => _incomingDamageReduction = f;
 
     /// <summary>
     /// 作为防御方承受一次攻击：用自身护甲跑逐层结算 + 效果结算，施加到自身躯体。近战与子弹共用。
@@ -726,6 +1221,21 @@ public abstract partial class Actor : CharacterBody2D
         {
             return;
         }
+        // 半身掩体（桌子/椅子/沙袋）：躲在其后挨的**远程**攻击，按 25% 整发判无效——用户口径「这一下射中了人，
+        // 但是判定 25% 几率无效」（不做子弹与掩体的物理碰撞）。**方向性**：只有掩体落在射击者与我的连线上才算
+        // （绕后 → 掩体白躲，这正是包抄的意义）；**双向对称**：本门对一切 Actor 生效——你打躲在桌后的劫掠者，
+        // 一样吃 25%。近战不吃（贴身砍你，桌子挡不住）。
+        // **零漂移**：Covers 未接线（Sim/单测/无掩体关卡）或本次无掩体保护（chance=0）→ 短路，**不掷点、不动随机流**。
+        if (ranged && attacker is not null && Covers is { } coverField)
+        {
+            float coverChance = coverField.ChanceFor(ToNumerics(attacker.GlobalPosition), ToNumerics(GlobalPosition));
+            if (CoverLogic.Negates(ranged: true, coverChance, combat.Rng))
+            {
+                // 打中了，但没伤到：不结算伤害/效果/减速，只出"掩体挡下"飘字（区别于落空的静默）。
+                CombatFeed.PublishCoverNegated(attacker, this);
+                return;
+            }
+        }
         // 伤害/流血/切除/致死已在此调用内施加到 Body；下方仅发布到表现总线（飘字②③④各自订阅）。
         // damageFactor：远程距离衰减系数（近战/贴脸枪托传默认 1.0，不衰减）。
         // 光环承伤乘子（批次5 道格&布鲁斯 3 级：相依为命受伤 ×0.90）：折进 damageFactor 一并结算
@@ -734,7 +1244,9 @@ public abstract partial class Actor : CharacterBody2D
             damageFactor *= inMult();
         // 震荡抗性：本单位处抗性窗内（吃过震荡、打断+首轮冷却未走完）→ 再次震荡触发概率打折（防死锁）。
         double concResist = _concussionResistTimer > 0 ? CombatEffectCfg.ConcussionResistFactor : 1.0;
-        AttackOutcome hit = combat.ResolveHit(weapon, DefenderArmor, Body, damageFactor, concResist);
+        // 护甲后减伤（山姆 1 级"比常人耐揍"）：不折进 damageFactor（那是护甲前），单独喂进结算，甲吃完才乘。null → 0（零回归）。
+        double postArmorReduction = _incomingDamageReduction is { } red ? red() : 0.0;
+        AttackOutcome hit = combat.ResolveHit(weapon, DefenderArmor, Body, damageFactor, concResist, postArmorReduction);
         if (hit.Concussed)
         {
             ApplyConcussion(hit.ConcussionSeconds);
@@ -748,11 +1260,31 @@ public abstract partial class Actor : CharacterBody2D
 
         CombatFeed.Publish(attacker, this, hit);
 
+        // 挨打广播：先于死亡判定发，故**致命的那一下也算挨打**（正在搜刮的人被一口咬死，
+        // 搜刮会话得当场收掉，别留着悬在一具尸体上）。见 AnyDamaged 的注释。
+        AnyDamaged?.Invoke(this);
+
         if (!Alive)
         {
             Die();
+            return;
         }
+
+        OnDamaged(attacker); // AI 战术钩子（劫掠者：挨打 = 被压制 → 缩回掩体）。基类空实现，零回归。
     }
+
+    /// <summary>
+    /// 本单位挨了一下（**且没死**）。给 AI 子类的战术钩子——目前只有 <see cref="Raider"/> 用它做
+    /// 「被压制 → 缩回掩体」。基类空实现（丧尸/幸存者不响应，行为零变化）。
+    /// </summary>
+    /// <param name="attacker">攻击方；环境伤害/无源时为 null。</param>
+    protected virtual void OnDamaged(Actor? attacker) { }
+
+    /// <summary>
+    /// 当前攻击冷却剩余（秒；≤0 = 随时能开火）。供 AI 战术判定「枪快好了没」——
+    /// 劫掠者据此决定<b>什么时候从掩体后探头</b>（<c>RaiderTactics.PhaseFor</c>）。
+    /// </summary>
+    protected double AttackCooldownRemaining => _attackTimer;
 
     /// <summary>
     /// 受一次震荡（重制口径）：进入 <paramref name="durationSeconds"/> 秒硬打断（期间 TryAttack 门控不出手、移速×0.1），
@@ -776,6 +1308,9 @@ public abstract partial class Actor : CharacterBody2D
 
     private void Die()
     {
+        // AnyDied 先于 Died：尸体/战利品在**任何**死亡订阅方跑起来之前就已落定，
+        // 避免某个订阅方（如全灭判定）中途弹面板/换场景，把落尸挤掉。
+        AnyDied?.Invoke(this);
         Died?.Invoke(this);
         QueueFree();
     }

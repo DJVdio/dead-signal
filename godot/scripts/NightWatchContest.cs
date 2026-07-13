@@ -140,11 +140,49 @@ public static class NightWatchContest
     /// </summary>
     public const string DarkCloakId = "夜行斗篷";
 
+    /// <remarks>
+    /// 覆盖率是硬门禁：<c>ApparelCatalog.Defs</c> 里每一件人形穿戴品都必须在此登记（见
+    /// NightWatchContestTests.ApparelStealth_CoversEveryWearableInCatalog）。<b>新增护甲/穿戴品请同步补一行</b>——
+    /// 布夹克/牛仔外套/花衬衫当初就是这样漏掉的（新增了护甲，没人想起潜行表）。
+    /// 核定为中性的显式登记 0f（＝已核对，区别于"忘了给"）。
+    /// 直觉口径：深色/柔软/贴身/不反光 → 正；鲜艳/刚性/沉重/摩擦作响 → 负。数值皆「拟定待调」。
+    /// 狗装备（布制/皮制/口袋狗衣、铁皮/铁丝头甲）不登记：夜防对抗里狗是**守方**（布鲁斯站岗），不作为袭击者，
+    /// 潜行力这条轴对它无入口。
+    /// </remarks>
     public static readonly IReadOnlyDictionary<string, float> ApparelStealth = new Dictionary<string, float>
     {
+        // ── 专门的潜行装（既有基准，勿漂移）──
         [DarkCloakId] = 0.30f,        // 深色斗篷：显著潜行
         ["软底鞋"] = 0.15f,           // 消音脚步
-        ["粗布外套"] = 0.05f,         // 无反光的朴素外套，微弱潜行
+
+        // ── 外套层（五件互斥）：轻软 > 朴素 > 厚重挺括 > 反光皮革 ──
+        ["布夹克"] = 0.06f,           // 0.3kg，轻软贴身、无硬壳、动起来不出声——外套层潜行最佳
+        ["粗布外套"] = 0.05f,         // 无反光的朴素外套，微弱潜行（基准件）
+        ["粗布背心"] = 0.03f,         // 朴素但无袖，遮得少于外套
+        ["牛仔外套"] = 0.02f,         // 0.6kg 厚牛仔，布料挺括、走动摩擦沙沙响；胜在仍是深色布
+        ["皮夹克"] = -0.02f,          // 皮革吱呀作响，表面还反光（"倍有范儿"＝锃亮）
+
+        // ── 贴身层（互斥两件）：素色遮皮肤 vs 花色自曝 ──
+        ["长袖布衣"] = 0.03f,         // 素色贴身布，遮住裸露皮肤的反光
+        ["花衬衫"] = -0.08f,          // "够艳，够喜庆"——夜里就是一团彩色，风味文案本身在说它显眼
+
+        // ── 裤/鞋/手 ──
+        ["长裤"] = 0.02f,             // 遮腿、不反光，聊胜于无
+        ["短裤"] = -0.02f,            // 裸腿在月光下发白，反倒扎眼
+        ["运动鞋"] = 0.04f,           // 橡胶软底，脚步轻——但不及专门的软底鞋
+        ["劳保手套"] = 0.00f,         // 核定中性：既不消音也不显眼
+
+        // ── 护甲层（三件互斥）：刚性件一律为负，越重越糟 ──
+        ["皮革胸甲"] = -0.05f,        // 刚性护心甲，束住上身、皮革吱呀
+        ["皮甲"] = -0.08f,            // 整身鞣皮甲，更硬更沉
+        ["板甲"] = -0.35f,            // 15kg 铁罐头摸黑：金属哐当、反光、动作迟缓。一件就吃掉一整件夜行斗篷还有余
+
+        // ── 头部护甲（[SPEC-B19]，两件互斥）──
+        ["军用头盔"] = -0.06f,        // 硬盔壳压着耳朵，听不清也藏不住；1.5kg 顶在头上，动作跟着变笨
+        ["防暴头盔"] = -0.12f,        // 2.4kg + 一整片聚碳酸酯面罩：更沉，面罩在月光下反光，整张脸罩住＝听觉视觉全闷
+
+        // ── 纯覆盖品 ──
+        ["防毒面具"] = -0.03f,        // 滤罐呼哧作响；胜在遮脸不反光，故只是小负
     };
 
     /// <summary>已装服饰列表 → 潜行值合计（未登记项贡献 0）。</summary>
@@ -217,7 +255,7 @@ public static class NightWatchContest
     /// 袭击者潜行力 = 黑暗项 + 服饰项 + 距离项 + 遮蔽项。
     /// </summary>
     /// <param name="lightLevel">袭击者所在局部光照 L∈[0,1]（VisionLogic.CombineLight 结果）；越低越隐蔽。</param>
-    /// <param name="apparelStealthSum">服饰潜行值合计，见 <see cref="ApparelStealthSum"/>。</param>
+    /// <param name="apparelStealthSum">服饰潜行值合计，见 <see cref="ApparelStealthSum"/>；<b>可为负</b>（板甲/花衬衫一类是减分项）。</param>
     /// <param name="distance">袭击者到守卫的距离（世界像素）。</param>
     /// <param name="coverWeight">视野遮蔽物权重 [0,1]（袭击者身处掩体的程度）。</param>
     public static float ComputeStealth(
@@ -227,7 +265,10 @@ public static class NightWatchContest
         float coverWeight)
     {
         float darkness = StealthDarknessWeight * (1f - Math.Clamp(lightLevel, 0f, 1f));
-        float apparel = StealthApparelWeight * Math.Max(0f, apparelStealthSum);
+        // 服饰项**不得夹到 0**：旧实现写的是 Max(0f, apparelStealthSum)，等于把一切负系数原地吞掉——
+        // 穿一身板甲摸黑与赤身潜行完全等价。负系数要能真正抵扣黑暗/距离/掩体带来的隐蔽，方向才成立。
+        // 总潜行力仍在下面统一 clamp 到 ≥0（潜行力不为负）。
+        float apparel = StealthApparelWeight * apparelStealthSum;
         float distTerm = StealthDistanceWeight * DistanceFactor(distance);
         float cover = StealthCoverWeight * Math.Clamp(coverWeight, 0f, 1f);
         return Math.Max(0f, darkness + apparel + distTerm + cover);

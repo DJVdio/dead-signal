@@ -268,7 +268,11 @@ public sealed partial class Pawn : Actor
     /// </summary>
     /// <param name="rng">感染 roll 随机源。</param>
     /// <param name="resting">本昼夜是否卧床休养（减缓感染/疾病恶化、加速术后愈合）。</param>
-    public HealthTickResult AdvanceHealthDay(IRandomSource rng, bool resting, bool restedInBed = false, double infectionChanceMultiplier = 1.0)
+    /// <param name="healSpeedMultiplier">
+    /// 全营恢复速度乘子（默认 1.0＝无光环，零回归）：山姆 3 级"英雄风范"光环 ×1.03（<c>SamPerk.CampHealSpeedMultiplier</c>），
+    /// 由 <c>CampMain</c> 按当前营地人数算好传入。作用于术后愈合量，与玫瑰果茶/睡床的加算百分点是正交两轴。
+    /// </param>
+    public HealthTickResult AdvanceHealthDay(IRandomSource rng, bool resting, bool restedInBed = false, double infectionChanceMultiplier = 1.0, double healSpeedMultiplier = 1.0)
     {
         ArchiveWounds();
         // [SPEC-B14-补2] 玫瑰果茶恢复加成：生效则本昼夜恢复效率 +RosehipTeaHealBonusPct 个百分点，随后自减一次计时。
@@ -278,7 +282,7 @@ public sealed partial class Pawn : Actor
             extraHealBonusPct = RosehipTeaHealBonusPct;
             _rosehipTeaHealTicks--;
         }
-        HealthTickResult result = Health.TickDay(rng, resting, restedInBed, infectionChanceMultiplier, extraHealBonusPct);
+        HealthTickResult result = Health.TickDay(rng, resting, restedInBed, infectionChanceMultiplier, extraHealBonusPct, healSpeedMultiplier);
 
         foreach (string part in result.MaimedParts)
         {
@@ -324,8 +328,13 @@ public sealed partial class Pawn : Actor
     /// <param name="dtDays">时间片天数（相位级传 1/相位数，整日传 1.0）。</param>
     /// <param name="medicated">本时段是否在用药（疗程指派且有药）。</param>
     /// <param name="medicine">本时段所用感染药（medicated 为真时给，取 Efficacy/WorsenMultiplier）。</param>
-    public InfectionRaceResult AdvanceInfectionRace(double dtDays, bool medicated, Medicine? medicine)
-        => Health.AdvanceInfectionRace(dtDays, medicated, medicine);
+    /// <param name="campWorsenMultiplier">
+    /// 全营感染条上升速度乘子（默认 1.0＝无光环，零回归）：山姆 3 级光环 ×0.97（<c>SamPerk.CampInfectionWorsenMultiplier</c>），
+    /// 由 <c>CampMain</c> 按当前营地人数算好传入。与用药的 <c>Medicine.WorsenMultiplier</c> 相乘、互不吞没。
+    /// </param>
+    public InfectionRaceResult AdvanceInfectionRace(double dtDays, bool medicated, Medicine? medicine,
+        double campWorsenMultiplier = 1.0)
+        => Health.AdvanceInfectionRace(dtDays, medicated, medicine, campWorsenMultiplier);
 
     /// <summary>
     /// [SPEC-B14-补7] 主动截肢一处感染的肢体（玩家抉择的保命手术）：调 <see cref="HealthConditionSet.PerformAmputation"/> 判成败，
@@ -404,20 +413,29 @@ public sealed partial class Pawn : Actor
         p.MoveSpeed = 95f;
         p.Body = CombatData.NewHumanoidBody();
 
+        // authored 背景在躯体上的开局痕迹（按名应用）：山姆开局左手缺小指+无名指——九岁那年为救诺蒂被疯狗咬掉，
+        // 人称"小英雄"的代价。走引擎既有切除通则（−7%/指 操作惩罚，共 −14%），不豁免、不加码。见 SurvivorBackstory。
+        SurvivorBackstory.ApplyTo(name, p.Body);
+
         // 通用技能系统已删——角色能力改由 authored 专属效果 + 读过的书承载，此处不再直设初始技能。
-        // authored 专属效果按名授予：诺蒂天生"书虫"L1（读得快、越读越快）；南丁格尔天生"外科手"（手术点数池加点，[SPEC-B13]）。其余角色无 perk。
+        // authored 专属效果按名授予：诺蒂天生"书虫"L1（读得快、越读越快）；南丁格尔天生"外科手"（手术点数池加点，[SPEC-B13]）；
+        // 山姆天生"英雄风范"（耐揍/负重/全营光环——**等级不存在 Pawn 上**，由营地当前人数实时派生，见 SamPerk）。其余角色无 perk。
         if (name == "诺蒂")
             p.Perks.GrantBookworm();
         else if (name == NurseRecruit.NurseName)
             p.Perks.GrantNightingale();
+        else if (name == SamPerk.SamName)
+            p.Perks.GrantSam();
 
         // 初始武器进【持械模型】主手（右手）：手枪→远程、匕首→近战。EquipToHand 自动按 TwoHanded 分流。
         p._loadout.EquipToHand(usePistol ? CombatData.Pistol() : CombatData.Dagger(), Hand.Right);
-        // 开局发三件基础衣物：长袖布衣（贴身层护上身）+ 长裤（裤子槽护腿）+ 运动鞋（脚槽护双脚，[SPEC-B16-补2]）。
+        // 开局发三件基础衣物：长袖布衣（贴身层护上身）+ 长裤（裤子槽护腿）+ 一双运动鞋（左右脚各一只，[SPEC-B18-补]：
+        // 鞋不分左右但一只占一只脚槽，故发两只才护住双脚——开局防护等价性不变）。
         // 不带皮夹克等特殊护甲——特殊装备/护甲只能靠搜刮/制作获得（[SPEC-B16-补·护甲纠错]）。走 EquipApparel 统一路径（目录占槽+登记防御层）。
         p.EquipApparel(ArmorTable.LongSleeveShirt().Name);
         p.EquipApparel(ArmorTable.Trousers().Name);
-        p.EquipApparel(ArmorTable.Sneakers().Name);
+        p.EquipApparel(ArmorTable.Sneakers().Name, slot: EquipSlot.LeftFoot);
+        p.EquipApparel(ArmorTable.Sneakers().Name, slot: EquipSlot.RightFoot);
         // 由两模型投影出生效战斗数据：AttackWeapon=PrimaryWeapon(+手感/IsRanged)、DefenderArmor=已穿护甲层。
         p.SyncCombatFromEquipment();
         return p;
@@ -479,33 +497,27 @@ public sealed partial class Pawn : Actor
         WeaponTable.Arsenal().ToDictionary(w => w.Name);
 
     /// <summary>
-    /// 护甲名 → 生效护甲层（含防御数值）。汇集当前所有具名护甲层：SurvivorArmor 两层（皮夹克/贴身布衣）、
-    /// 参数化甲层（布衣/皮甲/板甲/粗布外套/左右手套），并把目录多槽品"一体板甲"暂借板甲数值（数值待扩，
-    /// 见 <see cref="ApparelCatalog"/> 注释）。纯覆盖品（防毒面具）无护甲数值，不在此表。
+    /// 护甲名 → 生效护甲层（含防御数值）。汇集数据表『护甲表』的人形 14 件（[SPEC-B18]）：
+    /// 开局三件套、花衬衫、短裤、外套五件（粗布背心/粗布外套/布夹克/牛仔外套/皮夹克）、护甲层三件（皮革胸甲/皮甲/板甲）、劳保手套。
+    /// 纯覆盖品（防毒面具）无护甲数值，不在此表。狗装备另走 <see cref="DogGearCatalog"/>。
     /// </summary>
     private static readonly IReadOnlyDictionary<string, ArmorLayer> ArmorLayerCatalog = BuildArmorLayerCatalog();
 
     private static Dictionary<string, ArmorLayer> BuildArmorLayerCatalog()
     {
         var d = new Dictionary<string, ArmorLayer>();
-        foreach (ArmorLayer l in ArmorTable.SurvivorArmor()) d[l.Name] = l;         // 皮夹克 / 贴身布衣
         foreach (ArmorLayer l in new[]
         {
-            ArmorTable.LongSleeveShirt(), ArmorTable.Trousers(), ArmorTable.Sneakers(),  // 开局基础衣物（三件套）
-            ArmorTable.ChestPlate(), ArmorTable.Shorts(), ArmorTable.CoarseClothVest(),  // 部位细分示例装备 + 可制作布甲
-            ArmorTable.Cloth(), ArmorTable.Leather(), ArmorTable.Plate(),
-            ArmorTable.CoarseClothCoat(), ArmorTable.WorkGlove(leftHand: true), ArmorTable.WorkGlove(leftHand: false),
+            ArmorTable.LongSleeveShirt(), ArmorTable.FloralShirt(),
+            ArmorTable.Trousers(), ArmorTable.Sneakers(), ArmorTable.Shorts(),
+            ArmorTable.CoarseClothVest(), ArmorTable.CoarseClothCoat(),
+            ArmorTable.ClothJacket(), ArmorTable.DenimJacket(), ArmorTable.LeatherJacket(),
+            ArmorTable.ChestPlate(), ArmorTable.Leather(), ArmorTable.Plate(),
+            ArmorTable.MilitaryHelmet(), ArmorTable.RiotHelmet(), ArmorTable.WorkGloves(),
         })
         {
             d[l.Name] = l;
         }
-        // 目录多槽品"一体板甲"数值待扩：暂借板甲防御（换名，占槽/覆盖仍走 ApparelCatalog）。
-        ArmorLayer plate = ArmorTable.Plate();
-        d["一体板甲"] = new ArmorLayer
-        {
-            Name = "一体板甲", Slot = plate.Slot,
-            SharpDefense = plate.SharpDefense, BluntDefense = plate.BluntDefense, Weight = plate.Weight,
-        };
         return d;
     }
 
@@ -584,29 +596,27 @@ public sealed partial class Pawn : Actor
     /// 穿一件穿戴品（护甲名）。占槽/覆盖：目录品走 <see cref="ApparelCatalog"/>（如左右手套→对应手槽）；
     /// 未登记的原始护甲层走其 <see cref="ArmorLayer.Slot"/>→躯干层槽。断肢槽被禁用则拒绝。默认顶替同槽旧装备。返回是否穿上。
     /// </summary>
-    public bool EquipApparel(string apparelName, bool replace = true)
+    public bool EquipApparel(string apparelName, bool replace = true, EquipSlot? slot = null)
     {
         ApparelCatalog.ApparelDef? def = ApparelCatalog.Get(apparelName);
         ArmorLayerCatalog.TryGetValue(apparelName, out ArmorLayer? layer);
 
-        IReadOnlySet<EquipSlot> slots;
-        IReadOnlySet<string>? covers;
+        EquipOutcome outcome;
         if (def is not null)
         {
-            slots = def.Slots;
-            covers = def.CoversParts;
+            // 目录品（含成对品：手套/鞋一件占一只手/脚，slot 不给则自动挑空闲那侧）。
+            outcome = ApparelCatalog.Equip(_apparel, apparelName, slot, SeveredParts(), replace);
         }
         else if (layer is not null)
         {
-            slots = TorsoSlotSet(layer.Slot);
-            covers = layer.CoversParts;
+            outcome = _apparel.TryEquip(
+                apparelName, TorsoSlotSet(layer.Slot), out _, layer.CoversParts, SeveredParts(), replace);
         }
         else
         {
             return false; // 既非目录品、又无具名护甲层：无法解析
         }
 
-        EquipOutcome outcome = _apparel.TryEquip(apparelName, slots, out _, covers, SeveredParts(), replace);
         if (outcome != EquipOutcome.Equipped)
         {
             return false;
@@ -617,7 +627,7 @@ public sealed partial class Pawn : Actor
         return true;
     }
 
-    /// <summary>卸下某件穿戴品（连带其占的全部槽）。</summary>
+    /// <summary>卸下某名穿戴品的<b>全部</b>在身件（成对品两只一起脱；只脱一只用 <see cref="UnequipApparelAt"/>）。</summary>
     public void UnequipApparel(string apparelName)
     {
         if (_apparel.Unequip(apparelName))
@@ -625,6 +635,22 @@ public sealed partial class Pawn : Actor
             _apparelLayers.Remove(apparelName);
             SyncCombatFromEquipment();
         }
+    }
+
+    /// <summary>
+    /// 卸下占用某槽的那一件（成对品只脱这一只，同名的另一只留在身上，[SPEC-B18-补]）。
+    /// 返回被卸下的装备名（该槽本空则 null）。
+    /// </summary>
+    public string? UnequipApparelAt(EquipSlot slot)
+    {
+        string? removed = _apparel.UnequipSlot(slot);
+        if (removed is null)
+        {
+            return null;
+        }
+        if (!_apparel.IsEquipped(removed)) _apparelLayers.Remove(removed);
+        SyncCombatFromEquipment();
+        return removed;
     }
 
     /// <summary>护甲层 <see cref="ArmorSlot"/> → 躯干三层穿戴槽（局部护甲如手套不走此路，另由目录定义占手/脚槽）。</summary>
@@ -663,12 +689,31 @@ public sealed partial class Pawn : Actor
         DefenderArmor = BuildDefenderArmor();
     }
 
-    /// <summary>由当前已穿护甲品组出生效护甲层列表（纯覆盖品无层、跳过）。层序归一交给 CombatResolver。</summary>
+    /// <summary>
+    /// 由当前已穿护甲品组出生效护甲层列表（纯覆盖品无层、跳过）。层序归一交给 CombatResolver。
+    /// <b>逐件</b>取（成对品两只 = 两层同名甲，各只覆盖自己那一侧的手/脚）——覆盖以实际穿戴那一侧为准，
+    /// 防御数值仍来自 <see cref="ArmorLayerCatalog"/>（[SPEC-B18-补]）。
+    /// </summary>
     private IReadOnlyList<ArmorLayer> BuildDefenderArmor()
-        => _apparel.EquippedItems
-            .Where(_apparelLayers.ContainsKey)
-            .Select(name => _apparelLayers[name])
+        => _apparel.ActiveCoverage()
+            .Where(c => _apparelLayers.ContainsKey(c.Item))
+            .Select(c => WithCoverage(_apparelLayers[c.Item], c.CoversParts))
             .ToList();
+
+    /// <summary>把某件的护甲数值与它"这一件实际覆盖的部位"合成一层（覆盖为空则沿用护甲表口径）。</summary>
+    private static ArmorLayer WithCoverage(ArmorLayer layer, IReadOnlySet<string> covers)
+        => covers.Count == 0 || (layer.CoversParts is not null && covers.SetEquals(layer.CoversParts))
+            ? layer
+            : new ArmorLayer
+            {
+                Name = layer.Name,
+                Description = layer.Description,
+                SharpDefense = layer.SharpDefense,
+                BluntDefense = layer.BluntDefense,
+                Weight = layer.Weight,
+                Slot = layer.Slot,
+                CoversParts = covers,
+            };
 
     /// <summary>
     /// 断肢联动兜底：手/脚被切除或损毁后，同步持械模型（该手武器落地）与穿戴模型（该肢体穿戴品失效），
@@ -695,7 +740,8 @@ public sealed partial class Pawn : Actor
             if (Body.IsGone(kv.Value) && _apparel.IsOccupied(kv.Key))
             {
                 string? removed = _apparel.UnequipSlot(kv.Key);
-                if (removed is not null) _apparelLayers.Remove(removed);
+                // 同名另一只（如另一只手的手套）还在身时保留其防御层登记。
+                if (removed is not null && !_apparel.IsEquipped(removed)) _apparelLayers.Remove(removed);
                 changed = true;
             }
         }

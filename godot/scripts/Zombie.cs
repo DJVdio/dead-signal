@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using DeadSignal.Combat; // IRandomSource（穿衣抽取走可注入随机源）
 using Godot;
 
 namespace DeadSignal.Godot;
@@ -16,11 +17,15 @@ public sealed partial class Zombie : Actor
     private const float BaseSightRange = 490f;
     // 嗅觉兜底（用户拍板）：短程全向感知半径，补锥形"侧后死角"被无脑绕过。夜间贴到 70px 内且同房间（未被墙隔）即闻到，
     // 无视朝向/半角/光照（气味不吃暗）。半径拟定待调（用户口径 60~80px 取中）；穿墙=否（复用遮挡判定，待用户确认）。
-    private const float SmellSenseRadius = 70f;
-    private const int StructureHitDamage = 12; // 每爪砸墙伤害（拟定待调；数只丧尸合砸基础大门 250 数十秒破）
+    // 单一真源在 NoiseLogic：这个 70 是**整张噪音表的锚点**（走路 40 / 撬锁 30 都是"必须压在它以下"才定出来的），
+    // 噪音侧的单测要拿它当护栏断言，故不能两处各写一个字面量（此前正是如此，连 NoiseTests 里都还硬编码着第三个 70）。
+    private const float SmellSenseRadius = (float)NoiseLogic.ZombieSmellRadius;
 
     /// <summary>丧尸嗅觉兜底半径（覆盖基类 0）。见 <see cref="SmellSenseRadius"/>。</summary>
     protected override float SmellRadius => SmellSenseRadius;
+
+    /// <summary>丧尸是 AI，听得见动静就会挪过去看看（用户拍板：「丧尸和劫掠者都听得到」）。</summary>
+    protected override bool RespondsToNoise => true;
 
     private Rect2 _wanderBounds;
     private Func<IEnumerable<Actor>>? _survivorProvider;
@@ -29,7 +34,25 @@ public sealed partial class Zombie : Actor
     private BreachController? _breach; // 门关闭后砸围栏/大门破防（袭营时由 CampMain 注入）
     private readonly RandomNumberGenerator _rng = new();
 
-    public static Zombie Create(Rect2 wanderBounds, Func<IEnumerable<Actor>> survivorProvider)
+    /// <summary>
+    /// 生成一只丧尸。
+    /// <para>
+    /// <paramref name="outfitName"/> = null（默认）→ <b>普通丧尸</b>：随机抽一套日常着装（布衣/夹克/长裤/短裤…），
+    /// 每只独立抽，故一群丧尸有的还穿着夹克、有的只剩一条裤子。<paramref name="outfitRng"/> 是这次抽取的随机源
+    /// （可注入以复现，缺省用系统随机源）。
+    /// </para>
+    /// <para>
+    /// <paramref name="outfitName"/> 给了名字 → <b>authored 精英丧尸</b>：**点名**穿哪套（确定性，不掷骰，
+    /// 忽略 <paramref name="outfitRng"/>），如 <c>Zombie.Create(wander, targets, outfitName: "防暴警察丧尸")</c>
+    /// 生成一只穿板甲的。精英预设不在随机池里，只能这样点名——这是用户 authored 的高难度点，不会被随机撞出来。
+    /// 可用名字见 <see cref="ZombieOutfit.ElitePresets"/>；名字拼错会抛 KeyNotFoundException（而非静默发一套光身）。
+    /// </para>
+    /// </summary>
+    public static Zombie Create(
+        Rect2 wanderBounds,
+        Func<IEnumerable<Actor>> survivorProvider,
+        IRandomSource? outfitRng = null,
+        string? outfitName = null)
     {
         var z = new Zombie
         {
@@ -44,7 +67,10 @@ public sealed partial class Zombie : Actor
         z.AttackWeapon = CombatData.ZombieClaw();
         z.AttackRange = 24f;
         z.AttackCooldown = z.AttackWeapon.AttackInterval; // 读 WeaponTable 权威间隔（爪击慢节奏 2.3s），敌方同步慢节奏
-        z.DefenderArmor = CombatData.ZombieHide();
+        // 衣服叠在腐皮之外——只靠腐皮的话防护恒为零，见 CombatData.ZombieArmor。
+        z.DefenderArmor = outfitName is null
+            ? CombatData.ZombieArmor(outfitRng ?? new SystemRandomSource())
+            : CombatData.ZombieArmorNamed(outfitName);
         return z;
     }
 
@@ -54,13 +80,33 @@ public sealed partial class Zombie : Actor
     /// 袭营时注入破防能力（门关闭后到不了营内幸存者→走到最近围栏/大门前砸墙）。委托由 CampMain 提供
     /// （找最近结构 / 对结构施伤，结构类型不外泄）；<paramref name="campCenter"/> 作无目标时的可达性探测点。
     /// </summary>
+    /// <remarks>
+    /// <b>丧尸这里一行门的代码都没有——这是刻意的</b>。用户拍板「丧尸不会开门，只会砸」：
+    /// 关着的门对它<b>就是一堵墙</b>，而门在 <c>CampMain</c> 里本来就是一处可破坏结构（<see cref="CampStructureKind.Door"/>），
+    /// 于是它撞上门后走的还是这条老路——可达性探测失败 → <see cref="BreachLogic"/> 择最近结构（门就在候选里）→ 一爪一爪砸
+    /// （木门 60HP ÷ 每爪 7.5 = 8 爪）→ 砸穿 → 涌入。<b>门系统在丧尸这边是零改动的。</b>
+    /// <para>
+    /// 砸墙伤害与节奏<b>由它的武器（爪击）派生</b>（<see cref="StructureDamage"/>），不再是写死的常数 12——
+    /// 爪击的「砸墙系数」是显式的 2.5（<b>撕扯</b>：丧尸不是用爪尖划墙，是整只扑上去撞、扒、咬），
+    /// 故每爪 3 × 2.5 = 7.5。武器表调爪击伤害，它砸墙的速度立刻跟着变。
+    /// </para>
+    /// <para>
+    /// <b>它打的从来就不只是门</b>（用户拍板「丧尸也会打围栏，不止会打门」）：候选池里围栏和大门一视同仁，从无 Kind 过滤。
+    /// 此前看起来"只砸门"，是因为 <c>SpawnCampZombies</c> 把它们生成在门缝正前方 —— 一出生就够得着门。
+    /// 现在每处结构有<b>攻击位名额</b>（<see cref="BreachSlots"/>）：门口站满了，后面的就去啃紧挨着门的那格围栏。
+    /// 它<b>依然不会绕路、不会包抄</b>——只是在面前够得着的东西里挑一个还站得下人的。
+    /// </para>
+    /// </remarks>
     public void ConfigureBreach(
         BreachController.FindNearestStructure find,
         BreachController.DamageNearestStructure damage,
-        Vector2 campCenter)
+        Vector2 campCenter,
+        BreachController.SuppressBreach? suppress = null,
+        BreachController.ReleaseBreachSlot? release = null)
     {
         _breach = new BreachController(find, damage, campCenter,
-            StructureHitDamage, AttackCooldown, attackReach: 34f + Radius, standoff: Radius + 8f);
+            StructureDamage.PerHit(AttackWeapon), StructureDamage.Interval(AttackWeapon),
+            attackReach: 34f + Radius, standoff: Radius + 8f, suppress, alternative: null, release);
     }
 
     protected override void Think(double delta)

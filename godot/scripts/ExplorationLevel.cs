@@ -40,8 +40,14 @@ public abstract partial class ExplorationLevel : Node2D
 
     public event Action? OnReturnToCamp;
 
-    /// <summary>探索队触发一处发现点时上报 discoveryId；CampMain 据此置 flag、入库日记、弹环境叙事。</summary>
-    public event Action<string>? OnDiscovery;
+    /// <summary>
+    /// 探索队触发一处发现点时上报 discoveryId + <b>踏进去的那个人</b>；CampMain 据此置 flag、入库日记、弹环境叙事。
+    /// <para>
+    /// 第二个参数是**逐件搜刮**要的（<see cref="LootSession"/>）：物资搜刮点不再是"踏进去整批白捡"，
+    /// 而是**谁踏进去谁站着一件件往外掏**——所以必须知道是谁。非物资点（剧情/叙事）不用它，可为 null。
+    /// </para>
+    /// </summary>
+    public event Action<string, Pawn?>? OnDiscovery;
 
     public virtual void Initialize() { }
     public virtual void Cleanup() { }
@@ -51,9 +57,9 @@ public abstract partial class ExplorationLevel : Node2D
         OnReturnToCamp?.Invoke();
     }
 
-    /// <summary>子类在发现点被探索队踏入时调用，上报 discoveryId。</summary>
-    protected void RaiseDiscovery(string discoveryId)
+    /// <summary>子类在发现点被探索队踏入时调用，上报 discoveryId + 踏进去的人（物资搜刮点必传，剧情点可省）。</summary>
+    protected void RaiseDiscovery(string discoveryId, Pawn? finder = null)
     {
-        OnDiscovery?.Invoke(discoveryId);
+        OnDiscovery?.Invoke(discoveryId, finder);
     }
 }

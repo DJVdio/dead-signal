@@ -75,7 +75,6 @@ public sealed partial class TestExploration : ExplorationLevel
     public override void Initialize()
     {
         BuildTerrain();
-        BuildNavigation();
         SetupCamera();
         SetupReturnZone();
         PlaceTeam();
@@ -113,14 +112,80 @@ public sealed partial class TestExploration : ExplorationLevel
         // 须在 SetupVisionMask 之前（视觉容器进 _discoveryVisuals，供视野外隐藏）。
         SetupNarrativeSpots();
 
+        // 半身掩体（桌子/货架/沙袋）：非实心矮物，不进 _obstructions（不挡路/不挡视线/不挡子弹），
+        // 只登记进掩体场——躲其后挨的远程攻击 25% 整发无效。须在导航烘焙前后皆可（本就不参与导航）。
+        SetupCovers();
+
         // 视野遮暗（批次4）：探索关全程启用。发现点须在此之前铺好（进 _discoveryVisuals）。
         SetupVisionMask();
+
+        // ⚠️ 导航必须**最后**烘焙：上面每个目的地的 Setup* 都会往 _obstructions 里加房间/锁屋的墙
+        // （见 AddSolidWall）。旧代码在 BuildTerrain 之后就烘焙，后建的墙一律没进导航——AI 会照直穿墙寻路。
+        // 这里一次性烘焙全部墙体，不做 NavigationRegion 的增量重烘焙（那条路要等 NavigationServer 同步，
+        // headless 下尤其容易读到滞后的旧 map）。
+        BuildNavigation();
     }
 
     /// <summary>
     /// 装配视野遮暗层（探索关全程启用）：以探索队为观察者、环境光按当前相位（探索=白昼满档）算锥形，
     /// 视野外网格遮暗 + 视野外丧尸/发现点隐藏。遮罩覆盖全关、cartesian 直绘（探索关本就 top-down cartesian）。
     /// </summary>
+    // ---- 半身掩体（桌子/货架/沙袋）：远程 25% 整发无效 ----
+
+    /// <summary>关内半身掩体场（非实心；承伤入口经 static <c>Actor.Covers</c> 查询）。</summary>
+    private readonly CoverField _coverField = new();
+
+    /// <summary>半身掩体的视觉色（翻倒的桌子/货架/沙袋，土褐；原型占位，非美术）。</summary>
+    private static readonly Color CoverColor = new(0.50f, 0.44f, 0.32f);
+
+    /// <summary>
+    /// 铺关内半身掩体：<b>非实心</b>矮物——不建碰撞体、不进 <c>_obstructions</c>（故不挡路、不挖导航洞、
+    /// 不断视线、不挡子弹），只登记进 <see cref="_coverField"/>：躲其后挨的<b>远程</b>攻击按 25% 整发判无效
+    /// （方向性——敌人绕后即失效；双向对称——躲在其后的劫掠者/丧尸同样受保护）。
+    ///
+    /// <para>摆位（全为<b>拟定待调</b>占位）：撒在关内开阔地与入口回撤路线上，让遭遇战有可用的战术地形——
+    /// 没有掩体的旷野交火就是纯站桩对射。<b>刻意不摆在墙边</b>（贴墙的掩体没意义：墙本就断视线）。</para>
+    /// </summary>
+    private void SetupCovers()
+    {
+        _coverField.Clear();
+
+        // 关内散布的翻倒桌子/货架/沙袋（cartesian [x,y,w,h]，拟定待调）。
+        (float x, float y, float w, float h)[] covers =
+        {
+            (1040f, 1300f, 110f, 30f),  // 入口内侧：回撤时可依托
+            (1260f, 1300f, 110f, 30f),
+            (700f, 820f, 120f, 32f),    // 中段西侧开阔地
+            (1620f, 800f, 120f, 32f),   // 中段东侧开阔地
+            (1130f, 540f, 130f, 30f),   // 深处（接近目标区）
+            (420f, 1080f, 30f, 120f),   // 西翼竖排货架
+            (1980f, 1080f, 30f, 120f),  // 东翼竖排货架
+        };
+
+        foreach ((float x, float y, float w, float h) c in covers)
+        {
+            _coverField.Add(c.x, c.y, c.w, c.h);
+            AddChild(new Polygon2D
+            {
+                Polygon = Quad(new Vector2(c.x, c.y), new Vector2(c.w, c.h)),
+                Color = CoverColor,
+                ZIndex = 2, // 贴地（低于墙/人形），一眼看出是矮物而非墙
+            });
+        }
+
+        // 场级接线：一切 Actor 的承伤入口经此查询（双向对称）。退场置 null，见 _ExitTree。
+        Actor.Covers = _coverField;
+    }
+
+    public override void _ExitTree()
+    {
+        // 掩体场是 static：不清会把本关的桌椅货架带回营地场景。
+        if (Actor.Covers == _coverField)
+        {
+            Actor.Covers = null;
+        }
+    }
+
     /// <summary>探索关预置固定光源（油灯示例，拟定待调）：入口附近 + 关内中段各一盏。</summary>
     private void SetupLevelLights()
     {
@@ -251,6 +316,33 @@ public sealed partial class TestExploration : ExplorationLevel
 
         if (!border)
             _obstructions.Add(rect);
+    }
+
+    /// <summary>
+    /// 实体墙段（关内建筑用）：<see cref="StaticBody2D"/> + 矩形碰撞（不逐点多边形）+ 进 <see cref="_obstructions"/> 供导航烘焙。
+    /// 碰撞层＝<see cref="VisionOcclusion.WallMask"/>（0b0100），这一层同时被三方消费：
+    /// 移动碰撞（挡路）、<see cref="BuildNavigation"/> 的 obstruction outline（阻断寻路）、
+    /// <see cref="VisionOcclusion.IsOccluded"/> 射线（挡视线 → VisionMask 遮暗 + 丧尸/劫掠者感知）。
+    /// 几何一律取自纯逻辑 <see cref="ExplorationWalls"/>（同一批矩形喂三处，不会各写一份）。
+    /// <paramref name="zIndex"/> 保持各建筑原有的绘制层，外观与旧的纯视觉墙一致。
+    /// </summary>
+    private void AddSolidWall(WallRect wall, Color color, int zIndex)
+    {
+        var rect = new Rect2(wall.X, wall.Y, wall.Width, wall.Height);
+
+        var body = new StaticBody2D { Position = rect.Position + rect.Size / 2 };
+        body.CollisionLayer = VisionOcclusion.WallMask;
+        body.CollisionMask = 0u;
+        body.AddChild(new CollisionShape2D { Shape = new RectangleShape2D { Size = rect.Size } });
+        body.AddChild(new Polygon2D
+        {
+            Polygon = Quad(-rect.Size / 2, rect.Size),
+            Color = color,
+            ZIndex = zIndex,
+        });
+        AddChild(body);
+
+        _obstructions.Add(rect);
     }
 
     private void BuildNavigation()
@@ -463,6 +555,15 @@ public sealed partial class TestExploration : ExplorationLevel
     };
 
     /// <summary>造一只关内丧尸（与营地同 combat/clock、含随队布鲁斯的目标池、局部光照感知）并登记标记。</summary>
+    /// <summary>
+    /// 铺一只普通丧尸（随机日常着装：布衣/夹克/长裤/短裤…）。
+    /// <para>
+    /// TODO（authored·待用户设定）：要在某处摆一只**高难度精英丧尸**（穿护甲的），传 outfitName 点名即可——
+    /// <c>Zombie.Create(wander, LevelTargets, outfitName: "防暴警察丧尸")</c>（板甲）或 <c>"军人丧尸"</c>（皮甲）。
+    /// 精英预设不在随机池里，只会出现在被点名的地方。可用名字见 <see cref="ZombieOutfit.ElitePresets"/>
+    /// （当前两套是 IsDraft 样板，等用户定稿）。**本 agent 未在任何关卡实际摆放精英丧尸**——那是 authored 工作。
+    /// </para>
+    /// </summary>
     private void SpawnZombieAt(Vector2 pos, Rect2 wander)
     {
         var z = Zombie.Create(wander, LevelTargets); // 目标池含随队布鲁斯（可被关内丧尸攻击/杀）
@@ -644,8 +745,8 @@ public sealed partial class TestExploration : ExplorationLevel
     private void SetupRangersCabin()
     {
         // —— 屋子（外屋）+ 里屋（暗间）占位轮廓：小点也有「屋中屋」层次 ——
-        AddRoomOutline(new Rect2(980, 520, 480, 380), new Color(0.34f, 0.30f, 0.24f, 0.95f), RoomEdge.Bottom, "守林人小屋");
-        AddRoomOutline(new Rect2(1180, 630, 210, 200), new Color(0.28f, 0.25f, 0.21f, 0.95f), RoomEdge.Top, "里屋（暗间）");
+        AddRoomOutline(new Rect2(980, 520, 480, 380), new Color(0.34f, 0.30f, 0.24f, 0.95f), "守林人小屋", RoomEdge.Bottom);
+        AddRoomOutline(new Rect2(1180, 630, 210, 200), new Color(0.28f, 0.25f, 0.21f, 0.95f), "里屋（暗间）", RoomEdge.Top);
 
         // 里屋碗柜（暗间内、路径较浅）：小点日常储粮/急救小物。
         AddDiscoveryPoint(
@@ -687,18 +788,15 @@ public sealed partial class TestExploration : ExplorationLevel
             label: "柴房");
     }
 
-    /// <summary>房间占位轮廓的门洞所在边。</summary>
-    private enum RoomEdge { Top, Bottom, Left, Right }
-
-    /// <summary>画一圈房间占位轮廓（纯视觉、无碰撞、不进导航）：四条细墙边，<paramref name="doorEdge"/> 那条中段留门洞，附房间名标签。</summary>
-    private void AddRoomOutline(Rect2 rect, Color color, RoomEdge doorEdge, string label)
+    /// <summary>
+    /// 画一圈房间占位轮廓：四条细墙边（<b>实体</b>——挡路 + 阻断寻路 + 挡视线，见 <see cref="AddSolidWall"/>），
+    /// <paramref name="doorEdges"/> 上的每条边中段留门洞，附房间名标签。几何取自 <see cref="ExplorationWalls.RoomOutlineWalls"/>。
+    /// </summary>
+    private void AddRoomOutline(Rect2 rect, Color color, string label, params RoomEdge[] doorEdges)
     {
-        const float t = 8f;    // 墙厚
-        const float door = 64f; // 门洞宽
-        AddWallStrip(rect.Position, new Vector2(rect.Size.X, t), color, doorEdge == RoomEdge.Top, door);
-        AddWallStrip(new Vector2(rect.Position.X, rect.End.Y - t), new Vector2(rect.Size.X, t), color, doorEdge == RoomEdge.Bottom, door);
-        AddWallStrip(rect.Position, new Vector2(t, rect.Size.Y), color, doorEdge == RoomEdge.Left, door);
-        AddWallStrip(new Vector2(rect.End.X - t, rect.Position.Y), new Vector2(t, rect.Size.Y), color, doorEdge == RoomEdge.Right, door);
+        var room = new WallRect(rect.Position.X, rect.Position.Y, rect.Size.X, rect.Size.Y);
+        foreach (WallRect wall in ExplorationWalls.RoomOutlineWalls(room, doorEdges))
+            AddSolidWall(wall, color, zIndex: 6);
 
         var tag = new Label { Text = label, Position = rect.Position + new Vector2(6, -20), ZIndex = 12 };
         tag.AddThemeFontSizeOverride("font_size", 12);
@@ -706,29 +804,6 @@ public sealed partial class TestExploration : ExplorationLevel
         tag.AddThemeColorOverride("font_outline_color", new Color(0, 0, 0, 0.9f));
         tag.AddThemeConstantOverride("outline_size", 3);
         AddChild(tag);
-    }
-
-    /// <summary>一条墙边占位（纯视觉）：横竖由 size 长边判断；<paramref name="withDoor"/> 则中段留门洞、画成两段。</summary>
-    private void AddWallStrip(Vector2 pos, Vector2 size, Color color, bool withDoor, float doorWidth)
-    {
-        if (!withDoor)
-        {
-            AddChild(new Polygon2D { Polygon = Quad(pos, size), Color = color, ZIndex = 6 });
-            return;
-        }
-        bool horizontal = size.X >= size.Y;
-        if (horizontal)
-        {
-            float seg = (size.X - doorWidth) / 2f;
-            AddChild(new Polygon2D { Polygon = Quad(pos, new Vector2(seg, size.Y)), Color = color, ZIndex = 6 });
-            AddChild(new Polygon2D { Polygon = Quad(new Vector2(pos.X + seg + doorWidth, pos.Y), new Vector2(seg, size.Y)), Color = color, ZIndex = 6 });
-        }
-        else
-        {
-            float seg = (size.Y - doorWidth) / 2f;
-            AddChild(new Polygon2D { Polygon = Quad(pos, new Vector2(size.X, seg)), Color = color, ZIndex = 6 });
-            AddChild(new Polygon2D { Polygon = Quad(new Vector2(pos.X, pos.Y + seg + doorWidth), new Vector2(size.X, seg)), Color = color, ZIndex = 6 });
-        }
     }
 
     /// <summary>后院老树占位（纯视觉）：树干 + 树冠 + 一段吊绳，示意哥顿上吊处。<paramref name="basePos"/>＝树根位置。</summary>
@@ -768,9 +843,11 @@ public sealed partial class TestExploration : ExplorationLevel
     private void SetupNightingalePharmacy()
     {
         // —— 小店面（临街）+ 后屋药房（暗间）+ 阁楼：小而有层次 ——
-        AddRoomOutline(new Rect2(900, 700, 500, 340), new Color(0.30f, 0.32f, 0.34f, 0.95f), RoomEdge.Bottom, "南丁格尔的小药店");
-        AddRoomOutline(new Rect2(1000, 480, 320, 220), new Color(0.26f, 0.28f, 0.30f, 0.95f), RoomEdge.Bottom, "后屋药房");
-        AddRoomOutline(new Rect2(1440, 500, 240, 200), new Color(0.24f, 0.25f, 0.27f, 0.95f), RoomEdge.Left, "阁楼");
+        // 小店面须开**两处**门洞：南＝临街外门，北＝通后屋药房。后屋药房的南门正对小店面的北墙，
+        // 墙实体化后若北墙不开洞，后屋药房就三面实心 + 一门顶死＝玩家永远进不去（既有布局的通行性缺陷）。
+        AddRoomOutline(new Rect2(900, 700, 500, 340), new Color(0.30f, 0.32f, 0.34f, 0.95f), "南丁格尔的小药店", RoomEdge.Bottom, RoomEdge.Top);
+        AddRoomOutline(new Rect2(1000, 480, 320, 220), new Color(0.26f, 0.28f, 0.30f, 0.95f), "后屋药房", RoomEdge.Bottom);
+        AddRoomOutline(new Rect2(1440, 500, 240, 200), new Color(0.24f, 0.25f, 0.27f, 0.95f), "阁楼", RoomEdge.Left);
 
         // 柜台（纯视觉占位）：护士就守在它后头。
         AddChild(new Polygon2D
@@ -1102,7 +1179,7 @@ public sealed partial class TestExploration : ExplorationLevel
 
         // 内圈·幸存者据点密室（占位墙体，南墙留门＝"密闭小房间"；囤货点落其中，打赢/闯入后可搜）。
         var den = SupermarketDenCenter; // (1200, 380)
-        AddRoomOutline(new Rect2(den.X - 200f, den.Y - 150f, 400f, 300f), new Color(0.34f, 0.30f, 0.26f, 0.95f), RoomEdge.Bottom, "里屋");
+        AddRoomOutline(new Rect2(den.X - 200f, den.Y - 150f, 400f, 300f), new Color(0.34f, 0.30f, 0.26f, 0.95f), "里屋", RoomEdge.Bottom);
         AddDiscoveryPoint(ExplorationCache.SupermarketHoardFoodId, new Vector2(den.X - 100f, den.Y - 60f), markerColor: hoardC, label: "他们的囤粮");
         AddDiscoveryPoint(ExplorationCache.SupermarketHoardMedsId, new Vector2(den.X + 100f, den.Y - 40f), markerColor: hoardC, label: "他们的药箱");
         AddDiscoveryPoint(ExplorationCache.SupermarketHoardGearId, new Vector2(den.X - 80f, den.Y + 50f), markerColor: hoardC, label: "缴获装备堆");
@@ -1314,25 +1391,19 @@ public sealed partial class TestExploration : ExplorationLevel
     }
 
     /// <summary>
-    /// 画上锁的屋子：四面视觉墙（纯 Polygon2D、无碰撞），南墙留一处门缺口（<see cref="VillageDoorPosition"/> 处）。
-    /// 墙不挡路（碰撞+导航重烘焙为遗留）；"上锁/被困"靠门发现区 + 屋内占位 + 围困丧尸表达。
+    /// 画上锁的屋子：四面<b>实体</b>墙围合（挡路 + 阻断寻路 + 挡视线，见 <see cref="AddSolidWall"/>），
+    /// 南墙留一处门缺口（<see cref="VillageDoorPosition"/> 处）＝唯一通路——"被困"由此在空间上真正成立
+    /// （旧版四面墙是纯 Polygon2D，丧尸/玩家可径直穿墙而过，围困形同虚设）。
+    /// 几何取自 <see cref="ExplorationWalls.LockedHouseWalls"/>（含西侧两角的补角：旧几何漏了两个 t×t 对角洞）。
     /// </summary>
     private void DrawLockedHouse()
     {
         Vector2 c = VillageHouseCenter;
-        float hw = VillageHouseHalfW, hh = VillageHouseHalfH, t = 16f;
+        float hw = VillageHouseHalfW, hh = VillageHouseHalfH;
         var wallColor = new Color(0.34f, 0.30f, 0.25f, 0.95f);
 
-        // 北墙（整条）
-        AddWallVisual(new Rect2(c.X - hw, c.Y - hh - t, hw * 2f + t, t), wallColor);
-        // 西墙、东墙（整条）
-        AddWallVisual(new Rect2(c.X - hw - t, c.Y - hh, t, hh * 2f), wallColor);
-        AddWallVisual(new Rect2(c.X + hw, c.Y - hh, t, hh * 2f + t), wallColor);
-        // 南墙：中间留 90px 门缺口，拆两段
-        const float doorHalf = 45f;
-        float southY = c.Y + hh;
-        AddWallVisual(new Rect2(c.X - hw, southY, (c.X - doorHalf) - (c.X - hw), t), wallColor); // 门左段
-        AddWallVisual(new Rect2(c.X + doorHalf, southY, (c.X + hw) - (c.X + doorHalf), t), wallColor); // 门右段
+        foreach (WallRect wall in ExplorationWalls.LockedHouseWalls(c.X, c.Y, hw, hh))
+            AddSolidWall(wall, wallColor, zIndex: 4);
 
         // 地板底色（示意室内），ZIndex 低于占位标记。
         var floor = new Polygon2D
@@ -1342,18 +1413,6 @@ public sealed partial class TestExploration : ExplorationLevel
             ZIndex = 3,
         };
         AddChild(floor);
-    }
-
-    /// <summary>纯视觉墙段（无碰撞 StaticBody，区别于 <see cref="AddWall"/>）：占位屋墙用。</summary>
-    private void AddWallVisual(Rect2 rect, Color color)
-    {
-        var vis = new Polygon2D
-        {
-            Polygon = Quad(rect.Position, rect.Size),
-            Color = color,
-            ZIndex = 4,
-        };
-        AddChild(vis);
     }
 
     /// <summary>屋内占位：饿昏迷的道格（横卧色块）+ 守在身边的布鲁斯（小色块），纯视觉示意。</summary>
@@ -1468,8 +1527,9 @@ public sealed partial class TestExploration : ExplorationLevel
         zone.CollisionMask = 0b0001u; // 与返回区一致：只感知玩家 Pawn 所在层
         zone.BodyEntered += body =>
         {
-            if (body is Pawn && _firedDiscoveries.Add(discoveryId))
-                RaiseDiscovery(discoveryId);
+            // 踏进去的那个人要透传出去——物资搜刮点是**他**站在那儿一件件往外掏（逐件搜刮，见 LootSession）。
+            if (body is Pawn finder && _firedDiscoveries.Add(discoveryId))
+                RaiseDiscovery(discoveryId, finder);
         };
         AddChild(zone);
     }
