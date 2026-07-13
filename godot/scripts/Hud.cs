@@ -13,6 +13,7 @@ public sealed partial class Hud : CanvasLayer
     private Label _hoverLabel = null!;   // 跟随鼠标的容器辨识提示（工作台/储物柜/搜刮物）
     private Label _hordeLabel = null!;   // 右上角尸潮倒计时/到期警示（未发现时全隐，Hidden 零痕迹）
 
+
     // 拟定：剩余 ≤ 此天数转 Warning 黄警示（数值待 Sim/用户调）。
     private const int HordeUrgentDays = 7;
 
@@ -52,6 +53,7 @@ public sealed partial class Hud : CanvasLayer
         _hordeLabel.Visible = false;
         AddChild(_hordeLabel);
     }
+
 
     private static Label MakeLabel()
     {

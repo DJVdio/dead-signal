@@ -88,6 +88,15 @@ public sealed partial class StatusIconStrip : Node2D
 
         SyncPosition();
 
+        // 半身掩体：本单位是否正贴着一处掩体（空间状态，逐帧可变——走位一离开就该立刻消失，
+        // 等 0.5s 轮询会骗人）。状态翻转即标脏，立即重建。
+        bool behindCover = IsBehindCover();
+        if (behindCover != _lastBehindCover)
+        {
+            _lastBehindCover = behindCover;
+            _dirty = true;
+        }
+
         _pollTimer += delta;
         if (_pollTimer >= PollInterval)
         {
@@ -104,10 +113,40 @@ public sealed partial class StatusIconStrip : Node2D
 
     private void SyncPosition() => Position = Iso.Project(_actor.GlobalPosition);
 
+    // ---- 半身掩体可见性：让玩家看得见"我正躲在掩体后"（否则那 25% 是隐形的）----
+    /// <summary>本单位上一帧是否贴着掩体（翻转即标脏重建）。</summary>
+    private bool _lastBehindCover;
+
+    /// <summary>"掩"标记色：同 <see cref="CombatMoteText.CoverColor"/>（中性青），与掩体飘字一个视觉语言。</summary>
+    private static readonly Color CoverMarkColor = new(
+        CombatMoteText.CoverColor.R, CombatMoteText.CoverColor.G, CombatMoteText.CoverColor.B);
+
+    /// <summary>
+    /// 本单位当前是否贴着一处半身掩体（<c>CoverLogic.AdjacentCover</c> ≠ null）——<b>引擎里真实存在的状态</b>，
+    /// 不是发明出来的效果。注意这是"有掩体可用"，<b>不保证这一枪一定受保护</b>：掩体有方向性，
+    /// 敌人绕到你背后就白躲（判定见 <c>CoverLogic.Protects</c>）。
+    /// </summary>
+    private bool IsBehindCover()
+    {
+        if (Actor.Covers is not { } covers)
+        {
+            return false;
+        }
+        Vector2 p = _actor.GlobalPosition;
+        return covers.AdjacentTo(new System.Numerics.Vector2(p.X, p.Y)) is not null;
+    }
+
     /// <summary>重扫快照 → 只在标记集合变化时才重建 Label 子节点（避免每帧/每 0.5s 空转造节点）。</summary>
     private void Rebuild()
     {
-        List<Mark> marks = CollectMarks(_snapshot());
+        PawnInspection insp = _snapshot();
+        List<Mark> marks = CollectMarks(insp);
+
+        // 掩体标记排在末位（伤情优先）。死者不挂（CollectMarks 死亡时只出"亡"）。
+        if (!insp.IsDead && _lastBehindCover)
+        {
+            marks.Add(new Mark("掩", CoverMarkColor));
+        }
 
         // 用签名判等：集合没变就不重建（否则轮询会无谓重造 Label）。
         var sig = new StringBuilder();

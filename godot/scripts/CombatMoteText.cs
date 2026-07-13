@@ -57,6 +57,15 @@ public static class CombatMoteText
     public static readonly MoteColor SharpColor = new(1f, 0.4f, 0.35f);
     /// <summary>被甲挡下=中性灰。</summary>
     public static readonly MoteColor BlockedColor = new(0.75f, 0.78f, 0.85f);
+    /// <summary>半身掩体判无效=中性青（与"被甲挡下"的灰、伤害的钝黄/锐红都分得开——这一下没有伤害发生）。</summary>
+    public static readonly MoteColor CoverColor = new(0.55f, 0.82f, 0.80f);
+
+    /// <summary>
+    /// 半身掩体整发判无效的飘字（用户口径：<b>"这一下射中了人，但是判定 25% 几率无效"</b>——
+    /// 所以说的是"打中了但没伤到"，<b>不是</b>落空/未命中，也不是被甲挡下）。
+    /// 无伤害发生 ⇒ 无伤害数字、无部位、无效果后缀，只有一句"掩体挡下"。
+    /// </summary>
+    public static MoteText BuildCoverNegated() => new("掩体挡下", CoverColor);
 
     public static MoteText Build(AttackOutcome hit)
     {
