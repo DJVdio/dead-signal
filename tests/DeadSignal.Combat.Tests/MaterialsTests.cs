@@ -67,7 +67,7 @@ public class MaterialsTests
         // 拟定草稿要求覆盖的基础材料标识（用户后续可增删调整）。
         string[] required =
         {
-            "wood", "scrap_cloth", "scrap_metal", "leather", "rawhide",
+            "wood", "cloth", "scrap_metal", "leather", "rawhide",
             "bone", "nails", "wire", "gunpowder", "tanning_solution",
         };
         foreach (string key in required)
