@@ -119,7 +119,7 @@ public sealed class CombatResolver
         }
 
         double rawDamage;
-        int finalDamage;
+        double finalDamage;
 
         if (terminated)
         {
@@ -131,12 +131,12 @@ public sealed class CombatResolver
             // 无甲直击：武器伤害直接作用到部位。
             rawDamage = _rng.Range(weapon.DamageMin, weapon.DamageMax);
             initialAttackRoll = rawDamage;
-            finalDamage = CeilMin1(rawDamage);
+            finalDamage = LandedMin(rawDamage);
         }
         else
         {
             rawDamage = carriedDamage;
-            finalDamage = CeilMin1(rawDamage);
+            finalDamage = LandedMin(rawDamage);
         }
 
         return new CombatResult
@@ -152,8 +152,12 @@ public sealed class CombatResolver
         };
     }
 
-    /// <summary>向上取整、最低 1 伤。</summary>
-    private static int CeilMin1(double raw) => Math.Max(1, (int)Math.Ceiling(raw));
+    /// <summary>命中即生效的伤害下限（[SPEC-B14-补6 伤害不取整] 用户裁决"伤害也改小数"）：
+    /// 不再向上取整，仅对已命中（穿透）的伤害兜一个 <see cref="MinLandedDamage"/> 下限，防 0 伤空砍。</summary>
+    private static double LandedMin(double raw) => Math.Max(MinLandedDamage, raw);
+
+    /// <summary>命中最小有效伤害（0.01=白银同精度的最小刻度，防止穿透后 0 伤/极小值退化）。</summary>
+    public const double MinLandedDamage = 0.01;
 
     /// <summary>把护甲层按 <see cref="ArmorSlot"/> 从外（Plate）到内（Skin）排序。</summary>
     public static IReadOnlyList<ArmorLayer> OrderOuterToInner(IEnumerable<ArmorLayer> layers) =>

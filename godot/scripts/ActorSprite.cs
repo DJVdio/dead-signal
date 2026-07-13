@@ -140,7 +140,7 @@ public sealed partial class ActorSprite : Node2D
         }
 
         // 伤害强度归一（拟定待调）：常规伤害约 0~30 铺满 0..1，断肢直接拉满。
-        float sev = Mathf.Clamp(hit.Damage / 30f, 0f, 1f);
+        float sev = Mathf.Clamp((float)(hit.Damage / 30.0), 0f, 1f);
         if (hit.Severed)
         {
             sev = 1f;

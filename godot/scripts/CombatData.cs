@@ -82,8 +82,8 @@ public static class FriendlyFire
 /// </summary>
 public readonly struct AttackOutcome
 {
-    /// <summary>实际作用到部位的伤害（0 = 被甲完全挡下）。</summary>
-    public readonly int Damage;
+    /// <summary>实际作用到部位的**小数**伤害（0 = 被甲完全挡下；[SPEC-B14-补6 伤害不取整]）。</summary>
+    public readonly double Damage;
     public readonly string PartName;
     public readonly DamageType FinalType;
 
@@ -110,7 +110,7 @@ public readonly struct AttackOutcome
     public readonly double StaggerSeconds;
 
     public AttackOutcome(
-        int damage, string partName, DamageType finalType,
+        double damage, string partName, DamageType finalType,
         bool blocked, bool severed, bool bled, bool concussed, bool fractured, bool died,
         double concussionSeconds = 0, double staggerSeconds = 0)
     {

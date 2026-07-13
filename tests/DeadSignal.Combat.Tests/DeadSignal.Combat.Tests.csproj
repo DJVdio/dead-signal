@@ -78,6 +78,8 @@
     <Compile Include="..\..\godot\scripts\InventoryStore.cs" Link="Consumed\InventoryStore.cs" />
     <!-- 材料目录纯数据（无 Godot 依赖，配方波地基之一）：MaterialCategory / MaterialDef→Item / Materials 目录 All/Find/Has/InCategory。 -->
     <Compile Include="..\..\godot\scripts\Materials.cs" Link="Consumed\Materials.cs" />
+    <!-- 白银分制内核（无 Godot 依赖，[SPEC-B14-补6]）：1 白银 = 100 分，FromWhole 整银→分 / Format 分→两位小数。 -->
+    <Compile Include="..\..\godot\scripts\Silver.cs" Link="Consumed\Silver.cs" />
     <!-- 批次4 光源纯逻辑（无 Godot 依赖）：光源目录/距离衰减/最强贡献查询/持光暴露代价(LightSource) + 固定光源场查询(LightField) + 手持光源占手态(HeldLightState)。 -->
     <Compile Include="..\..\godot\scripts\LightSource.cs" Link="Consumed\LightSource.cs" />
     <Compile Include="..\..\godot\scripts\LightField.cs" Link="Consumed\LightField.cs" />
@@ -112,6 +114,8 @@
     <Compile Include="..\..\godot\scripts\DogApparel.cs" Link="Consumed\DogApparel.cs" />
     <!-- 伤病恶化+治疗模型纯逻辑（无 Godot 依赖，只读引用战斗引擎出血/骨折语义）：病状/每昼夜恶化(出血致死/感染链/骨折)/治疗判定/药品目录/战斗态只读映射。 -->
     <Compile Include="..\..\godot\scripts\HealthConditions.cs" Link="Consumed\HealthConditions.cs" />
+    <!-- [SPEC-B14-补3] 感染疗程每昼夜推进纯决策（无 Godot 依赖）：无疗程/无感染/断药/用药/治愈 五步态，供 CampMain 自动用药消费。 -->
+    <Compile Include="..\..\godot\scripts\InfectionCourseLogic.cs" Link="Consumed\InfectionCourseLogic.cs" />
     <!-- 幸存者个人已读书集纯逻辑（无 Godot 依赖）：配方书门槛按制作者本人已读判定。 -->
     <Compile Include="..\..\godot\scripts\ReadBookSet.cs" Link="Consumed\ReadBookSet.cs" />
     <!-- 每角色 authored 专属效果 + 读书进度纯逻辑（无 Godot 依赖）：书虫样板(累计阅读时间跨阈值升级/各级读速/L3 全营加成) + 按(读者,书)累计跨夜进度 + 有效读速合成。 -->

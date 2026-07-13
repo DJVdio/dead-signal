@@ -186,7 +186,7 @@ public sealed class CombatEffectResolver
     {
         string partName = result.HitPart.Name;
         BodyPart part = result.HitPart;
-        int dmg = result.FinalDamage;
+        double dmg = result.FinalDamage;
         double maxHp = body.MaxHpOf(partName); // 命中时的（可能已磨损的）部位上限
         // 效果资格看【实际到达部位的伤害类型】：锐器被降解成钝伤后无任何效果（不流血/切除/震荡/骨折）。
         // 流血/切除仅当伤害仍以锐器抵达；震荡/骨折仅天然钝器。

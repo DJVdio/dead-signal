@@ -145,18 +145,31 @@ public class CombatResolverTests
     }
 
     [Fact]
-    public void FractionalCarry_CeilsToMinimumOne()
+    public void FractionalCarry_KeepsDecimal_NoCeil()
     {
+        // [SPEC-B14-补6 伤害不取整] 用户裁决"伤害也改小数"：末端不再向上取整。
         var weapon = new Weapon { Name = "小刀", DamageMin = 0.6, DamageMax = 0.6, Penetration = 0, DamageType = DamageType.Sharp };
         var layer = new ArmorLayer { Name = "布", Slot = ArmorSlot.Skin, SharpDefense = 1, BluntDefense = 0.5 };
-        // 攻 0.6 vs 防 1.0 → 0.6 >= 0.5 半伤 0.3、转钝；末层 → ceil(0.3)=1
+        // 攻 0.6 vs 防 1.0 → 0.6 >= 0.5 半伤 0.3、转钝；末层 → **保留 0.3**（旧模型 ceil 成 1）
         var rng = new SequenceRandomSource(0.6, 1.0);
         var r = new CombatResolver(rng).Resolve(weapon, new[] { layer }, Chest);
 
         Assert.Equal(0.3, r.RawDamage, 9);
-        Assert.Equal(1, r.FinalDamage);
+        Assert.Equal(0.3, r.FinalDamage, 9); // 小数伤害不再取整
         Assert.Equal(DamageType.Blunt, r.FinalDamageType);
         Assert.True(r.Layers[0].ConvertedToBlunt);
+    }
+
+    [Fact]
+    public void LandedHit_FloorsToMinimum_NotZero()
+    {
+        // 命中即生效的下限 0.01：无甲直击极小伤害不退化成 0（防空砍死锁）。
+        var weapon = new Weapon { Name = "钝针", DamageMin = 0.004, DamageMax = 0.004, Penetration = 0, DamageType = DamageType.Blunt };
+        var rng = new SequenceRandomSource(0.004);
+        var r = new CombatResolver(rng).Resolve(weapon, System.Array.Empty<ArmorLayer>(), Chest);
+
+        Assert.Equal(CombatResolver.MinLandedDamage, r.FinalDamage, 9); // 0.004 → 兜到 0.01
+        Assert.True(r.FinalDamage > 0);
     }
 
     [Fact]

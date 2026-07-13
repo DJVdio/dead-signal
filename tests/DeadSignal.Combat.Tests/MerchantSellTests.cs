@@ -43,28 +43,29 @@ public class MerchantSellTests
     // —— 价率：卖出 = 基准价 60% 向下取整 ——
 
     [Fact]
-    public void SellUnitPrice_Is60PercentOfBase_Floored()
+    public void SellUnitPrice_Is60PercentOfBase_CentGranularity()
     {
-        // first_aid_kit 基准 20 → 20*0.6=12；bandage 基准 5 → 5*0.6=3(3.0)；wood 基准 2 → 1(1.2 截 1)。
-        Assert.Equal(12, MerchantBuyList.SellUnitPrice(Item.Material("first_aid_kit", "急救包", 1)));
-        Assert.Equal(3, MerchantBuyList.SellUnitPrice(Item.Material("bandage", "绷带", 1)));
-        Assert.Equal(1, MerchantBuyList.SellUnitPrice(Item.Material("wood", "木料", 1)));
+        // [SPEC-B14-补6] 分制：收购价以分计、保 2dp——first_aid_kit 基准 20 银(2000 分)→12.00 银(1200 分)；
+        // bandage 5 银→3.00 银(300 分)；wood 2 银→**1.20 银(120 分)**（旧模型整除截成 1）。
+        Assert.Equal(1200, MerchantBuyList.SellUnitPrice(Item.Material("first_aid_kit", "急救包", 1)));
+        Assert.Equal(300, MerchantBuyList.SellUnitPrice(Item.Material("bandage", "绷带", 1)));
+        Assert.Equal(120, MerchantBuyList.SellUnitPrice(Item.Material("wood", "木料", 1)));
         Assert.Equal(0, MerchantBuyList.SellUnitPrice(Item.Weapon("匕首"))); // 不收=0
     }
 
     [Fact]
     public void EveryWhitelistedItem_YieldsAtLeastOneSilver()
     {
-        // 全部白名单材料基准价 ≥2 → 60% 向下取整 ≥1（无"卖了不给钱"的退化行）。
+        // 全部白名单材料基准价 ≥2 银 → 60% = ≥1.20 银 ≥ 1.00 银（100 分），无"卖了不给钱"的退化行。
         foreach (MaterialDef def in Materials.All.Where(m => m.Category != MaterialCategory.Currency))
         {
             Item it = def.ToItem(1);
             if (MerchantBuyList.CanSell(it))
             {
-                Assert.True(MerchantBuyList.SellUnitPrice(it) >= 1, $"{def.Key} 单位收购价应 ≥1");
+                Assert.True(MerchantBuyList.SellUnitPrice(it) >= Silver.CentsPerSilver, $"{def.Key} 单位收购价应 ≥1.00 银");
             }
         }
-        Assert.True(MerchantBuyList.SellUnitPrice(Item.Food(1)) >= 1);
+        Assert.True(MerchantBuyList.SellUnitPrice(Item.Food(1)) >= Silver.CentsPerSilver);
     }
 
     // —— 库存聚合成卖出行 ——
@@ -129,7 +130,7 @@ public class MerchantSellTests
 
         Assert.Equal(SellStatus.Ok, status);
         Assert.Equal(1, store.MaterialCount("first_aid_kit"));                 // 2→1
-        Assert.Equal(12, store.MaterialCount(Materials.CurrencyKey));          // 基准20 ×60% =12 入账
+        Assert.Equal(1200, store.MaterialCount(Materials.CurrencyKey));        // 基准20银 ×60% =12.00银=1200分 入账
     }
 
     [Fact]

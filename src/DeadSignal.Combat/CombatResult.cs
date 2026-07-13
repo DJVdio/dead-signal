@@ -51,8 +51,8 @@ public sealed class CombatResult
     /// <summary>作用到部位前的小数伤害。被挡终止为 0。</summary>
     public double RawDamage { get; init; }
 
-    /// <summary>取整后作用到部位的伤害：穿透所有层时向上取整、最低 1；中途终止为 0。</summary>
-    public int FinalDamage { get; init; }
+    /// <summary>作用到部位的**小数**伤害（[SPEC-B14-补6 伤害不取整]）：穿透所有层时保留小数、命中最低 0.01；中途终止为 0。</summary>
+    public double FinalDamage { get; init; }
 
     /// <summary>是否在某层被挡而终止（未穿透全部护甲）。</summary>
     public bool Terminated { get; init; }

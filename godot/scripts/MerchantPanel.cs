@@ -147,7 +147,7 @@ public sealed partial class MerchantPanel : CanvasLayer
     private void Render()
     {
         string coinName = Materials.Find(Materials.CurrencyKey)?.DisplayName ?? "白银";
-        _currencyLabel.Text = $"持有{coinName}：{_currencyOwned}";
+        _currencyLabel.Text = $"持有{coinName}：{Silver.Format(_currencyOwned)}"; // 分→两位小数（[SPEC-B14-补6]）
 
         // 页签选中态：激活页高亮青、非激活暗。
         UiStyle.StyleButton(_buyTabBtn, _activeTab == Tab.Buy ? new Color(0.3f, 0.5f, 0.6f) : new Color(0.22f, 0.24f, 0.28f));
@@ -179,7 +179,7 @@ public sealed partial class MerchantPanel : CanvasLayer
             HBoxContainer hbox = MakeRow(offer.Good.DisplayName);
 
             var priceLabel = new Label();
-            priceLabel.Text = $"{offer.Price} {coinName}";
+            priceLabel.Text = $"{Silver.Format(offer.Price)} {coinName}"; // 分→两位小数（[SPEC-B14-补6]）
             priceLabel.CustomMinimumSize = new Vector2(110, 32);
             priceLabel.VerticalAlignment = VerticalAlignment.Center;
             priceLabel.AddThemeFontSizeOverride("font_size", 14);
@@ -211,7 +211,7 @@ public sealed partial class MerchantPanel : CanvasLayer
                     buyBtn.Disabled = true;
                     break;
                 case PurchaseStatus.NotEnoughMoney:
-                    buyBtn.Text = $"差{check.Shortfall}"; // 缺口提示
+                    buyBtn.Text = $"差{Silver.Format(check.Shortfall)}"; // 缺口提示（分→两位小数，[SPEC-B14-补6]）
                     buyBtn.Disabled = true;
                     break;
             }
@@ -235,7 +235,7 @@ public sealed partial class MerchantPanel : CanvasLayer
             HBoxContainer hbox = MakeRow(row.DisplayName);
 
             var priceLabel = new Label();
-            priceLabel.Text = $"{row.UnitSellPrice} {coinName}/个";
+            priceLabel.Text = $"{Silver.Format(row.UnitSellPrice)} {coinName}/个"; // 分→两位小数（[SPEC-B14-补6]）
             priceLabel.CustomMinimumSize = new Vector2(110, 32);
             priceLabel.VerticalAlignment = VerticalAlignment.Center;
             priceLabel.AddThemeFontSizeOverride("font_size", 14);

@@ -8,8 +8,10 @@ namespace DeadSignal.Godot;
 //
 // 神秘商人**收购表**（白名单，用户拍板 [DECISION-RESOLVED] 商人卖出侧）：商人只收购**基础物资**——
 // 食物 + 材料（含医疗品，医疗品即 MaterialCategory.Medical）；武器/护甲/书/光源/货币一律不收。
-// 每项**基准价**入表（拟定待调，跟 Materials 目录同为代码驱动数据表先例）；实际收购价（玩家所得）
-// = 基准价 × <see cref="MerchantTrade.SellRatePercent"/>%（走 <see cref="MerchantTrade.SellPrice"/> 助手，60% 向下取整）。
+// 每项**基准价**以**整银**字面量入表（可读；拟定待调，跟 Materials 目录同为代码驱动数据表先例），
+// 经 <see cref="Silver.FromWhole"/> 在 <see cref="BasePriceOf"/> 边界转**分**；实际收购价（玩家所得，分）
+// = 基准价 × <see cref="MerchantTrade.SellRatePercent"/>%（走 <see cref="MerchantTrade.SellPrice"/> 助手，
+// 60% 分级取整——[SPEC-B14-补6] 后不再截成整银，如木料基准 2 银→收购 1.20 银=120 分）。
 
 /// <summary>卖出面板的一条可收购行（按物品/材料键聚合）：类别、材料键（食物为 null）、显示名、库存持有量、单位收购价。</summary>
 public readonly record struct SellRow(ItemCategory Category, string? MaterialKey, string DisplayName, int OwnedCount, int UnitSellPrice)
@@ -26,11 +28,11 @@ public readonly record struct SellRow(ItemCategory Category, string? MaterialKey
 /// </summary>
 public static class MerchantBuyList
 {
-    /// <summary>食物每份基准价（拟定待调）。</summary>
+    /// <summary>食物每份基准价（**整银**，拟定待调；经 <see cref="BasePriceOf"/> 转分）。</summary>
     public const int FoodBasePricePerUnit = 6;
 
-    // 材料基准价表（key→基准价，拟定待调）。不在表中的材料商人不收（货币 silver 亦不入表 → 不可卖）。
-    // 均设 ≥2 以保证 ×60% 向下取整后单位收购价 ≥1（不出现卖了不给钱的退化行）。
+    // 材料基准价表（key→基准价**整银**，拟定待调）。不在表中的材料商人不收（货币 silver 亦不入表 → 不可卖）。
+    // [SPEC-B14-补6] 分制后收购价保 2dp（基准 1 银即得 0.60 银=60 分），不再有整除截零退化。
     private static readonly IReadOnlyDictionary<string, int> _materialBasePrice = new Dictionary<string, int>
     {
         // —— 基础材料 ——
@@ -62,7 +64,7 @@ public static class MerchantBuyList
     /// <summary>某物品是否在收购白名单：食物恒可；材料须在收购表内；其余类别（武器/护甲/书/光源/货币）不收。</summary>
     public static bool CanSell(Item item) => BasePriceOf(item) > 0;
 
-    /// <summary>某物品的**单位基准价**（食物=每份；材料=表内价；不可收购=0）。</summary>
+    /// <summary>某物品的**单位基准价**（**分**；食物=每份；材料=表内价；不可收购=0）。整银表值经 <see cref="Silver.FromWhole"/> 转分。</summary>
     public static int BasePriceOf(Item item)
     {
         if (item == null)
@@ -71,17 +73,17 @@ public static class MerchantBuyList
         }
         if (item.Category == ItemCategory.Food)
         {
-            return FoodBasePricePerUnit;
+            return Silver.FromWhole(FoodBasePricePerUnit);
         }
         if (item.Category == ItemCategory.Material && item.RefKey != null
             && _materialBasePrice.TryGetValue(item.RefKey, out int price))
         {
-            return price;
+            return Silver.FromWhole(price);
         }
         return 0;
     }
 
-    /// <summary>某物品的**单位收购价**（玩家所得）= 基准价 × 60% 向下取整（走 <see cref="MerchantTrade.SellPrice"/>）。不可收购=0。</summary>
+    /// <summary>某物品的**单位收购价**（玩家所得，**分**）= 基准价 × 60% 分级取整（走 <see cref="MerchantTrade.SellPrice"/>）。不可收购=0。</summary>
     public static int SellUnitPrice(Item item) => MerchantTrade.SellPrice(BasePriceOf(item));
 
     /// <summary>

@@ -10,7 +10,7 @@ namespace DeadSignal.Godot;
 // 判定/结算（钱够不够、售罄、实扣实产）在 MerchantTrade.cs；本文件只管货架结构与库存增减。
 
 /// <summary>
-/// 货架上的一条售卖条目：一件商品（<see cref="Good"/>）、单价（<see cref="Price"/>，以货币量计）、
+/// 货架上的一条售卖条目：一件商品（<see cref="Good"/>）、单价（<see cref="Price"/>，**分**计，见 <see cref="Silver"/>）、
 /// 剩余库存（<see cref="Stock"/>，卖一件减一，减到 0 即 <see cref="SoldOut"/> 下架）。库存可变（跨来访保留，默认不补货）。
 /// </summary>
 public sealed class MerchantOffer
@@ -18,7 +18,7 @@ public sealed class MerchantOffer
     /// <summary>商品物品（书/材料/武器…）。购买成功时向库存追加它的一份拷贝（record 值语义）。</summary>
     public Item Good { get; }
 
-    /// <summary>单价（货币量，draft 待调）。</summary>
+    /// <summary>单价（**分**，draft 待调；1 白银=100 分，见 <see cref="Silver"/>）。</summary>
     public int Price { get; }
 
     /// <summary>剩余库存（≥0）。购买成功 <see cref="TakeOne"/> 减一。</summary>
@@ -44,7 +44,7 @@ public sealed class MerchantOffer
 /// </summary>
 public sealed class MerchantShelf
 {
-    /// <summary>《木匠入门》售价（draft 待调）——它已从探索点撤下，神秘商人是唯一来源。</summary>
+    /// <summary>《木匠入门》售价（**整银**，draft 待调；建货架时经 <see cref="Silver.FromWhole"/> 转分）——它已从探索点撤下，神秘商人是唯一来源。</summary>
     public const int CarpentryBasicsPrice = 30;
 
     private readonly List<MerchantOffer> _offers = new();
@@ -66,7 +66,7 @@ public sealed class MerchantShelf
     {
         BookData book = BookLibrary.CarpentryBasics();
         var shelf = new MerchantShelf();
-        shelf.Add(new MerchantOffer(book.ToItem(), CarpentryBasicsPrice, stock: 1));
+        shelf.Add(new MerchantOffer(book.ToItem(), Silver.FromWhole(CarpentryBasicsPrice), stock: 1));
         return shelf;
     }
 }

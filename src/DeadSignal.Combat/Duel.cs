@@ -58,7 +58,7 @@ public sealed record DuelEvent(
     string Weapon,
     string Part,
     string PenetrationDesc,
-    int Damage,
+    double Damage,
     DamageType ArrivedType,
     double PartMaxHp,
     IReadOnlyList<string> Tags);

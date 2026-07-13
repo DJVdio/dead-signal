@@ -68,7 +68,7 @@ public static class CombatMoteText
 
         string typeTag = hit.FinalType == DamageType.Blunt ? "钝" : "锐";
         MoteColor color = hit.FinalType == DamageType.Blunt ? BluntColor : SharpColor;
-        string text = $"-{hit.Damage} {hit.PartName}({typeTag}){EffectSuffix(hit)}";
+        string text = $"-{hit.Damage:0.#} {hit.PartName}({typeTag}){EffectSuffix(hit)}"; // 小数伤害显示一位小数（去尾零，[SPEC-B14-补6]）
         return new MoteText(text, color);
     }
 

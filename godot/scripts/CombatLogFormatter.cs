@@ -40,8 +40,8 @@ public static class CombatLogFormatter
 
         var sb = new StringBuilder();
         sb.Append(hasAttacker
-            ? $"{subject}，{verb} {hit.Damage}"
-            : $"{subject}被{verb} {hit.Damage}");
+            ? $"{subject}，{verb} {hit.Damage:0.#}"
+            : $"{subject}被{verb} {hit.Damage:0.#}"); // 小数伤害显示一位小数（去尾零，[SPEC-B14-补6]）
 
         // 效果依序追加为分句（断肢→骨折→脑震荡→流血），与飘字后缀同序。
         if (hit.Severed) sb.Append("，断肢！");

@@ -46,8 +46,10 @@ public enum SellStatus
 public static class MerchantTrade
 {
     // —— 价率（拟定待调；用户拍板原话：「玩家卖东西给商人是60%的价格，买东西是100%的价格。」）——
-    // MerchantOffer.Price 承载**基准价**；买入按 BuyRatePercent 折算（现=100%，即等于基准价），
-    // 卖出按 SellRatePercent 折算（60%）。整除向下取整（缺零头归商人，符合"商人压价"直觉）。
+    // 基准价一律以**分**计（[SPEC-B14-补6]：白银 2dp，1 银=100 分，见 <see cref="Silver"/>）。
+    // 买入按 BuyRatePercent（100%=等于基准价），卖出按 SellRatePercent（60%）折算；
+    // 折算在**分**上做（如基准 3.00 银=300 分，卖出 300×60/100=180 分=1.80 银，不再被截成整银 1）。
+    // 末端 /100 只在**分**这一最小刻度上取整（0.01 银缺口归商人=合规消费点），不再吞掉小数银。
 
     /// <summary>玩家从商人**买入**的价率（基准价的百分比；用户拍板 100%）。</summary>
     public const int BuyRatePercent = 100;
@@ -55,11 +57,11 @@ public static class MerchantTrade
     /// <summary>玩家**卖给**商人的价率（基准价的百分比；用户拍板 60%）。</summary>
     public const int SellRatePercent = 60;
 
-    /// <summary>某基准价的**买入价** = 基准价 × <see cref="BuyRatePercent"/>%（向下取整，≥0）。</summary>
-    public static int BuyPrice(int basePrice) => Math.Max(0, basePrice) * BuyRatePercent / 100;
+    /// <summary>某基准价（**分**）的**买入价**（分）= 基准价 × <see cref="BuyRatePercent"/>%（≥0）。</summary>
+    public static int BuyPrice(int baseCents) => Math.Max(0, baseCents) * BuyRatePercent / 100;
 
-    /// <summary>某基准价的**卖出价**（玩家所得）= 基准价 × <see cref="SellRatePercent"/>%（向下取整，≥0）。</summary>
-    public static int SellPrice(int basePrice) => Math.Max(0, basePrice) * SellRatePercent / 100;
+    /// <summary>某基准价（**分**）的**卖出价**（玩家所得，分）= 基准价 × <see cref="SellRatePercent"/>%（分级取整，≥0）。</summary>
+    public static int SellPrice(int baseCents) => Math.Max(0, baseCents) * SellRatePercent / 100;
 
     /// <summary>
     /// 判定能否买下 <paramref name="offer"/>（不改状态）：先看售罄，再看持币 <paramref name="currencyOwned"/> 是否≥单价。
