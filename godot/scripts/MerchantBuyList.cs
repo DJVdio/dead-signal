@@ -37,8 +37,8 @@ public static class MerchantBuyList
     {
         // —— 基础材料 ——
         ["wood"] = 2,
-        ["scrap_cloth"] = 2,
-        ["cloth"] = 5,
+        // 布：破布(2) 与布料(5) 合并后取 3——不取均值 3.5，因合并后布是全表最易得的纺织物（供给≈两者之和），压向低价一侧。
+        ["cloth"] = 3,
         ["scrap_metal"] = 3,
         ["metal_ingot"] = 8,
         ["nails"] = 2,
