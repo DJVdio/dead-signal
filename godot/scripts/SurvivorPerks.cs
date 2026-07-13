@@ -39,6 +39,16 @@ public sealed class SurvivorPerks
     /// 持有 L3 书虫 → 0.25，否则 0。丧尸/非诺蒂 → 0。
     /// </summary>
     public double CampWideReadingSpeedBonus => Bookworm?.CampWideReadingSpeedBonus ?? 0.0;
+
+    /// <summary>
+    /// 本 pawn 是否为山姆（"英雄风范"三级专属效果的**身份标记**）。效果规则/等级皆走静态 <see cref="SamPerk"/>——
+    /// 他的等级**不存在实例状态**，由**实时营地人数**当场派生（见 <see cref="SamPerk.EvaluateLevel"/>），
+    /// 故本处只标"这人是不是山姆"（供上层判"该给谁减伤/负重"、判"营地里山姆还活着吗"）。其余角色恒 false。
+    /// </summary>
+    public bool IsSam { get; private set; }
+
+    /// <summary>把本 pawn 标记为山姆（赋予"英雄风范"专属效果身份）。建角时对山姆调用一次（<c>Pawn.Create</c> 按名授予）。</summary>
+    public void GrantSam() => IsSam = true;
 }
 
 /// <summary>
@@ -188,6 +198,149 @@ public static class NightingalePerk
         if (l3LegacyActive) reduction += Level3InfectionReduction;
         return 1.0 - reduction;
     }
+}
+
+/// <summary>
+/// **山姆·"英雄风范"**（纯逻辑·authored perk，用户口径原话拍板，数值**非拟定**）。
+///
+/// 三级效果（累进：升级不丢下级效果，同诺蒂 L3 保留 L2 自身加成、南丁格尔 L3 与 L2 叠加）：
+///   · 1级：他从小身强体壮、性格坚韧，比常人耐揍 —— **他收到的伤害 −10%**（只他自己）。
+///   · 2级：从小吃苦耐劳帮祖母打理农庄 —— **他的负重 +15%**（只他自己）。
+///   · 3级：他散发英雄风范、影响周边的人 —— 只要**山姆还活着**，营地**所有人**（含他自己）
+///     **负重 +3%、干活效率 +3%、身体恢复速度 +3%、感染条上升速度 −3%**。
+///
+/// **⚠ 与既有 perk 的关键差异：本 perk 的等级「可倒退」。**
+/// 诺蒂靠累计阅读时长、道格靠共同存活天数 —— 二者的升级轴都是**单调累计量**，只增不减；
+/// 南丁格尔靠累计手术台数，同样单调（她死后计数天然冻结）。
+/// 山姆的升级轴是**营地当前人数**（3 人 → L2、6 人 → L3）——这是个**会跌的实时量**：死了人，
+/// 光环就退回去（用户原话："如果营地人数减少，山姆的技能会倒退"）。
+///
+/// **倒退是怎么"免费"得到的**：本类**无实例状态**（与 <see cref="NightingalePerk"/> 同为静态类），
+/// 等级不是"存下来再推进"的字段，而是每次查询时由当前人数**当场派生**（<see cref="EvaluateLevel"/> 是纯函数）。
+/// 没有需要"回滚"的存量，也就没有倒退逻辑——人数一变，下一次查询自然给出新等级，
+/// "人死的那一刻光环就退"由调用方在人数变动后重新查询即可满足。单调 perk（<see cref="BookwormPerk"/> 的
+/// 累计字段）与可倒退 perk（本类的纯派生）就这样共存于同一框架：**框架只要求"按条件结算 authored 效果"，
+/// 从不要求条件必须单调**。
+///
+/// **营地人数口径**：**活着的、在营地的人类**——**狗（布鲁斯）不算人**（主 agent 裁决；本类 API 只收一个
+/// 人数 int，无从得知狗的存在，口径由调用方保证）。山姆本人计入这个人数（"营地 3 人时到达二级"含他）。
+/// **山姆死 → 等级归 0**（<see cref="EvaluateLevel"/> 的 <c>samAlive</c>），一切效果含全营光环即刻消失。
+///
+/// <para><b>⚠ [通则·用户拍板] 所有百分比加成一律「乘算」，作用于当前实际值，绝不加算。</b>
+/// 即 <c>最终值 = 当前实际值 × 1.03</c>，而非 <c>当前实际值 + 基准值 × 0.03</c>。
+/// <b>理由（用户原话）</b>：加算会导致"**没手的人也有 3% 操作能力**"的怪事——手全没了的人操作能力应该是 0，
+/// 加算会让他凭空有 3%。乘算下 <c>0 × 1.03 = 0</c>，**残疾就是残疾**，加成不会把残缺的代价凭空补偿掉。
+/// 本类六项加成全部照此：伤害 ×0.90、负重 ×1.15 / ×1.03、操作能力 ×1.03、恢复 ×1.03、感染恶化 ×0.97；
+/// **多项并存时连乘**（山姆自己的负重 = 1.15 × 1.03 = ×1.1845，不是加算的 ×1.18）。</para>
+/// </summary>
+public static class SamPerk
+{
+    /// <summary>山姆的姓名（<c>Pawn.Create</c> 按此名授予 <see cref="SurvivorPerks.GrantSam"/>，同诺蒂/南丁格尔按名授予先例）。</summary>
+    public const string SamName = "山姆";
+
+    // —— 升级阈值（用户原话："营地 3 人时到达二级，6 人时到达三级"，非拟定）——
+    /// <summary>升到 L2 所需的营地人数（活着的在营人类，含山姆）。</summary>
+    public const int Level2CampPopulation = 3;
+    /// <summary>升到 L3 所需的营地人数（活着的在营人类，含山姆）。</summary>
+    public const int Level3CampPopulation = 6;
+
+    // —— 三级效果数值（用户原话，**非拟定，勿标待调**）——
+    /// <summary>1级：他收到的伤害 −10%（乘算减伤，作用在**护甲结算之后**，见 <c>CombatResolver.Resolve</c> 的 incomingDamageReduction）。</summary>
+    public const double Level1DamageReduction = 0.10;
+    /// <summary>2级：他的负重 +15%（作用于负重上限，见 <c>Loadout.CapacityFromStrength</c> 的 capacityMultiplier）。</summary>
+    public const double Level2CarryBonus = 0.15;
+    /// <summary>3级光环：全营负重 +3%。</summary>
+    public const double AuraCarryBonus = 0.03;
+    /// <summary>3级光环：全营干活效率 +3%（＝耗时缩短——制作 / 建造 / 搜刮等一切花时间的行为，见 <c>CraftingJob</c>/<c>RubbleSite</c>）。</summary>
+    public const double AuraWorkSpeedBonus = 0.03;
+    /// <summary>3级光环：全营身体恢复速度 +3%（术后流血/骨折的逐日愈合，见 <c>HealthConditionSet.TickDay</c> 的 healSpeedMultiplier）。</summary>
+    public const double AuraHealSpeedBonus = 0.03;
+    /// <summary>3级光环：全营感染条上升速度 −3%（感染恶化速率，见 <c>HealthConditionSet.AdvanceInfectionRace</c> 的 campWorsenMultiplier）。</summary>
+    public const double AuraInfectionWorsenReduction = 0.03;
+
+    /// <summary>
+    /// **可倒退的等级派生**（纯函数，无记忆）：由**当前**营地人数与山姆存活状态当场算出等级。
+    /// 山姆死/不在营 → <b>0</b>（无等级、无任何效果，含全营光环）；否则 ≥<see cref="Level3CampPopulation"/>→3、
+    /// ≥<see cref="Level2CampPopulation"/>→2、其余→1（他在营即至少 L1）。
+    /// 人数跌回阈值以下时本函数直接返回更低的级——**这就是"倒退"的全部实现**，无需回滚任何存量。
+    /// </summary>
+    /// <param name="campPopulation">当前营地**活着的、在营的人类**数（含山姆本人；狗不计入，由调用方保证口径）。</param>
+    /// <param name="samAlive">山姆当前是否还活着且在营（光环的硬前提，用户原话"只要山姆还活着"）。</param>
+    public static int EvaluateLevel(int campPopulation, bool samAlive)
+    {
+        if (!samAlive) return 0;
+        if (campPopulation >= Level3CampPopulation) return 3;
+        if (campPopulation >= Level2CampPopulation) return 2;
+        return 1;
+    }
+
+    /// <summary>
+    /// 某角色**受到伤害**的减免比例（0=无减免）：仅山姆本人、且他有等级（≥L1，即活着）→ <see cref="Level1DamageReduction"/>。
+    /// 1级效果**在 2/3 级依然保留**（等级累进）。喂给 <c>CombatResolver.Resolve(…, incomingDamageReduction:)</c>，
+    /// 在**护甲结算之后**乘算（护甲先吃，剩下的伤害再 ×0.9）。其余角色恒 0 → 引擎行为与既有完全一致。
+    /// </summary>
+    public static double IncomingDamageReduction(int samLevel, bool isSam)
+        => isSam && samLevel >= 1 ? Level1DamageReduction : 0.0;
+
+    /// <summary>
+    /// 某角色的**负重上限乘子**（1.0=无加成）：多项加成**连乘**（[通则] 百分比加成一律乘算，见类注释）——
+    ///   · 山姆自己、L2 起：×(1+<see cref="Level2CarryBonus"/>)＝×1.15（他自己的体格）；
+    ///   · 全营（含山姆）、L3 起：×(1+<see cref="AuraCarryBonus"/>)＝×1.03（他给全营的光环）。
+    /// 故**山姆在 L3 两者连乘** = 1.15 × 1.03 = **×1.1845**（~~旧加算口径 ×1.18 已作废~~）；其他人 L3 = ×1.03。
+    /// 喂给 <c>Loadout.CapacityFromStrength(strength, capacityMultiplier:)</c>，在那里再乘上他的基础负重能力
+    /// —— 所以负重能力本身为 0 的人（若日后有此状态）加成后仍是 0。
+    /// </summary>
+    public static double CarryCapacityMultiplier(int samLevel, bool isSam)
+    {
+        double mult = 1.0;
+        if (isSam && samLevel >= 2) mult *= 1.0 + Level2CarryBonus;
+        if (samLevel >= 3) mult *= 1.0 + AuraCarryBonus; // 光环及于全营，含山姆本人
+        return mult;
+    }
+
+    /// <summary>
+    /// 全营**干活效率（操作能力）乘子**（1.0=无光环）：L3 → ×(1+<see cref="AuraWorkSpeedBonus"/>)＝×1.03。
+    /// "干活"＝**一切需要花时间的行为**（用户澄清：制作 + 搜刮 + 建造全算）。
+    /// 这是个**纯乘子**，必须乘到**当前实际的操作能力**上（见 <see cref="OperationCapabilityWithAura"/>），
+    /// 而不是加到基准值上。山姆一死 → 等级 0 → 乘子回 1.0。
+    /// </summary>
+    public static double CampWorkSpeedMultiplier(int samLevel)
+        => samLevel >= 3 ? 1.0 + AuraWorkSpeedBonus : 1.0;
+
+    /// <summary>
+    /// **[通则·乘算] 把 3 级光环施加到某人当前的操作能力上**：<c>当前实际操作能力 × 1.03</c>。
+    ///
+    /// <para><b>为什么必须是乘算（用户原话）</b>：加算会导致"**没手的人也有 3% 操作能力**"的怪事——
+    /// 一个手全没了的人操作能力应该是 <b>0</b>，加算 <c>0 + 3%</c> 会让他凭空能干活，荒谬。
+    /// 乘算下 <c>0 × 1.03 = 0</c>，**残疾就是残疾**，百分比加成不会凭空补偿残缺的代价。</para>
+    ///
+    /// <para>这条尤其咬合山姆自己：他**左手缺小拇指与无名指**（authored 设定），基础操作能力已被
+    /// <c>Body.DisabilityModifiers.OperationPenalty</c>（−7%/指）打到 0.86。他给全营的 3% 光环，
+    /// 对他自己也只能在**这个折损后的基数**上乘（0.86 × 1.03 = 0.8858，而非加算的 0.89）——
+    /// **英雄有代价，代价不该被自己的光环抹掉**。</para>
+    /// </summary>
+    /// <param name="baseOperationCapability">该角色**当前实际**操作能力 0..1（残疾 × 饥饿 × 骨折已折算完，见 <c>Pawn.OperationCapability</c>）。</param>
+    /// <param name="samLevel">山姆当前等级（<see cref="EvaluateLevel"/>；未到 L3 或山姆已死 → 原值返回）。</param>
+    public static double OperationCapabilityWithAura(double baseOperationCapability, int samLevel)
+        => baseOperationCapability * CampWorkSpeedMultiplier(samLevel);
+
+    /// <summary>
+    /// 全营**身体恢复速度乘子**（1.0=无光环）：L3 → ×(1+<see cref="AuraHealSpeedBonus"/>)。
+    /// 作用于术后流血/骨折的逐日愈合量，喂给 <c>HealthConditionSet.TickDay(…, healSpeedMultiplier:)</c>。
+    /// 与"睡床 / 玫瑰果茶"那条**加算百分点**的轴（extraHealBonusPct）是**正交两轴**：那条改恢复效率的点数，
+    /// 本条是最终愈合量的乘子（用户口径是"恢复速度 +3%"＝速度的百分比，不是效率点数 +3 点）。
+    /// </summary>
+    public static double CampHealSpeedMultiplier(int samLevel)
+        => samLevel >= 3 ? 1.0 + AuraHealSpeedBonus : 1.0;
+
+    /// <summary>
+    /// 全营**感染条上升速度乘子**（1.0=无光环）：L3 → ×(1−<see cref="AuraInfectionWorsenReduction"/>)＝×0.97。
+    /// 喂给 <c>HealthConditionSet.AdvanceInfectionRace(…, campWorsenMultiplier:)</c>，与用药的
+    /// <c>Medicine.WorsenMultiplier</c> 是**两个独立乘子**（药压得多、光环再压一点，互不吞没）。
+    /// 与南丁格尔的 <c>CampInfectionMultiplier</c> 亦正交：那个压"会不会感染"(几率)，本条压"感染条涨多快"(速率)。
+    /// </summary>
+    public static double CampInfectionWorsenMultiplier(int samLevel)
+        => samLevel >= 3 ? 1.0 - AuraInfectionWorsenReduction : 1.0;
 }
 
 /// <summary>

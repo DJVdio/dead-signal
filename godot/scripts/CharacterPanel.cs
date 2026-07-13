@@ -47,7 +47,7 @@ public sealed partial class CharacterPanel : PanelContainer
     private Action<Hand>? _onUnequipWeapon;
 
     /// <summary>卸某件穿戴品回调（按名）；null = 不显示「卸下」入口。</summary>
-    private Action<string>? _onUnequipApparel;
+    private Action<EquipSlot>? _onUnequipApparel;
 
     /// <summary>true 时在 _Ready 用一份手工快照自测布局；发布保持默认 false。</summary>
     [Export]
@@ -98,7 +98,7 @@ public sealed partial class CharacterPanel : PanelContainer
     /// </summary>
     public void ShowFor(
         PawnInspection insp, EquipmentSnapshot? equipment, ProstheticEquipHandler? onEquip,
-        Action<Hand>? onUnequipWeapon = null, Action<string>? onUnequipApparel = null)
+        Action<Hand>? onUnequipWeapon = null, Action<EquipSlot>? onUnequipApparel = null)
     {
         _equipment = equipment;
         _onEquip = onEquip;
@@ -332,9 +332,10 @@ public sealed partial class CharacterPanel : PanelContainer
         }
         row.AddChild(val);
 
-        if (slot.ItemName is { } item && !slot.IsDisabled && _onUnequipApparel is { } unequip)
+        if (slot.ItemName is not null && !slot.IsDisabled && _onUnequipApparel is { } unequip)
         {
-            row.AddChild(UnequipButton(() => unequip(item)));
+            // 按**槽**卸（不是按名）：成对品（手套/鞋）同名两只各占一槽，只脱这一只（[SPEC-B18-补]）。
+            row.AddChild(UnequipButton(() => unequip(slot.Slot)));
         }
 
         return row;
@@ -357,21 +358,7 @@ public sealed partial class CharacterPanel : PanelContainer
         _ => "单手",
     };
 
-    private static string SlotLabel(EquipSlot slot) => slot switch
-    {
-        EquipSlot.Head => "头部",
-        EquipSlot.Eyes => "眼镜",
-        EquipSlot.Face => "面部",
-        EquipSlot.SkinLayer => "贴身层",
-        EquipSlot.OuterLayer => "外套层",
-        EquipSlot.PlateLayer => "装甲层",
-        EquipSlot.LeftHand => "左手",
-        EquipSlot.RightHand => "右手",
-        EquipSlot.Pants => "裤子",
-        EquipSlot.LeftFoot => "左脚",
-        EquipSlot.RightFoot => "右脚",
-        _ => slot.ToString(),
-    };
+    private static string SlotLabel(EquipSlot slot) => DisplayNames.Of(slot);
 
     // ———————————————————————————— 义肢 ————————————————————————————
 
@@ -724,13 +711,7 @@ public sealed partial class CharacterPanel : PanelContainer
             : new Color(0.85f, Mathf.Lerp(0.25f, 0.78f, ratio * 2f), 0.22f);
     }
 
-    private static string SlotLabel(ArmorSlot slot) => slot switch
-    {
-        ArmorSlot.Plate => "装甲层",
-        ArmorSlot.Outer => "外套层",
-        ArmorSlot.Skin => "贴身层",
-        _ => slot.ToString(),
-    };
+    private static string SlotLabel(ArmorSlot slot) => DisplayNames.Of(slot);
 
     private static Label SectionTitle(string text)
     {

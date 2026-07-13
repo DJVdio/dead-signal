@@ -76,6 +76,12 @@ public readonly record struct NarrativeSpotResult(string StoryFlag, string Title
 /// </summary>
 public static class NarrativeSpotRegistry
 {
+    /// <summary>本营的路由键（营地也能有调查点——祖母的尸体就在住宅门外）。</summary>
+    public const string CampDestination = "幸存者营地";
+
+    /// <summary>祖母的尸体（营地内唯一叙事点，authored 背景：山姆被迫杀死了尸变的祖母）。</summary>
+    public const string GrandmotherCorpseId = "narrative_camp_grandmother";
+
     private static readonly List<NarrativeSpot> Spots = BuildSpots();
 
     /// <summary>全部叙事调查点（各图汇总）。</summary>
@@ -490,6 +496,37 @@ public static class NarrativeSpotRegistry
 
                 "留言板最下角别着一张没写收件人的便签，字迹和别的都不一样，工整、用力："
                 + "「能治的我都治了。治不了的，我陪着。——护士台，值班」。",
+            },
+        },
+
+        // ===== 幸存者营地（本营，CampDestination）：1 处 —— 祖母的尸体（山姆 authored 背景，剧情严肃向） =====
+        // 唯一一处铺在营地内的叙事点：她躺在住宅门外，从开局第一分钟起就在那儿。
+        // 关卡层不铺 Area2D——由 camp.json 的 role=corpse 道具点击调查触发（CampMain.ExecuteContainerInteract）。
+        new NarrativeSpot
+        {
+            Id = GrandmotherCorpseId,
+            Destination = CampDestination,
+            X = 635f, Y = 837f,            // 住宅南门外空地（门口 x∈[580,690]，屋墙 y=790）
+            Trigger = NarrativeTrigger.Click,
+            Label = "尸体",
+            Title = "她还穿着那件花衬衫",
+            Pages = new[]
+            {
+                "她脸朝下趴在住宅门外的空地上，一条胳膊压在身下，像是走到这儿才被绊倒的。" +
+                "身上是那件花衬衫——大朵大朵的红花，配一条洗得发白的长裤。" +
+                "这是院子里最鲜艳的一件东西：她穿着它下地、喂鸡、隔着半个院子喊你们回来洗手吃饭。",
+
+                "山姆走到离她三步远的地方停下，没有再往前。他左手垂在身侧，小指和无名指的位置空着——" +
+                "自九岁那年起就空着。当年是她给缠的纱布，一圈一圈，缠得太紧，他疼得一声没吭。" +
+                "门被撞开的那个下午，屋里只有他和她。他做了必须做的事，然后把她拖到了门外——" +
+                "屋里是她的屋子。",
+
+                "诺蒂没有过来，只远远站着。当年扑向他的那条疯狗，是山姆挡下的；" +
+                "这一回轮到山姆动手，他连挡都没得挡。" +
+                "大门口那块木牌是那天翻过来的：「英雄庄园」四个字冲下扣进土里，" +
+                "背面用炭笔写了新的名字——幸存者营地。",
+
+                "铁锹一直靠在墙边。没有人提过要埋她，也没有人挪开过那把铁锹。",
             },
         },
     };

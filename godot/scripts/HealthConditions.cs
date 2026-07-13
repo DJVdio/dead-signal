@@ -571,7 +571,15 @@ public sealed class HealthConditionSet
     /// <param name="dtDays">本时间片天数（相位级传 1/相位数；整日传 1.0）。</param>
     /// <param name="medicated">本时间片是否在用药（疗程指派且有药）。</param>
     /// <param name="medicine">所用药（<paramref name="medicated"/> 为真时必给感染药，取其 Efficacy/WorsenMultiplier）。</param>
-    public InfectionRaceResult AdvanceInfectionRace(double dtDays, bool medicated, Medicine? medicine)
+    /// <param name="campWorsenMultiplier">
+    /// 全营**感染条上升速度**乘子（<b>默认 1.0＝无影响</b>，既有调用零回归）：承载 authored 专属效果对恶化**速率**的加成——
+    /// 现阶段唯一来源是**山姆 L3 光环 −3%**（×0.97，见 <c>SamPerk.CampInfectionWorsenMultiplier</c>）。
+    /// 与用药的 <see cref="Medicine.WorsenMultiplier"/> 是**两个独立乘子**（相乘，互不吞没：药压得多、光环再压一点）。
+    /// 与南丁格尔的 <c>NightingalePerk.CampInfectionMultiplier</c>（喂 <see cref="TickDay"/>）**正交**：
+    /// 那个压"会不会感染"(新生几率)，本条压"已感染的条涨多快"(恶化速率)。只缩放恶化，不动治疗进度。
+    /// </param>
+    public InfectionRaceResult AdvanceInfectionRace(double dtDays, bool medicated, Medicine? medicine,
+        double campWorsenMultiplier = 1.0)
     {
         HealthCondition? inf = _conditions.FirstOrDefault(c => c.Type == HealthConditionType.Infection);
         if (inf is null || dtDays <= 0.0)
@@ -580,7 +588,7 @@ public sealed class HealthConditionSet
         }
 
         bool useMed = medicated && medicine is { } m0 && m0.Treats == HealthConditionType.Infection;
-        double worsenMult = useMed ? medicine!.Value.WorsenMultiplier : 1.0;
+        double worsenMult = (useMed ? medicine!.Value.WorsenMultiplier : 1.0) * Math.Max(0.0, campWorsenMultiplier);
         inf.AddSeverity(InfectionWorsenPerDay * dtDays * worsenMult);
         if (useMed)
         {
@@ -801,7 +809,14 @@ public sealed class HealthConditionSet
     /// [SPEC-B14-补2] 额外恢复效率加成（**百分点**，加算，默认 0）：与睡床加算 <see cref="BedSleepHealBonusPct"/> **同族叠加**，只作用术后流血/骨折的逐日愈合速度。
     /// 玫瑰果茶 buff 生效时由调用方传 <c>+9</c>（Pawn 上 24 游戏小时计时）；不改感染/疾病恶化。
     /// </param>
-    public HealthTickResult TickDay(IRandomSource rng, bool resting, bool restedInBed = false, double infectionChanceMultiplier = 1.0, double extraHealBonusPct = 0.0)
+    /// <param name="healSpeedMultiplier">
+    /// 全营**身体恢复速度**乘子（<b>默认 1.0＝无影响</b>，既有调用零回归）：承载 authored 专属效果对愈合**速度**的百分比加成——
+    /// 现阶段唯一来源是**山姆 L3 光环 +3%**（×1.03，见 <c>SamPerk.CampHealSpeedMultiplier</c>）。
+    /// 只作用术后流血/骨折的逐日愈合量，不改恶化/感染几率。
+    /// 与 <paramref name="restedInBed"/>/<paramref name="extraHealBonusPct"/> 那条**加算百分点**的轴（改的是恢复效率点数）
+    /// 是**正交两轴**：本条是最终愈合量的**乘子**（用户口径"恢复速度 +3%"＝速度的百分比，非效率 +3 点）。
+    /// </param>
+    public HealthTickResult TickDay(IRandomSource rng, bool resting, bool restedInBed = false, double infectionChanceMultiplier = 1.0, double extraHealBonusPct = 0.0, double healSpeedMultiplier = 1.0)
     {
         if (IsDead)
         {
@@ -827,8 +842,9 @@ public sealed class HealthConditionSet
                     if (c.IsOperated)
                     {
                         // 已手术：按恢复效率愈合（睡床 +BedSleepHealBonusPct 与玫瑰果茶 +extraHealBonusPct 同族加算，非乘算）。
+                        // healSpeedMultiplier（山姆 L3 光环 ×1.03）是**另一轴**：最终愈合量的乘子，与上面的加算点数正交。
                         double effPct = c.RecoveryEfficiency + (restedInBed ? BedSleepHealBonusPct : 0.0) + Math.Max(0.0, extraHealBonusPct);
-                        double heal = BleedHealPerDay * (effPct / 100.0) * (resting ? RestHealBonus : 1.0);
+                        double heal = BleedHealPerDay * (effPct / 100.0) * (resting ? RestHealBonus : 1.0) * Math.Max(0.0, healSpeedMultiplier);
                         c.AddSeverity(-heal);
                     }
                     else if (c.SelfHealing && c.DaysElapsed >= InfectionWindowDays)
@@ -873,9 +889,9 @@ public sealed class HealthConditionSet
                 case HealthConditionType.Fracture:
                     if (c.IsOperated)
                     {
-                        // 睡床 +BedSleepHealBonusPct 与玫瑰果茶 +extraHealBonusPct 同族加算（非乘算）。
+                        // 睡床 +BedSleepHealBonusPct 与玫瑰果茶 +extraHealBonusPct 同族加算（非乘算）；山姆 L3 光环走 healSpeedMultiplier 乘子轴。
                         double effPct = c.RecoveryEfficiency + (restedInBed ? BedSleepHealBonusPct : 0.0) + Math.Max(0.0, extraHealBonusPct);
-                        double heal = FractureHealPerDay * (effPct / 100.0) * (resting ? RestHealBonus : 1.0);
+                        double heal = FractureHealPerDay * (effPct / 100.0) * (resting ? RestHealBonus : 1.0) * Math.Max(0.0, healSpeedMultiplier);
                         c.AddSeverity(-heal);
                     }
                     else
