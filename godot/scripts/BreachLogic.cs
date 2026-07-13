@@ -58,6 +58,27 @@ public static class BreachLogic
         => edgeDistance <= attackReach ? BreachAction.Hammer : BreachAction.MoveToApproach;
 
     /// <summary>
+    /// 该不该转入砸墙分支。**两条判据，任一成立即砸**：
+    /// <list type="number">
+    /// <item><paramref name="navBlocked"/>：<b>导航到不了目标</b>（四面围合、门闩着）——原有判据，原样保留。</item>
+    /// <item><paramref name="meleeStalledByFence"/>：<b>近战被围栏挡住</b>（够得着人，却打不出去）。</item>
+    /// </list>
+    ///
+    /// <para>
+    /// <b>第二条是为了堵「贴栏空挥」</b>：围栏是半身掩体——看得穿、射得穿，但<b>近战捅不过去</b>（用户拍板，见 <c>HalfCover.BlocksMelee</c>）。
+    /// 而围栏才 22px 厚，丧尸的够到距离约 50px ⇒ <b>它跨得过围栏够到你</b>。于是它会贴到栏上、因为"距离够"而停下来进入攻击姿态，
+    /// 然后每一次出手都被围栏几何拦掉 —— <b>站在那儿永远空挥</b>，既咬不到人，也不啃墙。
+    /// </para>
+    /// <para>
+    /// <b>为什么光看导航不够</b>：大门开着时导航<b>是通的</b>（绕一圈进得来）⇒ <paramref name="navBlocked"/> = false。
+    /// 可丧尸<b>不绕路</b>（它是直线冲上来的蠢货，这是它与人类敌人的根本区别），它就贴在那道栏上。
+    /// 此时唯一不荒谬的行为就是：<b>啃穿挡在中间的这道栏</b>。
+    /// </para>
+    /// </summary>
+    public static bool ShouldBreach(bool navBlocked, bool meleeStalledByFence)
+        => navBlocked || meleeStalledByFence;
+
+    /// <summary>
     /// 在一组矩形里按**边缘距离**挑离 (px,py) 最近者，返回其下标与该边缘距离；空列表返回 -1。
     /// 供敌人在门外选定要砸的围栏/大门（边缘距离胜过中心距离，见类注）。
     /// </summary>
