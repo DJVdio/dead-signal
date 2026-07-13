@@ -1,0 +1,37 @@
+{
+  "_comment": "劫掠者战术 AI 参数（包抄/掩体/撤退/呼叫增援）。全部数值皆『拟定待调』——改这里即可调，代码只写规则。缺字段/文件缺失即回落 RaiderTacticsParams.Default。",
+
+  "_retreat": "撤退：血量低于 retreatHealthFraction 就跑；敌我比 ≥ outnumberedRatio 也跑；只剩自己且敌人 ≥ loneSurvivorHostiles 也跑。一旦开跑就跑到底。",
+  "retreatHealthFraction": 0.35,
+  "outnumberedRatio": 2.0,
+  "loneSurvivorHostiles": 2,
+  "escapeDetourWeight": 0.35,
+
+  "_cover": "掩体：只在 coverSearchRadius 内采 coverSampleCount 个点找（不做全图搜索）。掩体离敌人不能近于 coverMinEnemyDistance（贴脸=送死），也不能远出武器射程（探头也打不着=白躲）。理想交战距离 = 武器射程 × coverIdealRangeFactor。",
+  "coverSearchRadius": 160.0,
+  "coverSampleCount": 12,
+  "coverMinEnemyDistance": 70.0,
+  "coverIdealRangeFactor": 0.7,
+  "coverApproachWeight": 0.5,
+  "coverRecomputeInterval": 1.0,
+  "coverEnemyMoveInvalidate": 64.0,
+  "peekOffset": 24.0,
+  "peekLeadTime": 0.35,
+  "suppressedHunkerTime": 1.2,
+
+  "_flank": "包抄：至少 flankMinSquad 人才分兵（0 号顶正面吸火，其余人绕）。绕到「敌人视锥半角 + flankMarginDeg + 随机抖动」之外，落点半径 = 武器射程 × flankRadiusFactor（绕过去正好能打）。",
+  "flankMinSquad": 2,
+  "flankMarginDeg": 25.0,
+  "flankJitterDeg": 15.0,
+  "flankRadiusFactor": 0.85,
+  "flankArrivalTolerance": 40.0,
+  "flankEnemyMoveInvalidate": 96.0,
+
+  "_call": "呼叫增援：枪声本来就招人（战斗噪音不分阵营），所以 noiseRadius ≥ loudWeaponNoiseRadius 的枪在 noiseCoversCallWindow 秒内开过火 → 不必再喊。只有拿匕首的（声音太小）或还没开枪的（潜行/包抄途中）才显式呼叫。",
+  "_call2": "⚠️ 呼喊就是发一次 shoutNoiseRadius 的战斗噪音——它唤醒的是【已经在场、当前闲着】的敌人，绝不凭空刷新敌人。代价：不分阵营，喊人也会把丧尸招来。",
+  "callRadius": 520.0,
+  "callCooldown": 8.0,
+  "loudWeaponNoiseRadius": 300.0,
+  "noiseCoversCallWindow": 3.0,
+  "shoutNoiseRadius": 500.0
+}

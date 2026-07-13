@@ -45,14 +45,9 @@ public static class NightRaidLogic
         _ => ThreatBand.Large,
     };
 
-    /// <summary>规模档 → 面板情报文案（草稿供用户改）。</summary>
-    public static string ThreatLabel(ThreatBand band) => band switch
-    {
-        ThreatBand.Small => "零星几个黑影摸近营地",
-        ThreatBand.Medium => "一小群袭击者正逼近",
-        ThreatBand.Large => "大批袭击者压上来了",
-        _ => "有袭击者逼近",
-    };
+    // 规模档 → 面板情报文案已移到消费层的 DisplayNames.Of(ThreatBand)：
+    // 本文件是纯逻辑（Sim 也 Link 它），只该出「档位」这个规则结论，**不该持有面向玩家的文案**。
+    // 文案与其余枚举中文名统一收在 DisplayNames，受 EnumDisplayNameTests 全覆盖保护。
 
     /// <summary>
     /// 营地整体对抗聚合：每个守卫用其 alertness 各自对同一 stealth 独立掷点（<see cref="NightWatchContest.Resolve"/>），

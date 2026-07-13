@@ -32,12 +32,14 @@ public sealed class NightRaidLogicTests
     public void BandFor_ThresholdBoundaries(int count, NightRaidLogic.ThreatBand expected)
         => Assert.Equal(expected, NightRaidLogic.BandFor(count));
 
+    // 情报文案已移到消费层 DisplayNames.Of(ThreatBand)（纯逻辑不持有玩家文案）；
+    // 三档文案的非空/中文/无英文枚举名由 EnumDisplayNameTests 全覆盖钉死。
     [Fact]
     public void ThreatLabel_NonEmptyForAllBands()
     {
-        Assert.False(string.IsNullOrWhiteSpace(NightRaidLogic.ThreatLabel(NightRaidLogic.ThreatBand.Small)));
-        Assert.False(string.IsNullOrWhiteSpace(NightRaidLogic.ThreatLabel(NightRaidLogic.ThreatBand.Medium)));
-        Assert.False(string.IsNullOrWhiteSpace(NightRaidLogic.ThreatLabel(NightRaidLogic.ThreatBand.Large)));
+        Assert.False(string.IsNullOrWhiteSpace(DisplayNames.Of(NightRaidLogic.ThreatBand.Small)));
+        Assert.False(string.IsNullOrWhiteSpace(DisplayNames.Of(NightRaidLogic.ThreatBand.Medium)));
+        Assert.False(string.IsNullOrWhiteSpace(DisplayNames.Of(NightRaidLogic.ThreatBand.Large)));
     }
 
     // ── 营地聚合：无守卫（没人望风）恒未发现，不消耗任何 roll ──
