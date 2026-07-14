@@ -132,6 +132,12 @@
     <Compile Include="..\..\godot\scripts\GoldfingerDiscovery.cs" Link="Consumed\GoldfingerDiscovery.cs" />
     <!-- 探索点搜刮缓存纯逻辑（无 Godot 依赖）：cacheId → flag/一批掉落/环境叙事（河边小屋/联合收割机仓库/城市之巅瞭望观景台/守林人小屋）。 -->
     <Compile Include="..\..\godot\scripts\ExplorationCache.cs" Link="Consumed\ExplorationCache.cs" />
+    <!-- 金手指帮守备编制表（无 Godot 依赖）：他们是**人**不是丧尸——8 人各自的持械/伤情/是否站岗。
+         同一张表也被 DeadSignal.Sim Link 走（校准 harness 必须与运行时读同一份，抄一份就会漂移）。 -->
+    <Compile Include="..\..\godot\scripts\GoldfingerGang.cs" Link="Consumed\GoldfingerGang.cs" />
+    <!-- [SPEC-T51] 斯图尔特家族庄园的劫掠者编制表（无 Godot 依赖）：7 人各自的持械/着装/是否站岗 + 哨位布点 + 噪音招怪几何。
+         ⚠️ **刻意不被 DeadSignal.Sim Link**（与 GoldfingerGang 不同）：本关不进 Sim 结算路径 ⇒ Sim 读不到它 ⇒ 既有基线结构性零漂移。 -->
+    <Compile Include="..\..\godot\scripts\StuartManor.cs" Link="Consumed\StuartManor.cs" />
     <!-- 超市幸存者骗局纯逻辑（无 Godot 依赖，[SPEC-B13]）：接触对话一次性/拒绝后内圈敌对/伏击去重旗标 + 草稿文本。 -->
     <Compile Include="..\..\godot\scripts\SupermarketAmbush.cs" Link="Consumed\SupermarketAmbush.cs" />
     <!-- 调查点规模三级 + 探索完成度聚合纯逻辑（无 Godot 依赖）：SizeTier 枚举/TierLabel + 目的地登记点位集 vs StoryFlags 旗标 → 已调查 X/Y。 -->
