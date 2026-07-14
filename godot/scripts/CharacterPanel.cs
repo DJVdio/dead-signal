@@ -27,6 +27,9 @@ public sealed partial class CharacterPanel : PanelContainer
     private static readonly Color ColText = new(0.93f, 0.95f, 1f);
     private static readonly Color ColMuted = new(0.66f, 0.70f, 0.78f);
 
+    /// <summary>手持/穿戴行的物品图标边长。比库存面板的 32 小一号——这里的行是 13 号字的紧凑排布。</summary>
+    private const int IconSize = 24;
+
     /// <summary>关闭按钮点击时 emit；由 trigger 连到业务关闭逻辑，本面板不自行决定关闭。</summary>
     [Signal]
     public delegate void CloseRequestedEventHandler();
@@ -49,12 +52,21 @@ public sealed partial class CharacterPanel : PanelContainer
     /// <summary>卸某件穿戴品回调（按名）；null = 不显示「卸下」入口。</summary>
     private Action<EquipSlot>? _onUnequipApparel;
 
+    /// <summary>
+    /// [批次21·impl-medicine] 「医务」下令回调：**选中角色 → 给他用医疗物资**的角色侧直达入口
+    /// （由 CampMain 提供闭包 → 开医务面板并把本人预选为病人）。null = 不显示该入口。
+    /// 面板仍只读快照、拿不到 live Pawn；"他现在需不需要医治"由持有 Pawn 的一方经
+    /// <see cref="MedicalOrderLogic.NeedsMedicalAttention"/> 算好，作为 needsMedical 传进来。
+    /// </summary>
+    private Action? _onMedical;
+
     /// <summary>true 时在 _Ready 用一份手工快照自测布局；发布保持默认 false。</summary>
     [Export]
     private bool _debugPreview = false;
 
     private Label _nameLabel = null!;
     private Label _statusLabel = null!;
+    private Button _medicalBtn = null!;
     private VBoxContainer _overviewBox = null!;
     private VBoxContainer _healthBox = null!;
 
@@ -96,17 +108,30 @@ public sealed partial class CharacterPanel : PanelContainer
     /// 装假肢入口 <paramref name="onEquip"/>、卸武器/卸穿戴回调（为 null 则该「卸下」入口不出现）。
     /// 全部为死数据/闭包，面板仍只读、拿不到 live Pawn。
     /// </summary>
+    /// <param name="onMedical">[批次21] 「医务」下令回调（开医务面板、病人预选为本人）；null = 不显示该入口。</param>
+    /// <param name="needsMedical">本人现在需不需要医治（<see cref="MedicalOrderLogic.NeedsMedicalAttention"/> 的结果）：
+    /// false 时按钮仍在，但置灰并写明"无伤无病"——**入口恒在位**，玩家不必猜"医务藏哪去了"。</param>
     public void ShowFor(
         PawnInspection insp, EquipmentSnapshot? equipment, ProstheticEquipHandler? onEquip,
-        Action<Hand>? onUnequipWeapon = null, Action<EquipSlot>? onUnequipApparel = null)
+        Action<Hand>? onUnequipWeapon = null, Action<EquipSlot>? onUnequipApparel = null,
+        Action? onMedical = null, bool needsMedical = false)
     {
         _equipment = equipment;
         _onEquip = onEquip;
         _onUnequipWeapon = onUnequipWeapon;
         _onUnequipApparel = onUnequipApparel;
+        _onMedical = onMedical;
         _nameLabel.Text = insp.DisplayName;
         _statusLabel.Text = HealthSummary(insp);
         _statusLabel.AddThemeColorOverride("font_color", insp.IsDead ? ColSevered : ColText);
+
+        // 医务下令行：有回调才现身；无伤无病/已死则置灰（别让玩家白开一张空面板）。
+        _medicalBtn.Visible = onMedical is not null;
+        bool canTreat = needsMedical && !insp.IsDead;
+        _medicalBtn.Disabled = !canTreat;
+        _medicalBtn.Text = insp.IsDead ? "医务 —— 已无力回天"
+            : canTreat ? "医务 —— 用药 / 手术"
+            : "医务 —— 无伤无病";
 
         FillOverview(insp);
         FillHealth(insp);
@@ -166,6 +191,13 @@ public sealed partial class CharacterPanel : PanelContainer
         _statusLabel.AddThemeFontSizeOverride("font_size", 15);
         _statusLabel.AddThemeColorOverride("font_color", ColText);
         root.AddChild(_statusLabel);
+
+        // —— 医务下令（选中角色 → 给他用医疗物资）：紧贴健康聚合态之下，看见伤情的下一眼就是"去治他" ——
+        _medicalBtn = new Button { Text = "医务", CustomMinimumSize = new Vector2(0, 30), Visible = false };
+        _medicalBtn.TooltipText = "开医务面板，病人预选为他（用药 / 手术 / 指派感染疗程）";
+        _medicalBtn.Pressed += () => _onMedical?.Invoke();
+        UiStyle.StyleButton(_medicalBtn, new Color(0.35f, 0.5f, 0.42f), fontSize: 14);
+        root.AddChild(_medicalBtn);
 
         root.AddChild(new HSeparator());
 
@@ -285,6 +317,12 @@ public sealed partial class CharacterPanel : PanelContainer
         name.AddThemeColorOverride("font_color", ColMuted);
         row.AddChild(name);
 
+        // 24px 而非 32px：角色面板的行是紧凑排布（13 号字），32 的图标会把每一行都撑高。
+        // 空手时不挂图标，只留等宽空位——让「空手」这一行的文字仍与有武器的行对齐。
+        row.AddChild(weapon is null
+            ? new Control { CustomMinimumSize = new Vector2(IconSize, IconSize) }
+            : ItemIconTextures.MakeIconForRefKey(weapon.Name, IconSize));
+
         var val = new Label { Text = weapon?.Name ?? "空手", SizeFlagsHorizontal = SizeFlags.ExpandFill };
         val.AddThemeFontSizeOverride("font_size", 13);
         val.AddThemeColorOverride("font_color", weapon is null ? ColMuted : ColText);
@@ -313,6 +351,11 @@ public sealed partial class CharacterPanel : PanelContainer
         name.AddThemeFontSizeOverride("font_size", 13);
         name.AddThemeColorOverride("font_color", slot.IsDisabled ? ColDisabled : ColMuted);
         row.AddChild(name);
+
+        // 空槽/断肢不挂图标（那儿没有东西可画），但留等宽空位保持各行对齐。
+        row.AddChild(slot.ItemName is { } worn && !slot.IsDisabled
+            ? ItemIconTextures.MakeIconForRefKey(worn, IconSize)
+            : new Control { CustomMinimumSize = new Vector2(IconSize, IconSize) });
 
         string text = slot.IsDisabled ? "（断肢）" : slot.ItemName ?? "空";
         Color col = slot.IsDisabled ? ColDisabled : slot.ItemName is null ? ColMuted : ColText;

@@ -135,6 +135,15 @@ public static class DisplayNames
         _ => Unknown,
     };
 
+    /// <summary>枪械近战型态中文名（改装后"贴脸抡枪托"打出来的东西；一把枪三选一）。</summary>
+    public static string Of(MeleeForm form) => form switch
+    {
+        MeleeForm.Claw => "利爪型",
+        MeleeForm.Trauma => "创伤型",
+        MeleeForm.Bayonet => "刺刀型",
+        _ => Unknown,
+    };
+
     // ———————————————————————————— 制作 ————————————————————————————
 
     /// <summary>工作台工具插槽中文名。</summary>
@@ -143,6 +152,17 @@ public static class DisplayNames
         ToolSlot.Calipers => "卡尺",
         ToolSlot.SawBlade => "锯片",
         ToolSlot.Beaker => "烧杯",
+        _ => Unknown,
+    };
+
+    /// <summary>
+    /// [批次21·T14] 烹饪台炊具槽中文名（面板上写「锅：已装」「烤架：空」）。
+    /// <para>⚠️ 这里<b>只给名字</b>——它省几点热量**不许**写进显示名（那是玩家要自己试出来的，见 <c>CookingLogic</c> 类注）。</para>
+    /// </summary>
+    public static string Of(CookwareSlot slot) => slot switch
+    {
+        CookwareSlot.Pot => "锅",
+        CookwareSlot.Grill => "烤架",
         _ => Unknown,
     };
 
@@ -186,6 +206,52 @@ public static class DisplayNames
         NightRaidLogic.ThreatBand.Small => "零星几个黑影摸近营地",
         NightRaidLogic.ThreatBand.Medium => "一小群袭击者正逼近",
         NightRaidLogic.ThreatBand.Large => "大批袭击者压上来了",
+        _ => Unknown,
+    };
+
+    /// <summary>[批次21] 医疗物资的用途类别（医务面板分组/提示用）。</summary>
+    public static string Of(MedicalUseKind kind) => kind switch
+    {
+        MedicalUseKind.InfectionCourse => "感染疗程用药",
+        MedicalUseKind.DiseaseDose => "疾病用药",
+        MedicalUseKind.RecoveryTonic => "恢复补剂",
+        MedicalUseKind.SurgerySupply => "手术耗材",
+        _ => Unknown,
+    };
+
+    /// <summary>
+    /// [批次21] 「为什么不能给他用这个」——按钮置灰时把原因直接说给玩家听。
+    /// 照 <c>SiteActionPopup</c> 的规矩：**不藏选项，灰掉并说明为什么**（玩家该知道是"没药了"还是"他压根没这病"）。
+    /// </summary>
+    public static string Of(MedicalRefusal refusal) => refusal switch
+    {
+        MedicalRefusal.None => "可以使用",
+        MedicalRefusal.OutOfStock => "没有存货了",
+        MedicalRefusal.NoTarget => "他没有对症的伤病，用了也是白扔",
+        MedicalRefusal.AlreadyActive => "已经在用了，再来一份没有意义",
+        MedicalRefusal.PatientDead => "人已经没了",
+        MedicalRefusal.NotMedical => "这不是能直接用在人身上的医疗物资",
+        _ => Unknown,
+    };
+
+    /// <summary>[批次21·impl-bedrest] 幸存者当前在干什么（角色卡片/悬停提示直接显示这几个字）。</summary>
+    public static string Of(PawnRole role) => role switch
+    {
+        PawnRole.Idle => "待命",
+        PawnRole.Expedition => "外出探索",
+        PawnRole.Sleeping => "睡觉",
+        PawnRole.Guard => "站岗",
+        PawnRole.Reading => "读书",
+        PawnRole.Bedrest => "卧床养病",
+        _ => Unknown,
+    };
+
+    /// <summary>[批次21·impl-bedrest] 休养质量（养病提示里区分"睡床"和"打地铺"——床是要造的，地铺不吃睡床加成）。</summary>
+    public static string Of(RestQuality quality) => quality switch
+    {
+        RestQuality.None => "没在休养",
+        RestQuality.Floor => "打地铺",
+        RestQuality.Bed => "睡床",
         _ => Unknown,
     };
 }
