@@ -254,7 +254,9 @@ public class SamPerkTests
 
     /// <summary>
     /// 山姆的 ×1.15 抬的是**三档整体**，不只是终点线：他的无影响线 34.5kg、加重线 57.5kg、上限 92kg。
-    /// 叙事口径：他"从小帮祖母打理农庄"体现在每一档都比别人扛得住——同样背 32kg，别人已经开始拖速，他还是自由行动。
+    /// 叙事口径：他"从小帮祖母打理农庄"体现在每一档都比别人扛得住——
+    /// [T45] 装备进账后这条有了很具体的意思：**山姆的搜刮余量比别人多 4.5kg**（免罚线 34.5 vs 30），
+    /// 穿同一身重甲，他能比队友多搬两根木料回家。
     /// </summary>
     [Fact]
     public void Loadout_SamL2_ShiftsAllThreeBands_NotJustTheCeiling()
@@ -263,7 +265,7 @@ public class SamPerkTests
         Assert.Equal(34.5, Loadout.FreeThresholdFor(sam), 6);   // 30 × 1.15
         Assert.Equal(57.5, Loadout.StrainThresholdFor(sam), 6); // 50 × 1.15
 
-        // 同样背 32kg：常人已进轻度档，山姆仍无影响
+        // 同样背 32kg（≈ 重甲出门 26.9kg + 搜了 5kg）：常人已进轻度档，山姆仍无影响
         Assert.Equal(LoadoutTier.Encumbered, Loadout.TierOf(32, Loadout.CarryLimit()));
         Assert.Equal(LoadoutTier.Unencumbered, Loadout.TierOf(32, sam));
         Assert.Equal(1.0, Loadout.SpeedMultiplier(32, sam), 6);

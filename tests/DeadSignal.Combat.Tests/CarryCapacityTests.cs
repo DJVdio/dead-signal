@@ -8,7 +8,8 @@ namespace DeadSignal.Combat.Tests;
 
 /// <summary>
 /// 负重上限系统（用户口径：&lt;30kg 无影响 / 30~50kg debuff / 50~80kg debuff 加重 / **不能超过 80kg**）。
-/// 本文件覆盖上限算式、物品称重、远征背包硬上限、队伍运力（人+狗）。三档 debuff 曲线本身见 <c>LoadoutTests</c>。
+/// 本文件覆盖上限算式、物品称重、远征背包硬上限、队伍运力（人+狗）。三档 debuff 曲线本身见 <c>LoadoutTests</c>；
+/// [T45] 装备进账、逐人分档、消费层接线、**搜刮余量表**见 <c>CarryLoadWiringTests</c>。
 /// 铁律核对：**不存在"力量"属性** —— 80kg 基数全员相同，个体差异只来自 authored 专属效果（山姆）与身体状态（残缺/饥饿）。
 /// </summary>
 public class CarryCapacityTests
@@ -19,6 +20,8 @@ public class CarryCapacityTests
     public void Limit_BaseIsUniformForEveryone_80kg()
     {
         // 无残缺无饥饿无专属效果 = 全员同一个 80kg（这就是"无属性系统"的形态）
+        // [T45] 这本账现在**含装备**（连人带甲带枪），但 80kg 这个数**用户拍板不动**——
+        // 装备的代价体现在"搜刮余量被吃掉"，不是把上限调小。
         Assert.Equal(80.0, Loadout.BaseCarryLimitKg, 6);
         Assert.Equal(80.0, CarryCapacity.For(1.0), 6);
     }
@@ -270,12 +273,14 @@ public class CarryCapacityTests
         bag.AddAsManyAsFit(LootItem.Material("wood", 10)); // 40kg
         Assert.Equal(LoadoutTier.Encumbered, bag.Tier);
         Assert.True(bag.SpeedMultiplier < 1.0);
-        Assert.Equal(1.0, bag.AttackSpeedMultiplier, 6);   // 轻度档不罚攻速
+        // 🔴 [T45·用户新曲线] 轻度档**也罚攻速了**——旧口径「背 30kg 挥剑没什么影响」已被用户推翻
+        // （「50kg 减少 20% 移动速度**和攻击速度**」）。此处原本断言 == 1.0。
+        Assert.True(bag.AttackSpeedMultiplier < 1.0);
 
         bag.AddAsManyAsFit(LootItem.Material("wood", 12)); // 64kg
         Assert.Equal(LoadoutTier.Strained, bag.Tier);
         Assert.True(bag.SpeedMultiplier < Loadout.SpeedAtStrain);
-        Assert.True(bag.AttackSpeedMultiplier < 1.0);      // 重度档开始拖慢出手
+        Assert.True(bag.AttackSpeedMultiplier < Loadout.AttackSpeedAtStrain); // 重度档接着掉
     }
 
     [Fact]
@@ -303,9 +308,9 @@ public class CarryCapacityTests
     }
 
     [Fact]
-    public void PartyCapacity_DogPocketVest_AddsItsSixKilos()
+    public void PartyCapacity_DogPocketVest_AddsItsEightKilos()
     {
-        // 布鲁斯的口袋狗衣（6kg）统一进同一套负重账：狗衣容量直接加到队伍背包上限
+        // 布鲁斯的口袋狗衣（8kg）统一进同一套负重账：狗衣容量直接加到队伍背包上限
         var vest = new DogApparelSlots();
         vest.TryEquip(DogGearCatalog.PocketVestKey, out _);
 
@@ -313,7 +318,7 @@ public class CarryCapacityTests
         double party = ExpeditionBag.PartyCapacity(new[] { human }, vest.TotalCarryCapacity());
 
         Assert.Equal(human + DogGearCatalog.PocketVestCapacity, party, 6);
-        Assert.Equal(86.0, party, 6); // 80 + 6（用户拍板的 6kg，原 12kg 作废）
+        Assert.Equal(88.0, party, 6); // 80 + 8（T29 用户手改 6 → 8）
     }
 
     [Fact]
@@ -324,19 +329,43 @@ public class CarryCapacityTests
 
     // ---------- 校准：一趟能搬回多少 ----------
 
+    /// <summary>
+    /// 🔴 [T45] <b>「能搜的空间会很小」——用户原话，这条把它钉成数字。</b>
+    /// <para>
+    /// 装备进账之后，<b>硬上限 80kg 第一次真的咬人了</b>：它不再只限制"你搜了多少"，
+    /// 而是限制"<b>装备之外</b>你还能搜多少"。同样是一个人去最大的点位（住宅区 ≈66kg 货）：
+    /// </para>
+    /// <list type="bullet">
+    /// <item><b>轻装出门</b>（1.3kg）⇒ 硬余量 78.7kg ⇒ <b>搬得空</b>，到家 67.3kg（移速仅剩 45%）。</item>
+    /// <item><b>中期装备</b>（13.8kg）⇒ 硬余量 66.2kg ⇒ <b>刚好搬得空</b>（只多 0.2kg 富余！），到家 79.8kg——<b>几乎钉在地上（移速 20%）</b>。</item>
+    /// <item><b>板甲重装</b>（26.9kg）⇒ 硬余量 53.1kg ⇒ <b>搬不空，得留 12.9kg 在原地</b>。</item>
+    /// </list>
+    /// <b>⇒ 「要么带甲，要么带货」——这正是用户要的取舍，而且它是通过"余量"实现的，不是"出门即罚"。</b>
+    /// <para>日后若调重物品重量或改上限，此测试会红，提示重新校准。</para>
+    /// </summary>
     [Fact]
-    public void Calibration_HardCapIsGenerous_TheDebuffBandsAreWhatBite()
+    public void Calibration_GearEatsYourHaul_HeavyArmourCannotClearTheBiggestSite()
     {
         // 实测 ExplorationCache（158 个搜刮点）：最大点位「住宅区」全部搜完约 66kg 货。
-        // ⇒ 80kg 硬上限**单人就装得下整个住宅区**——硬上限对搬运几乎不构成约束，真正起作用的是 30kg 无罚线：
-        //    背 66kg 回家的人落在重度档，移速 ≈0.69、攻速 ≈0.91，一路跑不掉也打不快。
-        // 本断言把这个事实钉住：日后若调重物品重量或调低上限使 66kg 超出单人上限，此测试会红，提示重新校准。
-        double solo = CarryCapacity.For(1.0);
         const double biggestSiteKg = 66.0;
+        double solo = CarryCapacity.For(1.0); // 80kg
 
-        Assert.True(solo >= biggestSiteKg, "单人上限装得下最大点位的全部产出（硬上限对搬运不构成约束）");
-        Assert.Equal(LoadoutTier.Strained, Loadout.TierOf(biggestSiteKg, solo)); // 但要付重度 debuff 的代价
-        Assert.Equal(0.69, Loadout.SpeedMultiplier(biggestSiteKg, solo), 2);
-        Assert.True(Loadout.AttackSpeedMultiplier(biggestSiteKg, solo) < 1.0);
+        const double lightGear = 1.3;   // 开局：匕首 + 布衣 + 长裤 + 鞋
+        const double midGear = 13.8;    // 中期：步枪 + 皮甲 + 军用头盔
+        const double heavyGear = 26.9;  // 重装：狙击 + 板甲 + 防暴头盔
+
+        // 轻装：搬得空，还富余一大截
+        Assert.True(solo - lightGear >= biggestSiteKg, "轻装单人搬得空最大点位");
+
+        // 中期：刚好搬得空（富余不到 1kg）——但到家时几乎走不动了
+        Assert.True(solo - midGear >= biggestSiteKg, "中期装备单人**刚好**搬得空");
+        Assert.True(solo - midGear - biggestSiteKg < 1.0, "而且只是刚好——富余不到 1kg");
+        double midHome = midGear + biggestSiteKg; // 79.8kg，逼近 80kg 硬顶
+        Assert.Equal(LoadoutTier.Strained, Loadout.TierOf(midHome, solo));
+        Assert.True(Loadout.SpeedMultiplier(midHome, solo) < 0.25, "背成这样，移速只剩两成——被丧尸追上就完了");
+
+        // 🔴 板甲重装：**搬不空**。装备吃掉了 26.9kg 的余量 ⇒ 有 12.9kg 货只能留在原地。
+        Assert.True(solo - heavyGear < biggestSiteKg, "穿板甲的人搬不空最大点位——「能搜的空间会很小」");
+        Assert.Equal(12.9, biggestSiteKg - (solo - heavyGear), 6); // 留在原地的那 12.9kg
     }
 }

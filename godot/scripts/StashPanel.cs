@@ -133,19 +133,32 @@ public sealed partial class StashPanel : CanvasLayer
     /// <summary>
     /// 探索中：展示**远征背包**（这趟搬得动的东西），而不是营地库存。
     /// 顶部是「背了多少 / 上限多少」，每行一个「扔掉」——负重上限是硬的，想拿新东西就得先舍旧的。
+    /// <para>
+    /// 🔴 [T45] <b>装备与战利品分开列，并写明这让全队慢了多少</b>。玩家在这个面板上做的决定是"还拿不拿"，
+    /// 而那笔账里有一半（身上的枪与甲）修复前**根本不在账上**——他会以为自己空着手，其实已经背了 17kg。
+    /// 更要命的是：<b>装备重量是扔不掉的</b>（面板只能扔战利品）⇒ 板甲重装出门的人，余量天生就少一大截，
+    /// 这必须在他决定"这桶燃料还是这把枪"之前就摆在脸上。
+    /// </para>
     /// </summary>
     /// <param name="contents">背包内容（<c>ExpeditionBag.Contents</c>）。</param>
-    /// <param name="carriedKg">已背重量。</param>
+    /// <param name="gearKg">队伍**装备**总重（穿在身上/握在手里的，扔不掉）。</param>
+    /// <param name="lootKg">背包里**搜刮来的**那部分（可逐件扔）。</param>
     /// <param name="capacityKg">本趟队伍运力上限。</param>
     /// <param name="notice">可空的一行搜刮反馈（如"背包塞不下，木料留在了原地"）。</param>
     public void ShowExpeditionBag(
-        IReadOnlyList<LootItem> contents, double carriedKg, double capacityKg, string? notice)
+        IReadOnlyList<LootItem> contents, double gearKg, double lootKg, double capacityKg, string? notice)
     {
+        double carriedKg = gearKg + lootKg;
         bool full = carriedKg >= capacityKg - 1e-9;
-        _foodLabel.Text = $"背包：{CarryCapacity.Format(carriedKg, capacityKg)}" + (full ? "（已满）" : "");
+        string penalty = CarryCapacity.PenaltyText(carriedKg, capacityKg);
+        _foodLabel.Text = $"负重：{CarryCapacity.FormatBag(gearKg, lootKg, capacityKg)}"
+                          + (penalty.Length > 0 ? $"　{penalty}" : "")
+                          + (full ? "（已满）" : "");
         _foodLabel.AddThemeColorOverride(
             "font_color",
-            full ? new Color(0.85f, 0.45f, 0.35f) : new Color(0.75f, 0.72f, 0.6f));
+            full || penalty.Length > 0
+                ? new Color(0.85f, 0.45f, 0.35f)
+                : new Color(0.75f, 0.72f, 0.6f));
         _noticeLabel.Text = notice ?? "";
         _descLabel.Text = "";
         UiStyle.ClearChildren(_listContainer);

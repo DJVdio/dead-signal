@@ -53,8 +53,18 @@ public class DualWieldTests
 }
 
 /// <summary>
-/// 负重三档 + 硬上限（用户口径）：&lt;30kg 无影响 / 30~50kg 有 debuff / 50~80kg debuff 加重 / **不能超过 80kg**。
+/// 负重三档 + 硬上限（**用户拍板**）：&lt;30kg 无影响 / 30~50kg 有 debuff / 50~80kg debuff 加重 / **不能超过 80kg**。
 /// 基准人（无残缺、不饿、无专属加成）的上限就是 80kg，故这里直接按公斤数断言。
+/// <para>
+/// 🔴 [T45] 这本账现在**含装备**（武器 + 11 槽护甲），但三条线**不动**。用户原话：
+/// 「**不改啊，就应当是 30/50/80。带装备出门，随便搜点就超 30 了。如果全身重甲+重武器（单板甲就 15 了），
+/// 那出门就差不多 30 了，能搜的空间会很小。**」
+/// ⇒ 负重的代价**不是"出门就减速"，而是「装备把你的搜刮余量吃掉了」**。见 <c>CarryLoadWiringTests</c> 的余量表。
+/// </para>
+/// <para>
+/// 🔴 惩罚曲线也是**用户拍板的四个数**（不是"拟定待调"）：
+/// 「50kg 减少 20% 移动速度和攻击速度；80kg 减少 80% 移动速度和 50% 攻击速度；30-50，50-80 线性变化」。
+/// </para>
 /// </summary>
 public class LoadoutTests
 {
@@ -69,6 +79,57 @@ public class LoadoutTests
         Assert.Equal(80.0, Limit, 9);
     }
 
+    // ———————————— 🔴 用户拍板的惩罚曲线：四个锚点 + 两段线性 ————————————
+
+    /// <summary>
+    /// 🔴 <b>用户给的四个数，一个不许动</b>：50kg → 移速/攻速各 −20%；80kg → 移速 −80%、攻速 −50%。
+    /// <para>移速在满载掉到 <b>0.20</b>（只剩两成速度）是**有意的**——贪多就基本走不动、被丧尸追上。别当笔误"修"。</para>
+    /// </summary>
+    [Theory]
+    [InlineData(30.0, 1.00, 1.00)] // 免罚线：平坦段的终点，仍不罚
+    [InlineData(50.0, 0.80, 0.80)] // 加重线：移速攻速一起 −20%
+    [InlineData(80.0, 0.20, 0.50)] // 硬上限：移速 −80%、攻速 −50%
+    public void UserSpec_TheFourAnchorsOfThePenaltyCurve(double kg, double expectSpeed, double expectAttack)
+    {
+        Assert.Equal(expectSpeed, Loadout.SpeedMultiplier(kg, Limit), 9);
+        Assert.Equal(expectAttack, Loadout.AttackSpeedMultiplier(kg, Limit), 9);
+    }
+
+    /// <summary>两段都是**线性插值**（用户原话：「30-50，50-80 线性变化」）——取两个中点钉死。</summary>
+    [Theory]
+    [InlineData(40.0, 0.90, 0.90)] // [30,50] 中点：移速攻速同为 −10%
+    [InlineData(65.0, 0.50, 0.65)] // [50,80] 中点：移速 −50%、攻速 −35%（两条曲线在此分道扬镳）
+    public void UserSpec_BothSegmentsInterpolateLinearly(double kg, double expectSpeed, double expectAttack)
+    {
+        Assert.Equal(expectSpeed, Loadout.SpeedMultiplier(kg, Limit), 9);
+        Assert.Equal(expectAttack, Loadout.AttackSpeedMultiplier(kg, Limit), 9);
+    }
+
+    /// <summary>免罚线两侧卡边界：29.9kg 一分不罚，30.1kg 已经开始掉（移速与攻速**同时**开始）。</summary>
+    [Fact]
+    public void TheFreeLine_IsSharp_PenaltyStartsTheMomentYouCrossIt()
+    {
+        Assert.Equal(1.0, Loadout.SpeedMultiplier(29.9, Limit), 9);
+        Assert.Equal(1.0, Loadout.AttackSpeedMultiplier(29.9, Limit), 9);
+        Assert.Equal(LoadoutTier.Unencumbered, Loadout.TierOf(29.9, Limit));
+
+        Assert.True(Loadout.SpeedMultiplier(30.1, Limit) < 1.0);
+        Assert.True(Loadout.AttackSpeedMultiplier(30.1, Limit) < 1.0);
+        Assert.Equal(LoadoutTier.Encumbered, Loadout.TierOf(30.1, Limit));
+    }
+
+    /// <summary>
+    /// 🔴 <b>攻速现在从 30kg 起就罚</b> —— 旧口径「轻度档不罚攻速、背 30kg 挥剑没什么影响」**已被用户推翻**。
+    /// <para>⚠️ 这条替换掉了原来的 <c>Between30And50kg_LightDebuff_MoveOnly</c>（名字里的 "MoveOnly" 已经是错的）。</para>
+    /// </summary>
+    [Fact]
+    public void Between30And50kg_NowPenalisesAttackSpeedToo_NotJustMovement()
+    {
+        Assert.Equal(LoadoutTier.Encumbered, Loadout.TierOf(40, Limit));
+        Assert.True(Loadout.AttackSpeedMultiplier(40, Limit) < 1.0, "轻度档也罚攻速了（用户新口径）");
+        Assert.Equal(Loadout.AttackSpeedAtStrain, Loadout.AttackSpeedMultiplier(50, Limit), 9);
+    }
+
     [Fact]
     public void Under30kg_NoPenaltyAtAll()
     {
@@ -79,30 +140,41 @@ public class LoadoutTests
     }
 
     [Fact]
-    public void Between30And50kg_LightDebuff_MoveOnly()
-    {
-        Assert.Equal(LoadoutTier.Encumbered, Loadout.TierOf(40, Limit));
-        Assert.Equal(0.925, Loadout.SpeedMultiplier(40, Limit), 9);       // 半程线性：1.0 → 0.85
-        Assert.Equal(Loadout.SpeedAtStrain, Loadout.SpeedMultiplier(50, Limit), 9);
-        Assert.Equal(1.0, Loadout.AttackSpeedMultiplier(50, Limit), 9);   // 轻度档不罚攻速
-    }
-
-    [Fact]
-    public void Between50And80kg_HeavyDebuff_AlsoSlowsAttacks()
+    public void Between50And80kg_HeavyDebuff_MovementCollapses()
     {
         Assert.Equal(LoadoutTier.Strained, Loadout.TierOf(65, Limit));
-        Assert.Equal(0.70, Loadout.SpeedMultiplier(65, Limit), 9);        // 半程：0.85 → 0.55
         Assert.Equal(Loadout.SpeedAtLimit, Loadout.SpeedMultiplier(80, Limit), 9);
         Assert.Equal(Loadout.AttackSpeedAtLimit, Loadout.AttackSpeedMultiplier(80, Limit), 9);
     }
 
+    /// <summary>
+    /// 「debuff 加重」必须真的更陡 —— <b>但只对移速成立，攻速两档等陡</b>（用户拍板的曲线自然结果）。
+    /// <para>
+    /// 移速：轻档 20%/20kg = <b>1.0%/kg</b> → 重档 60%/30kg = <b>2.0%/kg</b>（**加速恶化** ✅ 严格更陡）
+    /// 攻速：轻档 20%/20kg = <b>1.0%/kg</b> → 重档 30%/30kg = <b>1.0%/kg</b>（**匀速** ⇒ 只能要求"不更缓"）
+    /// </para>
+    /// <b>⇒ 负重压垮的首先是你的腿，不是你的手。</b> 这是这条曲线的性格，不是 bug。
+    /// **绝不许为了让本护栏"更漂亮"去动用户拍板的那四个数。**
+    /// </summary>
     [Fact]
     public void HeavyTierIsSteeperThanLightTier()
     {
-        // "debuff 加重"必须真的更陡：重度档每公斤扣的速度 > 轻度档
-        double lightPerKg = (1.0 - Loadout.SpeedAtStrain) / (50 - 30);
-        double heavyPerKg = (Loadout.SpeedAtStrain - Loadout.SpeedAtLimit) / (80 - 50);
-        Assert.True(heavyPerKg > lightPerKg, $"重度 {heavyPerKg}/kg 应陡于轻度 {lightPerKg}/kg");
+        double lightBandKg = Loadout.StrainThresholdKg - Loadout.FreeThresholdKg;   // 20kg
+        double heavyBandKg = Loadout.BaseCarryLimitKg - Loadout.StrainThresholdKg;  // 30kg
+
+        double lightMovePerKg = (1.0 - Loadout.SpeedAtStrain) / lightBandKg;
+        double heavyMovePerKg = (Loadout.SpeedAtStrain - Loadout.SpeedAtLimit) / heavyBandKg;
+        Assert.True(heavyMovePerKg > lightMovePerKg, // 移速：**严格**更陡
+            $"移速重度 {heavyMovePerKg}/kg 应陡于轻度 {lightMovePerKg}/kg");
+
+        double lightAtkPerKg = (1.0 - Loadout.AttackSpeedAtStrain) / lightBandKg;
+        double heavyAtkPerKg = (Loadout.AttackSpeedAtStrain - Loadout.AttackSpeedAtLimit) / heavyBandKg;
+        Assert.True(heavyAtkPerKg >= lightAtkPerKg - 1e-9, // 攻速：**非严格**（用户曲线下两档等陡）
+            $"攻速重度 {heavyAtkPerKg}/kg 不该缓于轻度 {lightAtkPerKg}/kg");
+
+        // 而且腿确实垮得比手快：满载时移速的损失 > 攻速的损失
+        Assert.True(1.0 - Loadout.SpeedAtLimit > 1.0 - Loadout.AttackSpeedAtLimit,
+            "负重压垮的首先是腿（−80%），不是手（−50%）");
     }
 
     [Fact]

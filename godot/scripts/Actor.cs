@@ -56,6 +56,29 @@ public abstract partial class Actor : CharacterBody2D
     protected float MoveSpeed = 90f;
     protected virtual bool CanAct => true;
 
+    // ———————————— 🔴 [T45·负重激活] 负重 debuff 的两个消费点 ————————————
+    //
+    // 修复前：`Loadout.SpeedMultiplier` / `AttackSpeedMultiplier` 在引擎里算得好好的，
+    // **全仓没有任何游戏代码消费它们**（除了 CarryWeight.cs 自己和单测）——移速是常数
+    // `Pawn.MoveSpeed = 95f`，出手间隔只看残缺×饥饿×持握。⇒ **负重 debuff 是死代码**。
+    // 用户要的「一出门就进入负重 debuff」在这一层是**物理上不可能发生**的。
+    //
+    // 现在：<c>CampMain.SyncExpeditionLoad</c> 把逐人的 <c>MemberLoad</c> 灌进 <c>Pawn.SetCarryLoad</c>，
+    // 下面两个字段就是它落到实处的地方——移动链乘算它，出手间隔除以它。
+    // **基类恒 1.0**（丧尸/劫掠者/狗/商人没有负重账）⇒ 对非 Pawn 单位逐位零回归。
+
+    /// <summary>
+    /// 负重移速乘子（1.0 = 无罚）。<b>乘算</b>进移动能力链（残缺 × 饥饿 × 骨折 × 战斗减速 × 家具 × <b>负重</b>）——
+    /// 不是从总数里减百分点（CLAUDE.md 铁律：百分比一律乘算）。营地内 / 非探索队恒 1.0。
+    /// </summary>
+    protected double CarryLoadSpeedMult = 1.0;
+
+    /// <summary>
+    /// 负重出手间隔乘子（1.0 = 无罚，&lt;1 = 攻速变慢）。有效间隔 <b>÷</b> 它（乘子 0.85 ⇒ 间隔 ×1.176）。
+    /// **从免罚线（30kg）起就线性掉**（50kg −20%、80kg −50%），见 <see cref="Loadout.AttackSpeedMultiplier"/>。
+    /// </summary>
+    protected double CarryLoadAttackSpeedMult = 1.0;
+
     /// <summary>
     /// 当前持握态，供攻速/误差角消费（<see cref="GripCombat"/>）。<see cref="Pawn"/> 走其 <see cref="Pawn.Grip"/>
     /// （左右手持械推导）；其余单位（丧尸/劫掠者等无持械模型）恒 <see cref="GripMode.OneHanded"/>（系数 ×1.0，零回归）。
@@ -105,10 +128,25 @@ public abstract partial class Actor : CharacterBody2D
     protected IReadOnlyList<ArmorLayer> DefenderArmor = Array.Empty<ArmorLayer>();
 
     /// <summary>
-    /// 此刻身上穿着的护甲层（只读）。倒下时 <see cref="CorpseYard"/> 据此掷出尸体的战利品
-    /// （<see cref="CorpseLoot"/>：软质衣物 50% / 刚性护甲件 90% 完好取下；腐皮等天生层永不掉）。
+    /// 此刻身上穿着的护甲层（只读）。倒下时 <see cref="CorpseYard"/> 据此摆出尸体的战利品
+    /// （<see cref="CorpseLoot.Strip"/>：<b>穿什么扒什么，零掷骰、不折损</b>；腐皮等天生层永不掉）。
     /// </summary>
     public IReadOnlyList<ArmorLayer> WornArmor => DefenderArmor;
+
+    /// <summary>
+    /// 此刻<b>手里握着</b>的武器（只读）。倒下时 <see cref="CorpseYard"/> 据此把它们原样放进尸体
+    /// （用户拍板：「敌人掉武器的，他的武器直接落在他的可搜刮尸体里」）。
+    ///
+    /// <para>基类给的是<b>唯一那把攻击武器</b>——丧尸/劫掠者/狗都只有一把，够用。
+    /// <see cref="Pawn"/> 会覆写它去读 <see cref="WeaponLoadout.HeldWeapons"/>，因为只有幸存者能<b>双持</b>
+    /// （左右手各一把 ⇒ 该掉两把）。</para>
+    ///
+    /// <para><b>这里不过滤天生武器</b>：丧尸的爪击、狗的撕咬、空手的拳脚都会照常出现在本列表里——
+    /// "什么算得上是能拿走的武器"是<b>掉落规则</b>，归 <see cref="CorpseLoot.IsSalvageable(Weapon)"/> 判
+    /// （判据＝按名回查得到）。战斗层只如实报告"他手里是什么"，不替掉落层做判断。</para>
+    /// </summary>
+    public virtual IReadOnlyList<Weapon> HeldWeapons =>
+        AttackWeapon is null ? Array.Empty<Weapon>() : new[] { AttackWeapon };
 
     private double _attackTimer;
 
@@ -486,6 +524,11 @@ public abstract partial class Actor : CharacterBody2D
             mobility *= slow.MultiplierAt(ToNumerics(GlobalPosition));
         }
 
+        // 🔴 [T45] 负重减速：背着自己的枪、甲和战利品跑不快。**乘算**进本链（铁律），与残缺/骨折/家具彼此独立叠乘：
+        // 断腿(×0.7) 的人背着满改装步枪(×0.97) = 0.679，不是加算的 0.67。基类恒 1.0 ⇒ 丧尸/劫掠者零回归。
+        // 修复前这一行不存在 ⇒ Loadout.SpeedMultiplier 算出来的数字**没有任何人读它**。
+        mobility *= CarryLoadSpeedMult;
+
         Vector2 desired = mobility > 0 ? dir * MoveSpeed * (float)mobility : Vector2.Zero;
         // 把期望速度交给避障；OnVelocityComputed 收到安全速度后再 MoveAndSlide。
         _agent.Velocity = desired;
@@ -578,7 +621,13 @@ public abstract partial class Actor : CharacterBody2D
         operation *= Body.HandFractureOperationFactor(
             CombatEffectCfg.HandFractureOperationMult, CombatEffectCfg.HandFractureHealedOperationMult,
             CombatEffectCfg.FractureCapabilityFloor);
-        return GripCombat.EffectiveInterval(baseCooldown ?? AttackCooldown, operation, ActiveGrip);
+        double interval = GripCombat.EffectiveInterval(baseCooldown ?? AttackCooldown, operation, ActiveGrip);
+
+        // 🔴 [T45] 负重罚攻速：**从免罚线（30kg）起就线性掉**（50kg −20%、80kg −50%）。攻速乘子 m ⇒ **间隔 ÷ m**（0.50 ⇒ 间隔 ×2.0）。
+        // 刻意**不**并进上面的 operation 乘法——`Loadout` 明确写了负重不碰操作能力（那是残缺与饥饿的地盘，
+        // 且负重上限本身已经乘过一遍操作能力，再扣一次就是双重惩罚）。故独立除在最后一层。
+        // 修复前这一层不存在 ⇒ Loadout.AttackSpeedMultiplier 是死代码。基类恒 1.0 ⇒ 非 Pawn 单位零回归。
+        return interval / System.Math.Max(CarryLoadAttackSpeedMult, Loadout.MinMultiplier);
     }
 
     private void TryAttack(Actor target)
@@ -692,6 +741,27 @@ public abstract partial class Actor : CharacterBody2D
             // 远远一箭放倒，好过凑上去砍出一堆动静把邻居全招来。爪击/撕咬同样有声（见 WeaponTable）。
             EmitNoise(weapon);
         }
+
+        // [T47] 这一下**真的打出去了** —— 通知子类（消耗型改装靠它掉次数：锋刃研磨砍三下就磨没了）。
+        // 传的是**手里那把武器**（AttackWeapon），不是本次派生出来的枪托/拳脚 profile：
+        // 磨损记在"这把短剑"上，不是记在"这一下用的是哪种打法"上。
+        OnAttackDelivered(AttackWeapon);
+    }
+
+    /// <summary>
+    /// **一次攻击真的打出去了**（远程已开火 / 近战已结算）。默认空实现 ⇒ 丧尸/劫掠者行为**零变化**。
+    /// <para>
+    /// [T47] 存在的理由：消耗型改装（锋刃研磨 = 攻击三次后失去）要按"打了几下"计数。
+    /// 只有玩家角色（<c>Pawn</c>）覆写它 —— 敌人没有库存、没有改装，也就没有磨损这回事。
+    /// </para>
+    /// <para>
+    /// ⚠️ <b>钩子放在这里而不是各分支里</b>：射击与近战两条路都汇到这一点，加一个钩子就够；
+    /// 分头挂两个，早晚会有人只改其中一个。被打断/超出射程/弹药不足的那些 <c>return</c> 都在这之前，
+    /// 所以**没打出去的攻击不会掉次数**（这正是要的）。
+    /// </para>
+    /// </summary>
+    protected virtual void OnAttackDelivered(Weapon used)
+    {
     }
 
     // ---- 弹药（批次18）：枪必须消耗子弹，打空退化为枪托近战 ----
@@ -858,7 +928,20 @@ public abstract partial class Actor : CharacterBody2D
     /// 不是枪声）——抡枪托砸人有动静，但不会像开枪那样把半条街拽过来。
     /// </para>
     /// </summary>
-    private void EmitNoise(Weapon weapon) => EmitNoiseAt(NoiseLogic.NoiseOf(weapon), NoiseKind.Combat);
+    private void EmitNoise(Weapon weapon)
+        => EmitNoiseAt(NoiseLogic.NoiseOf(weapon), NoiseKind.Combat, RatNoiseSource.WeaponAttack);
+
+    /// <summary>
+    /// [T61] 本单位的**动作噪音半径乘子**（脚步/开门/撬锁/静默拆除按此缩；**战斗/开枪/破坏不吃它**）。
+    /// 基类恒 1.0（零回归——所有既有单位的噪音半径一个数都不变）；耗子在 <see cref="Pawn"/> 覆盖成 0.60。
+    /// <para>
+    /// 🔴 <b>为什么不能拿 <see cref="NoiseKind"/> 当开关（别"顺手简化"）</b>：那个枚举的语义轴是**"分不分阵营"**，
+    /// 不是**"是不是战斗"** —— 开门(100)/撬锁(30)/静默拆除(35) 现在**全都归 <see cref="NoiseKind.Combat"/>**。
+    /// 若按枚举分，耗子的开门声会**静默地不减**。故乘子的适用与否由 <see cref="RatPerk.AppliesToActionNoise"/>
+    /// 按 <see cref="RatNoiseSource"/>（一条**正交的**分类轴）裁定，**每个 emitter 必须点名自己的来源**。
+    /// </para>
+    /// </summary>
+    protected virtual double ActionNoiseScale => 1.0;
 
     /// <summary>
     /// **通用噪音事件**：在本单位位置发出一次半径为 <paramref name="radius"/> 的噪音。半径内、
@@ -886,11 +969,27 @@ public abstract partial class Actor : CharacterBody2D
     /// <param name="kind">
     /// 噪音类别，决定**敌对那一条查不查**（用户拍板：战斗声不分阵营，脚步声分）。见 <see cref="NoiseKind"/>。
     /// </param>
-    private void EmitNoiseAt(double radius, NoiseKind kind)
+    /// <param name="source">
+    /// [T61] 噪音**来源**（<see cref="RatNoiseSource"/>，与 <paramref name="kind"/> **正交**）——
+    /// 决定本次噪音吃不吃 <see cref="ActionNoiseScale"/>（耗子的"脚步和动作轻不可闻"）。
+    /// **每个 emitter 必须点名**，不许省。非耗子单位恒 ×1.0（零回归）。
+    /// </param>
+    private void EmitNoiseAt(double radius, NoiseKind kind, RatNoiseSource source)
     {
         if (radius <= 0)
         {
             return; // 无声：零回归
+        }
+
+        // [T61] 耗子：脚步/开门/撬锁/静默拆除 ×0.60；战斗/开枪/破坏原样（用户明确排除）。
+        // 非耗子 ActionNoiseScale ≡ 1.0 ⇒ 既有单位的噪音半径逐字节不变。
+        if (RatPerk.AppliesToActionNoise(source))
+        {
+            radius *= ActionNoiseScale;
+            if (radius <= 0)
+            {
+                return; // 乘到 0（若将来有"完全无声"的动作）：同无声，零听者
+            }
         }
 
         Node? parent = GetParent();
@@ -973,7 +1072,7 @@ public abstract partial class Actor : CharacterBody2D
         if (NoiseLogic.StrideDue(ref _footstepAccum, movedDelta.Length(), NoiseLogic.StrideDistance))
         {
             // 脚步 = **移动噪音（分阵营）**：丧尸不会被彼此的脚步声吸引成一坨（抱团震荡护栏）。
-            EmitNoiseAt(radius, NoiseKind.Movement);
+            EmitNoiseAt(radius, NoiseKind.Movement, RatNoiseSource.Footstep);
         }
     }
 
@@ -985,7 +1084,7 @@ public abstract partial class Actor : CharacterBody2D
     /// 还是砸（180，快但把半条街招来）。<b>丧尸没得选——它不会开门，只会砸</b>（用户拍板）。
     /// </para>
     /// </summary>
-    public void EmitBreachNoise() => EmitNoiseAt(NoiseLogic.BreachNoiseRadius, NoiseKind.Combat);
+    public void EmitBreachNoise() => EmitNoiseAt(NoiseLogic.BreachNoiseRadius, NoiseKind.Combat, RatNoiseSource.Breach);
 
     /// <summary>
     /// **开门**发出的噪音（<see cref="NoiseLogic.DoorNoiseRadius"/> = 100，近战量级：一扇旧门被推开的吱呀与碰撞）。
@@ -996,7 +1095,7 @@ public abstract partial class Actor : CharacterBody2D
     /// </para>
     /// <para>开门声（100）压过丧尸嗅觉（70）：你推开一扇门，附近闲逛的东西**听得见**。这正是撬锁存在的意义。</para>
     /// </summary>
-    public void EmitDoorNoise() => EmitNoiseAt(DoorLogic.NoiseOfOpening(), NoiseKind.Combat);
+    public void EmitDoorNoise() => EmitNoiseAt(DoorLogic.NoiseOfOpening(), NoiseKind.Combat, RatNoiseSource.DoorOpen);
 
     /// <summary>
     /// **撬锁**发出的噪音（<see cref="NoiseLogic.LockpickNoiseRadius"/> = 30，<b>全表最轻</b>，比走路 40 还轻）。
@@ -1005,7 +1104,7 @@ public abstract partial class Actor : CharacterBody2D
     /// 它就只是"慢速版砸门"，没人会选它。<b>撬锁买的是寂静，付的是时间</b>（坚固锁期望 32 秒 + 3 根铁丝）。
     /// </para>
     /// </summary>
-    public void EmitLockpickNoise() => EmitNoiseAt(NoiseLogic.LockpickNoiseRadius, NoiseKind.Combat);
+    public void EmitLockpickNoise() => EmitNoiseAt(NoiseLogic.LockpickNoiseRadius, NoiseKind.Combat, RatNoiseSource.Lockpick);
 
     /// <summary>
     /// 本单位会不会开门。<b>丧尸恒 false</b>（用户拍板：不会开门，只会砸——门对它就是一堵墙，走破防系统）；
@@ -1050,7 +1149,8 @@ public abstract partial class Actor : CharacterBody2D
     /// 主动发一次噪音（子类用；如劫掠者<b>呼喊增援</b>）。⚠️ 这是唤醒<b>已经在场</b>的 AI 的唯一正道——
     /// 噪音<b>不生成任何新单位</b>，它只是让半径内闲着的人走过来看。
     /// </summary>
-    protected void EmitNoise(double radius, NoiseKind kind) => EmitNoiseAt(radius, kind);
+    protected void EmitNoise(double radius, NoiseKind kind, RatNoiseSource source = RatNoiseSource.WeaponAttack)
+        => EmitNoiseAt(radius, kind, source);
 
     /// <summary>设置朝向（弧度）。哨兵在岗时用它把视野锥钉在岗位朝向上——玩家要绕的就是它。</summary>
     protected void SetFacing(float radians) => FacingAngle = radians;

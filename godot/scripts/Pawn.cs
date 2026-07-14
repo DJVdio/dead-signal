@@ -55,6 +55,15 @@ public sealed partial class Pawn : Actor
     /// <summary>本 Pawn 的专属效果容器（诺蒂·书虫，其余角色无 perk → 各加成为 0）。见 <see cref="SurvivorPerks"/>。</summary>
     public SurvivorPerks Perks { get; } = new();
 
+    /// <summary>
+    /// [T61] **耗子**：脚步/开门/撬锁/静默拆除的噪音半径 ×0.60（用户原话「耗子的脚步和动作轻不可闻，声音减少 40%」）。
+    /// <b>战斗/开枪/破坏不减</b> —— 那是由 <see cref="RatPerk.AppliesToActionNoise"/> 在 <see cref="Actor.EmitNoiseAt"/>
+    /// 里按 <see cref="RatNoiseSource"/> 裁掉的，**本属性只管"缩多少"，不管"缩不缩"**。
+    /// 其余角色 <see cref="SurvivorPerks.IsRat"/>=false ⇒ 恒 1.0（零回归：既有单位噪音半径一个数不变）。
+    /// <para>L1 即生效（不看等级）⇒ 无需读 StoryFlags，Pawn 不必持有营地态。</para>
+    /// </summary>
+    protected override double ActionNoiseScale => RatPerk.ActionNoiseMultiplier(Perks.IsRat, ratLevel: 1);
+
     /// <summary>本 Pawn 逐书阅读进度（跨夜持久）。见 <see cref="ReadingProgress"/>。</summary>
     private readonly ReadingProgress _readingProgress = new();
 
@@ -151,8 +160,46 @@ public sealed partial class Pawn : Actor
     /// <summary>持握态（只读，供战斗层后续消费攻速/误差角系数；本轮只暴露不消费）。</summary>
     public GripMode Grip => _loadout.Grip;
 
+    // ———————————— 🔴 [T45·负重激活] 这个人这一趟背了多少 ————————————
+
+    /// <summary>他这一趟的负重账（装备 + 分摊的战利品）。营地内 / 非探索队 = <see cref="MemberLoad.None"/>（全 1.0，零回归）。</summary>
+    private MemberLoad _carryLoad = MemberLoad.None;
+
+    /// <summary>
+    /// 他这一趟的负重账（只读，供 HUD / 角色面板显示"你超重了、慢了多少"）。
+    /// 由 <c>CampMain.SyncExpeditionLoad</c> 每帧灌入（关内可能断手掉甲 ⇒ 装备与上限都会变）。
+    /// </summary>
+    public MemberLoad CarryLoad => _carryLoad;
+
+    /// <summary>他身上装备的实重（kg）：左右手武器（双手握一把只算一次）+ 11 槽护甲（成对品逐只计）。</summary>
+    public double GearKg => GearWeight.Of(HeldWeapons, WornArmor);
+
+    /// <summary>
+    /// 灌入这一趟的负重账 —— <b>负重 debuff 从死代码变成真效果的唯一入口</b>：
+    /// 把 <see cref="MemberLoad"/> 的两个乘子落到 <see cref="Actor"/> 的移动链（<c>CarryLoadSpeedMult</c>）
+    /// 与出手间隔（<c>CarryLoadAttackSpeedMult</c>）上。
+    /// </summary>
+    public void SetCarryLoad(MemberLoad load)
+    {
+        _carryLoad = load;
+        CarryLoadSpeedMult = load.SpeedMultiplier;
+        CarryLoadAttackSpeedMult = load.AttackSpeedMultiplier;
+    }
+
+    /// <summary>回营/离队：清账，恢复无罚（营地里没有背包，也就没有负重档）。</summary>
+    public void ClearCarryLoad() => SetCarryLoad(MemberLoad.None);
+
     /// <summary>当前主攻武器（= <see cref="WeaponLoadout.PrimaryWeapon"/>，与 <see cref="Actor.AttackWeapon"/> 同源）。</summary>
     public Weapon? PrimaryWeapon => _loadout.PrimaryWeapon;
+
+    /// <summary>
+    /// 幸存者手里握着的武器（倒下时进尸体）。<b>覆写基类</b>是因为只有幸存者能<b>双持</b>——基类那个
+    /// "唯一一把 <c>AttackWeapon</c>" 的口径会漏掉副手那把（双持短剑的人死了只掉一把）。
+    /// <para>直接转发给 <see cref="WeaponLoadout.HeldWeapons"/>：双手握一把的去重也在那里收口
+    /// （否则抱着重剑倒下的人会掉出两把重剑）。空手 ⇒ 空列表（<c>AttackWeapon</c> 此时是拳脚，
+    /// 而拳脚本就不是能拿走的东西）。</para>
+    /// </summary>
+    public override IReadOnlyList<Weapon> HeldWeapons => _loadout.HeldWeapons;
 
     /// <summary>某手所持武器（空手 null），供装备 UI 渲染。</summary>
     public Weapon? WeaponInHand(Hand hand) => hand == Hand.Left ? _loadout.LeftHand : _loadout.RightHand;
@@ -323,6 +370,24 @@ public sealed partial class Pawn : Actor
             }
         }
 
+        // [T53] 休养自然回血（用户拍板：「补——休养自然回血」；不做输血/血袋）。
+        //
+        // 🔴 在此之前**实机没有任何回血手段**：Body.Blood 只有 LoseBlood（只减）与 SetBloodMax（回满），
+        //    而 SetBloodMax 在 Godot 层一次都没被调用 ⇒ 储血单调递减、无恢复路径，长线必然见底。
+        //
+        // 挂在**既有休养系统**上（restFraction/bedFraction，与术后愈合同一套账），不另起炉灶：
+        //   · 量：BloodRegenPerRestDay(10) × 休养占比 × 睡床加成（复用 BedSleepHealBonusPct=10 个百分点，加算，同族）
+        //   · 70 储血 / 10 每昼夜 = **7 昼夜从零回满**，与「骨折愈合 7 昼夜」同量级。
+        //   · **必须先止血**（BleedingWoundCount == 0，即伤口已被手术缝合）：还在流的口子边流边补是自欺欺人，
+        //     也会架空用户「任何时候只要伤口没被手术治疗就会流血」这条规则。
+        //     注意本行在上面的 StopBleed 同步**之后** ⇒ 本昼夜刚缝合的伤口，当天就能开始回血。
+        // 规则本体是**纯函数** BloodRecovery.PerRestDay（在 HealthConditions.cs，已 Link 进单测）——
+        // Pawn 只做"取参数 → 调规则 → 落 Body"这三步。规则若写在这个 Godot 节点里就**根本无法单测**。
+        Body.RecoverBlood(BloodRecovery.PerRestDay(
+            restFraction ?? (resting ? 1.0 : 0.0),
+            bedFraction ?? (restedInBed ? 1.0 : 0.0),
+            hasOpenWound: Body.BleedingWoundCount > 0));
+
         // 骨折治疗档回写 Body（能力系数三档：未治 -30% / 术后 -15% / 痊愈 0，见 Body.HandFractureOperationFactor/LegFractureMobilityFactor）：
         //  · 手术成功(IsOperated) → MarkFractureTreated：惩罚减半（-15%）。幂等，仅对 Body 仍骨折的部位生效。
         foreach (HealthCondition c in Health.Conditions)
@@ -452,16 +517,23 @@ public sealed partial class Pawn : Actor
             p.Perks.GrantNightingale();
         else if (name == SamPerk.SamName)
             p.Perks.GrantSam();
+        else if (name == RatPerk.RatName)
+            p.Perks.GrantRat(); // [T61] 耗子：下水道招募（等级同样**不存在 Pawn 上**，由累计搜出件数从 StoryFlags 派生，见 RatPerk）
 
         // 初始武器进【持械模型】主手（右手）：手枪→远程、匕首→近战。EquipToHand 自动按 TwoHanded 分流。
         p._loadout.EquipToHand(usePistol ? CombatData.Pistol() : CombatData.Dagger(), Hand.Right);
         // 开局发三件基础衣物：长袖布衣（贴身层护上身）+ 长裤（裤子槽护腿）+ 一双运动鞋（左右脚各一只，[SPEC-B18-补]：
         // 鞋不分左右但一只占一只脚槽，故发两只才护住双脚——开局防护等价性不变）。
         // 不带皮夹克等特殊护甲——特殊装备/护甲只能靠搜刮/制作获得（[SPEC-B16-补·护甲纠错]）。走 EquipApparel 统一路径（目录占槽+登记防御层）。
-        p.EquipApparel(ArmorTable.LongSleeveShirt().Name);
-        p.EquipApparel(ArmorTable.Trousers().Name);
-        p.EquipApparel(ArmorTable.Sneakers().Name, slot: EquipSlot.LeftFoot);
-        p.EquipApparel(ArmorTable.Sneakers().Name, slot: EquipSlot.RightFoot);
+        //
+        // 🔴 [T45] 清单**不再写在这里**，改读纯逻辑的 SurvivorStartingKit —— 那是单一事实源。
+        // 理由：负重的覆盖自检要能在**不起 Godot 的情况下**算出"一个新幸存者出门有多重"（本方法是 Godot 类型，
+        // 进不了单测）。清单若只活在这段方法体里，测试就只能把名字抄一遍 ⇒ 两份事实源一漂移，
+        // 「出门负重 ≠ 0」那条护栏就在无声中失效——这正是本项目反复踩的"纯逻辑绿≠功能生效"。
+        foreach ((string item, EquipSlot? slot) in SurvivorStartingKit.Apparel)
+        {
+            p.EquipApparel(item, slot: slot);
+        }
         // 由两模型投影出生效战斗数据：AttackWeapon=PrimaryWeapon(+手感/IsRanged)、DefenderArmor=已穿护甲层。
         p.SyncCombatFromEquipment();
         return p;
@@ -618,6 +690,48 @@ public sealed partial class Pawn : Actor
     {
         _loadout.Unequip(hand);
         SyncCombatFromEquipment();
+    }
+
+    // ───────────────────────── [T47] 消耗型改装：打一下掉一次，用光即脱落 ─────────────────────────
+
+    /// <summary>
+    /// **手上这把武器的改装被磨没了**（锋刃研磨砍满三下）。营地层订阅它去：
+    /// ① 把库存/手上的那件东西换成 <c>NewWeaponName</c>；② 给玩家一行提示（<b>不能静默失效</b>）。
+    /// <para>
+    /// 事件而不是直接在这里改库存：<c>Pawn</c> 不认识 <c>InventoryStore</c>（那是营地的东西），
+    /// 而战斗可能发生在探索关。谁持有库存谁去换 —— 这是既有的分层。
+    /// </para>
+    /// </summary>
+    public event System.Action<Pawn, string /*旧变体名*/, string /*新武器名*/, IReadOnlyList<string> /*脱落的改装*/>? WeaponModBroken;
+
+    /// <summary>
+    /// 一次攻击真的打出去了 ⇒ 手上武器的消耗型改装掉一次。用光 ⇒ 改装脱落，武器当场换成脱落后的样子。
+    /// <para>
+    /// 绝大多数情况下这是**一次字典 miss 就返回**（原厂武器 / 永久改装都没有耐久条目）⇒ 热路径开销可忽略。
+    /// </para>
+    /// </summary>
+    protected override void OnAttackDelivered(Weapon used)
+    {
+        if (used is null) return;
+
+        ModWearResult wear = ModdedWeaponRegistry.ConsumeUse(used.Name);
+        if (!wear.Changed) return;   // 没有消耗型改装，或还没用光 —— 绝大多数攻击走这条
+
+        // 改装脱落：把手上这把换成脱落后的武器（可能是另一个变体，也可能是回落的基础武器）。
+        // 先记下它在哪只手、是不是双手握 —— 换完要原样放回去。
+        bool twoHanded = _loadout.Grip == GripMode.TwoHanded;
+        Hand hand = _loadout.RightHand is not null ? Hand.Right : Hand.Left;
+
+        UnequipWeapon(hand);
+        bool re = twoHanded ? EquipWeaponTwoHanded(wear.WeaponName) : EquipWeapon(wear.WeaponName, hand);
+        if (!re)
+        {
+            // 理论上不该发生（脱落后的武器一定是登记过的变体或原厂武器）。真发生了也不能把人打成空手
+            // 而无人知晓 —— 事件照发，营地层会把这把武器退回库存。
+            SyncCombatFromEquipment();
+        }
+
+        WeaponModBroken?.Invoke(this, used.Name, wear.WeaponName, wear.BrokenModNames);
     }
 
     /// <summary>

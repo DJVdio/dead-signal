@@ -23,6 +23,12 @@ public enum LoadoutTier
 /// <summary>
 /// 负重上限与分档惩罚（纯函数）。**用户口径**：30kg 以下无影响、30~50kg 有 debuff、50~80kg debuff 加重、**不能超过 80kg**。
 /// <para>
+/// [T45] 这本账里装的是**一个人身上的全部重量**：左右手的武器 + 11 槽护甲（消费层 <c>GearWeight</c>）+ 他分摊到的战利品。
+/// 所以"把枪改装得很强"的代价是——**它吃掉你的搜刮余量**（满改装步枪比原厂多占 3.5kg，那就是少搬 3.5kg 货回家）。
+/// <b>不是"出门就减速"</b>：普通配置出门离免罚线还远得很，是**你搜的东西**把你推过线的。
+/// 见 <see cref="BaseCarryLimitKg"/> 上方的余量表。
+/// </para>
+/// <para>
 /// 上限是**硬的**（<see cref="CanCarry"/>／消费层 <c>ExpeditionBag</c> 在拾取处拦截）——装不下就是拿不走，
 /// 而不是"超重了慢慢挪"。硬上限才制造取舍；软惩罚负责让"背得多"本身有代价。
 /// </para>
@@ -37,11 +43,47 @@ public enum LoadoutTier
 public static class Loadout
 {
     // ---- 用户拍板的三个公斤数（基准人：无残缺、不饿、无专属加成）----
+    //
+    // 🔴 [T45·负重激活] **装备（武器 + 护甲）现在计入这本账**（此前只算搜刮来的战利品，出门是空包 ⇒ 负重恒 0kg）。
+    //     三条线**保持 30/50/80 不动** —— 用户拍板。
+    //
+    // ⚠️ 曾经有人（我）提议把三条线随"装备进账"整体减半（30/50/80 → 15/25/40），理由是"账的口径变了"。
+    //    **用户否掉了，而且他是对的。** 用户原话：
+    //      「**不改啊，就应当是 30/50/80。带装备出门，随便搜点就超 30 了。如果全身重甲+重武器（单板甲就 15 了），
+    //        那出门就差不多 30 了，能搜的空间会很小。**」
+    //
+    // 🔴 **负重的代价不是"出门就减速"，而是「装备把你的搜刮余量吃掉了」。** 这是本系统的设计核心，别搞反：
+    //
+    //   配置                              出门实重   免罚余量(到30)   硬余量(到80)   搬得空住宅区(66kg)吗
+    //   开局(匕首+布衣+长裤+鞋)             1.30kg      28.7kg          78.7kg        ✅ 轻松
+    //   中期(步枪+皮甲+军用头盔)            13.80kg      16.2kg          66.2kg        ✅ **刚好**（只富余 0.2kg）
+    //   中期 + 满改装步枪(4.0→8.1)          17.90kg      12.1kg          62.1kg        ❌ 留 3.9kg 在原地
+    //   重装(狙击+板甲+防暴头盔)            26.90kg       3.1kg          53.1kg        ❌ 留 12.9kg 在原地
+    //   重装 + 满改装狙击(6.0→12.15)        33.05kg       0kg            47.0kg        ❌ 留 19.0kg 在原地
+    //
+    // 读法（每一行都是用户那句话的一个侧面）：
+    // · **出门时没有一个配置在罚**（重装 26.9kg 也还在 30kg 线下）——"出门就 debuff"从来不是设计意图。
+    // · 板甲重装的余量只剩 **3.1kg** ⇒ **搜两根木料(4kg)就掉进负重档**。这就是用户说的"能搜的空间会很小"。
+    // · 改装的 **+4.1kg** 不是抽象数字：它正好是"**刚好搬得空最大点位**"与"**搬不空**"的分界线。
+    //   ⇒ 「你可以把枪改装得很强，但你得接受空手而归」——**代价是搜刮余量，不是移速**。
+    //
+    // ⇒ 「**要么带甲、要么带货**」这个取舍照样成立，而且是通过**余量**实现的，不是"出门即罚"——
+    //    这比出门就减速更好：**它把选择权留给玩家**。
+    //
+    // 三条线不动还有一个结构性好处：轻度档(30~50)与重度档(50~80)的宽度不变 ⇒
+    // 「重度档每公斤更陡」的既有护栏（`MechanicsTests.HeavyTierIsSteeperThanLightTier`）自然成立，无需迁就。
+    //
+    // 装备重量的实测见 `CarryLoadWiringTests`（全部由 ArmorTable/ItemWeights 复算，不写死）；
+    // 满改装武器的实重**权威在 `WeaponModCatalog`**（impl-weaponmod 所有），上表是快照。
 
-    /// <summary>硬上限：**不能超过 80kg**（用户原话）。</summary>
+    /// <summary>硬上限：**不能超过 80kg**（用户原话）。装备也算在里面 —— 穿得越重，能搬回来的越少。</summary>
     public const double BaseCarryLimitKg = 80.0;
 
-    /// <summary>无影响线：30kg 以下自由行动。</summary>
+    /// <summary>
+    /// 无影响线：30kg 以下自由行动。
+    /// [T45] 装备进账后，这条线的意义变了——它不再是"你搜了多少"，而是"**装备之外你还能搜多少**"：
+    /// 板甲重装出门 26.9kg，离这条线只剩 3.1kg ⇒ 搜两根木料就越线。
+    /// </summary>
     public const double FreeThresholdKg = 30.0;
 
     /// <summary>加重线：50kg 起 debuff 加重。</summary>
@@ -55,16 +97,46 @@ public static class Loadout
     /// <summary>加重线占上限的比例（50/80 = 0.625）。</summary>
     public const double StrainRatio = StrainThresholdKg / BaseCarryLimitKg;
 
-    // ---- debuff 曲线（拟定待调）----
+    // ---- debuff 曲线：🔴 **用户拍板的四个数，不是"拟定待调"** ----
+    //
+    // 用户原话：「**惩罚我目前预想的是：50kg 减少 20% 移动速度和攻击速度；80kg 减少 80% 移动速度和 50% 攻击速度；
+    //             30-50，50-80 线性变化**」
+    //
+    //   负重      移速乘子   攻速乘子
+    //   ≤30kg      1.00       1.00      ← 平坦，无惩罚
+    //   50kg       0.80       0.80      ← 两条一起 −20%
+    //   80kg       0.20       0.50      ← 移速只剩两成（**走不动了**）；攻速腰斩
+    //   30→50      线性        线性
+    //   50→80      线性        线性
+    //
+    // 🔴 **移速在满载时掉到 0.20 是有意的**（贪多 ⇒ 基本走不动 ⇒ 被丧尸追上）。别当笔误"修"回 0.5。
+    //
+    // 🔴 **攻速现在从 30kg 就开始罚**（旧口径是"轻度档不罚攻速、背 30kg 挥剑没影响"，**用户已推翻**）。
+    //
+    // 两档的每公斤梯度（这是理解这条曲线的关键）：
+    //   移速：轻档 20%/20kg = **1.0%/kg** → 重档 60%/30kg = **2.0%/kg**（**加速恶化**）
+    //   攻速：轻档 20%/20kg = **1.0%/kg** → 重档 30%/30kg = **1.0%/kg**（**两档等陡**）
+    // ⇒ **负重压垮的首先是你的腿，不是你的手**：越重，走路的恶化越快，而挥刀的恶化是匀速的。
+    //   故既有护栏 `HeavyTierIsSteeperThanLightTier`（只断言移速）**照样成立**：2.0 > 1.0。
+    //   若日后有人把那条护栏推广到攻速，请用"重档 ≥ 轻档"（非严格）——**不许为了让护栏绿去动这四个数**。
 
-    /// <summary>轻度档末（＝加重线，基准人 50kg）的移速乘子：负重行军，累但还跑得动。</summary>
-    public const double SpeedAtStrain = 0.85;
+    /// <summary>轻度档末（＝加重线，基准人 50kg）的移速乘子：**−20%**，负重行军，累但还跑得动。</summary>
+    public const double SpeedAtStrain = 0.80;
 
-    /// <summary>重度档末（＝满上限，基准人 80kg）的移速乘子：走得动，但**逃不掉**——贪心的代价。</summary>
-    public const double SpeedAtLimit = 0.55;
+    /// <summary>
+    /// 重度档末（＝满上限，基准人 80kg）的移速乘子：**−80%，只剩两成速度**。
+    /// 走得动，但**逃不掉**——贪心的代价（用户拍板，有意的极重惩罚）。
+    /// </summary>
+    public const double SpeedAtLimit = 0.20;
 
-    /// <summary>满上限时的出手间隔乘子（攻速降到 85%）。轻度档**不罚攻速**——背 30kg 挥剑没什么影响。</summary>
-    public const double AttackSpeedAtLimit = 0.85;
+    /// <summary>
+    /// 轻度档末（＝加重线，基准人 50kg）的出手间隔乘子：**−20%**（与移速同步）。
+    /// ⚠️ 旧口径「轻度档不罚攻速」**已被用户推翻**——攻速从免罚线（30kg）起就开始线性掉。
+    /// </summary>
+    public const double AttackSpeedAtStrain = 0.80;
+
+    /// <summary>重度档末（＝满上限，基准人 80kg）的出手间隔乘子：**−50%，攻速腰斩**。</summary>
+    public const double AttackSpeedAtLimit = 0.50;
 
     /// <summary>超上限（正常不可达）每超 100% 额外扣的移速斜率（陡峭）。</summary>
     public const double OverloadSlope = 0.80;
@@ -145,8 +217,15 @@ public static class Loadout
     }
 
     /// <summary>
-    /// 出手间隔乘子（1.0 = 无惩罚，&lt;1 = 攻速变慢）。**只有重度档才罚**：
-    /// 50kg 以下挥剑没什么影响；越过加重线后身体被拖住，出手明显变形，满上限时降到 <see cref="AttackSpeedAtLimit"/>。
+    /// 出手间隔乘子（1.0 = 无惩罚，&lt;1 = 攻速变慢）。**与移速同构的两段线性**（用户拍板）：
+    /// &lt;30kg: 1.0；30~50kg: 线性降到 <see cref="AttackSpeedAtStrain"/>（0.80）；
+    /// 50~80kg: 线性降到 <see cref="AttackSpeedAtLimit"/>（0.50，**攻速腰斩**）。
+    /// <para>
+    /// ⚠️ **旧口径「只有重度档才罚攻速、背 30kg 挥剑没什么影响」已被用户推翻**：
+    /// 现在攻速和移速一样，从免罚线（30kg）起就开始掉。
+    /// 但两者的**恶化速度不同**——移速 1%/kg → 2%/kg（加速），攻速恒 1%/kg（匀速）：
+    /// <b>负重压垮的首先是你的腿，不是你的手</b>。
+    /// </para>
     /// <para>
     /// 刻意**不碰工时/操作能力**——那是残缺与饥饿的地盘（<c>Pawn.OperationCapability</c>）。
     /// 负重已经通过 <see cref="CarryLimit"/> 的 carryCapability 与它们相乘过一次，再扣一遍就是双重惩罚。
@@ -156,15 +235,21 @@ public static class Loadout
     {
         double ratio = Ratio(totalWeight, carryLimit);
 
-        if (ratio <= StrainRatio)
+        if (ratio <= FreeRatio)
         {
             return 1.0;
         }
 
+        if (ratio <= StrainRatio)
+        {
+            double t = (ratio - FreeRatio) / (StrainRatio - FreeRatio); // 0..1
+            return 1.0 - t * (1.0 - AttackSpeedAtStrain);
+        }
+
         if (ratio <= 1.0)
         {
-            double t = (ratio - StrainRatio) / (1.0 - StrainRatio);
-            return 1.0 - t * (1.0 - AttackSpeedAtLimit);
+            double t = (ratio - StrainRatio) / (1.0 - StrainRatio); // 0..1
+            return AttackSpeedAtStrain - t * (AttackSpeedAtStrain - AttackSpeedAtLimit);
         }
 
         double over = ratio - 1.0;

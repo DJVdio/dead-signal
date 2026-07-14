@@ -63,7 +63,7 @@ public class PawnInspectionTests
         // 左手切除（连带无后代）+ 右上臂骨折 + 左上臂流血。
         body.Sever(HumanBody.LeftHand);
         body.MarkFractured(HumanBody.RightArm);
-        body.RegisterBleed(HumanBody.LeftArm);
+        body.RegisterBleed(HumanBody.LeftArm, BleedModel.BleedSeverity.Medium);
 
         PawnInspection snap = PawnInspection.FromBody(body, null, System.Array.Empty<ArmorLayer>(), "x");
 
