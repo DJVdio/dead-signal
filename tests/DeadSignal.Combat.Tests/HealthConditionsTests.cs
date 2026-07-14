@@ -344,15 +344,89 @@ public class HealthConditionsTests
     [Fact]
     public void Medical_book_registry_maps_book_ids_to_points()
     {
-        Assert.Equal(5, MedicalBookPoints.For("wilderness_survival_guide")); // 《野外生存指南》draft +5
+        Assert.Equal(6, MedicalBookPoints.For("wilderness_survival_guide")); // 《野外生存指南》+6（只在不用耗材时）
         Assert.True(MedicalBookPoints.IsMedicalBook("wilderness_survival_guide"));
+        Assert.True(MedicalBookPoints.RequiresNoSupplies("wilderness_survival_guide"));
         Assert.Equal(0, MedicalBookPoints.For("farmer_hundred_questions"));   // 非医疗书 0
         Assert.False(MedicalBookPoints.IsMedicalBook("farmer_hundred_questions"));
+        Assert.False(MedicalBookPoints.RequiresNoSupplies("farmer_hundred_questions"));
         Assert.Equal(0, MedicalBookPoints.For("does_not_exist"));
         Assert.Equal(0, MedicalBookPoints.For(null!));
-        // 接入波：施术者已读书 ∩ 表 求和。
-        Assert.Equal(5, MedicalBookPoints.SumFor(new[] { "wilderness_survival_guide", "farmer_hundred_questions" }));
-        Assert.Equal(0, MedicalBookPoints.SumFor(new string[0]));
+
+        // 接入波：施术者已读书 ∩ 表 → 两个桶分开求和（无条件生效 / 只在不用耗材时生效）。
+        string[] read = { "wilderness_survival_guide", "farmer_hundred_questions" };
+        Assert.Equal(0, MedicalBookPoints.SumAlways(read));          // 野外生存指南是有条件的 ⇒ 不进无条件桶
+        Assert.Equal(6, MedicalBookPoints.SumWithoutSupplies(read)); // 进"徒手才算"桶
+        Assert.Equal(0, MedicalBookPoints.SumAlways(new string[0]));
+        Assert.Equal(0, MedicalBookPoints.SumWithoutSupplies(new string[0]));
+    }
+
+    // ===== 《野外生存指南》：**不使用任何手术材料时** +6（徒手/野路子手术的补偿；用了正规耗材就不加）=====
+
+    [Fact]
+    public void Wilderness_guide_bonus_applies_only_when_no_supply_is_used()
+    {
+        // 徒手（一件耗材都不投）→ 生效：15 + 6
+        var (s0, c0) = SetWith(Bleed());
+        Assert.Equal(21, s0.PerformSurgery(c0, materials: null, onBed: false, Roll(13),
+            surgeonBookBonusNoSupplies: 6).PointPool);
+
+        // 投了绷带 → 不生效：15 + 绷带15（不是 36）
+        var (s1, c1) = SetWith(Bleed());
+        Assert.Equal(30, s1.PerformSurgery(c1, new[] { "bandage" }, onBed: false, Roll(13),
+            surgeonBookBonusNoSupplies: 6).PointPool);
+
+        // 床上徒手 → 15 + 床10 + 6
+        var (s2, c2) = SetWith(Bleed());
+        Assert.Equal(31, s2.PerformSurgery(c2, materials: null, onBed: true, Roll(13),
+            surgeonBookBonusNoSupplies: 6).PointPool);
+    }
+
+    [Fact]
+    public void Wilderness_guide_bonus_coexists_with_unconditional_book_points()
+    {
+        // 两个桶互不相干：无条件书 +5 恒计；徒手书 +6 只在没投耗材时计。
+        var (s0, c0) = SetWith(Bleed());
+        Assert.Equal(26, s0.PerformSurgery(c0, materials: null, onBed: false, Roll(13),
+            surgeonBookBonus: 5, surgeonBookBonusNoSupplies: 6).PointPool); // 15+5+6
+
+        var (s1, c1) = SetWith(Bleed());
+        Assert.Equal(35, s1.PerformSurgery(c1, new[] { "bandage" }, onBed: false, Roll(13),
+            surgeonBookBonus: 5, surgeonBookBonusNoSupplies: 6).PointPool); // 15+15+5，徒手加成掉了
+    }
+
+    [Fact]
+    public void Wilderness_guide_bonus_counts_supplies_actually_used_not_passed_in()
+    {
+        // 判据是"这台手术**实际投入**了耗材没有"——不适用该伤类的材料本就被忽略、不消耗，
+        // 于是它也不该剥夺徒手加成（给骨折递一卷绷带 = 你还是徒手在接骨）。
+        var (set, frac) = SetWith(Frac());
+        SurgeryResult r = set.PerformSurgery(frac, new[] { "bandage" }, onBed: false, Roll(13),
+            surgeonBookBonusNoSupplies: 6);
+        Assert.Equal(21, r.PointPool);          // 15 + 6：绷带治不了骨折 ⇒ 未投入
+        Assert.Empty(r.ConsumedMaterials);      // 也没被消耗
+    }
+
+    [Fact]
+    public void Wilderness_guide_bonus_applies_to_amputation_and_prosthetic_too()
+    {
+        // 截肢：徒手 → +6；投了止血耗材 → 不加。
+        var inf = new HealthCondition(HealthConditionType.Infection, 0.5, "右手", onLimb: true);
+        var (sa, ia) = SetWith(inf);
+        Assert.Equal(21, sa.PerformAmputation(ia, materials: null, onBed: false, Roll(13),
+            surgeonBookBonusNoSupplies: 6).PointPool);
+
+        var infB = new HealthCondition(HealthConditionType.Infection, 0.5, "右手", onLimb: true);
+        var (sb, ib) = SetWith(infB);
+        Assert.Equal(30, sb.PerformAmputation(ib, new[] { "bandage" }, onBed: false, Roll(13),
+            surgeonBookBonusNoSupplies: 6).PointPool);
+
+        // 假肢手术：同一口径。
+        var sc = new HealthConditionSet();
+        Assert.Equal(21, sc.PerformProstheticSurgery(materials: null, onBed: false, Roll(13),
+            surgeonBookBonusNoSupplies: 6).PointPool);
+        Assert.Equal(30, sc.PerformProstheticSurgery(new[] { "bandage" }, onBed: false, Roll(13),
+            surgeonBookBonusNoSupplies: 6).PointPool);
     }
 
     // ================= 自体手术 ×0.60 / 操作能力 ×cap / 叠乘 =================

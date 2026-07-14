@@ -250,7 +250,7 @@ public sealed partial class Pawn : Actor
             HungerState.CombineCapability(Body.DisabilityModifiers.OperationPenalty, HungerAbilityPenalty),
             0.0, 1.0);
 
-    /// <summary>本幸存者已读书 id 集（供 <see cref="MedicalBookPoints.SumFor"/> 求施术者医疗书加点）。</summary>
+    /// <summary>本幸存者已读书 id 集（供 <see cref="MedicalBookPoints.SumAlways"/> / <see cref="MedicalBookPoints.SumWithoutSupplies"/> 求施术者医疗书加点）。</summary>
     public IReadOnlyCollection<string> ReadBookIds => _readBooks.ReadBooks;
 
     /// <summary>
@@ -366,10 +366,12 @@ public sealed partial class Pawn : Actor
     /// </summary>
     public SurgeryResult AmputateInfectedLimb(
         HealthCondition infection, IReadOnlyList<string>? materials, bool onBed, IRandomSource rng,
-        int surgeonBookBonus = 0, bool selfSurgery = false, double operationCapability = 1.0, int? surgeryBasePoints = null)
+        int surgeonBookBonus = 0, bool selfSurgery = false, double operationCapability = 1.0, int? surgeryBasePoints = null,
+        int surgeonBookBonusNoSupplies = 0)
     {
         string? part = infection.BodyPart;
-        SurgeryResult r = Health.PerformAmputation(infection, materials, onBed, rng, surgeonBookBonus, selfSurgery, operationCapability, surgeryBasePoints);
+        SurgeryResult r = Health.PerformAmputation(infection, materials, onBed, rng, surgeonBookBonus, selfSurgery, operationCapability, surgeryBasePoints,
+            surgeonBookBonusNoSupplies);
         if (r.Success && part != null)
         {
             Body.Sever(part); // 截肢成功：切除该肢
@@ -492,9 +494,11 @@ public sealed partial class Pawn : Actor
     /// </summary>
     public SurgeryResult InstallProstheticSurgery(
         BodyRegion replacesRegion, ProstheticGrade grade, IReadOnlyList<string>? materials, bool onBed, IRandomSource rng,
-        int surgeonBookBonus = 0, bool selfSurgery = false, double operationCapability = 1.0, int? surgeryBasePoints = null)
+        int surgeonBookBonus = 0, bool selfSurgery = false, double operationCapability = 1.0, int? surgeryBasePoints = null,
+        int surgeonBookBonusNoSupplies = 0)
     {
-        SurgeryResult r = Health.PerformProstheticSurgery(materials, onBed, rng, surgeonBookBonus, selfSurgery, operationCapability, surgeryBasePoints);
+        SurgeryResult r = Health.PerformProstheticSurgery(materials, onBed, rng, surgeonBookBonus, selfSurgery, operationCapability, surgeryBasePoints,
+            surgeonBookBonusNoSupplies);
         if (r.Success)
         {
             EquipProsthetic(replacesRegion, grade); // 成功：假肢就位、能力恢复即时重算
@@ -590,7 +594,7 @@ public sealed partial class Pawn : Actor
     }
 
     /// <summary>
-    /// 把一把武器双手持握（双手武器，或单手武器改双手握 +15%）：占两手。任一手断、或正持手持光源
+    /// 把一把武器双手持握（双手武器，或单手武器改双手握——**无攻速加成**）：占两手。任一手断、或正持手持光源
     /// （双手握需两手俱在，与光源互斥——见 <see cref="HeldLightState.BlocksTwoHandedEquip"/>）则拒绝。返回是否穿上。
     /// </summary>
     public bool EquipWeaponTwoHanded(string weaponName)

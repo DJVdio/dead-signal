@@ -209,8 +209,8 @@ public class NurseRecruitTests
         // 模拟她身故：不再记手术 → 台数不变、等级不变。
         Assert.Equal(frozen, NightingalePerk.SurgeriesPerformed(flags));
         Assert.Equal(3, NightingalePerk.LevelOf(flags));
-        // L3 遗产（营地层置永久旗标后）在她死/离营仍生效：感染仅遗产 ×0.90、全营手术仍 +5。
-        Assert.Equal(0.90, NightingalePerk.CampInfectionMultiplier(0, nurseAliveInCamp: false, l3LegacyActive: true), 6);
+        // L3 遗产（营地层置永久旗标后）在她死/离营仍生效：感染仅遗产 ×0.95、全营手术仍 +5。
+        Assert.Equal(0.95, NightingalePerk.CampInfectionMultiplier(0, nurseAliveInCamp: false, l3LegacyActive: true), 6);
         Assert.Equal(NightingalePerk.DefaultSurgeryBasePoints + NightingalePerk.CampSurgeryBaseBonus,
             NightingalePerk.SurgeryBasePoints(surgeonIsNightingale: false, l3LegacyActive: true));
     }
@@ -239,17 +239,17 @@ public class NurseRecruitTests
     {
         // L1 存活：无任何减免 → ×1.0。
         Assert.Equal(1.0, NightingalePerk.CampInfectionMultiplier(1, nurseAliveInCamp: true, l3LegacyActive: false), 6);
-        // L2 存活在营：−15% → ×0.85。
-        Assert.Equal(0.85, NightingalePerk.CampInfectionMultiplier(2, nurseAliveInCamp: true, l3LegacyActive: false), 6);
-        // L3 存活在营：2级−15% + 3级−10% 叠加 = −25% → ×0.75（用户口径"合计-25%"）。
-        Assert.Equal(0.75, NightingalePerk.CampInfectionMultiplier(3, nurseAliveInCamp: true, l3LegacyActive: true), 6);
+        // L2 存活在营：−10% → ×0.90（T21 用户手改：原 −15%）。
+        Assert.Equal(0.90, NightingalePerk.CampInfectionMultiplier(2, nurseAliveInCamp: true, l3LegacyActive: false), 6);
+        // L3 存活在营：2级−10% + 3级−5% 叠加 = −15% → ×0.85（T21 用户手改：原合计 −25%）。
+        Assert.Equal(0.85, NightingalePerk.CampInfectionMultiplier(3, nurseAliveInCamp: true, l3LegacyActive: true), 6);
     }
 
     [Fact]
     public void CampInfectionMultiplier_DeathAndAwayMatrix()
     {
-        // 死亡/离营后：2级(−15%)失效（需她在营存活），仅 3级遗产(−10%)存续 → ×0.90。
-        Assert.Equal(0.90, NightingalePerk.CampInfectionMultiplier(0, nurseAliveInCamp: false, l3LegacyActive: true), 6);
+        // 死亡/离营后：2级(−10%)失效（需她在营存活），仅 3级遗产(−5%)存续 → ×0.95。
+        Assert.Equal(0.95, NightingalePerk.CampInfectionMultiplier(0, nurseAliveInCamp: false, l3LegacyActive: true), 6);
         // 未到 L3 就死（无遗产）：全失 → ×1.0（2级失/3级无）。
         Assert.Equal(1.0, NightingalePerk.CampInfectionMultiplier(0, nurseAliveInCamp: false, l3LegacyActive: false), 6);
         // 离营但活着、已 L2 未 L3：2级需"在营"→失效 → ×1.0。
@@ -259,11 +259,31 @@ public class NurseRecruitTests
     [Fact]
     public void SurgeryBaseAndInfection_UseUserFixedValues_NotDraft()
     {
-        // 效果数值为用户原话非拟定：锁定 15/30/+5/−15%/−10%。
+        // 效果数值为用户原话非拟定：锁定 15/30/+5/−10%/−5%（T21 同步用户在数值表上的手改：感染减免 15/10 → 10/5）。
         Assert.Equal(15, NightingalePerk.DefaultSurgeryBasePoints);
         Assert.Equal(30, NightingalePerk.NightingaleSurgeryBasePoints);
         Assert.Equal(5, NightingalePerk.CampSurgeryBaseBonus);
-        Assert.Equal(0.15, NightingalePerk.Level2InfectionReduction, 6);
-        Assert.Equal(0.10, NightingalePerk.Level3InfectionReduction, 6);
+        Assert.Equal(0.10, NightingalePerk.Level2InfectionReduction, 6);
+        Assert.Equal(0.05, NightingalePerk.Level3InfectionReduction, 6);
+    }
+
+    /// <summary>
+    /// ⚠️ <b>轴的归属护栏（[DECISION] 未决，勿擅自换轴）</b>：南丁格尔的感染减免作用在<b>预防轴</b>——
+    /// 即 <c>TickDay(infectionChanceMultiplier:)</c>「<b>会不会感染</b>」的几率，
+    /// <b>不是</b>「感染条涨多快」的速率轴（那条是山姆 L3 光环 <c>CampInfectionWorsenMultiplier</c>，两者显式正交）。
+    ///
+    /// 用户在数值表上把她的文案由「感染率降低」改成了「感染<b>条速度</b>降低」，字面指向速率轴。
+    /// 但换轴是**行为变更**（会与山姆的速率乘子叠加），已上抛 [DECISION]，<b>代码轴维持预防轴不动</b>。
+    /// 本测试钉住现状，以便换轴决议落地时能立刻红给你看。
+    /// </summary>
+    [Fact]
+    public void NightingaleInfectionPerk_ActsOnPreventionAxis_NotProgressionAxis()
+    {
+        // 她的乘子进的是"感染几率"通道：L2 在营 → 几率 ×0.90。
+        Assert.Equal(0.90, NightingalePerk.CampInfectionMultiplier(2, nurseAliveInCamp: true, l3LegacyActive: false), 6);
+
+        // 速率轴（感染条涨多快）由山姆 L3 光环独占，南丁格尔不参与——她的等级不影响这个乘子。
+        Assert.Equal(1.0, SamPerk.CampInfectionWorsenMultiplier(samLevel: 0), 6);
+        Assert.True(SamPerk.CampInfectionWorsenMultiplier(samLevel: 3) < 1.0);
     }
 }

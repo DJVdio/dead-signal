@@ -246,29 +246,51 @@ public static class SurgeryCatalog
     public static bool IsSupply(string materialKey) => For(materialKey) != null;
 }
 
+/// <summary>一本医疗书给的手术加点（点值 + 生效条件）。</summary>
+/// <param name="Points">手术点数（加算进点数池的原始点，不是百分比乘子）。</param>
+/// <param name="OnlyWithoutSupplies">是否**只在这台手术一件耗材都没投**时才生效（徒手/野路子手术的补偿）。</param>
+public readonly record struct MedicalBookBonus(int Points, bool OnlyWithoutSupplies);
+
 /// <summary>
 /// 医疗书籍 → 手术治疗点注册表（**draft**，点值不对玩家展示）。
-/// 施术者**读过**的医疗书各按其点值累加成 surgeonBookBonus（靠书籍知识，与 Medical 技能无关、互不冲突）。
-/// 接入波用"施术者 ReadBookSet ∩ 本表"求和喂给 <see cref="HealthConditionSet.PerformSurgery"/>；本模型只出点、不耦合 ReadBookSet/Pawn。
+/// 施术者**读过**的医疗书各按其点值加算进手术点数池（靠书籍知识，与 Medical 技能无关）。
+/// <para>
+/// 加点分两个桶，因为书的效果可以带条件：
+///   · <b>无条件</b>（<see cref="SumAlways"/>）——读过就算，随便你用什么耗材；
+///   · <b>只在不用耗材时</b>（<see cref="SumWithoutSupplies"/>）——《野外生存指南》就是这一档：它教的是
+///     没有手术刀、没有缝合线时怎么用林子里的土办法硬撑，所以**一旦你投了正规耗材，这本书就不加分了**
+///     （正规器械有自己的加成）。
+/// </para>
+/// 接入波用"施术者 ReadBookSet ∩ 本表"分桶求和，两个数分别喂给 <see cref="HealthConditionSet.PerformSurgery"/> 的
+/// <c>surgeonBookBonus</c> / <c>surgeonBookBonusNoSupplies</c>；**"有没有投耗材"由引擎按实际投入判定**（本模型只出点、不耦合 ReadBookSet/Pawn）。
 /// </summary>
 public static class MedicalBookPoints
 {
-    // book id（对齐 BookData.Id）→ 手术治疗点（draft，默认 +5）。UI 只显示"略增医学学识"之类模糊描述，不展示具体点数。
-    private static readonly IReadOnlyDictionary<string, int> _byBookId = new Dictionary<string, int>
+    // book id（对齐 BookData.Id）→ 手术加点。UI 只显示"略增医学学识"之类模糊描述，不展示具体点数。
+    private static readonly IReadOnlyDictionary<string, MedicalBookBonus> _byBookId = new Dictionary<string, MedicalBookBonus>
     {
-        ["wilderness_survival_guide"] = 5, // 《野外生存指南》
+        // 《野外生存指南》：**不使用任何手术材料时** +6（用户原话）。徒手手术的补偿，投了耗材即不生效。
+        ["wilderness_survival_guide"] = new MedicalBookBonus(6, OnlyWithoutSupplies: true),
     };
 
-    /// <summary>该书的手术治疗点；非医疗书返回 0。</summary>
+    /// <summary>该书的手术治疗点（**不判条件**，只是点值——问条件用 <see cref="RequiresNoSupplies"/>）；非医疗书返回 0。</summary>
     public static int For(string bookId)
-        => bookId != null && _byBookId.TryGetValue(bookId, out int p) ? p : 0;
+        => bookId != null && _byBookId.TryGetValue(bookId, out MedicalBookBonus b) ? b.Points : 0;
+
+    /// <summary>该书的加点是否**只在不投任何手术耗材时**才生效；非医疗书返回 false。</summary>
+    public static bool RequiresNoSupplies(string bookId)
+        => bookId != null && _byBookId.TryGetValue(bookId, out MedicalBookBonus b) && b.OnlyWithoutSupplies;
 
     /// <summary>该书是否为医疗书（计入手术治疗点）。</summary>
     public static bool IsMedicalBook(string bookId) => bookId != null && _byBookId.ContainsKey(bookId);
 
-    /// <summary>一组已读书 id 的手术治疗点合计（接入波传施术者 ReadBookSet 的书 id 即可）。</summary>
-    public static int SumFor(IEnumerable<string> readBookIds)
-        => readBookIds == null ? 0 : readBookIds.Sum(For);
+    /// <summary>一组已读书里**无条件生效**的手术加点合计 → 喂 <c>surgeonBookBonus</c>。</summary>
+    public static int SumAlways(IEnumerable<string> readBookIds)
+        => readBookIds == null ? 0 : readBookIds.Where(id => !RequiresNoSupplies(id)).Sum(For);
+
+    /// <summary>一组已读书里**只在不投耗材时生效**的手术加点合计 → 喂 <c>surgeonBookBonusNoSupplies</c>（引擎按实际投入决定加不加）。</summary>
+    public static int SumWithoutSupplies(IEnumerable<string> readBookIds)
+        => readBookIds == null ? 0 : readBookIds.Where(RequiresNoSupplies).Sum(For);
 }
 
 /// <summary>一次药品治疗（感染/疾病）结果。</summary>
@@ -417,6 +439,14 @@ public sealed class HealthConditionSet
     private const double TreatmentPotencyFactor = 0.8;
 
     /// <summary>
+    /// 一台手术能吃到多少**医疗书加点**（三个手术入口共用一份口径）：无条件那份恒计；"只在不用耗材时"那份
+    /// 仅当本台手术**实际投入的耗材为零**时才计——判据是过滤后的 <paramref name="supplyCount"/>（不适用该伤类的材料
+    /// 本就被忽略、不消耗，故不剥夺该加成）。负数一律按 0 兜底。
+    /// </summary>
+    private static int BookPoints(int always, int noSupplies, int supplyCount)
+        => Math.Max(0, always) + (supplyCount == 0 ? Math.Max(0, noSupplies) : 0);
+
+    /// <summary>
     /// 分段 roll 区间（纯函数，供测试直接验）：给定有效池 P，返回 roll 的闭区间 [min,max]（区间内均匀整数）。
     ///   · P ≤ 100：[0, P]；· 100 &lt; P ≤ 200：[P−100, 100]；· P &gt; 200：[100, P−100]。
     /// 连续：P=100→[0,100]、P=200→[100,100]（定值无方差）、P=250→[100,150]。堆点数越高下限越高、越稳（P≥111 下限≥11 不可能失败）。
@@ -460,7 +490,11 @@ public sealed class HealthConditionSet
     /// <param name="materials">投入的材料 Key 列表（非手术耗材/不适用该伤类的忽略、不消耗；急救包独占，与其他耗材同投则抛异常）。</param>
     /// <param name="onBed">是否在床上操作（+10 点数）。</param>
     /// <param name="rng">分段 roll（<see cref="IRandomSource.Range"/>，区间由 <see cref="RollRange"/> 定）。</param>
-    /// <param name="surgeonBookBonus">施术者已读医疗书加点合计（调用方从其 ReadBookSet ∩ <see cref="MedicalBookPoints"/> 求和，靠书籍知识、非 Medical 技能）。</param>
+    /// <param name="surgeonBookBonus">施术者已读医疗书里**无条件生效**的加点合计（调用方走 <see cref="MedicalBookPoints.SumAlways"/>）。</param>
+    /// <param name="surgeonBookBonusNoSupplies">
+    /// 施术者已读医疗书里**只在这台手术一件耗材都没投时**才生效的加点合计（调用方走 <see cref="MedicalBookPoints.SumWithoutSupplies"/>；
+    /// 《野外生存指南》+6 即此档）。判据是**实际投入**的耗材——不适用该伤类的材料本就被忽略、不消耗，故也不剥夺此加成。
+    /// </param>
     /// <param name="selfSurgery">是否对自己手术（true → 池 ×0.60）。</param>
     /// <param name="operationCapability">施术者操作能力 0..1（满=1.0，残疾&lt;1；接入波从 Pawn 操作能力映射；池 ×它）。</param>
     /// <param name="surgeryBasePoints">
@@ -475,7 +509,8 @@ public sealed class HealthConditionSet
         int surgeonBookBonus = 0,
         bool selfSurgery = false,
         double operationCapability = 1.0,
-        int? surgeryBasePoints = null)
+        int? surgeryBasePoints = null,
+        int surgeonBookBonusNoSupplies = 0)
     {
         if (condition.Type != HealthConditionType.Bleeding && condition.Type != HealthConditionType.Fracture)
         {
@@ -522,7 +557,8 @@ public sealed class HealthConditionSet
 
         // 有效池 P = (基础 + 床 + 材料 + 医疗书) × 操作能力 × 自体系数，取整。
         double cap = Math.Clamp(operationCapability, 0.0, 1.0);
-        int rawPoints = (surgeryBasePoints ?? SurgeryBasePoints) + (onBed ? BedBonusPoints : 0) + supplies.Sum(s => s.Points) + Math.Max(0, surgeonBookBonus);
+        int rawPoints = (surgeryBasePoints ?? SurgeryBasePoints) + (onBed ? BedBonusPoints : 0) + supplies.Sum(s => s.Points)
+                        + BookPoints(surgeonBookBonus, surgeonBookBonusNoSupplies, supplies.Count);
         int pool = (int)Math.Round(rawPoints * cap * (selfSurgery ? SelfSurgeryFactor : 1.0), MidpointRounding.AwayFromZero);
 
         // 门槛：P < 15 凑不出可行手术 → 不 roll、不消耗、不改病状。
@@ -660,7 +696,8 @@ public sealed class HealthConditionSet
         int surgeonBookBonus = 0,
         bool selfSurgery = false,
         double operationCapability = 1.0,
-        int? surgeryBasePoints = null)
+        int? surgeryBasePoints = null,
+        int surgeonBookBonusNoSupplies = 0)
     {
         if (infection.Type != HealthConditionType.Infection)
         {
@@ -693,7 +730,8 @@ public sealed class HealthConditionSet
         }
 
         double cap = Math.Clamp(operationCapability, 0.0, 1.0);
-        int rawPoints = (surgeryBasePoints ?? SurgeryBasePoints) + (onBed ? BedBonusPoints : 0) + supplies.Sum(s => s.Points) + Math.Max(0, surgeonBookBonus);
+        int rawPoints = (surgeryBasePoints ?? SurgeryBasePoints) + (onBed ? BedBonusPoints : 0) + supplies.Sum(s => s.Points)
+                        + BookPoints(surgeonBookBonus, surgeonBookBonusNoSupplies, supplies.Count);
         int pool = (int)Math.Round(rawPoints * cap * (selfSurgery ? SelfSurgeryFactor : 1.0), MidpointRounding.AwayFromZero);
 
         if (pool < SurgeryMinPoints)
@@ -751,7 +789,8 @@ public sealed class HealthConditionSet
         int surgeonBookBonus = 0,
         bool selfSurgery = false,
         double operationCapability = 1.0,
-        int? surgeryBasePoints = null)
+        int? surgeryBasePoints = null,
+        int surgeonBookBonusNoSupplies = 0)
     {
         var supplies = new List<SurgerySupply>();
         if (materials != null)
@@ -770,7 +809,8 @@ public sealed class HealthConditionSet
         }
 
         double cap = Math.Clamp(operationCapability, 0.0, 1.0);
-        int rawPoints = (surgeryBasePoints ?? SurgeryBasePoints) + (onBed ? BedBonusPoints : 0) + supplies.Sum(s => s.Points) + Math.Max(0, surgeonBookBonus);
+        int rawPoints = (surgeryBasePoints ?? SurgeryBasePoints) + (onBed ? BedBonusPoints : 0) + supplies.Sum(s => s.Points)
+                        + BookPoints(surgeonBookBonus, surgeonBookBonusNoSupplies, supplies.Count);
         int pool = (int)Math.Round(rawPoints * cap * (selfSurgery ? SelfSurgeryFactor : 1.0), MidpointRounding.AwayFromZero);
 
         if (pool < SurgeryMinPoints)
