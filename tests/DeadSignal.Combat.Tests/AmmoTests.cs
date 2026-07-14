@@ -45,15 +45,14 @@ public class AmmoTests
     public void 枪与弹药的映射_照用户拍板()
     {
         // 用户原话：「手枪、冲锋枪用短子弹；自制猎枪、步枪用中子弹；狙击枪用长子弹」。
-        // 栓动猎枪用户未点名 → 我按口径常识判为中子弹（民用长枪，与步枪/自制猎枪同档）。
         // 鹿弹 → 自制霰弹枪。
+        // （栓动猎枪原本也吃中子弹，已随用户在数值表上删除这把武器一并撤下。）
         var expected = new (Weapon Gun, string Ammo)[]
         {
             (WeaponTable.Pistol(), AmmoKeys.ShortBullet),
             (WeaponTable.Smg(), AmmoKeys.ShortBullet),
             (WeaponTable.ImprovisedHuntingGun(), AmmoKeys.MediumBullet),
             (WeaponTable.Rifle(), AmmoKeys.MediumBullet),
-            (WeaponTable.BoltActionHuntingRifle(), AmmoKeys.MediumBullet),
             (WeaponTable.SniperRifle(), AmmoKeys.LongBullet),
             (WeaponTable.ImprovisedShotgun(), AmmoKeys.Buckshot),
         };
@@ -96,7 +95,9 @@ public class AmmoTests
 
         Assert.Equal(rifle.BurstCount, rifle.AmmoPerAttack);
         Assert.Equal(smg.BurstCount, smg.AmmoPerAttack);
-        Assert.True(rifle.AmmoPerAttack > WeaponTable.BoltActionHuntingRifle().AmmoPerAttack,
+        // 对照的单发枪原为栓动猎枪（已删）→ 改用同吃中子弹的自制猎枪，意图不变：
+        // 连发枪一次攻击烧的弹必须多于单发枪。
+        Assert.True(rifle.AmmoPerAttack > WeaponTable.ImprovisedHuntingGun().AmmoPerAttack,
             "步枪单次攻击的弹药代价必须高于单发枪——这是它强的代价");
     }
 
@@ -360,10 +361,12 @@ public class AmmoTests
         // 拿到枪却一发能用的弹都没有 = 拿到一根烧火棍。而弹药分了 4 种 —— 给错种类等于没给。
         var flags = new StoryFlags();
 
-        // 河边小屋·枪柜 ← 栓动猎枪（吃中子弹）
+        // 河边小屋·枪柜：原本 ← 栓动猎枪（吃中子弹）。用户已把这把武器从数值表删除 ⇒ **枪柜不再产枪**。
+        // 本条"有枪必有弹"的断言因此在这个点上失去前提，改钉新事实：柜里没有武器、但弹药照旧留着
+        // （中子弹喂自制猎枪/步枪，鹿弹喂自制霰弹枪——枪要另寻或自己造）。
         CacheResult gunCabinet = ExplorationCache.Resolve(ExplorationCache.RiversideGunCabinetId, flags)!.Value;
-        Assert.Contains(gunCabinet.Loot, l => l.Kind == LootKind.Weapon);
-        Assert.Contains(gunCabinet.Loot, l => l.RefId == WeaponTable.BoltActionHuntingRifle().AmmoKey);
+        Assert.DoesNotContain(gunCabinet.Loot, l => l.Kind == LootKind.Weapon);
+        Assert.Contains(gunCabinet.Loot, l => l.RefId == AmmoKeys.MediumBullet);
 
         // 金手指帮·军械柜 ← 冲锋枪（吃短子弹）
         CacheResult armory = ExplorationCache.Resolve(ExplorationCache.GoldfingerArmoryId, flags)!.Value;

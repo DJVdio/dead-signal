@@ -51,8 +51,16 @@
     },
     {
       "key": "description",
-      "label": "说明",
-      "type": "longtext"
+      "label": "简介",
+      "type": "longtext",
+      "hint": "**玩家在游戏里看到的描述**。改了它，agent 会把新文案同步进代码。（有几个分区代码里还没有描述字段——你照样可以写，写了就是在告诉 agent「这里该有一个」。）"
+    },
+    {
+      "key": "userNote",
+      "label": "备注",
+      "type": "note",
+      "usernote": true,
+      "hint": "**你的设计笔记，不进游戏**——想到什么特殊效果就写在这（比如「这把锤子应该能砸开保险箱」）。它不会被同步成游戏文案，但 agent 每次跑抽取器都会看到你新写的备注。"
     },
     {
       "key": "_id",
@@ -94,6 +102,7 @@
       "description": "一块破布有时也能救命",
       "_id": "bandage",
       "_anchor": "godot/scripts/Materials.cs（名称/说明）+ godot/scripts/HealthConditions.cs :: SurgeryCatalog / MedicineCatalog（数值）",
+      "userNote": "",
       "sync": "",
       "_icon": "materials/bandage"
     },
@@ -109,6 +118,7 @@
       "description": "能缝补你的伤口，却治愈不了你的心",
       "_id": "needle_thread",
       "_anchor": "godot/scripts/Materials.cs（名称/说明）+ godot/scripts/HealthConditions.cs :: SurgeryCatalog / MedicineCatalog（数值）",
+      "userNote": "",
       "sync": "",
       "_icon": "materials/needle_thread"
     },
@@ -124,6 +134,7 @@
       "description": "这会让它看上去直一些",
       "_id": "splint",
       "_anchor": "godot/scripts/Materials.cs（名称/说明）+ godot/scripts/HealthConditions.cs :: SurgeryCatalog / MedicineCatalog（数值）",
+      "userNote": "",
       "sync": "",
       "_icon": "materials/splint"
     },
@@ -139,6 +150,7 @@
       "description": "“一包全搞定”——南丁格尔",
       "_id": "first_aid_kit",
       "_anchor": "godot/scripts/Materials.cs（名称/说明）+ godot/scripts/HealthConditions.cs :: SurgeryCatalog / MedicineCatalog（数值）",
+      "userNote": "",
       "sync": "",
       "_icon": "materials/first_aid_kit"
     },
@@ -154,6 +166,7 @@
       "description": "传统医学，比普通绷带强",
       "_id": "herbal_bandage",
       "_anchor": "godot/scripts/Materials.cs（名称/说明）+ godot/scripts/HealthConditions.cs :: SurgeryCatalog / MedicineCatalog（数值）",
+      "userNote": "",
       "sync": "",
       "_icon": "materials/herbal_bandage"
     },
@@ -169,6 +182,7 @@
       "description": "现代医学的结晶",
       "_id": "antibiotics",
       "_anchor": "godot/scripts/Materials.cs（名称/说明）+ godot/scripts/HealthConditions.cs :: SurgeryCatalog / MedicineCatalog（数值）",
+      "userNote": "",
       "sync": "",
       "_icon": "materials/antibiotics"
     },
@@ -184,6 +198,7 @@
       "description": "杂七杂八的成药，缓解发热痢疾等病症——治不了大病，但能让你多撑一天。",
       "_id": "medicine",
       "_anchor": "godot/scripts/Materials.cs（名称/说明）+ godot/scripts/HealthConditions.cs :: SurgeryCatalog / MedicineCatalog（数值）",
+      "userNote": "",
       "sync": "",
       "_icon": "materials/medicine"
     },
@@ -199,6 +214,7 @@
       "description": "死马当活马医",
       "_id": "herbal_salve",
       "_anchor": "godot/scripts/Materials.cs（名称/说明）+ godot/scripts/HealthConditions.cs :: SurgeryCatalog / MedicineCatalog（数值）",
+      "userNote": "",
       "sync": "",
       "_icon": "materials/herbal_salve"
     },
@@ -214,6 +230,7 @@
       "description": "奶奶的最爱",
       "_id": "dandelion_tea",
       "_anchor": "godot/scripts/Materials.cs（名称/说明）+ godot/scripts/HealthConditions.cs :: SurgeryCatalog / MedicineCatalog（数值）",
+      "userNote": "",
       "sync": "",
       "_icon": "materials/dandelion_tea"
     },
@@ -223,12 +240,13 @@
       "treats": "",
       "surgeryPoints": null,
       "exclusive": null,
-      "efficacy": null,
+      "efficacy": 0.09,
       "worsenMult": null,
       "weight": 0.5,
       "description": "酸酸甜甜，抚慰你受伤的身体——喝下后一整天，身子骨恢复得更快些。",
       "_id": "rosehip_tea",
       "_anchor": "godot/scripts/Materials.cs（名称/说明）+ godot/scripts/HealthConditions.cs :: SurgeryCatalog / MedicineCatalog（数值）",
+      "userNote": "",
       "sync": "",
       "_icon": "materials/rosehip_tea"
     }

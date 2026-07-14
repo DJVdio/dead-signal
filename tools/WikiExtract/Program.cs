@@ -28,7 +28,28 @@ internal sealed record Col(
     bool Primary = false,
     bool Internal = false,
     bool ReadOnly = false,
-    string? Hint = null);
+    string? Hint = null,
+
+    /// <summary>
+    /// **这一列的改动一律要报「待同步进代码」，哪怕代码里现在是空的。**
+    /// <para>
+    /// 默认的文本漂移判据是"种子非空"——那是为了不让角色的 authored 剧情文本（C# 里根本没有那些句子）
+    /// 每次重跑都刷一屏。但「简介」不一样：它**按定义就该有个代码字段**，
+    /// 现在为空只说明**那个字段还没建**（配方 / 家具 / 角色数值 / 书籍的短简介就是这种缺口）。
+    /// 用户往里写了字，恰恰是在说"这里该有个字段" —— 这必须被看见，不能当 authored 文本吞掉。
+    /// </para>
+    /// </summary>
+    bool AlwaysSync = false,
+
+    /// <summary>
+    /// **用户的设计笔记，不进游戏、也不同步进代码。**
+    /// <para>
+    /// 「备注」列专用。代码里没有对应字段，**也不该有**——它不是游戏数据，是**写给 agent 看的需求**
+    /// （比如「这把锤子应该能砸开保险箱」）。所以它**不进漂移报告**（没有代码位置可以同步），
+    /// 但会进抽取器结尾那节 <b>📝 用户备注（待处理）</b>——见 <see cref="Program.ReportNotes"/>。
+    /// </para>
+    /// </summary>
+    bool UserNote = false);
 
 internal sealed record Category(
     string Id,
@@ -56,6 +77,16 @@ internal static class Program
     /// </para>
     /// </summary>
     private static readonly HashSet<string> RawHerbKeys = new() { "dandelion", "rosehip", "laojunxu" };
+
+    /// <summary>「简介」列的提示语（全分区统一）。</summary>
+    private const string PlayerFacingHint =
+        "**玩家在游戏里看到的描述**。改了它，agent 会把新文案同步进代码。"
+        + "（有几个分区代码里还没有描述字段——你照样可以写，写了就是在告诉 agent「这里该有一个」。）";
+
+    /// <summary>「备注」列的提示语（全分区统一）。</summary>
+    private const string NoteHint =
+        "**你的设计笔记，不进游戏**——想到什么特殊效果就写在这（比如「这把锤子应该能砸开保险箱」）。"
+        + "它不会被同步成游戏文案，但 agent 每次跑抽取器都会看到你新写的备注。";
 
     /// <summary>
     /// 一行的图标：**相对 <c>godot/assets/items/</c> 的路径（不带扩展名）**，如 <c>weapons/short_sword</c>。
@@ -118,6 +149,10 @@ internal static class Program
         // （`--reset-characters` 是 impl-wiki-chars 留的旧名，保留兼容。）
         bool reset = args.Contains("--reset") || args.Contains("--reset-characters");
 
+        // `--ack-notes` = 把当前全部「备注」记为**已处理**（agent 处理完一批之后跑）。
+        // 用户之后再改那条备注 ⇒ 内容哈希变了 ⇒ **下次抽取它会重新跳出来**。
+        bool ackNotes = args.Contains("--ack-notes");
+
         var seeds = new List<Category>
         {
             Weapons(),
@@ -129,6 +164,7 @@ internal static class Program
             Recipes(),
             Lights(),
             Books(),
+            Diaries(),   // [T59] 日记＝道具，不是书（独立一张表，无「阅读工时」列）
             WeaponMods(),
             Furniture(),
             Food(),
@@ -136,7 +172,64 @@ internal static class Program
             GlobalRules(),
             Characters.Roster(),
             Characters.Stats(),
+            // [T57] 调查点路线（网状解锁图）。种子来自 godot/data/world_graph.json —— 那份数据本身就是事实源，
+            // 游戏运行时直接读它 ⇒ 用户在这张表上重排路线，agent 同步回那份 JSON 即可，**不用改任何 C# 代码**。
+            WorldGraphTable.Build(repoRoot),
         };
+
+        // ── 「简介」和「备注」统一在这里补，16 个分区一个都不落（用户要求"每一样都应该有"）──
+        //
+        // 🔴 **必须在 TableMerge 之前补** —— 合并只认 `seeded.Columns` 里声明过的列，
+        //    在它之后才加列，等于合并时根本不知道有「备注」这一列 ⇒ **用户写的备注会被直接丢掉**。
+        //    （第一版就是这么写的，一测就丢。这正是"静默吞掉用户输入"那个病，差点又犯一次。）
+        //
+        // 🔴 两列的性质**完全不同**，别做成一样的：
+        //   · **简介** = 玩家在游戏里看到的描述 ⇒ 有代码字段（或**应该有**）⇒ 改了要报「待同步进代码」。
+        //     多数分区代码里已有描述字段（Weapon/ArmorTable/Materials/LightSource… 的 Description），
+        //     那些分区**复用既有的「说明」列改名为「简介」**，不另造一列。
+        //     ⚠️ **四个分区代码里根本没有描述字段**（配方 / 家具建造 / 角色数值 / 书籍的短简介）——
+        //     那是**真缺口**。这里照样给它们一列（`AlwaysSync`），空着也要报：用户往里写字，
+        //     恰恰是在说"这里该有个字段"，不能当 authored 文本吞掉。
+        //   · **备注** = 用户写给 agent 看的设计笔记 ⇒ **代码里没有、也不该有** ⇒ 不报"待同步"
+        //     （没有代码位置可以同步，报了是撒谎），但**必须被看见** ⇒ 走 UserNotes 那节专门的报告。
+        seeds = seeds.Select(c =>
+        {
+            var cols = c.Columns.ToList();
+
+            // 已有的描述列 → 改名为「简介」（别造重复列）；没有的 → 新建一个空的
+            int descAt = cols.FindIndex(x => x.Key == "description");
+            if (descAt >= 0)
+            {
+                cols[descAt] = cols[descAt] with { Label = "简介", AlwaysSync = true, Hint = PlayerFacingHint };
+            }
+            else if (!cols.Any(x => x.Key == "description"))
+            {
+                // 代码里没有描述字段的分区（配方/家具/角色数值/书籍…）：仍然给一列，且空着也要报
+                int at = Math.Max(0, cols.FindIndex(x => x.Internal));
+                if (at <= 0) at = cols.Count;
+                cols.Insert(at, new Col("description", "简介", "longtext", AlwaysSync: true, Hint: PlayerFacingHint));
+                foreach (Dictionary<string, object?> row in c.Rows)
+                {
+                    row.TryAdd("description", "");
+                }
+            }
+
+            // 备注：全分区统一一列（角色分区本来就有一列叫「备注」，键是 notes —— 那是它自己的，
+            // 这里的 note 是给 agent 看的设计笔记，两者不冲突）
+            if (!cols.Any(x => x.Key == UserNotes.Key))
+            {
+                int at = Math.Max(0, cols.FindIndex(x => x.Internal));
+                if (at <= 0) at = cols.Count;
+                cols.Insert(at, new Col(UserNotes.Key, "备注", "note", UserNote: true, Hint: NoteHint));
+                foreach (Dictionary<string, object?> row in c.Rows)
+                {
+                    row.TryAdd(UserNotes.Key, "");
+                }
+            }
+
+            return c with { Columns = cols };
+        }).ToList();
+
 
         List<Category> categories = reset
             ? seeds.Select(c => c with { Columns = c.Columns.Append(TableMerge.SyncColumn()).ToList() }).ToList()
@@ -248,7 +341,39 @@ internal static class Program
         {
             Console.WriteLine("\n表与代码一致，没有待同步项。");
         }
+
+        ReportNotes(categories, dataDir, ackNotes);
         return 0;
+    }
+
+    /// <summary>
+    /// 「📝 用户备注（待处理）」—— **只报新写的 / 改过的**，已处理过的不再刷屏。
+    ///
+    /// <para><b>为什么必须单开一节</b>：备注不进漂移报告（它没有代码位置可以同步），
+    /// 那它就有可能**永远躺在 JSON 里没人看**。今天刚栽过一次 —— 用户写在「效果」列里的设计意图
+    /// 被静默吞了一整天。**这一节就是不让它重演。**</para>
+    ///
+    /// <para><b>为什么不能每次报全部</b>：第二次跑就是刷屏，刷屏就会被无视，被无视就等于没有这个机制。
+    /// 所以按**内容哈希**认领（见 <see cref="UserNotes"/>）：处理过的安静下去，改过的再跳出来。</para>
+    /// </summary>
+    private static void ReportNotes(IReadOnlyList<Category> categories, string dataDir, bool ack)
+    {
+        if (ack)
+        {
+            int n = UserNotes.Acknowledge(categories, dataDir);
+            Console.WriteLine($"\n📝 已把当前 {n} 条备注全部记为「已处理」。用户之后再改，它们会重新跳出来。");
+            return;
+        }
+
+        IReadOnlyList<PendingNote> pending = UserNotes.Pending(categories, dataDir);
+        if (pending.Count == 0) return;
+
+        Console.WriteLine($"\n📝 用户备注（待处理 {pending.Count} 条）—— 这些是他写给你的设计笔记，**不是游戏文案**：");
+        foreach (PendingNote p in pending)
+        {
+            Console.WriteLine($"  · {p.Category}·{p.RowName}（{p.Id}）：{p.Text}");
+        }
+        Console.WriteLine("  处理完之后跑 `~/.dotnet/dotnet run --project tools/WikiExtract -- --ack-notes` 认领它们（改过的以后还会再跳出来）。");
     }
 
     private static string Serialize(Category c)
@@ -265,6 +390,7 @@ internal static class Program
                 if (col.Primary) jo["primary"] = true;
                 if (col.Internal) jo["internal"] = true;
                 if (col.ReadOnly) jo["readonly"] = true;
+                if (col.UserNote) jo["usernote"] = true;
                 if (col.Hint is not null) jo["hint"] = col.Hint;
                 return (JsonNode)jo;
             }).ToArray()),
@@ -755,8 +881,10 @@ internal static class Program
             new("tools", "工作台工具", "chip", Hint: "空 = 徒手就能做"),
             new("books", "要读过的书"),
             new("workMinutes", "工时", "hours", Hint: "有人站在工作台前干这么久（游戏内时间）。一天有 8 个相位，夜里那个生产相位大约能推进几小时——超过它就得跨夜接着做。"),
-            new("crafterGate", "制作者门槛", Hint: "空 = 谁都能做"),
+            new("crafterGate", "制作者门槛", Hint: "空 = 谁都能做。人话说明；引擎真正读的门槛 id 在置灰的「勿改」列里。"),
             new("_id", "内部 id", Internal: true),
+            // 引擎真读的门槛 id（cook_station_absent 之类）——**收进置灰「勿改」列，不许出现在给人看的那一列**。
+            new("_crafterGateIds", "门槛 id（勿改）", Internal: true),
             new("_anchor", "代码位置", Internal: true),
         };
 
@@ -775,6 +903,7 @@ internal static class Program
                 ["workMinutes"] = r.WorkMinutes,
                 ["crafterGate"] = r.RequiredCrafterGates is null ? "" : string.Join('、', r.RequiredCrafterGates.Select(GateLabel)),
                 ["_id"] = r.Id,
+                ["_crafterGateIds"] = r.RequiredCrafterGates is null ? "" : string.Join('、', r.RequiredCrafterGates),
                 ["_anchor"] = $"godot/scripts/Recipe.cs :: RecipeBook（Id = \"{r.Id}\"）",
             });
         }
@@ -802,11 +931,36 @@ internal static class Program
     private static string BookTitle(string bookId)
         => BookLibrary.All().FirstOrDefault(b => b.Id == bookId)?.Title is { } t ? $"《{t}》" : bookId;
 
+    /// <summary>
+    /// 制作者门槛 id → <b>人话</b>。
+    ///
+    /// <para>🔴 <b>这张表禁代码腔</b>（CLAUDE.md：数值表「中文名主键、人话说明，不出现类名/英文 id/引擎术语」）。
+    /// [T59] 之前这里只映射了 <c>doug_bond_l2</c>，另外两个门槛
+    /// （<c>cook_station_absent</c> / <c>mod_bench_absent</c>）直接走 <c>_ =&gt; gate</c> 兜底，
+    /// 于是**两个英文内部 id 就这么坐在了给用户看的中文表里**。用户看见后<b>把烹饪台那一格清空了</b>——
+    /// 抽取器随即把它报成「制作者门槛被改成空」，看起来像是「用户想拆掉唯一性限制」。
+    /// <b>那是个显示 bug 引发的误读，不是设计改动</b>：真拆了限制，玩家就能造出第二座烹饪台。
+    /// ⇒ 修的是<b>显示</b>：这里补齐人话，原始 id 收进置灰的 <c>_crafterGateIds</c>「勿改」列。</para>
+    /// </summary>
     private static string GateLabel(string gate) => gate switch
     {
         "doug_bond_l2" => "道格，且与布鲁斯的羁绊达到 2 级",
-        _ => gate,
+        "cook_station_absent" => "营地里还没有烹饪台（已有就不能再造第二座）",
+        "mod_bench_absent" => "营地里还没有改装台（已有就不能再造第二台）",
+
+        // 🔴 新加门槛却忘了在这里给它一句人话 ⇒ 英文 id 会漏进用户的表（就是上面那个 bug）。
+        //    宁可当场吵出来，也不要再静默泄一个代码腔进去。
+        _ => LoudUnknownGate(gate),
     };
+
+    /// <summary>没登记人话的门槛：照旧回退成 id（表还能用），但把它喊进待办报告里，逼人补上。</summary>
+    private static string LoudUnknownGate(string gate)
+    {
+        TableMerge.Drift.Add(
+            $"  [⚠️ 工具缺陷] 制作者门槛「{gate}」**没有人话映射** ⇒ 这个英文内部 id 会直接显示在用户的表里"
+            + "（数值表禁代码腔）。请去 Program.GateLabel 给它补一句中文。");
+        return gate;
+    }
 
     // ─────────────────────────── 光源 ───────────────────────────
 
@@ -879,7 +1033,9 @@ internal static class Program
         };
 
         var rows = new List<Dictionary<string, object?>>();
-        foreach (BookData b in BookLibrary.All())
+        // 🔴 [T59] **只列真正的"书"** —— 日记是道具，不是书（它没有"阅读工时"，那一列对它全是错的）。
+        //    日记另开一张表（见 Diaries()）。用户口径：书给角色读、日记给玩家读。
+        foreach (BookData b in BookLibrary.Manuals())
         {
             int pts = MedicalBookPoints.For(b.Id);
             rows.Add(new Dictionary<string, object?>
@@ -896,7 +1052,46 @@ internal static class Program
         }
         return new Category("books", "书籍",
             "godot/scripts/BookData.cs",
-            "本作没有技能系统——**能力只由角色的专属效果和读过的书承载**。配方解锁只看谁读过哪本书。",
+            "本作没有技能系统——**能力只由角色的专属效果和读过的书承载**。配方解锁只看谁读过哪本书。"
+            + "「读完要几小时」是**角色的时间**：读书的人整夜占着座位，那一夜他不能站岗、也不能干活——这就是书的代价。"
+            + "（日记不在这张表里：它是给玩家看的道具，不花角色一分钟，见「日记与笔记」。）",
+            cols, rows);
+    }
+
+    // ─────────────────────────── 日记与笔记（道具，非书）───────────────────────────
+
+    /// <summary>
+    /// [T59] <b>日记单独一张表</b>（用户拍板：「日记不是书」）。
+    /// <para>它<b>没有「读完要几小时」这一列</b>——日记不由角色去读，**根本没有工时这回事**；
+    /// 也没有「效果」列——它什么都不解锁，只讲故事。表里只有<b>正文</b>（authored，用户手写）。</para>
+    /// </summary>
+    private static Category Diaries()
+    {
+        var cols = new List<Col>
+        {
+            new("title", "标题", Primary: true),
+            new("body", "正文", "longtext",
+                Hint: "玩家在库存里点开就能看的全文（看的时候游戏是暂停的）。这是剧情文本，你写什么就是什么。"),
+            new("_id", "内部 id", Internal: true),
+            new("_anchor", "代码位置", Internal: true),
+        };
+
+        var rows = new List<Dictionary<string, object?>>();
+        foreach (BookData b in BookLibrary.Diaries())
+        {
+            rows.Add(new Dictionary<string, object?>
+            {
+                ["title"] = b.Title,
+                ["body"] = b.Body,
+                ["_id"] = b.Id,
+                ["_anchor"] = "godot/scripts/BookData.cs :: BookLibrary（BookData.Diary）",
+            });
+        }
+        return new Category("diaries", "日记与笔记",
+            "godot/scripts/BookData.cs",
+            "**它们不是书，是道具。** 玩家在库存里点开就能看全文，游戏冻结着看，**不花任何角色的时间**——"
+            + "捡到就等于读到了。它们什么也不解锁，只讲故事。"
+            + "（对照：「书籍」表里那些要角色整夜坐着读的，才是书。）",
             cols, rows);
     }
 
@@ -948,7 +1143,7 @@ internal static class Program
             new("part", "占用部位", "chip", Hint: "一个部位只能装一件；不同部位可以同时装"),
             new("stats", "数值改动", Hint: "装上这件改装后，武器的哪些数值怎么变。格式：「伤害下限 +2、穿透 ×1.2」。加/乘/覆盖分别写 +、×、=。"),
             new("form", "近战型态", "chip", Hint: "改写枪托近战的打法；一把枪只能装一条带型态的改装"),
-            new("materials", "材料", Hint: "格式：废金属×2、布×1"),
+            new("materials", "材料", Hint: "格式：铁×2、布×1"),
             new("workMinutes", "工时", "hours", Hint: "有人站在改装台前干这么久（游戏内时间）。"),
             new("note", "说明", "longtext"),
             new("_id", "内部 id", Internal: true),
@@ -967,7 +1162,7 @@ internal static class Program
                         .Where(w => m.FitsWeapons.Contains(w.Name))
                         .Select(w => w.Name)),
                 ["part"] = DisplayNames.Of(m.Part),
-                ["stats"] = string.Join('、', m.Stats.Select(StatModLabel)),
+                ["stats"] = StatsLabel(m),
                 ["form"] = m.Form is null ? "" : DisplayNames.Of(m.Form.Value),
                 ["materials"] = string.Join('、', m.MaterialCosts.Select(kv => $"{MaterialName(kv.Key)}×{kv.Value}")),
                 ["workMinutes"] = m.WorkMinutes,
@@ -981,9 +1176,41 @@ internal static class Program
             "godot/scripts/WeaponModCatalog.cs",
             "给武器加零件。一个部位只装得下一件，装不下的会被拒绝。"
             + "「可装于哪些武器」是**引擎真读的装配约束**——勾掉一把枪，它当场就装不上了，不是摆设。"
-            + "⚠️ 弓弩现在也在枪械改装的白名单里：引擎把「远程」一律当作枪械，所以短弓真的能装截短枪管。"
-            + "这是个潜伏已久的 bug，换成白名单时**如实保留**了（否则老存档里的改装枪会失效）——想收窄，把弓从这一列里划掉即可。",
+            + "⚠️「数值改动」这一列你写的是**人话**，而代码那边是结构化字段（比如你写「攻击速度+5%」，引擎里是「攻击间隔 ×0.95」）"
+            + "⇒ 这一列**几乎永远会显示成「待同步」，那只是两种写法的差异，不代表真的没落地**。要确认，看代码注释或问 agent。"
+            + "⚠️ 弓弩**已经不能装枪械改装了**（它们曾因一个 bug 被引擎当成「枪」）。"
+            + "消防斧是新武器，还没被勾进任何一条锐器改装——想让它能改装，在这一列里勾上它即可。",
             cols, rows);
+    }
+
+    /// <summary>
+    /// 一条改装的「数值改动」列（代码侧渲染）。
+    ///
+    /// <para>
+    /// 🔴 <b>[T47] 必须把 <c>Stats</c> 之外的三个字段也渲染出来</b>，否则一旦有人跑 <c>--reset</c>，
+    /// 用户写在表上的「<b>重量 −25%~+50%</b>」「<b>攻击三次后失去该改装</b>」「<b>允许单手持有</b>」
+    /// 会被**悄悄抹掉** —— 它们不是 <see cref="StatMod"/>（重量是消费层概念、次数是实例状态、持握是结构 bool），
+    /// 从前的渲染只扫 <c>m.Stats</c>，看不见它们。而重量恰恰是用户这套设计的**核心代价轴**。
+    /// </para>
+    /// </summary>
+    private static string StatsLabel(WeaponMod m)
+    {
+        var parts = m.Stats.Select(StatModLabel).ToList();
+
+        if (System.Math.Abs(m.WeightMultiplier - 1.0) > 1e-9)
+        {
+            parts.Add($"重量 ×{Round(m.WeightMultiplier)}");
+        }
+        if (m.AllowsOneHanded)
+        {
+            parts.Add("允许单手持有");
+        }
+        if (m.UsesBeforeBreak is { } uses)
+        {
+            parts.Add($"攻击 {uses} 次后失去该改装");
+        }
+
+        return string.Join('、', parts);
     }
 
     private static string StatModLabel(StatMod s)
@@ -1002,6 +1229,9 @@ internal static class Program
             WeaponStat.StockMeleeDamageMax => "枪托伤害上限",
             WeaponStat.StockMeleeInterval => "枪托间隔",
             WeaponStat.StockMeleePenetration => "枪托穿透",
+            // ⚠ 这一条从前漏了 ⇒ 会退化成 ToString() 吐出英文枚举名（StockMeleeNoiseRadius）到用户表上。
+            //   三种近战型态都会写它（枪托噪音随刺剑/消防斧/尖头锤改变），所以它必须有中文名。
+            WeaponStat.StockMeleeNoiseRadius => "枪托噪音半径",
             _ => s.Stat.ToString(),
         };
         string op = s.Op switch
@@ -1185,8 +1415,49 @@ internal static class Program
             "身体要**贴上去**才算——站在掩体附近不算。",
             "godot/scripts/CoverLogic.cs :: CoverLogic.AdjacencyRadius");
 
+        // —— 流血（谁流得快、谁流得死）——
+        // ⚠️ 这里必须 Round 到 **4** 位（同下面几行的兄弟项）：引擎里的真值是 1/3 ＝ 33.3333…%，
+        // 舍到 1 位会种下 33.3，而 TableMerge 是按 4 位精度比对的（Program.Round）⇒ 表里填真值 33.3333 就永远
+        // 报一条「表 33.3333 ≠ 代码 33.3」的**假漂移，且怎么改都消不掉**（用户改表 → 表赢 → 下次再报）。
+        // 这正是 TableMerge 顶上那条注释警告过的病：「序列化四舍五入了、比较却没有」。种子与比对必须同精度。
+        Add("bleed_zombie_rate", "丧尸的流血速度", Math.Round(BleedModel.ZombieBleedRateMultiplier * 100, 4), "%",
+            "**丧尸只按常人的这个比例流血**——行尸走肉，血液循环本就不像活人。"
+            + "⚠️ 这个数是**锐器强度的总闸门**：调高它，砍两刀站着等丧尸流干就行，伤害和护甲会一起失去意义；"
+            + "调低它，匕首/刺剑这种「靠放血赢」的武器会直接废掉（它们对丧尸的胜利几乎全来自失血）。",
+            "src/DeadSignal.Combat/BleedModel.cs :: BleedModel.ZombieBleedRateMultiplier");
+        Add("bleed_weight_lethal", "大伤口的流血速度", Math.Round(BleedModel.RateWeightOf(BleedTier.Lethal) * 100, 4), "%",
+            "**躯干/头/颈/上臂/大腿**——只有这些大部位的伤口能把人**放干致死**。基准 100%。",
+            "src/DeadSignal.Combat/BleedModel.cs :: BleedModel.RateWeightOf");
+        Add("bleed_weight_minor", "手脚伤口的流血速度", Math.Round(BleedModel.RateWeightOf(BleedTier.Minor) * 100, 4), "%",
+            "**手/脚**的伤口流得慢，而且**永远流不死**（见下面那条下限）——只会溃烂感染。",
+            "src/DeadSignal.Combat/BleedModel.cs :: BleedModel.RateWeightOf");
+        Add("bleed_weight_micro", "指/趾/眼/面/耳伤口的流血速度", Math.Round(BleedModel.RateWeightOf(BleedTier.Micro) * 100, 4), "%",
+            "**擦伤级**的小口子，流得极慢，同样**永远流不死**。",
+            "src/DeadSignal.Combat/BleedModel.cs :: BleedModel.RateWeightOf");
+        Add("bleed_nonlethal_floor", "小伤口最多把血抽到", Math.Round(BleedModel.NonLethalBloodFloorRatio * 100, 4), "%",
+            "手/脚/指的伤口**只能把储血抽到这条线为止**——抽不到昏迷线（25%），更抽不到 0。"
+            + "这就是「小伤口不致命」的硬保证：它们让你虚弱，但永远不是压死你的最后一根稻草。",
+            "src/DeadSignal.Combat/BleedModel.cs :: BleedModel.NonLethalBloodFloorRatio");
+        Add("bleed_medium_threshold", "一刀打掉部位血量的多少就变中流血", Math.Round(BleedModel.MediumThreshold * 100, 4), "%",
+            "**一次**伤害超过这个比例（按被打中那个部位的最大生命值算），口子就从小流血升成**中流血**。"
+            + "护甲挡掉大半之后只渗进去一点点的剐蹭，比例很小 ⇒ 只算小流血 —— **甲厚就流得少，是这么来的**。",
+            "src/DeadSignal.Combat/BleedModel.cs :: BleedModel.MediumThreshold");
+        Add("bleed_large_threshold", "一刀打掉部位血量的多少就变大流血", Math.Round(BleedModel.LargeThreshold * 100, 4), "%",
+            "**一次**伤害超过这个比例 ⇒ 直接**大流血**（最高一级，再挨打也不会更高）。砍在没穿甲的身上就是这一档。",
+            "src/DeadSignal.Combat/BleedModel.cs :: BleedModel.LargeThreshold");
+        Add("bleed_rate_small", "小流血的流速（相对普通伤口）", Math.Round(BleedModel.SeverityRateOf(BleedModel.BleedSeverity.Small) * 100, 4), "%",
+            "只要锐器进了肉就至少是小流血。它流得很慢 —— 挨一堆浅爪不会被放干。",
+            "src/DeadSignal.Combat/BleedModel.cs :: BleedModel.SeverityRateOf");
+        Add("bleed_rate_medium", "中流血的流速（相对普通伤口）", Math.Round(BleedModel.SeverityRateOf(BleedModel.BleedSeverity.Medium) * 100, 4), "%",
+            "**两个小流血会合成一个中流血**（同一个部位再挨一刀，口子是接到一起的，不是多出一道）。",
+            "src/DeadSignal.Combat/BleedModel.cs :: BleedModel.SeverityRateOf");
+        Add("bleed_rate_large", "大流血的流速（相对普通伤口）", Math.Round(BleedModel.SeverityRateOf(BleedModel.BleedSeverity.Large) * 100, 4), "%",
+            "**封顶的一级**：两个中流血、或一小一中，都会合成大流血；到了大流血就**不会再往上升**了。"
+            + "一处大流血放干一个常人要一分钟左右，**两处就能在一场仗打完之前把人流死**。",
+            "src/DeadSignal.Combat/BleedModel.cs :: BleedModel.SeverityRateOf");
+
         return new Category("global-rules", "全局规则",
-            "src/DeadSignal.Combat/DualWield.cs · godot/scripts/SurvivorPerks.cs · godot/scripts/CoverLogic.cs",
+            "src/DeadSignal.Combat/DualWield.cs · src/DeadSignal.Combat/BleedModel.cs · godot/scripts/SurvivorPerks.cs · godot/scripts/CoverLogic.cs",
             "**对所有人一体适用**的规则——不属于任何一件武器，也不属于任何一个角色。"
             + "以前这些数只活在代码里，wiki 上看不到、也改不了。"
             + "⚠️ 别把这里的东西误当成谁的专属效果：「没座位读书慢 10%」是**每个人**都一样的，不是诺蒂的技能。",

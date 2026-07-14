@@ -29,8 +29,16 @@
     },
     {
       "key": "description",
-      "label": "说明",
-      "type": "longtext"
+      "label": "简介",
+      "type": "longtext",
+      "hint": "**玩家在游戏里看到的描述**。改了它，agent 会把新文案同步进代码。（有几个分区代码里还没有描述字段——你照样可以写，写了就是在告诉 agent「这里该有一个」。）"
+    },
+    {
+      "key": "userNote",
+      "label": "备注",
+      "type": "note",
+      "usernote": true,
+      "hint": "**你的设计笔记，不进游戏**——想到什么特殊效果就写在这（比如「这把锤子应该能砸开保险箱」）。它不会被同步成游戏文案，但 agent 每次跑抽取器都会看到你新写的备注。"
     },
     {
       "key": "_id",
@@ -68,6 +76,7 @@
       "description": "一束聚焦的电光，帮你看清黑暗里的东西，也帮黑暗里的东西看清你。",
       "_id": "flashlight",
       "_anchor": "godot/scripts/LightSource.cs :: LightSource",
+      "userNote": "",
       "sync": "",
       "_icon": "lights/flashlight"
     },
@@ -79,6 +88,7 @@
       "description": "布条裹木棒、蘸油点着的火把，暖光一圈，浪漫又暴露——燃着就别想藏行踪。",
       "_id": "torch",
       "_anchor": "godot/scripts/LightSource.cs :: LightSource",
+      "userNote": "",
       "sync": "",
       "_icon": "lights/torch"
     },
@@ -90,6 +100,7 @@
       "description": "挂在营地里的油灯，照亮一小片起居，也照亮「我们还没散伙」这件事。",
       "_id": "lamp",
       "_anchor": "godot/scripts/LightSource.cs :: LightSource",
+      "userNote": "",
       "sync": "",
       "_icon": "lights/lamp"
     },
@@ -101,6 +112,7 @@
       "description": "营地中央的火堆，驱散黑暗、烤暖人心，顺便把「这儿有人」写在夜空上，给远处看。",
       "_id": "campfire",
       "_anchor": "godot/scripts/LightSource.cs :: LightSource",
+      "userNote": "",
       "sync": "",
       "_icon": "lights/campfire"
     }

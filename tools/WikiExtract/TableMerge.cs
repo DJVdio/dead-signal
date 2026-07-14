@@ -147,8 +147,22 @@ internal static class TableMerge
                 //    ⇒ 用户改了它就该同步回代码。
                 //    种子为空 = authored 内容（角色的背景故事、剧情文本，C# 里根本没有这些句子）
                 //    ⇒ 用户写什么都不该报，否则每次重跑刷一屏。
+                // 🔴 **「备注」列一个字都不报**：它是用户写给 agent 看的设计笔记，代码里没有对应字段、
+                //    也不该有 ⇒ 没有"代码位置"可以同步，报成"待同步进代码"是在撒谎。
+                //    但它**绝不能就这么躺着没人看** —— 抽取器结尾有一节「📝 用户备注（待处理）」专门捞它，
+                //    见 Program.ReportNotes。（今天刚栽过一次：用户写在「效果」列里的设计意图被静默吞了一整天。）
+                else if (col.UserNote)
+                {
+                    // 什么都不报，但下面照样 row[col.Key] = edited —— 保留住，重跑不冲掉
+                }
+
                 else if (col.Type is "text" or "longtext" or "chip" or "multiselect"
-                         && seededVal is string seedText && seedText.Length > 0
+                         // AlwaysSync（「简介」）：种子为空也要报 —— 空只说明**代码里那个字段还没建**，
+                         // 用户往里写字恰恰是在说"这里该有个字段"，不能当 authored 文本吞掉。
+                         && (col.AlwaysSync
+                             ? edited is string
+                             : seededVal is string { Length: > 0 })
+                         && seededVal is string seedText
                          && edited is string editedText
                          // 比之前先把空白归一化：正文里"。 "和"。  "（一个空格 vs 两个）不是改动，
                          // 报出来只会淹掉真正的改动。
@@ -221,7 +235,7 @@ internal static class TableMerge
     /// （chip 和 bool 就这么被漏了整整一批：改「可双持」只是翻一个绿点，石沉大海）。
     /// 加新列类型时，务必同时在 <see cref="WithExisting"/> 的比较链里给它加一个分支，并更新这里。
     /// </summary>
-    private static readonly string[] CoveredTypes = { "number", "percent", "mult", "hours", "bool", "text", "longtext", "chip", "multiselect" };
+    private static readonly string[] CoveredTypes = { "number", "percent", "mult", "hours", "bool", "text", "longtext", "chip", "multiselect", "note" };
 
     /// <summary>把没归宿的列类型当场喊出来（宁可吵，也不要静默吞掉用户的改动）。</summary>
     private static void AssertCovered(Col col)

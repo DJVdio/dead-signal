@@ -381,14 +381,19 @@ public static class ApparelCatalog
             new HashSet<string> { HumanBody.LeftEye, HumanBody.RightEye, HumanBody.Nose }, null);
 
         // [批次21·T26] 三件新可制作穿戴品 + 战争面具（配方见 RecipeBook；**不造新槽**，全落既有槽）。
-        //   战争面具 → 面部槽（**只占 Face**，不占眼镜槽 ⇒ 不遮眼）：与防毒面具/防暴头盔互斥（都要这张脸），
-        //             但与**军用头盔**可同戴（那顶只占头槽）—— 这正是两顶头盔那个取舍的延伸。
+        //   战争面具 → **面部 + 眼镜两槽**（[T59] 用户改的；它现在遮眼、也护眼——见 ArmorTable.WarMask 的注释：
+        //             只占槽而不护眼是纯负收益，且这两个槽上现存的两件本就与它互斥 ⇒ 多占眼镜槽不改变任何互斥关系）。
+        //             与防毒面具/防暴头盔互斥（都要这张脸），但与**军用头盔**可同戴（那顶只占头槽）。
         //   粗布衬衫 → 贴身层（与长袖布衣/花衬衫互斥）。
         //   粗布短裤 / 粗布长裤 → 裤装槽（与长裤/短裤/板甲互斥；短款仅护大腿，见 ArmorTable）。
-        Add(ArmorTable.WarMask(), EquipSlot.Face);
+        Add(ArmorTable.WarMask(), EquipSlot.Face, EquipSlot.Eyes);
         Add(ArmorTable.CoarseClothShirt(), EquipSlot.SkinLayer);
         Add(ArmorTable.CoarseShorts(), EquipSlot.Pants);
         Add(ArmorTable.CoarseTrousers(), EquipSlot.Pants);
+
+        // [T59] 棉帽（用户在 wiki 上新加）→ **头槽**，与两顶头盔互斥。
+        // 头槽此前只有 4.5kg 级的重甲头盔 ⇒ 前期头部完全裸着；这顶 0.15kg 的布帽子把那个洞堵上。
+        Add(ArmorTable.CottonHat(), EquipSlot.Head);
         return d;
     }
 

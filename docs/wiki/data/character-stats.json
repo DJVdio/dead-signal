@@ -33,6 +33,19 @@
       "hint": "勾上 = 你定过的值，别当「拟定待调」随手改；空 = 拟定待调"
     },
     {
+      "key": "description",
+      "label": "简介",
+      "type": "longtext",
+      "hint": "**玩家在游戏里看到的描述**。改了它，agent 会把新文案同步进代码。（有几个分区代码里还没有描述字段——你照样可以写，写了就是在告诉 agent「这里该有一个」。）"
+    },
+    {
+      "key": "userNote",
+      "label": "备注",
+      "type": "note",
+      "usernote": true,
+      "hint": "**你的设计笔记，不进游戏**——想到什么特殊效果就写在这（比如「这把锤子应该能砸开保险箱」）。它不会被同步成游戏文案，但 agent 每次跑抽取器都会看到你新写的备注。"
+    },
+    {
       "key": "_id",
       "label": "内部 id",
       "type": "text",
@@ -69,6 +82,8 @@
       "_id": "sam_l2_pop",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: SamPerk.Level2CampPopulation",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -80,6 +95,8 @@
       "_id": "sam_l3_pop",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: SamPerk.Level3CampPopulation",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -91,6 +108,8 @@
       "_id": "sam_l1_damage_reduction",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: SamPerk.Level1DamageReduction",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -102,6 +121,8 @@
       "_id": "sam_l2_carry",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: SamPerk.Level2CarryBonus",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -113,6 +134,8 @@
       "_id": "sam_aura_carry",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: SamPerk.AuraCarryBonus",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -124,6 +147,8 @@
       "_id": "sam_aura_work",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: SamPerk.AuraWorkSpeedBonus",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -135,6 +160,8 @@
       "_id": "sam_aura_heal",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: SamPerk.AuraHealSpeedBonus",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -146,6 +173,8 @@
       "_id": "sam_aura_infection",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: SamPerk.AuraInfectionWorsenReduction",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -157,6 +186,8 @@
       "_id": "sam_operation",
       "_anchor": "src/DeadSignal.Combat/Body.cs :: FingerPenalty（−7%/指·该手累加）+ SurvivorBackstory.SeveredAtStart",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -168,6 +199,8 @@
       "_id": "nordi_l2_hours",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: BookwormPerk.Level2ThresholdHours",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -179,6 +212,8 @@
       "_id": "nordi_l3_hours",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: BookwormPerk.Level3ThresholdHours",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -190,6 +225,8 @@
       "_id": "nordi_l1_read",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: BookwormPerk.BonusForLevel",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -201,6 +238,8 @@
       "_id": "nordi_l2_read",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: BookwormPerk.BonusForLevel",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -212,6 +251,8 @@
       "_id": "nordi_l3_read",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: BookwormPerk.BonusForLevel",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -223,6 +264,8 @@
       "_id": "nordi_l3_campwide",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: BookwormPerk.CampWideBonusAtMax",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -234,6 +277,8 @@
       "_id": "doug_l2_days",
       "_anchor": "godot/scripts/DougBruceBond.cs :: DougBruceBond.Level2Days",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -245,6 +290,8 @@
       "_id": "doug_l3_days",
       "_anchor": "godot/scripts/DougBruceBond.cs :: DougBruceBond.Level3Days",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -256,6 +303,8 @@
       "_id": "doug_angle",
       "_anchor": "godot/scripts/DougBruceBond.cs :: DougBruceBond.DougAngleBonusMult",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -267,6 +316,8 @@
       "_id": "bruce_angle",
       "_anchor": "godot/scripts/DougBruceBond.cs :: DougBruceBond.BruceAngleBonusMult",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -278,6 +329,8 @@
       "_id": "bruce_range",
       "_anchor": "godot/scripts/DougBruceBond.cs :: DougBruceBond.BruceRangeBonusMult",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -289,6 +342,8 @@
       "_id": "bond_aura_production",
       "_anchor": "godot/scripts/DougBruceBond.cs :: DougBruceBond.AuraProductionMult",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -300,6 +355,8 @@
       "_id": "bond_aura_damage",
       "_anchor": "godot/scripts/DougBruceBond.cs :: DougBruceBond.AuraDamageTakenMult",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -311,6 +368,8 @@
       "_id": "bond_aura_radius",
       "_anchor": "godot/scripts/DougBruceBond.cs :: DougBruceBond.DefaultAuraRadius",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -322,6 +381,8 @@
       "_id": "village_siege_zombies",
       "_anchor": "godot/scripts/VillageRescue.cs :: SiegeZombieCount",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -333,6 +394,8 @@
       "_id": "village_bark_radius",
       "_anchor": "godot/scripts/VillageRescue.cs :: BarkTriggerRadius",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -344,6 +407,8 @@
       "_id": "bruce_guard_efficiency",
       "_anchor": "godot/scripts/DougBruceBond.cs :: DougBruceBond.BruceGuardEfficiency",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -355,6 +420,8 @@
       "_id": "dog_gear_unlock_level",
       "_anchor": "godot/scripts/DougBruceBond.cs :: DougBruceBond.DogGearUnlockLevel",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -366,6 +433,8 @@
       "_id": "dog_hunger_cap",
       "_anchor": "godot/scripts/DogHungerState.cs :: Cap",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -377,6 +446,8 @@
       "_id": "dog_hunger_eat",
       "_anchor": "godot/scripts/DogHungerState.cs :: EatGain",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -388,6 +459,8 @@
       "_id": "dog_hunger_drain",
       "_anchor": "godot/scripts/DogHungerState.cs :: ResolvePhase",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -399,6 +472,8 @@
       "_id": "nurse_l2_surgeries",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: NightingalePerk.Level2ThresholdSurgeries",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -410,6 +485,8 @@
       "_id": "nurse_l3_surgeries",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: NightingalePerk.Level3ThresholdSurgeries",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -421,6 +498,8 @@
       "_id": "surgery_base_nurse",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: NightingalePerk.NightingaleSurgeryBasePoints",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -432,28 +511,34 @@
       "_id": "surgery_base_camp_bonus",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: NightingalePerk.CampSurgeryBaseBonus",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
       "label": "2 级 全营感染条速度降低",
       "who": "南丁格尔",
-      "value": 10,
+      "value": 15,
       "unit": "%",
       "settled": true,
       "_id": "nurse_l2_infection",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: NightingalePerk.Level2InfectionReduction",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
       "label": "3 级 全营感染条速度再降低（永续）",
       "who": "南丁格尔",
-      "value": 5,
+      "value": 10,
       "unit": "%",
       "settled": true,
       "_id": "nurse_l3_infection",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: NightingalePerk.Level3InfectionReduction",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -465,6 +550,8 @@
       "_id": "christine_declines",
       "_anchor": "godot/scripts/ChristineRequestLogic.cs :: DeclinesToLeave",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -476,6 +563,8 @@
       "_id": "christine_raider_wounded",
       "_anchor": "godot/scripts/TutorialRaidLogic.cs :: RaiderWoundedThreshold",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -487,6 +576,8 @@
       "_id": "christine_self_hurt",
       "_anchor": "godot/scripts/TutorialRaidLogic.cs :: ChristineHurtThreshold",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -498,6 +589,8 @@
       "_id": "merchant_buy_rate",
       "_anchor": "godot/scripts/MerchantTrade.cs :: BuyRatePercent",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -509,6 +602,8 @@
       "_id": "merchant_sell_rate",
       "_anchor": "godot/scripts/MerchantTrade.cs :: SellRatePercent",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -520,6 +615,8 @@
       "_id": "merchant_gap_min",
       "_anchor": "godot/scripts/MerchantSchedule.cs :: 构造默认 minGap",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -531,6 +628,8 @@
       "_id": "merchant_gap_max",
       "_anchor": "godot/scripts/MerchantSchedule.cs :: 构造默认 maxGap",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -542,6 +641,8 @@
       "_id": "zombie_dressed_rate",
       "_anchor": "src/DeadSignal.Combat/ZombieOutfit.cs :: Presets（权重和）",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -553,6 +654,8 @@
       "_id": "zombie_outfit_count",
       "_anchor": "src/DeadSignal.Combat/ZombieOutfit.cs :: Presets",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -564,6 +667,8 @@
       "_id": "supermarket_ambushers",
       "_anchor": "godot/scripts/SupermarketAmbush.cs :: AmbushRaiderCount",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -575,6 +680,8 @@
       "_id": "elite_weight_elite_riot_police",
       "_anchor": "src/DeadSignal.Combat/ZombieOutfit.cs :: ElitePresets",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -586,6 +693,8 @@
       "_id": "elite_layers_elite_riot_police",
       "_anchor": "src/DeadSignal.Combat/ZombieOutfit.cs :: ElitePresets",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -597,6 +706,8 @@
       "_id": "elite_weight_elite_soldier",
       "_anchor": "src/DeadSignal.Combat/ZombieOutfit.cs :: ElitePresets",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -608,6 +719,8 @@
       "_id": "elite_layers_elite_soldier",
       "_anchor": "src/DeadSignal.Combat/ZombieOutfit.cs :: ElitePresets",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     }
   ]

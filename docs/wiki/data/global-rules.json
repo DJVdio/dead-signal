@@ -1,7 +1,7 @@
 {
   "id": "global-rules",
   "label": "全局规则",
-  "source": "src/DeadSignal.Combat/DualWield.cs · godot/scripts/SurvivorPerks.cs · godot/scripts/CoverLogic.cs",
+  "source": "src/DeadSignal.Combat/DualWield.cs · src/DeadSignal.Combat/BleedModel.cs · godot/scripts/SurvivorPerks.cs · godot/scripts/CoverLogic.cs",
   "note": "**对所有人一体适用**的规则——不属于任何一件武器，也不属于任何一个角色。以前这些数只活在代码里，wiki 上看不到、也改不了。⚠️ 别把这里的东西误当成谁的专属效果：「没座位读书慢 10%」是**每个人**都一样的，不是诺蒂的技能。",
   "columns": [
     {
@@ -25,6 +25,19 @@
       "key": "note",
       "label": "说明",
       "type": "longtext"
+    },
+    {
+      "key": "description",
+      "label": "简介",
+      "type": "longtext",
+      "hint": "**玩家在游戏里看到的描述**。改了它，agent 会把新文案同步进代码。（有几个分区代码里还没有描述字段——你照样可以写，写了就是在告诉 agent「这里该有一个」。）"
+    },
+    {
+      "key": "userNote",
+      "label": "备注",
+      "type": "note",
+      "usernote": true,
+      "hint": "**你的设计笔记，不进游戏**——想到什么特殊效果就写在这（比如「这把锤子应该能砸开保险箱」）。它不会被同步成游戏文案，但 agent 每次跑抽取器都会看到你新写的备注。"
     },
     {
       "key": "_id",
@@ -62,6 +75,8 @@
       "_id": "read_no_seat",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: ReadingSpeed.NoSeatMultiplier",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -72,6 +87,8 @@
       "_id": "read_no_prereq",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: ReadingSpeed.MissingPrerequisiteMultiplier",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -82,6 +99,8 @@
       "_id": "dual_wield_speed",
       "_anchor": "src/DeadSignal.Combat/DualWield.cs :: DualWield.AttackSpeedFactor",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -92,6 +111,8 @@
       "_id": "dual_wield_spread",
       "_anchor": "src/DeadSignal.Combat/DualWield.cs :: DualWield.RangedSpreadFactor",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -102,6 +123,8 @@
       "_id": "surgery_base_default",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: NightingalePerk.DefaultSurgeryBasePoints",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -112,6 +135,8 @@
       "_id": "cover_chance",
       "_anchor": "godot/scripts/CoverLogic.cs :: CoverLogic.DefaultCoverChance",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -122,6 +147,128 @@
       "_id": "cover_radius",
       "_anchor": "godot/scripts/CoverLogic.cs :: CoverLogic.AdjacencyRadius",
       "_icon": "",
+      "description": "",
+      "userNote": "",
+      "sync": ""
+    },
+    {
+      "label": "丧尸的流血速度",
+      "value": 33.3333,
+      "unit": "%",
+      "note": "**丧尸只按常人的这个比例流血**——行尸走肉，血液循环本就不像活人。⚠️ 这个数是**锐器强度的总闸门**：调高它，砍两刀站着等丧尸流干就行，伤害和护甲会一起失去意义；调低它，匕首/刺剑这种「靠放血赢」的武器会直接废掉（它们对丧尸的胜利几乎全来自失血）。",
+      "_id": "bleed_zombie_rate",
+      "_anchor": "src/DeadSignal.Combat/BleedModel.cs :: BleedModel.ZombieBleedRateMultiplier",
+      "_icon": "",
+      "description": "",
+      "userNote": "",
+      "sync": ""
+    },
+    {
+      "label": "大伤口的流血速度",
+      "value": 100,
+      "unit": "%",
+      "note": "**躯干/头/颈/上臂/大腿**——只有这些大部位的伤口能把人**放干致死**。基准 100%。",
+      "_id": "bleed_weight_lethal",
+      "_anchor": "src/DeadSignal.Combat/BleedModel.cs :: BleedModel.RateWeightOf",
+      "_icon": "",
+      "description": "",
+      "userNote": "",
+      "sync": ""
+    },
+    {
+      "label": "手脚伤口的流血速度",
+      "value": 50,
+      "unit": "%",
+      "note": "**手/脚**的伤口流得慢，而且**永远流不死**（见下面那条下限）——只会溃烂感染。",
+      "_id": "bleed_weight_minor",
+      "_anchor": "src/DeadSignal.Combat/BleedModel.cs :: BleedModel.RateWeightOf",
+      "_icon": "",
+      "description": "",
+      "userNote": "",
+      "sync": ""
+    },
+    {
+      "label": "指/趾/眼/面/耳伤口的流血速度",
+      "value": 20,
+      "unit": "%",
+      "note": "**擦伤级**的小口子，流得极慢，同样**永远流不死**。",
+      "_id": "bleed_weight_micro",
+      "_anchor": "src/DeadSignal.Combat/BleedModel.cs :: BleedModel.RateWeightOf",
+      "_icon": "",
+      "description": "",
+      "userNote": "",
+      "sync": ""
+    },
+    {
+      "label": "小伤口最多把血抽到",
+      "value": 50,
+      "unit": "%",
+      "note": "手/脚/指的伤口**只能把储血抽到这条线为止**——抽不到昏迷线（25%），更抽不到 0。这就是「小伤口不致命」的硬保证：它们让你虚弱，但永远不是压死你的最后一根稻草。",
+      "_id": "bleed_nonlethal_floor",
+      "_anchor": "src/DeadSignal.Combat/BleedModel.cs :: BleedModel.NonLethalBloodFloorRatio",
+      "_icon": "",
+      "description": "",
+      "userNote": "",
+      "sync": ""
+    },
+    {
+      "label": "一刀打掉部位血量的多少就变中流血",
+      "value": 30,
+      "unit": "%",
+      "note": "**一次**伤害超过这个比例（按被打中那个部位的最大生命值算），口子就从小流血升成**中流血**。护甲挡掉大半之后只渗进去一点点的剐蹭，比例很小 ⇒ 只算小流血 —— **甲厚就流得少，是这么来的**。",
+      "_id": "bleed_medium_threshold",
+      "_anchor": "src/DeadSignal.Combat/BleedModel.cs :: BleedModel.MediumThreshold",
+      "_icon": "",
+      "description": "",
+      "userNote": "",
+      "sync": ""
+    },
+    {
+      "label": "一刀打掉部位血量的多少就变大流血",
+      "value": 60,
+      "unit": "%",
+      "note": "**一次**伤害超过这个比例 ⇒ 直接**大流血**（最高一级，再挨打也不会更高）。砍在没穿甲的身上就是这一档。",
+      "_id": "bleed_large_threshold",
+      "_anchor": "src/DeadSignal.Combat/BleedModel.cs :: BleedModel.LargeThreshold",
+      "_icon": "",
+      "description": "",
+      "userNote": "",
+      "sync": ""
+    },
+    {
+      "label": "小流血的流速（相对普通伤口）",
+      "value": 30,
+      "unit": "%",
+      "note": "只要锐器进了肉就至少是小流血。它流得很慢 —— 挨一堆浅爪不会被放干。",
+      "_id": "bleed_rate_small",
+      "_anchor": "src/DeadSignal.Combat/BleedModel.cs :: BleedModel.SeverityRateOf",
+      "_icon": "",
+      "description": "",
+      "userNote": "",
+      "sync": ""
+    },
+    {
+      "label": "中流血的流速（相对普通伤口）",
+      "value": 100,
+      "unit": "%",
+      "note": "**两个小流血会合成一个中流血**（同一个部位再挨一刀，口子是接到一起的，不是多出一道）。",
+      "_id": "bleed_rate_medium",
+      "_anchor": "src/DeadSignal.Combat/BleedModel.cs :: BleedModel.SeverityRateOf",
+      "_icon": "",
+      "description": "",
+      "userNote": "",
+      "sync": ""
+    },
+    {
+      "label": "大流血的流速（相对普通伤口）",
+      "value": 300,
+      "unit": "%",
+      "note": "**封顶的一级**：两个中流血、或一小一中，都会合成大流血；到了大流血就**不会再往上升**了。一处大流血放干一个常人要一分钟左右，**两处就能在一场仗打完之前把人流死**。",
+      "_id": "bleed_rate_large",
+      "_anchor": "src/DeadSignal.Combat/BleedModel.cs :: BleedModel.SeverityRateOf",
+      "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     }
   ]

@@ -25,8 +25,16 @@
     },
     {
       "key": "description",
-      "label": "说明",
-      "type": "longtext"
+      "label": "简介",
+      "type": "longtext",
+      "hint": "**玩家在游戏里看到的描述**。改了它，agent 会把新文案同步进代码。（有几个分区代码里还没有描述字段——你照样可以写，写了就是在告诉 agent「这里该有一个」。）"
+    },
+    {
+      "key": "userNote",
+      "label": "备注",
+      "type": "note",
+      "usernote": true,
+      "hint": "**你的设计笔记，不进游戏**——想到什么特殊效果就写在这（比如「这把锤子应该能砸开保险箱」）。它不会被同步成游戏文案，但 agent 每次跑抽取器都会看到你新写的备注。"
     },
     {
       "key": "_id",
@@ -63,6 +71,7 @@
       "description": "末日里最先繁荣起来的物种。抓它、剥它、炖它——你曾经以为自己这辈子都不会做这三件事。",
       "_id": "rat",
       "_anchor": "godot/scripts/CookingLogic.cs :: FoodCalories（热量点）+ godot/scripts/Materials.cs（名称/说明）",
+      "userNote": "",
       "sync": "",
       "_icon": "food/rat"
     },
@@ -73,7 +82,8 @@
       "description": "城市广场上那种鸽子，如今没人喂了，也没人拍照了。肉少，骨头多，但它是肉。",
       "_id": "pigeon",
       "_anchor": "godot/scripts/CookingLogic.cs :: FoodCalories（热量点）+ godot/scripts/Materials.cs（名称/说明）",
-      "sync": "",
+      "userNote": "",
+      "sync": "删除·待同步进代码",
       "_icon": "food/pigeon"
     },
     {
@@ -83,6 +93,7 @@
       "description": "一只野兔，够一顿像样的。抓到它的那天，你会想起从前「运气不错」是个多么轻飘飘的词。",
       "_id": "rabbit",
       "_anchor": "godot/scripts/CookingLogic.cs :: FoodCalories（热量点）+ godot/scripts/Materials.cs（名称/说明）",
+      "userNote": "",
       "sync": "",
       "_icon": "food/rabbit"
     },
@@ -93,6 +104,7 @@
       "description": "河里的鱼。没人知道那水现在还干不干净，但煮熟了，谁也不会先问这个问题。",
       "_id": "fish",
       "_anchor": "godot/scripts/CookingLogic.cs :: FoodCalories（热量点）+ godot/scripts/Materials.cs（名称/说明）",
+      "userNote": "",
       "sync": "",
       "_icon": "food/fish"
     },
@@ -103,6 +115,7 @@
       "description": "军方发的单兵口粮，密封、耐放、量足。包装上印着「一日份」——印它的那个人还相信会有下一日。",
       "_id": "ration",
       "_anchor": "godot/scripts/CookingLogic.cs :: FoodCalories（热量点）+ godot/scripts/Materials.cs（名称/说明）",
+      "userNote": "",
       "sync": "",
       "_icon": "food/ration_military"
     },
@@ -110,19 +123,21 @@
       "name": "罐头",
       "calories": 16,
       "portions": 1,
-      "description": "标签早泡烂了，里面是肉是豆全凭运气。铁皮鼓起来的那种别开——它已经替你尝过了。",
+      "description": "铁皮鼓起来的那种别开。",
       "_id": "canned_food",
       "_anchor": "godot/scripts/CookingLogic.cs :: FoodCalories（热量点）+ godot/scripts/Materials.cs（名称/说明）",
+      "userNote": "",
       "sync": "",
       "_icon": "food/canned_food"
     },
     {
       "name": "面粉",
-      "calories": 7,
+      "calories": 10,
       "portions": 3,
-      "description": "一袋面粉。它做不成面包（谁还有烤箱），但撒进锅里能让一锅稀汤变得像顿饭。",
+      "description": "一袋面粉。",
       "_id": "flour",
       "_anchor": "godot/scripts/CookingLogic.cs :: FoodCalories（热量点）+ godot/scripts/Materials.cs（名称/说明）",
+      "userNote": "",
       "sync": "",
       "_icon": "food/flour"
     },
@@ -133,16 +148,18 @@
       "description": "一把干豆，硬得能崩掉牙。泡一夜、煮一晌，然后它就成了这个屋子里最像「正经饭」的东西。",
       "_id": "beans",
       "_anchor": "godot/scripts/CookingLogic.cs :: FoodCalories（热量点）+ godot/scripts/Materials.cs（名称/说明）",
-      "sync": "",
+      "userNote": "",
+      "sync": "删除·待同步进代码",
       "_icon": "food/beans"
     },
     {
       "name": "土豆",
       "calories": 4,
       "portions": 4,
-      "description": "从谁家后院刨出来的，发了点芽。削掉芽眼，剩下的部分依然是土豆——这就是土豆了不起的地方。",
+      "description": "他妈的！土在哪！！！",
       "_id": "potato",
       "_anchor": "godot/scripts/CookingLogic.cs :: FoodCalories（热量点）+ godot/scripts/Materials.cs（名称/说明）",
+      "userNote": "",
       "sync": "",
       "_icon": "food/potato"
     },
@@ -153,6 +170,7 @@
       "description": "林子里采的。你认得这一种，你很确定你认得这一种。",
       "_id": "mushroom",
       "_anchor": "godot/scripts/CookingLogic.cs :: FoodCalories（热量点）+ godot/scripts/Materials.cs（名称/说明）",
+      "userNote": "",
       "sync": "",
       "_icon": "food/mushroom"
     },
@@ -160,21 +178,12 @@
       "name": "玫瑰果",
       "calories": 2,
       "portions": 8,
-      "description": "野蔷薇结的红果，酸得很有营养，草药膏的配料之一。",
+      "description": "野蔷薇结的红果，酸得很有营养，有药用价值。",
       "_id": "rosehip",
       "_anchor": "godot/scripts/CookingLogic.cs :: FoodCalories（热量点）+ godot/scripts/Materials.cs（名称/说明）",
+      "userNote": "",
       "sync": "",
       "_icon": "materials/rosehip"
-    },
-    {
-      "name": "蒲公英",
-      "calories": 1,
-      "portions": 16,
-      "description": "田埂路边遍地的野草，晒干能煮茶，也是草药膏的配料——穷人的药房。",
-      "_id": "dandelion",
-      "_anchor": "godot/scripts/CookingLogic.cs :: FoodCalories（热量点）+ godot/scripts/Materials.cs（名称/说明）",
-      "sync": "",
-      "_icon": "materials/dandelion"
     }
   ]
 }

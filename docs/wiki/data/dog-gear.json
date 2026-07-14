@@ -38,8 +38,16 @@
     },
     {
       "key": "description",
-      "label": "说明",
-      "type": "longtext"
+      "label": "简介",
+      "type": "longtext",
+      "hint": "**玩家在游戏里看到的描述**。改了它，agent 会把新文案同步进代码。（有几个分区代码里还没有描述字段——你照样可以写，写了就是在告诉 agent「这里该有一个」。）"
+    },
+    {
+      "key": "userNote",
+      "label": "备注",
+      "type": "note",
+      "usernote": true,
+      "hint": "**你的设计笔记，不进游戏**——想到什么特殊效果就写在这（比如「这把锤子应该能砸开保险箱」）。它不会被同步成游戏文案，但 agent 每次跑抽取器都会看到你新写的备注。"
     },
     {
       "key": "_id",
@@ -79,6 +87,7 @@
       "description": "给可爱的狗狗穿上可爱的衣服。",
       "_id": "布制狗衣",
       "_anchor": "godot/scripts/DogApparel.cs :: DogGearCatalog.Defs（护甲值在 ArmorTable.Dog*）",
+      "userNote": "",
       "sync": "",
       "_icon": "armor/dog_cloth_vest"
     },
@@ -92,6 +101,7 @@
       "description": "狗皮外的另一层皮。",
       "_id": "皮制狗衣",
       "_anchor": "godot/scripts/DogApparel.cs :: DogGearCatalog.Defs（护甲值在 ArmorTable.Dog*）",
+      "userNote": "",
       "sync": "",
       "_icon": "armor/dog_leather_vest"
     },
@@ -105,6 +115,7 @@
       "description": "好狗，好狗。",
       "_id": "口袋狗衣",
       "_anchor": "godot/scripts/DogApparel.cs :: DogGearCatalog.Defs（护甲值在 ArmorTable.Dog*）",
+      "userNote": "",
       "sync": "",
       "_icon": "armor/dog_pocket_vest"
     },
@@ -118,6 +129,7 @@
       "description": "狗狗也戴头盔。",
       "_id": "铁皮头甲",
       "_anchor": "godot/scripts/DogApparel.cs :: DogGearCatalog.Defs（护甲值在 ArmorTable.Dog*）",
+      "userNote": "",
       "sync": "",
       "_icon": "armor/dog_iron_helmet"
     },
@@ -131,6 +143,7 @@
       "description": "曾经他是不让狗咬你的，现在他是用来保护狗咬你的。",
       "_id": "铁丝头甲",
       "_anchor": "godot/scripts/DogApparel.cs :: DogGearCatalog.Defs（护甲值在 ArmorTable.Dog*）",
+      "userNote": "",
       "sync": "",
       "_icon": "armor/dog_wire_helmet"
     }

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 
 namespace DeadSignal.Godot;
 
@@ -6,6 +7,22 @@ namespace DeadSignal.Godot;
 // （与 HungerState.cs / CampResources.cs 一样被 DeadSignal.Combat.Tests 以 Link 方式编入单测）。
 // 书的底层数据：一本可阅读书的 id / 标题 / 正文 / 已读标记 / 配方产出（本轮留桩）。
 // Item(书类) 只用 book id 引用本条目；已读态是运行时可变状态，故本类非不可变（区别于 Item）。
+
+/// <summary>
+/// [T59] <b>「书」与「日记」是两种东西，不是两个数值档位</b>（用户拍板）：
+/// <list type="bullet">
+/// <item><b>书</b>给<b>角色</b>读 —— 花的是角色的时间，换来的是能力（解锁配方）。</item>
+/// <item><b>日记</b>给<b>玩家</b>读 —— 一个点开就能看全文的<b>道具</b>，游戏冻结着看，不花任何角色的时间，只讲故事。</item>
+/// </list>
+/// </summary>
+public enum BookKind
+{
+    /// <summary>技术工具书：角色坐下来读，耗 <see cref="BookData.ReadHours"/>，读完解锁配方/被动。</summary>
+    Manual,
+
+    /// <summary>日记/笔记：<b>道具</b>。玩家点开即看全文，**无阅读工时**，不解锁任何东西。</summary>
+    Diary,
+}
 
 /// <summary>
 /// 一本书的底层数据条目。<see cref="Item.Book"/> 用 <see cref="Id"/> 引用它。
@@ -30,8 +47,9 @@ public sealed class BookData
     public bool IsRead { get; private set; }
 
     /// <summary>
-    /// 读完本书所需的游戏内小时（<c>draft</c>）：读书为耗时活动，读者按 <see cref="ReadingProgress"/> 累计到此值即读完。
-    /// 技术工具书篇幅长（读得久）、纯 lore 日记短（读得快）。默认 12h。
+    /// 读完本书所需的游戏内小时：读书为耗时活动，读者按 <see cref="ReadingProgress"/> 累计到此值即读完。
+    /// <para>🔴 <b>这是"书"独有的字段 —— 它就是书的代价</b>（读书的那个角色整夜占着座位，不能站岗、不能干活）。
+    /// <b>日记恒为 0</b>：日记是给玩家看的道具，不由角色去读，**根本没有"工时"这回事**（见 <see cref="Kind"/>）。</para>
     /// </summary>
     public double ReadHours { get; }
 
@@ -42,8 +60,27 @@ public sealed class BookData
     /// </summary>
     public string? PrerequisiteBookId { get; }
 
+    /// <summary>
+    /// 🔴 <b>[T59] 这一条是"书"还是"日记"</b>——用户拍板的分类，**不是两个数值档位，是两种东西**：
+    /// <list type="bullet">
+    /// <item><b>书</b>（<see cref="BookKind.Manual"/>）：<b>角色</b>读。代价＝**角色的时间**
+    ///       （整夜、占座位、读书的人不能站岗也不能干活）⇒ <see cref="ReadHours"/> 就是它的代价。作用＝解锁配方/能力。</item>
+    /// <item><b>日记</b>（<see cref="BookKind.Diary"/>）：<b>玩家</b>读。是**道具**，点开就能看全文，
+    ///       看的时候游戏是**冻结**的（库存面板持有时标）⇒ **零角色时间**。作用＝纯叙事。
+    ///       ⇒ <b>它根本不该有"阅读工时"</b>（<see cref="ReadHours"/> 恒 0，见 <see cref="Diary"/>）。</item>
+    /// </list>
+    /// <para><b>此前是个真 bug</b>：日记被做成了 <c>readHours: 6</c> 的书，会出现在**夜间读书指派**列表里 ——
+    /// 于是玩家可以派一个幸存者<b>整夜坐着读一本给玩家看的叙事文本</b>（那一夜他不能站岗、不能干活），
+    /// 而日记 <see cref="GrantsRecipeStub"/> 为 null ⇒ <b>什么也换不到</b>。**给玩家看的文本被做成了角色的劳动。**
+    /// 现已按用户口径修正：日记不进读书指派（见 <c>CampMain.PopulateReadingPanel</c>）。</para>
+    /// </summary>
+    public BookKind Kind { get; }
+
+    /// <summary>是不是日记（＝道具，玩家点开看，不吃角色时间）。</summary>
+    public bool IsDiary => Kind == BookKind.Diary;
+
     public BookData(string id, string title, string body, string? grantsRecipeStub = null, double readHours = 12,
-        string? prerequisiteBookId = null)
+        string? prerequisiteBookId = null, BookKind kind = BookKind.Manual)
     {
         Id = id;
         Title = title;
@@ -51,7 +88,21 @@ public sealed class BookData
         GrantsRecipeStub = grantsRecipeStub;
         ReadHours = readHours;
         PrerequisiteBookId = prerequisiteBookId;
+        Kind = kind;
     }
+
+    /// <summary>
+    /// 造一本<b>日记</b>（道具，非书）：<b>没有阅读工时</b>（恒 0）、不解锁任何配方、无前置。
+    /// <para>玩家在库存里点开它就能看全文（游戏冻结），**不消耗任何角色的时间**。</para>
+    /// </summary>
+    public static BookData Diary(string id, string title, string body) => new(
+        id: id,
+        title: title,
+        body: body,
+        grantsRecipeStub: null,   // 日记不解锁任何东西：它是叙事，不是能力
+        readHours: 0,             // 🔴 不适用——日记不由角色去"读"，故没有工时这个字段
+        prerequisiteBookId: null,
+        kind: BookKind.Diary);
 
     /// <summary>标记为已读（幂等，重复调用无副作用）。W3 阅读结算时调用。</summary>
     public void MarkRead() => IsRead = true;
@@ -72,7 +123,7 @@ public static class BookLibrary
         title: "野外生存指南",
         body: WildernessSurvivalGuideBody,
         grantsRecipeStub: "recipe:wilderness_trap", // 桩：配方系统后续接
-        readHours: 24); // draft：技术工具书，读得久
+        readHours: 4); // [T59] 用户在 wiki 上定的（原 24h）
 
     /// <summary>《农场主的一百个问题》——读完给"作物种植"配方（桩）。</summary>
     public static BookData FarmerHundredQuestions() => new(
@@ -80,7 +131,7 @@ public static class BookLibrary
         title: "农场主的一百个问题",
         body: FarmerHundredQuestionsBody,
         grantsRecipeStub: "recipe:crop_planting", // 桩：配方系统后续接
-        readHours: 24); // draft：技术工具书，读得久
+        readHours: 4); // [T59] 用户在 wiki 上定的（原 24h）
 
     /// <summary>《裁缝手记》（纺织书，draft）——读过它的制作者解锁粗布背心一类缝纫配方。</summary>
     public static BookData TailorsNotes() => new(
@@ -88,7 +139,7 @@ public static class BookLibrary
         title: "裁缝手记",
         body: TailorsNotesBody,
         grantsRecipeStub: "recipe:cloth_vest", // 桩：书门槛已实装（RecipeBook.RequiredBookIds），此仅作叙事标记
-        readHours: 20); // draft：技术手记，读得较久
+        readHours: 8); // [T59] 用户在 wiki 上定的（原 20h）
 
     /// <summary>《土法化学笔记》（化学书，draft）——读过它的制作者解锁火药 / 鞣制药水一类化学配方。</summary>
     public static BookData FolkChemistryNotes() => new(
@@ -96,7 +147,7 @@ public static class BookLibrary
         title: "土法化学笔记",
         body: FolkChemistryNotesBody,
         grantsRecipeStub: "recipe:gunpowder", // 桩：书门槛已实装（RecipeBook.RequiredBookIds），此仅作叙事标记
-        readHours: 20); // draft：技术笔记，读得较久
+        readHours: 8); // [T59] 用户在 wiki 上定的（原 20h）
 
     /// <summary>《木匠入门》（木工书，draft）——读过它的制作者解锁木椅 / 自制弓一类木工配方（一本管两条，同构土法化学笔记）。</summary>
     public static BookData CarpentryBasics() => new(
@@ -104,7 +155,7 @@ public static class BookLibrary
         title: "木匠入门",
         body: CarpentryBasicsBody,
         grantsRecipeStub: "recipe:chair", // 桩：书门槛已实装（RecipeBook.RequiredBookIds），此仅作叙事标记
-        readHours: 20); // draft：技术工具书，读得较久
+        readHours: 8); // [T59] 用户在 wiki 上定的（原 20h）
 
     /// <summary>
     /// 《进阶木匠技术》（木工进阶书，draft）——**前置**《木匠入门》：没读完前置照样能读，但读速极慢（×0.2）。
@@ -115,30 +166,26 @@ public static class BookLibrary
         title: "进阶木匠技术",
         body: AdvancedCarpentryBody,
         grantsRecipeStub: null, // 解锁效果待用户指定（占位书）
-        readHours: 28, // draft：进阶技术书，篇幅更长
+        readHours: 12, // [T59] 用户在 wiki 上定的（原 28h）
         prerequisiteBookId: "carpentry_basics"); // 前置链首条数据：没读入门读得极慢
 
     /// <summary>
     /// 日记A（金手指帮根据地，克莉丝汀尸旁）——两个普通帮众视角：灾后互助、参与暴行、"金手指帮"命名由来。
     /// 纯叙事物品，无配方产出（桩留空）。正文为占位草稿，最终由用户手写。
     /// </summary>
-    public static BookData GoldfingerDiaryA() => new(
+    public static BookData GoldfingerDiaryA() => BookData.Diary(
         id: "goldfinger_diary_a",
         title: "一本卷边的日记（其一）",
-        body: GoldfingerDiaryABody,
-        grantsRecipeStub: null, // 无配方，纯 lore
-        readHours: 6); // draft：纯 lore 日记，读得快
+        body: GoldfingerDiaryABody);   // [T59] 道具，非书：无工时、不吃角色时间
 
     /// <summary>
     /// 日记B（哥顿上吊尸旁，守林人小屋，与日记A 异地）——金手指帮文化起源 + 帮主哥顿身世/自杀。
     /// 纯叙事物品，无配方产出（桩留空）。正文为 draft 草稿，最终由用户优化。
     /// </summary>
-    public static BookData GoldfingerDiaryB() => new(
+    public static BookData GoldfingerDiaryB() => BookData.Diary(
         id: "goldfinger_diary_b",
         title: "一本硬壳笔记（其二）",
-        body: GoldfingerDiaryBBody,
-        grantsRecipeStub: null, // 无配方，纯 lore
-        readHours: 6); // draft：纯 lore 日记，读得快
+        body: GoldfingerDiaryBBody);   // [T59] 道具，非书：无工时、不吃角色时间
 
     /// <summary>《弓与箭之道》书 id（稳定键）。它给的是**被动加成**（四项，见下），不解锁配方。</summary>
     public const string WayOfBowAndArrowId = "way_of_bow_and_arrow";
@@ -174,7 +221,7 @@ public static class BookLibrary
         title: "弓与箭之道",
         body: WayOfBowAndArrowBody,
         grantsRecipeStub: null, // 刻意为空：它不解锁配方，给的是被动加成（回收率翻倍）
-        readHours: 18);         // draft：技艺书，比纯 lore 长、比工程手册短
+        readHours: 12);         // [T59] 用户在 wiki 上定的（原 18h）
 
     /// <summary>《机械之美》书 id（弩的解锁书；用户拍板的书名）。</summary>
     public const string MechanicalBeautyId = "mechanical_beauty";
@@ -204,9 +251,52 @@ public static class BookLibrary
         title: "机械之美",
         body: MechanicalBeautyBody,
         grantsRecipeStub: null, // 书门槛已实装（RecipeBook.RequiredBookIds），此桩仅作叙事标记，无须占位
-        readHours: 24);         // draft：机械工程手册，与《野外生存指南》同档（技术工具书，读得久）
+        readHours: 8);         // [T59] 用户在 wiki 上定的（原 24h）
 
     /// <summary>全部内置书的全新实例（每次调用新建，已读态不共享）。</summary>
+    /// <summary>《弓制作指南》书 id（稳定键）。</summary>
+    public const string BowCraftingGuideId = "bow_crafting_guide";
+
+    /// <summary>
+    /// 《弓制作指南》—— [T59] <b>用户在 wiki 上新加的一本书</b>（他写的效果：
+    /// 「解锁短工、反曲弓、长弓、自制箭。解锁弓改装。」——「短工」应为「短弓」笔误）。
+    ///
+    /// <para><b>它做的是一次"解锁图重构"</b>：把**造弓**这件事从《进阶木匠技术》里拆出来，单独成一本。
+    /// 于是《进阶木匠技术》回归它的本行（营地木工 + 消防斧），造弓另有师承。</para>
+    ///
+    /// <para>🔴 <b>本轮只挪《进阶木匠技术》名下的两把弓（反曲弓 / 长弓）</b>，**保守取最小改动面**：
+    /// <list type="bullet">
+    /// <item><b>短弓</b>留在《野外生存指南》—— 用户**没有**把它从那本书的效果列里删掉（两本书都写了它）。
+    ///       书门槛是 <b>AND</b>（<c>CraftingLogic</c> 逐本校验），挪过来＝改变行为，故不动。</item>
+    /// <item><b>自制箭</b>留在《弓与箭之道》—— 同理，用户也没从那本里删掉它。</item>
+    /// <item><b>两把弩</b>留在《机械之美》—— 用户的新书文案里**一个"弩"字都没有**，不擅自并进来。</item>
+    /// <item><b>「解锁弓改装」</b>没做 —— 弓弩改装的白名单已被 <c>impl-sync-all</c> 按用户口径**收窄掉**了
+    ///       （弓弩不吃枪械改装），"用一本书把它解锁回来"是**引擎新轴**（书 → 改装白名单，目前不存在这条路）。</item>
+    /// </list>
+    /// 这几处的重叠/含糊已 [DECISION-RESOLVED] 记档，用户回来一句话就能再挪。</para>
+    ///
+    /// <para>🔴 <b>必须有投放点，否则弓当场变成造不出来的死物品</b>：反曲弓/长弓此前挂在《进阶木匠技术》上，
+    /// 而那本书**有**投放（联合收割机仓库·阁楼）。把它们挪到一本**没人能捡到**的新书上，
+    /// 等于把两把弓从游戏里删掉（《机械之美》当初就踩过这个坑）。
+    /// ⇒ 投在<b>守林人小屋·阁楼</b>：那里本就是"弓箭的家"（箱底压着他的狩猎弓与箭，床底是他的《弓与箭之道》）——
+    /// 一个自己做弓的护林员，书就该在他手边。<b>消防斧与《进阶木匠技术》仍同馆</b>（联合收割机仓库），那条设计一格没动。</para>
+    ///
+    /// <para>正文＝**占位**（authored 待用户写，同《机械之美》的处置：只陈述机制，不编作者/来历/世界观）。
+    /// 阅读时长 <b>8h</b> 由我拟定 —— 与同为技术工具书的《裁缝手记》《土法化学笔记》《木匠入门》同档（用户没给这个数）。</para>
+    /// </summary>
+    public static BookData BowCraftingGuide() => new(
+        id: BowCraftingGuideId,
+        title: "弓制作指南",
+        body: BowCraftingGuideBody,
+        grantsRecipeStub: "recipe:recurve_bow", // 桩：书门槛已实装（RecipeBook.RequiredBookIds），此仅作叙事标记
+        readHours: 8);                          // 拟定：技术工具书，与裁缝/化学/木匠入门同档
+
+    // 🔴 **占位正文 —— 待用户 authored，别替他写。**（同 MechanicalBeautyBody 的口径）
+    private const string BowCraftingGuideBody =
+        "一本讲怎么把一根木头变成一张弓的手册：选材、开背、上弦、调力。\n"
+        + "读完它，你就能自己做反曲弓和长弓了。\n"
+        + "（正文待补。）";
+
     public static IReadOnlyList<BookData> All() => new[]
     {
         WildernessSurvivalGuide(),
@@ -217,9 +307,27 @@ public static class BookLibrary
         AdvancedCarpentry(),
         WayOfBowAndArrow(),
         MechanicalBeauty(),
+        BowCraftingGuide(),   // [T59] 用户新加
         GoldfingerDiaryA(),
         GoldfingerDiaryB(),
     };
+
+    /// <summary>
+    /// <b>真正的"书"</b>（角色坐下来读、耗工时、读完解锁能力）—— **不含日记**。
+    /// <para>🔴 <b>凡是"派谁去读什么"的地方，都必须用这个，而不是 <see cref="All"/></b>
+    /// （<c>CampMain.PopulateReadingPanel</c> 就是拿它筛的）。用 All 会把日记也摆进夜间读书指派列表 ——
+    /// 那正是 [T59] 修掉的 bug：玩家可以派人整夜读一本什么也不给的叙事文本。</para>
+    /// </summary>
+    public static IReadOnlyList<BookData> Manuals()
+        => All().Where(b => !b.IsDiary).ToList();
+
+    /// <summary>
+    /// <b>日记</b>（道具：玩家在库存里点开就能看全文，游戏冻结，**零角色时间**）。
+    /// <para>它们仍是库存里的 <see cref="Item.Book"/>（掉落/存档/图标全都照旧走书那条线），
+    /// 变的只是**它不再是一件"可以派人去干"的活**。</para>
+    /// </summary>
+    public static IReadOnlyList<BookData> Diaries()
+        => All().Where(b => b.IsDiary).ToList();
 
     // 🔴 **占位正文 —— 待用户 authored，别替他写。**
     // 用户只给了书名《机械之美》和一句「用武器零件造」。这里只陈述这本书**在机制上是什么**

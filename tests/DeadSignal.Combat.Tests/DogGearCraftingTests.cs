@@ -156,7 +156,7 @@ public class DogGearCraftingTests
     public void CraftingService_Craft_GateSatisfied_ProducesWearableDogArmor()
     {
         RecipeData r = RecipeBook.Find("dog_iron_helmet")!;
-        var inv = InvWith(("scrap_metal", 4), ("leather", 4));
+        var inv = InvWith(("iron", 4), ("leather", 4));
         CraftResult res = CraftingService.Craft(
             r, _ => true, new WorkbenchState(), inv, 1, CraftOutputFactory.Create,
             crafterGate: _ => null);

@@ -251,6 +251,13 @@
   }
   .banner.info b { color: var(--accent); }
 
+  /* 「备注」列：用户写给 agent 的设计笔记（不是游戏数据）⇒ 视觉上和数据列区分开 */
+  td.usernote { background: #16191c; }
+  tbody tr:hover td.usernote { background: #1b1f23; }
+  td.usernote:not(.empty) { color: #a8c8e0; border-left: 2px solid var(--steel); }
+  td.usernote.empty { color: #3d4650; font-size: 11px; }
+  thead th.usernote { color: var(--steel); background: #171b1f; }
+
   /* 多选面板（可装于哪些武器） */
   td.ms { cursor: pointer; }
   .mspanel {
@@ -699,6 +706,7 @@ function renderTable() {
     th.className =
       (col.internal ? "internal " : "") +
       (isNumericCol(col) ? "num " : "") +
+      (col.type === "note" ? "usernote " : "") +
       (col.primary ? "stick1" : "");
     th.textContent = col.label;
     if (col.hint) th.title = col.hint;
@@ -926,6 +934,7 @@ function cellFor(col, r, i) {
     (col.internal ? "internal " : "") +
     (isNumericCol(col) ? "num " : "") +
     (col.key === "dps" || col.key === "dualDps" || col.key === "dpsVsLeather" ? "dps " : "") +
+    (col.type === "note" ? "usernote " : "") +
     (col.primary ? "name sticky2 " : "") +
     (editable ? "editable " : "locked ") +
     (cellChanged(i, col.key) ? "changed " : "");
@@ -959,7 +968,8 @@ function paint(td, col, v) {
   td.innerHTML = "";
   if (v === null || v === undefined || v === "") {
     td.classList.add("empty");
-    td.textContent = col.type === "bool" ? "" : "—";
+    // 备注是**写给 agent 的待办**，不是数据 ⇒ 空的时候给一句招呼，别只画一个「—」
+    td.textContent = col.type === "bool" ? "" : (col.type === "note" ? "＋ 写点什么" : "—");
     if (col.type === "bool") {
       const b = document.createElement("span");
       b.className = "bool no";
@@ -1009,7 +1019,7 @@ function paint(td, col, v) {
     return;
   }
   td.textContent = isNumericCol(col) ? formatNum(col, v) : String(v);
-  if (col.type === "longtext") td.title = String(v);
+  if (col.type === "longtext" || col.type === "note") td.title = String(v);
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -1118,7 +1128,7 @@ function edit(td, col, r, i) {
   td.classList.add("editing");
   td.innerHTML = "";
 
-  const long = col.type === "longtext";
+  const long = col.type === "longtext" || col.type === "note";
   const num = isNumericCol(col);
   const input = document.createElement(long ? "textarea" : "input");
   input.className = "cell";

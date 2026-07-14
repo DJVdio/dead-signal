@@ -8,6 +8,8 @@
       "weapons/long_sword",
       "weapons/great_sword",
       "weapons/pitchfork",
+      "weapons/axe",
+      "weapons/bone_knife",
       "weapons/club",
       "weapons/spiked_mace",
       "weapons/warhammer",
@@ -15,7 +17,6 @@
       "weapons/pistol",
       "weapons/smg",
       "weapons/rifle",
-      "weapons/hunting_shotgun",
       "weapons/sniper_rifle",
       "weapons/improvised_shotgun",
       "weapons/short_bow",
@@ -48,6 +49,7 @@
       "armor/riot_helmet",
       "armor/work_gloves",
       "armor/war_mask",
+      "armor/cotton_hat",
       "armor/coarse_shirt",
       "armor/coarse_shorts",
       "armor/coarse_trousers"
@@ -73,8 +75,7 @@
       "materials/wood",
       "materials/scrap_wood",
       "materials/cloth",
-      "materials/scrap_metal",
-      "materials/metal_ingot",
+      "materials/iron",
       "materials/nails",
       "materials/wire",
       "materials/rawhide",
@@ -151,8 +152,10 @@
       "furniture/snare_trap",
       "armor/war_mask",
       "armor/coarse_shirt",
+      "armor/cotton_hat",
       "armor/coarse_shorts",
-      "armor/coarse_trousers"
+      "armor/coarse_trousers",
+      "weapons/axe"
     ],
     "lights": [
       "lights/flashlight",
@@ -169,6 +172,9 @@
       "books/book_carpentry_adv",
       "books/book_archery",
       "books/book_mechanics",
+      "books/book_bowcraft"
+    ],
+    "diaries": [
       "books/book_diary_a",
       "books/book_diary_b"
     ],
@@ -187,7 +193,11 @@
       "weapon-mods/grip_wrap_blade",
       "weapon-mods/wire_wrap",
       "weapon-mods/nail_studs",
-      "weapon-mods/grip_wrap_blunt"
+      "weapon-mods/new_weapon_mod_1",
+      "weapon-mods/new_weapon_mod_2",
+      "weapon-mods/new_weapon_mod_3",
+      "weapon-mods/new_weapon_mod_4",
+      "weapon-mods/new_weapon_mod_5"
     ],
     "food": [
       "food/rat",
@@ -200,8 +210,7 @@
       "food/beans",
       "food/potato",
       "food/mushroom",
-      "materials/rosehip",
-      "materials/dandelion"
+      "materials/rosehip"
     ],
     "cooking": [
       "cooking/base_portion_cost",

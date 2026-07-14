@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-14 03:50:41",
+  "generatedAt": "2026-07-14 13:39:39",
   "iconDir": "godot/assets/items",
   "multiselectOptions": {
     "fitsWeapons": [
@@ -16,7 +16,6 @@
       "手枪",
       "冲锋枪",
       "步枪",
-      "栓动猎枪",
       "狙击枪",
       "短弓",
       "自制霰弹枪",
@@ -26,7 +25,9 @@
       "狩猎弓",
       "单手轻弩",
       "双手重弩",
-      "复合弩"
+      "复合弩",
+      "消防斧",
+      "骨刀"
     ]
   },
   "dpsGripFactors": {
@@ -39,14 +40,14 @@
       "id": "weapons",
       "label": "武器",
       "file": "weapons.json",
-      "count": 27,
+      "count": 28,
       "source": "src/DeadSignal.Combat/WeaponTable.cs"
     },
     {
       "id": "armor",
       "label": "护甲服装",
       "file": "armor.json",
-      "count": 20,
+      "count": 21,
       "source": "src/DeadSignal.Combat/ArmorTable.cs（防护数值）+ godot/scripts/ApparelSlots.cs（穿在哪、护到哪）"
     },
     {
@@ -67,7 +68,7 @@
       "id": "materials",
       "label": "材料",
       "file": "materials.json",
-      "count": 23,
+      "count": 22,
       "source": "godot/scripts/Materials.cs"
     },
     {
@@ -81,7 +82,7 @@
       "id": "recipes",
       "label": "配方",
       "file": "recipes.json",
-      "count": 46,
+      "count": 48,
       "source": "godot/scripts/Recipe.cs"
     },
     {
@@ -95,14 +96,21 @@
       "id": "books",
       "label": "书籍",
       "file": "books.json",
-      "count": 10,
+      "count": 9,
+      "source": "godot/scripts/BookData.cs"
+    },
+    {
+      "id": "diaries",
+      "label": "日记与笔记",
+      "file": "diaries.json",
+      "count": 2,
       "source": "godot/scripts/BookData.cs"
     },
     {
       "id": "weapon-mods",
       "label": "武器改装",
       "file": "weapon-mods.json",
-      "count": 15,
+      "count": 19,
       "source": "godot/scripts/WeaponModCatalog.cs"
     },
     {
@@ -116,7 +124,7 @@
       "id": "food",
       "label": "食物与食材",
       "file": "food.json",
-      "count": 12,
+      "count": 11,
       "source": "godot/scripts/CookingLogic.cs + godot/scripts/Materials.cs"
     },
     {
@@ -130,8 +138,8 @@
       "id": "global-rules",
       "label": "全局规则",
       "file": "global-rules.json",
-      "count": 7,
-      "source": "src/DeadSignal.Combat/DualWield.cs · godot/scripts/SurvivorPerks.cs · godot/scripts/CoverLogic.cs"
+      "count": 17,
+      "source": "src/DeadSignal.Combat/DualWield.cs · src/DeadSignal.Combat/BleedModel.cs · godot/scripts/SurvivorPerks.cs · godot/scripts/CoverLogic.cs"
     },
     {
       "id": "characters",
@@ -146,6 +154,13 @@
       "file": "character-stats.json",
       "count": 50,
       "source": "godot/scripts/SurvivorPerks.cs 等（每行的「代码位置」列写明了各自的出处）"
+    },
+    {
+      "id": "world-graph",
+      "label": "调查点路线",
+      "file": "world-graph.json",
+      "count": 17,
+      "source": "godot/data/world_graph.json"
     }
   ]
 }

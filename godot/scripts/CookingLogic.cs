@@ -105,7 +105,13 @@ public static class FoodCalories
         new FoodDef("potato", 4),            // 土豆
         new FoodDef("mushroom", 3),          // 蘑菇
         new FoodDef("rosehip", 2),           // 玫瑰果（用户给定；同时是医疗原料，归 impl-medicine 那条线，本表不碰它的类别）
-        new FoodDef("dandelion", 1),         // 蒲公英（同上：能煮茶治感染，也能当野菜——末日里没人挑食）
+
+        // 🔴 [T59] **蒲公英已从本表移除**（用户在 wiki 的「食物与食材」页把它删了）⇒ 它**下不了锅**了。
+        //    它**没有**从游戏里消失：仍是 MaterialCategory.Medical 的药材，仍是蒲公英茶（感染三档药之一）
+        //    与草药膏的配料，探索点也照旧掉它。用户删的是"食物"那一栏——
+        //    正确的读法是「**它不该能当饭吃**」，不是「它不该存在」。
+        //    （抽取器建议的是"从 FoodCalories + Materials 一并删掉"，照做会当场炸掉整条感染药链。）
+        //    护栏见 WikiSyncT59Tests.蒲公英_仍是药材且仍在感染药链里。
     };
 
     private static readonly IReadOnlyDictionary<string, int> _byKey = _all.ToDictionary(f => f.Key, f => f.Calories);

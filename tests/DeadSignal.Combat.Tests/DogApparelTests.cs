@@ -179,10 +179,10 @@ public class DogApparelTests
         Assert.Equal(DogGearCatalog.PocketVestCapacity, a.TotalCarryCapacity());
     }
 
-    /// <summary>[SPEC-B18] 口袋狗衣负重以护甲表为准：为狗提供 6kg（旧值 12kg 作废）。</summary>
+    /// <summary>口袋狗衣负重以数值表为准：为狗提供 <b>8kg</b>（T29 用户手改 6 → 8；更早的 12kg 早已作废）。</summary>
     [Fact]
-    public void PocketVestCapacity_MatchesArmorTable_SixKg()
+    public void PocketVestCapacity_MatchesArmorTable_EightKg()
     {
-        Assert.Equal(6f, DogGearCatalog.PocketVestCapacity);
+        Assert.Equal(8f, DogGearCatalog.PocketVestCapacity);
     }
 }

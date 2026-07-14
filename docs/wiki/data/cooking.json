@@ -27,6 +27,19 @@
       "type": "longtext"
     },
     {
+      "key": "description",
+      "label": "简介",
+      "type": "longtext",
+      "hint": "**玩家在游戏里看到的描述**。改了它，agent 会把新文案同步进代码。（有几个分区代码里还没有描述字段——你照样可以写，写了就是在告诉 agent「这里该有一个」。）"
+    },
+    {
+      "key": "userNote",
+      "label": "备注",
+      "type": "note",
+      "usernote": true,
+      "hint": "**你的设计笔记，不进游戏**——想到什么特殊效果就写在这（比如「这把锤子应该能砸开保险箱」）。它不会被同步成游戏文案，但 agent 每次跑抽取器都会看到你新写的备注。"
+    },
+    {
       "key": "_id",
       "label": "内部 id",
       "type": "text",
@@ -61,6 +74,8 @@
       "note": "基础值。装了炊具会更少。份数 = 总热量 ÷ 这个数，向下取整——凑不满一份就做不成，多出来的零头浪费掉（游戏里不提示）。",
       "_id": "base_portion_cost",
       "_anchor": "godot/scripts/CookingLogic.cs :: CookingLogic.BasePortionCost",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "cooking/base_portion_cost"
     },
@@ -71,6 +86,8 @@
       "note": "烹饪台两个槽位之一。装上它，每做一份饭就少要这么多热量。与烤架**各是各的数**，可以分别调。",
       "_id": "pot_discount",
       "_anchor": "godot/scripts/CookingLogic.cs :: CookingLogic.PotDiscount",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "cooking/pot_discount"
     },
@@ -81,6 +98,8 @@
       "note": "烹饪台另一个槽位。两个槽都装满，一份饭省下的就是这两个数相加。与锅**各是各的数**，可以分别调。",
       "_id": "grill_discount",
       "_anchor": "godot/scripts/CookingLogic.cs :: CookingLogic.GrillDiscount",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "cooking/grill_discount"
     },
@@ -91,6 +110,8 @@
       "note": "得有人站在烹饪台前把活干完。做两份就干两份的活——没有「一锅端」的规模效应。",
       "_id": "work_minutes_per_portion",
       "_anchor": "godot/scripts/CookingLogic.cs :: CookingLogic.WorkMinutesPerPortion",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "cooking/work_minutes_per_portion"
     }

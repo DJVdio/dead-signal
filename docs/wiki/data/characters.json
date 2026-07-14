@@ -91,6 +91,19 @@
       "hint": "勾上 = 文本/设定还是草稿，等你定"
     },
     {
+      "key": "description",
+      "label": "简介",
+      "type": "longtext",
+      "hint": "**玩家在游戏里看到的描述**。改了它，agent 会把新文案同步进代码。（有几个分区代码里还没有描述字段——你照样可以写，写了就是在告诉 agent「这里该有一个」。）"
+    },
+    {
+      "key": "userNote",
+      "label": "备注",
+      "type": "note",
+      "usernote": true,
+      "hint": "**你的设计笔记，不进游戏**——想到什么特殊效果就写在这（比如「这把锤子应该能砸开保险箱」）。它不会被同步成游戏文案，但 agent 每次跑抽取器都会看到你新写的备注。"
+    },
+    {
       "key": "_id",
       "label": "内部 id",
       "type": "text",
@@ -137,6 +150,8 @@
       "draft": false,
       "_id": "sam",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: SamPerk + SurvivorBackstory.cs + godot/data/camp.json（spawns）",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "characters/sam"
     },
@@ -159,6 +174,8 @@
       "draft": false,
       "_id": "nordi",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: BookwormPerk + godot/data/camp.json（spawns）",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "characters/nordi"
     },
@@ -181,6 +198,8 @@
       "draft": true,
       "_id": "doug",
       "_anchor": "godot/scripts/DougBruceBond.cs + VillageRescue.cs",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "characters/doug"
     },
@@ -203,6 +222,8 @@
       "draft": true,
       "_id": "nightingale",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: NightingalePerk + NurseRecruit.cs",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "characters/nightingale"
     },
@@ -211,11 +232,11 @@
       "category": "幸存者",
       "faction": "劫掠者 → 幸存者",
       "tagline": "混在劫掠者里的那个女人。「杀死这些劫掠者！我是好人！」",
-      "perkName": "",
-      "perkAxis": "",
-      "perkL1": "",
-      "perkL2": "",
-      "perkL3": "",
+      "perkName": "巧舌如簧",
+      "perkAxis": "加入营地是一级，存活三天后升到二级，清剿金手指帮后升三级",
+      "perkL1": "懂得挨饿，才能在流浪中活下来，每个相位变化时，有25%的几率不掉饥饿值。",
+      "perkL2": "从商人处买东西时有6.25%的折扣。",
+      "perkL3": "大仇得报！她回归了销售员的本质，卖出时的价格从60%上涨到了70%。并且她对热量的消耗似乎更少了，每个相位变化时，有额外10%的几率不掉饥饿值。",
       "join": "教学关（第 2 夜）：一伙劫掠者袭营，她混在里头，起手和劫掠者同阵营。战斗中任一劫掠者受伤较重、或她自己挂彩（谁先到算谁）→ 她喊出那句台词、阵中反水，转为自动战斗的盟友——但此时你操控不了她。战斗结束后你可以选收留 / 放逐 / 处决：只有收留，她才变成你能操控的营地幸存者。",
       "gear": "手枪",
       "backstory": "她曾被金手指帮轮奸，好不容易逃出来，后来加入一个劫掠者团伙勉强活命。",
@@ -225,6 +246,8 @@
       "draft": true,
       "_id": "christine",
       "_anchor": "godot/scripts/ChristineRequestLogic.cs + TutorialRaidLogic.cs + GoldfingerDiscovery.cs",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "characters/christine"
     },
@@ -247,6 +270,8 @@
       "draft": true,
       "_id": "bruce",
       "_anchor": "godot/scripts/Dog.cs + DogApparel.cs + DogHungerState.cs + DougBruceBond.cs",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "characters/bruce"
     },
@@ -269,6 +294,8 @@
       "draft": true,
       "_id": "merchant_first",
       "_anchor": "godot/scripts/MerchantTrade.cs + MerchantSchedule.cs + MerchantLineage.cs",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "characters/merchant_first"
     },
@@ -291,6 +318,8 @@
       "draft": true,
       "_id": "merchant_second",
       "_anchor": "godot/scripts/MerchantLineage.cs :: SecondMerchantIntroLine",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "characters/merchant_second"
     },
@@ -313,6 +342,8 @@
       "draft": false,
       "_id": "gordon",
       "_anchor": "godot/scripts/GoldfingerDiscovery.cs :: GordonHangedId / DiaryBBookId",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "characters/gordon"
     },
@@ -335,6 +366,8 @@
       "draft": true,
       "_id": "grandmother",
       "_anchor": "godot/scripts/NarrativeSpot.cs :: GrandmotherCorpseId + godot/data/camp.json（role=corpse）",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "characters/grandmother"
     },
@@ -357,6 +390,8 @@
       "draft": false,
       "_id": "goldfinger_member",
       "_anchor": "godot/scripts/GoldfingerDiscovery.cs :: GangMemberCorpseId / DiaryABookId",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "characters/goldfinger_member"
     },
@@ -379,6 +414,8 @@
       "draft": false,
       "_id": "zombie",
       "_anchor": "godot/scripts/Zombie.cs + src/DeadSignal.Combat/ZombieOutfit.cs :: Presets",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "characters/zombie"
     },
@@ -401,6 +438,8 @@
       "draft": true,
       "_id": "raider",
       "_anchor": "godot/scripts/Raider.cs + RaiderTactics.cs + IntrusionLogic.cs",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "characters/raider"
     },
@@ -423,6 +462,8 @@
       "draft": true,
       "_id": "supermarket_survivors",
       "_anchor": "godot/scripts/SupermarketAmbush.cs",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "characters/supermarket_survivors"
     },
@@ -445,6 +486,8 @@
       "draft": true,
       "_id": "elite_riot_police",
       "_anchor": "src/DeadSignal.Combat/ZombieOutfit.cs :: ElitePresets",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "characters/elite_riot_police"
     },
@@ -467,6 +510,8 @@
       "draft": true,
       "_id": "elite_soldier",
       "_anchor": "src/DeadSignal.Combat/ZombieOutfit.cs :: ElitePresets",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "characters/elite_soldier"
     }

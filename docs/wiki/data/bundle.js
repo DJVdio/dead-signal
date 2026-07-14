@@ -2,7 +2,7 @@
 // 用途：以 file:// 直接打开 index.html 时的降级数据源（浏览器不允许 fetch 本地文件）。
 window.WIKI_BUNDLE = {
   index: {
-  "generatedAt": "2026-07-14 03:50:41",
+  "generatedAt": "2026-07-14 13:39:39",
   "iconDir": "godot/assets/items",
   "multiselectOptions": {
     "fitsWeapons": [
@@ -19,7 +19,6 @@ window.WIKI_BUNDLE = {
       "手枪",
       "冲锋枪",
       "步枪",
-      "栓动猎枪",
       "狙击枪",
       "短弓",
       "自制霰弹枪",
@@ -29,7 +28,9 @@ window.WIKI_BUNDLE = {
       "狩猎弓",
       "单手轻弩",
       "双手重弩",
-      "复合弩"
+      "复合弩",
+      "消防斧",
+      "骨刀"
     ]
   },
   "dpsGripFactors": {
@@ -42,14 +43,14 @@ window.WIKI_BUNDLE = {
       "id": "weapons",
       "label": "武器",
       "file": "weapons.json",
-      "count": 27,
+      "count": 28,
       "source": "src/DeadSignal.Combat/WeaponTable.cs"
     },
     {
       "id": "armor",
       "label": "护甲服装",
       "file": "armor.json",
-      "count": 20,
+      "count": 21,
       "source": "src/DeadSignal.Combat/ArmorTable.cs（防护数值）+ godot/scripts/ApparelSlots.cs（穿在哪、护到哪）"
     },
     {
@@ -70,7 +71,7 @@ window.WIKI_BUNDLE = {
       "id": "materials",
       "label": "材料",
       "file": "materials.json",
-      "count": 23,
+      "count": 22,
       "source": "godot/scripts/Materials.cs"
     },
     {
@@ -84,7 +85,7 @@ window.WIKI_BUNDLE = {
       "id": "recipes",
       "label": "配方",
       "file": "recipes.json",
-      "count": 46,
+      "count": 48,
       "source": "godot/scripts/Recipe.cs"
     },
     {
@@ -98,14 +99,21 @@ window.WIKI_BUNDLE = {
       "id": "books",
       "label": "书籍",
       "file": "books.json",
-      "count": 10,
+      "count": 9,
+      "source": "godot/scripts/BookData.cs"
+    },
+    {
+      "id": "diaries",
+      "label": "日记与笔记",
+      "file": "diaries.json",
+      "count": 2,
       "source": "godot/scripts/BookData.cs"
     },
     {
       "id": "weapon-mods",
       "label": "武器改装",
       "file": "weapon-mods.json",
-      "count": 15,
+      "count": 19,
       "source": "godot/scripts/WeaponModCatalog.cs"
     },
     {
@@ -119,7 +127,7 @@ window.WIKI_BUNDLE = {
       "id": "food",
       "label": "食物与食材",
       "file": "food.json",
-      "count": 12,
+      "count": 11,
       "source": "godot/scripts/CookingLogic.cs + godot/scripts/Materials.cs"
     },
     {
@@ -133,8 +141,8 @@ window.WIKI_BUNDLE = {
       "id": "global-rules",
       "label": "全局规则",
       "file": "global-rules.json",
-      "count": 7,
-      "source": "src/DeadSignal.Combat/DualWield.cs · godot/scripts/SurvivorPerks.cs · godot/scripts/CoverLogic.cs"
+      "count": 17,
+      "source": "src/DeadSignal.Combat/DualWield.cs · src/DeadSignal.Combat/BleedModel.cs · godot/scripts/SurvivorPerks.cs · godot/scripts/CoverLogic.cs"
     },
     {
       "id": "characters",
@@ -149,6 +157,13 @@ window.WIKI_BUNDLE = {
       "file": "character-stats.json",
       "count": 50,
       "source": "godot/scripts/SurvivorPerks.cs 等（每行的「代码位置」列写明了各自的出处）"
+    },
+    {
+      "id": "world-graph",
+      "label": "调查点路线",
+      "file": "world-graph.json",
+      "count": 17,
+      "source": "godot/data/world_graph.json"
     }
   ]
 },
@@ -320,8 +335,16 @@ window.WIKI_BUNDLE = {
     },
     {
       "key": "description",
-      "label": "说明",
-      "type": "longtext"
+      "label": "简介",
+      "type": "longtext",
+      "hint": "**玩家在游戏里看到的描述**。改了它，agent 会把新文案同步进代码。（有几个分区代码里还没有描述字段——你照样可以写，写了就是在告诉 agent「这里该有一个」。）"
+    },
+    {
+      "key": "userNote",
+      "label": "备注",
+      "type": "note",
+      "usernote": true,
+      "hint": "**你的设计笔记，不进游戏**——想到什么特殊效果就写在这（比如「这把锤子应该能砸开保险箱」）。它不会被同步成游戏文案，但 agent 每次跑抽取器都会看到你新写的备注。"
     },
     {
       "key": "_id",
@@ -357,7 +380,7 @@ window.WIKI_BUNDLE = {
       "damageType": "锐",
       "damageMin": 1,
       "damageMax": 7,
-      "penetration": 0.06,
+      "penetration": 0.075,
       "attackInterval": 1.7,
       "burstCount": 1,
       "burstInterval": 0,
@@ -372,7 +395,7 @@ window.WIKI_BUNDLE = {
       "spread": 0,
       "noiseRadius": 90,
       "dps": 2.3529,
-      "dpsVsLeather": 1.3443,
+      "dpsVsLeather": 1.4758,
       "dualDps": 3.2941,
       "weight": 0.5,
       "stockMin": null,
@@ -383,6 +406,7 @@ window.WIKI_BUNDLE = {
       "description": "小巧、贴身、安静——很多故事都是从背后一把匕首开始的。",
       "_id": "Dagger",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.Dagger()",
+      "userNote": "",
       "sync": "",
       "_icon": "weapons/dagger"
     },
@@ -393,7 +417,7 @@ window.WIKI_BUNDLE = {
       "damageMin": 3,
       "damageMax": 8,
       "penetration": 0.12,
-      "attackInterval": 2.2,
+      "attackInterval": 2.1,
       "burstCount": 1,
       "burstInterval": 0,
       "pelletCount": 1,
@@ -406,18 +430,19 @@ window.WIKI_BUNDLE = {
       "falloffFloor": null,
       "spread": 0,
       "noiseRadius": 105,
-      "dps": 2.5,
-      "dpsVsLeather": 1.4935,
-      "dualDps": 3.5,
-      "weight": 1.2,
+      "dps": 2.619,
+      "dpsVsLeather": 1.8386,
+      "dualDps": 3.6667,
+      "weight": 1.6,
       "stockMin": null,
       "stockMax": null,
       "stockInterval": null,
       "stockPenetration": null,
-      "structureFactor": 0.4,
+      "structureFactor": 0.3,
       "description": "一把趁手的短剑，比匕首多一寸，也多一分底气。",
       "_id": "Shortsword",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.Shortsword()",
+      "userNote": "",
       "sync": "",
       "_icon": "weapons/short_sword"
     },
@@ -425,8 +450,8 @@ window.WIKI_BUNDLE = {
       "name": "刺剑",
       "kind": "近战锐器",
       "damageType": "锐",
-      "damageMin": 2,
-      "damageMax": 7,
+      "damageMin": 2.5,
+      "damageMax": 6.5,
       "penetration": 0.25,
       "attackInterval": 1.9,
       "burstCount": 1,
@@ -442,17 +467,18 @@ window.WIKI_BUNDLE = {
       "spread": 0,
       "noiseRadius": 95,
       "dps": 2.3684,
-      "dpsVsLeather": 1.359,
+      "dpsVsLeather": 1.5439,
       "dualDps": 3.3158,
-      "weight": 1.3,
+      "weight": 1.2,
       "stockMin": null,
       "stockMax": null,
       "stockInterval": null,
       "stockPenetration": null,
-      "structureFactor": 0.3,
+      "structureFactor": 0.2,
       "description": "轻巧的刺剑，优雅而致命。",
       "_id": "Rapier",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.Rapier()",
+      "userNote": "",
       "sync": "",
       "_icon": "weapons/rapier"
     },
@@ -477,17 +503,18 @@ window.WIKI_BUNDLE = {
       "spread": 0,
       "noiseRadius": 120,
       "dps": 2.8125,
-      "dpsVsLeather": 1.8884,
+      "dpsVsLeather": 2.2187,
       "dualDps": null,
-      "weight": 1.8,
+      "weight": 2.4,
       "stockMin": null,
       "stockMax": null,
       "stockInterval": null,
       "stockPenetration": null,
-      "structureFactor": 0.4,
+      "structureFactor": 0.3,
       "description": "双手长剑，一寸长一寸强。",
       "_id": "Longsword",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.Longsword()",
+      "userNote": "",
       "sync": "",
       "_icon": "weapons/long_sword"
     },
@@ -512,17 +539,18 @@ window.WIKI_BUNDLE = {
       "spread": 0,
       "noiseRadius": 135,
       "dps": 3.25,
-      "dpsVsLeather": 2.3164,
+      "dpsVsLeather": 2.8006,
       "dualDps": null,
-      "weight": 3,
+      "weight": 3.2,
       "stockMin": null,
       "stockMax": null,
       "stockInterval": null,
       "stockPenetration": null,
-      "structureFactor": 0.5,
+      "structureFactor": 0.3,
       "description": "沉重的大剑，挥一下费半条命，中一下要一条命。",
       "_id": "Greatsword",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.Greatsword()",
+      "userNote": "",
       "sync": "",
       "_icon": "weapons/great_sword"
     },
@@ -547,26 +575,99 @@ window.WIKI_BUNDLE = {
       "spread": 0,
       "noiseRadius": 120,
       "dps": 2.1667,
-      "dpsVsLeather": 1.3422,
+      "dpsVsLeather": 1.6228,
       "dualDps": null,
       "weight": 2.5,
       "stockMin": null,
       "stockMax": null,
       "stockInterval": null,
       "stockPenetration": null,
-      "structureFactor": 0.3,
+      "structureFactor": 0.2,
       "description": "本来是叉草的，现在叉什么全看你。",
       "_id": "Pitchfork",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.Pitchfork()",
+      "userNote": "",
       "sync": "",
       "_icon": "weapons/pitchfork"
+    },
+    {
+      "name": "消防斧",
+      "kind": "近战锐器",
+      "damageType": "锐",
+      "damageMin": 6.5,
+      "damageMax": 14,
+      "penetration": 0.175,
+      "attackInterval": 3.4,
+      "burstCount": 1,
+      "burstInterval": 0,
+      "pelletCount": 1,
+      "ammo": "",
+      "ammoPerAttack": 0,
+      "twoHanded": true,
+      "canDualWield": false,
+      "maxRange": null,
+      "falloffStart": null,
+      "falloffFloor": null,
+      "spread": 0,
+      "noiseRadius": 125,
+      "dps": 3.0147,
+      "dpsVsLeather": 2.5627,
+      "dualDps": null,
+      "weight": 3,
+      "stockMin": null,
+      "stockMax": null,
+      "stockInterval": null,
+      "stockPenetration": null,
+      "structureFactor": 1.2,
+      "description": "劈柴、劈门、劈别的——它从不问那是什么。",
+      "_id": "Axe",
+      "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.Axe()",
+      "userNote": "",
+      "sync": "",
+      "_icon": "weapons/axe"
+    },
+    {
+      "name": "骨刀",
+      "kind": "近战锐器",
+      "damageType": "锐",
+      "damageMin": 1,
+      "damageMax": 5,
+      "penetration": 0.045,
+      "attackInterval": 2,
+      "burstCount": 1,
+      "burstInterval": 0,
+      "pelletCount": 1,
+      "ammo": "",
+      "ammoPerAttack": 0,
+      "twoHanded": false,
+      "canDualWield": true,
+      "maxRange": null,
+      "falloffStart": null,
+      "falloffFloor": null,
+      "spread": 0,
+      "noiseRadius": 90,
+      "dps": 1.5,
+      "dpsVsLeather": 0.8754,
+      "dualDps": 2.1,
+      "weight": 0.4,
+      "stockMin": null,
+      "stockMax": null,
+      "stockInterval": null,
+      "stockPenetration": null,
+      "structureFactor": 0.4,
+      "description": "不是铁的，不过够锋利。",
+      "_id": "BoneKnife",
+      "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.BoneKnife()",
+      "userNote": "",
+      "sync": "",
+      "_icon": "weapons/bone_knife"
     },
     {
       "name": "棍棒",
       "kind": "近战钝器",
       "damageType": "钝",
       "damageMin": 4,
-      "damageMax": 7,
+      "damageMax": 8,
       "penetration": 0,
       "attackInterval": 2.7,
       "burstCount": 1,
@@ -581,18 +682,19 @@ window.WIKI_BUNDLE = {
       "falloffFloor": null,
       "spread": 0,
       "noiseRadius": 110,
-      "dps": 2.037,
-      "dpsVsLeather": 1.2026,
-      "dualDps": 2.8519,
+      "dps": 2.2222,
+      "dpsVsLeather": 1.6212,
+      "dualDps": 3.1111,
       "weight": 1.5,
       "stockMin": null,
       "stockMax": null,
       "stockInterval": null,
       "stockPenetration": null,
-      "structureFactor": 1.2,
+      "structureFactor": 1.8,
       "description": "一根结实的棍棒，简单、可靠、不讲道理。",
       "_id": "Club",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.Club()",
+      "userNote": "",
       "sync": "",
       "_icon": "weapons/club"
     },
@@ -617,17 +719,18 @@ window.WIKI_BUNDLE = {
       "spread": 0,
       "noiseRadius": 130,
       "dps": 2.8571,
-      "dpsVsLeather": 1.9472,
+      "dpsVsLeather": 2.4062,
       "dualDps": null,
-      "weight": 2.5,
+      "weight": 4,
       "stockMin": null,
       "stockMax": null,
       "stockInterval": null,
       "stockPenetration": null,
-      "structureFactor": 1.6,
+      "structureFactor": 2.6,
       "description": "带尖的锤子，砸不服的，就使劲儿砸。",
       "_id": "SpikeHammer",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.SpikeHammer()",
+      "userNote": "",
       "sync": "",
       "_icon": "weapons/spiked_mace"
     },
@@ -652,17 +755,18 @@ window.WIKI_BUNDLE = {
       "spread": 0,
       "noiseRadius": 150,
       "dps": 3.1111,
-      "dpsVsLeather": 2.2267,
+      "dpsVsLeather": 2.8246,
       "dualDps": null,
-      "weight": 4,
+      "weight": 4.5,
       "stockMin": null,
       "stockMax": null,
       "stockInterval": null,
       "stockPenetration": null,
-      "structureFactor": 2,
+      "structureFactor": 4,
       "description": "专治各种不服。",
       "_id": "Warhammer",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.Warhammer()",
+      "userNote": "",
       "sync": "",
       "_icon": "weapons/warhammer"
     },
@@ -670,10 +774,10 @@ window.WIKI_BUNDLE = {
       "name": "自制猎枪",
       "kind": "枪械",
       "damageType": "锐",
-      "damageMin": 6,
-      "damageMax": 20,
+      "damageMin": 7.5,
+      "damageMax": 17.5,
       "penetration": 0.4,
-      "attackInterval": 3.5,
+      "attackInterval": 4,
       "burstCount": 1,
       "burstInterval": 0,
       "pelletCount": 1,
@@ -686,18 +790,19 @@ window.WIKI_BUNDLE = {
       "falloffFloor": 0.45,
       "spread": 5,
       "noiseRadius": 450,
-      "dps": 3.7143,
-      "dpsVsLeather": 2.6473,
+      "dps": 3.125,
+      "dpsVsLeather": 2.7318,
       "dualDps": null,
-      "weight": 3,
-      "stockMin": 5,
-      "stockMax": 9,
+      "weight": 7.5,
+      "stockMin": 3,
+      "stockMax": 6,
       "stockInterval": 2.5,
       "stockPenetration": 0.02,
       "structureFactor": 1,
       "description": "用水管和废铁凑出来的猎枪，准头听天由命，后坐力管够——开火之后，你和目标谁更慌还不一定。",
       "_id": "ImprovisedHuntingGun",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.ImprovisedHuntingGun()",
+      "userNote": "",
       "sync": "",
       "_icon": "weapons/improvised_hunting_gun"
     },
@@ -706,8 +811,8 @@ window.WIKI_BUNDLE = {
       "kind": "枪械",
       "damageType": "锐",
       "damageMin": 4,
-      "damageMax": 14,
-      "penetration": 0.24,
+      "damageMax": 13,
+      "penetration": 0.21,
       "attackInterval": 2.2,
       "burstCount": 1,
       "burstInterval": 0,
@@ -719,20 +824,21 @@ window.WIKI_BUNDLE = {
       "maxRange": 200,
       "falloffStart": 55,
       "falloffFloor": 0.5,
-      "spread": 3,
+      "spread": 3.75,
       "noiseRadius": 350,
-      "dps": 4.0909,
-      "dpsVsLeather": 2.7397,
-      "dualDps": 5.7273,
+      "dps": 3.8636,
+      "dpsVsLeather": 3.0756,
+      "dualDps": 5.4091,
       "weight": 1,
       "stockMin": 1,
       "stockMax": 4,
-      "stockInterval": 1.2,
+      "stockInterval": 1.45,
       "stockPenetration": 0.02,
       "structureFactor": 1,
       "description": "一把手枪，几次讲道理的机会，还能换只手接着讲。",
       "_id": "Pistol",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.Pistol()",
+      "userNote": "",
       "sync": "",
       "_icon": "weapons/pistol"
     },
@@ -757,17 +863,18 @@ window.WIKI_BUNDLE = {
       "spread": 6,
       "noiseRadius": 500,
       "dps": 12.766,
-      "dpsVsLeather": 8.9843,
+      "dpsVsLeather": 10.9426,
       "dualDps": null,
       "weight": 3,
-      "stockMin": 4,
-      "stockMax": 8,
-      "stockInterval": 2.2,
+      "stockMin": 2,
+      "stockMax": 6,
+      "stockInterval": 2.3,
       "stockPenetration": 0.02,
       "structureFactor": 1,
       "description": "三连发的冲锋枪，子弹管够的时候，谁跟你讲道理。",
       "_id": "Smg",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.Smg()",
+      "userNote": "",
       "sync": "",
       "_icon": "weapons/smg"
     },
@@ -789,57 +896,23 @@ window.WIKI_BUNDLE = {
       "maxRange": 550,
       "falloffStart": 200,
       "falloffFloor": 0.6,
-      "spread": 2,
+      "spread": 3,
       "noiseRadius": 600,
       "dps": 11.039,
-      "dpsVsLeather": 8.0748,
+      "dpsVsLeather": 10.0401,
       "dualDps": null,
-      "weight": 4,
-      "stockMin": 6,
-      "stockMax": 11,
+      "weight": 7.5,
+      "stockMin": 4,
+      "stockMax": 7,
       "stockInterval": 3,
       "stockPenetration": 0.03,
       "structureFactor": 1,
       "description": "军用步枪，站得远、打得准，让对话在安全距离进行。",
       "_id": "Rifle",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.Rifle()",
+      "userNote": "",
       "sync": "",
       "_icon": "weapons/rifle"
-    },
-    {
-      "name": "栓动猎枪",
-      "kind": "枪械",
-      "damageType": "锐",
-      "damageMin": 16,
-      "damageMax": 28,
-      "penetration": 0.21,
-      "attackInterval": 4.5,
-      "burstCount": 1,
-      "burstInterval": 0,
-      "pelletCount": 1,
-      "ammo": "中子弹",
-      "ammoPerAttack": 1,
-      "twoHanded": true,
-      "canDualWield": false,
-      "maxRange": 420,
-      "falloffStart": 160,
-      "falloffFloor": 0.55,
-      "spread": 3,
-      "noiseRadius": 550,
-      "dps": 4.8889,
-      "dpsVsLeather": 3.642,
-      "dualDps": null,
-      "weight": 3.5,
-      "stockMin": 6,
-      "stockMax": 10,
-      "stockInterval": 2.85,
-      "stockPenetration": 0.03,
-      "structureFactor": 1,
-      "description": "民用栓动猎枪，一枪一栓，郑重其事——毕竟每一发都得省着用。",
-      "_id": "BoltActionHuntingRifle",
-      "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.BoltActionHuntingRifle()",
-      "sync": "删除·待同步进代码",
-      "_icon": "weapons/hunting_shotgun"
     },
     {
       "name": "狙击枪",
@@ -862,17 +935,18 @@ window.WIKI_BUNDLE = {
       "spread": 0.5,
       "noiseRadius": 700,
       "dps": 6,
-      "dpsVsLeather": 4.495,
+      "dpsVsLeather": 5.4497,
       "dualDps": null,
-      "weight": 6,
-      "stockMin": 8,
-      "stockMax": 13,
+      "weight": 9,
+      "stockMin": 5,
+      "stockMax": 9,
       "stockInterval": 3.7,
       "stockPenetration": 0.03,
       "structureFactor": 1,
       "description": "你还没听见响，事情就已经结束了。",
       "_id": "SniperRifle",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.SniperRifle()",
+      "userNote": "",
       "sync": "",
       "_icon": "weapons/sniper_rifle"
     },
@@ -881,7 +955,7 @@ window.WIKI_BUNDLE = {
       "kind": "枪械",
       "damageType": "锐",
       "damageMin": 2,
-      "damageMax": 12,
+      "damageMax": 10,
       "penetration": 0.15,
       "attackInterval": 4.2,
       "burstCount": 1,
@@ -896,18 +970,19 @@ window.WIKI_BUNDLE = {
       "falloffFloor": 0.2,
       "spread": 18,
       "noiseRadius": 550,
-      "dps": 13.3333,
-      "dpsVsLeather": 8.5633,
+      "dps": 11.4286,
+      "dpsVsLeather": 8.1872,
       "dualDps": null,
-      "weight": 3.2,
-      "stockMin": 5,
-      "stockMax": 9,
+      "weight": 6,
+      "stockMin": 3,
+      "stockMax": 6,
       "stockInterval": 2.5,
       "stockPenetration": 0.02,
       "structureFactor": 1,
       "description": "钢管、铁钉、一把火药——离得越近，讲的道理越充分。",
       "_id": "ImprovisedShotgun",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.ImprovisedShotgun()",
+      "userNote": "",
       "sync": "",
       "_icon": "weapons/improvised_shotgun"
     },
@@ -915,9 +990,9 @@ window.WIKI_BUNDLE = {
       "name": "短弓",
       "kind": "弓",
       "damageType": "锐",
-      "damageMin": 1,
-      "damageMax": 18,
-      "penetration": 0.3,
+      "damageMin": 2,
+      "damageMax": 10,
+      "penetration": 0.12,
       "attackInterval": 3.2,
       "burstCount": 1,
       "burstInterval": 0,
@@ -931,18 +1006,19 @@ window.WIKI_BUNDLE = {
       "falloffFloor": 0.7,
       "spread": 5,
       "noiseRadius": 70,
-      "dps": 2.9688,
-      "dpsVsLeather": 2.0394,
+      "dps": 1.875,
+      "dpsVsLeather": 1.3432,
       "dualDps": null,
       "weight": 0.8,
       "stockMin": null,
       "stockMax": null,
       "stockInterval": null,
       "stockPenetration": null,
-      "structureFactor": 0.1,
-      "description": "一根木头，一根弦。射程短、力道小，但它安静——安静到你能听清，第二只丧尸是从哪个方向过来的。",
+      "structureFactor": 0.05,
+      "description": "一根木头，一根弦。射程短、力道小，但至少不用靠近他们。",
       "_id": "ShortBow",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.ShortBow()",
+      "userNote": "",
       "sync": "",
       "_icon": "weapons/short_bow"
     },
@@ -950,10 +1026,10 @@ window.WIKI_BUNDLE = {
       "name": "反曲弓",
       "kind": "弓",
       "damageType": "锐",
-      "damageMin": 1,
-      "damageMax": 26,
-      "penetration": 0.4,
-      "attackInterval": 3.8,
+      "damageMin": 3,
+      "damageMax": 12,
+      "penetration": 0.24,
+      "attackInterval": 3.4,
       "burstCount": 1,
       "burstInterval": 0,
       "pelletCount": 1,
@@ -966,18 +1042,19 @@ window.WIKI_BUNDLE = {
       "falloffFloor": 0.72,
       "spread": 4,
       "noiseRadius": 70,
-      "dps": 3.5526,
-      "dpsVsLeather": 2.554,
+      "dps": 2.2059,
+      "dpsVsLeather": 1.6911,
       "dualDps": null,
       "weight": 1.2,
       "stockMin": null,
       "stockMax": null,
       "stockInterval": null,
       "stockPenetration": null,
-      "structureFactor": 0.1,
+      "structureFactor": 0.05,
       "description": "弓臂末端反着弯回去，同样长度多出几分力道。做弓的人懂物理，用弓的人只需要懂呼吸。",
       "_id": "RecurveBow",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.RecurveBow()",
+      "userNote": "",
       "sync": "",
       "_icon": "weapons/recurve_bow"
     },
@@ -985,8 +1062,8 @@ window.WIKI_BUNDLE = {
       "name": "长弓",
       "kind": "弓",
       "damageType": "锐",
-      "damageMin": 1,
-      "damageMax": 34,
+      "damageMin": 4,
+      "damageMax": 20,
       "penetration": 0.5,
       "attackInterval": 5,
       "burstCount": 1,
@@ -998,21 +1075,22 @@ window.WIKI_BUNDLE = {
       "canDualWield": false,
       "maxRange": 480,
       "falloffStart": 200,
-      "falloffFloor": 0.78,
-      "spread": 4.5,
+      "falloffFloor": 0.7,
+      "spread": 3,
       "noiseRadius": 70,
-      "dps": 3.5,
-      "dpsVsLeather": 2.5678,
+      "dps": 2.4,
+      "dpsVsLeather": 2,
       "dualDps": null,
       "weight": 1.5,
       "stockMin": null,
       "stockMax": null,
       "stockInterval": null,
       "stockPenetration": null,
-      "structureFactor": 0.1,
+      "structureFactor": 0.05,
       "description": "比人还高的长弓。它能把箭送到很远的地方——远到你射完还有充裕的时间，看清自己是不是射偏了。",
       "_id": "Longbow",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.Longbow()",
+      "userNote": "",
       "sync": "",
       "_icon": "weapons/longbow"
     },
@@ -1020,9 +1098,9 @@ window.WIKI_BUNDLE = {
       "name": "竞技复合弓",
       "kind": "弓",
       "damageType": "锐",
-      "damageMin": 1,
-      "damageMax": 30,
-      "penetration": 0.48,
+      "damageMin": 4,
+      "damageMax": 20,
+      "penetration": 0.6,
       "attackInterval": 3.6,
       "burstCount": 1,
       "burstInterval": 0,
@@ -1031,23 +1109,24 @@ window.WIKI_BUNDLE = {
       "ammoPerAttack": 1,
       "twoHanded": true,
       "canDualWield": false,
-      "maxRange": 380,
-      "falloffStart": 170,
+      "maxRange": 400,
+      "falloffStart": 200,
       "falloffFloor": 0.75,
-      "spread": 1.5,
+      "spread": 2.5,
       "noiseRadius": 65,
-      "dps": 4.3056,
-      "dpsVsLeather": 3.1313,
+      "dps": 3.3333,
+      "dpsVsLeather": 2.7778,
       "dualDps": null,
       "weight": 1.8,
       "stockMin": null,
       "stockMax": null,
       "stockInterval": null,
       "stockPenetration": null,
-      "structureFactor": 0.1,
+      "structureFactor": 0.05,
       "description": "滑轮、准星、稳定杆，一整套让人百发百中的精密玩意。它原来的主人拿它拿过奖——奖杯还在，人不在了。",
       "_id": "CompetitionCompoundBow",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.CompetitionCompoundBow()",
+      "userNote": "",
       "sync": "",
       "_icon": "weapons/compound_bow"
     },
@@ -1055,10 +1134,10 @@ window.WIKI_BUNDLE = {
       "name": "狩猎弓",
       "kind": "弓",
       "damageType": "锐",
-      "damageMin": 1,
-      "damageMax": 38,
-      "penetration": 0.55,
-      "attackInterval": 4.2,
+      "damageMin": 3,
+      "damageMax": 9,
+      "penetration": 0.35,
+      "attackInterval": 1.6,
       "burstCount": 1,
       "burstInterval": 0,
       "pelletCount": 1,
@@ -1066,23 +1145,24 @@ window.WIKI_BUNDLE = {
       "ammoPerAttack": 1,
       "twoHanded": true,
       "canDualWield": false,
-      "maxRange": 420,
-      "falloffStart": 180,
-      "falloffFloor": 0.8,
-      "spread": 3,
+      "maxRange": 200,
+      "falloffStart": 80,
+      "falloffFloor": 0.6,
+      "spread": 6,
       "noiseRadius": 70,
-      "dps": 4.6429,
-      "dpsVsLeather": 3.4254,
+      "dps": 3.75,
+      "dpsVsLeather": 2.7111,
       "dualDps": null,
       "weight": 1,
       "stockMin": null,
       "stockMax": null,
       "stockInterval": null,
       "stockPenetration": null,
-      "structureFactor": 0.1,
+      "structureFactor": 0.05,
       "description": "货真价实的猎弓，专为放倒大型动物设计。设计它的时候没人想过，有一天最大的猎物会是邻居。",
       "_id": "HuntingBow",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.HuntingBow()",
+      "userNote": "",
       "sync": "",
       "_icon": "weapons/hunting_bow"
     },
@@ -1090,8 +1170,8 @@ window.WIKI_BUNDLE = {
       "name": "单手轻弩",
       "kind": "弩",
       "damageType": "锐",
-      "damageMin": 1,
-      "damageMax": 16,
+      "damageMin": 4,
+      "damageMax": 12,
       "penetration": 0.35,
       "attackInterval": 4,
       "burstCount": 1,
@@ -1103,21 +1183,22 @@ window.WIKI_BUNDLE = {
       "canDualWield": true,
       "maxRange": 180,
       "falloffStart": 70,
-      "falloffFloor": 0.65,
-      "spread": 3,
+      "falloffFloor": 0.45,
+      "spread": 5,
       "noiseRadius": 55,
-      "dps": 2.125,
-      "dpsVsLeather": 1.4307,
-      "dualDps": 2.975,
+      "dps": 2,
+      "dpsVsLeather": 1.575,
+      "dualDps": 2.8,
       "weight": 2,
       "stockMin": null,
       "stockMax": null,
       "stockInterval": null,
       "stockPenetration": null,
-      "structureFactor": 0.1,
+      "structureFactor": 0.05,
       "description": "单手就能端的小弩，扣下扳机跟开枪一样容易。麻烦的是开完这一发——上弦得用两只手，还得用点时间。",
       "_id": "LightCrossbow",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.LightCrossbow()",
+      "userNote": "",
       "sync": "",
       "_icon": "weapons/light_crossbow"
     },
@@ -1125,10 +1206,10 @@ window.WIKI_BUNDLE = {
       "name": "双手重弩",
       "kind": "弩",
       "damageType": "锐",
-      "damageMin": 1,
-      "damageMax": 36,
-      "penetration": 0.65,
-      "attackInterval": 6,
+      "damageMin": 6,
+      "damageMax": 24,
+      "penetration": 0.6,
+      "attackInterval": 5,
       "burstCount": 1,
       "burstInterval": 0,
       "pelletCount": 1,
@@ -1139,20 +1220,21 @@ window.WIKI_BUNDLE = {
       "maxRange": 320,
       "falloffStart": 140,
       "falloffFloor": 0.75,
-      "spread": 2.5,
+      "spread": 3,
       "noiseRadius": 55,
-      "dps": 3.0833,
-      "dpsVsLeather": 2.273,
+      "dps": 3,
+      "dpsVsLeather": 2.5994,
       "dualDps": null,
-      "weight": 4.5,
+      "weight": 9,
       "stockMin": null,
       "stockMax": null,
       "stockInterval": null,
       "stockPenetration": null,
-      "structureFactor": 0.1,
+      "structureFactor": 0.05,
       "description": "沉得像块砖的重弩，弦硬到要用脚踩着上。它能钉穿铁皮，代价是你每分钟只能得罪一个人。",
       "_id": "HeavyCrossbow",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.HeavyCrossbow()",
+      "userNote": "",
       "sync": "",
       "_icon": "weapons/heavy_crossbow"
     },
@@ -1160,10 +1242,10 @@ window.WIKI_BUNDLE = {
       "name": "复合弩",
       "kind": "弩",
       "damageType": "锐",
-      "damageMin": 1,
+      "damageMin": 12,
       "damageMax": 34,
-      "penetration": 0.68,
-      "attackInterval": 4.5,
+      "penetration": 0.65,
+      "attackInterval": 6.2,
       "burstCount": 1,
       "burstInterval": 0,
       "pelletCount": 1,
@@ -1176,18 +1258,19 @@ window.WIKI_BUNDLE = {
       "falloffFloor": 0.8,
       "spread": 1.8,
       "noiseRadius": 50,
-      "dps": 3.8889,
-      "dpsVsLeather": 2.8531,
+      "dps": 3.7097,
+      "dpsVsLeather": 3.3915,
       "dualDps": null,
-      "weight": 3,
+      "weight": 4.5,
       "stockMin": null,
       "stockMax": null,
       "stockInterval": null,
       "stockPenetration": null,
-      "structureFactor": 0.1,
+      "structureFactor": 0.05,
       "description": "带滑轮的复合弩，省力、精准、致命——工业文明留给猎人的最后一份好意。",
       "_id": "CompoundCrossbow",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.CompoundCrossbow()",
+      "userNote": "",
       "sync": "",
       "_icon": "weapons/compound_crossbow"
     },
@@ -1197,8 +1280,8 @@ window.WIKI_BUNDLE = {
       "damageType": "锐",
       "damageMin": 1,
       "damageMax": 3,
-      "penetration": 0.05,
-      "attackInterval": 1.2,
+      "penetration": 0.03,
+      "attackInterval": 1.4,
       "burstCount": 1,
       "burstInterval": 0,
       "pelletCount": 1,
@@ -1211,8 +1294,8 @@ window.WIKI_BUNDLE = {
       "falloffFloor": null,
       "spread": 0,
       "noiseRadius": 100,
-      "dps": 1.6667,
-      "dpsVsLeather": 0.866,
+      "dps": 1.4286,
+      "dpsVsLeather": 0.7759,
       "dualDps": null,
       "weight": null,
       "stockMin": null,
@@ -1223,6 +1306,7 @@ window.WIKI_BUNDLE = {
       "description": "腐烂的指甲，钝、脏、带菌，被挠一下够你担惊受怕好几天。",
       "_id": "ZombieClaw",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.ZombieClaw()",
+      "userNote": "",
       "sync": "",
       "_icon": "weapons/zombie_claw"
     },
@@ -1247,7 +1331,7 @@ window.WIKI_BUNDLE = {
       "spread": 0,
       "noiseRadius": 90,
       "dps": 1.3043,
-      "dpsVsLeather": 0.6994,
+      "dpsVsLeather": 0.7634,
       "dualDps": null,
       "weight": null,
       "stockMin": null,
@@ -1258,6 +1342,7 @@ window.WIKI_BUNDLE = {
       "description": "一口尖牙，咬住了就不松口——布鲁斯拖住敌人，剩下的交给道格。",
       "_id": "DogBite",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.DogBite()",
+      "userNote": "",
       "sync": "",
       "_icon": "weapons/dog_bite"
     },
@@ -1268,7 +1353,7 @@ window.WIKI_BUNDLE = {
       "damageMin": 1,
       "damageMax": 3,
       "penetration": 0,
-      "attackInterval": 1.2,
+      "attackInterval": 1.4,
       "burstCount": 1,
       "burstInterval": 0,
       "pelletCount": 1,
@@ -1281,8 +1366,8 @@ window.WIKI_BUNDLE = {
       "falloffFloor": null,
       "spread": 0,
       "noiseRadius": 60,
-      "dps": 1.6667,
-      "dpsVsLeather": 0.866,
+      "dps": 1.4286,
+      "dpsVsLeather": 0.7759,
       "dualDps": null,
       "weight": null,
       "stockMin": null,
@@ -1293,6 +1378,7 @@ window.WIKI_BUNDLE = {
       "description": "你还有一双手。它们打不穿任何东西，但至少能让扑上来的那位知道你还没打算躺下。",
       "_id": "Fists",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.Fists()",
+      "userNote": "",
       "sync": "",
       "_icon": "weapons/fists"
     }
@@ -1345,8 +1431,16 @@ window.WIKI_BUNDLE = {
     },
     {
       "key": "description",
-      "label": "说明",
-      "type": "longtext"
+      "label": "简介",
+      "type": "longtext",
+      "hint": "**玩家在游戏里看到的描述**。改了它，agent 会把新文案同步进代码。（有几个分区代码里还没有描述字段——你照样可以写，写了就是在告诉 agent「这里该有一个」。）"
+    },
+    {
+      "key": "userNote",
+      "label": "备注",
+      "type": "note",
+      "usernote": true,
+      "hint": "**你的设计笔记，不进游戏**——想到什么特殊效果就写在这（比如「这把锤子应该能砸开保险箱」）。它不会被同步成游戏文案，但 agent 每次跑抽取器都会看到你新写的备注。"
     },
     {
       "key": "_id",
@@ -1387,6 +1481,7 @@ window.WIKI_BUNDLE = {
       "description": "袖子确实是长的。",
       "_id": "LongSleeveShirt",
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.LongSleeveShirt()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
+      "userNote": "",
       "sync": "",
       "_icon": "armor/long_sleeve_shirt"
     },
@@ -1401,6 +1496,7 @@ window.WIKI_BUNDLE = {
       "description": "夏威夷风格，足够喜庆。",
       "_id": "FloralShirt",
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.FloralShirt()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
+      "userNote": "",
       "sync": "",
       "_icon": "armor/floral_shirt"
     },
@@ -1415,6 +1511,7 @@ window.WIKI_BUNDLE = {
       "description": "挡风挡蚊子，挡不住长牙的东西。",
       "_id": "Trousers",
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.Trousers()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
+      "userNote": "",
       "sync": "",
       "_icon": "armor/trousers"
     },
@@ -1429,6 +1526,7 @@ window.WIKI_BUNDLE = {
       "description": "跑快一点点——但愿比丧尸快点。",
       "_id": "Sneakers",
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.Sneakers()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
+      "userNote": "",
       "sync": "",
       "_icon": "armor/sneakers"
     },
@@ -1443,6 +1541,7 @@ window.WIKI_BUNDLE = {
       "description": "夏日风格。",
       "_id": "Shorts",
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.Shorts()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
+      "userNote": "",
       "sync": "",
       "_icon": "armor/shorts"
     },
@@ -1457,6 +1556,7 @@ window.WIKI_BUNDLE = {
       "description": "保护你的心。",
       "_id": "ChestPlate",
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.ChestPlate()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
+      "userNote": "",
       "sync": "",
       "_icon": "armor/leather_cuirass"
     },
@@ -1471,6 +1571,7 @@ window.WIKI_BUNDLE = {
       "description": "“缝缝补补又三年。”——奶奶",
       "_id": "CoarseClothVest",
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.CoarseClothVest()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
+      "userNote": "",
       "sync": "",
       "_icon": "armor/cloth_vest"
     },
@@ -1485,6 +1586,7 @@ window.WIKI_BUNDLE = {
       "description": "天气转凉了，记得添外套。",
       "_id": "CoarseClothCoat",
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.CoarseClothCoat()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
+      "userNote": "",
       "sync": "",
       "_icon": "armor/cloth_coat"
     },
@@ -1496,9 +1598,10 @@ window.WIKI_BUNDLE = {
       "sharpDefense": 8,
       "bluntDefense": 4,
       "weight": 0.3,
-      "description": "上班穿它，开会穿它，被咬那天也穿着它。",
+      "description": "经典永不过时。",
       "_id": "ClothJacket",
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.ClothJacket()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
+      "userNote": "",
       "sync": "",
       "_icon": "armor/cloth_jacket"
     },
@@ -1510,9 +1613,10 @@ window.WIKI_BUNDLE = {
       "sharpDefense": 10,
       "bluntDefense": 5,
       "weight": 0.6,
-      "description": "耐磨、耐脏、耐撕咬——前两样是真的。",
+      "description": "耐磨、耐脏、牛仔范儿。",
       "_id": "DenimJacket",
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.DenimJacket()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
+      "userNote": "",
       "sync": "",
       "_icon": "armor/denim_jacket"
     },
@@ -1527,6 +1631,7 @@ window.WIKI_BUNDLE = {
       "description": "骑上摩托，倍有范儿。",
       "_id": "LeatherJacket",
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.LeatherJacket()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
+      "userNote": "",
       "sync": "",
       "_icon": "armor/leather_jacket"
     },
@@ -1541,6 +1646,7 @@ window.WIKI_BUNDLE = {
       "description": "结实的鞣皮甲。",
       "_id": "Leather",
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.Leather()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
+      "userNote": "",
       "sync": "",
       "_icon": "armor/leather_armor"
     },
@@ -1550,11 +1656,12 @@ window.WIKI_BUNDLE = {
       "covers": "胸、腹、左上臂、右上臂、左大腿、右大腿、左小腿、右小腿",
       "paired": false,
       "sharpDefense": 50,
-      "bluntDefense": 25,
+      "bluntDefense": 20,
       "weight": 15,
       "description": "重吗？他能保护你脆弱的肉体。",
       "_id": "Plate",
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.Plate()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
+      "userNote": "",
       "sync": "",
       "_icon": "armor/plate_armor"
     },
@@ -1564,11 +1671,12 @@ window.WIKI_BUNDLE = {
       "covers": "头",
       "paired": false,
       "sharpDefense": 28,
-      "bluntDefense": 14,
+      "bluntDefense": 12,
       "weight": 2.5,
-      "description": "钢盔挡得住从天上掉下来的一切。麻烦在于，咬人的东西是从正面扑过来的。",
+      "description": "钢盔挡得住从天上掉下来的一切。麻烦在于，它是从正面扑过来的。",
       "_id": "MilitaryHelmet",
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.MilitaryHelmet()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
+      "userNote": "",
       "sync": "",
       "_icon": "armor/military_helmet"
     },
@@ -1578,11 +1686,12 @@ window.WIKI_BUNDLE = {
       "covers": "头、左眼、右眼、鼻、下巴",
       "paired": false,
       "sharpDefense": 28,
-      "bluntDefense": 14,
+      "bluntDefense": 12,
       "weight": 4.5,
       "description": "面罩挡得下砖头、棍棒和唾沫星子——上一任主人遇上的，不在这三样里。",
       "_id": "RiotHelmet",
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.RiotHelmet()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
+      "userNote": "",
       "sync": "",
       "_icon": "armor/riot_helmet"
     },
@@ -1597,22 +1706,39 @@ window.WIKI_BUNDLE = {
       "description": "“劳动人民最光荣。”——奶奶",
       "_id": "WorkGloves",
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.WorkGloves()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
+      "userNote": "",
       "sync": "",
       "_icon": "armor/work_gloves"
     },
     {
       "name": "战争面具",
-      "equipSlot": "面部",
-      "covers": "鼻、下巴",
+      "equipSlot": "面部、眼镜",
+      "covers": "鼻、下巴、左眼、右眼",
       "paired": false,
       "sharpDefense": 8,
       "bluntDefense": 4,
       "weight": 0.3,
-      "description": "骨片与生皮缝成的脸。戴上它你不会更能打——但扑上来的东西第一口咬到的是骨头，不是你的鼻子。",
+      "description": "骨片与木头缝成的脸。戴上它你不会更有勇气——但扑上来的东西第一口咬到的是骨头，不是你的鼻子。",
       "_id": "WarMask",
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.WarMask()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
+      "userNote": "",
       "sync": "",
       "_icon": "armor/war_mask"
+    },
+    {
+      "name": "棉帽",
+      "equipSlot": "头部",
+      "covers": "头、左耳、右耳",
+      "paired": false,
+      "sharpDefense": 6,
+      "bluntDefense": 3,
+      "weight": 0.15,
+      "description": "毛茸茸的，冬季必备。",
+      "_id": "CottonHat",
+      "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.CottonHat()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
+      "userNote": "",
+      "sync": "",
+      "_icon": "armor/cotton_hat"
     },
     {
       "name": "粗布衬衫",
@@ -1625,6 +1751,7 @@ window.WIKI_BUNDLE = {
       "description": "自己缝的衬衫，针脚歪得像条走投无路的路。它挡不住多少东西，但它至少是你的。",
       "_id": "CoarseClothShirt",
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.CoarseClothShirt()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
+      "userNote": "",
       "sync": "",
       "_icon": "armor/coarse_shirt"
     },
@@ -1639,6 +1766,7 @@ window.WIKI_BUNDLE = {
       "description": "布不够长，就成了短裤。小腿从此归风、蚊子和一切有牙齿的东西共有。",
       "_id": "CoarseShorts",
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.CoarseShorts()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
+      "userNote": "",
       "sync": "",
       "_icon": "armor/coarse_shorts"
     },
@@ -1653,6 +1781,7 @@ window.WIKI_BUNDLE = {
       "description": "多缝了一截，小腿就有了着落。末日里的奢侈就是这么算的。",
       "_id": "CoarseTrousers",
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.CoarseTrousers()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
+      "userNote": "",
       "sync": "",
       "_icon": "armor/coarse_trousers"
     }
@@ -1698,8 +1827,16 @@ window.WIKI_BUNDLE = {
     },
     {
       "key": "description",
-      "label": "说明",
-      "type": "longtext"
+      "label": "简介",
+      "type": "longtext",
+      "hint": "**玩家在游戏里看到的描述**。改了它，agent 会把新文案同步进代码。（有几个分区代码里还没有描述字段——你照样可以写，写了就是在告诉 agent「这里该有一个」。）"
+    },
+    {
+      "key": "userNote",
+      "label": "备注",
+      "type": "note",
+      "usernote": true,
+      "hint": "**你的设计笔记，不进游戏**——想到什么特殊效果就写在这（比如「这把锤子应该能砸开保险箱」）。它不会被同步成游戏文案，但 agent 每次跑抽取器都会看到你新写的备注。"
     },
     {
       "key": "_id",
@@ -1739,6 +1876,7 @@ window.WIKI_BUNDLE = {
       "description": "给可爱的狗狗穿上可爱的衣服。",
       "_id": "布制狗衣",
       "_anchor": "godot/scripts/DogApparel.cs :: DogGearCatalog.Defs（护甲值在 ArmorTable.Dog*）",
+      "userNote": "",
       "sync": "",
       "_icon": "armor/dog_cloth_vest"
     },
@@ -1752,6 +1890,7 @@ window.WIKI_BUNDLE = {
       "description": "狗皮外的另一层皮。",
       "_id": "皮制狗衣",
       "_anchor": "godot/scripts/DogApparel.cs :: DogGearCatalog.Defs（护甲值在 ArmorTable.Dog*）",
+      "userNote": "",
       "sync": "",
       "_icon": "armor/dog_leather_vest"
     },
@@ -1765,6 +1904,7 @@ window.WIKI_BUNDLE = {
       "description": "好狗，好狗。",
       "_id": "口袋狗衣",
       "_anchor": "godot/scripts/DogApparel.cs :: DogGearCatalog.Defs（护甲值在 ArmorTable.Dog*）",
+      "userNote": "",
       "sync": "",
       "_icon": "armor/dog_pocket_vest"
     },
@@ -1778,6 +1918,7 @@ window.WIKI_BUNDLE = {
       "description": "狗狗也戴头盔。",
       "_id": "铁皮头甲",
       "_anchor": "godot/scripts/DogApparel.cs :: DogGearCatalog.Defs（护甲值在 ArmorTable.Dog*）",
+      "userNote": "",
       "sync": "",
       "_icon": "armor/dog_iron_helmet"
     },
@@ -1791,6 +1932,7 @@ window.WIKI_BUNDLE = {
       "description": "曾经他是不让狗咬你的，现在他是用来保护狗咬你的。",
       "_id": "铁丝头甲",
       "_anchor": "godot/scripts/DogApparel.cs :: DogGearCatalog.Defs（护甲值在 ArmorTable.Dog*）",
+      "userNote": "",
       "sync": "",
       "_icon": "armor/dog_wire_helmet"
     }
@@ -1861,8 +2003,16 @@ window.WIKI_BUNDLE = {
     },
     {
       "key": "description",
-      "label": "说明",
-      "type": "longtext"
+      "label": "简介",
+      "type": "longtext",
+      "hint": "**玩家在游戏里看到的描述**。改了它，agent 会把新文案同步进代码。（有几个分区代码里还没有描述字段——你照样可以写，写了就是在告诉 agent「这里该有一个」。）"
+    },
+    {
+      "key": "userNote",
+      "label": "备注",
+      "type": "note",
+      "usernote": true,
+      "hint": "**你的设计笔记，不进游戏**——想到什么特殊效果就写在这（比如「这把锤子应该能砸开保险箱」）。它不会被同步成游戏文案，但 agent 每次跑抽取器都会看到你新写的备注。"
     },
     {
       "key": "_id",
@@ -1906,6 +2056,7 @@ window.WIKI_BUNDLE = {
       "description": "手枪和冲锋枪吃的小家伙。最不值钱的一种子弹——这话你打空弹匣之前也是这么说的。",
       "_id": "ammo_short",
       "_anchor": "godot/scripts/Materials.cs :: Materials（名称/说明）+ src/DeadSignal.Combat/Ammo.cs :: BulletParts.YieldPer（制作比）",
+      "userNote": "",
       "sync": "",
       "_icon": "materials/ammo_short"
     },
@@ -1923,6 +2074,7 @@ window.WIKI_BUNDLE = {
       "description": "步枪和猎枪的口粮。一份零件只出五发，而步枪一次扣扳机就吞掉两发——算术很简单，心疼是真的。",
       "_id": "ammo_medium",
       "_anchor": "godot/scripts/Materials.cs :: Materials（名称/说明）+ src/DeadSignal.Combat/Ammo.cs :: BulletParts.YieldPer（制作比）",
+      "userNote": "",
       "sync": "",
       "_icon": "materials/ammo_medium"
     },
@@ -1940,6 +2092,7 @@ window.WIKI_BUNDLE = {
       "description": "又长又沉的狙击弹，一份零件只做得出两发。别拿它打丧尸，那是在用金子砸苍蝇。",
       "_id": "ammo_long",
       "_anchor": "godot/scripts/Materials.cs :: Materials（名称/说明）+ src/DeadSignal.Combat/Ammo.cs :: BulletParts.YieldPer（制作比）",
+      "userNote": "",
       "sync": "",
       "_icon": "materials/ammo_long"
     },
@@ -1957,6 +2110,7 @@ window.WIKI_BUNDLE = {
       "description": "红壳的鹿弹，一发里塞着八颗铅丸。贴脸时它是神，二十步外它只是响。",
       "_id": "ammo_buck",
       "_anchor": "godot/scripts/Materials.cs :: Materials（名称/说明）+ src/DeadSignal.Combat/Ammo.cs :: BulletParts.YieldPer（制作比）",
+      "userNote": "",
       "sync": "",
       "_icon": "materials/ammo_buck"
     },
@@ -1974,6 +2128,7 @@ window.WIKI_BUNDLE = {
       "description": "一根削尖的木棍，勉强算箭。它会飞，也会中，就是别指望它飞直，或者中得深。",
       "_id": "ammo_arrow_stick",
       "_anchor": "src/DeadSignal.Combat/Archery.cs :: ArrowTable（倍率）+ godot/scripts/Materials.cs（名称/说明）",
+      "userNote": "",
       "sync": "",
       "_icon": "materials/ammo_arrow_stick"
     },
@@ -1991,6 +2146,7 @@ window.WIKI_BUNDLE = {
       "description": "木杆、铁头、布尾羽，手工出品。称不上精良，但每一支都长得一样——对一个弓手来说，这比精良更要紧。",
       "_id": "ammo_arrow_handmade",
       "_anchor": "src/DeadSignal.Combat/Archery.cs :: ArrowTable（倍率）+ godot/scripts/Materials.cs（名称/说明）",
+      "userNote": "",
       "sync": "",
       "_icon": "materials/ammo_arrow_handmade"
     },
@@ -1999,15 +2155,16 @@ window.WIKI_BUNDLE = {
       "kind": "箭",
       "yieldPerPart": null,
       "damageMult": 1.25,
-      "penetrationMult": 1.5,
+      "penetrationMult": 1.75,
       "rangeMult": 0.75,
-      "cooldownMult": 1.15,
+      "cooldownMult": 1.1,
       "spreadMult": 1.25,
       "craftable": true,
-      "weight": 0.03,
+      "weight": 0.05,
       "description": "箭头灌了铅，沉得手腕发酸。飞不远，抬手也慢，但扎上去的时候，护甲的意见就不太重要了。",
       "_id": "ammo_arrow_heavy",
       "_anchor": "src/DeadSignal.Combat/Archery.cs :: ArrowTable（倍率）+ godot/scripts/Materials.cs（名称/说明）",
+      "userNote": "",
       "sync": "",
       "_icon": "materials/ammo_arrow_heavy"
     },
@@ -2025,6 +2182,7 @@ window.WIKI_BUNDLE = {
       "description": "碳纤维箭杆，笔直、轻盈、贵得离谱。工厂早就停工了，用一支少一支——所以射出去之后，你一定会回去把它捡起来。",
       "_id": "ammo_arrow_carbon",
       "_anchor": "src/DeadSignal.Combat/Archery.cs :: ArrowTable（倍率）+ godot/scripts/Materials.cs（名称/说明）",
+      "userNote": "",
       "sync": "",
       "_icon": "materials/ammo_arrow_carbon"
     }
@@ -2054,8 +2212,16 @@ window.WIKI_BUNDLE = {
     },
     {
       "key": "description",
-      "label": "说明",
-      "type": "longtext"
+      "label": "简介",
+      "type": "longtext",
+      "hint": "**玩家在游戏里看到的描述**。改了它，agent 会把新文案同步进代码。（有几个分区代码里还没有描述字段——你照样可以写，写了就是在告诉 agent「这里该有一个」。）"
+    },
+    {
+      "key": "userNote",
+      "label": "备注",
+      "type": "note",
+      "usernote": true,
+      "hint": "**你的设计笔记，不进游戏**——想到什么特殊效果就写在这（比如「这把锤子应该能砸开保险箱」）。它不会被同步成游戏文案，但 agent 每次跑抽取器都会看到你新写的备注。"
     },
     {
       "key": "_id",
@@ -2092,6 +2258,7 @@ window.WIKI_BUNDLE = {
       "description": "劈好的木料，盖房、生火、打家具都指望它——文明退到这一步，好在树还在长。",
       "_id": "wood",
       "_anchor": "godot/scripts/Materials.cs :: Materials（重量在 godot/scripts/CarryWeight.cs :: ItemWeights）",
+      "userNote": "",
       "sync": "",
       "_icon": "materials/wood"
     },
@@ -2102,6 +2269,7 @@ window.WIKI_BUNDLE = {
       "description": "拆下来的断料、劈裂的板子、带钉眼的短头。单看哪一块都不成器，可你手里也没别的木头了。",
       "_id": "scrap_wood",
       "_anchor": "godot/scripts/Materials.cs :: Materials（重量在 godot/scripts/CarryWeight.cs :: ItemWeights）",
+      "userNote": "",
       "sync": "",
       "_icon": "materials/scrap_wood"
     },
@@ -2112,28 +2280,20 @@ window.WIKI_BUNDLE = {
       "description": "有整幅的，也有从旧衣裳上撕下来的。缝上身之后就没人分得清了——反正原来的主人也不会来认。",
       "_id": "cloth",
       "_anchor": "godot/scripts/Materials.cs :: Materials（重量在 godot/scripts/CarryWeight.cs :: ItemWeights）",
+      "userNote": "",
       "sync": "",
       "_icon": "materials/cloth"
     },
     {
-      "name": "废金属",
+      "name": "铁",
       "category": "金属",
       "weight": 1.5,
-      "description": "锈迹斑斑的金属废料，在会变废为宝的人手里，什么都不算废。",
-      "_id": "scrap_metal",
+      "description": "锈的、卷刃的、从车壳和货架上撬下来的。你不问它以前是什么，反正它也不问你以前是谁——敲直了能用，就还算数。",
+      "_id": "iron",
       "_anchor": "godot/scripts/Materials.cs :: Materials（重量在 godot/scripts/CarryWeight.cs :: ItemWeights）",
+      "userNote": "",
       "sync": "",
-      "_icon": "materials/scrap_metal"
-    },
-    {
-      "name": "金属锭",
-      "category": "金属",
-      "weight": 2,
-      "description": "熔炼提纯的金属锭，敲敲打打，就是一件能保命的家伙。",
-      "_id": "metal_ingot",
-      "_anchor": "godot/scripts/Materials.cs :: Materials（重量在 godot/scripts/CarryWeight.cs :: ItemWeights）",
-      "sync": "",
-      "_icon": "materials/metal_ingot"
+      "_icon": "materials/iron"
     },
     {
       "name": "钉子",
@@ -2142,6 +2302,7 @@ window.WIKI_BUNDLE = {
       "description": "一把铁钉，让两块木头白头偕老的秘诀。",
       "_id": "nails",
       "_anchor": "godot/scripts/Materials.cs :: Materials（重量在 godot/scripts/CarryWeight.cs :: ItemWeights）",
+      "userNote": "",
       "sync": "",
       "_icon": "materials/nails"
     },
@@ -2152,6 +2313,7 @@ window.WIKI_BUNDLE = {
       "description": "成卷的铁丝，捆东西、设陷阱、修栅栏，居家末日必备。",
       "_id": "wire",
       "_anchor": "godot/scripts/Materials.cs :: Materials（重量在 godot/scripts/CarryWeight.cs :: ItemWeights）",
+      "userNote": "",
       "sync": "",
       "_icon": "materials/wire"
     },
@@ -2162,6 +2324,7 @@ window.WIKI_BUNDLE = {
       "description": "剥下来的生兽皮，还带着点腥味，鞣好了才好意思穿上身。",
       "_id": "rawhide",
       "_anchor": "godot/scripts/Materials.cs :: Materials（重量在 godot/scripts/CarryWeight.cs :: ItemWeights）",
+      "userNote": "",
       "sync": "",
       "_icon": "materials/rawhide"
     },
@@ -2172,6 +2335,7 @@ window.WIKI_BUNDLE = {
       "description": "鞣制好的皮革，结实耐磨，比它原来的主人耐久多了。",
       "_id": "leather",
       "_anchor": "godot/scripts/Materials.cs :: Materials（重量在 godot/scripts/CarryWeight.cs :: ItemWeights）",
+      "userNote": "",
       "sync": "",
       "_icon": "materials/leather"
     },
@@ -2182,6 +2346,7 @@ window.WIKI_BUNDLE = {
       "description": "动物的骨头，削一削是工具，熬一熬是胶——物尽其用，谁也别浪费。",
       "_id": "bone",
       "_anchor": "godot/scripts/Materials.cs :: Materials（重量在 godot/scripts/CarryWeight.cs :: ItemWeights）",
+      "userNote": "",
       "sync": "",
       "_icon": "materials/bone"
     },
@@ -2192,6 +2357,7 @@ window.WIKI_BUNDLE = {
       "description": "一包黑火药，能让子弹上膛，也能让手忙脚乱的人上天。",
       "_id": "gunpowder",
       "_anchor": "godot/scripts/Materials.cs :: Materials（重量在 godot/scripts/CarryWeight.cs :: ItemWeights）",
+      "userNote": "",
       "sync": "",
       "_icon": "materials/gunpowder"
     },
@@ -2202,6 +2368,7 @@ window.WIKI_BUNDLE = {
       "description": "鞣皮用的化学药水，气味感人，效果扎实。",
       "_id": "tanning_solution",
       "_anchor": "godot/scripts/Materials.cs :: Materials（重量在 godot/scripts/CarryWeight.cs :: ItemWeights）",
+      "userNote": "",
       "sync": "",
       "_icon": "materials/tanning_solution"
     },
@@ -2212,6 +2379,7 @@ window.WIKI_BUNDLE = {
       "description": "汽油或柴油，发电机和燃烧瓶都靠它——文明烧剩下的那点体面。",
       "_id": "fuel",
       "_anchor": "godot/scripts/Materials.cs :: Materials（重量在 godot/scripts/CarryWeight.cs :: ItemWeights）",
+      "userNote": "",
       "sync": "",
       "_icon": "materials/fuel"
     },
@@ -2222,6 +2390,7 @@ window.WIKI_BUNDLE = {
       "description": "一罐熬出来的骨胶，黏、稠、气味上不了台面。它粘得住断掉的木头，粘不回断掉的日子。",
       "_id": "glue",
       "_anchor": "godot/scripts/Materials.cs :: Materials（重量在 godot/scripts/CarryWeight.cs :: ItemWeights）",
+      "userNote": "",
       "sync": "",
       "_icon": "materials/glue"
     },
@@ -2232,6 +2401,7 @@ window.WIKI_BUNDLE = {
       "description": "凿下来的石块，砌墙够沉，砸头也够。",
       "_id": "stone",
       "_anchor": "godot/scripts/Materials.cs :: Materials（重量在 godot/scripts/CarryWeight.cs :: ItemWeights）",
+      "userNote": "",
       "sync": "",
       "_icon": "materials/stone"
     },
@@ -2242,6 +2412,7 @@ window.WIKI_BUNDLE = {
       "description": "结实的绳子，捆绑、攀爬、拖拽，用途多到不必细说。",
       "_id": "rope",
       "_anchor": "godot/scripts/Materials.cs :: Materials（重量在 godot/scripts/CarryWeight.cs :: ItemWeights）",
+      "userNote": "",
       "sync": "",
       "_icon": "materials/rope"
     },
@@ -2252,6 +2423,7 @@ window.WIKI_BUNDLE = {
       "description": "拆东西拆出来的各式零件，越精密的装置，越离不开这堆不起眼的小玩意。",
       "_id": "components",
       "_anchor": "godot/scripts/Materials.cs :: Materials（重量在 godot/scripts/CarryWeight.cs :: ItemWeights）",
+      "userNote": "",
       "sync": "",
       "_icon": "materials/components"
     },
@@ -2262,6 +2434,7 @@ window.WIKI_BUNDLE = {
       "description": "田埂路边遍地的野草，晒干能煮茶，也是草药膏的配料——穷人的药房。",
       "_id": "dandelion",
       "_anchor": "godot/scripts/Materials.cs :: Materials（重量在 godot/scripts/CarryWeight.cs :: ItemWeights）",
+      "userNote": "",
       "sync": "",
       "_icon": "materials/dandelion"
     },
@@ -2272,6 +2445,7 @@ window.WIKI_BUNDLE = {
       "description": "野蔷薇结的红果，酸得很有营养，草药膏的配料之一。",
       "_id": "rosehip",
       "_anchor": "godot/scripts/Materials.cs :: Materials（重量在 godot/scripts/CarryWeight.cs :: ItemWeights）",
+      "userNote": "",
       "sync": "",
       "_icon": "materials/rosehip"
     },
@@ -2282,6 +2456,7 @@ window.WIKI_BUNDLE = {
       "description": "山野间的藤蔓草药，老辈人拿它敷溃烂的伤口——信则灵，何况你也没别的选。",
       "_id": "laojunxu",
       "_anchor": "godot/scripts/Materials.cs :: Materials（重量在 godot/scripts/CarryWeight.cs :: ItemWeights）",
+      "userNote": "",
       "sync": "",
       "_icon": "materials/laojunxu"
     },
@@ -2292,6 +2467,7 @@ window.WIKI_BUNDLE = {
       "description": "末世前铸的白银，如今废土上唯一还认的硬通货——文明没了，人对闪光东西的贪心还在。可堆叠、散落世界可搜刮。",
       "_id": "silver",
       "_anchor": "godot/scripts/Materials.cs :: Materials（重量在 godot/scripts/CarryWeight.cs :: ItemWeights）",
+      "userNote": "",
       "sync": "",
       "_icon": "materials/silver"
     },
@@ -2302,6 +2478,7 @@ window.WIKI_BUNDLE = {
       "description": "弹壳、底火、弹头坯——枪匠时代留下的精密小玩意。火药你能自己熬，这些你只能捡；捡完了，枪就真的只是根铁棍。",
       "_id": "bullet_parts",
       "_anchor": "godot/scripts/Materials.cs :: Materials（重量在 godot/scripts/CarryWeight.cs :: ItemWeights）",
+      "userNote": "",
       "sync": "",
       "_icon": "materials/bullet_parts"
     },
@@ -2312,6 +2489,7 @@ window.WIKI_BUNDLE = {
       "description": "弩机、扳机组、几片淬过火的簧——造枪的人早死绝了，留下的这些小东西还硬邦邦地不肯锈。你造不出它们，只能指望别人也没找到。",
       "_id": "weapon_parts",
       "_anchor": "godot/scripts/Materials.cs :: Materials（重量在 godot/scripts/CarryWeight.cs :: ItemWeights）",
+      "userNote": "",
       "sync": "",
       "_icon": "materials/weapon_parts"
     }
@@ -2370,8 +2548,16 @@ window.WIKI_BUNDLE = {
     },
     {
       "key": "description",
-      "label": "说明",
-      "type": "longtext"
+      "label": "简介",
+      "type": "longtext",
+      "hint": "**玩家在游戏里看到的描述**。改了它，agent 会把新文案同步进代码。（有几个分区代码里还没有描述字段——你照样可以写，写了就是在告诉 agent「这里该有一个」。）"
+    },
+    {
+      "key": "userNote",
+      "label": "备注",
+      "type": "note",
+      "usernote": true,
+      "hint": "**你的设计笔记，不进游戏**——想到什么特殊效果就写在这（比如「这把锤子应该能砸开保险箱」）。它不会被同步成游戏文案，但 agent 每次跑抽取器都会看到你新写的备注。"
     },
     {
       "key": "_id",
@@ -2413,6 +2599,7 @@ window.WIKI_BUNDLE = {
       "description": "一块破布有时也能救命",
       "_id": "bandage",
       "_anchor": "godot/scripts/Materials.cs（名称/说明）+ godot/scripts/HealthConditions.cs :: SurgeryCatalog / MedicineCatalog（数值）",
+      "userNote": "",
       "sync": "",
       "_icon": "materials/bandage"
     },
@@ -2428,6 +2615,7 @@ window.WIKI_BUNDLE = {
       "description": "能缝补你的伤口，却治愈不了你的心",
       "_id": "needle_thread",
       "_anchor": "godot/scripts/Materials.cs（名称/说明）+ godot/scripts/HealthConditions.cs :: SurgeryCatalog / MedicineCatalog（数值）",
+      "userNote": "",
       "sync": "",
       "_icon": "materials/needle_thread"
     },
@@ -2443,6 +2631,7 @@ window.WIKI_BUNDLE = {
       "description": "这会让它看上去直一些",
       "_id": "splint",
       "_anchor": "godot/scripts/Materials.cs（名称/说明）+ godot/scripts/HealthConditions.cs :: SurgeryCatalog / MedicineCatalog（数值）",
+      "userNote": "",
       "sync": "",
       "_icon": "materials/splint"
     },
@@ -2458,6 +2647,7 @@ window.WIKI_BUNDLE = {
       "description": "“一包全搞定”——南丁格尔",
       "_id": "first_aid_kit",
       "_anchor": "godot/scripts/Materials.cs（名称/说明）+ godot/scripts/HealthConditions.cs :: SurgeryCatalog / MedicineCatalog（数值）",
+      "userNote": "",
       "sync": "",
       "_icon": "materials/first_aid_kit"
     },
@@ -2473,6 +2663,7 @@ window.WIKI_BUNDLE = {
       "description": "传统医学，比普通绷带强",
       "_id": "herbal_bandage",
       "_anchor": "godot/scripts/Materials.cs（名称/说明）+ godot/scripts/HealthConditions.cs :: SurgeryCatalog / MedicineCatalog（数值）",
+      "userNote": "",
       "sync": "",
       "_icon": "materials/herbal_bandage"
     },
@@ -2488,6 +2679,7 @@ window.WIKI_BUNDLE = {
       "description": "现代医学的结晶",
       "_id": "antibiotics",
       "_anchor": "godot/scripts/Materials.cs（名称/说明）+ godot/scripts/HealthConditions.cs :: SurgeryCatalog / MedicineCatalog（数值）",
+      "userNote": "",
       "sync": "",
       "_icon": "materials/antibiotics"
     },
@@ -2503,6 +2695,7 @@ window.WIKI_BUNDLE = {
       "description": "杂七杂八的成药，缓解发热痢疾等病症——治不了大病，但能让你多撑一天。",
       "_id": "medicine",
       "_anchor": "godot/scripts/Materials.cs（名称/说明）+ godot/scripts/HealthConditions.cs :: SurgeryCatalog / MedicineCatalog（数值）",
+      "userNote": "",
       "sync": "",
       "_icon": "materials/medicine"
     },
@@ -2518,6 +2711,7 @@ window.WIKI_BUNDLE = {
       "description": "死马当活马医",
       "_id": "herbal_salve",
       "_anchor": "godot/scripts/Materials.cs（名称/说明）+ godot/scripts/HealthConditions.cs :: SurgeryCatalog / MedicineCatalog（数值）",
+      "userNote": "",
       "sync": "",
       "_icon": "materials/herbal_salve"
     },
@@ -2533,6 +2727,7 @@ window.WIKI_BUNDLE = {
       "description": "奶奶的最爱",
       "_id": "dandelion_tea",
       "_anchor": "godot/scripts/Materials.cs（名称/说明）+ godot/scripts/HealthConditions.cs :: SurgeryCatalog / MedicineCatalog（数值）",
+      "userNote": "",
       "sync": "",
       "_icon": "materials/dandelion_tea"
     },
@@ -2542,12 +2737,13 @@ window.WIKI_BUNDLE = {
       "treats": "",
       "surgeryPoints": null,
       "exclusive": null,
-      "efficacy": null,
+      "efficacy": 0.09,
       "worsenMult": null,
       "weight": 0.5,
       "description": "酸酸甜甜，抚慰你受伤的身体——喝下后一整天，身子骨恢复得更快些。",
       "_id": "rosehip_tea",
       "_anchor": "godot/scripts/Materials.cs（名称/说明）+ godot/scripts/HealthConditions.cs :: SurgeryCatalog / MedicineCatalog（数值）",
+      "userNote": "",
       "sync": "",
       "_icon": "materials/rosehip_tea"
     }
@@ -2608,11 +2804,30 @@ window.WIKI_BUNDLE = {
       "key": "crafterGate",
       "label": "制作者门槛",
       "type": "text",
-      "hint": "空 = 谁都能做"
+      "hint": "空 = 谁都能做。人话说明；引擎真正读的门槛 id 在置灰的「勿改」列里。"
+    },
+    {
+      "key": "description",
+      "label": "简介",
+      "type": "longtext",
+      "hint": "**玩家在游戏里看到的描述**。改了它，agent 会把新文案同步进代码。（有几个分区代码里还没有描述字段——你照样可以写，写了就是在告诉 agent「这里该有一个」。）"
+    },
+    {
+      "key": "userNote",
+      "label": "备注",
+      "type": "note",
+      "usernote": true,
+      "hint": "**你的设计笔记，不进游戏**——想到什么特殊效果就写在这（比如「这把锤子应该能砸开保险箱」）。它不会被同步成游戏文案，但 agent 每次跑抽取器都会看到你新写的备注。"
     },
     {
       "key": "_id",
       "label": "内部 id",
+      "type": "text",
+      "internal": true
+    },
+    {
+      "key": "_crafterGateIds",
+      "label": "门槛 id（勿改）",
       "type": "text",
       "internal": true
     },
@@ -2649,7 +2864,10 @@ window.WIKI_BUNDLE = {
       "workMinutes": 45,
       "crafterGate": "",
       "_id": "bone_knife",
+      "_crafterGateIds": "",
       "_anchor": "godot/scripts/Recipe.cs :: RecipeBook（Id = \"bone_knife\"）",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "weapons/bone_knife"
     },
@@ -2664,7 +2882,10 @@ window.WIKI_BUNDLE = {
       "workMinutes": 90,
       "crafterGate": "",
       "_id": "cloth_vest",
+      "_crafterGateIds": "",
       "_anchor": "godot/scripts/Recipe.cs :: RecipeBook（Id = \"cloth_vest\"）",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "armor/cloth_vest"
     },
@@ -2679,7 +2900,10 @@ window.WIKI_BUNDLE = {
       "workMinutes": 150,
       "crafterGate": "",
       "_id": "cloth_jacket",
+      "_crafterGateIds": "",
       "_anchor": "godot/scripts/Recipe.cs :: RecipeBook（Id = \"cloth_jacket\"）",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "armor/cloth_jacket"
     },
@@ -2694,7 +2918,10 @@ window.WIKI_BUNDLE = {
       "workMinutes": 60,
       "crafterGate": "",
       "_id": "bench",
+      "_crafterGateIds": "",
       "_anchor": "godot/scripts/Recipe.cs :: RecipeBook（Id = \"bench\"）",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "furniture/bench"
     },
@@ -2709,7 +2936,10 @@ window.WIKI_BUNDLE = {
       "workMinutes": 150,
       "crafterGate": "",
       "_id": "chair",
+      "_crafterGateIds": "",
       "_anchor": "godot/scripts/Recipe.cs :: RecipeBook（Id = \"chair\"）",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "furniture/chair"
     },
@@ -2724,7 +2954,10 @@ window.WIKI_BUNDLE = {
       "workMinutes": 150,
       "crafterGate": "",
       "_id": "bed",
+      "_crafterGateIds": "",
       "_anchor": "godot/scripts/Recipe.cs :: RecipeBook（Id = \"bed\"）",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "furniture/bed"
     },
@@ -2739,7 +2972,10 @@ window.WIKI_BUNDLE = {
       "workMinutes": 120,
       "crafterGate": "",
       "_id": "table",
+      "_crafterGateIds": "",
       "_anchor": "godot/scripts/Recipe.cs :: RecipeBook（Id = \"table\"）",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "furniture/table"
     },
@@ -2754,7 +2990,10 @@ window.WIKI_BUNDLE = {
       "workMinutes": 30,
       "crafterGate": "",
       "_id": "sandbag",
+      "_crafterGateIds": "",
       "_anchor": "godot/scripts/Recipe.cs :: RecipeBook（Id = \"sandbag\"）",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "furniture/sandbag"
     },
@@ -2769,7 +3008,10 @@ window.WIKI_BUNDLE = {
       "workMinutes": 40,
       "crafterGate": "",
       "_id": "wood_from_scrap",
+      "_crafterGateIds": "",
       "_anchor": "godot/scripts/Recipe.cs :: RecipeBook（Id = \"wood_from_scrap\"）",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "materials/wood"
     },
@@ -2784,7 +3026,10 @@ window.WIKI_BUNDLE = {
       "workMinutes": 60,
       "crafterGate": "",
       "_id": "glue",
+      "_crafterGateIds": "",
       "_anchor": "godot/scripts/Recipe.cs :: RecipeBook（Id = \"glue\"）",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "materials/glue"
     },
@@ -2799,7 +3044,10 @@ window.WIKI_BUNDLE = {
       "workMinutes": 60,
       "crafterGate": "",
       "_id": "gunpowder",
+      "_crafterGateIds": "",
       "_anchor": "godot/scripts/Recipe.cs :: RecipeBook（Id = \"gunpowder\"）",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "materials/gunpowder"
     },
@@ -2814,7 +3062,10 @@ window.WIKI_BUNDLE = {
       "workMinutes": 60,
       "crafterGate": "",
       "_id": "tanning_solution",
+      "_crafterGateIds": "",
       "_anchor": "godot/scripts/Recipe.cs :: RecipeBook（Id = \"tanning_solution\"）",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "materials/tanning_solution"
     },
@@ -2829,7 +3080,10 @@ window.WIKI_BUNDLE = {
       "workMinutes": 120,
       "crafterGate": "",
       "_id": "handmade_bow",
+      "_crafterGateIds": "",
       "_anchor": "godot/scripts/Recipe.cs :: RecipeBook（Id = \"handmade_bow\"）",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "weapons/short_bow"
     },
@@ -2838,13 +3092,16 @@ window.WIKI_BUNDLE = {
       "category": "精工/弓弩",
       "output": "improvised_hunting_gun",
       "outputQty": 1,
-      "materials": "金属锭×2、木料×2、机械零件×2",
+      "materials": "铁×4、木料×2、机械零件×2",
       "tools": "卡尺",
       "books": "《土法化学笔记》",
       "workMinutes": 240,
       "crafterGate": "",
       "_id": "improvised_hunting_gun",
+      "_crafterGateIds": "",
       "_anchor": "godot/scripts/Recipe.cs :: RecipeBook（Id = \"improvised_hunting_gun\"）",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "weapons/improvised_hunting_gun"
     },
@@ -2853,13 +3110,16 @@ window.WIKI_BUNDLE = {
       "category": "精工/弓弩",
       "output": "improvised_shotgun",
       "outputQty": 1,
-      "materials": "废金属×3、木料×2、机械零件×1",
+      "materials": "铁×3、木料×2、机械零件×1",
       "tools": "卡尺",
       "books": "《土法化学笔记》",
       "workMinutes": 150,
       "crafterGate": "",
       "_id": "improvised_shotgun",
+      "_crafterGateIds": "",
       "_anchor": "godot/scripts/Recipe.cs :: RecipeBook（Id = \"improvised_shotgun\"）",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "weapons/improvised_shotgun"
     },
@@ -2868,13 +3128,16 @@ window.WIKI_BUNDLE = {
       "category": "精工/弓弩",
       "output": "mod_bench",
       "outputQty": 1,
-      "materials": "木料×8、废金属×4、机械零件×2、钉子×6",
+      "materials": "木料×8、铁×4、机械零件×2、钉子×6",
       "tools": "卡尺",
       "books": "",
       "workMinutes": 200,
-      "crafterGate": "mod_bench_absent",
+      "crafterGate": "营地里还没有改装台（已有就不能再造第二台）",
       "_id": "mod_bench",
+      "_crafterGateIds": "mod_bench_absent",
       "_anchor": "godot/scripts/Recipe.cs :: RecipeBook（Id = \"mod_bench\"）",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "furniture/mod_bench"
     },
@@ -2883,13 +3146,16 @@ window.WIKI_BUNDLE = {
       "category": "精工/弓弩",
       "output": "bullet_parts",
       "outputQty": 1,
-      "materials": "废金属×2、机械零件×1",
+      "materials": "铁×2、机械零件×1",
       "tools": "卡尺",
       "books": "《土法化学笔记》",
       "workMinutes": 60,
       "crafterGate": "",
       "_id": "bullet_parts",
+      "_crafterGateIds": "",
       "_anchor": "godot/scripts/Recipe.cs :: RecipeBook（Id = \"bullet_parts\"）",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "materials/bullet_parts"
     },
@@ -2904,7 +3170,10 @@ window.WIKI_BUNDLE = {
       "workMinutes": 45,
       "crafterGate": "",
       "_id": "ammo_short",
+      "_crafterGateIds": "",
       "_anchor": "godot/scripts/Recipe.cs :: RecipeBook（Id = \"ammo_short\"）",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "materials/ammo_short"
     },
@@ -2919,7 +3188,10 @@ window.WIKI_BUNDLE = {
       "workMinutes": 45,
       "crafterGate": "",
       "_id": "ammo_medium",
+      "_crafterGateIds": "",
       "_anchor": "godot/scripts/Recipe.cs :: RecipeBook（Id = \"ammo_medium\"）",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "materials/ammo_medium"
     },
@@ -2934,7 +3206,10 @@ window.WIKI_BUNDLE = {
       "workMinutes": 45,
       "crafterGate": "",
       "_id": "ammo_buck",
+      "_crafterGateIds": "",
       "_anchor": "godot/scripts/Recipe.cs :: RecipeBook（Id = \"ammo_buck\"）",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "materials/ammo_buck"
     },
@@ -2949,7 +3224,10 @@ window.WIKI_BUNDLE = {
       "workMinutes": 45,
       "crafterGate": "",
       "_id": "ammo_long",
+      "_crafterGateIds": "",
       "_anchor": "godot/scripts/Recipe.cs :: RecipeBook（Id = \"ammo_long\"）",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "materials/ammo_long"
     },
@@ -2964,7 +3242,10 @@ window.WIKI_BUNDLE = {
       "workMinutes": 20,
       "crafterGate": "",
       "_id": "ammo_arrow_stick",
+      "_crafterGateIds": "",
       "_anchor": "godot/scripts/Recipe.cs :: RecipeBook（Id = \"ammo_arrow_stick\"）",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "materials/ammo_arrow_stick"
     },
@@ -2973,13 +3254,16 @@ window.WIKI_BUNDLE = {
       "category": "精工/弓弩",
       "output": "ammo_arrow_handmade",
       "outputQty": 4,
-      "materials": "木料×2、废金属×1、布×1",
+      "materials": "木料×2、铁×1、布×1",
       "tools": "卡尺",
       "books": "《弓与箭之道》",
       "workMinutes": 45,
       "crafterGate": "",
       "_id": "ammo_arrow_handmade",
+      "_crafterGateIds": "",
       "_anchor": "godot/scripts/Recipe.cs :: RecipeBook（Id = \"ammo_arrow_handmade\"）",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "materials/ammo_arrow_handmade"
     },
@@ -2988,13 +3272,16 @@ window.WIKI_BUNDLE = {
       "category": "精工/弓弩",
       "output": "ammo_arrow_heavy",
       "outputQty": 3,
-      "materials": "木料×2、金属锭×1",
+      "materials": "木料×2、铁×2",
       "tools": "卡尺",
       "books": "",
       "workMinutes": 60,
       "crafterGate": "",
       "_id": "ammo_arrow_heavy",
+      "_crafterGateIds": "",
       "_anchor": "godot/scripts/Recipe.cs :: RecipeBook（Id = \"ammo_arrow_heavy\"）",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "materials/ammo_arrow_heavy"
     },
@@ -3005,11 +3292,14 @@ window.WIKI_BUNDLE = {
       "outputQty": 1,
       "materials": "木料×3、绳子×1、皮革×1",
       "tools": "卡尺",
-      "books": "《进阶木匠技术》",
+      "books": "《弓制作指南》",
       "workMinutes": 180,
       "crafterGate": "",
       "_id": "recurve_bow",
+      "_crafterGateIds": "",
       "_anchor": "godot/scripts/Recipe.cs :: RecipeBook（Id = \"recurve_bow\"）",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "weapons/recurve_bow"
     },
@@ -3020,11 +3310,14 @@ window.WIKI_BUNDLE = {
       "outputQty": 1,
       "materials": "木料×5、绳子×2",
       "tools": "卡尺",
-      "books": "《进阶木匠技术》",
+      "books": "《弓制作指南》",
       "workMinutes": 240,
       "crafterGate": "",
       "_id": "longbow",
+      "_crafterGateIds": "",
       "_anchor": "godot/scripts/Recipe.cs :: RecipeBook（Id = \"longbow\"）",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "weapons/longbow"
     },
@@ -3033,13 +3326,16 @@ window.WIKI_BUNDLE = {
       "category": "精工/弓弩",
       "output": "light_crossbow",
       "outputQty": 1,
-      "materials": "木料×2、废金属×2、绳子×1、武器零件×2",
+      "materials": "木料×2、铁×2、绳子×1、武器零件×2",
       "tools": "卡尺",
       "books": "《机械之美》",
       "workMinutes": 200,
       "crafterGate": "",
       "_id": "light_crossbow",
+      "_crafterGateIds": "",
       "_anchor": "godot/scripts/Recipe.cs :: RecipeBook（Id = \"light_crossbow\"）",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "weapons/light_crossbow"
     },
@@ -3048,13 +3344,16 @@ window.WIKI_BUNDLE = {
       "category": "精工/弓弩",
       "output": "heavy_crossbow",
       "outputQty": 1,
-      "materials": "木料×4、金属锭×2、绳子×2、武器零件×3",
+      "materials": "木料×4、铁×4、绳子×2、武器零件×3",
       "tools": "卡尺",
       "books": "《机械之美》",
       "workMinutes": 320,
       "crafterGate": "",
       "_id": "heavy_crossbow",
+      "_crafterGateIds": "",
       "_anchor": "godot/scripts/Recipe.cs :: RecipeBook（Id = \"heavy_crossbow\"）",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "weapons/heavy_crossbow"
     },
@@ -3063,13 +3362,16 @@ window.WIKI_BUNDLE = {
       "category": "杂项",
       "output": "cook_station",
       "outputQty": 1,
-      "materials": "石料×8、木料×6、废金属×3、钉子×4",
+      "materials": "石料×8、木料×6、铁×3、钉子×4",
       "tools": "",
       "books": "",
       "workMinutes": 180,
-      "crafterGate": "",
+      "crafterGate": "营地里还没有烹饪台（已有就不能再造第二座）",
       "_id": "cook_station",
+      "_crafterGateIds": "cook_station_absent",
       "_anchor": "godot/scripts/Recipe.cs :: RecipeBook（Id = \"cook_station\"）",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "furniture/cook_station"
     },
@@ -3078,13 +3380,16 @@ window.WIKI_BUNDLE = {
       "category": "杂项",
       "output": "cooking_pot",
       "outputQty": 1,
-      "materials": "金属锭×1、废金属×2",
+      "materials": "铁×4",
       "tools": "",
       "books": "",
       "workMinutes": 60,
       "crafterGate": "",
       "_id": "cooking_pot",
+      "_crafterGateIds": "",
       "_anchor": "godot/scripts/Recipe.cs :: RecipeBook（Id = \"cooking_pot\"）",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "furniture/cooking_pot"
     },
@@ -3093,13 +3398,16 @@ window.WIKI_BUNDLE = {
       "category": "杂项",
       "output": "cooking_grill",
       "outputQty": 1,
-      "materials": "铁丝×4、废金属×2",
+      "materials": "铁丝×4、铁×2",
       "tools": "",
       "books": "",
       "workMinutes": 45,
       "crafterGate": "",
       "_id": "cooking_grill",
+      "_crafterGateIds": "",
       "_anchor": "godot/scripts/Recipe.cs :: RecipeBook（Id = \"cooking_grill\"）",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "furniture/cooking_grill"
     },
@@ -3114,7 +3422,10 @@ window.WIKI_BUNDLE = {
       "workMinutes": 20,
       "crafterGate": "",
       "_id": "torch",
+      "_crafterGateIds": "",
       "_anchor": "godot/scripts/Recipe.cs :: RecipeBook（Id = \"torch\"）",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "lights/torch"
     },
@@ -3129,7 +3440,10 @@ window.WIKI_BUNDLE = {
       "workMinutes": 40,
       "crafterGate": "",
       "_id": "herbal_salve",
+      "_crafterGateIds": "",
       "_anchor": "godot/scripts/Recipe.cs :: RecipeBook（Id = \"herbal_salve\"）",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "materials/herbal_salve"
     },
@@ -3144,7 +3458,10 @@ window.WIKI_BUNDLE = {
       "workMinutes": 15,
       "crafterGate": "",
       "_id": "dandelion_tea",
+      "_crafterGateIds": "",
       "_anchor": "godot/scripts/Recipe.cs :: RecipeBook（Id = \"dandelion_tea\"）",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "materials/dandelion_tea"
     },
@@ -3159,7 +3476,10 @@ window.WIKI_BUNDLE = {
       "workMinutes": 20,
       "crafterGate": "",
       "_id": "herbal_bandage",
+      "_crafterGateIds": "",
       "_anchor": "godot/scripts/Recipe.cs :: RecipeBook（Id = \"herbal_bandage\"）",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "materials/herbal_bandage"
     },
@@ -3174,7 +3494,10 @@ window.WIKI_BUNDLE = {
       "workMinutes": 15,
       "crafterGate": "",
       "_id": "rosehip_tea",
+      "_crafterGateIds": "",
       "_anchor": "godot/scripts/Recipe.cs :: RecipeBook（Id = \"rosehip_tea\"）",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "materials/rosehip_tea"
     },
@@ -3189,7 +3512,10 @@ window.WIKI_BUNDLE = {
       "workMinutes": 50,
       "crafterGate": "道格，且与布鲁斯的羁绊达到 2 级",
       "_id": "dog_cloth_vest",
+      "_crafterGateIds": "doug_bond_l2",
       "_anchor": "godot/scripts/Recipe.cs :: RecipeBook（Id = \"dog_cloth_vest\"）",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "armor/dog_cloth_vest"
     },
@@ -3204,7 +3530,10 @@ window.WIKI_BUNDLE = {
       "workMinutes": 70,
       "crafterGate": "道格，且与布鲁斯的羁绊达到 2 级",
       "_id": "dog_leather_vest",
+      "_crafterGateIds": "doug_bond_l2",
       "_anchor": "godot/scripts/Recipe.cs :: RecipeBook（Id = \"dog_leather_vest\"）",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "armor/dog_leather_vest"
     },
@@ -3219,7 +3548,10 @@ window.WIKI_BUNDLE = {
       "workMinutes": 60,
       "crafterGate": "道格，且与布鲁斯的羁绊达到 2 级",
       "_id": "dog_pocket_vest",
+      "_crafterGateIds": "doug_bond_l2",
       "_anchor": "godot/scripts/Recipe.cs :: RecipeBook（Id = \"dog_pocket_vest\"）",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "armor/dog_pocket_vest"
     },
@@ -3228,13 +3560,16 @@ window.WIKI_BUNDLE = {
       "category": "杂项",
       "output": "铁皮头甲",
       "outputQty": 1,
-      "materials": "废金属×2、皮革×1",
+      "materials": "铁×2、皮革×1",
       "tools": "",
       "books": "",
       "workMinutes": 70,
       "crafterGate": "道格，且与布鲁斯的羁绊达到 2 级",
       "_id": "dog_iron_helmet",
+      "_crafterGateIds": "doug_bond_l2",
       "_anchor": "godot/scripts/Recipe.cs :: RecipeBook（Id = \"dog_iron_helmet\"）",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "armor/dog_iron_helmet"
     },
@@ -3249,7 +3584,10 @@ window.WIKI_BUNDLE = {
       "workMinutes": 55,
       "crafterGate": "道格，且与布鲁斯的羁绊达到 2 级",
       "_id": "dog_wire_helmet",
+      "_crafterGateIds": "doug_bond_l2",
       "_anchor": "godot/scripts/Recipe.cs :: RecipeBook（Id = \"dog_wire_helmet\"）",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "armor/dog_wire_helmet"
     },
@@ -3264,7 +3602,10 @@ window.WIKI_BUNDLE = {
       "workMinutes": 40,
       "crafterGate": "",
       "_id": "snare_trap",
+      "_crafterGateIds": "",
       "_anchor": "godot/scripts/Recipe.cs :: RecipeBook（Id = \"snare_trap\"）",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "furniture/snare_trap"
     },
@@ -3279,7 +3620,10 @@ window.WIKI_BUNDLE = {
       "workMinutes": 60,
       "crafterGate": "",
       "_id": "war_mask",
+      "_crafterGateIds": "",
       "_anchor": "godot/scripts/Recipe.cs :: RecipeBook（Id = \"war_mask\"）",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "armor/war_mask"
     },
@@ -3294,9 +3638,30 @@ window.WIKI_BUNDLE = {
       "workMinutes": 60,
       "crafterGate": "",
       "_id": "coarse_shirt",
+      "_crafterGateIds": "",
       "_anchor": "godot/scripts/Recipe.cs :: RecipeBook（Id = \"coarse_shirt\"）",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "armor/coarse_shirt"
+    },
+    {
+      "name": "棉帽",
+      "category": "缝纫",
+      "output": "cotton_hat",
+      "outputQty": 1,
+      "materials": "布×2",
+      "tools": "",
+      "books": "《裁缝手记》",
+      "workMinutes": 40,
+      "crafterGate": "",
+      "_id": "cotton_hat",
+      "_crafterGateIds": "",
+      "_anchor": "godot/scripts/Recipe.cs :: RecipeBook（Id = \"cotton_hat\"）",
+      "description": "",
+      "userNote": "",
+      "sync": "",
+      "_icon": "armor/cotton_hat"
     },
     {
       "name": "粗布短裤",
@@ -3309,7 +3674,10 @@ window.WIKI_BUNDLE = {
       "workMinutes": 40,
       "crafterGate": "",
       "_id": "coarse_shorts",
+      "_crafterGateIds": "",
       "_anchor": "godot/scripts/Recipe.cs :: RecipeBook（Id = \"coarse_shorts\"）",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "armor/coarse_shorts"
     },
@@ -3324,9 +3692,30 @@ window.WIKI_BUNDLE = {
       "workMinutes": 70,
       "crafterGate": "",
       "_id": "coarse_trousers",
+      "_crafterGateIds": "",
       "_anchor": "godot/scripts/Recipe.cs :: RecipeBook（Id = \"coarse_trousers\"）",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "armor/coarse_trousers"
+    },
+    {
+      "name": "消防斧",
+      "category": "木工",
+      "output": "axe",
+      "outputQty": 1,
+      "materials": "铁×3、木料×2",
+      "tools": "锯片",
+      "books": "《进阶木匠技术》",
+      "workMinutes": 180,
+      "crafterGate": "",
+      "_id": "axe",
+      "_crafterGateIds": "",
+      "_anchor": "godot/scripts/Recipe.cs :: RecipeBook（Id = \"axe\"）",
+      "description": "",
+      "userNote": "",
+      "sync": "",
+      "_icon": "weapons/axe"
     }
   ]
 },
@@ -3361,8 +3750,16 @@ window.WIKI_BUNDLE = {
     },
     {
       "key": "description",
-      "label": "说明",
-      "type": "longtext"
+      "label": "简介",
+      "type": "longtext",
+      "hint": "**玩家在游戏里看到的描述**。改了它，agent 会把新文案同步进代码。（有几个分区代码里还没有描述字段——你照样可以写，写了就是在告诉 agent「这里该有一个」。）"
+    },
+    {
+      "key": "userNote",
+      "label": "备注",
+      "type": "note",
+      "usernote": true,
+      "hint": "**你的设计笔记，不进游戏**——想到什么特殊效果就写在这（比如「这把锤子应该能砸开保险箱」）。它不会被同步成游戏文案，但 agent 每次跑抽取器都会看到你新写的备注。"
     },
     {
       "key": "_id",
@@ -3400,6 +3797,7 @@ window.WIKI_BUNDLE = {
       "description": "一束聚焦的电光，帮你看清黑暗里的东西，也帮黑暗里的东西看清你。",
       "_id": "flashlight",
       "_anchor": "godot/scripts/LightSource.cs :: LightSource",
+      "userNote": "",
       "sync": "",
       "_icon": "lights/flashlight"
     },
@@ -3411,6 +3809,7 @@ window.WIKI_BUNDLE = {
       "description": "布条裹木棒、蘸油点着的火把，暖光一圈，浪漫又暴露——燃着就别想藏行踪。",
       "_id": "torch",
       "_anchor": "godot/scripts/LightSource.cs :: LightSource",
+      "userNote": "",
       "sync": "",
       "_icon": "lights/torch"
     },
@@ -3422,6 +3821,7 @@ window.WIKI_BUNDLE = {
       "description": "挂在营地里的油灯，照亮一小片起居，也照亮「我们还没散伙」这件事。",
       "_id": "lamp",
       "_anchor": "godot/scripts/LightSource.cs :: LightSource",
+      "userNote": "",
       "sync": "",
       "_icon": "lights/lamp"
     },
@@ -3433,6 +3833,7 @@ window.WIKI_BUNDLE = {
       "description": "营地中央的火堆，驱散黑暗、烤暖人心，顺便把「这儿有人」写在夜空上，给远处看。",
       "_id": "campfire",
       "_anchor": "godot/scripts/LightSource.cs :: LightSource",
+      "userNote": "",
       "sync": "",
       "_icon": "lights/campfire"
     }
@@ -3442,7 +3843,7 @@ window.WIKI_BUNDLE = {
   "id": "books",
   "label": "书籍",
   "source": "godot/scripts/BookData.cs",
-  "note": "本作没有技能系统——**能力只由角色的专属效果和读过的书承载**。配方解锁只看谁读过哪本书。",
+  "note": "本作没有技能系统——**能力只由角色的专属效果和读过的书承载**。配方解锁只看谁读过哪本书。「读完要几小时」是**角色的时间**：读书的人整夜占着座位，那一夜他不能站岗、也不能干活——这就是书的代价。（日记不在这张表里：它是给玩家看的道具，不花角色一分钟，见「日记与笔记」。）",
   "columns": [
     {
       "key": "title",
@@ -3465,6 +3866,19 @@ window.WIKI_BUNDLE = {
       "key": "body",
       "label": "正文",
       "type": "longtext"
+    },
+    {
+      "key": "description",
+      "label": "简介",
+      "type": "longtext",
+      "hint": "**玩家在游戏里看到的描述**。改了它，agent 会把新文案同步进代码。（有几个分区代码里还没有描述字段——你照样可以写，写了就是在告诉 agent「这里该有一个」。）"
+    },
+    {
+      "key": "userNote",
+      "label": "备注",
+      "type": "note",
+      "usernote": true,
+      "hint": "**你的设计笔记，不进游戏**——想到什么特殊效果就写在这（比如「这把锤子应该能砸开保险箱」）。它不会被同步成游戏文案，但 agent 每次跑抽取器都会看到你新写的备注。"
     },
     {
       "key": "_id",
@@ -3503,111 +3917,199 @@ window.WIKI_BUNDLE = {
   "rows": [
     {
       "title": "野外生存指南",
-      "readHours": 24,
-      "unlocks": "解锁制作骨刀、短弓、削减木箭、圈套陷阱、战争面具，不使用任何手术材料时手术加成点数+6，",
+      "readHours": 4,
+      "unlocks": "解锁制作骨刀、短弓、削尖木箭、圈套陷阱、战争面具，不使用任何手术材料时手术加成点数+6，",
       "body": "\"活下去不靠运气，靠的是在天黑前把该做的都做完。\"\n第一章 取火。第二章 净水。第三章 用一根铁丝和一点耐心，让林子替你狩猎——书里画着一套简陋却致命的陷阱，只要照着做，晚上就不必空着肚子睡。",
       "_id": "wilderness_survival_guide",
       "_surgeryPoints": 6,
       "_anchor": "godot/scripts/BookData.cs :: BookLibrary；手术点数在 godot/scripts/HealthConditions.cs :: MedicalBookPoints",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "books/book_wilderness"
     },
     {
       "title": "农场主的一百个问题",
-      "readHours": 24,
+      "readHours": 4,
       "unlocks": "",
       "body": "\"问：土豆几时下种？答：清明前后，看你的地，也看你的胆量。\"\n\"问：一块地能养活几口人？答：伺候得好，比你想的多；伺候不好，一个都不剩。\"\n一百个问题，一百个答案，藏着从一粒种子到一顿饱饭的全部门道。",
       "_id": "farmer_hundred_questions",
       "_surgeryPoints": null,
       "_anchor": "godot/scripts/BookData.cs :: BookLibrary",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "books/book_farming"
     },
     {
       "title": "裁缝手记",
-      "readHours": 20,
+      "readHours": 8,
       "unlocks": "解锁粗布背心、粗布夹克、粗布衬衫、粗布短裤和粗布长裤",
       "body": "一本用粗线装订的手记，纸页间还夹着几缕褪色的棉线。\n\"针脚要密，密了才挡风；线头要藏，藏了才耐磨。\"\n从量体、裁片到缝合，作者把一件挡身的粗布背心拆成了十几道工序，一笔一画描得清清楚楚。照着做，几块破布也能变成能穿的东西。",
       "_id": "tailors_notes",
       "_surgeryPoints": null,
       "_anchor": "godot/scripts/BookData.cs :: BookLibrary",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "books/book_tailoring"
     },
     {
       "title": "土法化学笔记",
-      "readHours": 20,
+      "readHours": 8,
       "unlocks": "解锁胶水、火药、鞣制药水",
       "body": "封面被药水浸出几块焦黄，翻开一股刺鼻的酸味似乎还没散尽。\n\n\"配比错一分，是废料；错一钱，是要命。动手前先把窗户打开。\"\n笔记里记满了土法配方——如何把硝石、木炭和硫磺研成火药，如何调一锅鞣制生皮的药水。字迹潦草，却每一步都标着分量与火候。",
       "_id": "folk_chemistry_notes",
       "_surgeryPoints": null,
       "_anchor": "godot/scripts/BookData.cs :: BookLibrary",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "books/book_chemistry"
     },
     {
       "title": "木匠入门",
-      "readHours": 20,
+      "readHours": 8,
       "unlocks": "制作家具速度+5%，解锁木椅、床、桌子、废木料回收",
       "body": "一本封皮沾满木屑的旧册子，翻开时还簌簌往下掉。\n\n\"量两遍，锯一遍。急着下刀的人，做出来的东西也急着散架。\"\n\n从认木料、开榫到打磨收边，作者把一把结实的椅子、一张能拉满的弓，拆成一道道看得见摸得着的工序。照着做，几根木头也能拼成能坐能用的东西。",
       "_id": "carpentry_basics",
       "_surgeryPoints": null,
       "_anchor": "godot/scripts/BookData.cs :: BookLibrary",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "books/book_carpentry"
     },
     {
       "title": "进阶木匠技术",
-      "readHours": 28,
-      "unlocks": "制作家具速度+5%，解锁反曲弓、长弓、大门加固、围栏加固、沙发",
+      "readHours": 12,
+      "unlocks": "制作家具速度+5%，解锁大门加固、围栏加固、沙发。使用消防斧时攻速+8%。",
       "body": "纸页泛黄，字里行间满是术语与受力草图，像是写给已经会做椅子的人看的。\n\n\"没摸熟基本功就翻到这一页的，先回去把《木匠入门》读透——否则这里每一句你都得多琢磨半天。\"\n\n开卯连接、层压弯曲、承重结构……门道比入门深了不止一层，读起来也慢得多。但真吃透了，能造的就不只是能用的东西了。",
       "_id": "advanced_carpentry",
       "_surgeryPoints": null,
       "_anchor": "godot/scripts/BookData.cs :: BookLibrary",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "books/book_carpentry_adv"
     },
     {
       "title": "弓与箭之道",
-      "readHours": 18,
+      "readHours": 12,
       "unlocks": "弓箭射程+10%，锥形角-10%，攻速+2%。解锁自制箭。被动：箭矢回收率 25% → 50%",
       "body": "一本薄薄的射艺小册，封面上是一张画得极认真的弓。扉页题着一句话：\n\n\"射出去的箭，一半的功夫在把它捡回来。\"\n\n书里没怎么讲怎么瞄准——作者显然觉得那是各人的事。整整三章都在讲别的：怎么挑不劈的木头，怎么让箭杆经得起一次次撞击，怎么从尸体、树干和泥里把箭起出来而不折断它，以及最要紧的——射之前先想好，这一箭你捡不捡得回来。\n\n\"新手一天能射光一筒箭。老手一筒箭能用一个月。\"\n\"区别不在准头。在于老手每射一箭之前，都已经知道那支箭会落在哪里。\"",
       "_id": "way_of_bow_and_arrow",
       "_surgeryPoints": null,
       "_anchor": "godot/scripts/BookData.cs :: BookLibrary",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "books/book_archery"
     },
     {
       "title": "机械之美",
-      "readHours": 24,
+      "readHours": 8,
       "unlocks": "解锁配方：单手轻弩、双手重弩",
       "body": "（正文待补）一本讲机括与传动的书。读完它的人能用零件装出单手轻弩与双手重弩。",
       "_id": "mechanical_beauty",
       "_surgeryPoints": null,
       "_anchor": "godot/scripts/BookData.cs :: BookLibrary",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "books/book_mechanics"
     },
     {
-      "title": "一本卷边的日记（其一）",
-      "readHours": 6,
-      "unlocks": "",
-      "body": "字迹潦草，像是就着火光匆匆写下的。\n灾变头一个月，是老陈拉了我一把。我们俩背靠背，从加油站一路抢到城郊，谁也没抛下谁——那时候我还觉得，能活下来的都是好人。\n后来我们撞上了这伙人。有吃的，有墙，有武器。代价是，你得跟他们一样。\n第一次把那女人拖进屋的时候，我手在抖。老大说，就该如此拿在手里，拿不住的，不配活。老陈先动的手，我跟上了。往后就不抖了。\n他们管自己叫\"金手指\"。老大说，指头是男人身上最诚实的东西——它按住扳机，也按住女人，它做过的事，脑子可以不认，指头认。\n所以入伙那天，每个人都要用手指在她们身上留下印子。这就是规矩。",
-      "_id": "goldfinger_diary_a",
+      "title": "弓制作指南",
+      "readHours": 8,
+      "unlocks": "解锁短工、反曲弓、长弓、自制箭。解锁弓改装。",
+      "body": "一本讲怎么把一根木头变成一张弓的手册：选材、开背、上弦、调力。\n读完它，你就能自己做反曲弓和长弓了。\n（正文待补。）",
+      "_id": "bow_crafting_guide",
       "_surgeryPoints": null,
       "_anchor": "godot/scripts/BookData.cs :: BookLibrary",
+      "description": "",
+      "userNote": "",
+      "sync": "",
+      "_icon": "books/book_bowcraft"
+    }
+  ]
+},
+    "diaries": {
+  "id": "diaries",
+  "label": "日记与笔记",
+  "source": "godot/scripts/BookData.cs",
+  "note": "**它们不是书，是道具。** 玩家在库存里点开就能看全文，游戏冻结着看，**不花任何角色的时间**——捡到就等于读到了。它们什么也不解锁，只讲故事。（对照：「书籍」表里那些要角色整夜坐着读的，才是书。）",
+  "columns": [
+    {
+      "key": "title",
+      "label": "标题",
+      "type": "text",
+      "primary": true
+    },
+    {
+      "key": "body",
+      "label": "正文",
+      "type": "longtext",
+      "hint": "玩家在库存里点开就能看的全文（看的时候游戏是暂停的）。这是剧情文本，你写什么就是什么。"
+    },
+    {
+      "key": "description",
+      "label": "简介",
+      "type": "longtext",
+      "hint": "**玩家在游戏里看到的描述**。改了它，agent 会把新文案同步进代码。（有几个分区代码里还没有描述字段——你照样可以写，写了就是在告诉 agent「这里该有一个」。）"
+    },
+    {
+      "key": "userNote",
+      "label": "备注",
+      "type": "note",
+      "usernote": true,
+      "hint": "**你的设计笔记，不进游戏**——想到什么特殊效果就写在这（比如「这把锤子应该能砸开保险箱」）。它不会被同步成游戏文案，但 agent 每次跑抽取器都会看到你新写的备注。"
+    },
+    {
+      "key": "_id",
+      "label": "内部 id",
+      "type": "text",
+      "internal": true
+    },
+    {
+      "key": "_anchor",
+      "label": "代码位置",
+      "type": "text",
+      "internal": true
+    },
+    {
+      "key": "sync",
+      "label": "同步状态",
+      "type": "chip",
+      "readonly": true,
+      "hint": "空 = 已在代码里。「新增/删除·待同步进代码」= 你在网页上的改动还没进游戏，需要 agent 同步到 C#。"
+    },
+    {
+      "key": "_icon",
+      "label": "图标",
+      "type": "text",
+      "internal": true,
+      "hint": "godot/assets/items/<这个>.png（映射表在 godot/scripts/ItemIcons.cs）"
+    }
+  ],
+  "rows": [
+    {
+      "title": "一本卷边的日记（其一）",
+      "body": "字迹潦草，像是就着火光匆匆写下的。\n灾变头一个月，是老陈拉了我一把。我们俩背靠背，从加油站一路抢到城郊，谁也没抛下谁——那时候我还觉得，能活下来的都是好人。\n后来我们撞上了这伙人。有吃的，有墙，有武器。代价是，你得跟他们一样。\n第一次把那女人拖进屋的时候，我手在抖。老大说，就该如此拿在手里，拿不住的，不配活。老陈先动的手，我跟上了。往后就不抖了。\n他们管自己叫\"金手指\"。老大说，指头是男人身上最诚实的东西——它按住扳机，也按住女人，它做过的事，脑子可以不认，指头认。\n所以入伙那天，每个人都要用手指在她们身上留下印子。这就是规矩。",
+      "_id": "goldfinger_diary_a",
+      "_anchor": "godot/scripts/BookData.cs :: BookLibrary（BookData.Diary）",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "books/book_diary_a"
     },
     {
       "title": "一本硬壳笔记（其二）",
-      "readHours": 6,
-      "unlocks": "",
       "body": "硬壳笔记本，扉页只写着一个名字：哥顿。字迹清秀得似是小女生字样。\n我母亲从不许我父亲说完一句话。父亲低着头吃饭、低着头挨骂、低着头老去。我恨他的软弱，也害怕自己就是他。\n变尸的那天，是母亲先咬穿了父亲的喉咙。他没有反抗，甚至没有后退——他就那样看着她扑上来，像是终于等到了什么。我躲在门后，一动没动。\n我用稿子砸穿了母亲的头，比我想象得简单得多，我早该这么做了\n后来我立了规矩，教弟兄们如何拿捏一个女人。\n可这些天我总在想——把她们折磨到死，我究竟证明了什么？\n我意识到，我不过是那个躲在门后、连喊都不敢喊的孩子。\n什么都没有。只有我自己那点没用的怕。\n守林人小屋后院那棵老树的横枝够粗，绳子我也试过了。\n没人认得我，也没人替我说话——很好，再见了这个操蛋的世界，我很荣幸让它变得更加操蛋。",
       "_id": "goldfinger_diary_b",
-      "_surgeryPoints": null,
-      "_anchor": "godot/scripts/BookData.cs :: BookLibrary",
+      "_anchor": "godot/scripts/BookData.cs :: BookLibrary（BookData.Diary）",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "books/book_diary_b"
     }
@@ -3617,7 +4119,7 @@ window.WIKI_BUNDLE = {
   "id": "weapon-mods",
   "label": "武器改装",
   "source": "godot/scripts/WeaponModCatalog.cs",
-  "note": "给武器加零件。一个部位只装得下一件，装不下的会被拒绝。「可装于哪些武器」是**引擎真读的装配约束**——勾掉一把枪，它当场就装不上了，不是摆设。⚠️ 弓弩现在也在枪械改装的白名单里：引擎把「远程」一律当作枪械，所以短弓真的能装截短枪管。这是个潜伏已久的 bug，换成白名单时**如实保留**了（否则老存档里的改装枪会失效）——想收窄，把弓从这一列里划掉即可。",
+  "note": "给武器加零件。一个部位只装得下一件，装不下的会被拒绝。「可装于哪些武器」是**引擎真读的装配约束**——勾掉一把枪，它当场就装不上了，不是摆设。⚠️「数值改动」这一列你写的是**人话**，而代码那边是结构化字段（比如你写「攻击速度+5%」，引擎里是「攻击间隔 ×0.95」）⇒ 这一列**几乎永远会显示成「待同步」，那只是两种写法的差异，不代表真的没落地**。要确认，看代码注释或问 agent。⚠️ 弓弩**已经不能装枪械改装了**（它们曾因一个 bug 被引擎当成「枪」）。消防斧是新武器，还没被勾进任何一条锐器改装——想让它能改装，在这一列里勾上它即可。",
   "columns": [
     {
       "key": "name",
@@ -3653,7 +4155,7 @@ window.WIKI_BUNDLE = {
       "key": "materials",
       "label": "材料",
       "type": "text",
-      "hint": "格式：废金属×2、布×1"
+      "hint": "格式：铁×2、布×1"
     },
     {
       "key": "workMinutes",
@@ -3665,6 +4167,19 @@ window.WIKI_BUNDLE = {
       "key": "note",
       "label": "说明",
       "type": "longtext"
+    },
+    {
+      "key": "description",
+      "label": "简介",
+      "type": "longtext",
+      "hint": "**玩家在游戏里看到的描述**。改了它，agent 会把新文案同步进代码。（有几个分区代码里还没有描述字段——你照样可以写，写了就是在告诉 agent「这里该有一个」。）"
+    },
+    {
+      "key": "userNote",
+      "label": "备注",
+      "type": "note",
+      "usernote": true,
+      "hint": "**你的设计笔记，不进游戏**——想到什么特殊效果就写在这（比如「这把锤子应该能砸开保险箱」）。它不会被同步成游戏文案，但 agent 每次跑抽取器都会看到你新写的备注。"
     },
     {
       "key": "_id",
@@ -3696,127 +4211,145 @@ window.WIKI_BUNDLE = {
   "rows": [
     {
       "name": "轻质化枪托",
-      "fitsWeapons": "自制猎枪、手枪、冲锋枪、步枪、栓动猎枪、狙击枪、短弓、自制霰弹枪、反曲弓、长弓、竞技复合弓、狩猎弓、单手轻弩、双手重弩、复合弩",
+      "fitsWeapons": "自制猎枪、手枪、冲锋枪、步枪、狙击枪、自制霰弹枪",
       "part": "枪托",
-      "stats": "攻击间隔 ×0.85、伤害上限 ×0.92、枪托间隔 ×0.9",
+      "stats": "重量-15%，散布+10%",
       "form": "",
-      "materials": "木料×1、废金属×1",
-      "workMinutes": 50,
-      "note": "全枪减重：射速↑，单发伤害略↓。draft",
+      "materials": "木料×1",
+      "workMinutes": 180,
+      "note": "掏空枪托：整枪减重 15%，代价是握持变虚、散布变大。",
       "_id": "lightened_stock",
       "_anchor": "godot/scripts/WeaponModCatalog.cs :: WeaponModCatalog（Id = \"lightened_stock\"）",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "weapon-mods/lightened_stock"
     },
     {
       "name": "截短枪管",
-      "fitsWeapons": "自制猎枪、手枪、冲锋枪、步枪、栓动猎枪、狙击枪、短弓、自制霰弹枪、反曲弓、长弓、竞技复合弓、狩猎弓、单手轻弩、双手重弩、复合弩",
+      "fitsWeapons": "自制猎枪、手枪、步枪、狙击枪、自制霰弹枪",
       "part": "枪管",
-      "stats": "最大射程 ×0.6、衰减起点 ×0.6、基础散布 ×1.4、攻击间隔 ×0.9",
+      "stats": "重量-20%，射程-20%、衰减起点-20%、穿透-15%、散布+25%、伤害-10%、允许单手持有",
       "form": "",
-      "materials": "废金属×1",
-      "workMinutes": 40,
-      "note": "短管：射程↓、精度↓、贴脸出手略快。draft",
+      "materials": "",
+      "workMinutes": 60,
+      "note": "锯掉半截枪管：单手就能抡，但射程、精度、威力一样不剩。",
       "_id": "sawn_off_barrel",
       "_anchor": "godot/scripts/WeaponModCatalog.cs :: WeaponModCatalog（Id = \"sawn_off_barrel\"）",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "weapon-mods/sawn_off_barrel"
     },
     {
       "name": "加长枪管",
-      "fitsWeapons": "自制猎枪、手枪、冲锋枪、步枪、栓动猎枪、狙击枪、短弓、自制霰弹枪、反曲弓、长弓、竞技复合弓、狩猎弓、单手轻弩、双手重弩、复合弩",
+      "fitsWeapons": "自制猎枪、手枪、冲锋枪、步枪、狙击枪、自制霰弹枪",
       "part": "枪管",
-      "stats": "最大射程 ×1.3、衰减起点 ×1.3、基础散布 ×0.85、攻击间隔 ×1.1",
+      "stats": "射程 +20%、衰减起点+20%、散布-20%、重量+35%、攻速-10%、穿透+10%",
       "form": "",
-      "materials": "金属锭×1、废金属×1",
-      "workMinutes": 70,
-      "note": "长管：射程↑、精度↑、出手略慢。draft",
+      "materials": "铁×3",
+      "workMinutes": 240,
+      "note": "接一截长管：打得远、打得准、打得透——代价是它沉，而且抬枪慢半拍。",
       "_id": "extended_barrel",
       "_anchor": "godot/scripts/WeaponModCatalog.cs :: WeaponModCatalog（Id = \"extended_barrel\"）",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "weapon-mods/extended_barrel"
     },
     {
       "name": "刺刀型",
-      "fitsWeapons": "自制猎枪、手枪、冲锋枪、步枪、栓动猎枪、狙击枪、短弓、自制霰弹枪、反曲弓、长弓、竞技复合弓、狩猎弓、单手轻弩、双手重弩、复合弩",
+      "fitsWeapons": "自制猎枪、步枪、狙击枪、自制霰弹枪",
       "part": "枪口",
-      "stats": "枪托伤害下限 ×1.35、枪托伤害上限 ×1.35、枪托穿透 =0.2、枪托间隔 ×0.85、StockMeleeNoiseRadius ×0.8",
+      "stats": "近战模式等同于80%攻速的刺剑，重量+10%，散布+3%",
       "form": "刺刀型",
-      "materials": "金属锭×1、废金属×2、绳子×1",
-      "workMinutes": 90,
-      "note": "枪口挂刺刀：贴脸变锐击突刺，穿透 20%（全型态最高）、出手最快最安静，单击伤害不及利爪。draft",
+      "materials": "铁×4、绳子×1",
+      "workMinutes": 240,
+      "note": "枪口挂一把刺剑：捅得快、捅得透、捅得安静——就是不太痛。",
       "_id": "bayonet",
       "_anchor": "godot/scripts/WeaponModCatalog.cs :: WeaponModCatalog（Id = \"bayonet\"）",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "weapon-mods/bayonet"
     },
     {
       "name": "利爪型",
-      "fitsWeapons": "自制猎枪、手枪、冲锋枪、步枪、栓动猎枪、狙击枪、短弓、自制霰弹枪、反曲弓、长弓、竞技复合弓、狩猎弓、单手轻弩、双手重弩、复合弩",
+      "fitsWeapons": "自制猎枪、步枪、狙击枪、自制霰弹枪",
       "part": "枪托",
-      "stats": "枪托伤害下限 ×1.5、枪托伤害上限 ×1.5、枪托穿透 =0.1",
+      "stats": "近战模式等同于80%攻速的消防斧，重量+30%，散布+10%",
       "form": "利爪型",
-      "materials": "废金属×3、皮革×1、钉子×2",
-      "workMinutes": 80,
-      "note": "枪托绑利刃：贴脸变锐击挥砍，伤害最高、穿透中等（10%）、节奏不变。draft",
+      "materials": "铁×3、皮革×1、钉子×2",
+      "workMinutes": 240,
+      "note": "枪托绑一把斧子：一下砍开的口子，比这把枪打出的洞还大。",
       "_id": "claw_stock",
       "_anchor": "godot/scripts/WeaponModCatalog.cs :: WeaponModCatalog（Id = \"claw_stock\"）",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "weapon-mods/claw_stock"
     },
     {
       "name": "创伤型",
-      "fitsWeapons": "自制猎枪、手枪、冲锋枪、步枪、栓动猎枪、狙击枪、短弓、自制霰弹枪、反曲弓、长弓、竞技复合弓、狩猎弓、单手轻弩、双手重弩、复合弩",
+      "fitsWeapons": "自制猎枪、步枪、狙击枪、自制霰弹枪",
       "part": "枪托",
-      "stats": "枪托伤害下限 ×1.6、枪托伤害上限 ×1.6、枪托穿透 +0.03、枪托间隔 ×1.25、StockMeleeNoiseRadius ×1.2、基础散布 ×1.1",
+      "stats": "近战模式等同于80%攻速的尖头锤，重量+50%，散布-3%",
       "form": "创伤型",
-      "materials": "金属锭×1、废金属×2、钉子×4",
-      "workMinutes": 100,
-      "note": "枪托改铁锤：贴脸钝击最重、更慢更响；持握变差 → 射击精度↓（唯一有射击代价的型态）。draft",
+      "materials": "铁×4、钉子×4",
+      "workMinutes": 240,
+      "note": "枪托焊成一柄尖头锤：抡起来像铁疙瘩，砸下去也像。压枪倒是更稳了。",
       "_id": "trauma_stock",
       "_anchor": "godot/scripts/WeaponModCatalog.cs :: WeaponModCatalog（Id = \"trauma_stock\"）",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "weapon-mods/trauma_stock"
     },
     {
       "name": "锯齿剑刃",
-      "fitsWeapons": "匕首、短剑、刺剑、长剑、草叉、重剑",
+      "fitsWeapons": "匕首、短剑、长剑、草叉、重剑",
       "part": "刃",
-      "stats": "伤害上限 +3",
+      "stats": "穿透-20%，造成的流血速度+40%",
       "form": "",
-      "materials": "废金属×2",
-      "workMinutes": 50,
-      "note": "锯齿：撕裂伤↑（流血倾向暂借伤害上限表达）。draft",
+      "materials": "",
+      "workMinutes": 240,
+      "note": "刃上开一排锯齿：不好破甲，但它撕开的口子不肯收。（流血效果待引擎支持）",
       "_id": "serrated_blade",
       "_anchor": "godot/scripts/WeaponModCatalog.cs :: WeaponModCatalog（Id = \"serrated_blade\"）",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "weapon-mods/serrated_blade"
     },
     {
       "name": "锋刃研磨",
-      "fitsWeapons": "匕首、短剑、刺剑、长剑、草叉、重剑",
+      "fitsWeapons": "匕首、短剑、刺剑、长剑、草叉、重剑、消防斧",
       "part": "刃",
-      "stats": "穿透 +0.05",
+      "stats": "穿透+75%，攻击三次后失去该改装",
       "form": "",
-      "materials": "石料×2",
-      "workMinutes": 30,
-      "note": "开刃：穿透↑。draft",
+      "materials": "",
+      "workMinutes": 60,
+      "note": "把刃口磨到能刮胡子。它能透甲——但也就三下的事。",
       "_id": "honed_edge",
       "_anchor": "godot/scripts/WeaponModCatalog.cs :: WeaponModCatalog（Id = \"honed_edge\"）",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "weapon-mods/honed_edge"
     },
     {
       "name": "镂空剑刃",
-      "fitsWeapons": "匕首、短剑、刺剑、长剑、草叉、重剑",
+      "fitsWeapons": "匕首、短剑、长剑、草叉、重剑",
       "part": "刃",
-      "stats": "攻击间隔 ×0.88、伤害上限 ×0.95",
+      "stats": "攻击速度+15%、伤害-9%，重量-25%",
       "form": "",
-      "materials": "废金属×1",
-      "workMinutes": 45,
-      "note": "镂空减重：攻速↑、伤略↓。draft",
+      "materials": "铁×1",
+      "workMinutes": 240,
+      "note": "剑身上开一道血槽：轻了四分之一，挥得更快——砍得也更浅。",
       "_id": "fuller_blade",
       "_anchor": "godot/scripts/WeaponModCatalog.cs :: WeaponModCatalog（Id = \"fuller_blade\"）",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "weapon-mods/fuller_blade"
     },
@@ -3824,85 +4357,161 @@ window.WIKI_BUNDLE = {
       "name": "加重剑柄",
       "fitsWeapons": "匕首、短剑、刺剑、长剑、草叉、重剑",
       "part": "柄",
-      "stats": "伤害下限 +2、伤害上限 +3、攻击间隔 ×1.15",
+      "stats": "伤害+6%，重量+18%",
       "form": "",
-      "materials": "废金属×2、钉子×2",
-      "workMinutes": 45,
-      "note": "配重柄：伤↑、攻速↓。draft",
+      "materials": "铁×1",
+      "workMinutes": 120,
+      "note": "柄里灌铅配重：每一下都更沉。你的胳膊也知道。",
       "_id": "weighted_handle",
       "_anchor": "godot/scripts/WeaponModCatalog.cs :: WeaponModCatalog（Id = \"weighted_handle\"）",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "weapon-mods/weighted_handle"
     },
     {
       "name": "轻质化剑柄",
-      "fitsWeapons": "匕首、短剑、刺剑、长剑、草叉、重剑",
+      "fitsWeapons": "匕首、短剑、刺剑、长剑、草叉、重剑、消防斧",
       "part": "柄",
-      "stats": "攻击间隔 ×0.85、伤害上限 ×0.92",
+      "stats": "攻击速度+3%，重量-12%",
       "form": "",
       "materials": "木料×1、皮革×1",
-      "workMinutes": 40,
-      "note": "减重柄：攻速↑、伤略↓。draft",
+      "workMinutes": 120,
+      "note": "换一副轻木柄：省下的那点分量，胳膊记得住。",
       "_id": "lightened_handle",
       "_anchor": "godot/scripts/WeaponModCatalog.cs :: WeaponModCatalog（Id = \"lightened_handle\"）",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "weapon-mods/lightened_handle"
     },
     {
       "name": "防滑缠手",
-      "fitsWeapons": "匕首、短剑、刺剑、长剑、草叉、重剑",
+      "fitsWeapons": "匕首、短剑、刺剑、长剑、草叉、重剑、棍棒、尖头锤、破甲锤、消防斧",
       "part": "缠手",
-      "stats": "攻击间隔 ×0.95",
+      "stats": "攻击速度+5%",
       "form": "",
-      "materials": "布×2、绳子×1",
-      "workMinutes": 20,
-      "note": "缠手防滑：出手更利落（攻速↑）。近战必中，命中项无引擎字段。draft",
+      "materials": "绳子×1",
+      "workMinutes": 60,
+      "note": "缠一圈布和绳：手不打滑，出手就利落。近战必中，所以「更准」在这里只能是「更快」。",
       "_id": "grip_wrap_blade",
       "_anchor": "godot/scripts/WeaponModCatalog.cs :: WeaponModCatalog（Id = \"grip_wrap_blade\"）",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "weapon-mods/grip_wrap_blade"
     },
     {
       "name": "铁丝强化",
-      "fitsWeapons": "棍棒、尖头锤、破甲锤",
+      "fitsWeapons": "棍棒",
       "part": "杆",
-      "stats": "伤害下限 +1、伤害上限 +2",
+      "stats": "伤害+15%，重量+12%",
       "form": "",
       "materials": "铁丝×2",
-      "workMinutes": 30,
-      "note": "缠铁丝：伤↑。draft",
+      "workMinutes": 60,
+      "note": "棍身缠满铁丝：还是一根棍子，但它现在咬人。",
       "_id": "wire_wrap",
       "_anchor": "godot/scripts/WeaponModCatalog.cs :: WeaponModCatalog（Id = \"wire_wrap\"）",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "weapon-mods/wire_wrap"
     },
     {
       "name": "钉子强化",
-      "fitsWeapons": "棍棒、尖头锤、破甲锤",
+      "fitsWeapons": "棍棒",
       "part": "杆",
-      "stats": "伤害上限 +3、穿透 +0.03",
+      "stats": "穿透 +0.03，造成伤害时，会有25%几率造成小流血",
       "form": "",
       "materials": "钉子×4",
-      "workMinutes": 30,
-      "note": "钉刺：伤↑、穿透↑（钉尖破防）。draft",
+      "workMinutes": 60,
+      "note": "棍头砸进一圈钉子：木头砸不穿的，钉尖能。（小流血效果待引擎支持）",
       "_id": "nail_studs",
       "_anchor": "godot/scripts/WeaponModCatalog.cs :: WeaponModCatalog（Id = \"nail_studs\"）",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "weapon-mods/nail_studs"
     },
     {
-      "name": "防滑缠手",
-      "fitsWeapons": "棍棒、尖头锤、破甲锤",
+      "name": "护手挡格",
+      "fitsWeapons": "匕首、短剑、刺剑",
       "part": "缠手",
-      "stats": "攻击间隔 ×0.95",
+      "stats": "拿着武器的这只手（包括手指）受到攻击时，50%的几率这次攻击无效。重量+10%。",
       "form": "",
-      "materials": "布×2、绳子×1",
-      "workMinutes": 20,
-      "note": "缠手防滑：抡起更利落（攻速↑）。draft",
-      "_id": "grip_wrap_blunt",
-      "_anchor": "godot/scripts/WeaponModCatalog.cs :: WeaponModCatalog（Id = \"grip_wrap_blunt\"）",
-      "sync": "",
-      "_icon": "weapon-mods/grip_wrap_blunt"
+      "materials": "铁*2，皮革*1",
+      "workMinutes": 90,
+      "note": "不仅是装饰品，更能保护你脆弱的手。",
+      "description": "",
+      "userNote": "",
+      "_id": "new_weapon_mod_1",
+      "_anchor": "（新增行：代码里还没有，等 agent 建）",
+      "sync": "新增·待同步进代码",
+      "_icon": "weapon-mods/new_weapon_mod_1"
+    },
+    {
+      "name": "弩盾",
+      "fitsWeapons": "双手重弩、复合弩",
+      "part": "弩身",
+      "stats": "当你举着弩，远程攻击来自于正面120度的时候，25%的几率这次攻击无效。重量+50%",
+      "form": "",
+      "materials": "铁*4，皮革*2，钉子*4",
+      "workMinutes": 180,
+      "note": "灵感来自意大利。",
+      "description": "",
+      "userNote": "",
+      "_id": "new_weapon_mod_2",
+      "_anchor": "（新增行：代码里还没有，等 agent 建）",
+      "sync": "新增·待同步进代码",
+      "_icon": "weapon-mods/new_weapon_mod_2"
+    },
+    {
+      "name": "复合弓臂",
+      "fitsWeapons": "短弓、长弓",
+      "part": "弓",
+      "stats": "重量+15%，攻击速度-6%，伤害+8%，穿透+8%，弹丸飞行速度+12%",
+      "form": "",
+      "materials": "木材*2，胶水*2",
+      "workMinutes": 180,
+      "note": "拉开它可需要不小的力气，但相信我，辛苦是值得的。",
+      "description": "",
+      "userNote": "",
+      "_id": "new_weapon_mod_3",
+      "_anchor": "（新增行：代码里还没有，等 agent 建）",
+      "sync": "新增·待同步进代码",
+      "_icon": "weapon-mods/new_weapon_mod_3"
+    },
+    {
+      "name": "重磅弓弦",
+      "fitsWeapons": "短弓、反曲弓、长弓、竞技复合弓、狩猎弓",
+      "part": "弦",
+      "stats": "攻击速度-6%，伤害随距离衰减率-18%，伤害+4%，散布-8%，弹丸飞行速度+12%",
+      "form": "",
+      "materials": "绳子*2",
+      "workMinutes": 90,
+      "note": "当心手指。",
+      "description": "",
+      "userNote": "",
+      "_id": "new_weapon_mod_4",
+      "_anchor": "（新增行：代码里还没有，等 agent 建）",
+      "sync": "新增·待同步进代码",
+      "_icon": "weapon-mods/new_weapon_mod_4"
+    },
+    {
+      "name": "弓臂缠手",
+      "fitsWeapons": "短弓、反曲弓、长弓、狩猎弓",
+      "part": "弓",
+      "stats": "攻击速度+5%，。",
+      "form": "",
+      "materials": "布*2，皮革*1",
+      "workMinutes": 60,
+      "note": "更加柔和的手感，更好把握弓臂。",
+      "description": "",
+      "userNote": "",
+      "_id": "new_weapon_mod_5",
+      "_anchor": "（新增行：代码里还没有，等 agent 建）",
+      "sync": "新增·待同步进代码",
+      "_icon": "weapon-mods/new_weapon_mod_5"
     }
   ]
 },
@@ -3936,6 +4545,19 @@ window.WIKI_BUNDLE = {
       "type": "text",
       "readonly": true,
       "hint": "自动算的：通用规则是还一半（向下取整），木材例外——一半变木料、一半变废木料。要改 ⇒ 改「建造材料」。（想改返还比例本身，那是引擎规则，跟 agent 说。）"
+    },
+    {
+      "key": "description",
+      "label": "简介",
+      "type": "longtext",
+      "hint": "**玩家在游戏里看到的描述**。改了它，agent 会把新文案同步进代码。（有几个分区代码里还没有描述字段——你照样可以写，写了就是在告诉 agent「这里该有一个」。）"
+    },
+    {
+      "key": "userNote",
+      "label": "备注",
+      "type": "note",
+      "usernote": true,
+      "hint": "**你的设计笔记，不进游戏**——想到什么特殊效果就写在这（比如「这把锤子应该能砸开保险箱」）。它不会被同步成游戏文案，但 agent 每次跑抽取器都会看到你新写的备注。"
     },
     {
       "key": "_id",
@@ -3972,26 +4594,32 @@ window.WIKI_BUNDLE = {
       "salvage": "木料×4、废木料×4、钉子×4",
       "_id": "工作台",
       "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": ""
     },
     {
       "name": "改装台",
-      "materials": "木料×8、废金属×4、机械零件×2、钉子×6",
+      "materials": "木料×8、铁×4、机械零件×2、钉子×6",
       "buildMinutes": 200,
-      "salvage": "木料×2、废木料×2、废金属×2、机械零件×1、钉子×3",
+      "salvage": "木料×2、废木料×2、铁×2、机械零件×1、钉子×3",
       "_id": "改装台",
       "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": ""
     },
     {
       "name": "烹饪台",
-      "materials": "石料×8、木料×6、废金属×3、钉子×4",
+      "materials": "石料×8、木料×6、铁×3、钉子×4",
       "buildMinutes": 180,
-      "salvage": "石料×4、木料×1、废木料×1、废金属×1、钉子×2",
+      "salvage": "石料×4、木料×1、废木料×1、铁×1、钉子×2",
       "_id": "烹饪台",
       "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": ""
     },
@@ -4002,6 +4630,8 @@ window.WIKI_BUNDLE = {
       "salvage": "木料×2、废木料×2、钉子×3",
       "_id": "住宅-柜子",
       "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": ""
     },
@@ -4012,6 +4642,8 @@ window.WIKI_BUNDLE = {
       "salvage": "木料×3、废木料×3、钉子×3",
       "_id": "住宅-衣柜",
       "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": ""
     },
@@ -4022,6 +4654,8 @@ window.WIKI_BUNDLE = {
       "salvage": "木料×2、废木料×2、钉子×2",
       "_id": "住宅-展示柜",
       "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": ""
     },
@@ -4032,6 +4666,8 @@ window.WIKI_BUNDLE = {
       "salvage": "木料×3、废木料×3、布×2、钉子×3",
       "_id": "床",
       "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": ""
     },
@@ -4042,6 +4678,8 @@ window.WIKI_BUNDLE = {
       "salvage": "木料×2、废木料×2、钉子×2",
       "_id": "桌子",
       "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": ""
     },
@@ -4052,6 +4690,8 @@ window.WIKI_BUNDLE = {
       "salvage": "布×1、石料×2",
       "_id": "沙袋",
       "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": ""
     },
@@ -4062,6 +4702,8 @@ window.WIKI_BUNDLE = {
       "salvage": "铁丝×1",
       "_id": "陷阱",
       "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": ""
     }
@@ -4094,8 +4736,16 @@ window.WIKI_BUNDLE = {
     },
     {
       "key": "description",
-      "label": "说明",
-      "type": "longtext"
+      "label": "简介",
+      "type": "longtext",
+      "hint": "**玩家在游戏里看到的描述**。改了它，agent 会把新文案同步进代码。（有几个分区代码里还没有描述字段——你照样可以写，写了就是在告诉 agent「这里该有一个」。）"
+    },
+    {
+      "key": "userNote",
+      "label": "备注",
+      "type": "note",
+      "usernote": true,
+      "hint": "**你的设计笔记，不进游戏**——想到什么特殊效果就写在这（比如「这把锤子应该能砸开保险箱」）。它不会被同步成游戏文案，但 agent 每次跑抽取器都会看到你新写的备注。"
     },
     {
       "key": "_id",
@@ -4132,6 +4782,7 @@ window.WIKI_BUNDLE = {
       "description": "末日里最先繁荣起来的物种。抓它、剥它、炖它——你曾经以为自己这辈子都不会做这三件事。",
       "_id": "rat",
       "_anchor": "godot/scripts/CookingLogic.cs :: FoodCalories（热量点）+ godot/scripts/Materials.cs（名称/说明）",
+      "userNote": "",
       "sync": "",
       "_icon": "food/rat"
     },
@@ -4142,7 +4793,8 @@ window.WIKI_BUNDLE = {
       "description": "城市广场上那种鸽子，如今没人喂了，也没人拍照了。肉少，骨头多，但它是肉。",
       "_id": "pigeon",
       "_anchor": "godot/scripts/CookingLogic.cs :: FoodCalories（热量点）+ godot/scripts/Materials.cs（名称/说明）",
-      "sync": "",
+      "userNote": "",
+      "sync": "删除·待同步进代码",
       "_icon": "food/pigeon"
     },
     {
@@ -4152,6 +4804,7 @@ window.WIKI_BUNDLE = {
       "description": "一只野兔，够一顿像样的。抓到它的那天，你会想起从前「运气不错」是个多么轻飘飘的词。",
       "_id": "rabbit",
       "_anchor": "godot/scripts/CookingLogic.cs :: FoodCalories（热量点）+ godot/scripts/Materials.cs（名称/说明）",
+      "userNote": "",
       "sync": "",
       "_icon": "food/rabbit"
     },
@@ -4162,6 +4815,7 @@ window.WIKI_BUNDLE = {
       "description": "河里的鱼。没人知道那水现在还干不干净，但煮熟了，谁也不会先问这个问题。",
       "_id": "fish",
       "_anchor": "godot/scripts/CookingLogic.cs :: FoodCalories（热量点）+ godot/scripts/Materials.cs（名称/说明）",
+      "userNote": "",
       "sync": "",
       "_icon": "food/fish"
     },
@@ -4172,6 +4826,7 @@ window.WIKI_BUNDLE = {
       "description": "军方发的单兵口粮，密封、耐放、量足。包装上印着「一日份」——印它的那个人还相信会有下一日。",
       "_id": "ration",
       "_anchor": "godot/scripts/CookingLogic.cs :: FoodCalories（热量点）+ godot/scripts/Materials.cs（名称/说明）",
+      "userNote": "",
       "sync": "",
       "_icon": "food/ration_military"
     },
@@ -4179,19 +4834,21 @@ window.WIKI_BUNDLE = {
       "name": "罐头",
       "calories": 16,
       "portions": 1,
-      "description": "标签早泡烂了，里面是肉是豆全凭运气。铁皮鼓起来的那种别开——它已经替你尝过了。",
+      "description": "铁皮鼓起来的那种别开。",
       "_id": "canned_food",
       "_anchor": "godot/scripts/CookingLogic.cs :: FoodCalories（热量点）+ godot/scripts/Materials.cs（名称/说明）",
+      "userNote": "",
       "sync": "",
       "_icon": "food/canned_food"
     },
     {
       "name": "面粉",
-      "calories": 7,
+      "calories": 10,
       "portions": 3,
-      "description": "一袋面粉。它做不成面包（谁还有烤箱），但撒进锅里能让一锅稀汤变得像顿饭。",
+      "description": "一袋面粉。",
       "_id": "flour",
       "_anchor": "godot/scripts/CookingLogic.cs :: FoodCalories（热量点）+ godot/scripts/Materials.cs（名称/说明）",
+      "userNote": "",
       "sync": "",
       "_icon": "food/flour"
     },
@@ -4202,16 +4859,18 @@ window.WIKI_BUNDLE = {
       "description": "一把干豆，硬得能崩掉牙。泡一夜、煮一晌，然后它就成了这个屋子里最像「正经饭」的东西。",
       "_id": "beans",
       "_anchor": "godot/scripts/CookingLogic.cs :: FoodCalories（热量点）+ godot/scripts/Materials.cs（名称/说明）",
-      "sync": "",
+      "userNote": "",
+      "sync": "删除·待同步进代码",
       "_icon": "food/beans"
     },
     {
       "name": "土豆",
       "calories": 4,
       "portions": 4,
-      "description": "从谁家后院刨出来的，发了点芽。削掉芽眼，剩下的部分依然是土豆——这就是土豆了不起的地方。",
+      "description": "他妈的！土在哪！！！",
       "_id": "potato",
       "_anchor": "godot/scripts/CookingLogic.cs :: FoodCalories（热量点）+ godot/scripts/Materials.cs（名称/说明）",
+      "userNote": "",
       "sync": "",
       "_icon": "food/potato"
     },
@@ -4222,6 +4881,7 @@ window.WIKI_BUNDLE = {
       "description": "林子里采的。你认得这一种，你很确定你认得这一种。",
       "_id": "mushroom",
       "_anchor": "godot/scripts/CookingLogic.cs :: FoodCalories（热量点）+ godot/scripts/Materials.cs（名称/说明）",
+      "userNote": "",
       "sync": "",
       "_icon": "food/mushroom"
     },
@@ -4229,21 +4889,12 @@ window.WIKI_BUNDLE = {
       "name": "玫瑰果",
       "calories": 2,
       "portions": 8,
-      "description": "野蔷薇结的红果，酸得很有营养，草药膏的配料之一。",
+      "description": "野蔷薇结的红果，酸得很有营养，有药用价值。",
       "_id": "rosehip",
       "_anchor": "godot/scripts/CookingLogic.cs :: FoodCalories（热量点）+ godot/scripts/Materials.cs（名称/说明）",
+      "userNote": "",
       "sync": "",
       "_icon": "materials/rosehip"
-    },
-    {
-      "name": "蒲公英",
-      "calories": 1,
-      "portions": 16,
-      "description": "田埂路边遍地的野草，晒干能煮茶，也是草药膏的配料——穷人的药房。",
-      "_id": "dandelion",
-      "_anchor": "godot/scripts/CookingLogic.cs :: FoodCalories（热量点）+ godot/scripts/Materials.cs（名称/说明）",
-      "sync": "",
-      "_icon": "materials/dandelion"
     }
   ]
 },
@@ -4274,6 +4925,19 @@ window.WIKI_BUNDLE = {
       "key": "note",
       "label": "说明",
       "type": "longtext"
+    },
+    {
+      "key": "description",
+      "label": "简介",
+      "type": "longtext",
+      "hint": "**玩家在游戏里看到的描述**。改了它，agent 会把新文案同步进代码。（有几个分区代码里还没有描述字段——你照样可以写，写了就是在告诉 agent「这里该有一个」。）"
+    },
+    {
+      "key": "userNote",
+      "label": "备注",
+      "type": "note",
+      "usernote": true,
+      "hint": "**你的设计笔记，不进游戏**——想到什么特殊效果就写在这（比如「这把锤子应该能砸开保险箱」）。它不会被同步成游戏文案，但 agent 每次跑抽取器都会看到你新写的备注。"
     },
     {
       "key": "_id",
@@ -4310,6 +4974,8 @@ window.WIKI_BUNDLE = {
       "note": "基础值。装了炊具会更少。份数 = 总热量 ÷ 这个数，向下取整——凑不满一份就做不成，多出来的零头浪费掉（游戏里不提示）。",
       "_id": "base_portion_cost",
       "_anchor": "godot/scripts/CookingLogic.cs :: CookingLogic.BasePortionCost",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "cooking/base_portion_cost"
     },
@@ -4320,6 +4986,8 @@ window.WIKI_BUNDLE = {
       "note": "烹饪台两个槽位之一。装上它，每做一份饭就少要这么多热量。与烤架**各是各的数**，可以分别调。",
       "_id": "pot_discount",
       "_anchor": "godot/scripts/CookingLogic.cs :: CookingLogic.PotDiscount",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "cooking/pot_discount"
     },
@@ -4330,6 +4998,8 @@ window.WIKI_BUNDLE = {
       "note": "烹饪台另一个槽位。两个槽都装满，一份饭省下的就是这两个数相加。与锅**各是各的数**，可以分别调。",
       "_id": "grill_discount",
       "_anchor": "godot/scripts/CookingLogic.cs :: CookingLogic.GrillDiscount",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "cooking/grill_discount"
     },
@@ -4340,6 +5010,8 @@ window.WIKI_BUNDLE = {
       "note": "得有人站在烹饪台前把活干完。做两份就干两份的活——没有「一锅端」的规模效应。",
       "_id": "work_minutes_per_portion",
       "_anchor": "godot/scripts/CookingLogic.cs :: CookingLogic.WorkMinutesPerPortion",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "cooking/work_minutes_per_portion"
     }
@@ -4348,7 +5020,7 @@ window.WIKI_BUNDLE = {
     "global-rules": {
   "id": "global-rules",
   "label": "全局规则",
-  "source": "src/DeadSignal.Combat/DualWield.cs · godot/scripts/SurvivorPerks.cs · godot/scripts/CoverLogic.cs",
+  "source": "src/DeadSignal.Combat/DualWield.cs · src/DeadSignal.Combat/BleedModel.cs · godot/scripts/SurvivorPerks.cs · godot/scripts/CoverLogic.cs",
   "note": "**对所有人一体适用**的规则——不属于任何一件武器，也不属于任何一个角色。以前这些数只活在代码里，wiki 上看不到、也改不了。⚠️ 别把这里的东西误当成谁的专属效果：「没座位读书慢 10%」是**每个人**都一样的，不是诺蒂的技能。",
   "columns": [
     {
@@ -4372,6 +5044,19 @@ window.WIKI_BUNDLE = {
       "key": "note",
       "label": "说明",
       "type": "longtext"
+    },
+    {
+      "key": "description",
+      "label": "简介",
+      "type": "longtext",
+      "hint": "**玩家在游戏里看到的描述**。改了它，agent 会把新文案同步进代码。（有几个分区代码里还没有描述字段——你照样可以写，写了就是在告诉 agent「这里该有一个」。）"
+    },
+    {
+      "key": "userNote",
+      "label": "备注",
+      "type": "note",
+      "usernote": true,
+      "hint": "**你的设计笔记，不进游戏**——想到什么特殊效果就写在这（比如「这把锤子应该能砸开保险箱」）。它不会被同步成游戏文案，但 agent 每次跑抽取器都会看到你新写的备注。"
     },
     {
       "key": "_id",
@@ -4409,6 +5094,8 @@ window.WIKI_BUNDLE = {
       "_id": "read_no_seat",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: ReadingSpeed.NoSeatMultiplier",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -4419,6 +5106,8 @@ window.WIKI_BUNDLE = {
       "_id": "read_no_prereq",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: ReadingSpeed.MissingPrerequisiteMultiplier",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -4429,6 +5118,8 @@ window.WIKI_BUNDLE = {
       "_id": "dual_wield_speed",
       "_anchor": "src/DeadSignal.Combat/DualWield.cs :: DualWield.AttackSpeedFactor",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -4439,6 +5130,8 @@ window.WIKI_BUNDLE = {
       "_id": "dual_wield_spread",
       "_anchor": "src/DeadSignal.Combat/DualWield.cs :: DualWield.RangedSpreadFactor",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -4449,6 +5142,8 @@ window.WIKI_BUNDLE = {
       "_id": "surgery_base_default",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: NightingalePerk.DefaultSurgeryBasePoints",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -4459,6 +5154,8 @@ window.WIKI_BUNDLE = {
       "_id": "cover_chance",
       "_anchor": "godot/scripts/CoverLogic.cs :: CoverLogic.DefaultCoverChance",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -4469,6 +5166,128 @@ window.WIKI_BUNDLE = {
       "_id": "cover_radius",
       "_anchor": "godot/scripts/CoverLogic.cs :: CoverLogic.AdjacencyRadius",
       "_icon": "",
+      "description": "",
+      "userNote": "",
+      "sync": ""
+    },
+    {
+      "label": "丧尸的流血速度",
+      "value": 33.3333,
+      "unit": "%",
+      "note": "**丧尸只按常人的这个比例流血**——行尸走肉，血液循环本就不像活人。⚠️ 这个数是**锐器强度的总闸门**：调高它，砍两刀站着等丧尸流干就行，伤害和护甲会一起失去意义；调低它，匕首/刺剑这种「靠放血赢」的武器会直接废掉（它们对丧尸的胜利几乎全来自失血）。",
+      "_id": "bleed_zombie_rate",
+      "_anchor": "src/DeadSignal.Combat/BleedModel.cs :: BleedModel.ZombieBleedRateMultiplier",
+      "_icon": "",
+      "description": "",
+      "userNote": "",
+      "sync": ""
+    },
+    {
+      "label": "大伤口的流血速度",
+      "value": 100,
+      "unit": "%",
+      "note": "**躯干/头/颈/上臂/大腿**——只有这些大部位的伤口能把人**放干致死**。基准 100%。",
+      "_id": "bleed_weight_lethal",
+      "_anchor": "src/DeadSignal.Combat/BleedModel.cs :: BleedModel.RateWeightOf",
+      "_icon": "",
+      "description": "",
+      "userNote": "",
+      "sync": ""
+    },
+    {
+      "label": "手脚伤口的流血速度",
+      "value": 50,
+      "unit": "%",
+      "note": "**手/脚**的伤口流得慢，而且**永远流不死**（见下面那条下限）——只会溃烂感染。",
+      "_id": "bleed_weight_minor",
+      "_anchor": "src/DeadSignal.Combat/BleedModel.cs :: BleedModel.RateWeightOf",
+      "_icon": "",
+      "description": "",
+      "userNote": "",
+      "sync": ""
+    },
+    {
+      "label": "指/趾/眼/面/耳伤口的流血速度",
+      "value": 20,
+      "unit": "%",
+      "note": "**擦伤级**的小口子，流得极慢，同样**永远流不死**。",
+      "_id": "bleed_weight_micro",
+      "_anchor": "src/DeadSignal.Combat/BleedModel.cs :: BleedModel.RateWeightOf",
+      "_icon": "",
+      "description": "",
+      "userNote": "",
+      "sync": ""
+    },
+    {
+      "label": "小伤口最多把血抽到",
+      "value": 50,
+      "unit": "%",
+      "note": "手/脚/指的伤口**只能把储血抽到这条线为止**——抽不到昏迷线（25%），更抽不到 0。这就是「小伤口不致命」的硬保证：它们让你虚弱，但永远不是压死你的最后一根稻草。",
+      "_id": "bleed_nonlethal_floor",
+      "_anchor": "src/DeadSignal.Combat/BleedModel.cs :: BleedModel.NonLethalBloodFloorRatio",
+      "_icon": "",
+      "description": "",
+      "userNote": "",
+      "sync": ""
+    },
+    {
+      "label": "一刀打掉部位血量的多少就变中流血",
+      "value": 30,
+      "unit": "%",
+      "note": "**一次**伤害超过这个比例（按被打中那个部位的最大生命值算），口子就从小流血升成**中流血**。护甲挡掉大半之后只渗进去一点点的剐蹭，比例很小 ⇒ 只算小流血 —— **甲厚就流得少，是这么来的**。",
+      "_id": "bleed_medium_threshold",
+      "_anchor": "src/DeadSignal.Combat/BleedModel.cs :: BleedModel.MediumThreshold",
+      "_icon": "",
+      "description": "",
+      "userNote": "",
+      "sync": ""
+    },
+    {
+      "label": "一刀打掉部位血量的多少就变大流血",
+      "value": 60,
+      "unit": "%",
+      "note": "**一次**伤害超过这个比例 ⇒ 直接**大流血**（最高一级，再挨打也不会更高）。砍在没穿甲的身上就是这一档。",
+      "_id": "bleed_large_threshold",
+      "_anchor": "src/DeadSignal.Combat/BleedModel.cs :: BleedModel.LargeThreshold",
+      "_icon": "",
+      "description": "",
+      "userNote": "",
+      "sync": ""
+    },
+    {
+      "label": "小流血的流速（相对普通伤口）",
+      "value": 30,
+      "unit": "%",
+      "note": "只要锐器进了肉就至少是小流血。它流得很慢 —— 挨一堆浅爪不会被放干。",
+      "_id": "bleed_rate_small",
+      "_anchor": "src/DeadSignal.Combat/BleedModel.cs :: BleedModel.SeverityRateOf",
+      "_icon": "",
+      "description": "",
+      "userNote": "",
+      "sync": ""
+    },
+    {
+      "label": "中流血的流速（相对普通伤口）",
+      "value": 100,
+      "unit": "%",
+      "note": "**两个小流血会合成一个中流血**（同一个部位再挨一刀，口子是接到一起的，不是多出一道）。",
+      "_id": "bleed_rate_medium",
+      "_anchor": "src/DeadSignal.Combat/BleedModel.cs :: BleedModel.SeverityRateOf",
+      "_icon": "",
+      "description": "",
+      "userNote": "",
+      "sync": ""
+    },
+    {
+      "label": "大流血的流速（相对普通伤口）",
+      "value": 300,
+      "unit": "%",
+      "note": "**封顶的一级**：两个中流血、或一小一中，都会合成大流血；到了大流血就**不会再往上升**了。一处大流血放干一个常人要一分钟左右，**两处就能在一场仗打完之前把人流死**。",
+      "_id": "bleed_rate_large",
+      "_anchor": "src/DeadSignal.Combat/BleedModel.cs :: BleedModel.SeverityRateOf",
+      "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     }
   ]
@@ -4566,6 +5385,19 @@ window.WIKI_BUNDLE = {
       "hint": "勾上 = 文本/设定还是草稿，等你定"
     },
     {
+      "key": "description",
+      "label": "简介",
+      "type": "longtext",
+      "hint": "**玩家在游戏里看到的描述**。改了它，agent 会把新文案同步进代码。（有几个分区代码里还没有描述字段——你照样可以写，写了就是在告诉 agent「这里该有一个」。）"
+    },
+    {
+      "key": "userNote",
+      "label": "备注",
+      "type": "note",
+      "usernote": true,
+      "hint": "**你的设计笔记，不进游戏**——想到什么特殊效果就写在这（比如「这把锤子应该能砸开保险箱」）。它不会被同步成游戏文案，但 agent 每次跑抽取器都会看到你新写的备注。"
+    },
+    {
       "key": "_id",
       "label": "内部 id",
       "type": "text",
@@ -4612,6 +5444,8 @@ window.WIKI_BUNDLE = {
       "draft": false,
       "_id": "sam",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: SamPerk + SurvivorBackstory.cs + godot/data/camp.json（spawns）",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "characters/sam"
     },
@@ -4634,6 +5468,8 @@ window.WIKI_BUNDLE = {
       "draft": false,
       "_id": "nordi",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: BookwormPerk + godot/data/camp.json（spawns）",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "characters/nordi"
     },
@@ -4656,6 +5492,8 @@ window.WIKI_BUNDLE = {
       "draft": true,
       "_id": "doug",
       "_anchor": "godot/scripts/DougBruceBond.cs + VillageRescue.cs",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "characters/doug"
     },
@@ -4678,6 +5516,8 @@ window.WIKI_BUNDLE = {
       "draft": true,
       "_id": "nightingale",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: NightingalePerk + NurseRecruit.cs",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "characters/nightingale"
     },
@@ -4686,11 +5526,11 @@ window.WIKI_BUNDLE = {
       "category": "幸存者",
       "faction": "劫掠者 → 幸存者",
       "tagline": "混在劫掠者里的那个女人。「杀死这些劫掠者！我是好人！」",
-      "perkName": "",
-      "perkAxis": "",
-      "perkL1": "",
-      "perkL2": "",
-      "perkL3": "",
+      "perkName": "巧舌如簧",
+      "perkAxis": "加入营地是一级，存活三天后升到二级，清剿金手指帮后升三级",
+      "perkL1": "懂得挨饿，才能在流浪中活下来，每个相位变化时，有25%的几率不掉饥饿值。",
+      "perkL2": "从商人处买东西时有6.25%的折扣。",
+      "perkL3": "大仇得报！她回归了销售员的本质，卖出时的价格从60%上涨到了70%。并且她对热量的消耗似乎更少了，每个相位变化时，有额外10%的几率不掉饥饿值。",
       "join": "教学关（第 2 夜）：一伙劫掠者袭营，她混在里头，起手和劫掠者同阵营。战斗中任一劫掠者受伤较重、或她自己挂彩（谁先到算谁）→ 她喊出那句台词、阵中反水，转为自动战斗的盟友——但此时你操控不了她。战斗结束后你可以选收留 / 放逐 / 处决：只有收留，她才变成你能操控的营地幸存者。",
       "gear": "手枪",
       "backstory": "她曾被金手指帮轮奸，好不容易逃出来，后来加入一个劫掠者团伙勉强活命。",
@@ -4700,6 +5540,8 @@ window.WIKI_BUNDLE = {
       "draft": true,
       "_id": "christine",
       "_anchor": "godot/scripts/ChristineRequestLogic.cs + TutorialRaidLogic.cs + GoldfingerDiscovery.cs",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "characters/christine"
     },
@@ -4722,6 +5564,8 @@ window.WIKI_BUNDLE = {
       "draft": true,
       "_id": "bruce",
       "_anchor": "godot/scripts/Dog.cs + DogApparel.cs + DogHungerState.cs + DougBruceBond.cs",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "characters/bruce"
     },
@@ -4744,6 +5588,8 @@ window.WIKI_BUNDLE = {
       "draft": true,
       "_id": "merchant_first",
       "_anchor": "godot/scripts/MerchantTrade.cs + MerchantSchedule.cs + MerchantLineage.cs",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "characters/merchant_first"
     },
@@ -4766,6 +5612,8 @@ window.WIKI_BUNDLE = {
       "draft": true,
       "_id": "merchant_second",
       "_anchor": "godot/scripts/MerchantLineage.cs :: SecondMerchantIntroLine",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "characters/merchant_second"
     },
@@ -4788,6 +5636,8 @@ window.WIKI_BUNDLE = {
       "draft": false,
       "_id": "gordon",
       "_anchor": "godot/scripts/GoldfingerDiscovery.cs :: GordonHangedId / DiaryBBookId",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "characters/gordon"
     },
@@ -4810,6 +5660,8 @@ window.WIKI_BUNDLE = {
       "draft": true,
       "_id": "grandmother",
       "_anchor": "godot/scripts/NarrativeSpot.cs :: GrandmotherCorpseId + godot/data/camp.json（role=corpse）",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "characters/grandmother"
     },
@@ -4832,6 +5684,8 @@ window.WIKI_BUNDLE = {
       "draft": false,
       "_id": "goldfinger_member",
       "_anchor": "godot/scripts/GoldfingerDiscovery.cs :: GangMemberCorpseId / DiaryABookId",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "characters/goldfinger_member"
     },
@@ -4854,6 +5708,8 @@ window.WIKI_BUNDLE = {
       "draft": false,
       "_id": "zombie",
       "_anchor": "godot/scripts/Zombie.cs + src/DeadSignal.Combat/ZombieOutfit.cs :: Presets",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "characters/zombie"
     },
@@ -4876,6 +5732,8 @@ window.WIKI_BUNDLE = {
       "draft": true,
       "_id": "raider",
       "_anchor": "godot/scripts/Raider.cs + RaiderTactics.cs + IntrusionLogic.cs",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "characters/raider"
     },
@@ -4898,6 +5756,8 @@ window.WIKI_BUNDLE = {
       "draft": true,
       "_id": "supermarket_survivors",
       "_anchor": "godot/scripts/SupermarketAmbush.cs",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "characters/supermarket_survivors"
     },
@@ -4920,6 +5780,8 @@ window.WIKI_BUNDLE = {
       "draft": true,
       "_id": "elite_riot_police",
       "_anchor": "src/DeadSignal.Combat/ZombieOutfit.cs :: ElitePresets",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "characters/elite_riot_police"
     },
@@ -4942,6 +5804,8 @@ window.WIKI_BUNDLE = {
       "draft": true,
       "_id": "elite_soldier",
       "_anchor": "src/DeadSignal.Combat/ZombieOutfit.cs :: ElitePresets",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "characters/elite_soldier"
     }
@@ -4982,6 +5846,19 @@ window.WIKI_BUNDLE = {
       "hint": "勾上 = 你定过的值，别当「拟定待调」随手改；空 = 拟定待调"
     },
     {
+      "key": "description",
+      "label": "简介",
+      "type": "longtext",
+      "hint": "**玩家在游戏里看到的描述**。改了它，agent 会把新文案同步进代码。（有几个分区代码里还没有描述字段——你照样可以写，写了就是在告诉 agent「这里该有一个」。）"
+    },
+    {
+      "key": "userNote",
+      "label": "备注",
+      "type": "note",
+      "usernote": true,
+      "hint": "**你的设计笔记，不进游戏**——想到什么特殊效果就写在这（比如「这把锤子应该能砸开保险箱」）。它不会被同步成游戏文案，但 agent 每次跑抽取器都会看到你新写的备注。"
+    },
+    {
       "key": "_id",
       "label": "内部 id",
       "type": "text",
@@ -5018,6 +5895,8 @@ window.WIKI_BUNDLE = {
       "_id": "sam_l2_pop",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: SamPerk.Level2CampPopulation",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -5029,6 +5908,8 @@ window.WIKI_BUNDLE = {
       "_id": "sam_l3_pop",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: SamPerk.Level3CampPopulation",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -5040,6 +5921,8 @@ window.WIKI_BUNDLE = {
       "_id": "sam_l1_damage_reduction",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: SamPerk.Level1DamageReduction",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -5051,6 +5934,8 @@ window.WIKI_BUNDLE = {
       "_id": "sam_l2_carry",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: SamPerk.Level2CarryBonus",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -5062,6 +5947,8 @@ window.WIKI_BUNDLE = {
       "_id": "sam_aura_carry",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: SamPerk.AuraCarryBonus",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -5073,6 +5960,8 @@ window.WIKI_BUNDLE = {
       "_id": "sam_aura_work",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: SamPerk.AuraWorkSpeedBonus",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -5084,6 +5973,8 @@ window.WIKI_BUNDLE = {
       "_id": "sam_aura_heal",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: SamPerk.AuraHealSpeedBonus",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -5095,6 +5986,8 @@ window.WIKI_BUNDLE = {
       "_id": "sam_aura_infection",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: SamPerk.AuraInfectionWorsenReduction",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -5106,6 +5999,8 @@ window.WIKI_BUNDLE = {
       "_id": "sam_operation",
       "_anchor": "src/DeadSignal.Combat/Body.cs :: FingerPenalty（−7%/指·该手累加）+ SurvivorBackstory.SeveredAtStart",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -5117,6 +6012,8 @@ window.WIKI_BUNDLE = {
       "_id": "nordi_l2_hours",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: BookwormPerk.Level2ThresholdHours",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -5128,6 +6025,8 @@ window.WIKI_BUNDLE = {
       "_id": "nordi_l3_hours",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: BookwormPerk.Level3ThresholdHours",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -5139,6 +6038,8 @@ window.WIKI_BUNDLE = {
       "_id": "nordi_l1_read",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: BookwormPerk.BonusForLevel",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -5150,6 +6051,8 @@ window.WIKI_BUNDLE = {
       "_id": "nordi_l2_read",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: BookwormPerk.BonusForLevel",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -5161,6 +6064,8 @@ window.WIKI_BUNDLE = {
       "_id": "nordi_l3_read",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: BookwormPerk.BonusForLevel",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -5172,6 +6077,8 @@ window.WIKI_BUNDLE = {
       "_id": "nordi_l3_campwide",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: BookwormPerk.CampWideBonusAtMax",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -5183,6 +6090,8 @@ window.WIKI_BUNDLE = {
       "_id": "doug_l2_days",
       "_anchor": "godot/scripts/DougBruceBond.cs :: DougBruceBond.Level2Days",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -5194,6 +6103,8 @@ window.WIKI_BUNDLE = {
       "_id": "doug_l3_days",
       "_anchor": "godot/scripts/DougBruceBond.cs :: DougBruceBond.Level3Days",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -5205,6 +6116,8 @@ window.WIKI_BUNDLE = {
       "_id": "doug_angle",
       "_anchor": "godot/scripts/DougBruceBond.cs :: DougBruceBond.DougAngleBonusMult",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -5216,6 +6129,8 @@ window.WIKI_BUNDLE = {
       "_id": "bruce_angle",
       "_anchor": "godot/scripts/DougBruceBond.cs :: DougBruceBond.BruceAngleBonusMult",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -5227,6 +6142,8 @@ window.WIKI_BUNDLE = {
       "_id": "bruce_range",
       "_anchor": "godot/scripts/DougBruceBond.cs :: DougBruceBond.BruceRangeBonusMult",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -5238,6 +6155,8 @@ window.WIKI_BUNDLE = {
       "_id": "bond_aura_production",
       "_anchor": "godot/scripts/DougBruceBond.cs :: DougBruceBond.AuraProductionMult",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -5249,6 +6168,8 @@ window.WIKI_BUNDLE = {
       "_id": "bond_aura_damage",
       "_anchor": "godot/scripts/DougBruceBond.cs :: DougBruceBond.AuraDamageTakenMult",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -5260,6 +6181,8 @@ window.WIKI_BUNDLE = {
       "_id": "bond_aura_radius",
       "_anchor": "godot/scripts/DougBruceBond.cs :: DougBruceBond.DefaultAuraRadius",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -5271,6 +6194,8 @@ window.WIKI_BUNDLE = {
       "_id": "village_siege_zombies",
       "_anchor": "godot/scripts/VillageRescue.cs :: SiegeZombieCount",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -5282,6 +6207,8 @@ window.WIKI_BUNDLE = {
       "_id": "village_bark_radius",
       "_anchor": "godot/scripts/VillageRescue.cs :: BarkTriggerRadius",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -5293,6 +6220,8 @@ window.WIKI_BUNDLE = {
       "_id": "bruce_guard_efficiency",
       "_anchor": "godot/scripts/DougBruceBond.cs :: DougBruceBond.BruceGuardEfficiency",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -5304,6 +6233,8 @@ window.WIKI_BUNDLE = {
       "_id": "dog_gear_unlock_level",
       "_anchor": "godot/scripts/DougBruceBond.cs :: DougBruceBond.DogGearUnlockLevel",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -5315,6 +6246,8 @@ window.WIKI_BUNDLE = {
       "_id": "dog_hunger_cap",
       "_anchor": "godot/scripts/DogHungerState.cs :: Cap",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -5326,6 +6259,8 @@ window.WIKI_BUNDLE = {
       "_id": "dog_hunger_eat",
       "_anchor": "godot/scripts/DogHungerState.cs :: EatGain",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -5337,6 +6272,8 @@ window.WIKI_BUNDLE = {
       "_id": "dog_hunger_drain",
       "_anchor": "godot/scripts/DogHungerState.cs :: ResolvePhase",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -5348,6 +6285,8 @@ window.WIKI_BUNDLE = {
       "_id": "nurse_l2_surgeries",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: NightingalePerk.Level2ThresholdSurgeries",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -5359,6 +6298,8 @@ window.WIKI_BUNDLE = {
       "_id": "nurse_l3_surgeries",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: NightingalePerk.Level3ThresholdSurgeries",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -5370,6 +6311,8 @@ window.WIKI_BUNDLE = {
       "_id": "surgery_base_nurse",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: NightingalePerk.NightingaleSurgeryBasePoints",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -5381,28 +6324,34 @@ window.WIKI_BUNDLE = {
       "_id": "surgery_base_camp_bonus",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: NightingalePerk.CampSurgeryBaseBonus",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
       "label": "2 级 全营感染条速度降低",
       "who": "南丁格尔",
-      "value": 10,
+      "value": 15,
       "unit": "%",
       "settled": true,
       "_id": "nurse_l2_infection",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: NightingalePerk.Level2InfectionReduction",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
       "label": "3 级 全营感染条速度再降低（永续）",
       "who": "南丁格尔",
-      "value": 5,
+      "value": 10,
       "unit": "%",
       "settled": true,
       "_id": "nurse_l3_infection",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: NightingalePerk.Level3InfectionReduction",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -5414,6 +6363,8 @@ window.WIKI_BUNDLE = {
       "_id": "christine_declines",
       "_anchor": "godot/scripts/ChristineRequestLogic.cs :: DeclinesToLeave",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -5425,6 +6376,8 @@ window.WIKI_BUNDLE = {
       "_id": "christine_raider_wounded",
       "_anchor": "godot/scripts/TutorialRaidLogic.cs :: RaiderWoundedThreshold",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -5436,6 +6389,8 @@ window.WIKI_BUNDLE = {
       "_id": "christine_self_hurt",
       "_anchor": "godot/scripts/TutorialRaidLogic.cs :: ChristineHurtThreshold",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -5447,6 +6402,8 @@ window.WIKI_BUNDLE = {
       "_id": "merchant_buy_rate",
       "_anchor": "godot/scripts/MerchantTrade.cs :: BuyRatePercent",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -5458,6 +6415,8 @@ window.WIKI_BUNDLE = {
       "_id": "merchant_sell_rate",
       "_anchor": "godot/scripts/MerchantTrade.cs :: SellRatePercent",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -5469,6 +6428,8 @@ window.WIKI_BUNDLE = {
       "_id": "merchant_gap_min",
       "_anchor": "godot/scripts/MerchantSchedule.cs :: 构造默认 minGap",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -5480,6 +6441,8 @@ window.WIKI_BUNDLE = {
       "_id": "merchant_gap_max",
       "_anchor": "godot/scripts/MerchantSchedule.cs :: 构造默认 maxGap",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -5491,6 +6454,8 @@ window.WIKI_BUNDLE = {
       "_id": "zombie_dressed_rate",
       "_anchor": "src/DeadSignal.Combat/ZombieOutfit.cs :: Presets（权重和）",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -5502,6 +6467,8 @@ window.WIKI_BUNDLE = {
       "_id": "zombie_outfit_count",
       "_anchor": "src/DeadSignal.Combat/ZombieOutfit.cs :: Presets",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -5513,6 +6480,8 @@ window.WIKI_BUNDLE = {
       "_id": "supermarket_ambushers",
       "_anchor": "godot/scripts/SupermarketAmbush.cs :: AmbushRaiderCount",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -5524,6 +6493,8 @@ window.WIKI_BUNDLE = {
       "_id": "elite_weight_elite_riot_police",
       "_anchor": "src/DeadSignal.Combat/ZombieOutfit.cs :: ElitePresets",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -5535,6 +6506,8 @@ window.WIKI_BUNDLE = {
       "_id": "elite_layers_elite_riot_police",
       "_anchor": "src/DeadSignal.Combat/ZombieOutfit.cs :: ElitePresets",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -5546,6 +6519,8 @@ window.WIKI_BUNDLE = {
       "_id": "elite_weight_elite_soldier",
       "_anchor": "src/DeadSignal.Combat/ZombieOutfit.cs :: ElitePresets",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
     },
     {
@@ -5557,7 +6532,356 @@ window.WIKI_BUNDLE = {
       "_id": "elite_layers_elite_soldier",
       "_anchor": "src/DeadSignal.Combat/ZombieOutfit.cs :: ElitePresets",
       "_icon": "",
+      "description": "",
+      "userNote": "",
       "sync": ""
+    }
+  ]
+},
+    "world-graph": {
+  "id": "world-graph",
+  "label": "调查点路线",
+  "source": "godot/data/world_graph.json",
+  "note": "调查点是**网状**的：要先**去过**前置的点、并且把它**探索到 50% 以上**，才走得到后面的点（两个条件缺一不可——去过但只翻了两成，不算数）。开局只有两个简单的点开着，一个在营地**东边**、一个在**西北**，从这两条路往外铺开，中途多次交汇，最后在**金手指帮根据地**收口（那是全图唯一要求「全部前置」的点——两条路都得走完）。\n\n\uD83D\uDD34 **这张表就是那张图**：改「前置调查点」就等于重排路线，改完 agent 同步回 godot/data/world_graph.json 即可，**不用改任何代码**。\n⚠️ 别把一个点的前置排成环（甲要乙、乙要甲），也别让某个点谁都到不了——游戏启动时的自检会当场报出来。",
+  "columns": [
+    {
+      "key": "place",
+      "label": "调查点",
+      "type": "text",
+      "primary": true,
+      "hint": "玩家在世界地图上看到的名字。"
+    },
+    {
+      "key": "start",
+      "label": "开局起点",
+      "type": "chip",
+      "hint": "开局就能去的两个点，写它相对营地的方向（东 / 西北）。非起点留空。"
+    },
+    {
+      "key": "prereq",
+      "label": "前置调查点",
+      "type": "text",
+      "hint": "要先去过、并且把它探索到 50% 以上，才走得到这个点。多个用「、」隔开。留空 = 起点。"
+    },
+    {
+      "key": "prereqMode",
+      "label": "前置要求",
+      "type": "chip",
+      "hint": "任一 = 前置里随便满足一个就解锁（这就是「网」：多条路通到同一个地方）。全部 = 每个前置都要满足。"
+    },
+    {
+      "key": "danger",
+      "label": "危险度",
+      "type": "chip",
+      "hint": "去之前唯一该知道的事：这趟要拿多少伤病和人命去换。留空 = 还没定级（地图上不显示）。"
+    },
+    {
+      "key": "size",
+      "label": "地图大小",
+      "type": "chip",
+      "hint": "内容量：小≈1~2 天 / 中≈3~5 天 / 大≈5 天以上。与危险度是两回事——大地图不一定危险，小地图也可能要命。"
+    },
+    {
+      "key": "travelMinutes",
+      "label": "单程行程",
+      "type": "number",
+      "hint": "从营地走到那儿要多少分钟。"
+    },
+    {
+      "key": "description",
+      "label": "简介",
+      "type": "longtext",
+      "hint": "**玩家在游戏里看到的描述**。改了它，agent 会把新文案同步进代码。（有几个分区代码里还没有描述字段——你照样可以写，写了就是在告诉 agent「这里该有一个」。）"
+    },
+    {
+      "key": "userNote",
+      "label": "备注",
+      "type": "note",
+      "usernote": true,
+      "hint": "**你的设计笔记，不进游戏**——想到什么特殊效果就写在这（比如「这把锤子应该能砸开保险箱」）。它不会被同步成游戏文案，但 agent 每次跑抽取器都会看到你新写的备注。"
+    },
+    {
+      "key": "_id",
+      "label": "内部 id（勿改）",
+      "type": "text",
+      "internal": true
+    },
+    {
+      "key": "_anchor",
+      "label": "代码位置（勿改）",
+      "type": "text",
+      "internal": true
+    },
+    {
+      "key": "sync",
+      "label": "同步状态",
+      "type": "chip",
+      "readonly": true,
+      "hint": "空 = 已在代码里。「新增/删除·待同步进代码」= 你在网页上的改动还没进游戏，需要 agent 同步到 C#。"
+    },
+    {
+      "key": "_icon",
+      "label": "图标",
+      "type": "text",
+      "internal": true,
+      "hint": "godot/assets/items/<这个>.png（映射表在 godot/scripts/ItemIcons.cs）"
+    }
+  ],
+  "rows": [
+    {
+      "place": "消防站",
+      "start": "西北",
+      "prereq": "",
+      "prereqMode": "",
+      "danger": "低危",
+      "size": "小",
+      "travelMinutes": 3,
+      "description": "镇西北的街区消防站。全图最近、最安全的地方——三只丧尸，车库里一只都没有。消防斧就挂在器材墙上。",
+      "userNote": "起点·西北。全图唯一低危点，行程最短（3 分钟）。低危 ⇒ 回报也低：只有基础物资，没有白银/枪械/弹药。它是永久开着的 —— 走东路的玩家想回头铺西北，随时可以。",
+      "_id": "消防站",
+      "_anchor": "godot/data/world_graph.json :: nodes[]",
+      "sync": "",
+      "_icon": ""
+    },
+    {
+      "place": "河边小屋",
+      "start": "东",
+      "prereq": "",
+      "prereqMode": "",
+      "danger": "",
+      "size": "小",
+      "travelMinutes": 6,
+      "description": "镇东临河的一间猎人小屋。就一间屋子，翻得快。墙上那口枪柜是开局唯一够得着的枪。",
+      "userNote": "起点·东。五处搜刮点的单屋小点，跟消防站构成开局两条路的起手。",
+      "_id": "河边小屋",
+      "_anchor": "godot/data/world_graph.json :: nodes[]",
+      "sync": "",
+      "_icon": ""
+    },
+    {
+      "place": "超市",
+      "start": "",
+      "prereq": "消防站",
+      "prereqMode": "任一",
+      "danger": "",
+      "size": "中",
+      "travelMinutes": 5,
+      "description": "货架早被搬空了大半，但里圈还堆着别人囤的东西——有人守着它。",
+      "userNote": "西北线第二站。关内有幸存者骗局伏击：早期的第一堂课——不是所有活人都是朋友。",
+      "_id": "超市",
+      "_anchor": "godot/data/world_graph.json :: nodes[]",
+      "sync": "",
+      "_icon": ""
+    },
+    {
+      "place": "南丁格尔的小药店",
+      "start": "",
+      "prereq": "消防站",
+      "prereqMode": "任一",
+      "danger": "",
+      "size": "小",
+      "travelMinutes": 6,
+      "description": "街角的小药店，柜台后还剩几盒药。有个护士躲在后屋。",
+      "userNote": "西北线支线。小点（5 处），药的大头在医院。关内可招募护士 —— 医疗线的入口。",
+      "_id": "药店",
+      "_anchor": "godot/data/world_graph.json :: nodes[]",
+      "sync": "",
+      "_icon": ""
+    },
+    {
+      "place": "联合收割机仓库",
+      "start": "",
+      "prereq": "河边小屋",
+      "prereqMode": "任一",
+      "danger": "",
+      "size": "中",
+      "travelMinutes": 7,
+      "description": "镇东田野里的农机棚，带一个阁楼。阁楼那口铁皮箱压在最深处。",
+      "userNote": "东线·很早期（用户拍板前移）。工具线的关键节点：消防斧 + 《进阶木匠技术》同馆 —— 木工那条线从这里开。与消防站构成两条路的对称：西北给【消防斧本身】，东路给【造消防斧的能力】。",
+      "_id": "联合收割机仓库",
+      "_anchor": "godot/data/world_graph.json :: nodes[]",
+      "sync": "",
+      "_icon": ""
+    },
+    {
+      "place": "东部新村",
+      "start": "",
+      "prereq": "河边小屋",
+      "prereqMode": "任一",
+      "danger": "",
+      "size": "中",
+      "travelMinutes": 4,
+      "description": "半建成的迁建安置区：排屋、工地、还没拆的老屋。建材和工具的大户，一户户翻得过来。",
+      "userNote": "东线第二站。30 处搜刮点、行程仅 4 分钟 —— 前期修围栏/工作台的建材就出在这儿。",
+      "_id": "住宅区",
+      "_anchor": "godot/data/world_graph.json :: nodes[]",
+      "sync": "",
+      "_icon": ""
+    },
+    {
+      "place": "加油站",
+      "start": "",
+      "prereq": "超市",
+      "prereqMode": "任一",
+      "danger": "",
+      "size": "中",
+      "travelMinutes": 7,
+      "description": "镇西边的加油站：加油区、便利店、修车棚，还有地下油罐。燃油大户。",
+      "userNote": "西北线第三站。燃油的主要来源。",
+      "_id": "加油站",
+      "_anchor": "godot/data/world_graph.json :: nodes[]",
+      "sync": "",
+      "_icon": ""
+    },
+    {
+      "place": "下水道",
+      "start": "",
+      "prereq": "超市、东部新村",
+      "prereqMode": "任一",
+      "danger": "低危",
+      "size": "小",
+      "travelMinutes": 5,
+      "description": "镇子底下的排水系统。手电照不了多远，每个拐角后面都可能有东西——但大多数时候什么都没有。水声一直在响。",
+      "userNote": "\uD83D\uDD34 汇合点·前中期（用户新增）。小 + 低危 + 几乎没有战斗 —— 恐怖靠黑暗/拐角/视野受限，不靠敌人数量。最深处有可招募的幸存者「耗子」。前置给了超市（西北）和东部新村（东），两条路都能到。关卡本体由 impl-sewer 做。",
+      "_id": "下水道",
+      "_anchor": "godot/data/world_graph.json :: nodes[]",
+      "sync": "",
+      "_icon": ""
+    },
+    {
+      "place": "城市之巅瞭望观景台",
+      "start": "",
+      "prereq": "超市、东部新村",
+      "prereqMode": "任一",
+      "danger": "",
+      "size": "小",
+      "travelMinutes": 8,
+      "description": "城里的高层观景台。天台上那架望远镜还能转 —— 从这儿能看见很远的北边。",
+      "userNote": "\uD83D\uDD34 汇合点·中期。望远镜 = 尸潮目击 ⇒ 开启尸潮倒计时，所以它必须排在中段：太早玩家还没立住，太晚就来不及了。",
+      "_id": "城市之巅瞭望观景台",
+      "_anchor": "godot/data/world_graph.json :: nodes[]",
+      "sync": "",
+      "_icon": ""
+    },
+    {
+      "place": "南林村庄",
+      "start": "",
+      "prereq": "东部新村、城市之巅瞭望观景台",
+      "prereqMode": "任一",
+      "danger": "",
+      "size": "大",
+      "travelMinutes": 7,
+      "description": "南边林带里的一个村子，被丧尸围着。村里有间上锁的屋子，里面传出狗叫。",
+      "userNote": "\uD83D\uDD34 汇合点·中期。道格与布鲁斯的正史入队地。村中心的铁匠铺是全游戏铁的主要来源（铸铁大门要 48 铁）⇒ 资源线的关键节点。30 处搜刮点的大点。",
+      "_id": "南林村庄",
+      "_anchor": "godot/data/world_graph.json :: nodes[]",
+      "sync": "",
+      "_icon": ""
+    },
+    {
+      "place": "守林人小屋",
+      "start": "",
+      "prereq": "联合收割机仓库、城市之巅瞭望观景台",
+      "prereqMode": "任一",
+      "danger": "",
+      "size": "小",
+      "travelMinutes": 10,
+      "description": "森林深处的一间小屋，远离城镇。屋里没什么东西，后院的树上吊着一个人。",
+      "userNote": "\uD83D\uDD34 汇合点·中期（用户拍板后移）。行程最长（10 分钟）。哥顿的上吊尸 + 日记 B —— 【金手指帮那条线索链的起点】，所以它必须排在金手指帮之前。",
+      "_id": "守望者森林小屋",
+      "_anchor": "godot/data/world_graph.json :: nodes[]",
+      "sync": "",
+      "_icon": ""
+    },
+    {
+      "place": "废弃医院",
+      "start": "",
+      "prereq": "南丁格尔的小药店、加油站",
+      "prereqMode": "任一",
+      "danger": "中危",
+      "size": "大",
+      "travelMinutes": 8,
+      "description": "城北的废弃医院。全城最多的丧尸都在里面，但它是栋建筑——有门、有分区、有能关上的防火门。药房和手术层在最深处。",
+      "userNote": "\uD83D\uDD34 汇合点·中期。全游戏手术与治疗的补给来源 ⇒ 排在中段：太早玩家还用不上，太晚人已经死了。大地图 + 中危（能绕、能关门、能选择不打）。【它是西北链的门户】—— 两个前置（药店/加油站）都只长在西北路上。",
+      "_id": "医院",
+      "_anchor": "godot/data/world_graph.json :: nodes[]",
+      "sync": "",
+      "_icon": ""
+    },
+    {
+      "place": "金手指帮根据地",
+      "start": "",
+      "prereq": "守林人小屋",
+      "prereqMode": "任一",
+      "danger": "",
+      "size": "中",
+      "travelMinutes": 9,
+      "description": "他们的据点。八个人守着，个个带伤 —— 像是刚打完一场恶战。",
+      "userNote": "\uD83D\uDD34 中期（用户拍板下沉，原为终局）。【单前置＝线索链】：只能从守林人小屋进来 —— 先在后院那棵树上看见哥顿的尸体、读到日记 B，才知道这伙人是谁、在哪。给它加任何 OR 前置都会让玩家绕开那具尸体，线索白挂。网状性由守林人小屋本身承担（它是两路可达的汇合点）。【东链的起点】。用户拍板把守备的手枪全撤了（4 短剑 + 4 匕首）：中期该打得动，但枪一响仍然是死。",
+      "_id": "金手指帮根据地",
+      "_anchor": "godot/data/world_graph.json :: nodes[]",
+      "sync": "",
+      "_icon": ""
+    },
+    {
+      "place": "难民营地",
+      "start": "",
+      "prereq": "废弃医院",
+      "prereqMode": "任一",
+      "danger": "",
+      "size": "中",
+      "travelMinutes": 8,
+      "description": "临时搭起的一片平房，一间挨着一间。过道窄得只容一人，灯早就没了。物资散落在每一个小房间里——门后面也是。",
+      "userNote": "\uD83D\uDD34 后期·【西北链】（用户新增）。纯玩法关：视野受限 + 过道狭窄 + 开门跳脸的丧尸。它是【军方做了什么】这条链的中段 —— 人去楼空的平房区，你还不知道他们去哪了。关卡本体由 impl-lategame 做。",
+      "_id": "难民营地",
+      "_anchor": "godot/data/world_graph.json :: nodes[]",
+      "sync": "",
+      "_icon": ""
+    },
+    {
+      "place": "斯图尔特家族庄园",
+      "start": "",
+      "prereq": "金手指帮根据地",
+      "prereqMode": "任一",
+      "danger": "高危",
+      "size": "中",
+      "travelMinutes": 8,
+      "description": "镇西的农庄，如今盘踞着一伙持械的劫掠者，门口还立着岗哨。农庄本身并不富裕。",
+      "userNote": "\uD83D\uDD34 后期·【东链】末端，终局的直接前置。全图唯一高危点：7 个健全的持械劫掠者 + 3 个岗哨。高危不换来高回报——点位本身穷，回报只长在劫掠者身上，先打赢才有得扒。authored 剧情（收留流浪者被背刺）= 【人做了什么】。",
+      "_id": "斯图尔特家族庄园",
+      "_anchor": "godot/data/world_graph.json :: nodes[]",
+      "sync": "",
+      "_icon": ""
+    },
+    {
+      "place": "破败教堂",
+      "start": "",
+      "prereq": "难民营地",
+      "prereqMode": "任一",
+      "danger": "",
+      "size": "中",
+      "travelMinutes": 9,
+      "description": "教堂里空得能听见自己的脚步。穿过中殿的盲区，推开后门——后院的墓地里，站满了丧尸。墙上是用血写的字。",
+      "userNote": "\uD83D\uDD34 后期·【西北链】末端，终局的直接前置（用户新增）。剧情核心：军方留下的、烧了一半的忏悔录 + 被军方屠杀的人用血写在墙上的辱骂。【它是广播台的强制前置】—— 在你决定要不要回复军方之前，先让你看到军方干了什么。关卡本体由 impl-lategame 做。",
+      "_id": "破败教堂",
+      "_anchor": "godot/data/world_graph.json :: nodes[]",
+      "sync": "",
+      "_icon": ""
+    },
+    {
+      "place": "广播台",
+      "start": "",
+      "prereq": "破败教堂、斯图尔特家族庄园",
+      "prereqMode": "全部",
+      "danger": "",
+      "size": "中",
+      "travelMinutes": 11,
+      "description": "北面山脊上的通讯发射塔。机房里那台发射机也许还能说话。",
+      "userNote": "\uD83D\uDD34 终局（用户拍板上升，原为中后期）。全图【唯一】的「全部前置」：破败教堂【且】斯图尔特家族庄园 —— 两条证据链都得走完。取得「发出设备」⇒ 电台解锁抉择：回复军方（结局②：军方来屠杀你的营地）／呼叫南方（结局③：唯一生路）。这是全游戏最重的一次道德抉择，它需要证据：西北链让你看见【军方做了什么】，东链让你看见【人做了什么】。行程最远（11 分钟）。",
+      "_id": "广播台",
+      "_anchor": "godot/data/world_graph.json :: nodes[]",
+      "sync": "",
+      "_icon": ""
     }
   ]
 },

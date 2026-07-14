@@ -69,8 +69,8 @@ public static class DogGearCatalog
     /// <summary>铁丝头甲（头·轻便）。</summary>
     public const string WireHelmetKey = "铁丝头甲";
 
-    /// <summary>口袋狗衣携带容量加成（探索出队负重）：数据表『护甲表』定 6kg（[SPEC-B18]，旧值 12kg 作废）。</summary>
-    public const float PocketVestCapacity = 6f;
+    /// <summary>口袋狗衣携带容量加成（探索出队负重）：用户在数值表上手改 6kg → <b>8kg</b>（更早的 12kg 早已作废）。</summary>
+    public const float PocketVestCapacity = 8f;
 
     /// <summary>五件套定义（键 → 定义）。</summary>
     public static readonly IReadOnlyDictionary<string, DogGearDef> Defs = new Dictionary<string, DogGearDef>

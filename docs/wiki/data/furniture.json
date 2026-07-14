@@ -30,6 +30,19 @@
       "hint": "自动算的：通用规则是还一半（向下取整），木材例外——一半变木料、一半变废木料。要改 ⇒ 改「建造材料」。（想改返还比例本身，那是引擎规则，跟 agent 说。）"
     },
     {
+      "key": "description",
+      "label": "简介",
+      "type": "longtext",
+      "hint": "**玩家在游戏里看到的描述**。改了它，agent 会把新文案同步进代码。（有几个分区代码里还没有描述字段——你照样可以写，写了就是在告诉 agent「这里该有一个」。）"
+    },
+    {
+      "key": "userNote",
+      "label": "备注",
+      "type": "note",
+      "usernote": true,
+      "hint": "**你的设计笔记，不进游戏**——想到什么特殊效果就写在这（比如「这把锤子应该能砸开保险箱」）。它不会被同步成游戏文案，但 agent 每次跑抽取器都会看到你新写的备注。"
+    },
+    {
       "key": "_id",
       "label": "内部 id",
       "type": "text",
@@ -64,26 +77,32 @@
       "salvage": "木料×4、废木料×4、钉子×4",
       "_id": "工作台",
       "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": ""
     },
     {
       "name": "改装台",
-      "materials": "木料×8、废金属×4、机械零件×2、钉子×6",
+      "materials": "木料×8、铁×4、机械零件×2、钉子×6",
       "buildMinutes": 200,
-      "salvage": "木料×2、废木料×2、废金属×2、机械零件×1、钉子×3",
+      "salvage": "木料×2、废木料×2、铁×2、机械零件×1、钉子×3",
       "_id": "改装台",
       "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": ""
     },
     {
       "name": "烹饪台",
-      "materials": "石料×8、木料×6、废金属×3、钉子×4",
+      "materials": "石料×8、木料×6、铁×3、钉子×4",
       "buildMinutes": 180,
-      "salvage": "石料×4、木料×1、废木料×1、废金属×1、钉子×2",
+      "salvage": "石料×4、木料×1、废木料×1、铁×1、钉子×2",
       "_id": "烹饪台",
       "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": ""
     },
@@ -94,6 +113,8 @@
       "salvage": "木料×2、废木料×2、钉子×3",
       "_id": "住宅-柜子",
       "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": ""
     },
@@ -104,6 +125,8 @@
       "salvage": "木料×3、废木料×3、钉子×3",
       "_id": "住宅-衣柜",
       "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": ""
     },
@@ -114,6 +137,8 @@
       "salvage": "木料×2、废木料×2、钉子×2",
       "_id": "住宅-展示柜",
       "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": ""
     },
@@ -124,6 +149,8 @@
       "salvage": "木料×3、废木料×3、布×2、钉子×3",
       "_id": "床",
       "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": ""
     },
@@ -134,6 +161,8 @@
       "salvage": "木料×2、废木料×2、钉子×2",
       "_id": "桌子",
       "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": ""
     },
@@ -144,6 +173,8 @@
       "salvage": "布×1、石料×2",
       "_id": "沙袋",
       "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": ""
     },
@@ -154,6 +185,8 @@
       "salvage": "铁丝×1",
       "_id": "陷阱",
       "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": ""
     }
