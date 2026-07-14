@@ -76,6 +76,10 @@
     <Compile Include="..\..\godot\scripts\CoverLogic.cs" Link="Consumed\CoverLogic.cs" />
     <!-- 沙袋（玩家可自由建造摆放的半身掩体）：规格 + 摆放校验。IsSolid/CarvesNavHole 恒 false 是它区别于"墙不能建"的全部理由。 -->
     <Compile Include="..\..\godot\scripts\SandbagSpec.cs" Link="Consumed\SandbagSpec.cs" />
+    <!-- 家具放置校验：不许贴着大门和围栏（防止拿家具堵寻路/搭 kill box） -->
+    <Compile Include="..\..\godot\scripts\PlacementRules.cs" Link="Consumed\PlacementRules.cs" />
+    <!-- 家具可跨越 + 跨过 −25% 移速（乘算）：类型级可跨判定（作业台不可跨）+ 减速场。对所有角色生效（含丧尸）。 -->
+    <Compile Include="..\..\godot\scripts\FurnitureTraversal.cs" Link="Consumed\FurnitureTraversal.cs" />
     <!-- 探索关墙体几何（锁屋/房间轮廓的墙段矩形）：碰撞体+导航障碍+视线遮挡三处同源。 -->
     <Compile Include="..\..\godot\scripts\ExplorationWalls.cs" Link="Consumed\ExplorationWalls.cs" />
     <!-- 开火噪音纯逻辑（无 Godot 依赖）：谁听得见（活着/当前无目标/敌对/在半径内）+ 武器噪音取值。空间侧广播归 Actor.EmitNoise。 -->
@@ -102,6 +106,10 @@
     <Compile Include="..\..\godot\scripts\InventoryStore.cs" Link="Consumed\InventoryStore.cs" />
     <!-- 材料目录纯数据（无 Godot 依赖，配方波地基之一）：MaterialCategory / MaterialDef→Item / Materials 目录 All/Find/Has/InCategory。 -->
     <Compile Include="..\..\godot\scripts\Materials.cs" Link="Consumed\Materials.cs" />
+    <!-- 物品图标映射（无 Godot 依赖）：物品引用键 → 图标分区/slug/素材出处；查不到回落占位图。纹理加载在 ItemIconTextures.cs（Godot 侧，不进单测）。 -->
+    <Compile Include="..\..\godot\scripts\ItemIcons.cs" Link="Consumed\ItemIcons.cs" />
+    <!-- 游戏内素材署名文本（无 Godot 依赖）：game-icons.net 是 CC BY 3.0，署名是硬条件；CreditsContentTests 钉死它不被删。 -->
+    <Compile Include="..\..\godot\scripts\CreditsContent.cs" Link="Consumed\CreditsContent.cs" />
     <!-- 批次18 弹药源（无 Godot 依赖）：玩家吃营地共享库存(InventoryAmmoSource)、敌方无库存模型→无限(UnlimitedAmmoSource)。 -->
     <Compile Include="..\..\godot\scripts\AmmoSource.cs" Link="Consumed\AmmoSource.cs" />
     <!-- 白银分制内核（无 Godot 依赖，[SPEC-B14-补6]）：1 白银 = 100 分，FromWhole 整银→分 / Format 分→两位小数。 -->
@@ -144,6 +152,8 @@
     <Compile Include="..\..\godot\scripts\HealthConditions.cs" Link="Consumed\HealthConditions.cs" />
     <!-- [SPEC-B14-补3] 感染疗程每昼夜推进纯决策（无 Godot 依赖）：无疗程/无感染/断药/用药/治愈 五步态，供 CampMain 自动用药消费。 -->
     <Compile Include="..\..\godot\scripts\InfectionCourseLogic.cs" Link="Consumed\InfectionCourseLogic.cs" />
+    <!-- [批次21] 「给谁用什么医疗物资」的可用性判定（无 Godot 依赖）：用途分类/缺货/无对症目标/已在生效中，供医务面板与角色侧下令入口共用。 -->
+    <Compile Include="..\..\godot\scripts\MedicalOrder.cs" Link="Consumed\MedicalOrder.cs" />
     <!-- 幸存者个人已读书集纯逻辑（无 Godot 依赖）：配方书门槛按制作者本人已读判定。 -->
     <Compile Include="..\..\godot\scripts\ReadBookSet.cs" Link="Consumed\ReadBookSet.cs" />
     <!-- 每角色 authored 专属效果 + 读书进度纯逻辑（无 Godot 依赖）：书虫样板(累计阅读时间跨阈值升级/各级读速/L3 全营加成) + 按(读者,书)累计跨夜进度 + 有效读速合成。 -->
@@ -154,6 +164,8 @@
     <!-- 配方系统核心纯逻辑（无 Godot 依赖）：工作台三工具槽 + RecipeData/RecipeBook 草稿表 + CanCraft 四门槛判定 + Resolve 产出契约。 -->
     <Compile Include="..\..\godot\scripts\Workbench.cs" Link="Consumed\Workbench.cs" />
     <Compile Include="..\..\godot\scripts\Recipe.cs" Link="Consumed\Recipe.cs" />
+    <!-- [批次21·T14] 烹饪：热量点 catalog（FoodCalories）/ 份数通式（CookingLogic）/ 炊具两槽（CookStationState）/ 烹饪台设施（CookStation）。纯逻辑，零 Godot 依赖。 -->
+    <Compile Include="..\..\godot\scripts\CookingLogic.cs" Link="Consumed\CookingLogic.cs" />
     <Compile Include="..\..\godot\scripts\CraftingLogic.cs" Link="Consumed\CraftingLogic.cs" />
     <!-- 工时制在制品纯逻辑（无 Godot 依赖）：工时进度推进(人在台+生产相位才推进)/中断续作/封顶完工。 -->
     <Compile Include="..\..\godot\scripts\CraftingJob.cs" Link="Consumed\CraftingJob.cs" />
@@ -162,6 +174,10 @@
     <!-- 武器改装模型纯逻辑（无 Godot 依赖）：改装项/部位/大类 + 数值增量 + 合成校验(同部位冲突/不适用/锐击枪托覆盖) + 三类武器改装目录。 -->
     <Compile Include="..\..\godot\scripts\WeaponMod.cs" Link="Consumed\WeaponMod.cs" />
     <Compile Include="..\..\godot\scripts\WeaponModCatalog.cs" Link="Consumed\WeaponModCatalog.cs" />
+    <Compile Include="..\..\godot\scripts\WeaponModLogic.cs" Link="Consumed\WeaponModLogic.cs" />
+    <Compile Include="..\..\godot\scripts\ModdedWeaponRegistry.cs" Link="Consumed\ModdedWeaponRegistry.cs" />
+    <!-- PlacementRules 已由 impl-placement 登记在上方（见 ~:80）——改装台的 WeaponModLogic.BenchSpec 依赖它，
+         但**不要在这里再加一行**（duplicate Compile 会直接 NETSDK1022）。 -->
     <!-- 制作执行服务纯逻辑（无 Godot 依赖）：跨堆材料合计/够付/扣减 + Craft 实扣实产接库存/技能/书 + 改装消耗基础武器入变体。 -->
     <Compile Include="..\..\godot\scripts\CraftingService.cs" Link="Consumed\CraftingService.cs" />
     <!-- [批次20] 拆除回收纯逻辑（无 Godot 依赖）：返还表（通用 50%；木材例外 25% 木料 + 25% 废木料）+ 拆解工时 + 可拆判定 + 实扣实产。 -->
@@ -176,6 +192,8 @@
     <Compile Include="..\..\godot\scripts\DougBruceBond.cs" Link="Consumed\DougBruceBond.cs" />
     <!-- 批次6 双班硬日程+睡眠 debuff 纯逻辑（shift-sleep）：共用枚举 RaidTier 的单一定义源，watch-contest 的 RespondersFor 复用之。watch-contest 代 Link，shift-sleep 勿重复添加。 -->
     <Compile Include="..\..\godot\scripts\ShiftSchedule.cs" Link="Consumed\ShiftSchedule.cs" />
+    <Compile Include="..\..\godot\scripts\BedrestLogic.cs" Link="Consumed\BedrestLogic.cs" />
+    <Compile Include="..\..\godot\scripts\BedSpec.cs" Link="Consumed\BedSpec.cs" />
     <!-- 批次6 夜防「警戒力 vs 潜行力」对抗纯逻辑（watch-contest，无 Godot 依赖）：警戒力/潜行力合成 + Resolve 掷点对抗 + 未发现后果(先手/偷窃) + 三档响应名册 RespondersFor。 -->
     <Compile Include="..\..\godot\scripts\NightWatchContest.cs" Link="Consumed\NightWatchContest.cs" />
     <!-- 批次8 电台主线状态机纯逻辑（radio-mainline，无 Godot 依赖）：未知情→已收听广播→持发出设备→(终态分岔)已回复军方[回复日+3军袭钩子]|已呼叫南方[南逃flag]。 -->
