@@ -25,6 +25,9 @@ public static class CombatData
     /// <summary>丧尸爪击：近战钝器，穿透 3%（文档：棍棒级 3%）。天然钝器逐层保留自身穿透。</summary>
     public static Weapon ZombieClaw() => WeaponTable.ZombieClaw();
 
+    /// <summary>拳脚：人的天生武器＝空手近战（钝伤、低伤、快冷却）。空手/持弓弩近战都走它，见 <see cref="Unarmed.MeleeFor"/>。</summary>
+    public static Weapon Fists() => WeaponTable.Fists();
+
     /// <summary>人形两层甲：皮夹克(外套) + 长袖布衣(贴身)——劫掠者生成配置/战利品。</summary>
     public static IReadOnlyList<ArmorLayer> SurvivorArmor() => ArmorTable.SurvivorArmor();
 

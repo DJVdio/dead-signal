@@ -474,6 +474,14 @@ public abstract partial class Actor : CharacterBody2D
         }
         mobility *= System.Math.Max(combatSlow, CombatEffectCfg.ConcussionMoveSlowFactor);
 
+        // 家具减速：踩在可跨越家具（椅子/床/柜子…）上 → ×0.75（用户拍板 −25%）。**乘算**进本链，
+        // 不是从总数里减 25 个百分点：断腿(×0.7)的人跨椅子 = 0.7 × 0.75 = 0.525，不是加算的 0.45。
+        // 无场（探索关）⇒ ×1.0，零回归。作业台（工作台/改装台/烹饪台）是实心的、压根站不上去，不在场里。
+        if (Slowdowns is { } slow)
+        {
+            mobility *= slow.MultiplierAt(ToNumerics(GlobalPosition));
+        }
+
         Vector2 desired = mobility > 0 ? dir * MoveSpeed * (float)mobility : Vector2.Zero;
         // 把期望速度交给避障；OnVelocityComputed 收到安全速度后再 MoveAndSlide。
         _agent.Velocity = desired;
@@ -583,9 +591,12 @@ public abstract partial class Actor : CharacterBody2D
         (Weapon shot, string ammoKey) = ResolveRangedShot();
 
         // 远程武器出手前先定"打什么"：
-        // ①贴脸（≤PointBlankRange）→ 改枪托钝击近战（MeleeProfile：必中、无误差角、低伤慢速），不开火；
+        // ①贴脸（≤PointBlankRange）→ 改钝击近战（必中、无误差角、低伤），不开火。用哪把由 Unarmed.MeleeFor 定：
+        //   **枪 → 枪托**（MeleeProfile，慢而重，行为不变）；**弓/弩 → 拳脚**（用户拍板：「空手和持弓近战都视作
+        //   空手近战，造成钝伤」——弓不是钝器，没有"抡弓砸人"这种形态，贴脸时你能用的只有自己的手）；
         // ②目标超出武器 MaxRange → 本次不出手也不消耗冷却（正常由 _PhysicsProcess 的 MaxRange 交战门先挡下、寻路逼近，此为兜底）；
-        // ③弹药耗尽 → 开不了火，退化为枪托钝击（枪变烧火棍）；弓弩没枪托可抡 → 这一下根本打不出来。
+        // ③弹药耗尽 → 开不了火，退化为枪托钝击（枪变烧火棍）；弓弩没枪托可抡 → 隔着距离的这一下根本打不出来
+        //   （凑到贴脸就走①上拳头）。
         Weapon weapon = shot;
         bool fireRanged = IsRanged;
         int rounds = 1;  // 本次射击实际打出的发数（连发数，可能被余弹夹紧）；近战恒 1。
@@ -596,9 +607,9 @@ public abstract partial class Actor : CharacterBody2D
             {
                 return;
             }
-            if (dist <= PointBlankRange + Radius + target.Radius && shot.MeleeProfile() is { } stock)
+            if (dist <= PointBlankRange + Radius + target.Radius)
             {
-                weapon = stock;
+                weapon = Unarmed.MeleeFor(shot);   // 枪→枪托；弓/弩→拳脚
                 fireRanged = false;
             }
 
@@ -1052,6 +1063,19 @@ public abstract partial class Actor : CharacterBody2D
     /// 否则下一关会残留上一关的掩体矩形。</para>
     /// </summary>
     public static CoverField? Covers { get; set; }
+
+    /// <summary>
+    /// 场上的<b>家具减速场</b>（可跨越家具的占地 + 移速乘子，见 <see cref="FurnitureTraversal"/>）。
+    /// <c>null</c> = 没有场（探索关等）⇒ 谁都不减速，<b>零回归</b>。
+    ///
+    /// <para><b>为何是 static</b>：跟 <see cref="Covers"/> 一模一样的理由 —— 用户拍板「跨过家具减 25% 移速」
+    /// 时<b>没有限定玩家</b>，所以它必须对<b>一切 Actor 双向对称</b>生效：丧尸、劫掠者、布鲁斯跨过你的柜子，
+    /// 和你跨过它一样慢。挂在 Actor 基类的移速链上是<b>结构性</b>保证 —— <c>Pawn</c> / <c>Zombie</c> /
+    /// <c>Raider</c> / <c>Dog</c> 全都是 Actor，<b>想给谁开后门，得先把它从 Actor 里摘出去</b>。</para>
+    ///
+    /// <para><b>生命周期（务必遵守）</b>：营地建场时赋值，<b>退场时置回 null</b>，否则下一关会残留上一关的家具矩形。</para>
+    /// </summary>
+    public static TraversalField? Slowdowns { get; set; }
 
     /// <summary>Godot 坐标 → System.Numerics（<see cref="CoverLogic"/> 等纯逻辑零 Godot 依赖，用后者的 Vector2）。</summary>
     private static System.Numerics.Vector2 ToNumerics(Vector2 v) => new(v.X, v.Y);

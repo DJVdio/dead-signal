@@ -200,6 +200,23 @@ public sealed partial class Pawn : Actor
     public bool HasHealthConditions => Health.Conditions.Count > 0;
 
     /// <summary>
+    /// [批次21·impl-bedrest] 本昼夜的**休养流水账**：每过一个相位记一笔休养质量（不休养/地铺/床），
+    /// 黎明结算时折成 <see cref="RestLedger.RestFraction"/>/<see cref="RestLedger.BedFraction"/> 喂 <see cref="AdvanceHealthDay"/>，随后清账。
+    /// 白天在营地睡的相位就是从这里进的账 —— 旧模型整日只取一个布尔，那三个相位压根没人记。
+    /// </summary>
+    public RestLedger Rest { get; } = new();
+
+    /// <summary>
+    /// [批次21·impl-bedrest] 玩家是否已下令让他**卧床养病**（跨相位持续，直到叫他起来）。
+    /// 与 <see cref="PawnRole.Bedrest"/> 的关系：这是**意图**（玩家的令），Role 是**当下的执行态**（由 PawnRoleManager 每相位重排）。
+    /// 分开存是因为 Role 每次相位切换都会被重置成 Idle，令不能跟着丢。
+    /// </summary>
+    public bool BedrestOrdered { get; private set; }
+
+    /// <summary>下令卧床养病 / 叫他起床（放不放得下由 <see cref="BedrestLogic.CanOrderBedrest"/> 裁定，床位占用由 <see cref="BedRegistry"/> 管）。</summary>
+    public void SetBedrest(bool on) => BedrestOrdered = on;
+
+    /// <summary>
     /// [SPEC-B14-补3·护栏①] 感染**疗程指派**：当前指派用于治疗本人感染的药 key（抗生素/草药膏/蒲公英茶），null=未指派疗程。
     /// 营地每昼夜黎明自动扣一份该药并累进治疗进度，直到治愈/断药/撤销（防"忘点一天=冤死"）。以人为单位：一人一份疗程。
     /// </summary>
@@ -267,12 +284,18 @@ public sealed partial class Pawn : Actor
     /// 保持战斗层能力系数与医疗态一致。是否致死经返回值交营地统一走死亡路径。
     /// </summary>
     /// <param name="rng">感染 roll 随机源。</param>
-    /// <param name="resting">本昼夜是否卧床休养（减缓感染/疾病恶化、加速术后愈合）。</param>
+    /// <param name="resting">本昼夜是否卧床休养（减缓感染/疾病恶化、加速术后愈合）。**已被 <paramref name="restFraction"/> 取代**，仅在不传占比时回落。</param>
     /// <param name="healSpeedMultiplier">
     /// 全营恢复速度乘子（默认 1.0＝无光环，零回归）：山姆 3 级"英雄风范"光环 ×1.03（<c>SamPerk.CampHealSpeedMultiplier</c>），
     /// 由 <c>CampMain</c> 按当前营地人数算好传入。作用于术后愈合量，与玫瑰果茶/睡床的加算百分点是正交两轴。
     /// </param>
-    public HealthTickResult AdvanceHealthDay(IRandomSource rng, bool resting, bool restedInBed = false, double infectionChanceMultiplier = 1.0, double healSpeedMultiplier = 1.0)
+    /// <param name="restFraction">
+    /// [批次21·impl-bedrest] 本昼夜**休养占比** 0..1（默认 null → 回落布尔，零回归）：由 <see cref="RestLedger"/> 按相位累计。
+    /// **白天在营地睡的相位自此计入** —— 旧模型整日只取一个布尔且在黎明读到昨夜的角色，白天睡整天等于白睡。
+    /// </param>
+    /// <param name="bedFraction">[批次21·impl-bedrest] 本昼夜**睡床占比** 0..1（默认 null → 回落布尔）：地铺不吃这一轴，床要造。</param>
+    public HealthTickResult AdvanceHealthDay(IRandomSource rng, bool resting, bool restedInBed = false, double infectionChanceMultiplier = 1.0, double healSpeedMultiplier = 1.0,
+        double? restFraction = null, double? bedFraction = null)
     {
         ArchiveWounds();
         // [SPEC-B14-补2] 玫瑰果茶恢复加成：生效则本昼夜恢复效率 +RosehipTeaHealBonusPct 个百分点，随后自减一次计时。
@@ -282,7 +305,8 @@ public sealed partial class Pawn : Actor
             extraHealBonusPct = RosehipTeaHealBonusPct;
             _rosehipTeaHealTicks--;
         }
-        HealthTickResult result = Health.TickDay(rng, resting, restedInBed, infectionChanceMultiplier, extraHealBonusPct, healSpeedMultiplier);
+        HealthTickResult result = Health.TickDay(rng, resting, restedInBed, infectionChanceMultiplier, extraHealBonusPct, healSpeedMultiplier,
+            restFraction, bedFraction);
 
         foreach (string part in result.MaimedParts)
         {
@@ -488,13 +512,17 @@ public sealed partial class Pawn : Actor
     };
 
     // ================= §6 装备穿脱 API（供装备 UI 从库存调） =================
-    // 约定：入参为标识名（= 库存 Item.RefKey：武器名 / 护甲名）。武器名经 WeaponCatalog、
+    // 约定：入参为标识名（= 库存 Item.RefKey：武器名 / 护甲名）。武器名经 ModdedWeaponRegistry.WeaponByName、
     // 护甲名经 ApparelCatalog(占槽/覆盖) + ArmorLayerCatalog(防御数值) 解析。无法解析 → 返回 false，不改状态。
     // 每次穿脱后必调 SyncCombatFromEquipment() 重投生效战斗数据（AttackWeapon/DefenderArmor/…）。
 
-    /// <summary>玩家/敌方可用武器名 → 武器工厂输出（取自 <see cref="WeaponTable.Arsenal"/>，含手枪/匕首等 14 种）。</summary>
-    private static readonly IReadOnlyDictionary<string, Weapon> WeaponCatalog =
-        WeaponTable.Arsenal().ToDictionary(w => w.Name);
+    // ⚠️ 这里**曾经**有一个 `WeaponCatalog = WeaponTable.Arsenal().ToDictionary(...)` 的静态字典，
+    // 它是个 P0 陷阱：Arsenal 只含**原厂**武器，而玩家改装出来的「步枪（刺刀型）」是**运行时注册**的变体
+    // ⇒ 按名回查落空 ⇒ EquipWeapon 静默返 false ⇒ **玩家花了材料+工时改出来的枪，永远拿不起来**
+    //   （连带：利爪/创伤/刺刀三种枪托型态永远进不了战斗——枪都拿不到手里）。
+    // **那个字典已被整个删除，而不是"改成也查一下注册表"** —— 只要它还在，下一个人就还会去 TryGetValue 它。
+    // 现在武器名回查**只有一个入口**：ModdedWeaponRegistry.WeaponByName（先原厂表、后改装表；
+    // 对原厂武器行为完全不变 ⇒ 零回归）。CarryWeight / SaveMapper / CraftingPanel 走的也是它。
 
     /// <summary>
     /// 护甲名 → 生效护甲层（含防御数值）。汇集数据表『护甲表』的人形 14 件（[SPEC-B18]）：
@@ -525,11 +553,35 @@ public sealed partial class Pawn : Actor
     private IReadOnlySet<string> SeveredParts()
         => Body.Parts.Keys.Where(Body.IsGone).ToHashSet();
 
-    /// <summary>穿一件武器到某手（双手武器自动占两手）。断手/双持约束不满足则拒绝、状态不变。返回是否穿上。</summary>
+    /// <summary>
+    /// 穿一件武器到某手（双手武器自动占两手）。断手/双持约束不满足则拒绝、状态不变。返回是否穿上。
+    /// <para>
+    /// 手持光源门槛（<see cref="HeldLightState.BlocksWeaponEquip"/>）：<b>双手武器与光源互斥</b>——正举着火把
+    /// 就装不上步枪（需先 <see cref="UnequipLight"/>）。单手武器若首选手正被光源占用，则落到另一只手
+    /// （与 <see cref="EquipLight"/> 首选不成试另一手的范式对称），两手皆不可才拒绝。
+    /// </para>
+    /// </summary>
     public bool EquipWeapon(string weaponName, Hand hand)
     {
         ReconcileSeverance(); // 先把最新断肢态同步进持械模型，避免在已断的手上穿
-        if (!WeaponCatalog.TryGetValue(weaponName, out Weapon? w) || !_loadout.EquipToHand(w, hand))
+        // 先原厂表、后改装表——改装出来的变体（"步枪（刺刀型）"）也必须装得上。
+        if (ModdedWeaponRegistry.WeaponByName(weaponName) is not { } w)
+        {
+            return false;
+        }
+
+        if (HeldLightState.BlocksWeaponEquip(_heldLight, w, hand))
+        {
+            // 双手武器 → 两只手都被挡（与光源互斥），直接拒绝；单手武器 → 只有持光那只手被挡，改用另一只手。
+            Hand other = hand == Hand.Left ? Hand.Right : Hand.Left;
+            if (HeldLightState.BlocksWeaponEquip(_heldLight, w, other))
+            {
+                return false;
+            }
+            hand = other;
+        }
+
+        if (!_loadout.EquipToHand(w, hand))
         {
             return false;
         }
@@ -537,11 +589,19 @@ public sealed partial class Pawn : Actor
         return true;
     }
 
-    /// <summary>把一把武器双手持握（双手武器，或单手武器改双手握 +15%）：占两手。任一手断则拒绝。返回是否穿上。</summary>
+    /// <summary>
+    /// 把一把武器双手持握（双手武器，或单手武器改双手握 +15%）：占两手。任一手断、或正持手持光源
+    /// （双手握需两手俱在，与光源互斥——见 <see cref="HeldLightState.BlocksTwoHandedEquip"/>）则拒绝。返回是否穿上。
+    /// </summary>
     public bool EquipWeaponTwoHanded(string weaponName)
     {
         ReconcileSeverance();
-        if (!WeaponCatalog.TryGetValue(weaponName, out Weapon? w) || !_loadout.EquipTwoHanded(w))
+        if (HeldLightState.BlocksTwoHandedEquip(_heldLight))
+        {
+            return false; // 举着火把腾不出两只手：先放下光源
+        }
+        // 同上：改装变体也要能双手握。
+        if (ModdedWeaponRegistry.WeaponByName(weaponName) is not { } w || !_loadout.EquipTwoHanded(w))
         {
             return false;
         }
@@ -665,25 +725,27 @@ public sealed partial class Pawn : Actor
     /// <summary>
     /// 把两模型的当前态投影回 <see cref="Actor"/> 的战斗消费字段：
     /// 武器 = 主手武器（并按远程/近战套用手感：IsRanged/AttackRange/AttackCooldown）；护甲 = 已穿护甲层。
-    /// 空手（无主手武器）时保留上一件武器手感（空手战斗未建模，无拳头武器数据——见遗留决策点）。
+    /// <b>空手（无主手武器）= 拳脚</b>（<see cref="CombatData.Fists"/>，钝伤近战）——旧口径"保留上一件武器手感"
+    /// 是空手未建模时的权宜（卸了长剑还在拿长剑的数值打人），现已由天生武器「拳脚」取代。
     /// </summary>
     private void SyncCombatFromEquipment()
     {
-        if (_loadout.PrimaryWeapon is { } w)
+        // 空手 → 拳脚（用户拍板：空手近战＝钝伤）。持弓弩者的近战同样等于空手，但那是**出手那一刻**的
+        // 降级（Actor.TryAttack 走 Unarmed.MeleeFor），不改这里的持械投影——弓仍是弓，要靠它射箭。
+        Weapon w = _loadout.PrimaryWeapon ?? CombatData.Fists();
+
+        AttackWeapon = w;
+        // 冷却读武器权威间隔（WeaponTable 全局慢节奏值），不再硬编码手感常量；GripMode/操作能力系数仍在 EffectiveAttackInterval 叠乘。
+        AttackCooldown = w.AttackInterval;
+        if (w.IsRanged)
         {
-            AttackWeapon = w;
-            // 冷却读武器权威间隔（WeaponTable 全局慢节奏值），不再硬编码手感常量；GripMode/操作能力系数仍在 EffectiveAttackInterval 叠乘。
-            AttackCooldown = w.AttackInterval;
-            if (w.IsRanged)
-            {
-                IsRanged = true;
-                AttackRange = 260f;   // 远程：中距离（拟定待调；远程交战门权威口径为武器 MaxRange，此值主要作近战兜底）
-            }
-            else
-            {
-                IsRanged = false;
-                AttackRange = 26f;    // 近战（拟定待调）
-            }
+            IsRanged = true;
+            AttackRange = 260f;   // 远程：中距离（拟定待调；远程交战门权威口径为武器 MaxRange，此值主要作近战兜底）
+        }
+        else
+        {
+            IsRanged = false;
+            AttackRange = 26f;    // 近战（拟定待调；空手同近战——要凑到跟前才打得着）
         }
 
         DefenderArmor = BuildDefenderArmor();

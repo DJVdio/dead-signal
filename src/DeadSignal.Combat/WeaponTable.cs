@@ -208,11 +208,41 @@ public static class WeaponTable
         MaxRange = 260,          // 拟定待调（长枪管给出真实射程，但远不及民用栓动猎枪 420）
         FalloffStart = 90,       // 拟定待调
         FalloffFloor = 0.45,     // 拟定待调（土法枪管：出满伤段掉得比栓动猎枪 0.55 更狠）
-        StockMeleeDamageMin = 5,        // 拟定待调（长枪身重砸，略低于步枪 6~10）
-        StockMeleeDamageMax = 9,        // 拟定待调
-        StockMeleePenetration = 0.03,   // 拟定待调
-        StockMeleeInterval = 1.6,       // 拟定待调
+        // 枪托近战（3.0kg，土法长枪身）：见下方「枪托近战数值定稿」总说明。
+        StockMeleeDamageMin = 5,
+        StockMeleeDamageMax = 9,
+        StockMeleePenetration = 0.02,
+        StockMeleeInterval = 2.5,       // DPS 2.80
+        StockMeleeNoiseRadius = 105,
     };
+
+    // ═══════════════════════════ 枪托近战数值定稿（批次21·T7）═══════════════════════════
+    //
+    // 【它是什么】"打空了 / 被贴脸了，只好抡枪托砸"——**绝望手段**，不是一条武器路线。
+    //
+    // 【定稿前的 bug】旧值让步枪枪托打出 6~10 / 1.5s ＝ **5.33 伤/秒**，而棍棒是 10~13 / 2.4s ＝ **4.79**。
+    // 也就是说：**抡枪托比抡棍棒还猛**。那样的话"我该不该带把近战武器"根本不成其为一个选择——
+    // 带把枪就够了，它自带一根比棍棒更好的棍子。
+    //
+    // 【定稿口径】把七把枪的枪托 DPS 全部压进 **2.65 ~ 2.84** 这条窄带，即：
+    //
+    //        拳脚 2.08  ＜  【枪托 2.65~2.84】  ＜  匕首 2.86  ＜  棍棒 4.79  ＜  长剑/锤…
+    //
+    //   一句话：**比拳头强，但不如一把真正的刀。** 打空了的枪还能救命，但救不了场——
+    //   想打近战，就老老实实带把近战武器（或者去改装台把它改了，见 WeaponModCatalog 的三种型态）。
+    //
+    // 【重量怎么进数值】重量**不改变 DPS**（七把枪的 DPS 几乎一样平），只在「单击伤害 ↔ 冷却」之间**搬运**：
+    //   重枪（狙击 6.0kg：8~13 / 3.7s）单击痛、抡得慢；轻枪（手枪 1.0kg：3~6 / 1.7s）单击轻、抡得快。
+    //   这是对的——枪不是为砸人设计的，多重的枪你都是"拿反了在抡"，效率天花板一样低；
+    //   重量只决定你这一下砸得多狠、以及你多久才能再抡起来。重量取自 CarryWeight 的武器表（单一事实源）。
+    //
+    // 【穿透】一律 0.02~0.03（近乎无）——没装刺刀的枪托砸不穿甲。破甲是**武器**的特权（同拳脚 0）。
+    // 【噪音】按枪身质量 85（手枪柄）~125（狙击枪托），锚在棍棒 110。**不继承枪本体的枪声**
+    //   （砸不是打，没有枪声：步枪枪声 600 vs 其枪托 115），但也绝不是哑剧。
+    // 【弓弩没有这一段】它们没有枪托——空手/持弓的近战由 Unarmed（拳脚）承担，是另一位 agent 的活。
+    // 全部数值**拟定待调**。改这一段**不会**惊动 Sim：Duel 是 1v1 无距离对决，枪永远走不到"贴脸抡枪托"
+    //   那条分支 ⇒ Sim 的结算路径**读不到** StockMelee*（结构性零漂移，已 A/B 实证）。
+    // ═══════════════════════════════════════════════════════════════════════════════════
 
     /// <summary>手枪：远程锐器，穿透 15%（文档：手枪 15%）。数值采 Godot 值（8-14，此前 Sim 为 12-20）。</summary>
     public static Weapon Pistol() => new()
@@ -233,10 +263,12 @@ public static class WeaponTable
         MaxRange = 200,          // 拟定待调（手枪：近而陡）
         FalloffStart = 55,       // 拟定待调
         FalloffFloor = 0.5,      // 拟定待调
-        StockMeleeDamageMin = 3,        // 拟定待调（手枪柄砸击）
-        StockMeleeDamageMax = 6,        // 拟定待调
-        StockMeleePenetration = 0.02,   // 拟定待调
-        StockMeleeInterval = 1.2,       // 拟定待调
+        // 枪托近战（1.0kg，全表最轻）：拿枪柄敲人——最快、最弱、最安静的枪托。DPS 2.65（全表最低）。
+        StockMeleeDamageMin = 3,
+        StockMeleeDamageMax = 6,
+        StockMeleePenetration = 0.02,
+        StockMeleeInterval = 1.7,
+        StockMeleeNoiseRadius = 85,     // 全表最轻的枪托动静（枪声 350 → 砸击 85）
     };
 
     /// <summary>冲锋枪：远程锐器，穿透 18%。双手抵肩；枪托可贴脸钝击。
@@ -251,8 +283,11 @@ public static class WeaponTable
         Penetration = 0.18,
         DamageType = DamageType.Sharp,
         StructureFactor = 1.0,   // 砸墙系数：作用于枪托，不是子弹
+        // 双手抵肩、**不可双持**（用户拍板「保双手，放弃双持」）。这里曾挂过一行 `CanDualWield = true`，
+        // 但双手武器在 WeaponLoadout.EquipToHand 里直接短路走 EquipTwoHanded（占满两手）、根本进不了双持分支，
+        // 那行从来没生效过 ⇒ 已删。双手 +15% 攻速（DualWield.TwoHandedSpeedBonus）保留，B18「削冷却不削伤害」
+        // 那轮的平衡就是按含 +15% 的 DPS 调的。护栏见 TwoHandEnforcementTests.TwoHandedWeapons_AreNeverDualWieldable。
         TwoHanded = true,        // 拟定待调
-        CanDualWield = true,     // 用户拍板：放开可双持
         IsRanged = true,
         AmmoKey = AmmoKeys.ShortBullet,   // 冲锋枪：短子弹，三连发 → **3 发/次**。泼水一样的伤害，也泼水一样地烧弹：1 个零件的 8 发，够它扣两次半扳机。
         NoiseRadius = 500,           // 拟定待调：三连发＝一次扣扳机响三声，把整条街的注意力都请过来
@@ -266,10 +301,12 @@ public static class WeaponTable
         MaxRange = 280,          // 拟定待调（冲锋枪：中距，衰减中等）
         FalloffStart = 70,       // 拟定待调
         FalloffFloor = 0.45,     // 拟定待调
-        StockMeleeDamageMin = 4,        // 拟定待调（枪托钝击）
-        StockMeleeDamageMax = 7,        // 拟定待调
-        StockMeleePenetration = 0.02,   // 拟定待调
-        StockMeleeInterval = 1.3,       // 拟定待调
+        // 枪托近战（3.0kg，紧凑折叠托）：短促，但比手枪柄有分量。DPS 2.73。
+        StockMeleeDamageMin = 4,
+        StockMeleeDamageMax = 8,
+        StockMeleePenetration = 0.02,
+        StockMeleeInterval = 2.2,
+        StockMeleeNoiseRadius = 100,
     };
 
     /// <summary>步枪（军用定位，与民用"栓动猎枪"并存——用户拍板两把都有）：远程锐器，穿透 <b>40%</b>。双手抵肩；枪托可贴脸钝击。
@@ -300,10 +337,12 @@ public static class WeaponTable
         MaxRange = 550,          // 拟定待调（步枪：远而缓）
         FalloffStart = 200,      // 拟定待调
         FalloffFloor = 0.6,      // 拟定待调
-        StockMeleeDamageMin = 6,        // 拟定待调（枪托重砸）
-        StockMeleeDamageMax = 10,       // 拟定待调
-        StockMeleePenetration = 0.03,   // 拟定待调
-        StockMeleeInterval = 1.5,       // 拟定待调
+        // 枪托近战（4.0kg，制式实木托）：抵肩枪托重砸。DPS 2.83。
+        StockMeleeDamageMin = 6,
+        StockMeleeDamageMax = 11,
+        StockMeleePenetration = 0.03,
+        StockMeleeInterval = 3.0,
+        StockMeleeNoiseRadius = 115,
     };
 
     /// <summary>栓动猎枪（用户拍板新增，民用猎枪定位，与军用"步枪"并存）：远程锐器，单发郑重、栓动慢冷却。
@@ -328,10 +367,12 @@ public static class WeaponTable
         MaxRange = 420,          // 拟定待调（介于步枪 550 与自制猎枪 130）
         FalloffStart = 160,      // 拟定待调
         FalloffFloor = 0.55,     // 拟定待调
-        StockMeleeDamageMin = 6,        // 拟定待调（枪托重砸，同步枪）
-        StockMeleeDamageMax = 10,       // 拟定待调
-        StockMeleePenetration = 0.03,   // 拟定待调
-        StockMeleeInterval = 1.6,       // 拟定待调
+        // 枪托近战（3.5kg，厚重猎枪木托）：略轻于步枪。DPS 2.81。
+        StockMeleeDamageMin = 6,
+        StockMeleeDamageMax = 10,
+        StockMeleePenetration = 0.03,
+        StockMeleeInterval = 2.85,
+        StockMeleeNoiseRadius = 110,
     };
 
     /// <summary>狙击枪：远程锐器，穿透 70%（碾压多层甲，弹药稀缺是唯一约束）。双手抵肩；枪托可贴脸钝击。</summary>
@@ -353,10 +394,12 @@ public static class WeaponTable
         MaxRange = 900,          // 拟定待调（狙击：远而缓，末端仍高伤）
         FalloffStart = 450,      // 拟定待调
         FalloffFloor = 0.8,      // 拟定待调
-        StockMeleeDamageMin = 6,        // 拟定待调（长枪身重砸）
-        StockMeleeDamageMax = 11,       // 拟定待调
-        StockMeleePenetration = 0.03,   // 拟定待调
-        StockMeleeInterval = 1.6,       // 拟定待调
+        // 枪托近战（6.0kg，**全表最重最长**）：单击最痛、抡得最慢、砸下去最响。DPS 2.84（仍低于匕首 2.86）。
+        StockMeleeDamageMin = 8,
+        StockMeleeDamageMax = 13,
+        StockMeleePenetration = 0.03,
+        StockMeleeInterval = 3.7,       // 与尖头锤 3.7 同档——你抡的是一根 6kg 的铁管
+        StockMeleeNoiseRadius = 125,
     };
 
     /// <summary>
@@ -401,10 +444,12 @@ public static class WeaponTable
         MaxRange = 90,           // 拟定待调（全表最短——"射程较短"）
         FalloffStart = 18,       // 拟定待调（出膛即开始掉，满伤只在贴脸）
         FalloffFloor = 0.2,      // 拟定待调（全表最重衰减——"伤害衰减严重"）
-        StockMeleeDamageMin = 4,        // 拟定待调（枪托钝击，长管有分量）
-        StockMeleeDamageMax = 7,        // 拟定待调
-        StockMeleePenetration = 0.02,   // 拟定待调
-        StockMeleeInterval = 1.5,       // 拟定待调
+        // 枪托近战（3.2kg，敞口钢管）：一根管子，抡起来和自制猎枪同档。DPS 2.80。
+        StockMeleeDamageMin = 5,
+        StockMeleeDamageMax = 9,
+        StockMeleePenetration = 0.02,
+        StockMeleeInterval = 2.5,
+        StockMeleeNoiseRadius = 105,
     };
 
     // ==================== 弓弩（8 把：5 弓 + 3 弩） ====================
@@ -696,7 +741,34 @@ public static class WeaponTable
     };
 
     /// <summary>
-    /// 玩家/敌方可用武器全集（24 种：9 近战 + 7 枪 + 8 弓弩，不含天生的丧尸爪击/撕咬），Sim 聚合模拟按此顺序遍历。
+    /// 拳脚：人的天生武器 —— <b>空手近战</b>（用户拍板：「空手和持弓近战都视作空手近战，造成钝伤」）。
+    /// 拳打脚踢：钝伤、低伤害、快冷却、噪音全表最小、破甲为零。规则见 <see cref="Unarmed.MeleeFor"/>。
+    /// <para>
+    /// 同爪击/撕咬，是<b>天生武器</b>：<b>不入 <see cref="Arsenal"/></b>（不可穿脱、不进库存、不参与 Sim 遍历）
+    /// ⇒ 既有 Sim 基线结构性零漂移。
+    /// </para>
+    /// <para>
+    /// 数值拟定待调，梯度锚在既有表上：伤害 1~4（均值 2.5，低于全表最弱武器匕首 1~7 的 4.0，
+    /// 与狗咬 1~4 同档——赤手打人本就不该比一把刀更行）；穿透 0（全表唯一——皮夹克都能让拳头变成挠痒痒，
+    /// 破甲是<b>武器</b>的特权）；冷却 1.2s（全表最快，快过匕首 1.4s——拳头没有重量）；
+    /// 噪音 60（低于匕首 90、低于弓 70、高于走路 40——空手扭打是最安静的<b>攻击</b>，但绝不是哑剧）。
+    /// </para>
+    /// </summary>
+    public static Weapon Fists() => new()
+    {
+        Name = "拳脚",
+        Description = "你还有一双手。它们打不穿任何东西，但至少能让扑上来的那位知道你还没打算躺下。",
+        DamageMin = 1,           // 拟定待调
+        DamageMax = 4,           // 拟定待调（均值 2.5 < 匕首 4.0）
+        Penetration = 0,         // 赤手无破甲——全表唯一的 0
+        DamageType = DamageType.Blunt,   // 用户拍板：空手 = 钝伤
+        StructureFactor = 0.2,   // 砸墙系数：徒手拆墙近乎徒劳（只比射箭砸墙的 0.1 强一点）
+        NoiseRadius = 60,        // 拟定待调：全表最小的攻击噪音（< 匕首 90、< 弓 70）
+        AttackInterval = 1.2,    // 拟定待调：全表最快（< 匕首 1.4）
+    };
+
+    /// <summary>
+    /// 玩家/敌方可用武器全集（24 种：9 近战 + 7 枪 + 8 弓弩，不含天生的丧尸爪击/撕咬/拳脚），Sim 聚合模拟按此顺序遍历。
     /// 顺序与旧 Sim 行内武器表一致，便于对照基线；新武器一律**追加在末尾**，不插队——既有行的 Sim 数字不受影响
     /// （Sim 按 <c>cell.Idx</c> 派生随机种子，插队会打乱其后所有武器的随机流 ⇒ 基线漂移）。
     /// <para>

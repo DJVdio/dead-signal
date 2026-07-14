@@ -40,12 +40,16 @@ public class NewEquipmentDataTests
         Assert.True(fork.Penetration > 0);
     }
 
-    // ---- 冲锋枪：放开可双持（用户拍板） ----
+    // ---- 冲锋枪：双手抵肩、**不可双持**（用户拍板「保双手，放弃双持」，推翻旧的"放开可双持"口径） ----
 
     [Fact]
-    public void Smg_CanDualWield()
+    public void Smg_IsTwoHanded_AndNotDualWieldable()
     {
-        Assert.True(WeaponTable.Smg().CanDualWield);
+        Weapon smg = WeaponTable.Smg();
+        Assert.True(smg.TwoHanded);
+        // 旧口径曾断言 CanDualWield=true，但双手武器在 EquipToHand 里被短路、永远进不了双持分支，
+        // 那个标记从未生效 ⇒ 用户拍板删除。双持只对单手武器开放（设计文档 §5「双持限单手类」）。
+        Assert.False(smg.CanDualWield);
     }
 
     // ---- 两把新近战入 Arsenal ----

@@ -260,11 +260,24 @@ public class NoiseTests
     public void 枪托砸人_是近战量级的噪音_不是枪响也不是无声()
     {
         // 修正上一版：枪托曾被设成恒 0（无声）。但抡枪托砸人显然有动静——它是**近战**，该按近战计。
-        Weapon stock = WeaponTable.Rifle().MeleeProfile()!;
+        Weapon rifle = WeaponTable.Rifle();
+        Weapon stock = rifle.MeleeProfile()!;
 
         Assert.True(stock.NoiseRadius > 0, "抡枪托砸人不是哑剧");
-        Assert.True(stock.NoiseRadius < WeaponTable.Rifle().NoiseRadius, "但远不是开枪的动静");
-        Assert.Equal(NoiseLogic.StockMeleeNoiseRadius, stock.NoiseRadius);
+        Assert.True(stock.NoiseRadius < rifle.NoiseRadius / 2, "但远不是开枪的动静（枪声 600 vs 枪托 115）");
+
+        // [批次21·T7] 枪托噪音已**分枪型**（按枪身质量 85~125）：拿手枪柄敲人和抡一杆 6kg 狙击枪托砸下去，
+        // 动静不是一回事。全局常量 NoiseLogic.StockMeleeNoiseRadius(=110) 退化为**兜底默认值**——
+        // 只在武器没填 StockMeleeNoiseRadius 时生效。
+        Assert.Equal(rifle.StockMeleeNoiseRadius, stock.NoiseRadius);
+
+        // 兜底仍然管用：没填分枪型噪音的远程武器，回落到那个 110。
+        var noStockNoise = new Weapon
+        {
+            Name = "测试枪", IsRanged = true, DamageMax = 10, AttackInterval = 1,
+            StockMeleeDamageMax = 5,   // 有枪托，但没填枪托噪音
+        };
+        Assert.Equal(NoiseLogic.StockMeleeNoiseRadius, noStockNoise.MeleeProfile()!.NoiseRadius);
     }
 
     [Fact]

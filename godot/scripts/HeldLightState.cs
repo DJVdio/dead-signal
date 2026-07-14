@@ -1,3 +1,5 @@
+using DeadSignal.Combat;
+
 namespace DeadSignal.Godot;
 
 // 注意：本文件为**纯 C# 逻辑**，不得引入任何 Godot 类型
@@ -12,7 +14,9 @@ namespace DeadSignal.Godot;
 //   · 该手已握单手武器 → 拒绝(光源需一只空手)；
 //   · 允许：一手持光 + 另一手一把单手武器；
 //   · 不可能：双持两把单手武器同时持光(两手皆被武器占，无空手)——自然从「该手已持械」推出。
-// 反向约束(已持光时装双手武器应被挡)由运行时在 EquipTwoHanded 前查 <see cref="BlocksTwoHandedEquip"/>。
+// 反向约束(已持光时装武器应被挡)由 <see cref="BlocksWeaponEquip"/> / <see cref="BlocksTwoHandedEquip"/> 提供，
+// 运行时在 Pawn.EquipWeapon / Pawn.EquipWeaponTwoHanded 里先查后装——**互斥必须双向**，否则就是「后装的赢」：
+// 装光源时查了持械、装武器时不查光源 ⇒ 举着火把照样能装上双手步枪，火把还不掉。
 
 /// <summary>某角色手持光源的态：占哪只手、持的什么光源(<see cref="LightProfile"/>)。空 = 未持光。</summary>
 public sealed class HeldLightState
@@ -68,4 +72,20 @@ public sealed class HeldLightState
     /// 运行时在 <see cref="WeaponLoadout.EquipTwoHanded"/> 前查此，为 true 则先让玩家放下光源。
     /// </summary>
     public static bool BlocksTwoHandedEquip(HeldLightState? light) => light?.IsActive == true;
+
+    /// <summary>
+    /// 反向约束（通用式）：正持光源时，把 <paramref name="weapon"/> 装到 <paramref name="hand"/> 是否应被挡。
+    /// <para>
+    /// <b>为什么必须有这个</b>：<see cref="WeaponLoadout"/> 看不见光源（刻意解耦），故装备侧若不主动查光源，
+    /// 互斥就是<b>单向</b>的——持械时装光源挡得住(<see cref="TryHold"/>)，持光时装武器却畅通无阻，
+    /// 结果是「后装的赢」：举着火把装上双手步枪，火把并不会掉。
+    /// </para>
+    /// 口径（与 <see cref="CanHold"/> 严格对偶）：
+    ///   · 未持光 → 不挡；
+    ///   · 双手武器 → 一律挡（占两手，与光源互斥；两只手都无处可去）；
+    ///   · 单手武器装进<b>正持光的那只手</b> → 挡（一只手不能既握火把又握匕首）；
+    ///   · 单手武器装进<b>另一只手</b> → 放行（「一手火把 + 一手单手武器」是允许的既有玩法）。
+    /// </summary>
+    public static bool BlocksWeaponEquip(HeldLightState? light, Weapon weapon, Hand hand)
+        => light?.IsActive == true && (weapon.TwoHanded || light.HandUsed == hand);
 }
