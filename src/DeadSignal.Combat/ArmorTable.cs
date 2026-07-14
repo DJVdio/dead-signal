@@ -134,7 +134,7 @@ public static class ArmorTable
     /// <summary>皮夹克（外套层，护胸+腹+双臂）：外套层最强，仍很轻。</summary>
     public static ArmorLayer LeatherJacket() => new()
     {
-        Name = "皮夹克", Description = "骑上摩托车，倍有范儿。",
+        Name = "皮夹克", Description = "骑上摩托，倍有范儿。",
         Slot = ArmorSlot.Outer, SharpDefense = 12, BluntDefense = 6, Weight = 0.5,
         CoversParts = TorsoAndArms(),
     };

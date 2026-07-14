@@ -107,6 +107,28 @@ public class ArcheryTests
         }
     }
 
+    // ==================== 用户手改的数值：逐格对账 ====================
+
+    [Fact]
+    public void 箭矢系数_与用户手改的数值表逐格一致()
+    {
+        // 这条不是设计断言，是**对账单**：用户在数值表里亲手改过的格子，必须原样躺在代码里。
+        // 数值仍「拟定待调」——再调时连这里一起改；它挂了只说明代码与用户的表脱钩了。
+        static void 对账(ArrowDef a, double 伤害, double 破甲, double 射程, double 冷却, double 散布)
+        {
+            Assert.Equal(伤害, a.DamageMult, 6);
+            Assert.Equal(破甲, a.PenetrationMult, 6);
+            Assert.Equal(射程, a.RangeMult, 6);
+            Assert.Equal(冷却, a.CooldownMult, 6);
+            Assert.Equal(散布, a.SpreadMult, 6);
+        }
+
+        对账(ArrowTable.SharpenedStick(), 0.75, 0.75, 0.75, 1.00, 1.10);
+        对账(ArrowTable.Handmade(), 1.00, 1.00, 1.00, 1.00, 1.00);
+        对账(ArrowTable.Heavy(), 1.35, 1.45, 0.75, 1.15, 1.25);
+        对账(ArrowTable.Carbon(), 1.25, 1.25, 1.20, 0.90, 0.70);
+    }
+
     // ==================== 组合修正：重头箭（用户唯一明确的一条） ====================
 
     [Fact]
@@ -405,12 +427,18 @@ public class ArcheryTests
     public void 生态位_木箭与碳纤维箭差距显著_不是微调()
     {
         // 4 种箭若只差 2~3%，玩家没有理由去区分它们。最差与最好之间应有量级差。
+        //
+        // ⚠ 门槛按用户手改后的数值放宽过一次：木箭破甲 0.55 → 0.75（不再"遇甲即废"），
+        //   碳纤维/木箭的穿透比从 2.27× 收窄到 1.67×。**收窄是用户的意图**——木箭被扶正成
+        //   "便宜好用的主力箭"，两端本就该靠近。这里改钉「三轴各拉开 ≥50%」，量级差仍在，
+        //   同时把**精度**也纳进来：它现在是木箭与碳纤维箭之间最诚实的一条鸿沟。
         Weapon bow = WeaponTable.RecurveBow();
         Weapon stick = Archery.Combine(bow, ArrowTable.SharpenedStick());
         Weapon carbon = Archery.Combine(bow, ArrowTable.Carbon());
 
         Assert.True(carbon.DamageMax >= stick.DamageMax * 1.5, "碳纤维箭伤害应比木箭高 50% 以上");
-        Assert.True(carbon.Penetration >= stick.Penetration * 2.0, "碳纤维箭穿透应是木箭的 2 倍以上");
+        Assert.True(carbon.Penetration >= stick.Penetration * 1.5, "碳纤维箭穿透应比木箭高 50% 以上");
+        Assert.True(carbon.BaseSpreadDegrees <= stick.BaseSpreadDegrees * 0.75, "碳纤维箭散布应比木箭小 25% 以上");
     }
 
 
