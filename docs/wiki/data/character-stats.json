@@ -24,7 +24,7 @@
       "key": "unit",
       "label": "单位",
       "type": "text",
-      "readonly": true
+      "hint": "这个数字的单位（%、天、小时…）。只是给人看的标签。"
     },
     {
       "key": "settled",
@@ -226,17 +226,6 @@
       "sync": ""
     },
     {
-      "label": "没座位读书的速度",
-      "who": "诺蒂",
-      "value": 90,
-      "unit": "%",
-      "settled": false,
-      "_id": "read_no_seat",
-      "_anchor": "godot/scripts/SurvivorPerks.cs :: ReadingSpeed.NoSeatMultiplier",
-      "_icon": "",
-      "sync": ""
-    },
-    {
       "label": "升 2 级所需共同存活",
       "who": "道格",
       "value": 5,
@@ -424,17 +413,6 @@
       "sync": ""
     },
     {
-      "label": "常人的手术基础点数",
-      "who": "南丁格尔",
-      "value": 15,
-      "unit": "点",
-      "settled": true,
-      "_id": "surgery_base_default",
-      "_anchor": "godot/scripts/SurvivorPerks.cs :: NightingalePerk.DefaultSurgeryBasePoints",
-      "_icon": "",
-      "sync": ""
-    },
-    {
       "label": "1 级 她本人的手术基础点数",
       "who": "南丁格尔",
       "value": 30,
@@ -457,9 +435,9 @@
       "sync": ""
     },
     {
-      "label": "2 级 全营感染率降低",
+      "label": "2 级 全营感染条速度降低",
       "who": "南丁格尔",
-      "value": 15,
+      "value": 10,
       "unit": "%",
       "settled": true,
       "_id": "nurse_l2_infection",
@@ -468,9 +446,9 @@
       "sync": ""
     },
     {
-      "label": "3 级 全营感染率再降低（永续）",
+      "label": "3 级 全营感染条速度再降低（永续）",
       "who": "南丁格尔",
-      "value": 10,
+      "value": 5,
       "unit": "%",
       "settled": true,
       "_id": "nurse_l3_infection",
@@ -503,7 +481,7 @@
     {
       "label": "她自己掉血到多少触发反水",
       "who": "克莉丝汀",
-      "value": 100,
+      "value": 99,
       "unit": "%血量",
       "settled": false,
       "_id": "christine_self_hurt",

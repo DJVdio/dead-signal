@@ -250,6 +250,36 @@
     background: #16201c; border-bottom: 1px solid #2c4034; color: var(--text-dim);
   }
   .banner.info b { color: var(--accent); }
+
+  /* 多选面板（可装于哪些武器） */
+  td.ms { cursor: pointer; }
+  .mspanel {
+    position: fixed; z-index: 60; width: 260px;
+    background: var(--panel-2); border: 1px solid var(--accent); border-radius: 3px;
+    box-shadow: 0 8px 28px rgba(0,0,0,.6);
+    display: flex; flex-direction: column; max-height: 330px;
+  }
+  .mshead, .msfoot {
+    display: flex; align-items: center; gap: 6px;
+    padding: 6px 8px; border-bottom: 1px solid var(--line);
+    font-size: 11px; color: var(--text-dim);
+  }
+  .msfoot { border-bottom: none; border-top: 1px solid var(--line); justify-content: flex-end; }
+  .mshead button { padding: 2px 8px; font-size: 11px; margin-left: auto; }
+  .mshead button + button { margin-left: 4px; }
+  .mslist { overflow-y: auto; padding: 4px 0; flex: 1; }
+  .msitem {
+    display: flex; align-items: center; gap: 7px;
+    padding: 3px 10px; font-size: 12px; cursor: pointer; color: var(--text-dim);
+  }
+  .msitem:hover { background: #232a25; }
+  .msitem.on { color: var(--accent); }
+  .msitem input { margin: 0; }
+
+  /* DPS 两列：只读派生量，但它是调参时最该看的数 ⇒ 给它一点分量（等宽、偏亮），
+     同时保持"只读"的视觉语义（不给可编辑的悬停框） */
+  td.dps { font-family: "SF Mono", Menlo, monospace; text-align: right; color: #cfe0b8; font-weight: 600; }
+  tbody tr:hover td.dps { color: #e2f0d2; }
   .banner b { color: #f2d79a; }
   .banner code { font-family: "SF Mono", Menlo, monospace; background: #1c1709; padding: 1px 5px; border-radius: 2px; }
   .hidden { display: none !important; }
@@ -277,6 +307,8 @@
   <b>让 agent 同步进 C#</b> 才会在游戏里生效——带「待同步进代码」标记的行就是还没进游戏的。
   改完跟 agent 说一声：「wiki 上改了 XX，同步进代码」。
 </div>
+
+<div id="dps-banner" class="banner hidden"></div>
 
 <div id="offline-banner" class="banner hidden">
   <b>只读模式</b> —— 没连上本地服务，改动无法写回文件（但可以「导出 JSON」下载）。
@@ -320,6 +352,128 @@
 // 下次重跑抽取器又会从代码里把它捡回来，用户的删除就"自己撤销"了。
 // 等 agent 把 C# 里那条也删了，重跑时墓碑自动消失（TableMerge.cs 里有完整的生命周期）。
 // ═══════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════
+// DPS 的实时预览
+//
+// 🔴 **公式的事实源是引擎**（C# `WeaponDps`）—— JSON 里的 dps / dualDps 都是它算好写下来的。
+// 这里之所以还得在 JS 里算一遍，只为一件事：**你改一格数值，DPS 立刻跟着变**（不用等保存+重跑）。
+//
+// 那不就成了"第二份事实源"吗？—— 用两道闸挡住：
+//   ① **系数不写死**：0.70 这类数由引擎放进 index.json 的 dpsGripFactors 带下来。
+//   ② **加载时逐行对账**：拿这里算的结果跟引擎写进 JSON 的 dps 比对，对不上就弹横幅、
+//      并**退回只显示引擎的值**。⇒ 引擎哪天改了公式形状而这里没跟上，**会被当场抓出来**，
+//      而不是悄悄给用户一个错的数字让他照着调平衡。
+// ═══════════════════════════════════════════════════════════════════
+function gripFactors() {
+  return (S.index && S.index.dpsGripFactors) || { oneHanded: 1, twoHanded: 1, dualWield: 0.7 };
+}
+
+/** 一个攻击周期的秒数。🔴 冷却在整轮连发**之后**才起算；持握系数只除在冷却上，不碰连发间隔。 */
+function cycleSeconds(r, factor) {
+  const burst = Math.max(1, Number(r.burstCount) || 1);
+  const gap = Math.max(0, Number(r.burstInterval) || 0);
+  const cooldown = (Number(r.attackInterval) || 0) / factor;
+  return (burst - 1) * gap + cooldown;
+}
+
+function dpsWith(r, factor) {
+  const cycle = cycleSeconds(r, factor);
+  if (!(cycle > 0)) return 0;
+  const burst = Math.max(1, Number(r.burstCount) || 1);
+  const pellets = Math.max(1, Number(r.pelletCount) || 1);
+  const expected = ((Number(r.damageMin) || 0) + (Number(r.damageMax) || 0)) / 2;
+  return expected * pellets * burst / cycle;
+}
+
+/** 重算一行的两个 DPS 格（改了伤害/间隔/连发/弹丸/可双持，立刻反映出来）。 */
+function recomputeDps(r) {
+  const f = gripFactors();
+  r.dps = round4(dpsWith(r, r.twoHanded ? f.twoHanded : f.oneHanded));
+  // 不可双持 ⇒ null ⇒ 显示「—」，不是 0、更不是编一个数
+  r.dualDps = r.canDualWield ? round4(2 * dpsWith(r, f.dualWield)) : null;
+}
+
+const round4 = (x) => Math.round(x * 1e4) / 1e4;
+
+// ═══════════════════════════════════════════════════════════════════
+// 「零点几几」太难改 —— 百分比与倍率的读写转换
+//
+// 🔴 **只是给人看的写法，JSON 与引擎里存的仍是小数**（穿透 0.25、砸墙 ×0.2）。
+//    引擎的三段判定读的就是 0~1，绝不能因为界面好看就把它改成 0~100。
+//
+//   percent：显示 25%、输入 25  ⇄  存 0.25   （0~1 的比率：穿透力、亮度、治疗效率…）
+//   mult   ：显示 ×0.75、输入 0.75 ⇄ 存 0.75  （乘数，可以大于 1：箭矢倍率、砸墙倍率…）
+//
+// 为什么倍率不也做成百分比：箭的伤害倍率有 ×1.35，写成 135% 很别扭；
+// 而「恶化减缓 ×0.5」写成 50% 更会被读反（那是"乘0.5"，不是"减少50%"）。
+// ═══════════════════════════════════════════════════════════════════
+const NUMERIC_TYPES = new Set(["number", "percent", "mult", "hours"]);
+const isNumericCol = (col) => NUMERIC_TYPES.has(col.type);
+
+/** 存的小数 → 输入框里给用户编辑的数（percent：0.25 → 25）。 */
+function toEditable(col, v) {
+  if (v === null || v === undefined || v === "") return "";
+  if (col.type === "percent") return round6(Number(v) * 100);
+  // hours：JSON 里存的是**分钟**（引擎的 WorkMinutes 是整数分钟），这里换算成小时给人填
+  if (col.type === "hours") return Math.round(Number(v) / 60 * 100) / 100;
+  return Number(v);
+}
+
+/** 用户输入的数 → 存回 JSON 的小数（percent：25 → 0.25；16.5 → 0.165，**小数不丢**）。 */
+function fromEditable(col, raw) {
+  const n = Number(raw);
+  if (Number.isNaN(n)) return null;
+  if (col.type === "percent") return round6(n / 100);
+  // 🔴 hours → 分钟，且**取整**：引擎的 WorkMinutes 是 int，分钟本来就只能是整数。
+  //    这不是"偷偷改用户的数"——它保证往返闭合：20 分 → 0.33 小时 → 填 0.33 → 存回 round(19.8) = 20 分 ✓
+  //    （全部 18 个现有工时值都实测闭合过。）
+  if (col.type === "hours") return Math.round(n * 60);
+  return n;
+}
+
+/** 表格里怎么显示（percent → "25%"；mult → "×0.75"）。 */
+function formatNum(col, v) {
+  if (v === null || v === undefined || v === "") return "";
+  if (col.type === "percent") return round6(Number(v) * 100) + "%";
+  if (col.type === "mult") return "×" + Number(v);
+  if (col.type === "hours") return (Math.round(Number(v) / 60 * 100) / 100) + " 小时";
+  return String(v);
+}
+
+// 6 位足够（16.5% → 0.165），又能压掉 0.1*3 那类浮点毛刺
+const round6 = (x) => Math.round(x * 1e6) / 1e6;
+
+/** 这些列一变，DPS 就得跟着重算。 */
+const DPS_INPUTS = new Set(["damageMin", "damageMax", "attackInterval", "burstCount", "burstInterval", "pelletCount", "twoHanded", "canDualWield"]);
+
+/**
+ * 🔴 加载时对账：JS 算的 == 引擎写下来的？对不上就说明两边的公式已经分家了。
+ * 那时候**必须让用户知道**——一个悄悄算错的 DPS，比根本没有这一列更糟。
+ */
+function auditDps(cat) {
+  if (!cat || cat.id !== "weapons") return;
+  const bad = [];
+  for (const r of cat.rows) {
+    const engineDps = r.dps, engineDual = r.dualDps;
+    const f = gripFactors();
+    const mine = round4(dpsWith(r, r.twoHanded ? f.twoHanded : f.oneHanded));
+    const mineDual = r.canDualWield ? round4(2 * dpsWith(r, f.dualWield)) : null;
+    const off = (a, b) => (a === null || b === null) ? (a !== b) : Math.abs(a - b) > 1e-3;
+    if (off(engineDps, mine) || off(engineDual, mineDual)) bad.push(r.name || r._id);
+  }
+  if (bad.length) {
+    S.dpsBroken = bad;
+    const el = $("#dps-banner");
+    el.classList.remove("hidden");
+    el.innerHTML =
+      "<b>⚠️ 「每秒伤害」这两列不可信，别拿它调数值。</b> " +
+      "网页算出来的 DPS 和引擎算的对不上（" + bad.slice(0, 4).map(esc).join("、") +
+      (bad.length > 4 ? " 等 " + bad.length + " 条" : "") + "）—— " +
+      "多半是引擎改了攻速/连发规则，而网页的实时预览没跟上。" +
+      "<b>页面已停用实时预览，只显示引擎算的值。</b> 请让 agent 同步 <code>WeaponDps</code> 与本页的预览公式。";
+  }
+}
+
 const SYNC = {
   OK: "",
   NEW: "新增·待同步进代码",
@@ -337,6 +491,7 @@ const S = {
   orig: {},               // id → 原始快照（用来算「哪格改了」和撤销）
   current: null,          // 当前分区 id
   icons: new Set(),       // 磁盘上现有的图标（相对路径，如 "weapons/dagger"）；不在其中就画占位框
+  dpsBroken: null,        // 非空 = 网页的 DPS 预览公式与引擎已分家 ⇒ 停用实时预览，只显示引擎值
   sort: {},               // id → {key, dir}
   filters: {},            // id → {列key → 选中的值集合}
   query: "",
@@ -395,6 +550,7 @@ async function loadCat(id) {
   const obj = await (await fetch("data/" + meta.file, { cache: "no-store" })).json();
   S.cats[id] = obj;
   S.orig[id] = deepClone(obj);
+  auditDps(obj);              // 🔴 引擎算的 vs 网页算的，对不上就弹横幅
   return obj;
 }
 
@@ -513,7 +669,7 @@ function visibleRows() {
       if (va === null || va === undefined || va === "") return 1;   // 空值一律沉底
       if (vb === null || vb === undefined || vb === "") return -1;
       let d;
-      if (col && col.type === "number") d = Number(va) - Number(vb);
+      if (col && isNumericCol(col)) d = Number(va) - Number(vb);
       else if (typeof va === "boolean") d = (va ? 1 : 0) - (vb ? 1 : 0);
       else d = String(va).localeCompare(String(vb), "zh-CN");
       return s.dir === "asc" ? d : -d;
@@ -542,7 +698,7 @@ function renderTable() {
     const th = document.createElement("th");
     th.className =
       (col.internal ? "internal " : "") +
-      (col.type === "number" ? "num " : "") +
+      (isNumericCol(col) ? "num " : "") +
       (col.primary ? "stick1" : "");
     th.textContent = col.label;
     if (col.hint) th.title = col.hint;
@@ -768,7 +924,8 @@ function cellFor(col, r, i) {
 
   td.className =
     (col.internal ? "internal " : "") +
-    (col.type === "number" ? "num " : "") +
+    (isNumericCol(col) ? "num " : "") +
+    (col.key === "dps" || col.key === "dualDps" || col.key === "dpsVsLeather" ? "dps " : "") +
     (col.primary ? "name sticky2 " : "") +
     (editable ? "editable " : "locked ") +
     (cellChanged(i, col.key) ? "changed " : "");
@@ -782,11 +939,15 @@ function cellFor(col, r, i) {
     td.title = "内部 id / 代码位置 —— 勿改（回写代码时靠它定位）";
   } else if (col.readonly) {
     td.title = "只读：由代码推导，改这里不会生效";
+  } else if (col.type === "multiselect") {
+    td.classList.add("ms");
+    td.onclick = () => editMultiselect(td, col, r);
   } else {
     td.onclick = () => edit(td, col, r, i);
     if (col.type === "bool") {
       td.onclick = () => {
         r[col.key] = !v;
+        if (S.current === "weapons" && DPS_INPUTS.has(col.key) && !S.dpsBroken) recomputeDps(r);
         afterEdit();
       };
     }
@@ -826,8 +987,123 @@ function paint(td, col, v) {
     td.appendChild(c);
     return;
   }
-  td.textContent = String(v);
+  if (col.type === "multiselect") {
+    // 24 把武器名铺进格子会撑爆表格 ⇒ 只显示"已选几把 + 前几个"，点开才是完整勾选列表
+    const picked = msParse(v);
+    const all = msOptions(col.key);
+    const c = document.createElement("span");
+    c.className = "chip";
+    const full = picked.length === all.length && all.length > 0;
+    const color = picked.length === 0 ? "var(--text-mute)" : full ? "var(--steel)" : "var(--accent)";
+    c.style.color = color;
+    c.style.borderColor = color;
+    c.textContent = picked.length === 0 ? "一把都装不上"
+                  : full ? `全部 ${all.length} 把`
+                  : `${picked.length} 把`;
+    td.appendChild(c);
+    const tail = document.createElement("span");
+    tail.style.cssText = "color:var(--text-dim);margin-left:6px;font-size:11px";
+    tail.textContent = picked.slice(0, 3).join("、") + (picked.length > 3 ? " …" : "");
+    td.appendChild(tail);
+    td.title = picked.join("、") || "（空）";
+    return;
+  }
+  td.textContent = isNumericCol(col) ? formatNum(col, v) : String(v);
   if (col.type === "longtext") td.title = String(v);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// 多选列（multiselect）—— 「这个改装能装在哪几把武器上」
+//
+// 候选项**由引擎带下来**（index.json 的 multiselectOptions），网页不硬编码武器名单
+// ⇒ 加了新武器，勾选面板里自己就会多出一行。
+//
+// 值在 JSON 里就是一串用「、」隔开的名字（和别的列一样是纯文本）——
+// 面板只是个**输入方式**，不是另一种数据格式。
+// ═══════════════════════════════════════════════════════════════════
+function msOptions(colKey) {
+  return (S.index && S.index.multiselectOptions && S.index.multiselectOptions[colKey]) || [];
+}
+const msParse = (v) => String(v || "").split("、").map((x) => x.trim()).filter(Boolean);
+
+let msPanel = null;
+function closeMs() {
+  if (msPanel) { msPanel.remove(); msPanel = null; }
+}
+document.addEventListener("click", (e) => {
+  if (msPanel && !msPanel.contains(e.target) && !e.target.closest("td.ms")) closeMs();
+});
+
+function editMultiselect(td, col, r) {
+  closeMs();
+  const all = msOptions(col.key);
+  const chosen = new Set(msParse(r[col.key]));
+
+  const panel = document.createElement("div");
+  panel.className = "mspanel";
+  msPanel = panel;
+
+  const head = document.createElement("div");
+  head.className = "mshead";
+  const count = document.createElement("span");
+  const setCount = () => (count.textContent = `已选 ${chosen.size} / ${all.length}`);
+  setCount();
+  const bAll = document.createElement("button");
+  bAll.textContent = "全选";
+  const bNone = document.createElement("button");
+  bNone.textContent = "清空";
+  head.append(count, bAll, bNone);
+
+  const list = document.createElement("div");
+  list.className = "mslist";
+
+  const redraw = () => {
+    list.innerHTML = "";
+    for (const name of all) {
+      const row = document.createElement("label");
+      row.className = "msitem" + (chosen.has(name) ? " on" : "");
+      const cb = document.createElement("input");
+      cb.type = "checkbox";
+      cb.checked = chosen.has(name);
+      cb.onchange = () => {
+        cb.checked ? chosen.add(name) : chosen.delete(name);
+        row.classList.toggle("on", cb.checked);
+        setCount();
+      };
+      const t = document.createElement("span");
+      t.textContent = name;
+      row.append(cb, t);
+      list.appendChild(row);
+    }
+  };
+  redraw();
+
+  bAll.onclick = () => { all.forEach((n) => chosen.add(n)); redraw(); setCount(); };
+  bNone.onclick = () => { chosen.clear(); redraw(); setCount(); };
+
+  const foot = document.createElement("div");
+  foot.className = "msfoot";
+  const ok = document.createElement("button");
+  ok.className = "primary";
+  ok.textContent = "确定";
+  const cancel = document.createElement("button");
+  cancel.textContent = "取消";
+  foot.append(cancel, ok);
+
+  ok.onclick = () => {
+    // 按引擎给的候选顺序排（和武器表的顺序一致），不是勾选顺序
+    r[col.key] = all.filter((n) => chosen.has(n)).join("、");
+    closeMs();
+    afterEdit();
+  };
+  cancel.onclick = closeMs;
+
+  panel.append(head, list, foot);
+  document.body.appendChild(panel);
+
+  const box = td.getBoundingClientRect();
+  panel.style.left = Math.min(box.left, window.innerWidth - 280) + "px";
+  panel.style.top = Math.min(box.bottom + 2, window.innerHeight - 340) + "px";
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -843,11 +1119,17 @@ function edit(td, col, r, i) {
   td.innerHTML = "";
 
   const long = col.type === "longtext";
+  const num = isNumericCol(col);
   const input = document.createElement(long ? "textarea" : "input");
   input.className = "cell";
-  if (!long) input.type = col.type === "number" ? "number" : "text";
-  if (col.type === "number") input.step = "any";
-  input.value = old === null || old === undefined ? "" : String(old);
+  if (!long) input.type = num ? "number" : "text";
+  if (num) input.step = "any";
+  // 百分比列：框里给他 25（不是 0.25）——"零点几几"就是这么来的
+  input.value = num ? (toEditable(col, old) === "" ? "" : String(toEditable(col, old)))
+                    : (old === null || old === undefined ? "" : String(old));
+  if (col.type === "percent") input.title = "按百分数填：25 就是 25%（小数也行，比如 16.5）";
+  if (col.type === "mult") input.title = "按倍数填：0.75 就是 ×0.75，可以大于 1";
+  if (col.type === "hours") input.title = "按小时填：2.5 就是两个半小时（存回代码时换算成分钟，且取整——分钟本来就只能是整数）";
   td.appendChild(input);
   input.focus();
   if (!long) input.select();
@@ -858,13 +1140,16 @@ function edit(td, col, r, i) {
     td.classList.remove("editing");
     const raw = input.value;
     let nv;
-    if (col.type === "number") {
-      nv = raw.trim() === "" ? null : Number(raw);
-      if (nv !== null && Number.isNaN(nv)) nv = old;      // 打错了就当没改
+    if (num) {
+      // 🔴 存回去的永远是**小数**（用户输 25 ⇒ 存 0.25）：引擎读的就是 0~1，界面好看不能改变这一点
+      nv = raw.trim() === "" ? null : fromEditable(col, raw);
+      if (nv === null && raw.trim() !== "") nv = old;      // 打错了就当没改
     } else {
       nv = raw;
     }
     r[col.key] = nv;
+    // 改了伤害/攻击间隔/连发/弹丸 ⇒ DPS 立刻跟着变（对账失败时不动它，只留引擎的值）
+    if (S.current === "weapons" && DPS_INPUTS.has(col.key) && !S.dpsBroken) recomputeDps(r);
     afterEdit();
   };
   const cancel = () => {

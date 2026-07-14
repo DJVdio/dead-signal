@@ -156,10 +156,17 @@
     <Compile Include="..\..\godot\scripts\Workbench.cs" Link="Consumed\Workbench.cs" />
     <!-- 烹饪（并发批次 impl-cooking 新增；Recipe.cs 已引用其 CookStation ⇒ 躲不开）。 -->
     <Compile Include="..\..\godot\scripts\CookingLogic.cs" Link="Consumed\CookingLogic.cs" />
+    <Compile Include="..\..\godot\scripts\BedSpec.cs" Link="Consumed\BedSpec.cs" />
+    <Compile Include="..\..\godot\scripts\TrapLogic.cs" Link="Consumed\TrapLogic.cs" />
     <Compile Include="..\..\godot\scripts\Recipe.cs" Link="Consumed\Recipe.cs" />
     <Compile Include="..\..\godot\scripts\CraftingLogic.cs" Link="Consumed\CraftingLogic.cs" />
     <!-- 工时制在制品纯逻辑（无 Godot 依赖）：工时进度推进(人在台+生产相位才推进)/中断续作/封顶完工。 -->
     <Compile Include="..\..\godot\scripts\CraftingJob.cs" Link="Consumed\CraftingJob.cs" />
+    <!-- [批次21·T25] 总工时乘算轴（CraftWorkTime：《木匠入门》做家具 ×0.95）+ 桌子（TableSpec）。
+         ⚠️ CraftingService.StartJob 已引用 CraftWorkTime，而 CraftWorkTime 引用 TableSpec ⇒ 两个都躲不开：
+         漏一个，本抽取器会**静默炸掉**（它不在 sln 里，dotnet build/test 的门禁根本照不到它）。 -->
+    <Compile Include="..\..\godot\scripts\CraftWorkTime.cs" Link="Consumed\CraftWorkTime.cs" />
+    <Compile Include="..\..\godot\scripts\TableSpec.cs" Link="Consumed\TableSpec.cs" />
     <!-- 制作面板纯展示逻辑（无 Godot 依赖）：配方按工具分组 + 工具需求文案/满足判定 + 库存材料计数聚合。 -->
     <!-- CraftingPanelFormat.cs **刻意不 Link**：本工具用不到它，而它会牵进 ModBench 一类正在演进的 UI 侧类型。
          Link 清单跟 DeadSignal.Combat.Tests 大体一致，但只取"抽数据用得到的"——少一个依赖，就少一次被别人的半成品带崩。 -->

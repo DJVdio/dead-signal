@@ -85,7 +85,9 @@ internal static class Characters
             new("label", "数值项", Primary: true),
             new("who", "角色", "chip"),
             new("value", "值", "number"),
-            new("unit", "单位", ReadOnly: true),
+            // 「单位」原本是只读的，但它只是个说明性的标签（"%"、"天"、"游戏小时"…），没有引擎依据，
+            // 也没有理由不让人改。用户要求全 wiki 可编辑 ⇒ 放开。
+            new("unit", "单位", Hint: "这个数字的单位（%、天、小时…）。只是给人看的标签。"),
             new("settled", "已拍板", "bool", Hint: "勾上 = 你定过的值，别当「拟定待调」随手改；空 = 拟定待调"),
             new("_id", "内部 id", Internal: true),
             new("_anchor", "代码位置", Internal: true),
@@ -138,7 +140,10 @@ internal static class Characters
         Add("诺蒂", "nordi_l2_read", "2 级 自身读速加成", Pct(BookwormPerk.BonusForLevel(2)), "%", bookSrc + ".BonusForLevel");
         Add("诺蒂", "nordi_l3_read", "3 级 自身读速加成", Pct(BookwormPerk.BonusForLevel(3)), "%", bookSrc + ".BonusForLevel");
         Add("诺蒂", "nordi_l3_campwide", "3 级 全营读速加成", Pct(BookwormPerk.CampWideBonusAtMax), "%", bookSrc + ".CampWideBonusAtMax");
-        Add("诺蒂", "read_no_seat", "没座位读书的速度", Pct(ReadingSpeed.NoSeatMultiplier), "%", "godot/scripts/SurvivorPerks.cs :: ReadingSpeed.NoSeatMultiplier");
+        // 🔴 「没座位读书 ×0.9」**不是诺蒂的专属效果，是全员通则** —— 用户澄清，代码本来就是对的：
+        //    `ReadingSpeed.Effective(..., hasSeat, ...)` 对**每一个** pawn 都算，没有任何按名/按 perk 的门控。
+        //    把它列在诺蒂名下，会让人以为"没座位只影响她"，从而调错数值。
+        //    已移到新的「全局规则」分区（Program.GlobalRules）。诺蒂的专属效果只有书虫那三条（读速/全营/升级轴）。
 
         // —— 道格 & 布鲁斯·人狗羁绊 ——
         const string bondSrc = "godot/scripts/DougBruceBond.cs :: DougBruceBond";
@@ -164,7 +169,9 @@ internal static class Characters
         const string nurseSrc = "godot/scripts/SurvivorPerks.cs :: NightingalePerk";
         Add("南丁格尔", "nurse_l2_surgeries", "升 2 级所需手术台数", NightingalePerk.Level2ThresholdSurgeries, "台", nurseSrc + ".Level2ThresholdSurgeries");
         Add("南丁格尔", "nurse_l3_surgeries", "升 3 级所需手术台数", NightingalePerk.Level3ThresholdSurgeries, "台", nurseSrc + ".Level3ThresholdSurgeries");
-        Add("南丁格尔", "surgery_base_default", "常人的手术基础点数", NightingalePerk.DefaultSurgeryBasePoints, "点", nurseSrc + ".DefaultSurgeryBasePoints", settled: true);
+        // 🔴 「常人的手术基础点数 = 15」**不是南丁格尔的特长，是所有人的基线**（人人自带 15 点，不看技能）。
+        //    挂在她名下，会让人以为那 15 点也是她给的。她的特长是**她本人 30 点** + **3 级全营 +5**（下面两条）。
+        //    已移到「全局规则」分区。
         Add("南丁格尔", "surgery_base_nurse", "1 级 她本人的手术基础点数", NightingalePerk.NightingaleSurgeryBasePoints, "点", nurseSrc + ".NightingaleSurgeryBasePoints", settled: true);
         Add("南丁格尔", "surgery_base_camp_bonus", "3 级 全营手术基础点加成（永续）", NightingalePerk.CampSurgeryBaseBonus, "点", nurseSrc + ".CampSurgeryBaseBonus", settled: true);
         Add("南丁格尔", "nurse_l2_infection", "2 级 全营感染率降低", Pct(NightingalePerk.Level2InfectionReduction), "%", nurseSrc + ".Level2InfectionReduction", settled: true);

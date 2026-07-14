@@ -24,29 +24,31 @@
     {
       "key": "damageMult",
       "label": "伤害倍率",
-      "type": "number",
-      "hint": "箭专用：反过来改写弓/弩的属性"
+      "type": "mult",
+      "hint": "箭反过来改写弓的属性：最终伤害 = 弓的伤害 × 这个数"
     },
     {
       "key": "penetrationMult",
       "label": "破甲倍率",
-      "type": "number"
+      "type": "mult",
+      "hint": "最终穿透力 = 弓的穿透力 × 这个数"
     },
     {
       "key": "rangeMult",
       "label": "射程倍率",
-      "type": "number"
+      "type": "mult",
+      "hint": "最终射程 = 弓的射程 × 这个数"
     },
     {
       "key": "cooldownMult",
       "label": "冷却倍率",
-      "type": "number",
+      "type": "mult",
       "hint": "大于 1 = 出手更慢"
     },
     {
       "key": "spreadMult",
       "label": "散布倍率",
-      "type": "number",
+      "type": "mult",
       "hint": "大于 1 = 更不准"
     },
     {
@@ -102,7 +104,7 @@
       "cooldownMult": null,
       "spreadMult": null,
       "craftable": true,
-      "weight": 0.03,
+      "weight": 0.01,
       "description": "手枪和冲锋枪吃的小家伙。最不值钱的一种子弹——这话你打空弹匣之前也是这么说的。",
       "_id": "ammo_short",
       "_anchor": "godot/scripts/Materials.cs :: Materials（名称/说明）+ src/DeadSignal.Combat/Ammo.cs :: BulletParts.YieldPer（制作比）",
@@ -119,7 +121,7 @@
       "cooldownMult": null,
       "spreadMult": null,
       "craftable": true,
-      "weight": 0.03,
+      "weight": 0.02,
       "description": "步枪和猎枪的口粮。一份零件只出五发，而步枪一次扣扳机就吞掉两发——算术很简单，心疼是真的。",
       "_id": "ammo_medium",
       "_anchor": "godot/scripts/Materials.cs :: Materials（名称/说明）+ src/DeadSignal.Combat/Ammo.cs :: BulletParts.YieldPer（制作比）",
@@ -153,7 +155,7 @@
       "cooldownMult": null,
       "spreadMult": null,
       "craftable": true,
-      "weight": 0.03,
+      "weight": 0.05,
       "description": "红壳的鹿弹，一发里塞着八颗铅丸。贴脸时它是神，二十步外它只是响。",
       "_id": "ammo_buck",
       "_anchor": "godot/scripts/Materials.cs :: Materials（名称/说明）+ src/DeadSignal.Combat/Ammo.cs :: BulletParts.YieldPer（制作比）",
@@ -198,8 +200,8 @@
       "name": "重头箭",
       "kind": "箭",
       "yieldPerPart": null,
-      "damageMult": 1.35,
-      "penetrationMult": 1.45,
+      "damageMult": 1.25,
+      "penetrationMult": 1.5,
       "rangeMult": 0.75,
       "cooldownMult": 1.15,
       "spreadMult": 1.25,

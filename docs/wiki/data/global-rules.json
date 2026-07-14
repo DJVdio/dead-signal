@@ -1,0 +1,128 @@
+{
+  "id": "global-rules",
+  "label": "全局规则",
+  "source": "src/DeadSignal.Combat/DualWield.cs · godot/scripts/SurvivorPerks.cs · godot/scripts/CoverLogic.cs",
+  "note": "**对所有人一体适用**的规则——不属于任何一件武器，也不属于任何一个角色。以前这些数只活在代码里，wiki 上看不到、也改不了。⚠️ 别把这里的东西误当成谁的专属效果：「没座位读书慢 10%」是**每个人**都一样的，不是诺蒂的技能。",
+  "columns": [
+    {
+      "key": "label",
+      "label": "规则",
+      "type": "text",
+      "primary": true
+    },
+    {
+      "key": "value",
+      "label": "数值",
+      "type": "number"
+    },
+    {
+      "key": "unit",
+      "label": "单位",
+      "type": "chip",
+      "hint": "这个数字的单位。只是给人看的标签。"
+    },
+    {
+      "key": "note",
+      "label": "说明",
+      "type": "longtext"
+    },
+    {
+      "key": "_id",
+      "label": "内部 id",
+      "type": "text",
+      "internal": true
+    },
+    {
+      "key": "_anchor",
+      "label": "代码位置",
+      "type": "text",
+      "internal": true
+    },
+    {
+      "key": "sync",
+      "label": "同步状态",
+      "type": "chip",
+      "readonly": true,
+      "hint": "空 = 已在代码里。「新增/删除·待同步进代码」= 你在网页上的改动还没进游戏，需要 agent 同步到 C#。"
+    },
+    {
+      "key": "_icon",
+      "label": "图标",
+      "type": "text",
+      "internal": true,
+      "hint": "godot/assets/items/<这个>.png（映射表在 godot/scripts/ItemIcons.cs）"
+    }
+  ],
+  "rows": [
+    {
+      "label": "没座位读书的速度",
+      "value": 90,
+      "unit": "%",
+      "note": "站着/蹲着读书比坐着慢。**这是所有人都一样的**——不是哪个角色的专属效果。座位家具（板凳/木椅）就是为它存在的。",
+      "_id": "read_no_seat",
+      "_anchor": "godot/scripts/SurvivorPerks.cs :: ReadingSpeed.NoSeatMultiplier",
+      "_icon": "",
+      "sync": ""
+    },
+    {
+      "label": "没读前置书就读它的速度",
+      "value": 20,
+      "unit": "%",
+      "note": "跳级去啃进阶书：读得完，但慢到离谱（耗时 5 倍）。**不禁止，只是让你自己算这笔账。**",
+      "_id": "read_no_prereq",
+      "_anchor": "godot/scripts/SurvivorPerks.cs :: ReadingSpeed.MissingPrerequisiteMultiplier",
+      "_icon": "",
+      "sync": ""
+    },
+    {
+      "label": "双持时的攻速",
+      "value": 70,
+      "unit": "%",
+      "note": "两只手各拿一把单手武器时，**每只手**都变慢。两把一起打的总输出仍然更高——代价是精度和这个攻速。",
+      "_id": "dual_wield_speed",
+      "_anchor": "src/DeadSignal.Combat/DualWield.cs :: DualWield.AttackSpeedFactor",
+      "_icon": "",
+      "sync": ""
+    },
+    {
+      "label": "双持时远程的散布",
+      "value": 1.25,
+      "unit": "×",
+      "note": "双持开枪更不准（误差角乘这个数）。近战不受影响——近战本来就必中。",
+      "_id": "dual_wield_spread",
+      "_anchor": "src/DeadSignal.Combat/DualWield.cs :: DualWield.RangedSpreadFactor",
+      "_icon": "",
+      "sync": ""
+    },
+    {
+      "label": "常人的手术基础点数",
+      "value": 15,
+      "unit": "点",
+      "note": "**所有人都能做手术，不看技能**——人人自带这些点。⚠️ 这是**全员基线**，不是南丁格尔的特长；她的特长是「她本人的基础点更高」和「3 级给全营加点」，那两条在「角色数值」里。",
+      "_id": "surgery_base_default",
+      "_anchor": "godot/scripts/SurvivorPerks.cs :: NightingalePerk.DefaultSurgeryBasePoints",
+      "_icon": "",
+      "sync": ""
+    },
+    {
+      "label": "半身掩体挡下整发的概率",
+      "value": 25,
+      "unit": "%",
+      "note": "贴着沙袋/椅子/围栏时，远程有这个概率**整发打空**（不是减伤）。⚠️ **双向对称**：劫掠者躲在你的沙袋后面，你打它也吃这一下。绕到侧后就白躲。",
+      "_id": "cover_chance",
+      "_anchor": "godot/scripts/CoverLogic.cs :: CoverLogic.DefaultCoverChance",
+      "_icon": "",
+      "sync": ""
+    },
+    {
+      "label": "贴多近才算在掩体后",
+      "value": 24,
+      "unit": "像素",
+      "note": "身体要**贴上去**才算——站在掩体附近不算。",
+      "_id": "cover_radius",
+      "_anchor": "godot/scripts/CoverLogic.cs :: CoverLogic.AdjacencyRadius",
+      "_icon": "",
+      "sync": ""
+    }
+  ]
+}

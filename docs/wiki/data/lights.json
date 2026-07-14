@@ -19,8 +19,8 @@
     {
       "key": "intensity",
       "label": "亮度",
-      "type": "number",
-      "hint": "0~1。照亮自己，也照亮别人眼里的你"
+      "type": "percent",
+      "hint": "照亮自己，也照亮别人眼里的你。"
     },
     {
       "key": "radius",
@@ -74,7 +74,7 @@
     {
       "name": "火把",
       "kind": "手持",
-      "intensity": 0.7,
+      "intensity": 0.5,
       "radius": 240,
       "description": "布条裹木棒、蘸油点着的火把，暖光一圈，浪漫又暴露——燃着就别想藏行踪。",
       "_id": "torch",

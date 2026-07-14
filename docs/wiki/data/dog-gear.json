@@ -101,7 +101,7 @@
       "sharpDefense": 2,
       "bluntDefense": 1,
       "weight": 0.25,
-      "carryBonus": 6,
+      "carryBonus": 8,
       "description": "好狗，好狗。",
       "_id": "口袋狗衣",
       "_anchor": "godot/scripts/DogApparel.cs :: DogGearCatalog.Defs（护甲值在 ArmorTable.Dog*）",

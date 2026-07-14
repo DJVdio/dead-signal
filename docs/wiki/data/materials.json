@@ -272,6 +272,16 @@
       "_anchor": "godot/scripts/Materials.cs :: Materials（重量在 godot/scripts/CarryWeight.cs :: ItemWeights）",
       "sync": "",
       "_icon": "materials/bullet_parts"
+    },
+    {
+      "name": "武器零件",
+      "category": "金属",
+      "weight": 0.6,
+      "description": "弩机、扳机组、几片淬过火的簧——造枪的人早死绝了，留下的这些小东西还硬邦邦地不肯锈。你造不出它们，只能指望别人也没找到。",
+      "_id": "weapon_parts",
+      "_anchor": "godot/scripts/Materials.cs :: Materials（重量在 godot/scripts/CarryWeight.cs :: ItemWeights）",
+      "sync": "",
+      "_icon": "materials/weapon_parts"
     }
   ]
 }

@@ -21,7 +21,7 @@
       "label": "几个够做一份饭",
       "type": "number",
       "readonly": true,
-      "hint": "按当前的一份 16 点算出来的，改「热量点」它就跟着变"
+      "hint": "自动算的：一份饭要多少热量 ÷ 这个食材的热量点（向上取整）。要改 ⇒ 改「热量点」，或去「烹饪规则」改一份饭要多少热量。"
     },
     {
       "key": "description",
@@ -108,8 +108,8 @@
     },
     {
       "name": "罐头",
-      "calories": 12,
-      "portions": 2,
+      "calories": 16,
+      "portions": 1,
       "description": "标签早泡烂了，里面是肉是豆全凭运气。铁皮鼓起来的那种别开——它已经替你尝过了。",
       "_id": "canned_food",
       "_anchor": "godot/scripts/CookingLogic.cs :: FoodCalories（热量点）+ godot/scripts/Materials.cs（名称/说明）",

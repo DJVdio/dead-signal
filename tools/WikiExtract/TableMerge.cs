@@ -25,6 +25,16 @@ namespace DeadSignal.WikiExtract;
 
 internal static class TableMerge
 {
+    /// <summary>
+    /// 哪些列类型在 JSON 里是**数字**。
+    /// <para>
+    /// 🔴 <c>percent</c>（穿透力 25%）和 <c>mult</c>（砸墙 ×0.2）**只是给用户看的写法**——
+    /// JSON 与引擎里存的仍是 <c>0.25</c> / <c>0.2</c> 这样的小数。漏掉它们的话，这里会把数字当字符串读，
+    /// 合并时整列变成 <c>"0.25"</c>、漂移比较也失效。**加新的数字类写法时，务必往这里补一个。**
+    /// </para>
+    /// </summary>
+    private static bool IsNumeric(string type) => type is "number" or "percent" or "mult" or "hours";
+
     /// <summary>同步状态列的 key。空 = 表与代码一致；非空 = 这行还没同步进代码。</summary>
     internal const string SyncKey = "sync";
 
@@ -98,6 +108,7 @@ internal static class TableMerge
 
             foreach (Col col in seeded.Columns)
             {
+                AssertCovered(col);   // 任何可编辑列的类型都必须有归宿，没有就当场喊出来
                 if (col.Internal || col.ReadOnly || col.Key == SyncKey) continue;  // 内部/只读列以代码为准
                 if (old[col.Key] is not { } cell) continue;                        // 表里没这一格（新加的列）：用种子
 
@@ -110,11 +121,43 @@ internal static class TableMerge
                 // 0.899999976… 比，差 2.4e-8 > 1e-9 ⇒ 每跑一次报一遍「表 0.9 ≠ 代码 0.9」。
                 // 根因是「序列化四舍五入了、比较却没有」，所以两边都过同一个 Round 才是正解
                 // （单纯放宽 epsilon 只是碰巧盖住，float 精度更差的值照样漏）。
-                if (col.Type == "number" && seededVal is not null && edited is not null
+                if (IsNumeric(col.Type) && seededVal is not null && edited is not null
                     && Math.Abs(Program.Round(Convert.ToDouble(edited)) - Program.Round(Convert.ToDouble(seededVal))) > 1e-9)
                 {
                     Drift.Add($"  [数值漂移] {fresh.Label}·{Name(row, id)}·{col.Label}：表 = {edited} ≠ 代码 = {Program.Round(Convert.ToDouble(seededVal))}"
                               + $"　⇒ 把表里的值同步进 {row.GetValueOrDefault("_anchor")}");
+                }
+
+                // 🔴 **布尔列被改了也要报**。此前 bool 完全不在报告覆盖里 —— 用户把「可双持」从否改成是，
+                //    **没有任何人会知道**。这跟"文本被静默吞掉"是同一个病，只是更隐蔽（一个绿点而已）。
+                else if (col.Type == "bool" && seededVal is bool seedFlag && edited is bool editedFlag
+                         && seedFlag != editedFlag)
+                {
+                    Drift.Add($"  [开关改动] {fresh.Label}·{Name(row, id)}·{col.Label}："
+                              + $"表 = {(editedFlag ? "是" : "否")} ≠ 代码 = {(seedFlag ? "是" : "否")}"
+                              + $"　⇒ 把表里的值同步进 {row.GetValueOrDefault("_anchor")}");
+                }
+
+                // 文本类（含 **chip**）被改了也要报。
+                // ⚠️ chip 此前也不在覆盖里 —— 伤害类型、吃什么弹药、装备槽、材料类别…全是 chip，
+                //    用户改了同样是石沉大海。**凡是可编辑的列，改动就必须被看见**，否则用户以为提了需求，
+                //    那句话其实只是躺在 JSON 里。
+                //
+                // 🔴 判据是**种子值非空**：种子非空 = 代码里本来就有对应内容（书的效果、物品的描述）
+                //    ⇒ 用户改了它就该同步回代码。
+                //    种子为空 = authored 内容（角色的背景故事、剧情文本，C# 里根本没有这些句子）
+                //    ⇒ 用户写什么都不该报，否则每次重跑刷一屏。
+                else if (col.Type is "text" or "longtext" or "chip" or "multiselect"
+                         && seededVal is string seedText && seedText.Length > 0
+                         && edited is string editedText
+                         // 比之前先把空白归一化：正文里"。 "和"。  "（一个空格 vs 两个）不是改动，
+                         // 报出来只会淹掉真正的改动。
+                         && !string.Equals(Squash(seedText), Squash(editedText), StringComparison.Ordinal))
+                {
+                    Drift.Add($"  [文本改动] {fresh.Label}·{Name(row, id)}·{col.Label} 被改过了"
+                              + $"　⇒ 表：「{Clip(editedText)}」"
+                              + $"　⇒ 代码：「{Clip(seedText)}」"
+                              + $"　⇒ 该同步进 {row.GetValueOrDefault("_anchor")}");
                 }
 
                 row[col.Key] = edited;   // 表赢：用户改的一律保留
@@ -173,15 +216,31 @@ internal static class TableMerge
         return seeded with { Rows = merged };
     }
 
+    /// <summary>
+    /// **每一种可编辑的列类型，都必须在漂移报告里有归宿**——否则用户改了它，没有任何人会知道
+    /// （chip 和 bool 就这么被漏了整整一批：改「可双持」只是翻一个绿点，石沉大海）。
+    /// 加新列类型时，务必同时在 <see cref="WithExisting"/> 的比较链里给它加一个分支，并更新这里。
+    /// </summary>
+    private static readonly string[] CoveredTypes = { "number", "percent", "mult", "hours", "bool", "text", "longtext", "chip", "multiselect" };
+
+    /// <summary>把没归宿的列类型当场喊出来（宁可吵，也不要静默吞掉用户的改动）。</summary>
+    private static void AssertCovered(Col col)
+    {
+        if (col.Internal || col.ReadOnly || col.Key == SyncKey) return;
+        if (CoveredTypes.Contains(col.Type)) return;
+        Drift.Add($"  [⚠️ 工具缺陷] 列「{col.Label}」的类型 {col.Type} **不在漂移报告的覆盖里**"
+                  + "　⇒ 用户改了它不会被任何人看见。请去 TableMerge 补一个比较分支。");
+    }
+
     private static object? Read(JsonNode cell, string type)
     {
         try
         {
+            if (IsNumeric(type)) return cell.GetValue<double>();
             return type switch
             {
-                "number" => cell.GetValue<double>(),
                 "bool" => cell.GetValue<bool>(),
-                _ => cell.GetValue<string>(),
+                _ => cell.GetValue<string>(),   // text / longtext / chip
             };
         }
         catch (InvalidOperationException)
@@ -190,10 +249,31 @@ internal static class TableMerge
         }
     }
 
+    /// <summary>把连续空白（空格/换行/全角空格）压成一个，用于比较——排版差异不是内容改动。</summary>
+    private static string Squash(string s)
+        => string.Join(' ', s.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+
+    /// <summary>报告里截断长文本（正文/背景故事动辄几百字，全打出来没法看）。</summary>
+    private static string Clip(string s, int max = 40)
+    {
+        s = s.Replace("\n", " ").Trim();
+        return s.Length <= max ? s : s[..max] + "…";
+    }
+
     /// <summary>取这一行的主键名（给漂移报告用人话指认是哪一条）。</summary>
+    /// <summary>
+    /// 取这一行的**人话名字**（给待同步报告用，好让人一眼认出是哪一条）。
+    /// <para>
+    /// ⚠️ 各分区的主键列名并不一样：物品叫 <c>name</c>、书叫 <c>title</c>、
+    /// 而「角色数值 / 烹饪规则 / 全局规则」这类"一行一个数字"的分区叫 <c>label</c>。
+    /// 漏了 <c>label</c> 的话，报告里打出来的会是内部 id（<c>read_no_seat</c>）而不是「没座位读书的速度」——
+    /// 报告是给人看的，得说人话。
+    /// </para>
+    /// </summary>
     private static string Name(Dictionary<string, object?> row, string fallback)
         => row.GetValueOrDefault("name") as string
            ?? row.GetValueOrDefault("title") as string
+           ?? row.GetValueOrDefault("label") as string
            ?? row.GetValueOrDefault("who") as string
            ?? (fallback.Length == 0 ? "(无名)" : fallback);
 }

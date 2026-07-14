@@ -18,15 +18,16 @@
     },
     {
       "key": "buildMinutes",
-      "label": "建造工时(游戏分钟)",
-      "type": "number"
+      "label": "建造工时",
+      "type": "hours",
+      "hint": "有人在营地里干这么久（游戏内时间）。"
     },
     {
       "key": "salvage",
       "label": "拆了能还回多少",
       "type": "text",
       "readonly": true,
-      "hint": "通用还一半；木材例外——一半变木料、一半变废木料"
+      "hint": "自动算的：通用规则是还一半（向下取整），木材例外——一半变木料、一半变废木料。要改 ⇒ 改「建造材料」。（想改返还比例本身，那是引擎规则，跟 agent 说。）"
     },
     {
       "key": "_id",
@@ -127,11 +128,31 @@
       "_icon": ""
     },
     {
+      "name": "桌子",
+      "materials": "木料×8、钉子×4",
+      "buildMinutes": 120,
+      "salvage": "木料×2、废木料×2、钉子×2",
+      "_id": "桌子",
+      "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
+      "sync": "",
+      "_icon": ""
+    },
+    {
       "name": "沙袋",
       "materials": "布×2、石料×4",
       "buildMinutes": 30,
       "salvage": "布×1、石料×2",
       "_id": "沙袋",
+      "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
+      "sync": "",
+      "_icon": ""
+    },
+    {
+      "name": "陷阱",
+      "materials": "木料×2、铁丝×2、绳子×1",
+      "buildMinutes": 40,
+      "salvage": "铁丝×1",
+      "_id": "陷阱",
       "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
       "sync": "",
       "_icon": ""

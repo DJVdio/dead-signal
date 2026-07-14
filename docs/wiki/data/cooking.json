@@ -19,7 +19,7 @@
       "key": "unit",
       "label": "单位",
       "type": "chip",
-      "readonly": true
+      "hint": "这个数字的单位。只是给人看的标签。"
     },
     {
       "key": "note",

@@ -46,7 +46,11 @@
       "armor/plate_armor",
       "armor/military_helmet",
       "armor/riot_helmet",
-      "armor/work_gloves"
+      "armor/work_gloves",
+      "armor/war_mask",
+      "armor/coarse_shirt",
+      "armor/coarse_shorts",
+      "armor/coarse_trousers"
     ],
     "dog-gear": [
       "armor/dog_cloth_vest",
@@ -87,7 +91,8 @@
       "materials/rosehip",
       "materials/laojunxu",
       "materials/silver",
-      "materials/bullet_parts"
+      "materials/bullet_parts",
+      "materials/weapon_parts"
     ],
     "medical": [
       "materials/bandage",
@@ -108,6 +113,7 @@
       "furniture/bench",
       "furniture/chair",
       "furniture/bed",
+      "furniture/table",
       "furniture/sandbag",
       "materials/wood",
       "materials/glue",
@@ -141,7 +147,12 @@
       "armor/dog_leather_vest",
       "armor/dog_pocket_vest",
       "armor/dog_iron_helmet",
-      "armor/dog_wire_helmet"
+      "armor/dog_wire_helmet",
+      "furniture/snare_trap",
+      "armor/war_mask",
+      "armor/coarse_shirt",
+      "armor/coarse_shorts",
+      "armor/coarse_trousers"
     ],
     "lights": [
       "lights/flashlight",
@@ -157,8 +168,26 @@
       "books/book_carpentry",
       "books/book_carpentry_adv",
       "books/book_archery",
+      "books/book_mechanics",
       "books/book_diary_a",
       "books/book_diary_b"
+    ],
+    "weapon-mods": [
+      "weapon-mods/lightened_stock",
+      "weapon-mods/sawn_off_barrel",
+      "weapon-mods/extended_barrel",
+      "weapon-mods/bayonet",
+      "weapon-mods/claw_stock",
+      "weapon-mods/trauma_stock",
+      "weapon-mods/serrated_blade",
+      "weapon-mods/honed_edge",
+      "weapon-mods/fuller_blade",
+      "weapon-mods/weighted_handle",
+      "weapon-mods/lightened_handle",
+      "weapon-mods/grip_wrap_blade",
+      "weapon-mods/wire_wrap",
+      "weapon-mods/nail_studs",
+      "weapon-mods/grip_wrap_blunt"
     ],
     "food": [
       "food/rat",

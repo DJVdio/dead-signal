@@ -1,6 +1,39 @@
 {
-  "generatedAt": "2026-07-14 00:52:31",
+  "generatedAt": "2026-07-14 03:50:41",
   "iconDir": "godot/assets/items",
+  "multiselectOptions": {
+    "fitsWeapons": [
+      "匕首",
+      "短剑",
+      "刺剑",
+      "长剑",
+      "草叉",
+      "重剑",
+      "棍棒",
+      "尖头锤",
+      "破甲锤",
+      "自制猎枪",
+      "手枪",
+      "冲锋枪",
+      "步枪",
+      "栓动猎枪",
+      "狙击枪",
+      "短弓",
+      "自制霰弹枪",
+      "反曲弓",
+      "长弓",
+      "竞技复合弓",
+      "狩猎弓",
+      "单手轻弩",
+      "双手重弩",
+      "复合弩"
+    ]
+  },
+  "dpsGripFactors": {
+    "oneHanded": 1,
+    "twoHanded": 1,
+    "dualWield": 0.7
+  },
   "categories": [
     {
       "id": "weapons",
@@ -13,8 +46,8 @@
       "id": "armor",
       "label": "护甲服装",
       "file": "armor.json",
-      "count": 16,
-      "source": "src/DeadSignal.Combat/ArmorTable.cs"
+      "count": 20,
+      "source": "src/DeadSignal.Combat/ArmorTable.cs（防护数值）+ godot/scripts/ApparelSlots.cs（穿在哪、护到哪）"
     },
     {
       "id": "dog-gear",
@@ -34,7 +67,7 @@
       "id": "materials",
       "label": "材料",
       "file": "materials.json",
-      "count": 22,
+      "count": 23,
       "source": "godot/scripts/Materials.cs"
     },
     {
@@ -48,7 +81,7 @@
       "id": "recipes",
       "label": "配方",
       "file": "recipes.json",
-      "count": 40,
+      "count": 46,
       "source": "godot/scripts/Recipe.cs"
     },
     {
@@ -62,7 +95,7 @@
       "id": "books",
       "label": "书籍",
       "file": "books.json",
-      "count": 9,
+      "count": 10,
       "source": "godot/scripts/BookData.cs"
     },
     {
@@ -76,7 +109,7 @@
       "id": "furniture",
       "label": "家具建造",
       "file": "furniture.json",
-      "count": 8,
+      "count": 10,
       "source": "godot/scripts/FurnitureBuildCost.cs"
     },
     {
@@ -94,6 +127,13 @@
       "source": "godot/scripts/CookingLogic.cs"
     },
     {
+      "id": "global-rules",
+      "label": "全局规则",
+      "file": "global-rules.json",
+      "count": 7,
+      "source": "src/DeadSignal.Combat/DualWield.cs · godot/scripts/SurvivorPerks.cs · godot/scripts/CoverLogic.cs"
+    },
+    {
       "id": "characters",
       "label": "角色",
       "file": "characters.json",
@@ -104,7 +144,7 @@
       "id": "character-stats",
       "label": "角色数值",
       "file": "character-stats.json",
-      "count": 52,
+      "count": 50,
       "source": "godot/scripts/SurvivorPerks.cs 等（每行的「代码位置」列写明了各自的出处）"
     }
   ]

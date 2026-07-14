@@ -35,14 +35,14 @@
     {
       "key": "efficacy",
       "label": "治疗效率",
-      "type": "number",
-      "hint": "抗生素 1.00 是满效；草药是它的零头"
+      "type": "percent",
+      "hint": "抗生素 100% 是满效；草药是它的零头。"
     },
     {
       "key": "worsenMult",
       "label": "恶化减缓",
-      "type": "number",
-      "hint": "越小越能拖住病情；空 = 不影响恶化"
+      "type": "mult",
+      "hint": "当天的恶化速度要乘的倍数——越小越能拖住病情。空 = 不影响恶化。"
     },
     {
       "key": "weight",
