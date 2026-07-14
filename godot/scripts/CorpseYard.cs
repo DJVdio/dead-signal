@@ -13,6 +13,14 @@ namespace DeadSignal.Godot;
 /// <b>尸体不阻挡移动</b>：本类从不建碰撞体、不改导航图、不加 NavigationObstacle——尸体格只决定「下一具
 /// 尸体往哪躺」，谁都能从尸体上走过去。（战术后果：门前的尸体不挡丧尸，但会把后来的**尸体**推得越来越远，
 /// 尸堆自然铺开成一片；「一扇门前只挤得下 3~4 只丧尸」是丧尸自己的碰撞体积造成的，与尸体格无关。）
+///
+/// <para>
+/// 🔴 <b>本 Yard 只管营地</b>：探索关的尸体<b>不进这里</b>（关卡是 cartesian 坐标系、无 iso 人形层，
+/// 尸体格与营地那套坐标不通用），走 <c>CampMain.SpawnLevelCorpse</c> → 关内一个可搜刮触发点。
+/// 两边<b>共用</b>的是规则（<see cref="CorpseLoot.Strip"/> 扒什么、<see cref="CorpseNaming"/> 叫什么名字），
+/// 各自不同的只有空间执行。相位过期清理（<see cref="CorpseDecay"/>）同样只管营地——关内尸体<b>随关卡消失</b>
+/// （一次性进出，玩家不会在关里待过三个相位；扒不完就没了，同一条口径的两种时钟）。
+/// </para>
 /// </summary>
 public sealed partial class CorpseYard : Node
 {
@@ -83,11 +91,18 @@ public sealed partial class CorpseYard : Node
     public override void _Ready() => AddToGroup("corpse_yard");
 
     /// <summary>
-    /// 某单位倒下：在其脚下落一具尸体（同格已有尸体则自动挤到旁边最近的空地），并把它身上穿的东西
-    /// <b>原样</b>变成这具尸体的战利品（<see cref="CorpseLoot.Strip"/>：**穿什么扒什么，零掷骰**）。
+    /// 某单位倒下：在其脚下落一具尸体（同格已有尸体则自动挤到旁边最近的空地），并把它<b>手里拿的</b>和
+    /// <b>身上穿的</b><b>原样</b>变成这具尸体的战利品（<see cref="CorpseLoot.Strip"/>：**持什么掉什么、
+    /// 穿什么扒什么，零掷骰、必掉**）。
     /// <para>
-    /// 于是"那只穿牛仔外套的丧尸"倒下之后，地上躺着的就是**一件牛仔外套**——玩家在动手之前就看得见它值多少，
-    /// 值不值得冒险自己算。<b>这里没有随机源，是有意的</b>（用户拍板推翻了掷骰分档）。
+    /// 于是"那只穿牛仔外套的丧尸"倒下之后，地上躺着的就是**一件牛仔外套**；"那个持匕首的劫掠者"倒下之后，
+    /// 地上躺着的就是**一把匕首**——玩家在动手之前就看得见它值多少，值不值得冒险自己算。
+    /// <b>这里没有随机源，是有意的</b>（用户拍板推翻了掷骰分档）。
+    /// </para>
+    /// <para>
+    /// <b>丧尸掉衣服，不掉武器</b>：它手里那把「爪击」是天生武器（不在 <c>WeaponTable.Arsenal</c> 里），
+    /// <see cref="CorpseLoot.IsSalvageable(Weapon)"/> 按名回查落空 ⇒ 结构性掉不出来。狗的撕咬、空手的拳脚同理。
+    /// 这层判断<b>不在这里</b>写（本类不该知道哪些武器是天生的），全在纯逻辑里收口。
     /// </para>
     /// </summary>
     public Corpse? SpawnFor(Actor actor)
@@ -98,18 +113,24 @@ public sealed partial class CorpseYard : Node
             return null;
         }
 
-        corpse.Loot.AddRange(CorpseLoot.Strip(actor.WornArmor));
+        corpse.Loot.AddRange(CorpseLoot.Strip(actor.WornArmor, actor.HeldWeapons));
         if (corpse.Loot.Count > 0)
         {
             // 只有**身上真有东西**的尸体才拿 id（= 才会被登记成可搜刮点）。衣不蔽体的那些不进容器表——
             // 既不让悬停命中去遍历一堆"点了没反应"的点，也不给玩家一地假的可交互提示。
-            corpse.ContainerId = $"{NameOf(actor)}的尸体 #{++_nextId}";
+            // 命名规则收在 CorpseNaming（营地与**探索关**共用同一条：探索关的尸体也是这个名字，见
+            // CampMain.SpawnLevelCorpse）——序号唯一是硬要求，撞名＝前一具尸体的战利品被顶掉、静默蒸发。
+            corpse.ContainerId = CorpseNaming.ContainerName(NameOf(actor), ++_nextId);
         }
         return corpse;
     }
 
-    /// <summary>死者在搜刮提示里怎么称呼（丧尸没有名字，其余单位有）。序号由调用方补，保证容器名唯一。</summary>
-    private static string NameOf(Actor actor) => actor switch
+    /// <summary>
+    /// 死者在搜刮提示里怎么称呼（丧尸没有名字，其余单位有）。序号由调用方补，保证容器名唯一。
+    /// <b>public</b>：探索关的尸体（不进本 Yard，见 <c>CampMain.SpawnLevelCorpse</c>）要用同一条称呼规则——
+    /// 同一只丧尸在营地和在关里不该叫两个名字。
+    /// </summary>
+    public static string NameOf(Actor actor) => actor switch
     {
         Pawn p => p.DisplayName,
         Raider r => r.DisplayName,

@@ -252,18 +252,20 @@ public class CorpsePushTests
     }
 
     [Fact]
-    public void ManyCorpsesInOneSpot_AllDistinctCells_AndFast()
+    public void ManyCorpsesInOneSpot_AllDistinctCells()
     {
         var field = new CorpseField();
         var cells = new HashSet<CorpseCell>();
-        var sw = System.Diagnostics.Stopwatch.StartNew();
 
         // 最坏形态：500 只丧尸全死在同一个门口（每次都要外扩找空位）
         for (int i = 0; i < 500; i++)
             cells.Add(field.Place(Center(20, 20), Anywhere).Cell);
 
-        sw.Stop();
-        Assert.True(sw.ElapsedMilliseconds < 200, $"500 具堆门口耗时 {sw.ElapsedMilliseconds}ms");
+        // 这里原本还有一条 `耗时 < 200ms` 的墙钟断言，已删：多 agent 并发构建时墙钟会抖 10~20 倍，
+        // 那条断言变红只说明隔壁在编译，不说明摆放变慢了——而随机变红的测试会训练所有人忽略红色。
+        // 它想守的"别扫全场"本来就由 Place_DoesNotScanWholeField_ProbeCountBoundedByRingArea
+        // 用**探测次数上界**确定性地守着了（与场上尸体总数无关），那才是真正的复杂度护栏。
+
         // 搜索窗 (2r+1)^2 内的格位被填满后开始堆叠，故不同格数 = 搜索窗容量上限
         int r = CorpseField.MaxSearchRing;
         Assert.Equal((2 * r + 1) * (2 * r + 1), cells.Count);

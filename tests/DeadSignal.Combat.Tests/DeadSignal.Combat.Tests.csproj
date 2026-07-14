@@ -236,6 +236,7 @@
     <!-- 尸体战利品判定纯逻辑（impl-loot-clothes，无 Godot 依赖）：死者身上的衣服逐件掷骰 —— 软质衣物 50% /
          刚性护甲件 90% 完好取下，天生层(腐皮)永不掉且不掷骰。丧尸穿着生前的日常着装，那件衣服是重要的装备来源。 -->
     <Compile Include="..\..\godot\scripts\CorpseLoot.cs" Link="Consumed\CorpseLoot.cs" />
+    <Compile Include="..\..\godot\scripts\CorpseNaming.cs" Link="Consumed\CorpseNaming.cs" />
     <!-- 负重上限系统消费层（impl-carry，无 Godot 依赖）：物品/战利品称重表(ItemWeights，护甲重量读 ArmorTable.Weight) +
          远征背包硬上限(ExpeditionBag：>80kg 装不下就是拿不走 / 成堆材料只拿得走装得下的几件 / 扔掉腾容量) +
          上限门面(CarryCapacity：80kg × 承载能力(残缺×饥饿) × authored 专属乘子(山姆连乘))。三档 debuff 数学在引擎 Loadout。 -->
