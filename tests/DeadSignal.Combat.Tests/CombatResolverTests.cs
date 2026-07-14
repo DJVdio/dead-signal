@@ -10,8 +10,9 @@ public class CombatResolverTests
     /// <summary>
     /// 设计文档算例复现（武器 2-12）：
     /// 第一层 攻 10 vs 防 11 → 半伤 5、锐器转钝、穿透归零；
-    /// 第二层 攻方在 [0,5] roll，攻 4 vs 防 2 → 全伤 4。
-    /// 最终作用到部位 4 伤，类型钝器。
+    /// 第二层【T59 方案 E】在**武器原始区间 [2,12]** 重掷得 4 → min(4, 上层带下的 5) = 4；
+    /// 攻 4 vs 防 2 → 全伤 4。最终作用到部位 4 伤，类型钝器。
+    /// （本例掷点 4 恰好低于 carried=5 ⇒ 取 rolled ⇒ 结果与旧口径相同，故算例本身仍然成立。）
     /// </summary>
     [Fact]
     public void DocumentedExample_TwoTwelve_HalfThenFull()
@@ -122,8 +123,14 @@ public class CombatResolverTests
         Assert.Equal(0, rng.Remaining); // 未触及第二层的 roll
     }
 
+    /// <summary>
+    /// 【T59 方案 E】三层全穿：每层**在武器原始区间重掷**，再与上一层带下来的伤害**取较小者**。
+    /// <para>⚠️ 旧口径在这里是「逐层区间收缩到 [0, carried]」⇒ 每层期望自动减半（15 → 8 → 3）——
+    /// 那是**缺陷**（层数白送减伤，与防御力无关）。新口径下：**掷高了会被 carried 卡住（不增益）、
+    /// 掷低了才吃亏** ⇒ 伤害不会越穿越小到无底。</para>
+    /// </summary>
     [Fact]
-    public void ThreeLayers_DamageDecaysEachFullLayer()
+    public void ThreeLayers_RerollWeaponRangeAndTakeMin()
     {
         var weapon = new Weapon { Name = "重剑", DamageMin = 10, DamageMax = 20, Penetration = 0, DamageType = DamageType.Sharp };
         var layers = new[]
@@ -132,16 +139,18 @@ public class CombatResolverTests
             new ArmorLayer { Name = "L2", Slot = ArmorSlot.Outer, SharpDefense = 4, BluntDefense = 2 },
             new ArmorLayer { Name = "L3", Slot = ArmorSlot.Skin, SharpDefense = 4, BluntDefense = 2 },
         };
-        // atk1=15 (>=1 full → carried15), atk2 in[0,15]=8 (full → 8), atk3 in[0,8]=3 (full → 3)
-        var rng = new SequenceRandomSource(15, 1, 8, 1, 3, 1);
+        // 层1：掷 15（区间 [10,20]）vs 防 1 → Full → carried 15
+        // 层2：重掷 12 → min(12, 15) = 12 vs 防 1 → Full → carried 12
+        // 层3：重掷 18（**高于** carried）→ min(18, 12) = 12 vs 防 1 → Full → 12（被卡住，不增益）
+        var rng = new SequenceRandomSource(15, 1, 12, 1, 18, 1);
         var r = new CombatResolver(rng).Resolve(weapon, layers, Chest);
 
         Assert.Equal(3, r.LayersPenetrated);
         Assert.All(r.Layers, l => Assert.Equal(LayerOutcome.Full, l.Outcome));
         Assert.Equal(15, r.Layers[0].DamageAfterLayer, 9);
-        Assert.Equal(8, r.Layers[1].DamageAfterLayer, 9);
-        Assert.Equal(3, r.Layers[2].DamageAfterLayer, 9);
-        Assert.Equal(3, r.FinalDamage);
+        Assert.Equal(12, r.Layers[1].DamageAfterLayer, 9); // 掷低了 ⇒ 取 rolled
+        Assert.Equal(12, r.Layers[2].DamageAfterLayer, 9); // 掷高了 ⇒ 被 carried 卡住
+        Assert.Equal(12, r.FinalDamage);
     }
 
     [Fact]
@@ -183,15 +192,17 @@ public class CombatResolverTests
             new ArmorLayer { Name = "内", Slot = ArmorSlot.Skin, SharpDefense = 40, BluntDefense = 20 },
         };
         // 层1: 适用锐防 40, defMax=40*0.5=20; 攻10 vs 防15 → 10>=7.5 半伤5 转钝 穿透→0
-        // 层2: 钝防 20, 穿透0 → defMax=20; 攻 in[0,5]=3 vs 防 2 → 全伤3
-        var rng = new SequenceRandomSource(10, 15, 3, 2);
+        // 层2【T59 方案E】: 在**武器原始区间 [10,10]** 重掷得 10 → min(10, carried 5) = 5；
+        //        钝防 20、穿透0 → defMax=20; 攻 5 vs 防 2 → 全伤 5
+        //        （转钝**不改武器的伤害区间**，只改伤害类型与穿透）
+        var rng = new SequenceRandomSource(10, 15, 10, 2);
         var r = new CombatResolver(rng).Resolve(weapon, layers, Chest);
 
         Assert.Equal(0.5, r.Layers[0].PenetrationUsed, 9);
         Assert.True(r.Layers[0].ConvertedToBlunt);
         Assert.Equal(0, r.Layers[1].PenetrationUsed, 9);
         Assert.Equal(20, r.Layers[1].ApplicableDefense); // 钝防
-        Assert.Equal(3, r.FinalDamage);
+        Assert.Equal(5, r.FinalDamage);
     }
 
     [Fact]
@@ -205,15 +216,16 @@ public class CombatResolverTests
             new ArmorLayer { Name = "内", Slot = ArmorSlot.Skin, SharpDefense = 20, BluntDefense = 10 },
         };
         // 层1: 钝防20 穿透0.2 defMax=16; 攻10 vs 防15 → 半伤5 不转换 穿透仍0.2
-        // 层2: 钝防10 穿透0.2 defMax=8; 攻 in[0,5]=3 vs 防2 → 全伤3
-        var rng = new SequenceRandomSource(10, 15, 3, 2);
+        // 层2【T59 方案E】: 重掷 [10,10] 得 10 → min(10, carried 5) = 5;
+        //        钝防10 穿透0.2 defMax=8; 攻 5 vs 防2 → 全伤 5
+        var rng = new SequenceRandomSource(10, 15, 10, 2);
         var r = new CombatResolver(rng).Resolve(weapon, layers, Chest);
 
         Assert.False(r.Layers[0].ConvertedToBlunt);
         Assert.Equal(0.2, r.Layers[0].PenetrationUsed, 9);
         Assert.Equal(0.2, r.Layers[1].PenetrationUsed, 9); // 天然钝器保留穿透
         Assert.Equal(DamageType.Blunt, r.FinalDamageType);
-        Assert.Equal(3, r.FinalDamage);
+        Assert.Equal(5, r.FinalDamage);
     }
 
     [Fact]

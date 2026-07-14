@@ -10,9 +10,18 @@ namespace DeadSignal.Combat;
 /// 4. 攻 &lt; 防/2：无伤害，结算终止。
 /// 5. 穿透所有层后，剩余伤害作用到部位时向上取整、最低 1；中途终止为 0（不适用保底）。
 ///
-/// 关键口径（文档算例）：从第二层起，攻方 roll 区间 = [0, 上一层结算后的伤害值]。
+/// 关键口径【T59 方案 E·用户拍板，原话】：「**每一层都要重新 roll 攻击值，和上一层穿透过来的伤害值
+/// 取较小的那个作为这一层的实际值**」——
+/// <code>
+/// rolled = Range(武器.DamageMin, 武器.DamageMax)   // 区间【永远是武器的原始区间】，不收缩
+/// atk    = min(rolled, 上一层结算后的伤害)          // 上一层带下来的伤害是【上限】
+/// </code>
 /// 例（武器 2-12）：第一层攻 10 vs 防 11 → 半伤 5、转钝；
-/// 第二层攻方在 [0, 5] 内 roll，攻 4 vs 防 2 → 全伤 4。
+/// 第二层重掷 [2,12] 得 8 → min(8, 5) = 5；攻 5 vs 防 2 → 全伤 5。
+///
+/// <b>旧口径（已废弃，是一个缺陷）</b>：「第二层起攻方在 [0, 上一层结算后的伤害值] 内 roll」
+/// ⇒ 期望伤害**每多一层就 ×0.5**，与该层防御力无关 ⇒ 三片**零防御**破布（25%）比板甲（41%）还抗揍。
+/// 详见 <c>LayerRerollMinTests</c>。
 /// </summary>
 public sealed class CombatResolver
 {
@@ -89,10 +98,6 @@ public sealed class CombatResolver
         DamageType currentType = weapon.DamageType;
         double currentPen = Math.Clamp(weapon.Penetration, 0, 1);
 
-        // 第一层攻方在武器原始区间 roll；此后每层在 [0, 上一层结算后的伤害值] roll。
-        double atkMin = weapon.DamageMin;
-        double atkMax = weapon.DamageMax;
-
         double carriedDamage = 0;
         bool terminated = false;
         int penetrated = 0;
@@ -102,7 +107,28 @@ public sealed class CombatResolver
         {
             ArmorLayer layer = layers[i];
 
-            double atk = _rng.Range(atkMin, atkMax);
+            // 【T59 方案 E·用户拍板】每一层都用**武器自己的原始伤害区间**重新 roll，
+            // 再与**上一层穿透过来的伤害**取【较小者】作为本层的实际攻方值。
+            //
+            // 🔴 修掉的缺陷：旧口径是「第二层起在 `[0, 上一层结算后的伤害值]` 内 roll」
+            //    ⇒ E[atk'] = carried / 2 ⇒ **每多一层伤害期望就 ×0.5**，且与该层的防御力、
+            //    与武器、与伤害类型、与穿透**全部无关**。连一层**防御为 0** 的破布也照样砍半
+            //    （防御 0 ⇒ defMax=0 ⇒ 必判 Full ⇒ carried 原样带下，但下一层仍在 [0,carried]
+            //    重掷 ⇒ 白送 50%）。实测：三片零防御布片＝裸身的 25%，比全表最强的板甲（41%）
+            //    还抗揍；两件破布让破甲锤减半，而一件皮甲对它**一点没减**。
+            //
+            // 新口径为什么对：掷高了 ⇒ 被 carried 卡住 ⇒ **伤害不会越穿越大**（carried 是上限）；
+            //    掷低了 ⇒ 取 rolled ⇒ 才吃亏。⇒ **层数不再无条件减半**，衰减有下限
+            //    （趋向武器伤害区间的下界），减伤重新由**防御力**说了算。
+            //
+            // ⚠️ 锐转钝之后仍用**武器的原始区间**重掷：转换改的是 `currentType`（→钝）与
+            //    `currentPen`（→0），**不改武器的伤害区间**——`Weapon` 上只有一组
+            //    DamageMin/DamageMax，它本就与伤害类型无关（挥得多重是武器的属性，不是伤型的）。
+            //
+            // rng 消耗次数与旧实现**逐次相同**（每层仍是 1 次攻 roll + 1 次防 roll），
+            // 只是第 2 层起 roll 的**区间**变了 ⇒ 0 层/1 层的结算路径**逐位不变**。
+            double rolled = _rng.Range(weapon.DamageMin, weapon.DamageMax);
+            double atk = i == 0 ? rolled : Math.Min(rolled, carriedDamage);
             if (i == 0)
             {
                 initialAttackRoll = atk;
@@ -116,6 +142,8 @@ public sealed class CombatResolver
             DamageType typeBefore = currentType;
             double penUsed = currentPen;
 
+            // ⚠️ 以下三段判定里的 `atk` 一律是**取 min 之后的实际值**（不是原始 rolled）——
+            // Half 的 `atk / 2.0` 也据此折半。
             if (atk >= def)
             {
                 outcome = LayerOutcome.Full;
@@ -161,9 +189,7 @@ public sealed class CombatResolver
             }
 
             penetrated++;
-            // 下一层攻方区间 = [0, 本层结算后的伤害值]。
-            atkMin = 0;
-            atkMax = carriedDamage;
+            // 下一层：重掷武器原始区间，再与 carriedDamage 取 min（见循环开头）。
         }
 
         double rawDamage;
