@@ -21,39 +21,56 @@ public sealed class WeaponModTests
 
     // ---- 单改装数值变化 ----
 
+    /// <summary>
+    /// 锋刃研磨：<b>穿透 ×1.75（乘算）</b>，其余不动，且不碰原 base 对象。
+    /// <para>[T47] 用户把它从"加算 +0.05"改成了"**+75%**"（乘算）——短剑 0.12 → 0.21。</para>
+    /// </summary>
     [Fact]
     public void SingleMod_ChangesTargetedStats_LeavesBaseUntouched()
     {
         var baseSword = WeaponTable.Shortsword();
         var result = WeaponMods.ApplyMods(baseSword, new[] { WeaponModCatalog.HonedEdge() });
 
-        // 研磨：穿透 +0.05
-        Assert.Equal(baseSword.Penetration + 0.05, result.Weapon.Penetration, 6);
+        // 研磨：穿透 +75%（乘算，不是加一个绝对值）
+        Assert.Equal(baseSword.Penetration * 1.75, result.Weapon.Penetration, 6);
         // 其余不变
         Assert.Equal(baseSword.DamageMax, result.Weapon.DamageMax, 6);
+        Assert.Equal(baseSword.AttackInterval, result.Weapon.AttackInterval, 6);
         // 原 base 未被改动
         Assert.Equal(0.12, baseSword.Penetration, 6);
     }
 
+    /// <summary>
+    /// 加重剑柄：伤害 +6%，<b>重量 +18%</b>。
+    /// <para>⚠️ [T47] <b>用户删掉了它原有的攻速惩罚</b> —— 它的代价现在**是重量**（重量已真的进负重账）。
+    /// 这条改钉新意图：伤害↑、重量↑、<b>攻速一格不动</b>。谁把攻速惩罚加回来，这里会红。</para>
+    /// </summary>
     [Fact]
-    public void WeightedHandle_RaisesDamage_LowersAttackSpeed()
+    public void WeightedHandle_RaisesDamage_CostIsWeight_NotAttackSpeed()
     {
         var baseSword = WeaponTable.Shortsword();
         var r = WeaponMods.ApplyMods(baseSword, new[] { WeaponModCatalog.WeightedHandle() });
 
-        Assert.True(r.Weapon.DamageMin > baseSword.DamageMin);
-        Assert.True(r.Weapon.DamageMax > baseSword.DamageMax);
-        Assert.True(r.Weapon.AttackInterval > baseSword.AttackInterval); // 间隔↑ = 攻速↓
+        Assert.Equal(baseSword.DamageMin * 1.06, r.Weapon.DamageMin, 6);
+        Assert.Equal(baseSword.DamageMax * 1.06, r.Weapon.DamageMax, 6);
+        Assert.Equal(baseSword.AttackInterval, r.Weapon.AttackInterval, 6);   // 攻速不再是代价
+        Assert.Equal(1.18, WeaponModCatalog.WeightedHandle().WeightMultiplier, 6);   // 代价在这
     }
 
+    /// <summary>
+    /// 轻质化剑柄：攻速 +3%，<b>重量 −12%</b>。
+    /// <para>⚠️ [T47] <b>用户删掉了它原有的伤害惩罚</b> —— 减重本身就是它的收益（负重账已接通）。
+    /// 这条改钉新意图：攻速↑、重量↓、<b>伤害一格不动</b>。</para>
+    /// </summary>
     [Fact]
-    public void LightenedHandle_RaisesAttackSpeed_LowersDamage()
+    public void LightenedHandle_RaisesAttackSpeed_AndCutsWeight_NoDamagePenalty()
     {
         var baseSword = WeaponTable.Shortsword();
         var r = WeaponMods.ApplyMods(baseSword, new[] { WeaponModCatalog.LightenedHandle() });
 
-        Assert.True(r.Weapon.AttackInterval < baseSword.AttackInterval); // 间隔↓ = 攻速↑
-        Assert.True(r.Weapon.DamageMax < baseSword.DamageMax);
+        Assert.Equal(baseSword.AttackInterval * 0.97, r.Weapon.AttackInterval, 6);   // 攻速 +3% ⇒ 间隔 ×0.97
+        Assert.Equal(baseSword.DamageMax, r.Weapon.DamageMax, 6);                    // 伤害不再是代价
+        Assert.Equal(0.88, WeaponModCatalog.LightenedHandle().WeightMultiplier, 6);  // 收益在这（−12%）
     }
 
     [Fact]
@@ -76,14 +93,23 @@ public sealed class WeaponModTests
         Assert.True(r.Weapon.BaseSpreadDegrees < baseGun.BaseSpreadDegrees);
     }
 
+    /// <summary>
+    /// 钉子强化：<b>穿透 +0.03（加算）</b>。
+    /// <para>🔴 <b>加算是 CLAUDE.md 乘算铁律的唯一例外，用户亲自点名的</b>：
+    /// 「钉子强化：穿透 +0.03 是因为**棍棒原本是 0 穿透**」——乘算在零上永远是零（零陷阱）。
+    /// 谁把它改成 <c>Mul</c>，这条改装当场变成废件，本测试红。</para>
+    /// <para>⚠️ [T47] 用户把它的**伤害加成删掉了**（改成"25% 几率造成小流血"，那条是引擎新轴、尚未落地）。
+    /// 故不再断言伤害↑ —— 它现在只加穿透。</para>
+    /// </summary>
     [Fact]
     public void NailStuds_OnClub_AddsPenetration()
     {
         var baseClub = WeaponTable.Club();
         var r = WeaponMods.ApplyMods(baseClub, new[] { WeaponModCatalog.NailStuds() });
 
-        Assert.True(r.Weapon.Penetration > baseClub.Penetration);
-        Assert.True(r.Weapon.DamageMax > baseClub.DamageMax);
+        Assert.Equal(0.0, baseClub.Penetration, 9);          // 前提：棍棒穿透本来就是 0（零陷阱的成因）
+        Assert.Equal(0.03, r.Weapon.Penetration, 9);         // 加算：0 + 0.03
+        Assert.True(r.Weapon.Penetration > baseClub.Penetration, "钉尖必须真的能破一点甲");
     }
 
     // ---- 多部位叠加 ----
@@ -187,8 +213,14 @@ public sealed class WeaponModTests
 
     // ---- 锐击/钝击枪托型改装 ----
 
+    /// <summary>
+    /// 刺刀型：枪托近战 = <b>80% 攻速的刺剑</b>（锐击、穿透 25%、捅得快）。
+    /// <para>⚠️ [T47] <b>不再断言"单击伤害↑"</b> —— 新口径下刺刀的单击伤害就是刺剑的 2~7，
+    /// 与步枪原厂枪托的 4~7 <b>上限持平、下限更低</b>。它赢在**快**（间隔 2.375s vs 3.0s）⇒ 每秒伤害更高。
+    /// 拿单击伤害去断言会误报，正确的轴是 <b>DPS</b>。</para>
+    /// </summary>
     [Fact]
-    public void Bayonet_MakesStockMeleeSharp_HigherThanDefault()
+    public void Bayonet_MakesStockMeleeSharp_HigherDpsAndPenetration()
     {
         var baseGun = WeaponTable.Rifle();
         var defaultMelee = baseGun.MeleeProfile();
@@ -199,10 +231,11 @@ public sealed class WeaponModTests
         var eff = r.EffectiveMeleeProfile();
 
         Assert.NotNull(eff);
-        Assert.Equal(DamageType.Sharp, eff!.DamageType);            // 刺刀锐击
-        Assert.True(eff.Penetration > defaultMelee.Penetration);    // 穿透↑
-        Assert.True(eff.DamageMax > defaultMelee.DamageMax);        // 伤↑
-        Assert.False(eff.IsRanged);                                 // 近战必中
+        Assert.Equal(DamageType.Sharp, eff!.DamageType);                          // 刺刀锐击
+        Assert.True(eff.Penetration > defaultMelee.Penetration);                  // 穿透↑（0.25 vs 0.03）
+        Assert.True(eff.AttackInterval < defaultMelee.AttackInterval);            // 捅比抡快
+        Assert.True(WeaponDps.Single(eff) > WeaponDps.Single(defaultMelee));      // 每秒伤害↑（不看单击）
+        Assert.False(eff.IsRanged);                                               // 近战必中
     }
 
     [Fact]

@@ -150,9 +150,15 @@ public class RecipeBookTests
     /// <b>弓的阶梯＝一条"要不要出门搜书"的曲线</b>（[SPEC-B21·T26] 用户拍板）：
     /// <list type="bullet">
     /// <item><b>短弓</b> ← 《野外生存指南》（<b>开局共享库存就有</b>）⇒ 开局读完书即可造，不必出门。</item>
-    /// <item><b>反曲弓 / 长弓</b> ← 《<b>进阶木匠技术</b>》（<b>只能搜刮</b>，见 ExplorationCache）⇒ 想升级弓，<b>得出去搜书</b>。</item>
-    /// </list>
+    /// <item><b>反曲弓 / 长弓</b> ← 《<b>弓制作指南</b>》（<b>只能搜刮</b>：守林人小屋·阁楼）⇒ 想升级弓，<b>得出去搜书</b>。</item>
     /// <item><b>单手轻弩 / 双手重弩</b> ← 《<b>机械之美</b>》（用户拍板的新书；<b>只能靠这本书</b>，见下条测试）。</item>
+    /// </list>
+    ///
+    /// <para>⚠️ <b>[T59] 中间那一档换了本书</b>：反曲弓/长弓原挂《进阶木匠技术》，现挂用户在 wiki 上新加的
+    /// 《<b>弓制作指南</b>》（他把"造弓"从木工书里拆成了单独一本）。
+    /// <b>这条测试要守的曲线一个字都没变</b> —— 那本书<b>照样只能搜刮</b>（守林人小屋·阁楼，比原来的联合收割机仓库还远）
+    /// ⇒「想升级弓就得出门」原样成立。变的只是"出门去哪儿搜、搜哪本"。
+    /// （<b>斧头仍留在《进阶木匠技术》</b>，那条"斧头与造斧头的书同馆"的设计没动。）</para>
     /// </summary>
     [Fact]
     public void 弓弩的阶梯_短弓开局书_进阶弓搜书_弩要机械之美()
@@ -162,8 +168,9 @@ public class RecipeBookTests
         foreach (string id in new[] { "recurve_bow", "longbow" })
         {
             RecipeData r = RecipeBook.Find(id)!;
-            Assert.Contains(RecipeBook.AdvancedCarpentryBookId, r.RequiredBookIds);
-            Assert.DoesNotContain(RecipeBook.CarpentryBasicsBookId, r.RequiredBookIds);   // 已从入门书搬走
+            Assert.Contains(RecipeBook.BowCraftingGuideBookId, r.RequiredBookIds);        // [T59] 改挂《弓制作指南》
+            Assert.DoesNotContain(RecipeBook.AdvancedCarpentryBookId, r.RequiredBookIds); // 已从进阶木匠搬走
+            Assert.DoesNotContain(RecipeBook.CarpentryBasicsBookId, r.RequiredBookIds);   // 更早就从入门书搬走了
         }
 
         foreach (string id in new[] { "light_crossbow", "heavy_crossbow" })

@@ -36,6 +36,21 @@ public sealed class SaveData
     /// </summary>
     public Dictionary<string, string> StoryFlags { get; set; } = new();
 
+    /// <summary>
+    /// [T57] 调查点网状解锁：**去过哪些调查点**（内部路由键）。解锁 = 前置点【去过】且【探索度 &gt; 50%】——
+    /// 探索度本身由 <see cref="StoryFlags"/> 里的 searched_*/found_* 推出来（<c>ExplorationProgress.Completion</c>），
+    /// 唯一需要单独记的就是这份「去过」名单。
+    ///
+    /// <para>
+    /// 🔴 <b>刻意可空，这是老档兜底的开关</b>：网状解锁是 [T57] 才有的东西，此前的存档（含 v3）压根没有这个键 ⇒
+    /// 反序列化出来是 <c>null</c>，据此认出「这是 T57 之前的档」并**一律视为全部已解锁**（<c>legacyFullUnlock</c>），
+    /// 不去剥夺玩家已经打下来的进度。新档一律写一份真列表（哪怕是空的 <c>[]</c>）⇒ 空列表＝新游戏（只有起点开着），
+    /// 与 null＝老档，两者区分得开。
+    /// <b>因此本字段不需要撞版本号</b>——它是往 v3 payload 里加的**向后兼容**字段（v3 刚被 impl-iron 撞过，再撞会把老档撞坏）。
+    /// </para>
+    /// </summary>
+    public List<string>? VisitedDestinations { get; set; }
+
     /// <summary>营地：库存/结构/家具/工作台/在制品/容器藏物。</summary>
     public CampSave Camp { get; set; } = new();
 
@@ -203,6 +218,26 @@ public sealed class ModdedWeaponSave
 
     /// <summary>已施加的改装名（WeaponModCatalog 里的 <see cref="WeaponMod.Name"/>）。</summary>
     public List<string> ModNames { get; set; } = new();
+
+    /// <summary>
+    /// [T47] **消耗型改装还剩几次**（改装名 → 剩余攻击次数）。目前只有「锋刃研磨」（3 次）是消耗型。
+    ///
+    /// <para>
+    /// <b>存档版本没有再撞</b>：这是往 <c>impl-iron</c> 已经开好的 **v3** payload 里**加一个字段**，
+    /// 不是 v4。同一批次里撞两次版本号 = 让刚迁移过的老档二次作废。
+    /// </para>
+    /// <para>
+    /// 🔴 <b>老档（v3 之前 / 没有这个字段）读出来是 <c>null</c> ⇒ 一律补成「满次数」，不是 0</b>
+    /// （见 <c>ModdedWeaponRegistry.Restore</c>）。默认 0 会让老档一读进来，所有研磨过的刀当场全部脱落 ——
+    /// 凭空没收玩家的东西，比读不了还糟。
+    /// </para>
+    /// <para>
+    /// <b>为什么它在这里、而不在 spec 三兄弟旁边</b>：spec（变体名/基础武器/改装列表）是**不可变身份**，
+    /// 读档时按当前规则重算；而剩余次数是**可变的实例状态**，必须原样存回来。两者语义不同，
+    /// 只是恰好挂在同一条记录上（同一把武器）。
+    /// </para>
+    /// </summary>
+    public Dictionary<string, int>? RemainingUses { get; set; }
 }
 
 /// <summary>

@@ -29,25 +29,51 @@ public static class SaveMapper
 
     // ---- 改装武器注册表（存档只落三个字符串，数值读档时按当前规则重算，见 ModdedWeaponRegistry 类注）----
 
-    /// <summary>把全部已登记的改装变体身份抄进存档。</summary>
+    /// <summary>
+    /// 把全部已登记的改装变体身份抄进存档。
+    /// [T47] 连**消耗型改装的剩余次数**一起（<see cref="ModdedWeaponSave.RemainingUses"/>）——
+    /// 不存它，读档后所有研磨过的刀都会回满 3 次，等于免费续刀。
+    /// </summary>
     public static List<ModdedWeaponSave> CaptureModdedWeapons()
-        => ModdedWeaponRegistry.Specs
+    {
+        IReadOnlyDictionary<string, IReadOnlyDictionary<string, int>> wear = ModdedWeaponRegistry.Wear;
+        return ModdedWeaponRegistry.Specs
             .Select(s => new ModdedWeaponSave
             {
                 VariantName = s.VariantName,
                 BaseWeaponName = s.BaseWeaponName,
                 ModNames = s.ModNames.ToList(),
+                RemainingUses = wear.TryGetValue(s.VariantName, out IReadOnlyDictionary<string, int>? w) && w.Count > 0
+                    ? new Dictionary<string, int>(w)
+                    : null,   // 没有消耗型改装 ⇒ 不写这个字段（老档同形，存档体积不涨）
             })
             .ToList();
+    }
 
-    /// <summary>读档：按存档里的身份全量重建改装注册表（**必须在复原任何持械/库存之前调**）。</summary>
+    /// <summary>
+    /// 读档：按存档里的身份全量重建改装注册表（**必须在复原任何持械/库存之前调**）。
+    /// [T47] 剩余次数一并还原；**老档没有这个字段 ⇒ 补成满次数**（见 <c>ModdedWeaponRegistry.Restore</c>）。
+    /// </summary>
     public static void RestoreModdedWeapons(IReadOnlyList<ModdedWeaponSave>? saved)
-        => ModdedWeaponRegistry.Restore(
-            (saved ?? new List<ModdedWeaponSave>())
-                .Select(s => new ModdedWeaponSpec(
-                    s.VariantName ?? "",
-                    s.BaseWeaponName ?? "",
-                    s.ModNames ?? new List<string>())));
+    {
+        List<ModdedWeaponSave> rows = (saved ?? new List<ModdedWeaponSave>()).ToList();
+
+        var wear = new Dictionary<string, IReadOnlyDictionary<string, int>>();
+        foreach (ModdedWeaponSave s in rows)
+        {
+            if (s.VariantName is { Length: > 0 } name && s.RemainingUses is { Count: > 0 } uses)
+            {
+                wear[name] = new Dictionary<string, int>(uses);
+            }
+        }
+
+        ModdedWeaponRegistry.Restore(
+            rows.Select(s => new ModdedWeaponSpec(
+                s.VariantName ?? "",
+                s.BaseWeaponName ?? "",
+                s.ModNames ?? new List<string>())),
+            wear);
+    }
 
     // ---- Item ----
 

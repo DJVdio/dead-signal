@@ -84,14 +84,20 @@ public class ModdedWeaponEquipTests
         Assert.True(loadout.EquipTwoHanded(w), "改装后的双手枪必须能双手握住");
     }
 
-    /// <summary>单手枪（手枪）改装后同样装得上——两条入口都得通。</summary>
+    /// <summary>
+    /// 单手枪（手枪）改装后同样装得上——两条入口都得通。
+    /// <para>⚠️ [T47] 从前这里用的是**利爪型**，但用户已把手枪从三种近战型态的白名单里划掉了
+    /// （手枪装刺刀/绑消防斧本来就荒诞）⇒ 改用手枪**真装得上**的改装：<b>加长枪管</b>。</para>
+    /// </summary>
     [Fact]
     public void 改装后的单手枪也必须装得上()
     {
         ModdedWeaponRegistry.Clear();
         Weapon pistol = WeaponTable.Arsenal().First(x => x.Name == "手枪");
-        WeaponMod claw = WeaponModCatalog.For(WeaponClass.Firearm).First(m => m.Id == "claw_stock");
-        string variant = ModdedWeaponRegistry.Register(WeaponMods.ApplyMods(pistol, new[] { claw }));
+        WeaponMod barrel = WeaponModCatalog.For(WeaponClass.Firearm).First(m => m.Id == "extended_barrel");
+        Assert.Contains("手枪", barrel.FitsWeapons);
+
+        string variant = ModdedWeaponRegistry.Register(WeaponMods.ApplyMods(pistol, new[] { barrel }));
 
         Weapon? w = ModdedWeaponRegistry.WeaponByName(variant);
         Assert.NotNull(w);
@@ -104,8 +110,10 @@ public class ModdedWeaponEquipTests
 
     /// <summary>
     /// <b>比"装不上"更隐蔽的失败：装上了，但吃的是原版数值（改装白改）。</b>
-    /// 刺刀型把枪托近战从**钝击**改成**锐击**、伤害 ×1.35、穿透定死 0.20。
+    /// 刺刀型把枪托近战从**钝击**改成**锐击**，并整个换成「80% 攻速的刺剑」。
     /// 回查回来的那把枪必须带着这些——否则玩家的材料和工时喂了狗。
+    /// <para>⚠️ [T47] 口径已换：不再是"在枪托数值上乘系数"，而是**覆盖成刺剑**
+    /// ⇒ 单击伤害与原厂枪托**上限持平**（都是 7），赢的是**穿透与出手速度**。故断言改看这两条 + DPS。</para>
     /// </summary>
     [Fact]
     public void 装上之后吃的是改装数值而不是原版数值()
@@ -120,11 +128,13 @@ public class ModdedWeaponEquipTests
         Assert.Equal(DamageType.Blunt, baseStock.DamageType);
         Assert.Equal(DamageType.Sharp, moddedStock.DamageType);
 
-        // 数值：伤害提高、穿透提高（原版枪托穿透 0.02，刺刀定死 0.20）
-        Assert.True(moddedStock.DamageMax > baseStock.DamageMax,
-            $"刺刀型枪托伤害({moddedStock.DamageMax})应高于原版({baseStock.DamageMax})——否则改装白改");
+        // 数值：穿透提高（原版枪托 0.03 → 刺剑 0.25）、出手更快、每秒伤害更高
         Assert.True(moddedStock.Penetration > baseStock.Penetration,
-            $"刺刀型穿透({moddedStock.Penetration})应高于原版({baseStock.Penetration})");
+            $"刺刀型穿透({moddedStock.Penetration})应高于原版({baseStock.Penetration})——否则改装白改");
+        Assert.True(moddedStock.AttackInterval < baseStock.AttackInterval,
+            $"刺刀型出手({moddedStock.AttackInterval}s)应快于原版枪托({baseStock.AttackInterval}s)");
+        Assert.True(WeaponDps.Single(moddedStock) > WeaponDps.Single(baseStock),
+            "刺刀型每秒伤害应高于原厂枪托——否则没人会去改");
     }
 
     // ———————————————————————————— 存档：改装枪读回来还在，且数值不变 ————————————————————————————

@@ -22,71 +22,65 @@ namespace DeadSignal.Combat.Tests;
 [Collection(ModdedWeaponRegistryCollection.Name)]
 public class GunModBenchTests
 {
-    // 全表 7 把枪（弓弩没有枪托，见 WeaponTable：弓的 StockMelee* 恒 null）。
+    // 全表 6 把枪（弓弩没有枪托，见 WeaponTable：弓的 StockMelee* 恒 null；栓动猎枪已被用户删除）。
     private static IReadOnlyList<Weapon> Firearms() =>
         WeaponTable.Arsenal().Where(w => w.IsRanged && w.HasMeleeProfile).ToList();
 
-    private static double Dps(Weapon w) => (w.DamageMin + w.DamageMax) / 2.0 / w.AttackInterval;
+    /// <summary>DPS 一律走引擎的 <see cref="WeaponDps"/>（单一事实源），不在测试里另写一遍公式。</summary>
+    private static double Dps(Weapon w) => WeaponDps.Single(w);
 
     // ==================== 1. 枪托近战数值定稿 ====================
 
-    /// <summary>七把枪都得有枪托 profile（不然打空了就只能站着挨打）。弓弩不在此列——它们没有枪托。</summary>
+    /// <summary>六把枪都得有枪托 profile（不然打空了就只能站着挨打）。弓弩不在此列——它们没有枪托。
+    /// （原为七把，栓动猎枪已被用户从数值表删除。）</summary>
     [Fact]
-    public void AllSevenFirearms_HaveStockMeleeProfile()
+    public void AllFirearms_HaveStockMeleeProfile()
     {
-        Assert.Equal(7, Firearms().Count);
+        Assert.Equal(6, Firearms().Count);
         Assert.All(Firearms(), w => Assert.NotNull(w.MeleeProfile()));
     }
 
     /// <summary>
-    /// **枪托的天花板**：任何一把枪的枪托 DPS 都必须严格低于最弱钝器（棍棒）。
-    /// 抡枪托绝不该比拿一把真家伙更划算——枪托是"你打空了"的意思，不是一条武器路线。
+    /// ✅ <b>[T47] 「记录失衡」的时代结束了 —— 这条已经翻回【正向硬护栏】。</b>
+    ///
+    /// <para><b>背景</b>：从前这里钉的是"枪托 ＞ 棍棒（记录现状）"，并留话「若此断言变红，说明枪托已被调低，
+    /// 请把正向硬护栏加回来」。<b>用户已经把六把枪的枪托全部压下去了</b>（`WeaponTable` 里逐把标着
+    /// 「用户拍板压低枪托」），⇒ 现在照约定翻回来。</para>
+    ///
+    /// <para><b>规则（T7 定稿的原话）</b>：任何一把枪的枪托 DPS 都必须 <b>＜ 棍棒</b>（全表最弱的近战武器）——
+    /// 否则"我该不该带把近战武器"根本不成其为一个选择：带把枪就够了，它自带一根比棍棒更好的棍子。</para>
+    ///
+    /// <para>当前：<c>拳脚 1.67 ＜ 枪托 1.72~1.89 ＜ 棍棒 2.04 ＜ 匕首 2.35</c>。
+    /// <b>护栏卡的是最坏一对</b>：最强的枪托（狙击 1.89）对最弱的近战（棍棒 2.04）—— 中间没有洞。</para>
     /// </summary>
     [Fact]
-    public void StockMelee_IsStrictlyWorseThan_TheWeakestRealMeleeWeapon()
+    public void StockMelee_IsWeakerThan_TheWeakestRealMeleeWeapon()
     {
-        double club = Dps(WeaponTable.Club());       // 最弱钝器
+        double club = Dps(WeaponTable.Club());       // 全表最弱近战武器
 
         foreach (Weapon gun in Firearms())
         {
             double stock = Dps(gun.MeleeProfile()!);
             Assert.True(stock < club,
-                $"{gun.Name} 的枪托 DPS {stock:F2} 应低于棍棒 {club:F2}——抡枪托不该比抡棍棒强");
+                $"{gun.Name} 枪托 DPS {stock:F2} 不得 ≥ 棍棒 {club:F2} —— " +
+                "抡枪托比抡棍子还猛的话，「要不要带把近战武器」就不成其为一个选择了");
         }
     }
 
     /// <summary>
-    /// 🔴 <b>[DECISION] 待用户裁决——「枪托不该比匕首强」这条原则当前是破的</b>。
-    ///
-    /// 本测试原先还断言 <c>枪托 DPS &lt; 匕首</c>。T21 用户在数值表上把<b>匕首攻击间隔 1.4 → 1.8</b>
-    /// （DPS 2.86 → 2.22）、<b>棍棒 10~13 → 6~8</b> 之后，除手枪外的 6 把枪，枪托 DPS 全部反超匕首：
-    /// <list type="bullet">
-    /// <item>匕首 2.22 ← 基准</item>
-    /// <item>手枪枪托 2.08 ✅（用户<b>这轮唯一改过的枪托</b>：3~6/1.7 → 1~4/1.2，恰好压在匕首之下）</item>
-    /// <item>冲锋枪 2.73 / 霰弹 2.80 / 自制猎枪 2.80 / 栓动 2.81 / 步枪 2.83 / 狙击 2.84 ❌ 全部 &gt; 匕首</item>
-    /// </list>
-    ///
-    /// 用户把手枪枪托精确调到匕首之下，却没动其余 6 把——<b>看起来是漏改而非有意</b>，
-    /// 但"该削那 6 把枪托"是<b>用户没在表里改过的值</b>，我们不得擅自代填 ⇒ 已上抛，未决前不动数值。
-    ///
-    /// 本测试<b>钉住当前的破损现状</b>：一旦用户补削了那 6 把枪托（或改了匕首），这条会立刻变红，
-    /// 提醒把上面那条硬护栏（枪托 &lt; 匕首）加回 <see cref="StockMelee_IsStrictlyWorseThan_TheWeakestRealMeleeWeapon"/>。
+    /// ✅ <b>[T47] 同上，翻回正向硬护栏。</b>「比拳头强，但不如一把真正的刀」是 T7 定稿的原话锚点。
+    /// <para>护栏卡**最坏一对**：最强的枪托（狙击 1.89）vs 匕首 2.35。</para>
     /// </summary>
     [Fact]
-    public void StockMelee_VsDagger_IsCurrentlyBroken_PendingUserDecision()
+    public void StockMelee_NeverBeats_TheDagger()
     {
         double dagger = Dps(WeaponTable.Dagger());
 
-        // 手枪：用户已亲手把它压到匕首之下。
-        Assert.True(Dps(WeaponTable.Pistol().MeleeProfile()!) < dagger,
-            "手枪枪托是用户这轮唯一改过的，应低于匕首");
-
-        // 其余 6 把：尚未跟着削 ⇒ 当前全部高于匕首（待裁决的破损）。
-        foreach (Weapon gun in Firearms().Where(g => g.Name != "手枪"))
+        foreach (Weapon gun in Firearms())
         {
-            Assert.True(Dps(gun.MeleeProfile()!) > dagger,
-                $"{gun.Name} 枪托当前高于匕首——若此断言变红，说明用户已裁决并补削了枪托，" +
-                "请把「枪托 < 匕首」的硬护栏加回 StockMelee_IsStrictlyWorseThan_TheWeakestRealMeleeWeapon 并删除本测试");
+            double stock = Dps(gun.MeleeProfile()!);
+            Assert.True(stock < dagger,
+                $"{gun.Name} 枪托 DPS {stock:F2} 不得 ≥ 匕首 {dagger:F2} —— 枪托比拳头强，但不如一把真正的刀");
         }
     }
 
@@ -216,42 +210,103 @@ public class GunModBenchTests
     }
 
     /// <summary>
-    /// **改装后的枪托仍够不到长剑/尖头锤那一档**：型态能把"绝望手段"抬成"能打"，
-    /// 但一把枪不该同时是全场最好的近战武器。
+    /// ✅ <b>[T47] 翻回正向硬护栏 —— 这是本单最重要的一条平衡断言。</b>
     ///
-    /// 🔴 <b>[DECISION] 上限锚点当前是破的（同 <see cref="StockMelee_VsDagger_IsCurrentlyBroken_PendingUserDecision"/>）</b>：
-    /// 原锚点是棍棒。T21 用户把<b>棍棒 10~13 → 6~8</b>（DPS 4.79 → 2.92）之后，
-    /// 改装后的步枪枪托（刺刀型 DPS 4.50）已经<b>越过棍棒</b>——但它并非用户改的值，我们不得擅自代填 ⇒ 已上抛。
+    /// <para><b>规则（用户的新口径）</b>：改装后的枪托必须
+    /// <b>① 强于原厂枪托</b>（否则没人会去花 240 工时改它）、
+    /// <b>② 弱于匕首</b>（改装能让你"打空了还能打"，但**不能让你不必带近战武器**）。</para>
     ///
-    /// 未决前把锚点<b>上移到尖头锤</b>（DPS 6.25，用户未动）以保留"枪不该是全场最好近战"的核心主张：
-    /// 改装枪托仍然够不到真正的重钝器。用户裁决后（补削枪托 / 认可现状）再把锚点调回。
+    /// <para><b>上界为什么取匕首（2.353）而不是棍棒（2.04）</b> —— 用户拍板：
+    /// 付了最大代价的型态（创伤型：重量 +50%、材料最贵、240 工时）近战**超过棍棒是应得的**
+    /// ——棍棒是全表最弱的近战武器，一把加装了铁锤头的步枪打不过一根木棍，那才荒唐。
+    /// 但它绝不能超过**一把真正的刀**。<b>创伤型 2.286 ＞ 棍棒 2.04 是有意为之，不是待修的 bug。</b></para>
+    ///
+    /// <para>当前实算：<c>原厂枪托 1.80~1.89 ＜ 刺刀 1.895 ＜ 利爪 2.235 ＜ 创伤 2.286 ＜ 匕首 2.353</c>。
+    /// <b>护栏卡的是最坏一对</b>：下界 = 最强的原厂枪托（狙击 1.892）vs 最弱的型态（刺刀 1.895，只富余 0.003）；
+    /// 上界 = 最猛的型态（创伤 2.286）vs 匕首。中间没有洞 —— 逐枪 × 逐型态全扫。</para>
     /// </summary>
     [Fact]
-    public void ModdedStock_StaysBelow_RealMeleeCeiling()
+    public void ModdedStock_IsStrongerThanPlain_ButNeverBeatsTheDagger()
     {
-        double ceiling = Dps(WeaponTable.SpikeHammer());   // 待裁决期间的替代锚点（原为棍棒）
-        foreach (string form in new[] { "刺刀型", "利爪型", "创伤型" })
+        double dagger = Dps(WeaponTable.Dagger());
+        var forms = new[] { "刺刀型", "利爪型", "创伤型" };
+
+        // ⚠️ 只有 4 把重枪能装近战型态（用户已把手枪/冲锋枪从白名单划掉）——逐枪逐型态全扫，不取样。
+        foreach (Weapon gun in Firearms())
         {
-            double dps = Dps(Mod(Rifle(), Catalog(form)).Weapon.MeleeProfile()!);
-            Assert.True(dps < ceiling,
-                $"{form} 改装后枪托 DPS {dps:F2} 不该够到尖头锤 {ceiling:F2}——枪不该是全场最好的近战武器");
-            Assert.True(dps > Dps(Rifle().MeleeProfile()!),
-                $"{form} 总得比没改装强，否则没人会去改");
+            double plain = Dps(gun.MeleeProfile()!);
+
+            foreach (string form in forms)
+            {
+                WeaponMod mod = Catalog(form);
+                if (!mod.FitsWeapons.Contains(gun.Name)) continue;   // 手枪/冲锋枪装不了型态
+
+                double modded = Dps(Mod(gun, mod).Weapon.MeleeProfile()!);
+
+                Assert.True(modded > plain,
+                    $"{gun.Name}·{form} DPS {modded:F3} 必须强于原厂枪托 {plain:F3} —— 否则没人会去改");
+                Assert.True(modded < dagger,
+                    $"{gun.Name}·{form} DPS {modded:F3} 不得达到匕首 {dagger:F3} —— " +
+                    "改装不该取代真近战武器，否则「我该不该带把刀」就不成其为一个选择");
+            }
         }
     }
 
-    /// <summary>型态用**乘算**缩放：重枪改出来的近战件就该更重（不是给每把枪加同样的固定值）。</summary>
+    /// <summary>
+    /// 🔴 <b>[T47] 口径变更：型态【不再随枪身缩放】。</b>
+    ///
+    /// <para><b>旧口径（已作废）</b>：型态是"在这把枪自己的枪托数值上乘一个系数" ⇒ 重枪改出来的更猛
+    /// （从前这里钉的是"狙击枪的利爪增量 ＞ 手枪的利爪增量"）。</para>
+    ///
+    /// <para><b>新口径（用户写在 wiki 上）</b>：「近战模式**等同于 80% 攻速的〈某把近战武器〉**」
+    /// ⇒ <b>覆盖</b>，不是缩放 ⇒ <b>所有枪的同一型态，枪托数值完全一样</b>。
+    /// 一句话：<b>你捅人用的是那把刺刀，不是那把枪</b>。差异全部搬到了**重量代价**上（+10%/+30%/+50%）。</para>
+    ///
+    /// <para>这条改钉新意图（不是删掉）：谁要是把"随枪身缩放"改回来，四把枪的同型态数值会立刻分叉，这里当场红。</para>
+    /// </summary>
     [Fact]
-    public void Forms_ScaleMultiplicatively_WithGunWeight()
+    public void Forms_NoLongerScaleWithTheGun_AllGunsGetIdenticalStockStats()
     {
-        WeaponMod claw = Catalog("利爪型");
-        double pistolGain = Mod(WeaponTable.Pistol(), claw).Weapon.MeleeProfile()!.DamageMax
-                            - WeaponTable.Pistol().MeleeProfile()!.DamageMax;
-        double sniperGain = Mod(WeaponTable.SniperRifle(), claw).Weapon.MeleeProfile()!.DamageMax
-                            - WeaponTable.SniperRifle().MeleeProfile()!.DamageMax;
+        foreach (string form in new[] { "刺刀型", "利爪型", "创伤型" })
+        {
+            WeaponMod mod = Catalog(form);
+            var profiles = Firearms()
+                .Where(g => mod.FitsWeapons.Contains(g.Name))
+                .Select(g => Mod(g, mod).Weapon.MeleeProfile()!)
+                .ToList();
 
-        Assert.True(sniperGain > pistolGain,
-            "同一条利爪型改装，装在重枪上的增量应大于轻枪（乘算而非加算）");
+            Assert.Equal(4, profiles.Count);   // 四把重枪
+
+            foreach (Weapon p in profiles)
+            {
+                Assert.Equal(profiles[0].DamageMin, p.DamageMin, 9);
+                Assert.Equal(profiles[0].DamageMax, p.DamageMax, 9);
+                Assert.Equal(profiles[0].Penetration, p.Penetration, 9);
+                Assert.Equal(profiles[0].AttackInterval, p.AttackInterval, 9);
+                Assert.Equal(profiles[0].NoiseRadius, p.NoiseRadius, 9);
+            }
+        }
+    }
+
+    /// <summary>
+    /// 三种型态的枪托 = <b>80% 攻速的〈刺剑 / 消防斧 / 尖头锤〉</b> —— 逐字段对着 <c>WeaponTable</c> 核。
+    /// <para>数值**从武器表读、不抄数字** ⇒ 用户日后调那三把武器，三个型态自动跟着变。这条钉死这层联动。</para>
+    /// </summary>
+    [Theory]
+    [InlineData("刺刀型", "刺剑")]
+    [InlineData("利爪型", "消防斧")]
+    [InlineData("创伤型", "尖头锤")]
+    public void Forms_AreExactlyTheReferenceWeapon_At80PercentSpeed(string form, string referenceName)
+    {
+        Weapon reference = WeaponTable.Arsenal().First(w => w.Name == referenceName);
+        Weapon stock = Mod(Rifle(), Catalog(form)).Weapon.MeleeProfile()!;
+
+        Assert.Equal(reference.DamageMin, stock.DamageMin, 9);
+        Assert.Equal(reference.DamageMax, stock.DamageMax, 9);
+        Assert.Equal(reference.Penetration, stock.Penetration, 9);
+        Assert.Equal(reference.NoiseRadius, stock.NoiseRadius, 9);
+        Assert.Equal(reference.AttackInterval / 0.8, stock.AttackInterval, 9);   // 80% 攻速 ⇒ 间隔 ×1.25
+        Assert.Equal(Dps(reference) * 0.8, Dps(stock), 9);
     }
 
     // ==================== 3. 改装台：设施 + 材料 + 工时 ====================
@@ -270,8 +325,7 @@ public class GunModBenchTests
     [Fact]
     public void WithoutModBench_CannotModify()
     {
-        WeaponModAvailability r = Check(bench: false,
-            ("metal_ingot", 9), ("scrap_metal", 9), ("rope", 9));
+        WeaponModAvailability r = Check(bench: false, ("iron", 9), ("rope", 9));
 
         Assert.False(r.CanApply);
         Assert.Contains(r.Blocks, b => b.Reason == WeaponModBlockReason.NoModBench);
@@ -291,22 +345,44 @@ public class GunModBenchTests
     [Fact]
     public void WithBenchAndMaterials_CanModify()
     {
-        WeaponModAvailability r = Check(bench: true,
-            ("metal_ingot", 9), ("scrap_metal", 9), ("rope", 9));
+        WeaponModAvailability r = Check(bench: true, ("iron", 9), ("rope", 9));
 
         Assert.True(r.CanApply);
         Assert.Empty(r.Blocks);
     }
 
-    /// <summary>每条改装都得有材料成本和工时——**没有白送的改装**。</summary>
+    /// <summary>
+    /// **没有白送的改装** —— 每条至少要付**工时**（改装不是点击即得，得有人站在改装台前把活干完）。
+    ///
+    /// <para>
+    /// [T47] <b>材料可以为空</b>（用户在 wiki 上把三条的材料清掉了），而且**语义是对的**：
+    /// 截短枪管 = 锯掉一截，不消耗任何东西；锋刃研磨 = 一块磨刀石反复用；锯齿剑刃 = 在刃上开齿。
+    /// 它们付的是**时间**（60 / 60 / 240 分钟），不是物资。
+    /// </para>
+    /// <para>
+    /// ⚠️ 白名单写死这三条：**第四条零材料的改装冒出来时这里会红** —— 逼来人确认那到底是设计还是漏填。
+    /// </para>
+    /// </summary>
     [Fact]
-    public void EveryMod_CostsMaterialsAndTime()
+    public void EveryMod_CostsTime_AndOnlyThreeAreMaterialFree()
     {
-        Assert.All(WeaponModCatalog.All(), m =>
+        string[] materialFree = { "sawn_off_barrel", "serrated_blade", "honed_edge" };
+
+        foreach (WeaponMod m in WeaponModCatalog.All())
         {
-            Assert.True(m.MaterialCosts.Count > 0, $"改装「{m.Name}」没有材料成本");
-            Assert.True(m.WorkMinutes > 0, $"改装「{m.Name}」没有工时");
-        });
+            Assert.True(m.WorkMinutes > 0, $"改装「{m.Name}」没有工时 —— 改装不是点击即得");
+
+            if (materialFree.Contains(m.Id))
+            {
+                Assert.Empty(m.MaterialCosts);
+            }
+            else
+            {
+                Assert.True(m.MaterialCosts.Count > 0,
+                    $"改装「{m.Name}」没有材料成本 —— 若这是有意的（像锯短枪管那样「不消耗东西」），" +
+                    "把它加进本测试的 materialFree 白名单，并写清理由");
+            }
+        }
     }
 
     /// <summary>
@@ -330,17 +406,32 @@ public class GunModBenchTests
         Assert.Equal("trauma_stock", Catalog("创伤型").Id);
     }
 
-    /// <summary>多选改装时，材料与工时**累加**。</summary>
+    /// <summary>
+    /// 多选改装时，材料与工时**累加**（不是后一条覆盖前一条 —— 那会让多选改装白嫖材料）。
+    ///
+    /// <para>
+    /// ⚠️ [T46] 本测试从前钉的是「<c>scrap_metal</c> 与 <c>metal_ingot</c> 同时出现时必须累加」。
+    /// 废金属 + 金属锭已被合并成**铁**（<c>impl-iron</c>）⇒ 那两个 key 变成了同一个，**原来的立意塌了**
+    /// （它测的是"两个不同的 key 各自累加"）。故换一对材料重写：
+    /// <b>「铁」测同 key 累加（4 + 3 = 7），「绳子」测只有一条改装吃的材料不会被漏掉。</b>
+    /// </para>
+    /// </summary>
     [Fact]
     public void MultipleMods_SumCostAndWorkMinutes()
     {
         var mods = new[] { Catalog("刺刀型"), Catalog("加长枪管") };
-        int expected = Catalog("刺刀型").WorkMinutes + Catalog("加长枪管").WorkMinutes;
+        IReadOnlyDictionary<string, int> cost = WeaponModLogic.TotalCost(mods);
 
-        Assert.Equal(expected, WeaponModLogic.TotalWorkMinutes(mods));
-        // 两条都吃 scrap_metal（2 + 1）与 metal_ingot（1 + 1）⇒ 必须累加而非覆盖
-        Assert.Equal(3, WeaponModLogic.TotalCost(mods)["scrap_metal"]);
-        Assert.Equal(2, WeaponModLogic.TotalCost(mods)["metal_ingot"]);
+        Assert.Equal(Catalog("刺刀型").WorkMinutes + Catalog("加长枪管").WorkMinutes,
+            WeaponModLogic.TotalWorkMinutes(mods));
+
+        // 两条都吃「铁」（刺刀 4 + 长管 3）⇒ 必须累加而非覆盖
+        Assert.Equal(Catalog("刺刀型").MaterialCosts["iron"] + Catalog("加长枪管").MaterialCosts["iron"],
+            cost["iron"]);
+        Assert.Equal(7, cost["iron"]);
+
+        // 只有刺刀吃「绳子」⇒ 也不能在合并时被另一条的成本冲掉
+        Assert.Equal(1, cost["rope"]);
     }
 
     /// <summary>改装台在**工作台**上造得出来，且有成本/工时（用户原话：在工作台可以制作改装台）。</summary>

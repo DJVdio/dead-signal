@@ -65,6 +65,12 @@ public enum WeaponStat
     StockMeleeInterval,
     StockMeleePenetration,
     StockMeleeNoiseRadius,
+
+    /// <summary>[T53] 这把武器造成的伤口的流血速率乘数（锯齿剑刃 ×1.4 = 流血速度 +40%）。</summary>
+    BleedRateMultiplier,
+
+    /// <summary>[T53] 造成伤害时额外引发一处「小流血」的概率（钉子强化 = 0.25）。</summary>
+    BleedOnHitChance,
 }
 
 /// <summary>
@@ -135,12 +141,17 @@ public sealed class WeaponMod
     ///
     /// <para><b>⚠️ 换过来时行为是零变化的</b>：每条改装的白名单 = 它原本那个大类的**全部**武器
     /// （<c>WeaponModCatalog.LegacyClassOf</c> + <c>AllOfClass</c>，有测试逐把钉死）。
-    /// 必须零变化，因为老存档里的改装枪靠 <c>ModdedWeaponRegistry.Rebuild</c> 用**当前**规则重算——
-    /// 规则一收严，老组合就变非法，那把枪会**静默失效**。收窄留给用户自己在 wiki 上做。</para>
+    /// 必须零变化，因为老存档里的改装枪靠 <c>ModdedWeaponRegistry</c> 用**当前**规则重算——
+    /// 规则一收严，老组合就变非法。收窄留给用户自己在 wiki 上做。</para>
     ///
-    /// <para><b>⚠️ 顺带暴露了一个潜伏的 bug</b>：<c>WeaponMods.ClassOf</c> 是 <c>IsRanged ? Firearm : …</c>
-    /// ⇒ **弓弩也被算作"枪械"** ⇒ 现在真的能把「截短枪管」装到短弓上。迁移**如实保留**了这个行为
-    /// （否则老档要坏），但白名单给了用户一个亲手划掉它的入口。</para>
+    /// <para><b>🔴 [T29] 用户已收窄：弓弩不再吃枪械改装</b>。此前 <c>WeaponMods.ClassOf</c> 是
+    /// <c>IsRanged ? Firearm : …</c> ⇒ **弓弩被误算作"枪械"** ⇒ 截短枪管真能装到短弓上（潜伏已久的 bug）。
+    /// 迁移期如实保留了它，用户随后明令划掉 ⇒ 6 条枪械改装现在只认真枪（<c>WeaponModCatalog.AllGuns</c>）。
+    /// 老档里的非法组合**不会**静默失效：<c>ModdedWeaponRegistry.RebuildOrBase</c> 回落成基础武器
+    /// （弓还在，改装没了）。</para>
+    ///
+    /// <para><b>🔴 [T47] 白名单已成为「用户逐格勾的数据」</b>：14 条改装的白名单**各不相同**
+    /// （见 <see cref="WeaponModCatalog"/>），**不要再拿 <c>AllOfClass</c> 去派生它** —— 那会覆盖用户的手勾。</para>
     /// </summary>
     public IReadOnlySet<string> FitsWeapons { get; init; } = new HashSet<string>();
 
@@ -161,6 +172,48 @@ public sealed class WeaponMod
     /// 得有人站在改装台前把活干完。拟定待调。
     /// </summary>
     public int WorkMinutes { get; init; } = 60;
+
+    /// <summary>
+    /// **这项改装让整把武器重多少倍**（1.0 = 不改重量；0.75 = 减重 25%；1.5 = 增重 50%）。
+    ///
+    /// <para><b>🔴 用户原话：「我希望重量在改装中是一个重要的因素」</b> —— 重量是这套改装设计的**核心代价轴**：
+    /// 你可以把一把枪改得很强，但它会把你压进负重 debuff。故重量**不是 flavor 字段**，它真的进负重账
+    /// （<c>ItemWeights.WeaponKg</c> → <c>ModdedWeaponRegistry.WeightMultiplierOf</c>）。</para>
+    ///
+    /// <para><b>为什么不放在 <see cref="Stats"/> 里</b>：引擎的 <see cref="global::DeadSignal.Combat.Weapon"/>
+    /// **没有 Weight 字段**（武器重量是消费层概念，单一事实源在 <c>ItemWeights._weaponKg</c>）。
+    /// 硬塞进 Weapon 会污染引擎、且会把改装变体拖进 Sim 结算路径（基线漂移）。</para>
+    ///
+    /// <para><b>多条改装 ⇒ 连乘</b>（CLAUDE.md 的乘算铁律）。</para>
+    /// </summary>
+    public double WeightMultiplier { get; init; } = 1.0;
+
+    /// <summary>
+    /// **消耗型改装**：还能撑几次攻击（<c>null</c> = 永久改装，绝大多数属此）。
+    ///
+    /// <para>用户点名的那条：<b>锋刃研磨 = 穿透 +75%，攻击三次后失去该改装</b>（<c>UsesBeforeBreak = 3</c>）。
+    /// 用光时改装**脱落**——武器回到"没有这个改装"的状态，且玩家看得见（不是静默失效）。</para>
+    ///
+    /// <para><b>次数本身不是这里的状态</b>：本字段只是**目录里的规格**（"这种改装能用几次"），
+    /// 每把武器**实例**各自剩几次是运行时状态，存在 <c>ModdedWeaponRegistry</c> 的耐久层里、并进存档。
+    /// 目录（数据）与实例状态（运行时）分开，才让 <c>ModdedWeaponRegistry.Rebuild</c> 保持纯函数。</para>
+    /// </summary>
+    public int? UsesBeforeBreak { get; init; }
+
+    /// <summary>这项改装是不是消耗型（装上去会用光、会脱落）。</summary>
+    public bool IsConsumable => UsesBeforeBreak is > 0;
+
+    /// <summary>
+    /// **允许单手持有**（截短枪管：把长枪锯短到能单手抡）。<c>true</c> ⇒ 合成后 <c>TwoHanded = false</c>。
+    ///
+    /// <para><b>⚠️ 刻意不动 <c>CanDualWield</c></b>：用户原话只有「**允许单手持有**」四个字，
+    /// 没说"允许双持"——那是**另一个独立字段**、另一件事（双持 = 两手各一把同型枪，弹药 ×2、散布 ×1.5625）。
+    /// 而用户在冲锋枪那条上刚刚拍板过「**保双手，放弃双持**」⇒ 顺手打开双持会绕过他自己的裁决。
+    /// 按字面落地：**能腾出一只手（拿火把/开门），但不能双持**。要双持，用户在表上再说一句即可。</para>
+    ///
+    /// <para>不做成 <see cref="StatMod"/>：持握是**结构字段**（bool），不是可加可乘的数值。</para>
+    /// </summary>
+    public bool AllowsOneHanded { get; init; }
 
     /// <summary>
     /// **近战型态**（利爪/创伤/刺刀）。非 <c>null</c> ⇒ 这条改装**重定义枪托近战**：伤害类型由型态决定
@@ -210,6 +263,18 @@ public sealed class ModdedWeapon
     /// <summary>这把变体的近战型态（利爪/创伤/刺刀）；无近战型改装时 <c>null</c>。</summary>
     public MeleeForm? Form => AppliedMods.Select(m => m.Form).FirstOrDefault(f => f is not null);
 
+    /// <summary>
+    /// 这把变体的**重量倍率**（各改装 <see cref="WeaponMod.WeightMultiplier"/> **连乘**——百分比一律乘算）。
+    /// 由 <c>ItemWeights.WeaponKg</c> 乘到基础武器重量上；<b>不进 <see cref="Weapon"/></b>（引擎无 Weight 字段）。
+    /// </summary>
+    public double WeightMultiplier => AppliedMods.Aggregate(1.0, (acc, m) => acc * m.WeightMultiplier);
+
+    /// <summary>这把变体上的**消耗型改装**（会用光、会脱落的那些）。空 = 这把枪的改装都是永久的。</summary>
+    public IReadOnlyList<WeaponMod> ConsumableMods => AppliedMods.Where(m => m.IsConsumable).ToList();
+
+    /// <summary>这把变体带不带消耗型改装（带 ⇒ 注册表要给它一个**唯一实例名**，见 <c>ModdedWeaponRegistry</c>）。</summary>
+    public bool HasConsumableMod => AppliedMods.Any(m => m.IsConsumable);
+
     /// <summary>改装后生效的枪托近战 profile。<b>直接就是 <see cref="Weapon"/> 自己的</b>——型态已烧进武器。</summary>
     public Weapon? EffectiveMeleeProfile() => Weapon.MeleeProfile();
 
@@ -243,8 +308,15 @@ public static class WeaponMods
     /// 合成：把 <paramref name="mods"/> 依次施加到 <paramref name="baseWeapon"/>，产出新变体（不改原 base）。
     /// 校验：每个改装大类须匹配 base；同一部位不可叠两个改装；**至多一条带近战型态的改装**（利爪/创伤/刺刀三选一）。
     /// 任一校验失败抛 <see cref="WeaponModException"/>。
+    /// <para>
+    /// <paramref name="variantName"/>：**变体名覆盖**（默认 <c>null</c> = 按改装列表自动拼名，行为与从前完全一致）。
+    /// 存在的理由：带**消耗型改装**的枪需要**唯一实例名**（两把"短剑（锋刃研磨）"必须能分辨谁砍了几下），
+    /// 而注册表把变体名当作实例 key ⇒ 合成时就得能把这个 key 写进 <see cref="Weapon.Name"/>，
+    /// 否则会出现「按名查得到、但查出来的枪自己叫另一个名字」的错位
+    /// （<c>Item.RefKey == Weapon.Name</c> 是全项目的隐含不变式）。
+    /// </para>
     /// </summary>
-    public static ModdedWeapon ApplyMods(Weapon baseWeapon, IEnumerable<WeaponMod> mods)
+    public static ModdedWeapon ApplyMods(Weapon baseWeapon, IEnumerable<WeaponMod> mods, string? variantName = null)
     {
         var list = new List<WeaponMod>(mods);
         var cls = ClassOf(baseWeapon);
@@ -277,13 +349,20 @@ public static class WeaponMods
                 draft.SetStockMeleeDamageType(StockMeleeDamageTypeOf(f));
             }
 
+            // 持握是**结构字段**（bool），不走 StatMod：截短枪管把长枪锯短到能单手抡。
+            // 只解除双手，**不碰 CanDualWield**——用户说的是"允许单手持有"，双持是另一回事（见 WeaponMod.AllowsOneHanded）。
+            if (mod.AllowsOneHanded)
+            {
+                draft.SetOneHanded();
+            }
+
             foreach (var s in mod.Stats)
             {
                 draft.Apply(s);
             }
         }
 
-        var result = draft.Build(ComposeName(baseWeapon.Name, list));
+        var result = draft.Build(variantName ?? ComposeName(baseWeapon.Name, list));
         return new ModdedWeapon(result, baseWeapon.Name, list);
     }
 
@@ -319,8 +398,15 @@ public static class WeaponMods
         private int _burstCount = 1;
         private double _burstInterval;
 
+        // [T53] 流血轴。中性默认（1.0 / 0）⇒ 没装流血改装的武器逐字段不变。
+        private double _bleedRateMult = 1.0;
+        private double _bleedOnHit;
+
         /// <summary>近战型态改装重定义枪托伤害类型（利爪/刺刀=锐击，创伤=钝击）。</summary>
         public void SetStockMeleeDamageType(DamageType t) => _stockDamageType = t;
+
+        /// <summary>解除"必须双手"（截短枪管）。<b>不动 <c>_canDualWield</c></b>——那是另一条独立规则。</summary>
+        public void SetOneHanded() => _twoHanded = false;
 
         public static WeaponDraft From(Weapon w) => new()
         {
@@ -344,6 +430,8 @@ public static class WeaponMods
             _isRanged = w.IsRanged,
             _burstCount = w.BurstCount,
             _burstInterval = w.BurstInterval,
+            _bleedRateMult = w.BleedRateMultiplier,
+            _bleedOnHit = w.BleedOnHitChance,
         };
 
         public void Apply(StatMod s)
@@ -363,6 +451,8 @@ public static class WeaponMods
                 case WeaponStat.StockMeleeInterval: _stockInterval = ApplyNullable(_stockInterval, s); break;
                 case WeaponStat.StockMeleePenetration: _stockPen = ApplyNullable(_stockPen, s); break;
                 case WeaponStat.StockMeleeNoiseRadius: _stockNoise = ApplyNullable(_stockNoise, s); break;
+                case WeaponStat.BleedRateMultiplier: _bleedRateMult = ApplyNonNull(_bleedRateMult, s); break;
+                case WeaponStat.BleedOnHitChance: _bleedOnHit = ApplyNonNull(_bleedOnHit, s); break;
             }
         }
 
@@ -383,12 +473,21 @@ public static class WeaponMods
             _ => cur,
         };
 
+        /// <summary>
+        /// 收尾成一把不可变 <see cref="Weapon"/>。所有字段在此**统一夹紧**（合法域由引擎定，改装不许越界）。
+        /// <para>
+        /// 🔴 <b>穿透 100% 上限（用户拍板：「穿透不能超过 100%」）</b>：<c>Penetration</c> 与
+        /// <c>StockMeleePenetration</c> 都 <c>Clamp(0, 1)</c>。这是**唯一**的收口点 ——
+        /// 改装的穿透是**乘算**的（穿透 +75% ⇒ ×1.75），叠满多条改装理论上能把它顶穿 100%，
+        /// 全靠这里兜住。护栏见 <c>WeaponModPenetrationCapTests</c>：谁把这个 Clamp 拿掉，测试当场红。
+        /// </para>
+        /// </summary>
         public Weapon Build(string name) => new()
         {
             Name = name,
             DamageMin = System.Math.Max(0, _damageMin),
             DamageMax = System.Math.Max(System.Math.Max(0, _damageMin), _damageMax),
-            Penetration = System.Math.Clamp(_penetration, 0, 1),
+            Penetration = System.Math.Clamp(_penetration, 0, 1),   // ← 穿透 ≤ 100%（用户拍板）
             DamageType = _damageType,
             TwoHanded = _twoHanded,
             CanDualWield = _canDualWield,
@@ -403,9 +502,12 @@ public static class WeaponMods
             StockMeleeDamageMin = _stockMin is null ? null : System.Math.Max(0, _stockMin.Value),
             StockMeleeDamageMax = _stockMax is null ? null : System.Math.Max(0, _stockMax.Value),
             StockMeleeInterval = _stockInterval is null ? null : System.Math.Max(0.01, _stockInterval.Value),
-            StockMeleePenetration = _stockPen is null ? null : System.Math.Clamp(_stockPen.Value, 0, 1),
+            StockMeleePenetration = _stockPen is null ? null : System.Math.Clamp(_stockPen.Value, 0, 1),   // ← 同上，枪托侧的 100% 上限
             StockMeleeNoiseRadius = _stockNoise is null ? null : System.Math.Max(0, _stockNoise.Value),
             StockMeleeDamageType = _stockDamageType,
+            // [T53] 流血轴，同样在此统一夹紧：速率乘数不为负（负流血=回血，荒谬）；小流血概率是概率 ⇒ [0,1]。
+            BleedRateMultiplier = System.Math.Max(0, _bleedRateMult),
+            BleedOnHitChance = System.Math.Clamp(_bleedOnHit, 0, 1),
         };
     }
 }

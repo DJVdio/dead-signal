@@ -5,19 +5,61 @@ using DeadSignal.Combat;
 namespace DeadSignal.Godot;
 
 /// <summary>
-/// 武器改装目录（数据，非逻辑）：三类武器（枪械/近战锐器/近战钝器）的改装清单，可扩。
-/// 数值全为"拟定待调"（draft），靠 Sim 拉表校准方向；此处只定形态。
-/// 合成走通用的 <see cref="WeaponMods.ApplyMods"/>，改装本身在这里作为数据列举。
+/// 武器改装目录（**数据表，非逻辑**）：14 条改装。合成走通用的 <see cref="WeaponMods.ApplyMods"/>。
+///
 /// <para>
-/// <b>三种近战型态（利爪 / 创伤 / 刺刀）的数值口径</b>——它们是本目录的重头戏，用户点名要的：
-/// 全部用**乘算**（不用加算）作用在**这把枪自己的枪托数值**上。理由：加算会让轻枪吃到不成比例的收益
-/// （给手枪的枪托 +4 伤，等于把它从 3~6 拉到 7~10，一把手枪的柄砸得比步枪托还狠，荒唐），
-/// 乘算则**天然随枪身量级缩放**——重枪改出来的近战件就是更重。这也与项目通则"百分比加成一律乘算"一致。
+/// 🔴 <b>这张表的单一事实源是用户的 wiki：<c>docs/wiki/data/weapon-mods.json</c></b>（[T47] 用户整表重设计）。
+/// **表赢代码** —— 数值/白名单/材料/工时以 wiki 为准，代码向它看齐。改这里之前先看那张表。
+/// </para>
+///
+/// <hr/>
+/// <b>一、重量 = 这套设计的核心代价轴</b>（用户原话：「我希望重量在改装中是一个重要的因素」）
+/// <para>
+/// 每条改装带一个 <see cref="WeaponMod.WeightMultiplier"/>（−25% ~ +50%），**真的进负重账**
+/// （<c>ItemWeights.WeaponKg</c> → <c>ModdedWeaponRegistry.WeightMultiplierOf</c>）。
+/// 所以「轻质化枪托」那种**只减重、别的全是负面**的改装才成立：你买的就是那 15% 的重量。
+/// </para>
+///
+/// <b>二、百分比一律乘算</b>（CLAUDE.md 铁律；用户复述过一遍：「穿透 −10% 指的是在原本数值上 −该数值的 10%，
+/// 例如 20% 变成 18%」⇒ ×0.9，不是减 10 个百分点）。
+/// <para>
+/// **唯一例外 = 钉子强化的穿透 +0.03**（加算）。理由见 <see cref="NailStuds"/>：棍棒的穿透**本来就是 0**，
+/// 乘算在零上永远是零 —— 这是"零陷阱"，用户明确点名要在这里破例。
 /// </para>
 /// <para>
-/// <b>三者落在哪一档</b>：基础枪托 DPS ≈ 2.7~2.8（介于拳脚 2.08 与匕首 2.86 之间，见 <c>WeaponTable</c> 枪托段），
-/// 三种型态把它抬到 <b>3.4 ~ 4.5</b> —— 即"**一把像样的近战武器的下限档**（匕首 2.86 ＜ 它 ＜ 棍棒 4.79）"。
-/// 刻意**够不到长剑/尖头锤那一档**：改装能让你"打空了还能打"，但不该让一把枪同时是全场最好的近战武器。
+/// **攻速 ↔ 攻击间隔的换算**：本表沿用用户自己在表里给出的等式（「防滑缠手：攻速 +5% ＝ 攻击间隔 ×0.95」）
+/// ⇒ **攻速 +x% ⇒ 间隔 ×(1−x)**，攻速 −x% ⇒ 间隔 ×(1+x)。
+/// </para>
+///
+/// <b>三、穿透 ≤ 100%</b>（用户拍板）。收口在 <c>WeaponMods.WeaponDraft.Build</c> 的 <c>Clamp(0,1)</c>，
+/// 护栏见 <c>WeaponModPenetrationCapTests</c>。
+///
+/// <hr/>
+/// <b>四、三种近战型态（刺刀 / 利爪 / 创伤）—— 口径已被用户整个换掉</b>
+/// <para>
+/// ⚠️ <b>旧口径（已作废，别照着推理）</b>：型态是"在这把枪自己的枪托数值上乘一个系数" ⇒ 重枪改出来的更猛。
+/// </para>
+/// <para>
+/// <b>新口径（用户写在 wiki 上）</b>：「近战模式**等同于 80% 攻速的〈某把近战武器〉**」——
+/// 刺刀＝刺剑、利爪＝消防斧、创伤＝尖头锤，一律 <b>覆盖（Set）</b>而非缩放。
+/// ⇒ <b>所有枪的同一型态，枪托数值完全一样</b>（<b>你捅人用的是那把刺刀，不是那把枪</b>）。
+/// 差异全部搬到**重量代价**上：+10% / +30% / +50%。
+/// </para>
+/// <para>
+/// 实算（80% 攻速 ⇒ 出手间隔 ×1.25 ⇒ DPS ×0.8）：
+/// <c>刺刀 1.895（刺剑 2.368×0.8） ＜ 利爪 2.235（消防斧 2.794×0.8） ＜ 创伤 2.286（尖头锤 2.857×0.8）</c>
+/// —— <b>DPS 排序与重量代价排序单调一致</b>，且三者<b>全部低于匕首 2.353</b>：
+/// 改装能让你"打空了还能打"，但**不能让你不必带近战武器**。
+/// </para>
+/// <para>
+/// 🔴 <b>创伤型 2.286 ＞ 棍棒 2.04 = 用户有意为之</b>（它代价最大：重量 +50%、材料最贵、240 工时）。
+/// 一把加装了铁锤头的步枪打不过一根木棍，那才荒唐。**这不是待修的平衡问题。**
+/// </para>
+/// <para>
+/// ⚠️ <b>当前的真实状态：改装后近战反而比原厂枪托弱</b>（4 把重枪的原厂枪托是 2.80~2.84 ＞ 型态的 1.90~2.29）。
+/// 根因**不在本表**：用户说过「枪械近战得到补足是应该的，但**我会对其做削弱**」「枪托先不管了，我后面自己调整」——
+/// 原厂枪托的下调**还没发生**。他压下去之后三型态自然重新成为升级。
+/// 见 <c>GunModBenchTests.ModdedStock_WeakerThanPlainStock_IsCurrentlyBroken_PendingUserStockNerf</c>（记录现状的测试）。
 /// </para>
 /// </summary>
 public static class WeaponModCatalog
@@ -25,9 +67,16 @@ public static class WeaponModCatalog
     // ═══════════════════════════════════════════════════════════════════════════
     // 装配约束：**逐把武器的白名单**（用户拍板，取代原来的「武器大类」）
     //
-    // 🔴 从大类换成白名单时**行为零变化**：每条改装的白名单 = 它原本那个大类的**全部**武器。
-    //    必须零变化 —— 老存档里的改装枪靠 ModdedWeaponRegistry.Rebuild 用**当前**规则重算，
-    //    规则一收严，老组合就变非法、那把枪**静默失效**。收窄是用户的活，不是迁移的活。
+    // 迁移那一步要求**行为零变化**：每条改装的白名单 = 它原本那个大类的**全部**武器。
+    // 之所以必须零变化 —— 老存档里的改装枪靠 ModdedWeaponRegistry 用**当前**规则重算，
+    // 规则一收严，老组合就变非法。所以收窄是用户的活，不是迁移的活。
+    // （收窄后老档怎么办：走 ModdedWeaponRegistry.RebuildOrBase **回落成基础武器**——
+    //   弓还在、改装没了，不再"静默失效"。用户拍板，[T29]。）
+    //
+    // 🔴 【T29·用户已拍板收窄】枪械改装的白名单**不再包含 8 把弓弩**（见 <see cref="AllGuns"/>）。
+    //    这修的是一个**真 bug**，不是平衡调整：WeaponMods.ClassOf 是 `IsRanged ? Firearm : …`
+    //    ⇒ 弓弩被误归为"枪械" ⇒ 截短枪管真能装到短弓上。迁移期如实保留了它，用户现已明令划掉。
+    //    刃类/钝类的 9 条改装**一格没动**（它们本来就不含弓弩）。
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// <summary>全部可被改装的武器（常规 + 弓弩；天生武器不算，它们不是能拿起来的东西）。</summary>
@@ -49,6 +98,96 @@ public static class WeaponModCatalog
             .Where(w => WeaponMods.ClassOf(w) == cls)
             .Select(w => w.Name)
             .ToHashSet();
+
+    /// <summary>
+    /// **真正的枪**（弓弩不算）—— 6 条枪械改装的白名单源，[T29] 用户拍板收窄后启用。
+    /// <para>
+    /// 判据是**引擎级**的 <c>AmmoKey == <see cref="AmmoKeys.Arrow"/></c>（吃箭的就是弓弩），
+    /// 不按名字里有没有"弓/弩"字去猜——名字是 authored 文案，改个名就漏判，那是下一个 bug。
+    /// </para>
+    /// <para>
+    /// 与 <see cref="AllOfClass"/>(<see cref="WeaponClass.Firearm"/>) 的差集恰好是 8 把弓弩。
+    /// <c>AllOfClass</c> 保留原样（刃类/钝类仍用它，迁移护栏也还要读它）。
+    /// </para>
+    /// </summary>
+    public static IReadOnlySet<string> AllGuns()
+        => AllModdableWeapons()
+            .Where(w => WeaponMods.ClassOf(w) == WeaponClass.Firearm && !IsArchery(w))
+            .Select(w => w.Name)
+            .ToHashSet();
+
+    /// <summary>是不是弓弩（吃箭的远程）——枪械改装装不到它们身上。</summary>
+    public static bool IsArchery(Weapon w) => w.IsRanged && w.AmmoKey == AmmoKeys.Arrow;
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // 【T47】白名单改成**逐条列名**（不再 AllOfClass 一把梭）
+    //
+    // 原因：用户在 wiki 上把每条改装的「可装于哪些武器」**逐格勾过了**，而且**各不相同**：
+    //   · 截短枪管 = 5 把枪（**冲锋枪被划掉**——它本来就短）
+    //   · 三种近战型态 = 4 把重枪（**手枪/冲锋枪被划掉**——手枪装刺刀本来就荒诞）
+    //   · 锯齿剑刃 / 镂空剑刃 = 5 把锐器（**刺剑被划掉**——突刺剑没有"开锯齿/开血槽"这回事）
+    //   · 防滑缠手 = **锐器 6 把 + 钝器 3 把合成一条**（原来是同名两条，历史包袱，用户合并了）
+    // ⇒ 再用 AllOfClass 派生就会**覆盖掉用户的手勾**。白名单从此是"用户填的数据"，不是"从大类推的"。
+    //
+    // ✅ **消防斧已按用户拍板勾进锐器改装**（「和长剑同档」的口径）—— 见下方那段的逐条语义过审。
+    //    （此前它一条改装都装不上：用户的 wiki 表是在消防斧存在**之前**填的，勾选框里还没有"消防斧"这个选项。）
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    private static IReadOnlySet<string> Names(params string[] weaponNames) => weaponNames.ToHashSet();
+
+    /// <summary>六把真枪（= <see cref="AllGuns"/>，写成常量给逐条白名单用）。</summary>
+    private static IReadOnlySet<string> Guns6()
+        => Names("自制猎枪", "手枪", "冲锋枪", "步枪", "狙击枪", "自制霰弹枪");
+
+    /// <summary>截短枪管的 5 把（用户划掉了冲锋枪）。</summary>
+    private static IReadOnlySet<string> GunsSawnOff()
+        => Names("自制猎枪", "手枪", "步枪", "狙击枪", "自制霰弹枪");
+
+    /// <summary>能装近战型态的 4 把重枪（用户划掉了手枪与冲锋枪）。</summary>
+    private static IReadOnlySet<string> GunsMeleeForm()
+        => Names("自制猎枪", "步枪", "狙击枪", "自制霰弹枪");
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // 【T47 追加·用户拍板】消防斧按「**和长剑同档**」的口径勾进锐器改装。
+    //
+    // 依据：消防斧 DPS 2.79 ≈ 长剑 2.81（同档）⇒ 长剑吃的那 6 条改装，消防斧原则上照搬一份。
+    //
+    // ⚠️ 但用户要的是「**同档的口径**」，不是"一个字不差照抄" ⇒ 逐条过了一遍语义，**跳掉 1 条**：
+    //
+    //   ✅ 锋刃研磨（开刃）      —— 消防斧当然要磨；斧子钝了就是根铁棍。
+    //   ✅ 防滑缠手（缠手）      —— 斧柄缠布防滑，最自然不过。
+    //   ✅ 加重剑柄（柄部配重）  —— 斧柄灌铅配重：消防斧本就靠惯性吃饭，更沉更狠，语义顺。
+    //   ✅ 轻质化剑柄（换轻柄）  —— 换一副轻木柄，挥得快些。斧柄本来就是木头。
+    //   ✅ 锯齿剑刃（刃上开齿）  —— 边缘案例但**不算荒谬**（消防斧/救援斧确有开齿的一段）。按"同档"默认勾上；
+    //                             用户若嫌怪，在 wiki 上一键划掉即可。
+    //   ❌ **镂空剑刃（开血槽减重 −25%、攻速 +15%、伤害 −9%）—— 唯一跳过的一条。**
+    //        理由不是"消防斧没有'剑刃'"（那 4 条也都叫"剑X"，按名字否决会把 4 条一起误杀），
+    //        而是**功能上自相矛盾**：**消防斧的杀伤力就是它的头部质量**（头重杆轻，靠惯性劈开东西）。
+    //        给消防斧开血槽/镂空 = 把它赖以成立的那个东西挖掉 ⇒ 换来的是"更快但更轻更软的消防斧"，
+    //        那不是消防斧，那是一把很差的剑。**这条是"明显不通"，故不硬勾。**
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// <summary>六把锐器 + **消防斧**（用户拍板：消防斧与长剑同档）。</summary>
+    private static IReadOnlySet<string> Blades6WithAxe()
+        => Names("匕首", "短剑", "刺剑", "长剑", "草叉", "重剑", "消防斧");
+
+    /// <summary>锯齿剑刃能装的：5 把锐器（用户划掉了刺剑）+ **消防斧**。</summary>
+    private static IReadOnlySet<string> SerratedFits()
+        => Names("匕首", "短剑", "长剑", "草叉", "重剑", "消防斧");
+
+    /// <summary>
+    /// 镂空剑刃能装的：5 把锐器（用户划掉了刺剑）—— <b>唯一不含消防斧的锐器改装</b>，
+    /// 理由见上方那段（镂空会把消防斧赖以成立的头部质量挖掉）。
+    /// </summary>
+    private static IReadOnlySet<string> FullerFits()
+        => Names("匕首", "短剑", "长剑", "草叉", "重剑");
+
+    /// <summary>防滑缠手：锐器 6 + **消防斧** + 钝器 3（用户把原来同名的两条合并成了一条）。</summary>
+    private static IReadOnlySet<string> BladesAndBlunts()
+        => Names("匕首", "短剑", "刺剑", "长剑", "草叉", "重剑", "消防斧", "棍棒", "尖头锤", "破甲锤");
+
+    /// <summary>棍棒（铁丝/钉子强化是它独有的）。</summary>
+    private static IReadOnlySet<string> ClubOnly() => Names("棍棒");
 
     /// <summary>
     /// 这条改装**迁移前**属于哪个大类 —— 只给迁移护栏测试用（钉死"新白名单 ≡ 旧大类"）。
@@ -75,294 +214,395 @@ public static class WeaponModCatalog
         return d;
     }
 
-    // ============ 枪械改装（按大类适用，故所有枪通用）============
+    // ═══════════════════════════════════════════════════════════════════════════
+    // 【近战型态的数值来源】"等同于 80% 攻速的〈某把武器〉" —— 直接从 WeaponTable **读那把武器**，
+    // 覆盖（Set）到枪托近战的五个字段上。**不抄数字**：用户日后调刺剑/消防斧/尖头锤，三个型态自动跟着变。
+    //
+    // 80% 攻速 ⇒ 出手间隔 ÷ 0.8（= ×1.25）。伤害/穿透/噪音**原样照抄**那把武器。
+    // ⚠ 砸墙系数不在此列（Weapon.MeleeProfile 不复制它，枪托砸墙恒为默认 1.0）——wiki 表也没写。
+    // ═══════════════════════════════════════════════════════════════════════════
 
-    /// <summary>轻质化枪托：全枪减重 → 射速↑、伤害略↓、枪托近战也更快。</summary>
+    /// <summary>攻速折扣：型态的枪托近战 = 该武器的 <paramref name="speed"/> 倍攻速（0.8 ⇒ 间隔 ×1.25）。</summary>
+    private const double MeleeFormSpeed = 0.8;
+
+    /// <summary>把一把近战武器**覆盖**成枪托近战的五条 Set（伤害下限/上限、穿透、间隔、噪音）。</summary>
+    private static StatMod[] StockMeleeLike(Weapon melee) => new[]
+    {
+        StatMod.Set(WeaponStat.StockMeleeDamageMin, melee.DamageMin),
+        StatMod.Set(WeaponStat.StockMeleeDamageMax, melee.DamageMax),
+        StatMod.Set(WeaponStat.StockMeleePenetration, melee.Penetration),
+        StatMod.Set(WeaponStat.StockMeleeInterval, melee.AttackInterval / MeleeFormSpeed),
+        StatMod.Set(WeaponStat.StockMeleeNoiseRadius, melee.NoiseRadius),
+    };
+
+    // ============ 枪械改装（6 条）============
+
+    /// <summary>
+    /// 轻质化枪托：<b>整把枪减重 15%</b>，代价是散布 +10%。
+    /// <para>
+    /// ⚠️ 用户把它原有的"射速↑/伤害↓"**全部删了** —— 现在它**只做一件事：减重**。
+    /// 这在重量不进负重账的年代等于"付 180 工时换一把更差的枪"（纯负收益）；
+    /// 而 [T47] 把重量接进了负重账之后，**减重本身就是它的收益**——枪轻 15%，人跑得动。
+    /// </para>
+    /// </summary>
     public static WeaponMod LightenedStock() => new()
     {
         Id = "lightened_stock",
         Name = "轻质化枪托",
-        FitsWeapons = AllOfClass(WeaponClass.Firearm),
+        FitsWeapons = Guns6(),
         Part = WeaponPart.Stock,
-        Note = "全枪减重：射速↑，单发伤害略↓。draft",
-        MaterialCosts = Cost(("wood", 1), ("scrap_metal", 1)),
-        WorkMinutes = 50,
+        Note = "掏空枪托：整枪减重 15%，代价是握持变虚、散布变大。",
+        MaterialCosts = Cost(("wood", 1)),
+        WorkMinutes = 180,
+        WeightMultiplier = 0.85,                                  // 重量 −15%
         Stats = new[]
         {
-            StatMod.Mul(WeaponStat.AttackInterval, 0.85),   // 射速↑（间隔↓）
-            StatMod.Mul(WeaponStat.DamageMax, 0.92),        // 伤↓
-            StatMod.Mul(WeaponStat.StockMeleeInterval, 0.9),
+            StatMod.Mul(WeaponStat.BaseSpreadDegrees, 1.10),      // 散布 +10%
         },
     };
 
-    /// <summary>截短枪管：机动近战化 → 射程↓、误差角↑、射速略↑。</summary>
+    /// <summary>
+    /// 截短枪管：锯短到能**单手抡**，代价是全方位变差（射程/衰减/穿透/散布/伤害）。
+    /// <para>材料为空是**对的**（用户清空）：锯掉一截不消耗任何东西——你只是失去了一段枪管。</para>
+    /// <para>⚠️ <b>只解除双手，不开双持</b>（用户原话只有"允许单手持有"）——见 <see cref="WeaponMod.AllowsOneHanded"/>。</para>
+    /// </summary>
     public static WeaponMod SawnOffBarrel() => new()
     {
         Id = "sawn_off_barrel",
         Name = "截短枪管",
-        FitsWeapons = AllOfClass(WeaponClass.Firearm),
+        FitsWeapons = GunsSawnOff(),   // 用户划掉了冲锋枪（它本来就短）
         Part = WeaponPart.Barrel,
-        Note = "短管：射程↓、精度↓、贴脸出手略快。draft",
-        MaterialCosts = Cost(("scrap_metal", 1)),
-        WorkMinutes = 40,
+        Note = "锯掉半截枪管：单手就能抡，但射程、精度、威力一样不剩。",
+        MaterialCosts = Cost(),        // 用户清空：锯掉一截不消耗材料
+        WorkMinutes = 60,
+        WeightMultiplier = 0.80,                                  // 重量 −20%
+        AllowsOneHanded = true,                                   // 「允许单手持有」
         Stats = new[]
         {
-            StatMod.Mul(WeaponStat.MaxRange, 0.6),
-            StatMod.Mul(WeaponStat.FalloffStart, 0.6),
-            StatMod.Mul(WeaponStat.BaseSpreadDegrees, 1.4),  // 误差角↑
-            StatMod.Mul(WeaponStat.AttackInterval, 0.9),     // 略快
+            StatMod.Mul(WeaponStat.MaxRange, 0.80),               // 射程 −20%
+            StatMod.Mul(WeaponStat.FalloffStart, 0.80),           // 衰减起点 −20%
+            StatMod.Mul(WeaponStat.Penetration, 0.85),            // 穿透 −15%（乘算：40% → 34%，不是减 15 个点）
+            StatMod.Mul(WeaponStat.BaseSpreadDegrees, 1.25),      // 散布 +25%
+            StatMod.Mul(WeaponStat.DamageMin, 0.90),              // 伤害 −10%
+            StatMod.Mul(WeaponStat.DamageMax, 0.90),
         },
     };
 
-    /// <summary>加长枪管：射程↑、更准、射速略↓。</summary>
+    /// <summary>加长枪管：射得更远更准更狠，代价是重了 35%、出手慢了 10%。</summary>
     public static WeaponMod ExtendedBarrel() => new()
     {
         Id = "extended_barrel",
         Name = "加长枪管",
-        FitsWeapons = AllOfClass(WeaponClass.Firearm),
+        FitsWeapons = Guns6(),
         Part = WeaponPart.Barrel,
-        Note = "长管：射程↑、精度↑、出手略慢。draft",
-        MaterialCosts = Cost(("metal_ingot", 1), ("scrap_metal", 1)),
-        WorkMinutes = 70,
+        Note = "接一截长管：打得远、打得准、打得透——代价是它沉，而且抬枪慢半拍。",
+        MaterialCosts = Cost(("iron", 3)),   // [T46] 铁 3（原：金属锭 1 + 废金属 1 = 2 + 1）。
+        WorkMinutes = 240,
+        WeightMultiplier = 1.35,                                  // 重量 +35%
         Stats = new[]
         {
-            StatMod.Mul(WeaponStat.MaxRange, 1.3),
-            StatMod.Mul(WeaponStat.FalloffStart, 1.3),
-            StatMod.Mul(WeaponStat.BaseSpreadDegrees, 0.85),  // 误差角↓（更准）
-            StatMod.Mul(WeaponStat.AttackInterval, 1.1),      // 略慢
+            StatMod.Mul(WeaponStat.MaxRange, 1.20),               // 射程 +20%
+            StatMod.Mul(WeaponStat.FalloffStart, 1.20),           // 衰减起点 +20%
+            StatMod.Mul(WeaponStat.BaseSpreadDegrees, 0.80),      // 散布 −20%
+            StatMod.Mul(WeaponStat.AttackInterval, 1.10),         // 攻速 −10% ⇒ 间隔 ×1.10
+            StatMod.Mul(WeaponStat.Penetration, 1.10),            // 穿透 +10%（乘算）
         },
     };
 
-    // ---- 三种近战型态（利爪 / 创伤 / 刺刀）：一把枪三选一 ----
+    // ---- 三种近战型态（刺刀 / 利爪 / 创伤）：一把枪三选一 ----
     // 部位安排使这条规则**双重成立**：利爪与创伤都占「枪托」⇒ 天然互斥；刺刀占「枪口」，
     // 与前两者不同部位，故还要靠 MeleeForm 的"至多一种型态"规则挡住（见 WeaponMods.ApplyMods）。
+    //
+    // 三者**都不再随枪身缩放**（用户改口径）：同一型态装在手枪还是狙击枪上，枪托数值一模一样。
+    // 差异全在**重量代价**：刺刀 +10% ＜ 利爪 +30% ＜ 创伤 +50%，与 DPS 排序单调一致。
 
     /// <summary>
-    /// 刺刀型（枪口）：**刺击穿透**。全型态最高穿透（20%）、出手最快最安静，单击伤害不及利爪。
-    /// 用户语义"刺刀=刺击穿透"；引擎只有 Sharp/Blunt 两型 ⇒ 归**锐击**，"刺"的特性由**穿透**表达。
+    /// 刺刀型（枪口）：近战 = <b>80% 攻速的刺剑</b>（2~7 / 穿透 25% / 间隔 2.375s ⇒ DPS 1.895）。
+    /// 三型态里**最快、最安静、穿透最高、伤害最低**，重量代价也最小（+10%）。
     /// </summary>
     public static WeaponMod Bayonet() => new()
     {
         Id = "bayonet",
         Name = "刺刀型",
-        FitsWeapons = AllOfClass(WeaponClass.Firearm),
+        FitsWeapons = GunsMeleeForm(),
         Part = WeaponPart.Muzzle,
         Form = MeleeForm.Bayonet,
-        Note = "枪口挂刺刀：贴脸变锐击突刺，穿透 20%（全型态最高）、出手最快最安静，单击伤害不及利爪。draft",
-        MaterialCosts = Cost(("metal_ingot", 1), ("scrap_metal", 2), ("rope", 1)),
-        WorkMinutes = 90,
-        Stats = new[]
-        {
-            StatMod.Mul(WeaponStat.StockMeleeDamageMin, 1.35),
-            StatMod.Mul(WeaponStat.StockMeleeDamageMax, 1.35),
-            StatMod.Set(WeaponStat.StockMeleePenetration, 0.20),  // 突刺集中破甲：全型态最高
-            StatMod.Mul(WeaponStat.StockMeleeInterval, 0.85),     // 捅比抡快
-            StatMod.Mul(WeaponStat.StockMeleeNoiseRadius, 0.8),   // 捅比砸安静
-        },
+        Note = "枪口挂一把刺剑：捅得快、捅得透、捅得安静——就是不太痛。",
+        MaterialCosts = Cost(("iron", 4), ("rope", 1)),   // [T46] 铁 4（原：金属锭 1 + 废金属 2 = 2 + 2）。
+        WorkMinutes = 240,
+        WeightMultiplier = 1.10,                                  // 重量 +10%
+        Stats = StockMeleeLike(WeaponTable.Rapier())
+            .Append(StatMod.Mul(WeaponStat.BaseSpreadDegrees, 1.03))   // 散布 +3%
+            .ToArray(),
     };
 
     /// <summary>
-    /// 利爪型（枪托）：**锐器切割**。三型态里**单击伤害最高**（×1.50），穿透中等（10%），出手节奏不变。
+    /// 利爪型（枪托）：近战 = <b>80% 攻速的消防斧</b>（4~15 / 穿透 18% / 间隔 4.25s ⇒ DPS 2.235）。
+    /// **单击最重**（消防斧上限 15，全型态最高），穿透中等，重量代价 +30%。
     /// </summary>
     public static WeaponMod ClawStock() => new()
     {
         Id = "claw_stock",
         Name = "利爪型",
-        FitsWeapons = AllOfClass(WeaponClass.Firearm),
+        FitsWeapons = GunsMeleeForm(),
         Part = WeaponPart.Stock,
         Form = MeleeForm.Claw,
-        Note = "枪托绑利刃：贴脸变锐击挥砍，伤害最高、穿透中等（10%）、节奏不变。draft",
-        MaterialCosts = Cost(("scrap_metal", 3), ("leather", 1), ("nails", 2)),
-        WorkMinutes = 80,
-        Stats = new[]
-        {
-            StatMod.Mul(WeaponStat.StockMeleeDamageMin, 1.50),
-            StatMod.Mul(WeaponStat.StockMeleeDamageMax, 1.50),
-            StatMod.Set(WeaponStat.StockMeleePenetration, 0.10),  // 切割穿透低于突刺
-            // 节奏与噪音不变（绑一片刃不改变你抡它的方式）
-        },
+        Note = "枪托绑一把斧子：一下砍开的口子，比这把枪打出的洞还大。",
+        MaterialCosts = Cost(("iron", 3), ("leather", 1), ("nails", 2)),
+        WorkMinutes = 240,
+        WeightMultiplier = 1.30,                                  // 重量 +30%
+        Stats = StockMeleeLike(WeaponTable.Axe())
+            .Append(StatMod.Mul(WeaponStat.BaseSpreadDegrees, 1.10))   // 散布 +10%
+            .ToArray(),
     };
 
     /// <summary>
-    /// 创伤型（枪托）：**钝伤加重**。单击最重（×1.60）、最慢、最响，且**代价最实在**——
-    /// 枪托改成铁疙瘩后持握变差，**射击精度也跟着降**（唯一一条会削弱枪本职工作的近战型态）。
+    /// 创伤型（枪托）：近战 = <b>80% 攻速的尖头锤</b>（6~14 / 钝击 / 间隔 4.375s ⇒ DPS 2.286）。
+    /// 三型态里 **DPS 最高**（唯一超过棍棒 2.04 的——<b>用户有意为之</b>：它代价最大），
+    /// 也**最重**（+50%）、最慢、最响。唯一一条**反向改善射击**的型态（散布 −3%：铁疙瘩压枪更稳）。
     /// </summary>
     public static WeaponMod TraumaStock() => new()
     {
         Id = "trauma_stock",
         Name = "创伤型",
-        FitsWeapons = AllOfClass(WeaponClass.Firearm),
+        FitsWeapons = GunsMeleeForm(),
         Part = WeaponPart.Stock,
         Form = MeleeForm.Trauma,
-        Note = "枪托改铁锤：贴脸钝击最重、更慢更响；持握变差 → 射击精度↓（唯一有射击代价的型态）。draft",
-        MaterialCosts = Cost(("metal_ingot", 1), ("scrap_metal", 2), ("nails", 4)),
-        WorkMinutes = 100,
-        Stats = new[]
-        {
-            StatMod.Mul(WeaponStat.StockMeleeDamageMin, 1.60),
-            StatMod.Mul(WeaponStat.StockMeleeDamageMax, 1.60),
-            StatMod.Add(WeaponStat.StockMeleePenetration, 0.03),  // 铁疙瘩略破甲
-            StatMod.Mul(WeaponStat.StockMeleeInterval, 1.25),     // 更慢
-            StatMod.Mul(WeaponStat.StockMeleeNoiseRadius, 1.2),   // 更响
-            StatMod.Mul(WeaponStat.BaseSpreadDegrees, 1.1),       // ← 代价：射击精度↓
-        },
+        Note = "枪托焊成一柄尖头锤：抡起来像铁疙瘩，砸下去也像。压枪倒是更稳了。",
+        MaterialCosts = Cost(("iron", 4), ("nails", 4)),   // [T46] 铁 4（原：金属锭 1 + 废金属 2 = 2 + 2）。
+        WorkMinutes = 240,
+        WeightMultiplier = 1.50,                                  // 重量 +50%（全表最重的代价）
+        Stats = StockMeleeLike(WeaponTable.SpikeHammer())
+            .Append(StatMod.Mul(WeaponStat.BaseSpreadDegrees, 0.97))   // 散布 −3%（用户手改：配重让枪更稳）
+            .ToArray(),
     };
 
-    // ============ 近战锐器改装（对标"短剑"示例；剑/匕首/刺剑通用）============
+    // ============ 近战锐器改装（6 条）============
 
-    /// <summary>锯齿剑刃：撕裂伤 → 伤害上限↑（流血倾向暂借伤害表达，Weapon 无独立流血字段）。</summary>
+    /// <summary>
+    /// 锯齿剑刃：穿透 −20%，**造成的流血速度 +40%**。✅ [T53] 流血轴已落地，两条效果都真了。
+    ///
+    /// <para>
+    /// <b>用户的设计意图（事实源，一字不改）</b>：「**我的设计是，锯齿剑刃是用来对付无甲或者轻甲目标，边打边跑**」
+    /// ⇒ 它**不是**通用上位替代，而是一把**挑食**的武器：对无甲/轻甲强，对重甲弱。
+    /// </para>
+    /// <para>
+    /// <b>穿透 −20% 是这条梯度的唯一来源</b>，而且它是一根**只对重甲有抓地力**的精准杠杆（Sim 实测，见
+    /// <c>docs/research/2026-07-14-bleed-axis.md</c> §4）：
+    /// <list type="bullet">
+    /// <item>**无甲**：身上一层护甲都没有 ⇒ 穿透**在结算里根本不被读取** ⇒ 穿透惩罚对它**完全免费**。</item>
+    /// <item>**丧尸**：腐皮太薄（锐防 1.5）⇒ 穿透对它**也没有抓地力**。丧尸＝轻目标＝设计正靶，本就该强。</item>
+    /// <item>**重甲**：唯一需要修、也是唯一修得动的一格。</item>
+    /// </list>
+    /// ⇒ 划不进甲 ⇒ 没有伤口 ⇒ 没有流血。**护甲正是它的克星**，所以 <c>BleedModel</c> 那条闸门注释
+    /// 担心的"伤害与护甲失去意义"不会发生 —— 前提是穿透惩罚**够大**。
+    /// </para>
+    /// <para>
+    /// ⚠️ <b>穿透 −20% 是【乘算】</b>（用户口径：「在原本数值上 −该数值的 10%，例如 20% 变成 18%」）——
+    /// 长剑 24% → 19.2%，**不是** 24% − 20% = 4%。别手一贱改成 <c>Add(-0.20)</c>。
+    /// </para>
+    /// </summary>
     public static WeaponMod SerratedBlade() => new()
     {
         Id = "serrated_blade",
         Name = "锯齿剑刃",
-        FitsWeapons = AllOfClass(WeaponClass.Blade),
+        FitsWeapons = SerratedFits(),     // 用户划掉刺剑（突刺剑开锯齿没意义）；消防斧按"同档"勾上
         Part = WeaponPart.Blade,
-        Note = "锯齿：撕裂伤↑（流血倾向暂借伤害上限表达）。draft",
-        MaterialCosts = Cost(("scrap_metal", 2)),
-        WorkMinutes = 50,
+        Note = "刃上开一排锯齿：不好破甲，但它撕开的口子不肯收。打无甲和轻甲的，边打边跑。",
+        MaterialCosts = Cost(),           // 用户清空
+        WorkMinutes = 240,
         Stats = new[]
         {
-            StatMod.Add(WeaponStat.DamageMax, 3),   // draft
+            StatMod.Mul(WeaponStat.Penetration, 0.80),            // 穿透 −20%（**乘算**）
+            StatMod.Mul(WeaponStat.BleedRateMultiplier, 1.40),    // 造成的流血速度 +40%（[T53] 引擎轴）
         },
     };
 
-    /// <summary>锋刃研磨：开刃 → 穿透↑。</summary>
+    /// <summary>
+    /// 锋刃研磨：<b>穿透 +75%，攻击三次后失去该改装</b> —— 全表**唯一的消耗型改装**（用户点名）。
+    ///
+    /// <para>
+    /// <b>用光就脱落</b>：第 3 下砍完，刀刃就磨钝了，改装从武器上摘掉（回到没研磨的状态），玩家会收到提示。
+    /// 次数是**武器实例上的状态**（见 <c>ModdedWeaponRegistry</c> 的耐久层），不是目录数据，也不在
+    /// <c>ModdedWeaponSpec</c> 里 —— 那样会污染 <c>Rebuild</c> 的纯函数语义。
+    /// </para>
+    /// <para>
+    /// 材料为空 + 只要 60 工时 = 它就该是**出门前磨一次刀**这种小事：便宜、快、可反复做，用完再磨。
+    /// </para>
+    /// </summary>
     public static WeaponMod HonedEdge() => new()
     {
         Id = "honed_edge",
         Name = "锋刃研磨",
-        FitsWeapons = AllOfClass(WeaponClass.Blade),
+        FitsWeapons = Blades6WithAxe(),   // 六把锐器 + 消防斧都能磨；棍棒不行（钝器没有"刃"可开）
         Part = WeaponPart.Blade,
-        Note = "开刃：穿透↑。draft",
-        MaterialCosts = Cost(("stone", 2)),
-        WorkMinutes = 30,
+        Note = "把刃口磨到能刮胡子。它能透甲——但也就三下的事。",
+        MaterialCosts = Cost(),    // 用户清空：一块磨刀石反复用，不算消耗
+        WorkMinutes = 60,
+        UsesBeforeBreak = 3,       // 🔴 攻击三次后失去该改装（用户拍板）
         Stats = new[]
         {
-            StatMod.Add(WeaponStat.Penetration, 0.05),  // draft
+            StatMod.Mul(WeaponStat.Penetration, 1.75),            // 穿透 +75%（乘算；上限 100% 由 Build 的 Clamp 兜住）
         },
     };
 
-    /// <summary>镂空剑刃：减重 → 攻速↑、伤略↓。</summary>
+    /// <summary>镂空剑刃：开血槽减重 25% → 攻速 +15%、伤害 −9%。</summary>
     public static WeaponMod FullerBlade() => new()
     {
         Id = "fuller_blade",
         Name = "镂空剑刃",
-        FitsWeapons = AllOfClass(WeaponClass.Blade),
+        FitsWeapons = FullerFits(),       // 用户划掉刺剑；**消防斧刻意不勾**（镂空会挖掉消防斧赖以成立的头部质量）
         Part = WeaponPart.Blade,
-        Note = "镂空减重：攻速↑、伤略↓。draft",
-        MaterialCosts = Cost(("scrap_metal", 1)),
-        WorkMinutes = 45,
+        Note = "剑身上开一道血槽：轻了四分之一，挥得更快——砍得也更浅。",
+        MaterialCosts = Cost(("iron", 1)),
+        WorkMinutes = 240,
+        WeightMultiplier = 0.75,                                  // 重量 −25%（全表减重最多）
         Stats = new[]
         {
-            StatMod.Mul(WeaponStat.AttackInterval, 0.88),
-            StatMod.Mul(WeaponStat.DamageMax, 0.95),
+            StatMod.Mul(WeaponStat.AttackInterval, 0.85),         // 攻速 +15% ⇒ 间隔 ×0.85
+            StatMod.Mul(WeaponStat.DamageMin, 0.91),              // 伤害 −9%
+            StatMod.Mul(WeaponStat.DamageMax, 0.91),
         },
     };
 
-    /// <summary>加重剑柄：配重 → 伤↑、攻速↓。</summary>
+    /// <summary>加重剑柄：柄里灌铅 → 伤害 +6%，重量 +18%。（用户删掉了原有的攻速惩罚——重量就是它的代价。）</summary>
     public static WeaponMod WeightedHandle() => new()
     {
         Id = "weighted_handle",
         Name = "加重剑柄",
-        FitsWeapons = AllOfClass(WeaponClass.Blade),
+        FitsWeapons = Blades6WithAxe(),   // 含消防斧（用户拍板：与长剑同档）
         Part = WeaponPart.Handle,
-        Note = "配重柄：伤↑、攻速↓。draft",
-        MaterialCosts = Cost(("scrap_metal", 2), ("nails", 2)),
-        WorkMinutes = 45,
+        Note = "柄里灌铅配重：每一下都更沉。你的胳膊也知道。",
+        MaterialCosts = Cost(("iron", 1)),
+        WorkMinutes = 120,
+        WeightMultiplier = 1.18,                                  // 重量 +18%
         Stats = new[]
         {
-            StatMod.Add(WeaponStat.DamageMin, 2),
-            StatMod.Add(WeaponStat.DamageMax, 3),
-            StatMod.Mul(WeaponStat.AttackInterval, 1.15),
+            StatMod.Mul(WeaponStat.DamageMin, 1.06),              // 伤害 +6%
+            StatMod.Mul(WeaponStat.DamageMax, 1.06),
         },
     };
 
-    /// <summary>轻质化剑柄：减重 → 攻速↑、伤略↓。</summary>
+    /// <summary>轻质化剑柄：木柄换皮缠 → 攻速 +3%，重量 −12%。</summary>
     public static WeaponMod LightenedHandle() => new()
     {
         Id = "lightened_handle",
         Name = "轻质化剑柄",
-        FitsWeapons = AllOfClass(WeaponClass.Blade),
+        FitsWeapons = Blades6WithAxe(),   // 含消防斧（用户拍板：与长剑同档）
         Part = WeaponPart.Handle,
-        Note = "减重柄：攻速↑、伤略↓。draft",
+        Note = "换一副轻木柄：省下的那点分量，胳膊记得住。",
         MaterialCosts = Cost(("wood", 1), ("leather", 1)),
-        WorkMinutes = 40,
+        WorkMinutes = 120,
+        WeightMultiplier = 0.88,                                  // 重量 −12%
         Stats = new[]
         {
-            StatMod.Mul(WeaponStat.AttackInterval, 0.85),
-            StatMod.Mul(WeaponStat.DamageMax, 0.92),
+            StatMod.Mul(WeaponStat.AttackInterval, 0.97),         // 攻速 +3% ⇒ 间隔 ×0.97
         },
     };
 
-    /// <summary>防滑缠手（锐器）：握持更稳 → 出手更利落（攻速↑）。近战必中，故"命中↑"在引擎里无近战字段，借攻速表达。</summary>
+    /// <summary>
+    /// 防滑缠手：攻速 +5%。<b>锐器 6 把 + 钝器 3 把共用这一条</b>（用户把原来同名的两条合并了）——
+    /// 历史包袱（"同名两条改装、按名索引会撞"）就此消除。
+    /// </summary>
     public static WeaponMod GripWrapBlade() => new()
     {
         Id = "grip_wrap_blade",
         Name = "防滑缠手",
-        FitsWeapons = AllOfClass(WeaponClass.Blade),
+        FitsWeapons = BladesAndBlunts(),   // 用户合并：刃类 6 + 钝类 3
         Part = WeaponPart.Grip,
-        Note = "缠手防滑：出手更利落（攻速↑）。近战必中，命中项无引擎字段。draft",
-        MaterialCosts = Cost(("cloth", 2), ("rope", 1)),
-        WorkMinutes = 20,
+        Note = "缠一圈布和绳：手不打滑，出手就利落。近战必中，所以「更准」在这里只能是「更快」。",
+        MaterialCosts = Cost(("rope", 1)),
+        WorkMinutes = 60,
         Stats = new[]
         {
-            StatMod.Mul(WeaponStat.AttackInterval, 0.95),
+            StatMod.Mul(WeaponStat.AttackInterval, 0.95),         // 攻速 +5% ⇒ 间隔 ×0.95（用户在表上写的就是这个等式）
         },
     };
 
-    // ============ 近战钝器改装（对标"棍棒"示例；棍/锤通用）============
+    // ============ 近战钝器改装（2 条，棍棒独有）============
+    //
+    // 🔴 用户拍板的互斥：「**钉子强化是棍棒独有的，而棍棒不能锋刃研磨**」
+    //    ⇒ 钉子/铁丝强化的白名单 = 只有棍棒；锋刃研磨的白名单 = 六把锐器（不含棍棒）。
+    //    两边各自钉死，护栏见 WeaponModWhitelistTests。语义也自洽：钝器没有"刃"可开。
 
-    /// <summary>铁丝强化：缠铁丝加固 → 伤↑。</summary>
+    /// <summary>铁丝强化：棍身缠铁丝 → 伤害 +10%，重量 +5%。</summary>
     public static WeaponMod WireWrap() => new()
     {
         Id = "wire_wrap",
         Name = "铁丝强化",
-        FitsWeapons = AllOfClass(WeaponClass.Blunt),
+        FitsWeapons = ClubOnly(),
         Part = WeaponPart.Shaft,
-        Note = "缠铁丝：伤↑。draft",
+        Note = "棍身缠满铁丝：还是一根棍子，但它现在咬人。",
         MaterialCosts = Cost(("wire", 2)),
-        WorkMinutes = 30,
+        WorkMinutes = 60,
+        WeightMultiplier = 1.12,                                  // 重量 +12%（用户在 wiki 上又调过一次）
         Stats = new[]
         {
-            StatMod.Add(WeaponStat.DamageMin, 1),
-            StatMod.Add(WeaponStat.DamageMax, 2),
+            StatMod.Mul(WeaponStat.DamageMin, 1.15),              // 伤害 +15%（用户在 wiki 上又调过一次）
+            StatMod.Mul(WeaponStat.DamageMax, 1.15),
         },
     };
 
-    /// <summary>钉子强化：钉刺 → 伤↑、并带一点穿透。</summary>
+    /// <summary>
+    /// 钉子强化：棍头钉钉子 → <b>穿透 +0.03（加算）</b>。
+    ///
+    /// <para>
+    /// 🔴🔴 <b>这是全项目"百分比一律乘算"铁律的【唯一例外】，而且是用户亲自点名的：</b>
+    /// 用户原话「**钉子强化：穿透 +0.03 是因为棍棒原本是 0 穿透**」。
+    /// </para>
+    /// <para>
+    /// <b>为什么必须加算 —— "零陷阱"</b>：棍棒的 <c>Penetration</c> 是 <b>0</b>（一根木头，破甲为零）。
+    /// 乘算在零上**永远是零**：<c>0 × 1.75 = 0</c>、<c>0 × 100 = 0</c>。
+    /// 想让"钉尖能破一点甲"这件事成立，只能加算。别人手一贱把它改成 <c>Mul</c>，这条改装当场变成一件废件
+    /// （护栏 <c>WeaponModTests.NailStuds_OnClub_AddsPenetration</c> 会红）。
+    /// </para>
+    /// <para>
+    /// ✅ <b>[T53]「造成伤害时 25% 几率造成小流血」已落地</b>（<see cref="WeaponStat.BleedOnHitChance"/>）。
+    /// 🔴 <b>[T58]「小流血」的语义已改</b>：它现在就是三级流血里最轻的那一级
+    /// （<c>BleedModel.BleedSeverity.Small</c>，流速 0.3；旧的 <c>SmallWoundRateMultiplier = 0.5</c>
+    /// 「速率减半的普通伤口」**已退役**）。
+    /// ⇒ 钉子扎出的口子和别的小流血**按同一套规则合并**：同一部位扎两下 ⇒ **中流血**、再来一下 ⇒ **大流血**（封顶）。
+    /// 它仍按命中部位定致命性（躯干上的小流血照样能把人放干，只是很慢）。
+    /// </para>
+    /// <para>
+    /// 这是**钝器唯一的流血来源**：棍棒本来一处伤口都造不出来（引擎的流血资格要求**锐器抵达**），
+    /// 钉子强化正是要给钝器开一个小口子。
+    /// </para>
+    /// </summary>
     public static WeaponMod NailStuds() => new()
     {
         Id = "nail_studs",
         Name = "钉子强化",
-        FitsWeapons = AllOfClass(WeaponClass.Blunt),
+        FitsWeapons = ClubOnly(),   // 用户拍板：钉子强化是棍棒独有的
         Part = WeaponPart.Shaft,
-        Note = "钉刺：伤↑、穿透↑（钉尖破防）。draft",
+        Note = "棍头砸进一圈钉子：木头砸不穿的，钉尖能——而且它会留下不肯收口的小口子。",
         MaterialCosts = Cost(("nails", 4)),
-        WorkMinutes = 30,
+        WorkMinutes = 60,
         Stats = new[]
         {
-            StatMod.Add(WeaponStat.DamageMax, 3),
+            // 🔴 加算，不是乘算 —— 见类注的"零陷阱"。这是 CLAUDE.md 乘算铁律的唯一例外，用户点名的。
             StatMod.Add(WeaponStat.Penetration, 0.03),
+
+            // [T53] 造成伤害时 25% 几率造成小流血。
+            // 🔴 这里**也必须是 Set/Add 而非 Mul**：基础武器的 BleedOnHitChance 是 **0** ——
+            //    又一个"零陷阱"，乘算在零上永远是零（0 × 0.25 = 0），改装会静默变成废件。
+            StatMod.Set(WeaponStat.BleedOnHitChance, 0.25),
         },
     };
 
-    /// <summary>防滑缠手（钝器）：握持更稳 → 攻速↑。</summary>
-    public static WeaponMod GripWrapBlunt() => new()
-    {
-        Id = "grip_wrap_blunt",
-        Name = "防滑缠手",
-        FitsWeapons = AllOfClass(WeaponClass.Blunt),
-        Part = WeaponPart.Grip,
-        Note = "缠手防滑：抡起更利落（攻速↑）。draft",
-        MaterialCosts = Cost(("cloth", 2), ("rope", 1)),
-        WorkMinutes = 20,
-        Stats = new[]
-        {
-            StatMod.Mul(WeaponStat.AttackInterval, 0.95),
-        },
-    };
-
-    /// <summary>某武器大类的全部可用改装（供改装 UI 列举）。</summary>
+    /// <summary>
+    /// 这条改装**归哪一组** —— 只剩两个用途：给 <see cref="LegacyClassOf"/> 定组、给改装 UI 分栏。
+    /// <para>
+    /// ⚠️ <b>它已经不是装配约束了</b>：能不能装看 <see cref="WeaponMod.FitsWeapons"/>（用户逐格勾的白名单）。
+    /// 「防滑缠手」现在**同时能装锐器和钝器**，却只归在 Blade 这一组 —— 分组与白名单已经**不再等价**，
+    /// 别再拿分组去推"这条改装能装什么"。
+    /// </para>
+    /// <para>
+    /// [T47] <b>「防滑缠手（钝器）」<c>grip_wrap_blunt</c> 已按用户的删除标记撤下</b>：
+    /// 它的职能并进了 <see cref="GripWrapBlade"/>（白名单扩到含棍棒/尖头锤/破甲锤）。
+    /// ⇒ 「同名两条改装」这个历史包袱（按名索引会撞）就此消失，全表 <b>14 条</b>。
+    /// </para>
+    /// </summary>
     public static IReadOnlyList<WeaponMod> For(WeaponClass cls) => cls switch
     {
         WeaponClass.Firearm => new[]
@@ -375,7 +615,7 @@ public static class WeaponModCatalog
         },
         WeaponClass.Blunt => new[]
         {
-            WireWrap(), NailStuds(), GripWrapBlunt(),
+            WireWrap(), NailStuds(),
         },
         _ => System.Array.Empty<WeaponMod>(),
     };

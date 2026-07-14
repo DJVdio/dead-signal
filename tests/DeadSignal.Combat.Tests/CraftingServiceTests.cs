@@ -195,11 +195,20 @@ public class WeaponModExecutionTests
     // StartWeaponModJob（过门槛 → 开工即扣：拿走基础武器 + 扣材料 → 出在制任务）
     // CompleteWeaponModJob（工时满 → 合成 → 登记进 ModdedWeaponRegistry → 变体入库）
 
-    /// <summary>给库存塞够「锋刃研磨」的料（石料 2）。</summary>
-    private static InventoryStore InvWithBladeAndStone(string weaponName)
+    /// <summary>
+    /// 给库存塞够「加重剑柄」的料（铁 1）。
+    /// <para>
+    /// ⚠️ [T47] 从前这个 helper 塞的是「锋刃研磨」的石料 —— <b>用户已在 wiki 上把锋刃研磨的材料清空了</b>
+    /// （它现在是 0 材料 / 60 工时的"出门前磨一次刀"）。⇒ 拿它当"材料门槛"的样本已经不成立
+    /// （没料也照样能改）。换成一条**还要材料**的锐器改装：<b>加重剑柄（铁 ×1）</b>。
+    /// </para>
+    /// </summary>
+    private const string BladeModWithCost = "加重剑柄";
+
+    private static InventoryStore InvWithBladeAndIron(string weaponName)
     {
         var inv = InvWith(weaponName);
-        inv.Add(Item.Material("stone", "石料", 4));
+        inv.Add(Item.Material("iron", "铁", 4));
         return inv;
     }
 
@@ -207,16 +216,16 @@ public class WeaponModExecutionTests
     public void WeaponMod_FullFlow_ConsumesBaseAndMaterials_ThenProducesVariant()
     {
         ModdedWeaponRegistry.Clear();
-        var inv = InvWithBladeAndStone("短剑");
+        var inv = InvWithBladeAndIron("短剑");
 
         WeaponModStartResult start = CraftingService.StartWeaponModJob(
-            "短剑", new[] { "锋刃研磨" }, inv, hasModBench: true);
+            "短剑", new[] { BladeModWithCost }, inv, hasModBench: true);
 
         Assert.True(start.Success);
         Assert.NotNull(start.Job);
         Assert.True(start.Job!.TotalWorkMinutes > 0);                    // 改装是工时活，不是点击即得
         Assert.DoesNotContain(inv.Items, i => i.RefKey == "短剑");        // 开工即扣：基础武器已拿走
-        Assert.Equal(2, inv.MaterialCount("stone"));                     // 开工即扣：石料 4-2
+        Assert.Equal(3, inv.MaterialCount("iron"));                      // 开工即扣：铁 4-1
 
         // 工时满 → 完工
         start.Job.Advance(start.Job.TotalWorkMinutes, canWork: true);
@@ -225,41 +234,88 @@ public class WeaponModExecutionTests
         WeaponModResult done = CraftingService.CompleteWeaponModJob(start.Job.RecipeId, inv);
         Assert.True(done.Success);
         Assert.NotNull(done.Produced);
-        Assert.Contains("锋刃研磨", done.Produced!.RefKey);
+        Assert.Contains(BladeModWithCost, done.Produced!.RefKey);
         Assert.Contains(inv.Items, i => i == done.Produced);
 
-        // 数值确有改动（穿透↑）
+        // 数值确有改动（加重剑柄：伤害 +6%）
         Weapon baseW = WeaponTable.Arsenal().First(w => w.Name == "短剑");
-        Assert.True(done.Variant!.Weapon.Penetration > baseW.Penetration);
+        Assert.True(done.Variant!.Weapon.DamageMax > baseW.DamageMax);
 
         // 且已登记 ⇒ 装得上、存得住（此前变体名回查落空，是 P0）
         Assert.NotNull(ModdedWeaponRegistry.WeaponByName(done.Produced.RefKey));
     }
 
+    /// <summary>
+    /// 🔴 <b>[T47] 覆盖自检：消耗型改装走【真实的制作链】造出来之后，耐久层真的建起来了。</b>
+    ///
+    /// <para>这条防的是本项目的经典失效模式（<b>纯逻辑绿 ≠ 功能生效</b>）：
+    /// <c>WeaponModWearTests</c> 里我是**手动 Register** 的；而游戏里玩家是走
+    /// <c>StartWeaponModJob → CompleteWeaponModJob</c> 造出来的。**如果 CraftingService 那条路没经过
+    /// 发唯一实例名的 Register，那么玩家真造出来的刀根本不带耐久 —— 砍一万下也不掉**，
+    /// 单测却一路绿灯。所以这条必须走真链路。</para>
+    /// </summary>
+    [Fact]
+    public void 锋刃研磨_走真实制作链造出来_耐久层真的建起来了_且砍三下就脱落()
+    {
+        ModdedWeaponRegistry.Clear();
+        var inv = InvWith("短剑");   // 锋刃研磨 0 材料（用户清空）⇒ 只要有台子和工时
+
+        WeaponModStartResult start = CraftingService.StartWeaponModJob(
+            "短剑", new[] { "锋刃研磨" }, inv, hasModBench: true);
+        Assert.True(start.Success);
+
+        start.Job!.Advance(start.Job.TotalWorkMinutes, canWork: true);
+        WeaponModResult done = CraftingService.CompleteWeaponModJob(start.Job.RecipeId, inv);
+
+        Assert.True(done.Success);
+        string variant = done.Produced!.RefKey!;
+
+        // ① 唯一实例名（否则两把研磨过的刀会共用一个计数器）
+        Assert.Contains("#", variant);
+        // ② 库存里那件东西的 RefKey == 武器自己的名字（全项目隐含不变式）
+        Assert.Equal(variant, ModdedWeaponRegistry.WeaponByName(variant)!.Name);
+        // ③ 耐久层真的建起来了 —— 这才是"功能真的生效"
+        Assert.Equal(3, ModdedWeaponRegistry.RemainingUses(variant, "锋刃研磨"));
+        // ④ 穿透真的 +75%
+        Weapon baseW = WeaponTable.Arsenal().First(w => w.Name == "短剑");
+        Assert.Equal(baseW.Penetration * 1.75, done.Variant!.Weapon.Penetration, 6);
+
+        // ⑤ 砍三下 ⇒ 脱落，回落成基础短剑
+        Assert.False(ModdedWeaponRegistry.ConsumeUse(variant).Changed);
+        Assert.False(ModdedWeaponRegistry.ConsumeUse(variant).Changed);
+        ModWearResult broke = ModdedWeaponRegistry.ConsumeUse(variant);
+        Assert.True(broke.Changed);
+        Assert.Equal("短剑", broke.WeaponName);
+
+        ModdedWeaponRegistry.Clear();
+    }
+
     [Fact]
     public void StartWeaponModJob_WithoutModBench_Fails_NoMutation()
     {
-        var inv = InvWithBladeAndStone("短剑");
+        var inv = InvWithBladeAndIron("短剑");
         int before = inv.Count;
 
         WeaponModStartResult r = CraftingService.StartWeaponModJob(
-            "短剑", new[] { "锋刃研磨" }, inv, hasModBench: false);
+            "短剑", new[] { BladeModWithCost }, inv, hasModBench: false);
 
         Assert.False(r.Success);
         Assert.Contains(r.Blocks, b => b.Reason == WeaponModBlockReason.NoModBench);
         Assert.Equal(before, inv.Count);
         Assert.Contains(inv.Items, i => i.RefKey == "短剑");   // 基础武器仍在
-        Assert.Equal(4, inv.MaterialCount("stone"));           // 材料一分没动
+        Assert.Equal(4, inv.MaterialCount("iron"));            // 材料一分没动
     }
 
     [Fact]
     public void StartWeaponModJob_WithoutMaterials_Fails_NoMutation()
     {
-        var inv = InvWith("短剑");   // 有台子、有枪，就是没料
+        var inv = InvWith("短剑");   // 有台子、有剑，就是没料
         int before = inv.Count;
 
+        // ⚠️ 样本必须是一条**真要材料**的改装（加重剑柄＝铁×1）。用锋刃研磨会误绿：
+        //    用户已把它的材料清空，没料也照样能改。
         WeaponModStartResult r = CraftingService.StartWeaponModJob(
-            "短剑", new[] { "锋刃研磨" }, inv, hasModBench: true);
+            "短剑", new[] { BladeModWithCost }, inv, hasModBench: true);
 
         Assert.False(r.Success);
         Assert.Contains(r.Blocks, b => b.Reason == WeaponModBlockReason.InsufficientMaterial);
@@ -270,8 +326,7 @@ public class WeaponModExecutionTests
     [Fact]
     public void StartWeaponModJob_SamePartConflict_Fails_NoMutation()
     {
-        var inv = InvWithBladeAndStone("短剑");
-        inv.Add(Item.Material("scrap_metal", "废金属", 4));
+        var inv = InvWithBladeAndIron("短剑");
         int before = inv.Count;
 
         // 锯齿剑刃 与 锋刃研磨 都占"刃"部位 → 冲突。
@@ -298,8 +353,8 @@ public class WeaponModExecutionTests
     [Fact]
     public void StartWeaponModJob_UnknownModForClass_Fails()
     {
-        var inv = InvWithBladeAndStone("短剑");
-        // 铁丝强化 是钝器改装，不属于锐器"短剑"。
+        var inv = InvWithBladeAndIron("短剑");
+        // 铁丝强化 是**棍棒独有**的改装（用户拍板），装不到"短剑"上。
         WeaponModStartResult r = CraftingService.StartWeaponModJob(
             "短剑", new[] { "铁丝强化" }, inv, hasModBench: true);
 
