@@ -9,8 +9,25 @@ using Xunit.Abstractions;
 namespace DeadSignal.Combat.Tests;
 
 /// <summary>
-/// 存档性能：**满载**世界（尸体到 240 具上限、探索点 flag 全开、库存塞满）下的序列化/反序列化耗时。
+/// 存档开销：**满载**世界（尸体到 240 具上限、探索点 flag 全开、库存塞满）下的存档体积与读档路径。
 /// 存档卡顿是会被玩家直接感受到的——自动存档挂在相位切换上，那一帧要是卡半秒，玩家会以为游戏崩了。
+///
+/// <para>
+/// <b>为什么这个文件里一条「耗时 &lt; N 毫秒」的断言都没有。</b>
+/// 本仓库的常态是多个 agent 并发构建，CPU 被打满时同一段代码的墙钟耗时会抖 10~20 倍——实测满载全档反序列化
+/// 空载 2.9ms，并发构建下能飙到 51ms。任何拿墙钟当阈值的断言在这种环境里都是个随机数发生器：
+/// 它变红的时候不代表存档变慢了，只代表隔壁在编译。**一条会随机变红的测试比没有测试更糟——它训练所有人忽略红色。**
+/// </para>
+/// <para>
+/// ⇒ 这里只断言<b>与 CPU 争抢无关的量</b>：
+/// <list type="bullet">
+///   <item>存档<b>体积</b>——纯粹是数据的函数，同一棵树跑一万遍都是同一个字节数。</item>
+///   <item><b>分配字节数</b>——是代码路径的函数。摘要不物化世界树，这件事在分配上是<b>数量级</b>的差距，
+///         在墙钟上却只有 1.5 倍（两条路径都得把 347KB 文本 tokenize 一遍，那部分省不掉），
+///         所以墙钟根本量不出这个结构性事实，分配才量得出。</item>
+/// </list>
+/// 耗时仍然测量并打印，当诊断信息看（回归时肉眼能发现），但<b>不作为断言</b>。
+/// </para>
 /// </summary>
 public class SavePerfTests
 {
@@ -105,8 +122,11 @@ public class SavePerfTests
         return d;
     }
 
+    /// <summary>满载存档的体积上界。读写成本大体正比于体积，所以守住体积就守住了停顿。</summary>
+    private const int WorstCaseBudgetKb = 512;
+
     [Fact]
-    public void 满载存档的序列化与反序列化都在一帧预算内()
+    public void 满载存档的体积在预算内()
     {
         SaveData world = BuildWorstCase();
 
@@ -132,43 +152,53 @@ public class SavePerfTests
         }
         swDe.Stop();
 
-        double serMs = swSer.Elapsed.TotalMilliseconds / Runs;
-        double deMs = swDe.Elapsed.TotalMilliseconds / Runs;
         double kb = json.Length / 1024.0;
 
-        _out.WriteLine($"满载存档：{kb:F0} KB");
-        _out.WriteLine($"  序列化   {serMs:F1} ms");
-        _out.WriteLine($"  反序列化 {deMs:F1} ms");
+        // 耗时只打印、不断言（见类注释：并发构建下墙钟抖 10~20 倍）。空载参考值：序列化 ~2.5ms、反序列化 ~2.9ms。
+        _out.WriteLine($"满载存档：{kb:F0} KB  （预算 {WorstCaseBudgetKb} KB）");
+        _out.WriteLine($"  序列化   {swSer.Elapsed.TotalMilliseconds / Runs:F1} ms   （仅诊断，不断言）");
+        _out.WriteLine($"  反序列化 {swDe.Elapsed.TotalMilliseconds / Runs:F1} ms   （仅诊断，不断言）");
         _out.WriteLine($"  （尸体 240 具 / flag 600 条 / 幸存者 6 人 / 库存 200 件 / 围栏 160 格 / 容器 163 个）");
 
-        // 自动存档挂在相位切换上（一昼夜 8 次）。60fps 下一帧 16.7ms——
-        // 存档不必挤进一帧（相位切换本来就是个卡点），但也不能让玩家察觉到停顿。
-        // 100ms 是"感觉不到"的上界，这里留足余量。
-        Assert.True(serMs < 100, $"序列化 {serMs:F1}ms 超预算——玩家会在相位切换时感到卡顿");
-        Assert.True(deMs < 100, $"反序列化 {deMs:F1}ms 超预算");
+        // 体积是可断言的那一半：它是数据的纯函数，不受隔壁编译影响。
+        // 自动存档挂在相位切换上（一昼夜 8 次），读写成本大体正比于体积——守住体积就守住了停顿。
+        // 实测满载 347 KB；预算 512 KB 留了约 1.5 倍余量，够接住"又加了几个字段"，
+        // 但接不住"每具尸体存一整棵部位树"这类真正的体积爆炸（那会翻好几倍）——那正是这条断言要拦的东西。
+        Assert.True(kb < WorstCaseBudgetKb,
+            $"满载存档 {kb:F0} KB 超出 {WorstCaseBudgetKb} KB 预算——存档体积爆炸了，相位切换会卡给玩家看");
     }
 
     [Fact]
-    public void 只读摘要远快于读全档()
+    public void 只读摘要不物化整棵世界树()
     {
         // 存档列表要列 8 个槽——若每个都反序列化整棵世界树，开个菜单就是 8 倍全档读取。
+        // PeekMeta 的价值在于**跳过 POCO 物化**（JSON 文本还是要 tokenize 一遍，那部分省不掉）。
+        // 这个"跳过"在**分配字节**上是数量级的差距，在墙钟上却几乎看不见——所以这里量分配，不量耗时。
         string json = SaveCodec.Serialize(BuildWorstCase());
 
-        for (int i = 0; i < 3; i++) { SaveCodec.PeekMeta(json); SaveCodec.Deserialize(json); }
+        for (int i = 0; i < 3; i++) { SaveCodec.PeekMeta(json); SaveCodec.Deserialize(json); }   // 预热，别把 JIT 的分配算进去
 
         const int Runs = 20;
-        var swPeek = Stopwatch.StartNew();
+
+        long before = GC.GetAllocatedBytesForCurrentThread();
         for (int i = 0; i < Runs; i++) { SaveCodec.PeekMeta(json); }
-        swPeek.Stop();
+        long peekBytes = (GC.GetAllocatedBytesForCurrentThread() - before) / Runs;
 
-        var swFull = Stopwatch.StartNew();
+        before = GC.GetAllocatedBytesForCurrentThread();
         for (int i = 0; i < Runs; i++) { SaveCodec.Deserialize(json); }
-        swFull.Stop();
+        long fullBytes = (GC.GetAllocatedBytesForCurrentThread() - before) / Runs;
 
-        double peekMs = swPeek.Elapsed.TotalMilliseconds / Runs;
-        double fullMs = swFull.Elapsed.TotalMilliseconds / Runs;
-        _out.WriteLine($"摘要 {peekMs:F2} ms  vs  全档 {fullMs:F2} ms  （{fullMs / Math.Max(peekMs, 0.001):F1}× 快）");
+        _out.WriteLine($"摘要 {peekBytes / 1024.0:F1} KB 分配  vs  全档 {fullBytes / 1024.0:F1} KB 分配  " +
+                       $"（{(double)fullBytes / Math.Max(peekBytes, 1):F1}× 省）");
 
-        Assert.True(peekMs < fullMs, "摘要必须比读全档快，否则 PeekMeta 就白写了");
+        // 实测：全档稳定 785 KB（整棵 POCO 世界树）；摘要**稳态只有 0.1 KB**——JsonDocument 的缓冲区是从
+        // ArrayPool 租的，using 归还后重复 Parse 几乎不碰 GC 堆，剩下的只有一个 SaveMeta 对象。
+        // （摘要的绝对值会随池子冷热浮动：若前面刚跑过大量全档反序列化、GC 把池子刮了，摘要要重新租数组，
+        //   实测会到 ~25 KB。所以别把 0.1 KB 当固定值——**要断言的是比值，不是绝对分配量**。）
+        // 两种冷热情形下比值分别是 ~6700× 与 ~30×，都远在闸门之上；阈值取 4 倍，环境怎么抖都误报不了。
+        // 而一旦 PeekMeta 退化成"顺手把整棵树也反序列化了"，比值会当场塌到 1× 左右，这条就红。
+        Assert.True(peekBytes * 4 < fullBytes,
+            $"摘要分配 {peekBytes / 1024.0:F1} KB，全档 {fullBytes / 1024.0:F1} KB——" +
+            $"摘要开始物化世界树了，PeekMeta 就白写了（列表 8 个槽会付 8 倍全档读取）");
     }
 }

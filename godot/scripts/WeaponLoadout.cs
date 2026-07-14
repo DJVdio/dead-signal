@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using DeadSignal.Combat;
 
 namespace DeadSignal.Godot;
@@ -61,6 +63,38 @@ public sealed class WeaponLoadout
 
     /// <summary>当前主攻武器（供 Actor.AttackWeapon 兼容）：右手优先；空手 → null。</summary>
     public Weapon? PrimaryWeapon => RightHand ?? LeftHand;
+
+    /// <summary>
+    /// 此刻<b>真实握在手里</b>的武器（主手在前）。倒下时 <c>CorpseYard</c> 据此把它们原样放进尸体
+    /// （<see cref="CorpseLoot.Strip"/>：持什么掉什么）。
+    ///
+    /// <para>🔴 <b>双手握一把 ≠ 两把</b>：<see cref="EquipTwoHanded"/> 把<b>同一个</b> Weapon 实例同时放进左右手
+    /// （<see cref="TwoHandGrip"/>=true）。若调用方天真地"左手 + 右手"各读一次，一个抱着重剑倒下的人会掉出
+    /// <b>两把重剑</b>——凭空印钱。这个坑之所以存在，正是因为"两手都握着它"在数据上和"两手各一把"长得一模一样，
+    /// 唯一的区别就是 <see cref="TwoHandGrip"/>。故本属性存在的全部理由，就是把这个区别<b>收口在一处</b>，
+    /// 不让每个消费方各自去记得判它。</para>
+    /// </summary>
+    public IReadOnlyList<Weapon> HeldWeapons
+    {
+        get
+        {
+            if (TwoHandGrip)
+            {
+                return PrimaryWeapon is null ? Array.Empty<Weapon>() : new[] { PrimaryWeapon };
+            }
+
+            var held = new List<Weapon>(2);
+            if (RightHand is not null)
+            {
+                held.Add(RightHand);
+            }
+            if (LeftHand is not null)
+            {
+                held.Add(LeftHand);
+            }
+            return held;
+        }
+    }
 
     /// <summary>
     /// 装备到指定手：双手武器占两手（另一手清空）；单手武器占该手；两手各一把单手 = 双持。

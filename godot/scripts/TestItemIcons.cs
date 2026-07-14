@@ -74,7 +74,8 @@ public sealed partial class TestItemIcons : SceneTree
             LootItem.Tool("sawblade"),
             LootItem.Food(3),
         };
-        panel.ShowExpeditionBag(bag, carriedKg: 12.5, capacityKg: 30, notice: null);
+        // [T45] 负重账现在含装备（穿在身上的枪与甲），故背包面板要装备/战利品分开喂。
+        panel.ShowExpeditionBag(bag, gearKg: 13.8, lootKg: 12.5, capacityKg: 40, notice: null);
         foreach (LootItem loot in bag)
         {
             Texture2D? tex = ItemIconTextures.ForLoot(loot);

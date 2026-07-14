@@ -52,6 +52,12 @@ public static class CombatData
 
     /// <summary>新建一具满血人形躯体（幸存者与丧尸同用人体细部位表）。</summary>
     public static Body NewHumanoidBody() => HumanBody.NewBody();
+
+    /// <summary>
+    /// 新建一具丧尸躯体：部位表与人相同，但**失血流速只有 1/3**（用户口径「丧尸没那么容易流血致死」）。
+    /// 与 Sim 共用同一个工厂 <see cref="HumanBody.NewZombieBody"/>，两边口径不会各算各的。
+    /// </summary>
+    public static Body NewZombieBody() => HumanBody.NewZombieBody();
 }
 
 /// <summary>弹道命中一具躯体时的处理决策。</summary>

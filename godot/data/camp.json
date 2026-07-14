@@ -295,7 +295,7 @@
       "workMinutes": 90,
       "drops": [
         { "kind": "material", "id": "wood", "qty": 4 },
-        { "kind": "material", "id": "scrap_metal", "qty": 2 },
+        { "kind": "material", "id": "iron", "qty": 2 },
         { "kind": "material", "id": "cloth", "qty": 2 }
       ],
       "color": [0.40, 0.38, 0.34],
@@ -308,7 +308,7 @@
       "workMinutes": 100,
       "drops": [
         { "kind": "material", "id": "wood", "qty": 3 },
-        { "kind": "material", "id": "scrap_metal", "qty": 2 },
+        { "kind": "material", "id": "iron", "qty": 2 },
         { "kind": "material", "id": "nails", "qty": 3 },
         { "kind": "material", "id": "cloth", "qty": 2 }
       ],
@@ -322,7 +322,7 @@
       "workMinutes": 110,
       "drops": [
         { "kind": "material", "id": "wood", "qty": 3 },
-        { "kind": "material", "id": "scrap_metal", "qty": 3 },
+        { "kind": "material", "id": "iron", "qty": 3 },
         { "kind": "material", "id": "cloth", "qty": 2 },
         { "kind": "material", "id": "stone", "qty": 2 }
       ],
@@ -339,7 +339,7 @@
       "eggContentId": "egg_courtyard_family",
       "drops": [
         { "kind": "material", "id": "wood", "qty": 4 },
-        { "kind": "material", "id": "scrap_metal", "qty": 2 },
+        { "kind": "material", "id": "iron", "qty": 2 },
         { "kind": "material", "id": "cloth", "qty": 3 },
         { "kind": "material", "id": "components", "qty": 1 }
       ],

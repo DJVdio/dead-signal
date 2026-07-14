@@ -71,7 +71,7 @@ public class SaveRoundTripTests
     {
         Body body = CombatData.NewHumanoidBody();
         body.LoseBlood(31.5);
-        body.RegisterBleed(HumanBody.Abdomen);
+        body.RegisterBleed(HumanBody.Abdomen, BleedModel.BleedSeverity.Medium);
 
         Body restored = RoundTripBody(body);
 

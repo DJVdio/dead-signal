@@ -47,13 +47,28 @@ public sealed partial class Raider : Actor
     /// </summary>
     /// <param name="wanderBounds">无目标时的游荡巡场范围（cartesian）。</param>
     /// <param name="targetProvider">择敌候选池（返回可能的攻击对象；本类再按 IsHostile+侦测半径挑最近敌对者）。</param>
-    /// <param name="usePistol">true=手枪远程；false=匕首近战。</param>
+    /// <param name="usePistol">true=手枪远程；false=匕首近战。<paramref name="weapon"/> 非空时本参数被忽略。</param>
     /// <param name="displayName">战斗日志显示名（克莉丝汀传其名）。</param>
+    /// <param name="weapon">
+    /// 点名持械（如金手指帮守备的短剑）。<c>null</c> ⇒ 回落 <paramref name="usePistol"/> 的手枪/匕首二选一
+    /// （劫掠者的两种常规手牌）。给什么武器 <b>就等于给了什么战利品</b>（<see cref="CorpseLoot"/> 必掉零掷骰）——
+    /// 这是经济决定，不是随手参数。
+    /// </param>
+    /// <param name="outfit">
+    /// 点名着装（如斯图尔特庄园那个披甲的：皮甲 + 军用头盔 + 皮夹克…）。<c>null</c> ⇒ 回落默认的
+    /// <c>SurvivorArmor</c>（皮夹克 + 长袖布衣两层，<b>既有行为逐位不变</b>）。
+    /// <para>🔴 <b>穿什么＝掉什么</b>（<see cref="CorpseLoot.Strip"/> 零掷骰必掉）——所以这同样是<b>经济决定</b>：
+    /// 用户对斯图尔特家族庄园的原话是「这个调查点<b>最富裕的地方是劫掠者们的装备和衣服</b>」，
+    /// 那句话就落在这个参数上。远远看见那个穿皮甲的，那就是<b>一副皮甲在那儿走着</b>——
+    /// 值不值得为它冒险，玩家自己算。</para>
+    /// </param>
     public static Raider Create(
         Rect2 wanderBounds,
         Func<IEnumerable<Actor>> targetProvider,
         bool usePistol = true,
-        string displayName = "劫掠者")
+        string displayName = "劫掠者",
+        Weapon? weapon = null,
+        IReadOnlyList<ArmorLayer>? outfit = null)
     {
         var r = new Raider
         {
@@ -66,23 +81,40 @@ public sealed partial class Raider : Actor
         r.Radius = 12f;
         r.MoveSpeed = 92f;
         r.Body = CombatData.NewHumanoidBody();
-        r.DefenderArmor = CombatData.SurvivorArmor(); // 人类：皮夹克 + 长袖布衣两层
-
-        if (usePistol)
-        {
-            r.AttackWeapon = CombatData.Pistol();
-            r.AttackRange = 240f;   // 中距离（略短于玩家手枪，拟定待调）
-            r.AttackCooldown = r.AttackWeapon.AttackInterval; // 读 WeaponTable 权威间隔（手枪慢节奏 2.5s），敌方同步慢节奏
-            r.IsRanged = true;      // 锥形散布弹道（误差角来自武器 BaseSpreadDegrees）
-        }
-        else
-        {
-            r.AttackWeapon = CombatData.Dagger();
-            r.AttackRange = 26f;    // 近战
-            r.AttackCooldown = r.AttackWeapon.AttackInterval; // 读 WeaponTable 权威间隔（匕首慢节奏 1.4s）
-        }
+        r.DefenderArmor = outfit ?? CombatData.SurvivorArmor(); // 默认：人类＝皮夹克 + 长袖布衣两层
+        r.Arm(weapon ?? (usePistol ? CombatData.Pistol() : CombatData.Dagger()));
         return r;
     }
+
+    /// <summary>交战距离：远程（中距离，略短于玩家手枪；拟定待调）。</summary>
+    private const float RangedEngageRange = 240f;
+
+    /// <summary>交战距离：近战。</summary>
+    private const float MeleeEngageRange = 26f;
+
+    /// <summary>
+    /// 持械：射程 / 冷却 / 远程与否<b>全部由武器派生</b>，不再按"是不是手枪"分叉写两遍。
+    /// 冷却读 <c>WeaponTable</c> 的权威间隔（手枪 2.5s / 匕首 1.4s / 短剑…），敌我同一套节奏。
+    /// <para>⚠️ 远程一律按 <see cref="RangedEngageRange"/> 交战——够用是因为敌人手上只会有短枪。
+    /// 日后真要给敌人长枪（步枪/狙击），这里得改成按 <c>Weapon.MaxRange</c> 派生，否则拿着狙击枪贴到 240px 才开火。</para>
+    /// </summary>
+    private void Arm(Weapon w)
+    {
+        AttackWeapon = w;
+        AttackCooldown = w.AttackInterval;
+        IsRanged = w.IsRanged;                                          // 远程走锥形散布弹道（误差角来自 BaseSpreadDegrees）
+        AttackRange = w.IsRanged ? RangedEngageRange : MeleeEngageRange;
+    }
+
+    /// <summary>
+    /// 预置伤情（金手指帮守备："刚经历完异常战斗，大家的状态都不是巅峰"）。
+    /// <para>
+    /// 走 <see cref="GoldfingerGang.ApplyInjuries"/> —— 与 Sim 校准 harness <b>同一个函数</b>，
+    /// 免得"算出来的敌人"和"打到的敌人"是两拨人。只碰部位 HP 与骨折，<b>不登记出血</b>
+    /// （否则他们会在玩家赶到前自己流血流死）。
+    /// </para>
+    /// </summary>
+    public void ApplyInjury(GangInjury injury) => GoldfingerGang.ApplyInjuries(Body, injury);
 
     protected override void OnReady()
     {

@@ -78,6 +78,7 @@ public sealed partial class CampMain : Node2D
     private bool _hudInit;
     private bool _hudExploring;
     private int _hudBagKey = -1;   // 远征背包已背重量的脏键（0.1kg 粒度；营地无背包 = -1）
+    private int _hudLoadKey = -1;  // [T45] 最慢队员的负重移速惩罚脏键（整百分点）——上限随伤/饿变时 CarriedKg 可能一动不动，需独立键
     private int _hudDay = -1;
     private int _hudPhase = -1;
     private int _hudClockKey = -1;
@@ -240,6 +241,15 @@ public sealed partial class CampMain : Node2D
     private readonly List<PawnSnapshot> _recentlyDeceased = new();
     private string _pendingDestination = "";
     private int _pendingTravelTime;
+
+    // [T57] 调查点网状解锁：**去过哪些调查点**（内部路由键）。解锁 = 前置点【去过】且【探索度 > 50%】，
+    // 探索度那一半由 _storyFlags 里的 searched_*/found_* 推出（ExplorationProgress.Completion），
+    // 这里只需记「去过」这一半。判定全部走 WorldGraphUnlock —— 本文件不许另写一份"能不能去"。
+    private readonly HashSet<string> _visitedDestinations = new(StringComparer.Ordinal);
+
+    // 老档兜底：T57 之前的存档没有「去过」名单（SaveData.VisitedDestinations == null）⇒ 那时候全图本来就都能去，
+    // 一律视为**全部已解锁**，不剥夺玩家已有的进度。新游戏/新档为 false。
+    private bool _legacyFullUnlock;
 
     private Node2D _logicLayer = null!;  // 物理/导航平面（cartesian，不可见）
     private Node2D _isoLayer = null!;     // 视觉层（iso，YSort）
@@ -531,7 +541,7 @@ public sealed partial class CampMain : Node2D
         _expeditionPanel = new ExpeditionPanel();
         AddChild(_expeditionPanel);
         _expeditionPanel.Visible = false;
-        _expeditionPanel.SelectDestinationRequested += () => _worldMapPanel.Visible = true;
+        _expeditionPanel.SelectDestinationRequested += () => OpenWorldMap();
         _expeditionPanel.ExpeditionConfirmed += OnExpeditionConfirmed;
         // 「取消」语义：关窗留在营地（与 worldMapPanel/readingPanel 的 Cancelled 处理一致，不推进相位）。
         _expeditionPanel.Cancelled += () => _expeditionPanel.Visible = false;
@@ -2291,6 +2301,12 @@ public sealed partial class CampMain : Node2D
         {
             sam.SetIncomingDamageReduction(() => SamPerk.IncomingDamageReduction(SamLevelNow(), isSam: true));
         }
+        // [T47] 消耗型改装脱落（锋刃研磨砍满三下 ⇒ 刃磨没了）：**玩家必须看得见**，不能静默失效。
+        // 挂在 AddActor 这一个漏斗上 —— 幸存者不管从哪条路入营（开局/道格/克莉丝汀/护士/村庄救援）都走它。
+        if (actor is Pawn moddedUser)
+        {
+            moddedUser.WeaponModBroken += OnWeaponModBroken;
+        }
         // 弹药源（批次18）：玩家幸存者的枪吃**营地共享库存**里的弹药——没子弹就只能抡枪托。
         // 丧尸/劫掠者/布鲁斯保持默认 UnlimitedAmmoSource（它们没有库存模型，既有行为零回归；
         // 劫掠者的弹药以战利品形式回流给玩家，而不是去模拟他们的弹匣）。
@@ -2406,6 +2422,24 @@ public sealed partial class CampMain : Node2D
         => SamPerk.OperationCapabilityWithAura(worker.OperationCapability, SamLevelNow());
 
     /// <summary>
+    /// [T61] 耗子当前等级（1/2/3）——**每次查询实时派生**：读 <c>StoryFlags</c> 里她累计搜出的件数
+    /// （<see cref="RatPerk.ScavengeCountFlag"/>）⇒ 无缓存可失效，**存档天然覆盖**（该旗标本就在 SaveData.StoryFlags 里）。
+    /// </summary>
+    private int RatLevelNow() => RatPerk.LevelOf(_storyFlags);
+
+    /// <summary>
+    /// [T61] 某工人的**搜刮**效率 ＝ 通用干活效率 <see cref="WorkEfficiencyOf"/> × 耗子的搜刮专属乘子。
+    /// <para>
+    /// 🔴 <b>耗子的加成绝不能塞进 <see cref="WorkEfficiencyOf"/></b> —— 那条乘子链是**制作/砌墙/挖废墟/搜刮共用**的，
+    /// 塞进去会让她连砌墙都快 2.5 倍。用户原话是「**翻找搜刮**速度」⇒ 只在搜刮这条路上多乘一层。
+    /// </para>
+    /// 非耗子 <see cref="RatPerk.LootSpeedMultiplier"/> ≡ 1.0 ⇒ 所有既有角色的搜刮耗时**一秒不变**（零回归）。
+    /// </summary>
+    private double LootEfficiencyOf(Pawn worker)
+        => WorkEfficiencyOf(worker)
+           * RatPerk.LootSpeedMultiplier(worker.Perks.IsRat, RatLevelNow());
+
+    /// <summary>
     /// 某角色的负重上限乘子（山姆 L2 自身 ×1.15、L3 全营 ×1.03；山姆本人两者**连乘** ×1.15×1.03 = ×1.1845，
     /// **不是**加算的 ×1.18 —— 用户拍板的乘算通则）。由 <see cref="CarryLimitOf"/> 喂给引擎 <c>Loadout.CarryLimit</c>。
     /// </summary>
@@ -2429,6 +2463,72 @@ public sealed partial class CampMain : Node2D
         => ExpeditionBag.PartyCapacity(
             _survivors.Where(s => s.Role == PawnRole.Expedition && s.Alive).Select(CarryLimitOf),
             ExpeditionDogCarryBonus);
+
+    /// <summary>这一趟的探索队员（活着的）。负重账逐人算，所以这个名单要能被反复枚举。</summary>
+    private List<Pawn> ExpeditionMembers()
+        => _survivors.Where(s => s.Role == PawnRole.Expedition && s.Alive).ToList();
+
+    /// <summary>
+    /// [T45] 探索队里**被负重压得最狠的那个人**（移速乘子最低）。HUD 要点他的名——
+    /// 负重是**逐人**分档的，只报一个队伍平均数，玩家不知道该给谁减负。队伍为空 ⇒ null。
+    /// </summary>
+    private (string Name, MemberLoad Load)? WorstCarryLoad()
+    {
+        Pawn? worst = null;
+        foreach (Pawn m in ExpeditionMembers())
+        {
+            if (worst is null || m.CarryLoad.SpeedMultiplier < worst.CarryLoad.SpeedMultiplier)
+            {
+                worst = m;
+            }
+        }
+        return worst is null ? null : (worst.DisplayName, worst.CarryLoad);
+    }
+
+    /// <summary>
+    /// 🔴 [T45·负重激活] **把负重账刷一遍**——这是"装备进账"与"debuff 真作用到人身上"两条链的**唯一收口**。
+    ///
+    /// <para>═══ 这个方法修的是一个真断链，别删 ═══
+    /// 修复前：出门 <c>_bag = new ExpeditionBag(PartyCarryLimit())</c> 是**空包** ⇒ 负重恒 0kg；
+    /// 而 <c>Loadout.SpeedMultiplier</c> / <c>AttackSpeedMultiplier</c> **全仓无人消费** ⇒ 移速常数 95f。
+    /// 两条链都断着，负重系统实际上**不存在**。用户原话：「玩家可以把一把武器改装得很强，
+    /// **但是一出门就进入负重 debuff**」——那句话在断链下无论如何都不可能成立。</para>
+    ///
+    /// <para>每帧刷（关内 ~3 个 Pawn 的加法，可忽略）而不是只在出门时刷一次：<b>关内这三个量都会变</b>——
+    /// 断了手 ⇒ 上限掉、装备掉；捡起一把枪 ⇒ 装备重；搜刮/丢弃 ⇒ 战利品变。只刷一次就会是陈旧的账。</para>
+    /// </summary>
+    private void SyncExpeditionLoad()
+    {
+        if (_bag == null) // 营地：没有背包，也就没有负重档
+        {
+            return;
+        }
+
+        List<Pawn> members = ExpeditionMembers();
+
+        // ① 上限随队员当下的伤/饿实时变化（断手/挨饿 ⇒ 背不动）
+        _bag.SetCapacity(PartyCarryLimit());
+
+        // ② 装备进账：每个人手上的武器（含左右手/双持去重）+ 身上 11 槽的护甲。
+        //    改装后的实重走 ItemWeights.WeaponKg（改装变体名 → 实重），本处不认识"改装"这回事——见 [HANDOFF] impl-weaponmod。
+        double dogCap = ExpeditionDogCarryBonus;
+        _bag.SetGear(ExpeditionLoad.PartyGearKg(members.Select(m => m.GearKg)));
+
+        // ③ 逐人分档：他自己的装备 + 按运力占比分摊的战利品，对着**他自己的上限**。
+        //    逐人（而不是全队一个数）是要害——用户要的是"你把你的枪改装得很强 ⇒ 你走得慢"，
+        //    全队摊薄会把这条代价稀释掉（3 人队里 +3.5kg 只抬高全队比例 1.5%）。
+        double lootKg = _bag.LootKg;
+        double totalLimit = members.Sum(CarryLimitOf);
+        foreach (Pawn m in members)
+        {
+            m.SetCarryLoad(ExpeditionLoad.For(
+                gearKg: m.GearKg,
+                lootKg: lootKg,
+                dogCapacityKg: dogCap,
+                memberLimitKg: CarryLimitOf(m),
+                totalMemberLimitKg: totalLimit));
+        }
+    }
 
     /// <summary>
     /// 战利品落地。**营地**：直接入共享库存（家就是仓库，无上限）。**探索关内**：先进远征背包，受硬上限拦截——
@@ -2487,8 +2587,16 @@ public sealed partial class CampMain : Node2D
             _resources.AddFood(food);
         InstallFoundTools(tools);
 
-        GD.Print($"[负重] 探索队回营，卸下 {_bag.CarriedKg:0.0}kg（{_bag.Contents.Count} 件）。");
+        GD.Print($"[负重] 探索队回营，卸下 {_bag.LootKg:0.0}kg 战利品（{_bag.Contents.Count} 件）"
+                 + $"，另有 {_bag.GearKg:0.0}kg 装备穿在身上。");
         _bag = null;
+
+        // [T45] 回营 ⇒ 清账，恢复无罚：营地里没有背包，也就没有负重档（负重是**出门**的代价）。
+        // 全员清（不止探索队）——队员回来后会改 Role，逐个清最省心，且对没有账的人是幂等的。
+        foreach (Pawn s in _survivors)
+        {
+            s.ClearCarryLoad();
+        }
     }
 
     /// <summary>
@@ -2651,6 +2759,82 @@ public sealed partial class CampMain : Node2D
     }
 
     /// <summary>
+    /// [T61] 耗子招募对话（下水道最深处）—— 与 <see cref="PromptNurseRecruit"/> 逐行同构，一格没另起炉灶。
+    /// 接受＝值 1 → 置 <see cref="RatRecruit.AgreedFlag"/>；婉拒＝值 0 → **不置任何旗**（日后再下来还能再谈）。
+    /// 真正的 Pawn 注入延到回营（<see cref="MaybeRecruitRat"/>）。
+    /// </summary>
+    private void PromptRatRecruit(RatRecruitOffer offer)
+    {
+        double prevScale = Engine.TimeScale;
+        Engine.TimeScale = 0; // 冻结探索实时层，专注对话
+
+        var panel = new ChoicePanel();
+        AddChild(panel);
+        panel.Setup(
+            offer.Prompt,
+            new List<ChoicePanel.ChoiceOption>
+            {
+                new() { Value = 1, Label = offer.AcceptLabel, Description = offer.AcceptDescription,
+                        Accent = new Color(0.3f, 0.6f, 0.3f) },
+                new() { Value = 0, Label = offer.DeclineLabel, Description = offer.DeclineDescription,
+                        Accent = new Color(0.45f, 0.42f, 0.4f) },
+            });
+        panel.Confirmed += v =>
+        {
+            Engine.TimeScale = prevScale <= 0 ? 1 : prevScale;
+            panel.QueueFree();
+            if (v == 1)
+            {
+                _storyFlags.Set(RatRecruit.AgreedFlag, "true"); // 答应 → 待回营注入 + 相遇对话去重
+                ShowDiscoveryNarrative(RatRecruit.AcceptTitle, RatRecruit.AcceptNarrative);
+            }
+            else
+            {
+                // 婉拒：不置任何旗 → ShouldOfferRecruitment 仍为真，可再下来再谈。
+                ShowDiscoveryNarrative(RatRecruit.DeclineTitle, RatRecruit.DeclineNarrative);
+            }
+        };
+    }
+
+    /// <summary>
+    /// [T61] 回营正史入队钩子（耗子）：关内已答应 ⇒ 回营真正注入 Pawn + 置 <see cref="RatRecruit.EnlistedFlag"/> 硬守卫。
+    /// 由 <see cref="UnloadExplorationLevel"/> 在探索队回营后调用（与护士/道格同一条既有口径）。
+    /// </summary>
+    private void MaybeRecruitRat()
+    {
+        if (!RatRecruit.ShouldEnlistOnReturn(_storyFlags))
+            return;
+        SpawnRat();
+        _storyFlags.Set(RatRecruit.EnlistedFlag, "true"); // 注入一次硬守卫
+        GD.Print("[Rat] 下水道招募回营 → 耗子正史入队。");
+    }
+
+    /// <summary>
+    /// [T61] 注入耗子 Pawn：普通幸存者，专属效果走 authored perk（<see cref="RatPerk"/>，由 <c>Pawn.Create</c> 按名
+    /// <see cref="RatPerk.RatName"/> 授予，见 Pawn.cs）。此后走标准管道（聚餐分粮/双班守夜/搜刮）自然生效。
+    /// 幂等：已在营（按名存活）则不重复注入。
+    /// <para>
+    /// 🔴 <b>装备：她穿的是开局那套标准布衣，<u>不</u>带"潮湿破布夹克"入队。</b>
+    /// 用户写的「浑身恶臭穿着**潮湿破布夹克**的女人」是**外观描写**，不是装备表条目 —— 目录里没有这件护甲，
+    /// 而新增一件护甲要走**五处登记**（ArmorTable / ApparelCatalog / NightWatchContest.ApparelStealth / 重量 / 图标），
+    /// 其中"潮湿"和它的潜行值**是引擎里不存在的语义** ⇒ 现编就是**程序化引申 authored 内容**。
+    /// 已在 journal 列为"待用户拍板"：这件夹克是**纯描写**，还是**要做成一件真装备**（若要，请给防护/重量/潜行值）。
+    /// </para>
+    /// </summary>
+    private void SpawnRat()
+    {
+        if (_survivors.Any(s => s.Alive && s.DisplayName == RatPerk.RatName))
+            return; // 幂等：已在场不重复
+
+        var rat = Pawn.Create(RatPerk.RatName, usePistol: false, new Color(0.46f, 0.44f, 0.40f)); // 泥灰色
+        rat.Position = _cameraCenter + new Vector2(-40f, 0f);
+        AddActor(rat);
+        _survivors.Add(rat);
+        _cardBar?.SetSurvivors(_survivors); // 耗子入队：卡牌栏加卡（同护士）
+        GD.Print("[Rat] 耗子 已注入营地。");
+    }
+
+    /// <summary>
     /// 注入护士 Pawn（[SPEC-B13]）：普通幸存者，医疗特长走 authored 专属 perk（<see cref="SurvivorPerks.NursePerk"/>，
     /// 由 <c>Pawn.Create</c> 按名 <see cref="NurseRecruit.NurseName"/> 授予，见 Pawn.cs）。加入 <c>_survivors</c> + 刷新卡牌栏后，
     /// 走标准管道（聚餐分粮/双班守夜/医疗面板施术者）自然生效。幂等：已在营（按名存活）则不重复注入。
@@ -2730,25 +2914,33 @@ public sealed partial class CampMain : Node2D
 
     /// <summary>
     /// 场上**任何**单位倒下（丧尸/劫掠者/幸存者/布鲁斯/商人，走 <see cref="Actor.AnyDied"/> 静态事件）：
-    /// 倒地留尸 + 把它身上还完好的衣服变成可搜刮的战利品。
+    /// 倒地留尸 + 把它**手里拿的和身上穿的**变成可搜刮的战利品。
     /// <para>
     /// <b>倒地留尸</b>（impl-corpse-push 的规则）：谁死在哪就躺在哪；同格已有尸体 → 自动挤到旁边最近的空地
     /// （RimWorld 式）。尸体**没有碰撞体积**，不挡人也不断寻路，只占一个「尸体格」。
     /// </para>
     /// <para>
-    /// <b>可搜刮</b>（impl-loot-clothes）：丧尸穿着生前的日常着装，那件衣服是重要的装备来源
-    /// （牛仔外套只能搜刮、缝不出来；精英丧尸头上那顶盔更是主要获取途径）。逐件掷骰
-    /// （<see cref="CorpseLoot"/>：软质 50% / 刚性护甲件 90%），扒得出东西的才登记成可点击容器。
+    /// <b>可搜刮</b>（<see cref="CorpseLoot.Strip"/>：**持什么掉什么、穿什么扒什么，零掷骰、必掉**）：
+    /// 丧尸穿着生前的日常着装，那件衣服是重要的装备来源（牛仔外套只能搜刮、缝不出来；精英丧尸头上那顶盔
+    /// 更是主要获取途径）；**劫掠者本来就持械**，他那把匕首/手枪同样直接落进尸体——这是全图近战武器的主要来源。
+    /// 扒得出东西的才登记成可点击容器。
     /// </para>
     /// <para>
-    /// <b>只在营地落尸</b>：探索关是 marker 渲染、无 iso 人形层，且其坐标系与营地无关——队员若死在关里，
-    /// 尸体不该按关内坐标落进营地的 iso 层。探索关的尸体表现待该层 iso 化后再接（见 <see cref="CorpseYard"/>）。
+    /// <b>营地与探索关各走各的空间执行</b>（规则同一条，坐标系不同）：营地走 <see cref="CorpseYard"/>
+    /// （iso 人形层 + 尸体格 + 相位过期）；探索关是平面 cartesian、无 iso 人形层，走
+    /// <see cref="SpawnLevelCorpse"/>（关内一个可搜刮触发点，随关卡消失）。<b>出门探索恰恰是玩家该拿装备的
+    /// 地方</b>——那 4 个持匕首的据点幸存者、日后关内任何持械敌人，杀了就该掉。
     /// （处决/放逐走各自的 QueueFree/淡出路径，不经死亡事件 → 既有「不留尸体」口径不受影响。）
     /// </para>
     /// </summary>
     private void OnAnyActorDied(Actor actor)
     {
-        if (_currentLevel is not null || _corpseYard is null)
+        if (_currentLevel is not null)
+        {
+            SpawnLevelCorpse(actor);
+            return;
+        }
+        if (_corpseYard is null)
         {
             return;
         }
@@ -2756,6 +2948,127 @@ public sealed partial class CampMain : Node2D
         {
             RegisterCorpseContainer(corpse);
         }
+    }
+
+    // ---------------- 探索关的尸体（T36：杀敌 ⇒ 落尸 ⇒ 可搜刮 ⇒ 里面是他的武器+护甲） ----------------
+    //
+    // 用户拍板：「敌人掉武器的，他的武器直接落在他的可搜刮尸体里。」——这条此前**只在营地生效**，
+    // 而营地夜袭的劫掠者只有匕首和手枪 ⇒ 玩家真正该拿装备的地方（出门探索）一件都掉不出来。
+    //
+    // 三样东西全是**复用**，一行新规则都没有：
+    //   · 扒什么 → CorpseLoot.Strip（持什么掉什么、穿什么扒什么，武器在前，零掷骰）——与营地同一个函数；
+    //   · 叫什么 → CorpseNaming.ContainerName（与营地同一条命名；序号唯一，否则同名敌人互相顶掉登记）；
+    //   · 怎么搜 → _containerLoot + BeginLootSession（逐件转出、走开即停手）——与关内物资搜刮点同一条链路。
+    // 新增的只有空间执行：关内铺一个可踏入的尸体点（TestExploration.AddCorpseSearchPoint，cartesian 坐标系）。
+    //
+    // ⏱ **不过相位清理**（CorpseDecay 只管营地）：探索关是一次性进出，玩家不会在关里待过三个相位——
+    //    关内尸体**随关卡一起消失**（回营即没）。后果与既有设计意图一致：**扒不完就没了**。
+    // 🔴 authored 剧情尸体（帮众/树上的哥顿/克莉丝汀/祖母）是**发现点**、不是本通道造出来的战斗尸体，
+    //    命名空间结构性隔离（CorpseNaming：ascii id vs 中文「的尸体 #」），一根汗毛都没碰。
+
+    // ============ 关内可关的门（[T49] 废弃医院的防火门/安全门/卷帘门）============
+    //
+    // 🔴 **为什么这套东西值得存在**：医院有全图最多的丧尸（14 只），而用户给它定的是**中危**——
+    // 这两句只有在"能绕、能隔开"时才同时成立。关门就是"隔开"的那一手：把追你的丧尸关在门后，
+    // 它得绕到这道边界的**另一个门洞**去（很远），那段路就是你换来的时间。
+    // （连场战斗的代价见 docs/research/2026-07-14-combat-cost.md：单场 68% 胜率、不治疗连打，
+    //   能撑过第 3 个的只剩 3.5% ⇒ "站着一只只清完 14 只"这个打法根本不存在。）
+    //
+    // **分层**：门的几何/状态/碰撞/导航洞全部归关卡（TestExploration.ToggleLevelDoor），
+    // CampMain 只做它本来就在做的那件事——**把它登记成一个可右键前往的容器**，人走到了就转发一下动作。
+    // 噪音走 Actor.EmitDoorNoise（100）——**和营地开门、和劫掠者开门是同一个 100**，不给玩家开后门。
+
+    /// <summary>关内门的容器 role（与营地门的 "door" 分开：营地门走 CampStructureInstance，关内门归关卡持有）。</summary>
+    private const string LevelDoorRole = "leveldoor";
+
+    /// <summary>把关卡里的门登记成可右键前往的容器（探索队入关后调用；回营时随 <see cref="ClearLevelDoorContainers"/> 注销）。</summary>
+    private void RegisterLevelDoorContainers()
+    {
+        if (_currentLevel is not TestExploration level)
+        {
+            return;
+        }
+
+        foreach ((string name, Rect2 rect) in level.LevelDoorTargets())
+        {
+            _containers.Add(new ContainerRef { Name = name, Rect = rect, Role = LevelDoorRole });
+        }
+    }
+
+    /// <summary>回营：注销关内门的登记（门随关卡一起没了，登记不该漏进营地/存档）。</summary>
+    private void ClearLevelDoorContainers()
+    {
+        _containers.RemoveAll(c => c.Role == LevelDoorRole);
+    }
+
+    /// <summary>
+    /// 玩家走到关内门前：开着就关上、关着就推开（<b>开门只有一种动作</b>，与营地同口径）。
+    /// 推/关都发 100 半径的门声——门后的东西听得见，但那也远比开一枪（350~600）便宜。
+    /// </summary>
+    private void ExecuteLevelDoorInteract(Pawn arriver, ContainerRef hit)
+    {
+        if (_currentLevel is not TestExploration level)
+        {
+            return;
+        }
+
+        if (!level.ToggleLevelDoor(hit.Name, out string message))
+        {
+            if (!string.IsNullOrEmpty(message))
+            {
+                _campToast.Show(message, CampToast.Bad); // 门缝里站着东西：关不上
+            }
+            return;
+        }
+
+        arriver.EmitDoorNoise(); // 100 —— 与营地开门/劫掠者开门同一个数，单一真源 NoiseLogic.DoorNoiseRadius
+        _campToast.Show($"{arriver.DisplayName} {message}", CampToast.Ok);
+    }
+
+    /// <summary>关内已落的尸体容器名（回营时统一注销登记——尸体随关卡消失，不该把登记漏进营地/存档）。</summary>
+    private readonly List<string> _levelCorpseContainers = new();
+
+    /// <summary>关内尸体序号（单调递增；每趟探索归零——上一趟的尸体已随关卡没了，id 不会撞）。</summary>
+    private int _levelCorpseSeq;
+
+    /// <summary>
+    /// 关内某单位倒下：把它<b>手里拿的 + 身上穿的</b>原样变成一个可搜刮的尸体点（就落在它咽气的那个点上）。
+    /// <b>光尸体不登记</b>（衣不蔽体、赤手空拳）——与营地 <c>CorpseYard.SpawnFor</c> 同一条闸门：
+    /// 地图上不该多出一个点了没反应的可交互点。
+    /// </summary>
+    private void SpawnLevelCorpse(Actor actor)
+    {
+        if (_currentLevel is not TestExploration level)
+        {
+            return;
+        }
+
+        IReadOnlyList<LootItem> loot = CorpseLoot.Strip(actor.WornArmor, actor.HeldWeapons);
+        if (loot.Count == 0)
+        {
+            return;   // 身上什么也没有 ⇒ 不登记成可搜刮点（丧尸的爪子扒不下来，光着的那 15% 也没衣服）
+        }
+
+        string container = CorpseNaming.ContainerName(CorpseYard.NameOf(actor), ++_levelCorpseSeq);
+        _containerLoot.Register(container, loot);
+        _levelCorpseContainers.Add(container);
+        level.AddCorpseSearchPoint(container, actor.GlobalPosition);
+
+        GD.Print($"[探索关·落尸] {container}：{string.Join("、", loot.Select(LootDisplay.NameOf))}");
+    }
+
+    /// <summary>
+    /// 回营：把这一趟关内尸体的容器登记<b>全部注销</b>。尸体是随关卡消失的（关卡节点已 QueueFree），
+    /// 登记留着就是泄漏——字典里挂一堆搜不到的尸体，还会跟着进存档。
+    /// </summary>
+    private void ClearLevelCorpses()
+    {
+        foreach (string container in _levelCorpseContainers)
+        {
+            _containerLoot.Remove(container);
+        }
+        _levelCorpseContainers.Clear();
+        _levelCorpseSeq = 0;
     }
 
     private void OnActorDied(Actor actor)
@@ -2832,6 +3145,10 @@ public sealed partial class CampMain : Node2D
         // 战斗跨过了存档相位 ⇒ 存档欠着，打完这一仗立刻补上（见 CampMain.Save.cs）。
         TickPendingAutosave();
 
+        // 🔴 [T45] 负重账每帧刷：关内断手/掉甲/捡枪/搜刮/丢弃都会改账，逐人的移速与攻速惩罚要跟着当下走。
+        // （营地内 `_bag == null`，本调用直接返回 ⇒ 零开销、零回归。）
+        SyncExpeditionLoad();
+
         // HUD 状态行仅在内容实际变化的帧重建（脏缓存）——空闲营地不再每帧造大字符串+调 SetStatus。
         // 信号全是廉价 int/enum/bool：Count(s=>s.Alive) 的 lambda 无捕获，编译期缓存为静态委托不分配。
         int hudPhase = (int)_clock.CurrentPhase;
@@ -2843,11 +3160,14 @@ public sealed partial class CampMain : Node2D
         int hordeDays = HordeTimeline.DaysRemaining(_clock.Day);
         // 背包脏键：0.1kg 粒度的整数（探索中才有背包；营地恒 -1 → 不进状态行）。
         int hudBagKey = _bag != null ? (int)Math.Round(_bag.CarriedKg * 10) : -1;
+        // [T45] 最慢队员的移速惩罚脏键：上限随伤/饿变化时 CarriedKg 可能一动不动，但惩罚变了 ⇒ 单独一个键。
+        (string Name, MemberLoad Load)? worstLoad = _bag != null ? WorstCarryLoad() : null;
+        int hudLoadKey = worstLoad is { } wl ? (int)Math.Round(wl.Load.SpeedMultiplier * 100) : -1;
         if (!_hudInit || exploring != _hudExploring || _clock.Day != _hudDay || hudPhase != _hudPhase
             || hudClockKey != _hudClockKey || _clock.SpeedIndex != _hudSpeedIndex
             || hudPaused != _hudPaused || hudAlive != _hudAlive
             || (int)hordePhase != _hudHordePhase || hordeDays != _hudHordeDays
-            || hudBagKey != _hudBagKey)
+            || hudBagKey != _hudBagKey || hudLoadKey != _hudLoadKey)
         {
             _hudInit = true;
             _hudExploring = exploring;
@@ -2860,10 +3180,22 @@ public sealed partial class CampMain : Node2D
             _hudHordePhase = (int)hordePhase;
             _hudHordeDays = hordeDays;
             _hudBagKey = hudBagKey;
-            // 探索中常显「背包 12.3 / 86.0 kg（负重）」——30/50/80 三条线是玩家决定"还拿不拿"的依据，必须一眼可见。
-            string bagLine = _bag != null
-                ? $"   背包 {CarryCapacity.Format(_bag.CarriedKg, _bag.CapacityKg)}"
-                : "";
+            _hudLoadKey = hudLoadKey;
+            // 🔴 [T45] 探索中常显「负重 装备 17.3 + 战利品 10.0 = 27.3 / 40.0 kg（重负）　⚠ 山姆 重负（移速 −16%）」。
+            // 修复前只有一行「背包 12.3 / 86.0 kg（负重）」——玩家看得到自己背了多少，**看不到这让他慢了多少**，
+            // 而"慢了多少"恰恰是负重唯一的实际后果。现在三件事一眼可见：
+            //   ① 装备 vs 战利品**分开列**（那 17.3kg 是你自己穿上去的，不是捡来的）；
+            //   ② 30/50/80 三条线与档位（决定"还拿不拿"）；
+            //   ③ **最慢的那个人是谁、慢了多少**（负重逐人分档 ⇒ 得点名，玩家才知道该给谁减负）。
+            string bagLine = "";
+            if (_bag != null)
+            {
+                bagLine = $"   负重 {CarryCapacity.FormatBag(_bag.GearKg, _bag.LootKg, _bag.CapacityKg)}";
+                if (worstLoad is { } w && CarryCapacity.FormatMember(w.Name, w.Load) is { Length: > 0 } memberLine)
+                {
+                    bagLine += $"   ⚠ {memberLine}";
+                }
+            }
             _hud.SetStatus(HudStatusLine.Compose(
                 exploring, _clock.Day, _clock.ClockString(), _clock.CurrentPhase,
                 _clock.SpeedLabel(), hudAlive, bagLine));
@@ -3771,8 +4103,19 @@ public sealed partial class CampMain : Node2D
     // UpdateHover 每帧调本方法，改 for 后零分配，扫描一小把容器 CPU 可忽略。
     private ContainerRef? HitContainerAt(Vector2 cart)
     {
+        // 🔴 **出门在外，营地的容器一概点不到。**
+        // <c>_containers</c> 是营地的登记表，探索期间它并没有被清空（营地只是隐藏了、结构都还在）。
+        // 而探索关用的是**同一套 cartesian 坐标系** ⇒ 不拦的话，玩家在医院里右键点一下，
+        // 命中的可能是**营地里某扇门/某张床**（坐标恰好重叠），于是队员在医院当场"上床养病"。
+        // 关内唯一可点的容器就是关内的门（<see cref="LevelDoorRole"/>），故在关里只拿这一类做命中。
+        bool inLevel = _currentLevel != null;
+
         for (int i = 0; i < _containers.Count; i++)
         {
+            if (inLevel && _containers[i].Role != LevelDoorRole)
+            {
+                continue;
+            }
             if (_containers[i].Rect.Grow(8f).HasPoint(cart))
             {
                 return _containers[i];
@@ -3867,6 +4210,13 @@ public sealed partial class CampMain : Node2D
         {
             return DoorHoverText(door, hasSelection);
         }
+        // 关内的门（[T49] 废弃医院）：状态归关卡。提示里**写明关门是干什么用的**——
+        // 玩家不会自己想到"关门可以把丧尸挡在门后"，除非你告诉他。
+        if (c.Role == LevelDoorRole && _currentLevel is TestExploration lvl && lvl.LevelDoorState(c.Name) is { } ls)
+        {
+            string act = DoorLogic.Blocks(ls) ? "推开" : "关上（把门后的东西挡住）";
+            return $"{c.Name} · 选中角色后右键前往{(hasSelection ? "" : "（先选中角色）")} · {act} · 有动静（{NoiseLogic.DoorNoiseRadius:0} 半径）";
+        }
         return c.Role switch
         {
             "workbench" => $"工作台 · 选中角色后右键前往{noSel}",
@@ -3918,7 +4268,7 @@ public sealed partial class CampMain : Node2D
         }
         // 派谁去搜，就按谁的手算（同一条乘子链：操作能力 × 山姆光环…）。没选人时按健全者 1.0 报个基准。
         float perItem = LootSession.EffectiveSecondsPerItem(
-            _selectedPawn is { } sel ? WorkEfficiencyOf(sel) : 1d);
+            _selectedPawn is { } sel ? LootEfficiencyOf(sel) : 1d);   // [T61] 含耗子的搜刮专属乘子——UI 报的秒数必须与实际一致
         string half = _containerLoot.IsPartiallySearched(container) ? "还" : "";
         return float.IsFinite(perItem)
             ? $" · {half}剩 {n} 件（约 {n * perItem:0} 秒）"
@@ -4667,6 +5017,10 @@ public sealed partial class CampMain : Node2D
             case DayPhase.DayTravel:
                 break;
             case DayPhase.DayExplore:
+                // [T57] 「去过」在**真的踏进这张图**的这一刻记账（不是选中的那一刻——选了又取消/半路折返不算去过）。
+                // 它是网状解锁的两个条件之一；另一半（探索度>50%）由关内搜刮写 _storyFlags 自动长出来。
+                if (!string.IsNullOrEmpty(_pendingDestination))
+                    _visitedDestinations.Add(_pendingDestination);
                 LoadExplorationLevel(_pendingDestination);
                 break;
             case DayPhase.DayReturn:
@@ -4891,8 +5245,24 @@ public sealed partial class CampMain : Node2D
         _clock.TransitionTo(DayPhase.DayTravel);
     }
 
+    /// <summary>
+    /// [T57] 打开世界地图前，把**当下的解锁上下文**灌进去（去过哪些点 / 剧情旗标 / 老档兜底），
+    /// 地图据此重算全图的锁。🔴 面板里那道闸门只认这份上下文——不灌就等于全锁死，所以开图必须走这里。
+    /// </summary>
+    private void OpenWorldMap()
+    {
+        _worldMapPanel.SetUnlockContext(
+            _visitedDestinations,
+            _storyFlags,
+            _storyFlags.Has(GoldfingerDiscovery.ChristineLeftForRevengeFlag),
+            _legacyFullUnlock);
+        _worldMapPanel.Visible = true;
+    }
+
     private void OnWorldMapDestinationSelected(string name, int travelTime)
     {
+        // 面板那边已经过了 WorldGraphUnlock 的闸门（点击 + 确认两道），这里不再重判——
+        // 再判一次就成了第二份规则，两份规则迟早会各说各话。
         _pendingDestination = name;
         _pendingTravelTime = travelTime;
         _worldMapPanel.Visible = false;
@@ -4932,6 +5302,25 @@ public sealed partial class CampMain : Node2D
     /// </param>
     private void OnExplorationDiscovery(string discoveryId, Pawn? finder)
     {
+        // ——关内尸体（T36：杀敌落尸，见 SpawnLevelCorpse）——
+        // 踏上一具尸体 ⇒ 站在那儿一件件把他的家伙和衣服掏出来（与关内物资点同一条逐件搜刮链路）。
+        // 路由判据是**结构性**的（CorpseNaming：尸体名含中文「的尸体 #」，authored 点一律 ascii id ⇒ 不可能相交），
+        // 故这一支放最前面：既短路掉后面一串 Resolve，也保证剧情点永远不会被当成尸体、尸体永远不会触发剧情。
+        // **可重复踏入**（关卡侧不去重）：掏到一半被咬跑了，回头还能接着掏——剩下的东西还在他身上。
+        if (CorpseNaming.IsCorpseContainer(discoveryId))
+        {
+            if (_containerLoot.IsSearched(discoveryId))
+            {
+                _campToast.Show($"{discoveryId}：已经搜过了。", CampToast.Bad);
+                return;
+            }
+            if (finder is { Alive: true } looter)
+            {
+                BeginLootSession(looter, discoveryId);
+            }
+            return;
+        }
+
         _ = finder;
 
         // ——望远镜瞭望挂点（城市之巅瞭望观景台）——
@@ -4997,6 +5386,16 @@ public sealed partial class CampMain : Node2D
         if (nurse != null)
         {
             PromptNurseRecruit(nurse.Value);
+            return;
+        }
+
+        // ——[T61] 下水道·最深处·耗子相遇招募挂点（可招募幸存者）——
+        // 与护士**逐行同构**：踏到最深处 → 弹 ChoicePanel（邀请入队 / 暂不）。接受→置 sewer_rat_agreed（待回营注入 + 对话去重）；
+        // 婉拒→**不置旗**（日后再下来还能再谈）。真正的 Pawn 注入延到回营（UnloadExplorationLevel → MaybeRecruitRat）。
+        RatRecruitOffer? rat = RatRecruit.Resolve(discoveryId, _storyFlags);
+        if (rat != null)
+        {
+            PromptRatRecruit(rat.Value);
             return;
         }
 
@@ -5188,7 +5587,11 @@ public sealed partial class CampMain : Node2D
 
         // 远征背包：出门这一刻定运力（队员上限之和 + 布鲁斯口袋狗衣）。此后关内搜刮都受它的硬上限拦。
         _bag = new ExpeditionBag(PartyCarryLimit());
-        GD.Print($"[负重] 探索队出发，本趟运力 {_bag.CapacityKg:0.0}kg。");
+        // 🔴 [T45] **出门这一刻就把装备灌进账**（修复前这里是个空包 ⇒ 负重 0kg，身上的枪和甲一克都不算）。
+        // 同时把逐人的负重 debuff 落到 Pawn 上——「一出门就进入负重 debuff」从这一行开始成立。
+        SyncExpeditionLoad();
+        GD.Print($"[负重] 探索队出发，本趟运力 {_bag.CapacityKg:0.0}kg，"
+                 + $"身上装备已占 {_bag.GearKg:0.0}kg（{CarryCapacity.TierLabel(_bag.Tier)}）。");
 
         ClearSelection();
         _campNavRegion.Enabled = false;
@@ -5197,6 +5600,9 @@ public sealed partial class CampMain : Node2D
         SetCampVisible(false);
 
         _currentLevel.Initialize();
+
+        // 关内可关的门（当前只有废弃医院）：Initialize 之后才有门实体，故在此登记成可右键前往的容器。
+        RegisterLevelDoorContainers();
     }
 
     private void UnloadExplorationLevel()
@@ -5211,6 +5617,14 @@ public sealed partial class CampMain : Node2D
         // 远征背包倾倒进营地（这一趟真正搬回来的东西）。必须在关卡卸载路径的最前段——
         // 后面的道格/护士入队钩子会改 _survivors，与背包无关但顺序上先落袋为安。
         DumpExpeditionBag();
+
+        // 关内尸体的容器登记随关卡一起消失（T36）：**背包已经倒完了**，所以此刻注销只丢掉"没来得及扒的"，
+        // 不丢已经掏出来的东西。扒不完就是扒不完——同营地那条"三个相位就烂没"是同一口径的两种时钟。
+        ClearLevelCorpses();
+
+        // 关内门的登记同样随关卡消失（[T49]）：不注销的话，回营后营地里会凭空多出几扇点得到、
+        // 却已经不存在的"防火门"（且它们的 rect 落在营地坐标系里，会挡住真正的营地容器）。
+        ClearLevelDoorContainers();
 
         // 卸载关卡时若发现叙事面板仍开着，收起并恢复时标，避免带回营地。
         if (_discoveryPanel.Visible)
@@ -5246,6 +5660,7 @@ public sealed partial class CampMain : Node2D
         MaybeSpawnRescuedDougAndBruce();
         // 药店招募回营：若在药店已答应护士入队而尚未注入 → 正史注入护士（[SPEC-B13]）。
         MaybeRecruitNurse();
+        MaybeRecruitRat();          // [T61] 下水道招募的耗子（同护士：关内答应 → 回营才真正入队）
     }
 
     private void SetCampVisible(bool visible)
@@ -5293,6 +5708,12 @@ public sealed partial class CampMain : Node2D
         var books = new List<ReadingPanel.BookOption>();
         foreach (BookData b in _bookRegistry.Values)
         {
+            // 🔴 [T59] **日记不是书，不能派人去"读"**（用户拍板：书给角色读、日记给玩家读）。
+            // 此前日记混在这份列表里 ⇒ 可以派一个幸存者整夜坐着读一本**什么也不给**的叙事文本
+            // （那一夜他不能站岗、不能干活）—— 给玩家看的文本被做成了角色的劳动。
+            // 日记照旧在库存里点开即看（ReaderPanel，游戏冻结），零角色时间。
+            if (b.IsDiary)
+                continue;
             if (b.IsRead)
                 continue; // "未读"按营地全局已读标记（per-reader 未读细分待用户定，见遗留）
             // 前置书标题：优先解析实例标题供「未读《X》」提示；解析不到退化到 id。
@@ -6857,6 +7278,14 @@ public sealed partial class CampMain : Node2D
             return;
         }
 
+        // 关内的门（废弃医院的防火门/安全门/卷帘门）：状态与几何都归关卡持有，这里只转发"开/关"这一个动作。
+        // **和营地的门同一口径**：开着就关上、关着就推开；关内的门都没上锁，不需要铁丝。
+        if (hit.Role == LevelDoorRole)
+        {
+            ExecuteLevelDoorInteract(arriver, hit);
+            return;
+        }
+
         if (hit.Role == "rubble")
         {
             BeginRubbleDig(arriver, hit);
@@ -6997,11 +7426,15 @@ public sealed partial class CampMain : Node2D
             LootSession session = job.Session;
 
             // 中断闸门（挨打走 Actor.AnyDamaged 事件，不在这里轮询）：
-            //   · 人没了 / 不可操控 / 离场 → 收场
+            //   · 人没了 / 干不了活了 / 离场 → 收场
             //   · 移动了（玩家右键把他调走，或被 AI 拉走）→ 走开即停手，这正是要的
             // ⚠️ **面板开着不是中断**：面板冻结时标 ⇒ delta≈0 ⇒ 本就不推进，收掉反而是错的。
             // ⚠️ **他没被选中也不是中断**：那正是"派他去搜、我去控制别人"这条核心价值本身。
-            if (!searcher.Alive || !searcher.IsControllable || !_survivors.Contains(searcher))
+            // 🔴 **探索中的队员不是"不可操控"**（T36 抓到）：`IsControllable` ＝ `Role == Idle`，而出门在外的人
+            //    `Role == Expedition` ⇒ 照字面读，**关内任何搜刮会话都会在下一帧被当成"离场了"收掉**
+            //    （不只是尸体，连既有的物资搜刮点也一样，一件都掏不出来）。这个闸门问的是"他还干得了活吗"，
+            //    不是"玩家此刻能不能指挥他"——而**探索正是他此刻在干的活**。
+            if (!searcher.Alive || !_survivors.Contains(searcher) || !CanKeepSearching(searcher))
             {
                 EndLootJob(searcher, "离场了");
                 continue;
@@ -7015,7 +7448,8 @@ public sealed partial class CampMain : Node2D
 
             // 效率乘子链**与制作/挖废墟同源**（WorkEfficiencyOf = 操作能力 × 山姆光环…，别另立一套）。
             // 用户拍板"搜刮速度要受操作能力影响"：**乘算** ⇒ 断了双手的人（0）站到天荒地老也翻不动。
-            double eff = WorkEfficiencyOf(searcher);
+            // [T61] **搜刮专属**乘子在此并入（耗子 L1 ×1.5 / L2·L3 ×2.5）；非耗子 ×1.0 ⇒ 零回归。
+            double eff = LootEfficiencyOf(searcher);
 
             // 一件一件转出来：session 报出哪几件转完了，容器（事实源）逐件实扣，背包/库存逐件实收。
             foreach (LootItem _ in session.Advance(delta, eff))
@@ -7042,9 +7476,31 @@ public sealed partial class CampMain : Node2D
         }
     }
 
+    /// <summary>
+    /// 这个人还翻得动箱子吗（<see cref="UpdateLootJobs"/> 的中断闸门之一）。
+    /// <para>
+    /// 营地里 ＝ <see cref="Pawn.IsControllable"/>（Role 为 Idle：没在守夜/没在睡/没被派去别处）。
+    /// <b>关里 ＝ 探索队员本人</b>——他的 <c>Role</c> 恰恰是 <see cref="PawnRole.Expedition"/>，
+    /// 按营地那条判据读会恒假，于是<b>关内一切搜刮（尸体、物资点）都会在下一帧被误判成"离场了"</b>。
+    /// 搜刮是他此刻正在干的活，不是别人替他干的。
+    /// </para>
+    /// </summary>
+    private bool CanKeepSearching(Pawn searcher)
+        => searcher.IsControllable
+           || (_currentLevel is not null && searcher.Role == PawnRole.Expedition);
+
     /// <summary>转出来一件：入背包/库存（工具进工作台），一行反馈。<b>逐件</b>结算——这一件到手了就是到手了，跑也带得走。</summary>
     private void TakeOneLootItem(Pawn searcher, LootItem item)
     {
+        // [T61] 耗子的升级计数：**每转出一件记一件**（用户原话「累计**转出来** 75 件物品升到二级，250 件升到三级」）。
+        // 「一件」＝ 一个 LootItem **条目**（8 发子弹是一堆、一次转出 —— LootSession 的既有口径），不按数量/重量/价值。
+        // 🔴 记在**转出的那一刻**，不是"收进背包的那一刻"：背不下而留在地上的那件，她也**确实翻出来了**。
+        // 只计她本人搜出的（这是**她的**生存秘诀，别人搜的不算）。计数落在 StoryFlags ⇒ 存档天然覆盖。
+        if (searcher.Perks.IsRat)
+        {
+            RatPerk.RecordScavenged(_storyFlags);
+        }
+
         var one = new[] { item };
         int food = CollectLoot(one, out List<ToolSlot> tools, out string leftBehind);
         if (food > 0)
@@ -7607,8 +8063,9 @@ public sealed partial class CampMain : Node2D
         // 关内能处置的只有背上这些东西。营地里才看共享库存。
         if (_bag != null)
         {
-            _bag.SetCapacity(PartyCarryLimit()); // 上限随队员当下的伤/饿实时变化
-            _stashPanel.ShowExpeditionBag(_bag.Contents, _bag.CarriedKg, _bag.CapacityKg, notice);
+            SyncExpeditionLoad(); // [T45] 上限/装备/逐人惩罚都随队员当下的伤/饿/持械实时刷新
+            _stashPanel.ShowExpeditionBag(
+                _bag.Contents, _bag.GearKg, _bag.LootKg, _bag.CapacityKg, notice);
         }
         else
         {
@@ -8064,6 +8521,14 @@ public sealed partial class CampMain : Node2D
             return false;
         }
 
+        // 关内的门拆不了：拆除是**营地经济**（把自家造的东西拆回料），而医院的防火门不是你造的，
+        // 你也不可能扛着一扇防火门走回家。它只有两个用途：推开、关上。
+        if (c.Role == LevelDoorRole)
+        {
+            why = "医院的门拆不走——它只能推开或者关上。";
+            return false;
+        }
+
         if (c.Role == "door")
         {
             if (DoorAt(c.Rect.GetCenter()) is not { } door)
@@ -8360,6 +8825,34 @@ public sealed partial class CampMain : Node2D
             RebakeNavigation();                               // 家具占的地方现在能走人了
         }
         GD.Print($"[拆解] {furnitureName} 已从营地移除。");
+    }
+
+    /// <summary>
+    /// [T47] **消耗型改装脱落**（锋刃研磨：砍满三下，刃就磨钝了）。
+    ///
+    /// <para>
+    /// 🔴 <b>存在的全部意义是"玩家看得见"</b>：一把武器的数值**在战斗中途悄悄变回原样**，是最糟的一类失效——
+    /// 玩家会以为是 bug。所以这里必须报一行，而且要说清楚**是哪条改装、掉在了谁手上**。
+    /// </para>
+    /// <para>
+    /// 库存通常**不用动**：装在手上的武器早在装备时就从库存里拿走了（见 EquipFromStash），
+    /// <c>Pawn</c> 已经把手上那把换成脱落后的武器。只有"换不回去"这种理论上不该发生的情况才兜底回库存，
+    /// 免得那把武器凭空蒸发。
+    /// </para>
+    /// </summary>
+    private void OnWeaponModBroken(Pawn who, string oldName, string newName, IReadOnlyList<string> brokenMods)
+    {
+        string mods = brokenMods.Count > 0 ? string.Join("、", brokenMods) : "改装";
+        _campToast.Show($"{who.DisplayName} 的{mods}用尽了——{newName} 恢复原样。", CampToast.Bad);
+        GD.Print($"[改装] {who.DisplayName}：{oldName} 的「{mods}」已耗尽脱落 → {newName}");
+
+        // 兜底：万一没换回手上（不该发生），别让这把武器蒸发——退回库存。
+        if (who.PrimaryWeapon?.Name != newName && ModdedWeaponRegistry.WeaponByName(newName) is not null)
+        {
+            _inventory.Add(Item.Weapon(newName));
+        }
+
+        if (_stashOpen) OpenStash(null);
     }
 
     /// <summary>拆解完工的统一播报（含"废木料还得配胶水"那句——玩家第一次看见木头一半变碎料时最该看到它）。</summary>

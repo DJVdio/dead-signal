@@ -63,7 +63,7 @@ public sealed partial class Zombie : Actor
         z.Faction = Faction.Zombie;
         z.Radius = 13f;
         z.MoveSpeed = 55f;
-        z.Body = CombatData.NewHumanoidBody();
+        z.Body = CombatData.NewZombieBody(); // 失血流速 1/3（行尸走肉，血液循环不像活人）
         z.AttackWeapon = CombatData.ZombieClaw();
         z.AttackRange = 24f;
         z.AttackCooldown = z.AttackWeapon.AttackInterval; // 读 WeaponTable 权威间隔（爪击慢节奏 2.3s），敌方同步慢节奏
