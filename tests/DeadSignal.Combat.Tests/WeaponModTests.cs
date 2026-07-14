@@ -121,8 +121,10 @@ public sealed class WeaponModTests
 
         Assert.Equal(3, r.AppliedMods.Count);
         Assert.True(r.Weapon.MaxRange > baseGun.MaxRange);        // 加长枪管
-        Assert.NotNull(r.StockMeleeOverride);                     // 刺刀锐击枪托
-        Assert.Equal(DamageType.Sharp, r.StockMeleeOverride!.DamageType);
+        // 刺刀＝锐击枪托。型态已**烧进 Weapon 自身**（不再是旁挂 override）——
+        // 正因如此，这把枪入库/装备/存档之后，刺刀才还在（旧的旁挂对象一入库就丢，是 P0-C）。
+        Assert.Equal(MeleeForm.Bayonet, r.Form);
+        Assert.Equal(DamageType.Sharp, r.Weapon.MeleeProfile()!.DamageType);
     }
 
     // ---- 同部位冲突拒绝 ----
@@ -219,8 +221,8 @@ public sealed class WeaponModTests
         var eff = r.EffectiveMeleeProfile();
 
         Assert.NotNull(eff);
-        Assert.Equal(DamageType.Blunt, eff!.DamageType);           // 铁锤仍钝击（无锐击覆盖）
-        Assert.Null(r.StockMeleeOverride);                         // 走数值增量，非覆盖
+        Assert.Equal(DamageType.Blunt, eff!.DamageType);           // 铁锤仍钝击（型态 Trauma → Blunt）
+        Assert.Equal(MeleeForm.Trauma, r.Form);
         Assert.True(eff.DamageMax > defaultMelee.DamageMax);       // 伤↑
         Assert.True(eff.AttackInterval > defaultMelee.AttackInterval); // 更慢
     }
@@ -228,7 +230,7 @@ public sealed class WeaponModTests
     [Fact]
     public void TwoSharpStockMods_Conflict_Throws()
     {
-        // 刺刀(Muzzle)与利爪(Stock)部位不同、可过部位校验，但两者都要改"锐击枪托" → 拒绝
+        // 刺刀(Muzzle)与利爪(Stock)部位不同、可过部位校验，但两者都是**近战型态** → 一把枪只能有一种，拒绝
         var baseGun = WeaponTable.Rifle();
         var ex = Assert.Throws<WeaponModException>(() =>
             WeaponMods.ApplyMods(baseGun, new[]
@@ -236,7 +238,7 @@ public sealed class WeaponModTests
                 WeaponModCatalog.Bayonet(),
                 WeaponModCatalog.ClawStock(),
             }));
-        Assert.Contains("枪托近战", ex.Message);
+        Assert.Contains("近战型态", ex.Message);
     }
 
     // ---- 合成不改动 base、无改装即原样 ----

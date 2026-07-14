@@ -75,6 +75,12 @@ public static class RecipeBook
     /// </summary>
     public const string DogGearCrafterGate = "doug_bond_l2";
 
+    /// <summary>
+    /// 改装台「一台就够」门槛键（批次21·T7）：满足＝**营地里还没有改装台**。营地已有一台时本配方灰掉，
+    /// 免得玩家把材料喂给第二台毫无用处的案子。判定委托营地层（见 CampMain 制作接线的 crafterGate）。
+    /// </summary>
+    public const string ModBenchAbsentGate = "mod_bench_absent";
+
     private static IReadOnlySet<ToolSlot> Tools(params ToolSlot[] slots) => new HashSet<ToolSlot>(slots);
     private static IReadOnlyDictionary<string, int> Cost(params (string Key, int Qty)[] items)
     {
@@ -149,6 +155,24 @@ public static class RecipeBook
             OutputKey: "chair",
             OutputQuantity: 1,
             MaterialCosts: Cost(("wood", 4), ("nails", 2)),
+            RequiredTools: Tools(ToolSlot.SawBlade),
+            RequiredBookIds: Books(CarpentryBasicsBookId),
+            WorkMinutes: 150),
+
+        // ── [批次21·impl-bedrest] 床：养病的物质基础 ──
+        // 开局只有 2 张（camp.json 的 床#1/床#2），**第三张起要自己造**。床位稀缺是有意的：
+        // 一张床只躺一个人，躺着的那个不站岗不生产（见 BedrestLogic）——玩家得反复决定"这张床今晚归谁"。
+        // 走**沙袋那条链**（产出材料 → 库存「摆放」→ 左键落位），不发明新的建造范式。
+        // 材料：木料 12（床架）+ 布 4（褥子）+ 钉子 6。比木椅重得多——它是个能让人躺平的大件。
+        // 门槛同木椅：锯片 + 读过《木匠入门》（用户拍板"木椅/自制弓也要读木工书"，床是更大的木工活，同理）。
+        // 工时 150 分。数值全部拟定待调。拆除走通用规则（SalvageLogic 50% 向下取整 ⇒ 木料 6 + 布 2 + 钉子 3）。
+        new RecipeData(
+            Id: "bed",
+            DisplayName: "床",
+            Category: RecipeCategory.Woodwork,
+            OutputKey: "bed",
+            OutputQuantity: 1,
+            MaterialCosts: Cost(("wood", 12), ("cloth", 4), ("nails", 6)),
             RequiredTools: Tools(ToolSlot.SawBlade),
             RequiredBookIds: Books(CarpentryBasicsBookId),
             WorkMinutes: 150),
@@ -275,6 +299,31 @@ public static class RecipeBook
             RequiredBookIds: Books(FolkChemistryNotesBookId),
             WorkMinutes: 150),
 
+        // ── [批次21·T7/T10] 改装台：**武器改造的唯一场所**（用户拍板「在工作台可以制作改装台，在改装台落地武器改造」）──
+        // 在**工作台**上造出来 → 进库存 → 由玩家**自己摆到营地里**（同沙袋的"造→摆"两段式）。
+        // 它是**实心家具**（挖导航洞、真挡路），故放置受 PlacementRules 约束：**不许贴着围栏/大门**（64px 禁建带）。
+        // 这正是用户原话要的东西：「为了防止玩家使用改装台、椅子等家具阻挡寻路，**放置的时候**就不允许贴着大门和围栏」
+        // —— 要的是给放置**加约束**，不是取消放置；kill box 由禁建带正面挡住（见 WeaponModLogic.BenchSpec）。
+        // 工具槽取**卡尺**（精工：改枪管、装刺刀都是找基准面的活，同自制猎枪/霰弹枪/弓弩那条线）。
+        // **不设书门槛**：项目通例是不为一个新系统凭空造新书（会带出新的书籍投放缺口，见上文自制猎枪的同款论证）——
+        // 改枪的门槛已经由"先得凑齐料造出这台工作案"承担了。
+        // 材料：木料 8（台面/支腿）+ 废金属 4（台钳与卡具）+ 机械零件 2（虎钳丝杠）+ 钉子 6。工时 200 分。
+        // RequiredCrafterGates: 一台就够 —— 已有改装台时本配方灰掉（判定委托营地层，见 CampMain 的 crafterGate）。
+        // 拆除走通用规则（FurnitureBuildCost["改装台"] 折半返还）。数值皆拟定待调。
+        // ⚠ **位置有讲究**：本条**追加在既有卡尺类配方之后**，不插到表头——`CraftingPanelFormat.GroupByTool`
+        // 按"工具需求的首次出现顺序"分桶（无工具 → 锯片 → 烧杯 → 卡尺），把一条卡尺配方插到最前面会把整个桶序搅乱。
+        new RecipeData(
+            Id: "mod_bench",
+            DisplayName: "改装台",
+            Category: RecipeCategory.Precision,
+            OutputKey: "mod_bench",
+            OutputQuantity: 1,
+            MaterialCosts: Cost(("wood", 8), ("scrap_metal", 4), ("components", 2), ("nails", 6)),
+            RequiredTools: Tools(ToolSlot.Calipers),
+            RequiredBookIds: Books(),
+            WorkMinutes: 200,
+            RequiredCrafterGates: Books(ModBenchAbsentGate)),
+
         // ══════════════ [批次18] 子弹零件 + 四种子弹（用户拍板）══════════════
         // 产物 key 同时是 Materials 目录项 → CraftOutputFactory 走材料分支落地为可堆叠材料堆。
         //
@@ -367,8 +416,9 @@ public static class RecipeBook
         // 三种箭的门槛梯度（拟定待调）：木箭「什么都不要」→ 自制箭「要卡尺 + 废金属」→ 重头箭「要卡尺 + 金属锭」。
         // 注意**造箭一律不要书**：削一根箭是苦力活，不是手艺活（要读书的是造**弓**；《弓与箭之道》管的是回收率，不是配方）。
 
-        // 削尖的木箭：应急货。木料 1 → 4 支，无工具槽、无书门槛 —— **开局第一天就能做**。
-        // 它的意义是"没箭了也不至于打不响"，不是"用得起"：伤害 ×0.70、破甲 ×0.55，遇甲基本等于挠痒。
+        // 削尖的木箭：**便宜好用的主力箭**（用户手改后的定位）。木料 1 → 4 支，无工具槽、无书门槛 —— **开局第一天就能做**。
+        // 它不再是"没箭了才用的应急货"：伤害 ×0.75、破甲 ×0.75，样样差一档但都不致残；
+        // 代价集中在**射程 ×0.75**（全表最短）——它是新营地唯一撑得起弓手的箭。
         new RecipeData(
             Id: "ammo_arrow_stick",
             DisplayName: "削尖的木箭",
@@ -461,6 +511,56 @@ public static class RecipeBook
             RequiredTools: Tools(ToolSlot.Calipers),
             RequiredBookIds: Books(CarpentryBasicsBookId),
             WorkMinutes: 320),
+
+        // ══════════════ [批次21·T14] 烹饪台 + 两件炊具（用户拍板的新设施）══════════════
+        //
+        // 【为什么烹饪台**不设书门槛、不设工具槽**】做饭是生存的基本盘，不是手艺活——
+        // 让"今晚有没有饭吃"被一本还没搜到的书卡死，是把玩家饿死在一条与设计无关的岔路上。
+        // 同沙袋（往麻袋里铲土）、火把（木棒裹布）的既有论证：能不能开局就做，看的是"这活要不要手艺"。
+        // 它的门槛压在**材料**上（石料 8 砌灶膛是全表最重的一笔石料开销）与**工时 180 分**上。
+        //
+        // ⚠️ **固定位置，玩家摆不了**（用户拍板：「改装台、烹饪台不允许跨越，但他们是营地内固定位置…烹饪台放在厨房」）：
+        // 完工**不进库存**，直接砌在厨房锚点上（CookStation.AnchorX/Y；见 CampMain.CompleteCookStationBuild）。
+        // 它实心、挖导航洞、不可跨越 ⇒ 锚点由 FixedFacilityAnchorTests 做**设计期**自检（玩家没有"放置"这个动作）。
+        // RequiredCrafterGates：一座就够 —— 已有烹饪台时本配方灰掉（判定委托营地层，同改装台）。
+        // 拆除走通用规则（SalvageLogic：50% 向下取整；木料那份再分半走废木料）。数值皆拟定待调。
+        new RecipeData(
+            Id: CookStation.RecipeId,
+            DisplayName: CookStation.PropName,
+            Category: RecipeCategory.Misc,
+            OutputKey: CookStation.ItemKey,
+            OutputQuantity: 1,
+            MaterialCosts: Cost(("stone", 8), ("wood", 6), ("scrap_metal", 3), ("nails", 4)),
+            RequiredTools: Tools(),
+            RequiredBookIds: Books(),
+            WorkMinutes: 180,
+            RequiredCrafterGates: Books(CookStation.AbsentGate)),
+
+        // 锅：装进烹饪台的槽位 ⇒ 每份饭省 2 点热量（用户拍板）。一口砸扁再敲圆的铁锅。
+        // 无书无工具（敲锅不是手艺活），但吃**金属锭**——它是"省料"的投资，本身就得先付一笔料。
+        new RecipeData(
+            Id: "cooking_pot",
+            DisplayName: "锅",
+            Category: RecipeCategory.Misc,
+            OutputKey: CookStation.PotItemKey,
+            OutputQuantity: 1,
+            MaterialCosts: Cost(("metal_ingot", 1), ("scrap_metal", 2)),
+            RequiredTools: Tools(),
+            RequiredBookIds: Books(),
+            WorkMinutes: 60),
+
+        // 烤架：同样 -2 点。比锅便宜（几根铁丝架在火上就是烤架），但一样占掉一个槽 ⇒
+        // 两个槽都装满 = 每份饭只要 12 点，这是玩家能拿到的**唯一**一档"省料"，且要付两份材料 + 两份工时。
+        new RecipeData(
+            Id: "cooking_grill",
+            DisplayName: "烤架",
+            Category: RecipeCategory.Misc,
+            OutputKey: CookStation.GrillItemKey,
+            OutputQuantity: 1,
+            MaterialCosts: Cost(("wire", 4), ("scrap_metal", 2)),
+            RequiredTools: Tools(),
+            RequiredBookIds: Books(),
+            WorkMinutes: 45),
 
         // 火把（手持光源，批次4 光照）：木棒裹布蘸燃油即成——基础求生造物，无书门槛、无工具槽、开局可做。
         // 产物 key="torch"（对齐 LightSource.TorchKey），经 CraftOutputFactory 落地为 Item.Light（非武器/护甲/材料）。

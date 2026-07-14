@@ -181,6 +181,7 @@ public class CraftExecutionTests
     }
 }
 
+[Collection(ModdedWeaponRegistryCollection.Name)]
 public class WeaponModExecutionTests
 {
     private static InventoryStore InvWith(string weaponName)
@@ -190,54 +191,118 @@ public class WeaponModExecutionTests
         return inv;
     }
 
-    [Fact]
-    public void ApplyWeaponMod_Success_ConsumesBase_AddsVariant_WithModEffect()
-    {
-        var inv = InvWith("短剑");
-        // 锋刃研磨（锐器/刃部位，穿透+0.05）。
-        WeaponModResult r = CraftingService.ApplyWeaponMod("短剑", new[] { "锋刃研磨" }, inv);
+    // ===== 改装（批次21·T7）：已从"点一下白送"改成 改装台 + 材料 + 工时 的两段式 =====
+    // StartWeaponModJob（过门槛 → 开工即扣：拿走基础武器 + 扣材料 → 出在制任务）
+    // CompleteWeaponModJob（工时满 → 合成 → 登记进 ModdedWeaponRegistry → 变体入库）
 
-        Assert.True(r.Success);
-        Assert.NotNull(r.Variant);
-        // 基础武器已消耗，库存里已无 RefKey=="短剑" 的原件。
-        Assert.DoesNotContain(inv.Items, i => i.Category == ItemCategory.Weapon && i.RefKey == "短剑");
-        // 变体入库（名字带改装后缀）。
-        Assert.NotNull(r.Produced);
-        Assert.Contains(inv.Items, i => i == r.Produced);
-        Assert.Contains("锋刃研磨", r.Produced!.RefKey);
-        // 数值确有改动（穿透↑）。
-        Weapon baseW = WeaponTable.Arsenal().First(w => w.Name == "短剑");
-        Assert.True(r.Variant!.Weapon.Penetration > baseW.Penetration);
+    /// <summary>给库存塞够「锋刃研磨」的料（石料 2）。</summary>
+    private static InventoryStore InvWithBladeAndStone(string weaponName)
+    {
+        var inv = InvWith(weaponName);
+        inv.Add(Item.Material("stone", "石料", 4));
+        return inv;
     }
 
     [Fact]
-    public void ApplyWeaponMod_SamePartConflict_Fails_NoMutation()
+    public void WeaponMod_FullFlow_ConsumesBaseAndMaterials_ThenProducesVariant()
     {
-        var inv = InvWith("短剑");
+        ModdedWeaponRegistry.Clear();
+        var inv = InvWithBladeAndStone("短剑");
+
+        WeaponModStartResult start = CraftingService.StartWeaponModJob(
+            "短剑", new[] { "锋刃研磨" }, inv, hasModBench: true);
+
+        Assert.True(start.Success);
+        Assert.NotNull(start.Job);
+        Assert.True(start.Job!.TotalWorkMinutes > 0);                    // 改装是工时活，不是点击即得
+        Assert.DoesNotContain(inv.Items, i => i.RefKey == "短剑");        // 开工即扣：基础武器已拿走
+        Assert.Equal(2, inv.MaterialCount("stone"));                     // 开工即扣：石料 4-2
+
+        // 工时满 → 完工
+        start.Job.Advance(start.Job.TotalWorkMinutes, canWork: true);
+        Assert.True(start.Job.IsComplete);
+
+        WeaponModResult done = CraftingService.CompleteWeaponModJob(start.Job.RecipeId, inv);
+        Assert.True(done.Success);
+        Assert.NotNull(done.Produced);
+        Assert.Contains("锋刃研磨", done.Produced!.RefKey);
+        Assert.Contains(inv.Items, i => i == done.Produced);
+
+        // 数值确有改动（穿透↑）
+        Weapon baseW = WeaponTable.Arsenal().First(w => w.Name == "短剑");
+        Assert.True(done.Variant!.Weapon.Penetration > baseW.Penetration);
+
+        // 且已登记 ⇒ 装得上、存得住（此前变体名回查落空，是 P0）
+        Assert.NotNull(ModdedWeaponRegistry.WeaponByName(done.Produced.RefKey));
+    }
+
+    [Fact]
+    public void StartWeaponModJob_WithoutModBench_Fails_NoMutation()
+    {
+        var inv = InvWithBladeAndStone("短剑");
         int before = inv.Count;
-        // 锯齿剑刃 与 锋刃研磨 都占"刃"部位 → 冲突。
-        WeaponModResult r = CraftingService.ApplyWeaponMod("短剑", new[] { "锯齿剑刃", "锋刃研磨" }, inv);
+
+        WeaponModStartResult r = CraftingService.StartWeaponModJob(
+            "短剑", new[] { "锋刃研磨" }, inv, hasModBench: false);
+
         Assert.False(r.Success);
-        Assert.NotNull(r.FailureReason);
+        Assert.Contains(r.Blocks, b => b.Reason == WeaponModBlockReason.NoModBench);
+        Assert.Equal(before, inv.Count);
+        Assert.Contains(inv.Items, i => i.RefKey == "短剑");   // 基础武器仍在
+        Assert.Equal(4, inv.MaterialCount("stone"));           // 材料一分没动
+    }
+
+    [Fact]
+    public void StartWeaponModJob_WithoutMaterials_Fails_NoMutation()
+    {
+        var inv = InvWith("短剑");   // 有台子、有枪，就是没料
+        int before = inv.Count;
+
+        WeaponModStartResult r = CraftingService.StartWeaponModJob(
+            "短剑", new[] { "锋刃研磨" }, inv, hasModBench: true);
+
+        Assert.False(r.Success);
+        Assert.Contains(r.Blocks, b => b.Reason == WeaponModBlockReason.InsufficientMaterial);
+        Assert.Equal(before, inv.Count);
+        Assert.Contains(inv.Items, i => i.RefKey == "短剑");
+    }
+
+    [Fact]
+    public void StartWeaponModJob_SamePartConflict_Fails_NoMutation()
+    {
+        var inv = InvWithBladeAndStone("短剑");
+        inv.Add(Item.Material("scrap_metal", "废金属", 4));
+        int before = inv.Count;
+
+        // 锯齿剑刃 与 锋刃研磨 都占"刃"部位 → 冲突。
+        WeaponModStartResult r = CraftingService.StartWeaponModJob(
+            "短剑", new[] { "锯齿剑刃", "锋刃研磨" }, inv, hasModBench: true);
+
+        Assert.False(r.Success);
+        Assert.Contains(r.Blocks, b => b.Reason == WeaponModBlockReason.InvalidCombination);
         Assert.Equal(before, inv.Count);
         Assert.Contains(inv.Items, i => i.RefKey == "短剑"); // 基础武器仍在
     }
 
     [Fact]
-    public void ApplyWeaponMod_MissingBaseWeapon_Fails()
+    public void StartWeaponModJob_MissingBaseWeapon_Fails()
     {
         var inv = new InventoryStore(); // 空
-        WeaponModResult r = CraftingService.ApplyWeaponMod("短剑", new[] { "锋刃研磨" }, inv);
+        WeaponModStartResult r = CraftingService.StartWeaponModJob(
+            "短剑", new[] { "锋刃研磨" }, inv, hasModBench: true);
+
         Assert.False(r.Success);
-        Assert.Contains("短剑", r.FailureReason);
+        Assert.Contains("短剑", r.FailureText);
     }
 
     [Fact]
-    public void ApplyWeaponMod_UnknownModForClass_Fails()
+    public void StartWeaponModJob_UnknownModForClass_Fails()
     {
-        var inv = InvWith("短剑");
+        var inv = InvWithBladeAndStone("短剑");
         // 铁丝强化 是钝器改装，不属于锐器"短剑"。
-        WeaponModResult r = CraftingService.ApplyWeaponMod("短剑", new[] { "铁丝强化" }, inv);
+        WeaponModStartResult r = CraftingService.StartWeaponModJob(
+            "短剑", new[] { "铁丝强化" }, inv, hasModBench: true);
+
         Assert.False(r.Success);
         Assert.Contains(inv.Items, i => i.RefKey == "短剑"); // 未消耗
     }

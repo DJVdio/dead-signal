@@ -17,17 +17,37 @@ namespace DeadSignal.Godot;
 /// <summary>纯逻辑状态 ⇄ 存档 DTO 的映射。全部是静态纯函数，无副作用之外的状态。</summary>
 public static class SaveMapper
 {
-    // ---- 武器按名回查（WeaponTable 只给了 Arsenal() 列表，没有按名查的入口，这里自建索引）----
+    // ---- 武器按名回查 ----
+    // 走 ModdedWeaponRegistry：**先原厂表（WeaponTable）、后改装表**。
+    // 此前这里只索引 Arsenal()+ArcheryArsenal() ⇒ 改装武器（"步枪（刺刀型）"不在原厂表里）回查落空 ⇒
+    // **存档一读那把枪就没了**。改装变体的身份（基础武器名 + 改装名）另由 ModdedWeaponSpecSave 入档，
+    // 读档时先 Restore 注册表、再复原 Pawn 持械，故此处一定查得到。
 
-    private static readonly Dictionary<string, Weapon> _weaponsByName =
-        WeaponTable.Arsenal()
-            .Concat(WeaponTable.ArcheryArsenal())
-            .GroupBy(w => w.Name)
-            .ToDictionary(g => g.Key, g => g.First());
-
-    /// <summary>按武器名回查武器定义。查不到返回 null（武器被从表里删了——版本闸门本该拦住这种存档）。</summary>
+    /// <summary>按武器名回查武器定义（含改装变体）。查不到返回 null（武器被从表里删了——版本闸门本该拦住这种存档）。</summary>
     public static Weapon? WeaponByName(string? name)
-        => name != null && _weaponsByName.TryGetValue(name, out Weapon? w) ? w : null;
+        => ModdedWeaponRegistry.WeaponByName(name);
+
+    // ---- 改装武器注册表（存档只落三个字符串，数值读档时按当前规则重算，见 ModdedWeaponRegistry 类注）----
+
+    /// <summary>把全部已登记的改装变体身份抄进存档。</summary>
+    public static List<ModdedWeaponSave> CaptureModdedWeapons()
+        => ModdedWeaponRegistry.Specs
+            .Select(s => new ModdedWeaponSave
+            {
+                VariantName = s.VariantName,
+                BaseWeaponName = s.BaseWeaponName,
+                ModNames = s.ModNames.ToList(),
+            })
+            .ToList();
+
+    /// <summary>读档：按存档里的身份全量重建改装注册表（**必须在复原任何持械/库存之前调**）。</summary>
+    public static void RestoreModdedWeapons(IReadOnlyList<ModdedWeaponSave>? saved)
+        => ModdedWeaponRegistry.Restore(
+            (saved ?? new List<ModdedWeaponSave>())
+                .Select(s => new ModdedWeaponSpec(
+                    s.VariantName ?? "",
+                    s.BaseWeaponName ?? "",
+                    s.ModNames ?? new List<string>())));
 
     // ---- Item ----
 
@@ -246,6 +266,23 @@ public static class SaveMapper
         foreach (ToolSlot t in tools)
         {
             wb.InstallTool(t);
+        }
+    }
+
+    // ---- CookStationState（批次21·T14 烹饪台的两个炊具槽）----
+
+    public static List<CookwareSlot> ToSave(CookStationState station) => station.Installed.ToList();
+
+    /// <summary>读档：先卸干净再照存档装回（幂等，避免"读两次档装出两口锅"——虽然 HashSet 本来也不让）。</summary>
+    public static void RestoreCookStation(CookStationState station, IEnumerable<CookwareSlot>? installed)
+    {
+        foreach (CookwareSlot s in station.Installed.ToList())
+        {
+            station.Remove(s);
+        }
+        foreach (CookwareSlot s in installed ?? Enumerable.Empty<CookwareSlot>())
+        {
+            station.Install(s);
         }
     }
 

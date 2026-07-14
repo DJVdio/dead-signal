@@ -64,6 +64,27 @@ public enum WeaponStat
     StockMeleeDamageMax,
     StockMeleeInterval,
     StockMeleePenetration,
+    StockMeleeNoiseRadius,
+}
+
+/// <summary>
+/// **近战型态**（用户点名的三种）：给枪装上近战件之后，"贴脸/打空时抡枪托"打出来的东西变成什么。
+/// <para>
+/// 一把枪**至多一种型态**（三选一，见 <see cref="WeaponMods.ApplyMods"/>）——枪口挂了刺刀又把枪托锯了改铁锤，
+/// 那是两把不同的枪。型态决定枪托近战的**伤害类型**（<see cref="StockMeleeDamageTypeOf"/>），
+/// 具体数值增量仍走各自的 <see cref="WeaponMod.Stats"/>。
+/// </para>
+/// </summary>
+public enum MeleeForm
+{
+    /// <summary>利爪型：枪托绑上利刃 → 锐器**切割**。伤害最高，穿透中等，出手节奏不变。</summary>
+    Claw,
+
+    /// <summary>创伤型：枪托改成铁锤 → **钝伤加重**。单击最重、最慢、最响，代价是持握变差、射击精度下降。</summary>
+    Trauma,
+
+    /// <summary>刺刀型：枪口挂刺刀 → **刺击穿透**。全型态最高穿透、出手最快最安静，单击伤害不及利爪。</summary>
+    Bayonet,
 }
 
 /// <summary>数值改装的运算方式。</summary>
@@ -93,6 +114,16 @@ public readonly record struct StatMod(WeaponStat Stat, StatOp Op, double Value)
 /// </summary>
 public sealed class WeaponMod
 {
+    /// <summary>
+    /// **稳定内部 id**（ASCII 蛇形，如 <c>bayonet</c>/<c>claw_stock</c>/<c>trauma_stock</c>）。
+    /// <para>
+    /// 存在的理由：用户在**本地 wiki 网页**上调改装数值，改完由 agent 同步回本 catalog ——
+    /// 靠这个 id 定位是哪一条。**中文名（<see cref="Name"/>）不能当 id**：它是给玩家看的字，随时可能改；
+    /// 而且"防滑缠手"跨锐器/钝器**同名两条**，按名索引会撞。id 一旦定下就不要再改。
+    /// </para>
+    /// </summary>
+    public string Id { get; init; } = "";
+
     public string Name { get; init; } = "";
 
     /// <summary>适用大类（不匹配 → 合成时拒绝）。</summary>
@@ -105,11 +136,24 @@ public sealed class WeaponMod
     public IReadOnlyList<StatMod> Stats { get; init; } = System.Array.Empty<StatMod>();
 
     /// <summary>
-    /// 「枪托近战型」变换：给定基础枪，产出改装后的枪托近战 <see cref="Weapon"/>（如刺刀=锐击突刺、利爪=锐击挥砍）。
-    /// 用于表达引擎 <see cref="Weapon.MeleeProfile"/>（恒钝击）无法表达的"锐击枪托"。null = 不改枪托近战型
-    /// （创伤型改铁锤仍是钝击，走 <see cref="Stats"/> 加 StockMelee* 数值即可，不用此变换）。
+    /// 装这项改装要付的材料（RefKey → 数量，对齐 <see cref="Materials"/> 目录）。空 = 白送（不该有）。
+    /// 由 <see cref="WeaponModLogic.CanApply"/> 核对库存、<see cref="WeaponModLogic.Resolve"/> 出扣料 delta。
     /// </summary>
-    public System.Func<Weapon, Weapon>? StockMeleeTransform { get; init; }
+    public IReadOnlyDictionary<string, int> MaterialCosts { get; init; } = new Dictionary<string, int>();
+
+    /// <summary>
+    /// 装这项改装的工时（游戏分钟）。走既有 <see cref="CraftingJob"/> 工时制——改装**不是点击即得**，
+    /// 得有人站在改装台前把活干完。拟定待调。
+    /// </summary>
+    public int WorkMinutes { get; init; } = 60;
+
+    /// <summary>
+    /// **近战型态**（利爪/创伤/刺刀）。非 <c>null</c> ⇒ 这条改装**重定义枪托近战**：伤害类型由型态决定
+    /// （<see cref="WeaponMods.StockMeleeDamageTypeOf"/>），数值增量仍走 <see cref="Stats"/>。
+    /// 一把枪至多一条带型态的改装（三选一，冲突见 <see cref="WeaponMods.ApplyMods"/>）。
+    /// <c>null</c> = 这条改装不碰近战型态（枪管/轻质化枪托等）。
+    /// </summary>
+    public MeleeForm? Form { get; init; }
 
     /// <summary>面板说明（draft）。</summary>
     public string Note { get; init; } = "";
@@ -123,28 +167,36 @@ public sealed class WeaponModException : System.Exception
 
 /// <summary>
 /// 改装后的武器变体（合成产物，不改动原 base）。
-/// <see cref="Weapon"/> 为施加数值增量后的新武器；<see cref="StockMeleeOverride"/> 为"锐击枪托"覆盖（如刺刀/利爪），
-/// 无覆盖时枪托近战仍由 <see cref="Weapon.MeleeProfile"/> 派生（钝击）。可隐式转 <see cref="Weapon"/> 供只关心武器主体的调用方。
+/// <para>
+/// <b>关键不变式：<see cref="Weapon"/> 是无损的——改装的全部效果（含刺刀/利爪的锐击枪托）都已烧进这把
+/// 普通 <see cref="global::DeadSignal.Combat.Weapon"/> 里，没有任何旁挂状态。</b> 这正是它能入库
+/// （库存 <c>Item</c> 只存一个名字）、能装备、能存档、能进战斗结算的原因；此前的"旁挂 override"一入库就丢。
+/// </para>
+/// <see cref="BaseWeaponName"/> + <see cref="AppliedMods"/> 是这把变体的**可序列化身份**：存档只存这两样，
+/// 读档时按名重合成即可还原（见 <see cref="ModdedWeaponRegistry"/>）。
 /// </summary>
 public sealed class ModdedWeapon
 {
     public Weapon Weapon { get; }
 
-    /// <summary>"锐击枪托"覆盖（刺刀/利爪）；null = 用引擎默认钝击枪托或无枪托近战。</summary>
-    public Weapon? StockMeleeOverride { get; }
+    /// <summary>基础武器名（合成前的 <see cref="global::DeadSignal.Combat.Weapon.Name"/>）。存档据此重合成。</summary>
+    public string BaseWeaponName { get; }
 
     /// <summary>已施加的改装（按施加顺序）。</summary>
     public IReadOnlyList<WeaponMod> AppliedMods { get; }
 
-    public ModdedWeapon(Weapon weapon, Weapon? stockMeleeOverride, IReadOnlyList<WeaponMod> appliedMods)
+    public ModdedWeapon(Weapon weapon, string baseWeaponName, IReadOnlyList<WeaponMod> appliedMods)
     {
         Weapon = weapon;
-        StockMeleeOverride = stockMeleeOverride;
+        BaseWeaponName = baseWeaponName;
         AppliedMods = appliedMods;
     }
 
-    /// <summary>改装后生效的枪托近战 profile：优先锐击覆盖，否则回落引擎默认（钝击/无）。</summary>
-    public Weapon? EffectiveMeleeProfile() => StockMeleeOverride ?? Weapon.MeleeProfile();
+    /// <summary>这把变体的近战型态（利爪/创伤/刺刀）；无近战型改装时 <c>null</c>。</summary>
+    public MeleeForm? Form => AppliedMods.Select(m => m.Form).FirstOrDefault(f => f is not null);
+
+    /// <summary>改装后生效的枪托近战 profile。<b>直接就是 <see cref="Weapon"/> 自己的</b>——型态已烧进武器。</summary>
+    public Weapon? EffectiveMeleeProfile() => Weapon.MeleeProfile();
 
     /// <summary>只关心武器主体的调用方可直接把结果当 <see cref="global::DeadSignal.Combat.Weapon"/> 用。</summary>
     public static implicit operator Weapon(ModdedWeapon m) => m.Weapon;
@@ -163,9 +215,18 @@ public static class WeaponMods
         : w.DamageType == DamageType.Sharp ? WeaponClass.Blade
         : WeaponClass.Blunt;
 
+    /// <summary>近战型态 → 枪托近战的伤害类型（用户语义：刺刀=刺击穿透、利爪=锐器切割 ⇒ 皆锐击；创伤=钝伤加重 ⇒ 仍钝击）。</summary>
+    public static DamageType StockMeleeDamageTypeOf(MeleeForm form) => form switch
+    {
+        MeleeForm.Claw => DamageType.Sharp,      // 绑刃挥砍
+        MeleeForm.Bayonet => DamageType.Sharp,   // 刺刀突刺（引擎只有 Sharp/Blunt 两型，"刺击"归锐击，其穿透优势由 Penetration 表达）
+        MeleeForm.Trauma => DamageType.Blunt,    // 改铁锤，仍是钝的，只是更重
+        _ => DamageType.Blunt,
+    };
+
     /// <summary>
     /// 合成：把 <paramref name="mods"/> 依次施加到 <paramref name="baseWeapon"/>，产出新变体（不改原 base）。
-    /// 校验：每个改装大类须匹配 base；同一部位不可叠两个改装；至多一个改装可带"锐击枪托"变换。
+    /// 校验：每个改装大类须匹配 base；同一部位不可叠两个改装；**至多一条带近战型态的改装**（利爪/创伤/刺刀三选一）。
     /// 任一校验失败抛 <see cref="WeaponModException"/>。
     /// </summary>
     public static ModdedWeapon ApplyMods(Weapon baseWeapon, IEnumerable<WeaponMod> mods)
@@ -174,7 +235,7 @@ public static class WeaponMods
         var cls = ClassOf(baseWeapon);
         var usedParts = new HashSet<WeaponPart>();
         var draft = WeaponDraft.From(baseWeapon);
-        Weapon? meleeOverride = null;
+        MeleeForm? form = null;
 
         foreach (var mod in list)
         {
@@ -190,14 +251,15 @@ public static class WeaponMods
                     $"部位「{PartLabel(mod.Part)}」已有改装，不能再叠加「{mod.Name}」");
             }
 
-            if (mod.StockMeleeTransform is not null)
+            if (mod.Form is { } f)
             {
-                if (meleeOverride is not null)
+                if (form is not null)
                 {
                     throw new WeaponModException(
-                        $"「{mod.Name}」与已有的枪托近战改装冲突（一把枪只能有一种近战型枪托改装）");
+                        $"「{mod.Name}」与已有的近战型态「{DisplayNames.Of(form.Value)}」冲突（一把枪只能有一种近战型态）");
                 }
-                meleeOverride = mod.StockMeleeTransform(baseWeapon);
+                form = f;
+                draft.SetStockMeleeDamageType(StockMeleeDamageTypeOf(f));
             }
 
             foreach (var s in mod.Stats)
@@ -207,7 +269,7 @@ public static class WeaponMods
         }
 
         var result = draft.Build(ComposeName(baseWeapon.Name, list));
-        return new ModdedWeapon(result, meleeOverride, list);
+        return new ModdedWeapon(result, baseWeapon.Name, list);
     }
 
     /// <summary>拼接变体名："短剑（锯齿剑刃・防滑缠手）"。无改装时原样返回。</summary>
@@ -234,12 +296,16 @@ public static class WeaponMods
         private double _damageMin, _damageMax, _penetration, _attackInterval, _baseSpread;
         private double? _maxRange, _falloffStart, _falloffFloor;
         // 枪托近战
-        private double? _stockMin, _stockMax, _stockInterval, _stockPen;
+        private double? _stockMin, _stockMax, _stockInterval, _stockPen, _stockNoise;
+        private DamageType _stockDamageType;
         // 结构（不受数值改装影响，直接透传；名称由合成阶段拼接，见 Build 入参）
         private DamageType _damageType;
         private bool _twoHanded, _canDualWield, _isRanged;
         private int _burstCount = 1;
         private double _burstInterval;
+
+        /// <summary>近战型态改装重定义枪托伤害类型（利爪/刺刀=锐击，创伤=钝击）。</summary>
+        public void SetStockMeleeDamageType(DamageType t) => _stockDamageType = t;
 
         public static WeaponDraft From(Weapon w) => new()
         {
@@ -255,6 +321,8 @@ public static class WeaponMods
             _stockMax = w.StockMeleeDamageMax,
             _stockInterval = w.StockMeleeInterval,
             _stockPen = w.StockMeleePenetration,
+            _stockNoise = w.StockMeleeNoiseRadius,
+            _stockDamageType = w.StockMeleeDamageType,
             _damageType = w.DamageType,
             _twoHanded = w.TwoHanded,
             _canDualWield = w.CanDualWield,
@@ -279,6 +347,7 @@ public static class WeaponMods
                 case WeaponStat.StockMeleeDamageMax: _stockMax = ApplyNullable(_stockMax, s); break;
                 case WeaponStat.StockMeleeInterval: _stockInterval = ApplyNullable(_stockInterval, s); break;
                 case WeaponStat.StockMeleePenetration: _stockPen = ApplyNullable(_stockPen, s); break;
+                case WeaponStat.StockMeleeNoiseRadius: _stockNoise = ApplyNullable(_stockNoise, s); break;
             }
         }
 
@@ -320,6 +389,8 @@ public static class WeaponMods
             StockMeleeDamageMax = _stockMax is null ? null : System.Math.Max(0, _stockMax.Value),
             StockMeleeInterval = _stockInterval is null ? null : System.Math.Max(0.01, _stockInterval.Value),
             StockMeleePenetration = _stockPen is null ? null : System.Math.Clamp(_stockPen.Value, 0, 1),
+            StockMeleeNoiseRadius = _stockNoise is null ? null : System.Math.Max(0, _stockNoise.Value),
+            StockMeleeDamageType = _stockDamageType,
         };
     }
 }

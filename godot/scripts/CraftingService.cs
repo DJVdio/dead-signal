@@ -46,11 +46,11 @@ public sealed record CraftStartResult(
         => new(false, blocks, null);
 }
 
-/// <summary>一次 <see cref="CraftingService.ApplyWeaponMod"/> 的结果。</summary>
+/// <summary>一次改装的结果（<see cref="CraftingService.CompleteWeaponModJob"/> 的产物）。</summary>
 /// <param name="Success">是否改装成功（false 时库存未变）。</param>
 /// <param name="FailureReason">失败原因文案（成功为 null）。</param>
 /// <param name="Produced">产出的改装武器物品（成功时已入库）。</param>
-/// <param name="Variant">改装后的武器变体（含锐击枪托覆盖等，供预览/结算）。</param>
+/// <param name="Variant">改装后的武器变体（型态已烧进 Variant.Weapon 自身，无旁挂状态）。</param>
 public sealed record WeaponModResult(
     bool Success,
     string? FailureReason,
@@ -59,6 +59,25 @@ public sealed record WeaponModResult(
 {
     public static WeaponModResult Fail(string reason)
         => new(false, reason, null, null);
+}
+
+/// <summary>一次 <see cref="CraftingService.StartWeaponModJob"/> 的结果：门槛未过 ⇒ 逐条原因；过了 ⇒ 一件在制改装任务。</summary>
+/// <param name="Success">是否开工（false 时库存未变）。</param>
+/// <param name="Blocks">未满足的门槛（供 UI 灰显/提示）。</param>
+/// <param name="Job">在制改装任务（工时制，与制作/拆解共用同一条队列）。</param>
+public sealed record WeaponModStartResult(
+    bool Success,
+    IReadOnlyList<WeaponModBlock> Blocks,
+    CraftingJob? Job)
+{
+    public static WeaponModStartResult Fail(IReadOnlyList<WeaponModBlock> blocks)
+        => new(false, blocks, null);
+
+    public static WeaponModStartResult Fail(WeaponModBlockReason reason, string detail)
+        => new(false, new[] { new WeaponModBlock(reason, detail, "") }, null);
+
+    /// <summary>把门槛拼成一行人读文案（供 toast）。</summary>
+    public string FailureText => string.Join("；", Blocks.Select(b => b.Detail));
 }
 
 /// <summary>制作 / 改装执行服务（把模型契约接到库存与技能，实扣实产）。无状态、静态。</summary>
@@ -314,53 +333,129 @@ public static class CraftingService
         }
     }
 
-    // ======================== 改装执行 ========================
+    // ======================== 改装执行（改装台 + 材料 + 工时）========================
+    //
+    // 改装与制作/拆解一样是**工时活**，分两段：
+    //   StartWeaponModJob    —— 过门槛（改装台/材料/合成合法性）→ **开工即扣**（拿走那把基础武器 + 扣材料）→ 出一件在制任务；
+    //   CompleteWeaponModJob —— 工时满 → 合成变体 → 登记进 ModdedWeaponRegistry（这样它才**装得上、存得住**）→ 入库。
+    // "开工即扣"沿用 StartJob/拆解的既有语义（锁定资源、防重复下单），中途被拉走不退料——活干一半的枪就是废铁。
 
     /// <summary>
-    /// 执行一次武器改装（MVP：只消耗基础武器→产出变体入库，材料/工具/技能成本待接 recipe）：
-    /// 从 <paramref name="inventory"/> 找到 RefKey==<paramref name="baseWeaponKey"/> 的武器物品 →
-    /// 由 <see cref="WeaponTable.Arsenal"/> 按名取 base <see cref="Weapon"/> → 按 <paramref name="modKeys"/>（改装名）
-    /// 从 <see cref="WeaponModCatalog"/> 取对应大类的改装 → <see cref="WeaponMods.ApplyMods"/> 合成变体（捕获同部位/跨类冲突）→
-    /// 消耗那件基础武器、把变体作新武器物品入库。任一步不成立返回失败（库存不变）。
+    /// 按名从目录取这把武器可用的改装（同名跨类的"防滑缠手"靠大类天然消歧）。任一名字查无 ⇒ null。
     /// </summary>
-    /// <param name="baseWeaponKey">基础武器的库存引用键（= WeaponTable 武器名）。</param>
-    /// <param name="modKeys">要施加的改装名列表（对齐 <see cref="WeaponModCatalog"/> 中该大类改装的 Name）。</param>
-    /// <param name="inventory">营地共享库存（消耗基础武器、入库变体）。</param>
-    public static WeaponModResult ApplyWeaponMod(
+    private static List<WeaponMod>? ResolveMods(Weapon baseWeapon, IReadOnlyList<string>? modKeys, out string? failure)
+    {
+        failure = null;
+        IReadOnlyList<WeaponMod> catalog = WeaponModCatalog.For(baseWeapon);
+        var mods = new List<WeaponMod>();
+
+        foreach (string key in modKeys ?? Array.Empty<string>())
+        {
+            WeaponMod? mod = catalog.FirstOrDefault(m => m.Name == key);
+            if (mod is null)
+            {
+                failure = $"「{baseWeapon.Name}」没有改装「{key}」";
+                return null;
+            }
+            mods.Add(mod);
+        }
+        return mods;
+    }
+
+    /// <summary>
+    /// 下一单改装：核对门槛（<see cref="WeaponModLogic.CanApply"/>：改装台 / 材料 / 合成合法性）→
+    /// **开工即扣**：从库存拿走那件基础武器 + 扣掉全部改装材料 → 返回一件在制 <see cref="CraftingJob"/>（工时）。
+    /// 门槛未过 ⇒ 库存**一分不动**。
+    /// </summary>
+    /// <param name="baseWeaponKey">基础武器的库存引用键（= 武器名；可以是已改装过的变体名——改装可以叠着改）。</param>
+    /// <param name="modKeys">要施加的改装名列表。</param>
+    /// <param name="inventory">营地共享库存。</param>
+    /// <param name="hasModBench">营地里是否已有改装台（由营地层判定）。</param>
+    public static WeaponModStartResult StartWeaponModJob(
         string baseWeaponKey,
         IReadOnlyList<string> modKeys,
-        InventoryStore inventory)
+        InventoryStore inventory,
+        bool hasModBench)
     {
         if (inventory is null) throw new ArgumentNullException(nameof(inventory));
         if (string.IsNullOrEmpty(baseWeaponKey))
         {
-            return WeaponModResult.Fail("未指定基础武器");
+            return WeaponModStartResult.Fail(WeaponModBlockReason.InvalidCombination, "未指定基础武器");
         }
 
         Item? baseItem = inventory.ByCategory(ItemCategory.Weapon)
             .FirstOrDefault(i => i.RefKey == baseWeaponKey);
         if (baseItem is null)
         {
-            return WeaponModResult.Fail($"库存中没有「{baseWeaponKey}」");
+            return WeaponModStartResult.Fail(
+                WeaponModBlockReason.InvalidCombination, $"库存中没有「{baseWeaponKey}」");
         }
 
-        Weapon? baseWeapon = WeaponTable.Arsenal().FirstOrDefault(w => w.Name == baseWeaponKey);
+        // 先原厂表、后改装表——改装过的枪还能接着改（叠一条不同部位的）。
+        Weapon? baseWeapon = ModdedWeaponRegistry.WeaponByName(baseWeaponKey);
         if (baseWeapon is null)
         {
-            return WeaponModResult.Fail($"未知武器「{baseWeaponKey}」（不在武器表）");
+            return WeaponModStartResult.Fail(
+                WeaponModBlockReason.InvalidCombination, $"未知武器「{baseWeaponKey}」（不在武器表）");
         }
 
-        // 按大类取该武器可用改装，用名字对齐（同名跨类的"防滑缠手"靠大类天然消歧）。
-        IReadOnlyList<WeaponMod> catalog = WeaponModCatalog.For(baseWeapon);
-        var mods = new List<WeaponMod>();
-        foreach (string key in modKeys ?? Array.Empty<string>())
+        List<WeaponMod>? mods = ResolveMods(baseWeapon, modKeys, out string? failure);
+        if (mods is null)
         {
-            WeaponMod? mod = catalog.FirstOrDefault(m => m.Name == key);
-            if (mod is null)
+            return WeaponModStartResult.Fail(WeaponModBlockReason.InvalidCombination, failure!);
+        }
+
+        WeaponModAvailability availability = WeaponModLogic.CanApply(
+            baseWeapon, mods, inventory.MaterialCount, hasModBench);
+        if (!availability.CanApply)
+        {
+            return WeaponModStartResult.Fail(availability.Blocks);
+        }
+
+        // ---- 开工即扣：材料 + 那把基础武器 ----
+        foreach (KeyValuePair<string, int> cost in WeaponModLogic.TotalCost(mods))
+        {
+            if (!inventory.TrySpendMaterial(cost.Key, cost.Value))
             {
-                return WeaponModResult.Fail($"「{baseWeaponKey}」没有改装「{key}」");
+                // CanApply 刚放行过，理论上不该走到这（并发/异常兜底）：不半扣，直接拒。
+                return WeaponModStartResult.Fail(
+                    WeaponModBlockReason.InsufficientMaterial, $"材料「{cost.Key}」扣减失败");
             }
-            mods.Add(mod);
+        }
+        inventory.Remove(baseItem);
+
+        var job = new CraftingJob(
+            WeaponModLogic.JobIdFor(baseWeaponKey, modKeys),
+            WeaponModLogic.TotalWorkMinutes(mods));
+
+        return new WeaponModStartResult(true, Array.Empty<WeaponModBlock>(), job);
+    }
+
+    /// <summary>
+    /// 改装完工：按 jobId 还原「基础武器 + 改装列表」→ <see cref="WeaponMods.ApplyMods"/> 合成变体 →
+    /// **登记进 <see cref="ModdedWeaponRegistry"/>**（关键：不登记的话，这把枪装不上身、也存不进档）→ 变体入库。
+    /// 材料与基础武器已在开工时扣除，此处只产不扣。
+    /// </summary>
+    public static WeaponModResult CompleteWeaponModJob(string jobId, InventoryStore inventory)
+    {
+        if (inventory is null) throw new ArgumentNullException(nameof(inventory));
+
+        var target = WeaponModLogic.TargetOf(jobId);
+        if (target is null)
+        {
+            return WeaponModResult.Fail($"不是改装任务：{jobId}");
+        }
+
+        Weapon? baseWeapon = ModdedWeaponRegistry.WeaponByName(target.Value.BaseWeaponKey);
+        if (baseWeapon is null)
+        {
+            return WeaponModResult.Fail($"未知武器「{target.Value.BaseWeaponKey}」");
+        }
+
+        List<WeaponMod>? mods = ResolveMods(baseWeapon, target.Value.ModNames, out string? failure);
+        if (mods is null)
+        {
+            return WeaponModResult.Fail(failure!);
         }
 
         ModdedWeapon variant;
@@ -373,9 +468,12 @@ public static class CraftingService
             return WeaponModResult.Fail(ex.Message);
         }
 
-        // 消耗基础武器 → 变体入库（变体名带改装后缀，作新武器引用键）。
-        inventory.Remove(baseItem);
-        Item produced = Item.Weapon(variant.Weapon.Name, baseItem.Description);
+        // 登记变体身份 → Pawn.EquipWeapon / SaveMapper / CarryWeight / CraftingPanel 都按名查得到它
+        // （四者一律走 ModdedWeaponRegistry.WeaponByName：先原厂表、后改装表）。
+        // ⚠️ 不登记 = 这把枪装不上身、也存不进档 —— 它只是一个查无此人的名字。
+        string variantName = ModdedWeaponRegistry.Register(variant);
+
+        Item produced = Item.Weapon(variantName, variant.Weapon.Description);
         inventory.Add(produced);
 
         return new WeaponModResult(true, null, produced, variant);

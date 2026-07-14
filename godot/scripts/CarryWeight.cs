@@ -84,6 +84,22 @@ public static class ItemWeights
         ["laojunxu"] = 0.05,
         ["bullet_parts"] = 0.05,
 
+        // —— [批次21·T14] 食材：**搬粮食是要占背包的**（原先一条都没登记 ⇒ 全落 DefaultMaterialKg 0.5，
+        //    一只老鼠和一箱军用口粮一样重，那是个真 bug）。数值拟定待调。
+        //    口径：按"这一份实物有多沉"定，**与热量点无关**（热量高的不一定沉——面粉沉但不如兔子顶饱）。
+        //    ⚠️ 但两者确实正相关，这是有意的：口粮又重又顶饱（背一趟够两顿），蘑菇又轻又不顶饱
+        //    ⇒ "背什么回来"本身就是一道要算的账（重量吃背包、热量喂人）。
+        ["rabbit"] = 1.5,        // 一只野兔，带皮带骨
+        ["ration"] = 1.0,        // 军用单兵口粮：整包罐头+压缩饼干+配件，全表最沉的一份食材
+        ["fish"] = 1.0,          // 一条河鱼
+        ["flour"] = 1.0,         // 一袋面粉
+        ["canned_food"] = 0.6,   // 铁皮罐头，小而沉
+        ["beans"] = 0.6,         // 一把干豆
+        ["rat"] = 0.3,           // 老鼠：轻，也确实不顶饱
+        ["pigeon"] = 0.3,        // 鸽子：肉少骨头多
+        ["potato"] = 0.3,        // 土豆
+        ["mushroom"] = 0.05,     // 蘑菇：几乎白送（玫瑰果/蒲公英同档，见上方医疗原料那几行——它们同时也是食材）
+
         // 货币：带钱出门不该挤占背包
         ["silver"] = 0.01,
     };
@@ -161,8 +177,26 @@ public static class ItemWeights
     }
 
     /// <summary>单件武器重量（未登记走兜底）。</summary>
+    /// <summary>
+    /// 单件武器重量（按武器名；未登记走 <see cref="DefaultWeaponKg"/>）。
+    /// <para>
+    /// **改装变体**（"步枪（刺刀型）"）不在本表里 —— 回落到它的**基础武器**重量
+    /// （<see cref="ModdedWeaponRegistry.BaseNameOf"/>）。不这么做的话，一把改装狙击枪会按"未登记武器"
+    /// 算成 2kg（比手枪还轻），负重系统当场失真。改装件本身的增重暂不建模（拟定待调）。
+    /// </para>
+    /// </summary>
     public static double WeaponKg(string? name)
-        => name != null && _weaponKg.TryGetValue(name, out double kg) ? kg : DefaultWeaponKg;
+    {
+        if (name is null) return DefaultWeaponKg;
+        if (_weaponKg.TryGetValue(name, out double kg)) return kg;
+
+        if (ModdedWeaponRegistry.BaseNameOf(name) is { } baseName
+            && _weaponKg.TryGetValue(baseName, out double baseKg))
+        {
+            return baseKg;
+        }
+        return DefaultWeaponKg;
+    }
 
     /// <summary>单件护甲重量（取引擎护甲表 Weight；未登记走兜底）。</summary>
     public static double ArmorKg(string? name)

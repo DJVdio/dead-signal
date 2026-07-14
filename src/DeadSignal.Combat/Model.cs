@@ -213,11 +213,32 @@ public sealed class Weapon
     /// <summary>枪托近战穿透（低）。null 视为 0。拟定待调。</summary>
     public double? StockMeleePenetration { get; init; }
 
+    /// <summary>
+    /// 这把枪的枪托近战噪音半径。<c>null</c> ⇒ 回落到全局 <see cref="StockMeleeNoise"/>（110，钝器量级）——
+    /// 故**不填的武器行为完全不变**（零回归）。
+    /// <para>
+    /// 分枪型的理由：拿手枪柄敲人和抡一杆 6kg 的狙击枪托砸下去，动静不是一回事。按枪身质量分档（拟定待调）。
+    /// </para>
+    /// </summary>
+    public double? StockMeleeNoiseRadius { get; init; }
+
+    /// <summary>
+    /// 枪托近战的伤害类型。**默认 <see cref="DamageType.Blunt"/>**（拿枪当棍子抡）⇒ 不填的武器行为完全不变（零回归）。
+    /// <para>
+    /// <b>它存在的唯一理由是「近战型改装」</b>：枪口挂了刺刀、枪托绑了利刃之后，贴脸打出来的**不再是钝击**。
+    /// 此前这件事被表达成"<c>Weapon</c> 之外再旁挂一个覆盖对象"，而库存里的一件武器**只存一个名字**
+    /// （<c>Item.RefKey</c>）—— 旁挂的东西一入库就丢了，刺刀于是成了纯装饰。把伤害类型收进 <see cref="Weapon"/> 自己
+    /// 之后，"改装后的枪"就**无损地仍是一把普通 <see cref="Weapon"/>**，能入库、能装备、能存档、能进结算。
+    /// </para>
+    /// </summary>
+    public DamageType StockMeleeDamageType { get; init; } = DamageType.Blunt;
+
     /// <summary>是否具备枪托近战 profile（远程武器且填了伤害上限）。近战武器恒为 false。</summary>
     public bool HasMeleeProfile => IsRanged && StockMeleeDamageMax.HasValue;
 
     /// <summary>
-    /// 派生这把远程武器的"枪托贴脸"近战版：钝击、必中（<see cref="IsRanged"/>=false，无误差角）、伤害/穿透低、攻速慢，
+    /// 派生这把远程武器的"枪托贴脸"近战版：必中（<see cref="IsRanged"/>=false，无误差角）、伤害/穿透低、攻速慢，
+    /// 伤害类型取 <see cref="StockMeleeDamageType"/>（默认钝击；装了刺刀/利爪型改装的枪为锐击），
     /// 单双手语义沿用本武器 <see cref="TwoHanded"/>。供 Godot 空间层贴脸判定时调用（判定本身在 Godot，不在引擎层）。
     /// 无 profile 时返回 null。
     /// </summary>
@@ -237,8 +258,8 @@ public sealed class Weapon
             DamageMin = StockMeleeDamageMin ?? 0,
             DamageMax = StockMeleeDamageMax!.Value,
             Penetration = StockMeleePenetration ?? 0,
-            DamageType = DamageType.Blunt,
-            NoiseRadius = StockMeleeNoise,
+            DamageType = StockMeleeDamageType,
+            NoiseRadius = StockMeleeNoiseRadius ?? StockMeleeNoise,
             TwoHanded = TwoHanded,
             IsRanged = false,
             AttackInterval = StockMeleeInterval ?? AttackInterval,

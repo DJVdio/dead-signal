@@ -38,9 +38,11 @@ public sealed partial class CraftingPanel : CanvasLayer
     /// <summary>点「关闭」：CampMain 据此隐藏面板并恢复时标。</summary>
     public event Action? Closed;
 
-    /// <summary>库存武器名 → 引擎武器（取自 <see cref="WeaponTable.Arsenal"/>，与 <see cref="Pawn"/> 同源）。改装页按其派生大类。</summary>
-    private static readonly IReadOnlyDictionary<string, Weapon> WeaponCatalog =
-        WeaponTable.Arsenal().ToDictionary(w => w.Name);
+    // ⚠️ 这里**曾经**有一个 `WeaponCatalog = WeaponTable.Arsenal().ToDictionary(...)`（只含**原厂**武器）。
+    // 它已经是**死字段**（改装页早就改走 ModdedWeaponRegistry 了，见下方按名回查处），但**留着就是个陷阱**：
+    // 下一个人会顺手 TryGetValue 它，然后改装变体（"步枪（刺刀型）"）又一次解析失败。
+    // Pawn.EquipWeapon 就是这么中过招的（改装出来的枪装不上身，P0）。**故整个删掉，不留退路。**
+    // 武器名回查全项目**只有一个入口**：ModdedWeaponRegistry.WeaponByName（先原厂表、后改装表）。
 
     /// <summary>书 id → 标题（供制作页条件行显示书名；已读态另由外部谓词提供）。</summary>
     private static readonly IReadOnlyDictionary<string, string> BookTitles =
@@ -63,6 +65,10 @@ public sealed partial class CraftingPanel : CanvasLayer
     private Pawn? _selectedCrafter;
     private string? _selectedWeaponRefKey;                 // 改装页当前选中的库存武器名
     private readonly HashSet<string> _selectedMods = new(); // 改装页已选 mod（按 WeaponMod.Name）
+    private bool _hasModBench;                             // 营地有没有改装台（没有 ⇒ 改装页整页灰）
+
+    /// <summary>直接翻到【改装】页（点营地里的改装台走这条；工作台仍落在【制作】页）。</summary>
+    public void OpenModPage() => SwitchPage(Page.Mod);
 
     // ---- 控件引用 ----
     private Control _root = null!;
@@ -183,7 +189,8 @@ public sealed partial class CraftingPanel : CanvasLayer
         InventoryStore inventory,
         Func<Pawn, string, bool> hasReadBook,
         CraftingJob? activeJob = null,
-        Func<Pawn, string, string?>? crafterGate = null)
+        Func<Pawn, string, string?>? crafterGate = null,
+        bool hasModBench = false)
     {
         _workbench = workbench ?? new WorkbenchState();
         _crafters = crafters ?? Array.Empty<Pawn>();
@@ -191,6 +198,7 @@ public sealed partial class CraftingPanel : CanvasLayer
         _hasReadBook = hasReadBook ?? ((_, _) => false);
         _crafterGate = crafterGate;
         _activeJob = activeJob;
+        _hasModBench = hasModBench;
 
         // 制作者候选：保留已选（若仍在名单），否则取第一个。
         if (_selectedCrafter is null || !_crafters.Contains(_selectedCrafter))
@@ -341,11 +349,15 @@ public sealed partial class CraftingPanel : CanvasLayer
         top.MouseFilter = Control.MouseFilterEnum.Pass;
         top.AddThemeConstantOverride("separation", 8);
 
+        // 产物图标：武器/护甲落地时引用键是中文名（骨刀），而配方产物键是内部英文键（bone_knife）——
+        // MakeIconForOutput 两头都试，故这里把两者都给它。
+        top.AddChild(ItemIconTextures.MakeIconForOutput(recipe.OutputKey, recipe.DisplayName));
+
         var nameLabel = new Label();
         string qty = recipe.OutputQuantity > 1 ? $" ×{recipe.OutputQuantity}" : "";
         nameLabel.Text = $"{recipe.DisplayName}{qty}";
         nameLabel.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-        nameLabel.CustomMinimumSize = new Vector2(300, 26);
+        nameLabel.CustomMinimumSize = new Vector2(268, 26); // 让出 32px 图标 + 8px 间距
         nameLabel.VerticalAlignment = VerticalAlignment.Center;
         nameLabel.AddThemeFontSizeOverride("font_size", 15);
         nameLabel.AddThemeColorOverride("font_color", avail.CanCraft ? TextColor : DimColor);
@@ -475,6 +487,14 @@ public sealed partial class CraftingPanel : CanvasLayer
     {
         _footerLabel.Text = "选一把库存武器，勾选改装（同部位互斥），再点改装。";
 
+        // 设施门槛（用户拍板：武器改造只能在改装台上做）。没台子 ⇒ 整页到此为止。
+        if (!_hasModBench)
+        {
+            AddEmpty($"营地里还没有{WeaponModLogic.BenchFurnitureKey}。\n"
+                + "先在工作台上造一台（需卡尺）——造好它会立在车间（原来的空牛棚）里，到那儿才能改枪。");
+            return;
+        }
+
         // 武器选择行
         var selRow = new HBoxContainer();
         selRow.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
@@ -520,7 +540,10 @@ public sealed partial class CraftingPanel : CanvasLayer
             AddEmpty("先选一把武器。");
             return;
         }
-        if (!WeaponCatalog.TryGetValue(_selectedWeaponRefKey, out Weapon? weapon))
+        // 按名回查：**先原厂表、后改装表**——改装过的枪还能接着改（叠一条不同部位的）。
+        // 只查 WeaponCatalog 的话，改装变体（"步枪（刺刀型）"）会解析失败，玩家再也改不了它。
+        Weapon? weapon = ModdedWeaponRegistry.WeaponByName(_selectedWeaponRefKey);
+        if (weapon is null)
         {
             AddEmpty($"无法解析武器「{_selectedWeaponRefKey}」（不在武器库）。");
             return;
@@ -554,9 +577,41 @@ public sealed partial class CraftingPanel : CanvasLayer
                     note.Text = "    " + mod.Note + (blockedByPart ? "（该部位已选其它改装）" : "");
                 }
             }
-            summary.Text = _selectedMods.Count == 0 ? "未选改装" : "已选：" + string.Join("、", _selectedMods);
-            summary.AddThemeColorOverride("font_color", _selectedMods.Count == 0 ? DimColor : OkColor);
-            applyBtn.Disabled = _selectedMods.Count == 0 || _selectedCrafter is null;
+            if (_selectedMods.Count == 0)
+            {
+                summary.Text = "未选改装";
+                summary.AddThemeColorOverride("font_color", DimColor);
+                applyBtn.Disabled = true;
+                return;
+            }
+
+            // 成本与工时（改装不再是白送的）+ 门槛核对（改装台/材料/合成合法性），逐条给出灰显理由。
+            List<WeaponMod> picked = mods.Where(m => _selectedMods.Contains(m.Name)).ToList();
+            WeaponModAvailability avail = WeaponModLogic.CanApply(
+                weapon, picked, _inventory.MaterialCount, hasModBench: _hasModBench);
+
+            string cost = string.Join("、", WeaponModLogic.TotalCost(picked)
+                .Select(c => $"{Materials.Find(c.Key)?.DisplayName ?? c.Key}×{c.Value}"));
+            string head = $"已选：{string.Join("、", _selectedMods)}｜耗材 {cost}｜工时 {WeaponModLogic.TotalWorkMinutes(picked)} 分";
+
+            bool busy = _activeJob is not null;
+            if (busy)
+            {
+                summary.Text = head + "｜工作台占用中";
+                summary.AddThemeColorOverride("font_color", DimColor);
+            }
+            else if (!avail.CanApply)
+            {
+                summary.Text = head + "｜" + string.Join("；", avail.Blocks.Select(b => b.Detail));
+                summary.AddThemeColorOverride("font_color", BadColor);
+            }
+            else
+            {
+                summary.Text = head;
+                summary.AddThemeColorOverride("font_color", OkColor);
+            }
+
+            applyBtn.Disabled = busy || !avail.CanApply || _selectedCrafter is null;
         }
 
         // 按部位分组（保持目录顺序）

@@ -204,6 +204,7 @@ public sealed partial class CampMain : Node2D
     private int _prevMedicalSpeed;          // 开医疗面板前 GameClock 的速度档（关闭时按此还原）
     private bool _prevMedicalPaused;        // 开医疗面板前世界是否暂停（还原保真）
     private CampToast _campToast = null!;    // 制作/搜刮的一行瞬时提示（HUD 顶部，手动显隐——时标冻结下计时器不走）
+    private CreditsPanel _creditsPanel = null!;      // 素材出处（F1，CC BY 署名）。只读，**不冻结时标**——看一眼出处而已
     private DiscoveryPanel _discoveryPanel = null!;  // 探索发现环境叙事面板（模态，弹出时冻结时标）
     private double _prevDiscoveryTimeScale;          // 弹发现叙事前的时标（关闭时恢复）
     private double _prevLookoutTimeScale;            // 望远镜瞭望演出前的时标（演出期间冻结探索层，播完恢复）
@@ -289,6 +290,17 @@ public sealed partial class CampMain : Node2D
     private bool _placingSandbag;
     /// <summary>已摆沙袋的流水号（容器名 "沙袋#N" 需唯一；拆除时按类型名归一，见 FurnitureBuildCost.Of）。</summary>
     private int _sandbagSeq;
+
+    // ---- 改装台（批次21·T7/T10）：玩家可建造，但**位置是固定的**（用户拍板）----
+    // 用户原话：「改装台、烹饪台**不允许跨越**，但是他们是营地内**固定位置**。改装台放在**车间**。」
+    // 而 camp.json 里本来没有车间（只有 住宅/仓库/**空牛棚**）⇒ 用户选定：**空牛棚改造成车间**。
+    // ⇒ 玩家**摆不了**改装台：在工作台造完，它自动落在车间（空牛棚）的固定锚点上。
+    //   没有"放置"这个动作 ⇒ 也就没有"放置时不许贴围栏"那回事（PlacementRules 是给可摆放家具的）。
+    //   但它**实心、挖导航洞、不可跨越**，且玩家挪不动 ⇒ 锚点本身仍按禁建带口径自检
+    //   （见 WeaponModLogic.BenchAnchorX/Y 的论证 + impl-modbench 的 FixedFacilityAnchorTests）。
+
+    /// <summary>营地里有没有改装台（武器改造的唯一场所；拆了就没了）。</summary>
+    private bool HasModBench => _furniture.ContainsKey(WeaponModLogic.BenchFurnitureKey);
     private readonly List<Zombie> _raidZombies = new();  // 当前袭营波次（存活）
     private VisionMask? _campVisionMask;                   // 营地视野遮暗（批次4，夜间启用/白天豁免）
     private PathOverlay? _pathOverlay;                     // 选中角色的移动路径线（RimWorld 式，画导航真实路径；ZIndex 4090 压在遮暗之上）
@@ -583,6 +595,9 @@ public sealed partial class CampMain : Node2D
         _craftingPanel.ModApplyRequested += OnModApplyRequested;
         _craftingPanel.Closed += CloseCrafting;
 
+        // [批次21·T14] 烹饪面板（右键前往厨房的烹饪台打开；冻结时标）。接线见 CampMain.Cooking.cs。
+        SetupCookingPanel();
+
         // 神秘商人交易面板（右键前往在场商人打开；冻结时标）。买入事件走 MerchantTrade.Buy 实扣白银实产商品。
         _merchantPanel = new MerchantPanel { Layer = 20 };
         AddChild(_merchantPanel);
@@ -609,6 +624,11 @@ public sealed partial class CampMain : Node2D
         AddChild(_campToast);
 
         SetupSavePanel();   // 存档 / 读档面板（F5），见 CampMain.Save.cs
+
+        // 素材出处面板（F1）：物品图标取自 game-icons.net，授权 CC BY 3.0——**署名必须让玩家看得见**，
+        // 只在仓库 CREDITS.md 里写一份是不够的。文本单一真源在 CreditsContent.cs。
+        _creditsPanel = new CreditsPanel();
+        AddChild(_creditsPanel);
 
         // storage 容器（住宅柜子）的开局藏物：食物入 _resources.Food、书/武器/护甲入共享库存、材料入库存、工具装工作台。
         ApplyStorageInitialStock();
@@ -689,6 +709,11 @@ public sealed partial class CampMain : Node2D
         // 半身掩体场清空（防重入累积）。**必须在这里、在建围栏之前**——围栏(AddStructure)与 props 都会往里登记，
         // 而围栏建得比 props 早；若把 Clear 放在 props 循环前，会把刚登记好的围栏掩体一并清掉。
         _coverField.Clear();
+
+        // 家具减速场同理清空（防重入累积）。不进 _furniture 的可跨越矮物（座位+门口沙袋垒）在 props 循环里记进 _looseTraversableRects，其余家具由
+        // RebuildTraversalField() 从 _furniture 统一重建（见 CampMain.Traversal.cs）。
+        _traversal.Clear();
+        _looseTraversableRects.Clear();
 
         // 尸体管家：无碰撞体、不改导航图，只维护「尸体格」占用（同格不堆叠，落点冲突自动挤到旁边）。
         // 尸体身上穿的东西**原样**成为它的战利品（CorpseLoot.Strip，零掷骰）；被回收时注销它的可搜刮点。
@@ -771,7 +796,12 @@ public sealed partial class CampMain : Node2D
             if (ToRect(pr.rect) is { } r)
             {
                 var style = new PixelStyle { color = pr.color, jitter = pr.jitter };
-                if (pr.role == "seat")
+                if (pr.role == "bed")
+                {
+                    // 床（批次21·impl-bedrest）：非实心可站点 + 可点击容器。正文在 CampMain.Bedrest.cs。
+                    AddBedProp(pr, r);
+                }
+                else if (pr.role == "seat")
                 {
                     // 座位家具：非实心可站点（照暗哨路径——不建碰撞、不挖导航洞），读者据此可寻路走上就座。
                     AddSeat(r, style);
@@ -789,10 +819,26 @@ public sealed partial class CampMain : Node2D
                     // **与 AddSolid 互斥**：实心物（工作台/柜子/草垛）在墙层，子弹撞上就没了，25% 会是死代码。
                     AddOccluderVisual(r, style, seed: 19, height: CoverPropHeight, cell: 48f);
                 }
+                else if (pr.name != null && SalvageLogic.CanSalvageFurniture(pr.name)
+                         && FurnitureTraversal.IsTraversable(pr.name))
+                {
+                    // [T15] **可跨越家具**（柜子/衣柜/展示柜…）：用户拍板「椅子之类的别的家具都可以跨过，
+                    // 但是跨过时会减少 25% 的移动速度」⇒ 它们**不再是实心墙**。
+                    // **刻意不调 AddSolid、刻意不进 _navHoles**：不建碰撞体、不挖导航洞 ⇒ 不挡移动、不改寻路。
+                    // 这一改把「实心家具」这个 kill box 的后门从根上关死了（一排柜子曾经和一堵墙对寻路毫无区别）。
+                    // 代价挂在减速场上：踩上去 ×0.75（见 FurnitureTraversal / Actor.Slowdowns）。
+                    // 减速场不在这儿登记：它由 RebuildTraversalField() 从 _furniture（唯一真源）统一重建，
+                    // 这样**任何人**日后往 _furniture 里加家具（床/沙袋/新家具）都自动吃到减速，不必记得来这儿加一行。
+                    var visuals = new List<Node2D>();
+                    AddOccluderVisual(r, style, seed: 17, height: (float)_heights.prop, cell: 200f, collect: visuals);
+                    _furniture[pr.name] = new FurnitureInstance { Rect = r, Body = null, Visuals = visuals };
+                    RegisterContainer(pr, r);
+                }
                 else
                 {
-                    // 实心家具（工作台/柜子/草垛…）。**可拆的那几件**（见 FurnitureBuildCost）额外记下碰撞体与视觉块句柄，
-                    // 拆完才抹得掉（见 RemoveFurniture）。不可拆的（草垛/收音机之类）不占这份账。
+                    // 实心物：**作业台**（工作台/改装台/烹饪台——用户点名不可跨的固定大型设施）与**非家具道具**
+                    // （草垛/收音机之类，压根不在 FurnitureBuildCost 目录里，不是"造出来的家具"）。照旧建碰撞 + 挖导航洞。
+                    // 可拆的那几件额外记下碰撞体与视觉块句柄，拆完才抹得掉（见 RemoveFurniture）。
                     bool salvageable = pr.name != null && SalvageLogic.CanSalvageFurniture(pr.name);
                     var visuals = salvageable ? new List<Node2D>() : null;
                     StaticBody2D body = AddSolid(r, style, seed: 17, (float)_heights.prop, cell: 200f, visuals);
@@ -801,6 +847,15 @@ public sealed partial class CampMain : Node2D
                         _furniture[pr.name!] = new FurnitureInstance { Rect = r, Body = body, Visuals = visuals! };
                     }
                     RegisterContainer(pr, r);
+                }
+
+                // [T15] 家具减速场：登记那些**不进 _furniture** 的可跨越矮物（座位 + 门口的 authored 沙袋垒）。
+                // 判定归纯逻辑（FurnitureTraversal.IsLooseTraversableProp）—— **唯一登记点**，不在各分支里各加一行。
+                // 进 _furniture 的那些（床/玩家垒的沙袋/柜子…）由 RebuildTraversalField() 从 _furniture 统一收，
+                // **别在这儿重复登记**，否则同一件家具会被连乘两次（0.75 × 0.75 = 0.5625）。
+                if (FurnitureTraversal.IsLooseTraversableProp(pr.role))
+                {
+                    _looseTraversableRects.Add(r);
                 }
 
                 // 半身掩体登记（cover:true 的 prop，含椅子/座垫这类 seat）：远程命中后按 25% 整发判无效。
@@ -824,6 +879,12 @@ public sealed partial class CampMain : Node2D
         // 半身掩体场接线：本关掩体已随 props 登记完毕，挂到场级 static 供一切 Actor 的承伤入口查询
         // （双向对称——玩家/幸存者/丧尸/劫掠者/狗都躲得、也都躲得过）。退场时置 null，见 _ExitTree。
         Actor.Covers = _coverField;
+
+        // 家具减速场接线：从 _furniture + _looseTraversableRects 建出全部可跨越矮物的减速块，挂到场级 static 供**一切 Actor**
+        // 的移速链查询。用户拍板「跨过家具减 25% 移速」没有限定玩家 ⇒ 丧尸/劫掠者/布鲁斯跨过你的柜子一样慢
+        //（双向对称，同掩体口径）。见 CampMain.Traversal.cs。
+        RebuildTraversalField();
+        Actor.Slowdowns = _traversal;
 
         _logicLayer.AddChild(_actorLayer);
     }
@@ -2652,6 +2713,11 @@ public sealed partial class CampMain : Node2D
         {
             Actor.Covers = null;
         }
+        // 家具减速场同为 static：不清就会把营地的椅子柜子带进下一个场景（探索关里凭空多出减速带）。
+        if (Actor.Slowdowns == _traversal)
+        {
+            Actor.Slowdowns = null;
+        }
     }
 
     /// <summary>
@@ -2750,6 +2816,10 @@ public sealed partial class CampMain : Node2D
     {
         _ambient.Color = _clock.CurrentAmbientColor();
         bool exploring = _currentLevel != null;
+
+        // [T15] 家具减速场跟住 _furniture 的增删（摆了张床/垒了垛沙袋/拆走一个柜子）。只在**件数变了**的帧重建，
+        // 空闲营地零开销。放这儿而不是逐个调用点加一行 —— 那样每个新增家具的作者都得记得来登记一次，迟早漏。
+        SyncTraversalField();
 
         // 战斗跨过了存档相位 ⇒ 存档欠着，打完这一仗立刻补上（见 CampMain.Save.cs）。
         TickPendingAutosave();
@@ -2871,6 +2941,10 @@ public sealed partial class CampMain : Node2D
     {
         switch (key)
         {
+            case Key.F1:
+                // 素材出处（CC BY 署名）。只读，不冻结时标——看一眼出处而已，没理由把世界按停。
+                _creditsPanel.Toggle();
+                break;
             case Key.F5:
                 ToggleSavePanel();   // 存档 / 读档面板（见 CampMain.Save.cs）
                 break;
@@ -2928,6 +3002,12 @@ public sealed partial class CampMain : Node2D
     /// </summary>
     private bool TryCloseTopModal()
     {
+        // 素材出处（F1）：只读一页，最先关掉——它不冻结时标，也不叠在任何东西之下。
+        if (_creditsPanel.IsOpen)
+        {
+            _creditsPanel.Close();
+            return true;
+        }
         // 阅读面板叠在库存之上：先关它，回到库存。
         if (_readerPanel.Visible)
         {
@@ -2947,6 +3027,12 @@ public sealed partial class CampMain : Node2D
         if (_medicalOpen)
         {
             CloseMedical();
+            return true;
+        }
+        // [批次21·T14] 烹饪面板：ESC 关掉（锅里配了一半的食材留着，下次打开还在——不白配一遍）。
+        if (_cookingOpen)
+        {
+            CloseCooking();
             return true;
         }
         // 探索发现叙事：等价于点「继续」，恢复被冻结的时标。
@@ -2992,6 +3078,23 @@ public sealed partial class CampMain : Node2D
                 return;
             }
         }
+
+        // 摆放床模式：左键落位、右键作罢（同沙袋；正文在 CampMain.Bedrest.cs）。
+        if (_placingBed)
+        {
+            if (mb is { ButtonIndex: MouseButton.Left, Pressed: true })
+            {
+                TryPlaceBed(Iso.Unproject(GetGlobalMousePosition()));
+                return;
+            }
+            if (mb is { ButtonIndex: MouseButton.Right, Pressed: true })
+            {
+                EndBedPlacement();
+                _campToast.Show("算了，床先搁着。", CampToast.Ok);
+                return;
+            }
+        }
+
 
         if (mb is { ButtonIndex: MouseButton.Left, Pressed: true })
         {
@@ -3077,8 +3180,31 @@ public sealed partial class CampMain : Node2D
             }
             return; // 命中容器但不满足前往条件：忽略（不把角色移到容器上）
         }
+
+        // [批次21·impl-medicine·T11] 右键点**自己人** = 医务下令（病人=被点的人，施术者=当前选中的人）。
+        // 这是用户要的"选中角色 → 给他用医疗物资"那条路，沿用既有的右键下令范式，不发明新交互。
+        // ⚠️ 排在容器判定**之后**：左键点选也是容器优先（FinishSelection），两边保持一致，
+        //   免得有人站在储物柜上时右键就打不开柜子了。
+        // ⚠️ 不按 IsControllable 过滤病人：**躺床上养病的、正在守夜的都得能被医**——那个闸门管的是"能否接受新指令"，
+        //   而病人在这里是被动方，不需要能接指令。施术者才要求 IsControllable（他得腾得出手）。
+        if (_navTested && !Input.IsKeyPressed(Key.Shift)
+            && _selectedPawn is { IsControllable: true } medic
+            && SurvivorAt(cart) is { } patient)
+        {
+            OpenMedicalFor(patient, medic);
+            return;
+        }
+
         IssueMove(cart); // 空地 → 地面移动令
     }
+
+    /// <summary>落点（cartesian）命中的**存活幸存者**（就近取一个）；没命中→null。医务下令的目标查询，
+    /// 判定半径与左键点选一致（<see cref="FinishSelection"/>）。布鲁斯（狗）不在此列——他没有伤病集。</summary>
+    private Pawn? SurvivorAt(Vector2 cart)
+        => _survivors
+            .Where(p => p.Alive && p.GlobalPosition.DistanceTo(cart) <= p.Radius + 8)
+            .OrderBy(p => p.GlobalPosition.DistanceTo(cart))
+            .FirstOrDefault();
 
     // ================= 玩家侧右键动作菜单（撬锁 / 静默拆除 / 破坏） =================
     // 用户拍板：「玩家也可以控制角色，右键点击敌营门时选择**撬锁/破坏**，点击围栏时**静默拆除/破坏**」。
@@ -3593,6 +3719,9 @@ public sealed partial class CampMain : Node2D
     {
         _pendingInteract = null; // 新的地面移动令：取消未完成的前往交互
         InterruptLootIf(_selectedPawn); // 走开即停手——"拿到第几件就跑"这个决策，就是在这一下右键里做出来的
+        // [批次21·impl-bedrest] "去那边站着"和"继续躺着养病"是矛盾的两件事 ⇒ 支使他走 = 他起床。
+        // 不叫醒的话，他会**人走了却还占着床、休养流水账还在给他记分**（见 BedrestLogic.WakesOnCommand）。
+        WakeIfBedrest(_selectedPawn, targetContainerRole: null);
         // 单选：仅当前主选角色接受移动指令（无选中则无操作）。
         _selectedPawn?.CommandMoveTo(cartPos);
     }
@@ -3701,6 +3830,11 @@ public sealed partial class CampMain : Node2D
         return c.Role switch
         {
             "workbench" => $"工作台 · 选中角色后右键前往{noSel}",
+            // 床：谁躺着/空着/该干什么（批次21·impl-bedrest）。
+            "bed" => BedHoverText(c, hasSelection),
+            "modbench" => $"改装台 · 武器改造只能在这儿做 · 选中角色后右键前往{noSel} · Shift+右键拆走",
+            // [批次21·T14] ⚠️ 这里**不写**"一份饭要多少热量"——那是玩家该自己试出来的（见 CookingLogic 类注）。
+            "cookstation" => $"烹饪台 · 做饭只能在这儿做 · 选中角色后右键前往{noSel} · Shift+右键拆走",
             // 沙袋：半身掩体。提示里把"紧贴才算"和"敌人也能用"说清楚——这 25% 若是隐形的，玩家会以为它没生效。
             "sandbag" => "沙袋 · 贴着它挨远程有 25% 无效（绕到你背后就白垒了，敌人也能蹲它后面）· Shift+右键拆走",
             "radio" => $"收音机 · 选中角色后右键前往{(RadioMainline.IsDecisionAvailable(_storyFlags) ? "抉择" : "收听")}{noSel}",
@@ -4219,11 +4353,18 @@ public sealed partial class CampMain : Node2D
 
         foreach (Pawn p in living)
         {
-            bool resting = p.Role != PawnRole.Guard; // 守卫整夜值岗=不休养；其余卧床休养
-            // 睡床 +10pp 加算：地铺 vs 床尚未在营地建模（睡眠点=住宅/仓库室内中心，无床位容量），暂将卧床休养一律视作睡床。
-            // 待确认：床位建模后应按该幸存者睡的是床/地铺区分（仅睡床者得加算）。
-            bool restedInBed = resting;
-            HealthTickResult r = p.AdvanceHealthDay(_healthRng, resting, restedInBed, infectionMult, healSpeedMult);
+            // [批次21·impl-bedrest] 休养/睡床由**整日一个布尔**换成**按相位累计的占比**（RestLedger，见 CampMain.Bedrest.cs）。
+            //
+            // 旧写法 `resting = p.Role != PawnRole.Guard` 有三处错：
+            //   ① 本方法在**黎明**跑，而 PawnRoleManager 在聚餐相位不重排角色 ⇒ 那个布尔读到的是**昨夜**的角色，
+            //      白天在营地睡的三个相位（出发/探索/返回）对它**零贡献** —— 这就是"白天睡觉吃不到治疗加成"的根因；
+            //   ② 床没建模，`restedInBed = resting` 是张空头支票；
+            //   ③ 出门探险的人和挑灯读书的人也被算作"卧床休养"。
+            // 现在三处都由流水账据实记账：每过一个相位记一笔（谁在睡、睡的是床还是地铺），黎明结账。
+            (double restFraction, double bedFraction) = RestArgsFor(p);
+            HealthTickResult r = p.AdvanceHealthDay(_healthRng, resting: false, restedInBed: false,
+                infectionMult, healSpeedMult, restFraction, bedFraction);
+            p.Rest.Reset(); // 结完账，开下一天的流水
 
             foreach (HealthTickEvent e in r.Events)
             {
@@ -4426,6 +4567,12 @@ public sealed partial class CampMain : Node2D
     private void OnGamePhaseChanged(DayPhase phase)
     {
         _pendingInteract = null; // 相位切换：取消未完成的前往交互
+        // [批次21·impl-bedrest] 给**刚过去的那个相位**记一笔休养账。**必须在这儿、必须在最前面**：
+        // 此刻 PawnRoleManager 还没重排角色（CampMain 先订阅 OnPhaseChanged），p.Role 仍是离场相位的角色。
+        // 白天留守者被日程强制 Sleeping 的那三个相位，就是从这里进的账 ⇒ 白天睡觉自此吃到治疗加成。
+        RecordRestForOutgoingPhase();
+        _restLedgerPhase = phase;
+
         UpdateFatigueTimers(phase); // 批次6：被唤醒者次相位疲劳 debuff 的施加/过期（每相位切换维护）
         // 尸体过三个相位烂没（用户拍板）：相位计数 +1 并清掉到期的战斗尸体，清理走 CorpseYard 的唯一回收出口
         // ⇒ 必经 Recycled → DeregisterCorpseContainer（可搜刮点 + 藏物登记一并注销，不泄漏）。
@@ -6640,6 +6787,17 @@ public sealed partial class CampMain : Node2D
     private void ExecuteContainerInteract(Pawn arriver, ContainerRef hit)
     {
         // 门：开着就关上、关着就推开、锁着就撬（开门只有一种动作——用户拍板不分轻推/踹开）。
+        // 床：躺下养病 / 再点一次自己的床=起来（批次21·impl-bedrest，正文在 CampMain.Bedrest.cs）。
+        if (hit.Role == "bed")
+        {
+            ExecuteBedInteract(arriver, hit);
+            return;
+        }
+
+        // [批次21·impl-bedrest] 被支使去干别的活（搜柜子/开门/搜尸体…）⇒ 起床。
+        // **床的分支在上面、已经 return 了** ⇒ "点自己那张床=起床"的 toggle 不会被这里叫醒后又躺回去。
+        WakeIfBedrest(arriver, hit.Role);
+
         if (hit.Role == "door")
         {
             if (DoorAt(hit.Rect.GetCenter()) is { } door)
@@ -6658,6 +6816,21 @@ public sealed partial class CampMain : Node2D
         if (hit.Role == "workbench")
         {
             OpenCrafting();
+            return;
+        }
+
+        // 改装台：同一张面板，直接落在【改装】页（工作台开的是【制作】页）。
+        // **改装只在这儿能做**——工作台的改装页会因"没有改装台"而整页灰掉（见 CraftingPanel）。
+        if (hit.Role == "modbench")
+        {
+            OpenCrafting(openModPage: true);
+            return;
+        }
+
+        // [批次21·T14] 烹饪台：饭**只在这儿**能做（同改装台之于改装）。它固定在厨房，玩家挪不动。
+        if (hit.Role == "cookstation")
+        {
+            OpenCooking();
             return;
         }
 
@@ -7433,7 +7606,12 @@ public sealed partial class CampMain : Node2D
             : target.EquipApparel(refKey);
         if (!ok)
         {
-            OpenStash($"{item.DisplayName} 无法装备（断肢禁槽/持握冲突/不适用）。");
+            // 正持光源时最常见的拒因就是「双手武器与手持光源互斥」(HeldLightState.BlocksWeaponEquip)——
+            // 若不点破，玩家只会看到"持握冲突"却不知道是火把的锅。仅在确实持光时才追加这句。
+            string why = target.HeldLight.IsActive
+                ? "断肢禁槽 / 持握冲突 / 不适用 —— 注意：他正手持光源，双手武器要占两只手，请先放下光源"
+                : "断肢禁槽 / 持握冲突 / 不适用";
+            OpenStash($"{item.DisplayName} 无法装备（{why}）。");
             return;
         }
 
@@ -7578,12 +7756,19 @@ public sealed partial class CampMain : Node2D
     /// <summary>打开/刷新角色检视面板：喂只读健康快照 + 装备态快照 + 卸下入口。
     /// [SPEC-B14-补8] 装假肢改为医务面板手术（不再即时装配），故此处**不再给角色面板装假肢入口**（onEquip=null，只显示缺肢/已装假肢态）。</summary>
     private void ShowInspect(Pawn p)
-        => _characterPanel.ShowFor(
-            p.Inspect(),
+    {
+        PawnInspection insp = p.Inspect();
+        _characterPanel.ShowFor(
+            insp,
             SnapshotEquipment(p),
             null, // 假肢安装走 MedicalPanel 手术（补8），角色面板不再即时装
             hand => UnequipWeaponToStash(p, hand),
-            slot => UnequipApparelToStash(p, slot));
+            slot => UnequipApparelToStash(p, slot),
+            // [批次21·impl-medicine·T11] 「医务」下令：选中角色 → 一键开医务面板、病人预选为他。
+            // 看见他伤成什么样的下一眼就是"去治他"，不必再按 M 回名单里找人。
+            onMedical: () => OpenMedicalFor(p, null),
+            needsMedical: MedicalOrderLogic.NeedsMedicalAttention(p.Health, insp.ProstheticSlots.Any(s => s.CanEquip)));
+    }
 
     /// <summary>由 live Pawn 的只读装备 API 拍一份纯数据装备快照（11 穿戴槽 + 左右手持械 + 握持态）。</summary>
     private static EquipmentSnapshot SnapshotEquipment(Pawn p)
@@ -7649,8 +7834,11 @@ public sealed partial class CampMain : Node2D
 
     // ---------------- 配方 / 制作（工作台接入） ----------------
 
-    /// <summary>打开（或刷新）工作台制作面板：首次打开冻结时标。制作者=当前可控幸存者；书门槛按制作者本人已读（<see cref="Pawn.HasReadBook"/>）。</summary>
-    private void OpenCrafting()
+    /// <summary>
+    /// 打开（或刷新）工作台制作面板：首次打开冻结时标。制作者=当前可控幸存者；书门槛按制作者本人已读（<see cref="Pawn.HasReadBook"/>）。
+    /// <paramref name="openModPage"/>=true 时直接落在【改装】页（点营地里的改装台走这条）。
+    /// </summary>
+    private void OpenCrafting(bool openModPage = false)
     {
         if (!_craftingOpen)
         {
@@ -7658,6 +7846,10 @@ public sealed partial class CampMain : Node2D
             _craftingOpen = true;
         }
         RefreshCrafting();
+        if (openModPage)
+        {
+            _craftingPanel.OpenModPage();
+        }
         _craftingPanel.Visible = true;
     }
 
@@ -7666,7 +7858,8 @@ public sealed partial class CampMain : Node2D
         => _craftingPanel.ShowFor(_workbench, ControllableCrafters(), _inventory,
             (pawn, id) => pawn.HasReadBook(id), // 书门槛按制作者本人已读（非营地全局）
             _craftingJob,                        // 工时制：本工作台在制任务（顶部进度横幅/占用中置灰）
-            DogGearGate);                        // 制作者门槛：狗装备需道格 + 羁绊≥2 级（灰显+双保险）
+            DogGearGate,                         // 制作者门槛：狗装备需道格 + 羁绊≥2 级（灰显+双保险）
+            HasModBench);                        // 改装门槛：没有改装台 ⇒ 改装页整页灰掉（用户拍板：改造只在改装台上做）
 
     /// <summary>当前可作制作者的幸存者（存活且空闲可控）。</summary>
     private List<Pawn> ControllableCrafters()
@@ -7680,6 +7873,18 @@ public sealed partial class CampMain : Node2D
     /// </summary>
     private string? DogGearGate(Pawn crafter, string gateKey)
     {
+        // 改装台「一台就够」：营地已有一台时灰掉配方——第二台案子毫无用处，别让玩家把料喂进去。
+        if (gateKey == RecipeBook.ModBenchAbsentGate)
+        {
+            return HasModBench ? "营地已经有一台改装台了" : null;
+        }
+
+        // [批次21·T14] 烹饪台「一座就够」：同理——厨房只有那么一个角，第二座灶毫无用处。
+        if (gateKey == CookStation.AbsentGate)
+        {
+            return HasCookStation ? "营地已经有一座烹饪台了" : null;
+        }
+
         if (gateKey != RecipeBook.DogGearCrafterGate)
             return "未知制作门槛";
         if (crafter != _doug)
@@ -7887,11 +8092,65 @@ public sealed partial class CampMain : Node2D
         AnnounceSalvage(name, done);
     }
 
+    // ================= 改装台：在工作台造出来 → **自动落在车间的固定锚点** =================
+    //
+    // 【用户拍板】"改装台、烹饪台**不允许跨越**，但是他们是营地内**固定位置**。改装台放在**车间**。"
+    // camp.json 本来没有车间（只有 住宅/仓库/**空牛棚**）⇒ 用户选定：**空牛棚改造成车间**。
+    // ⇒ 玩家**摆不了**它：配方完工的那一刻，它就立在车间里（锚点见 WeaponModLogic.BenchAnchorX/Y）。
+    //   故**没有**放置模式、没有摆放按钮、也不接 PlacementRules（那套是给可摆放家具的）。
+    //   但锚点本身是按禁建带口径挑的（距最近围栏/大门 326px ≫ 64px），论证见 WeaponModLogic。
+
+    /// <summary>改装台的固定锚点矩形（车间＝空牛棚内）。</summary>
+    private static Rect2 ModBenchAnchorRect => new(
+        WeaponModLogic.BenchAnchorX, WeaponModLogic.BenchAnchorY,
+        WeaponModLogic.BenchWidth, WeaponModLogic.BenchHeight);
+
+    /// <summary>
+    /// 配方「改装台」完工：直接在车间的固定锚点立起来（**不进库存**——它不是能揣兜里的东西）。
+    /// </summary>
+    private void CompleteModBenchBuild()
+    {
+        if (HasModBench)
+        {
+            return;   // 一台就够（配方本来就被 ModBenchAbsentGate 灰掉了，此为双保险）
+        }
+
+        SpawnModBench(ModBenchAnchorRect);
+        RebakeNavigation();   // 它实心、挖了导航洞、不可跨越 —— 寻路图得知道
+        _campToast.Show("改装台造好了，就摆在车间（原来的空牛棚）里。", CampToast.Ok);
+        GD.Print($"[改装台] 完工，落于车间锚点 {ModBenchAnchorRect.Position}");
+    }
+
+    /// <summary>
+    /// 在 <paramref name="rect"/> 立起改装台的实体（碰撞 + 视觉 + 导航洞 + 可拆登记 + 可点击容器）。
+    /// **实心**（与工作台/柜子同构，和沙袋相反——沙袋刻意不建碰撞、不挖洞）。
+    /// 供**完工建造**与**读档复原**共用（读档的导航重烘焙由 RestorePlacedFurniture 统一做）。
+    /// </summary>
+    private void SpawnModBench(Rect2 rect)
+    {
+        string key = WeaponModLogic.BenchFurnitureKey;
+        var style = new PixelStyle { color = new[] { 0.38, 0.36, 0.40 }, jitter = 0.12 };
+        var visuals = new List<Node2D>();
+
+        StaticBody2D body = AddSolid(rect, style, seed: 23, (float)_heights.prop, cell: 200f, visuals);
+        _furniture[key] = new FurnitureInstance { Rect = rect, Body = body, Visuals = visuals };
+
+        // 可点击：选中角色右键前往 → 打开【改装】页（见 ExecuteContainerInteract 的 "modbench" 分支）。
+        _containers.Add(new ContainerRef { Name = key, Rect = rect, Role = "modbench" });
+    }
+
     // ================= 沙袋：建造 → 自由摆放 → 拆走重摆 =================
 
-    /// <summary>库存面板点了沙袋的「摆放」：进入放置模式（左键落位、右键取消）。</summary>
+    /// <summary>库存面板点了「摆放」：进入放置模式（左键落位、右键取消）。**改装台不在此列**——它是固定位置，玩家摆不了。</summary>
     private void OnStashPlaceRequested(string key)
     {
+        // 床：非实心（人要走上去躺下），正文在 CampMain.Bedrest.cs。
+        if (key == BedSpec.ItemKey)
+        {
+            BeginBedPlacement();
+            return;
+        }
+
         if (key != SandbagSpec.ItemKey)
         {
             return;
@@ -8003,6 +8262,10 @@ public sealed partial class CampMain : Node2D
             return;
         }
         _furniture.Remove(furnitureName);
+
+        // [批次21·impl-bedrest] 拆的要是一张床：从床位册注销，**把躺在上面的人赶下来**（他改打地铺——
+        // 仍在休养，只是不再吃睡床加成）。不注销的话，床位册会留着一张已经不存在的床的占用记录。
+        RemoveBedIfAny(furnitureName);
 
         if (f.Body != null && IsInstanceValid(f.Body))
         {
@@ -8140,10 +8403,57 @@ public sealed partial class CampMain : Node2D
             return;
         }
 
+        // [批次21·T14] 烹饪分流：任务 id 带 "cook:" 前缀的不是配方，是"把一锅生料炖成 N 份饭"。
+        // 食材开工时已扣，这里只把份数加进营地食物。份数在下单那一刻就编进了 id ⇒ 中途卸锅也不缩水。
+        if (CookingLogic.PortionsOf(job.RecipeId) is { } cookedPortions)
+        {
+            CompleteCookJob(cookedPortions);
+            if (_craftingOpen) RefreshCrafting();
+            return;
+        }
+
+        // 改装分流：任务 id 带 "weaponmod:" 前缀的不是配方，是"把一把枪改成另一把枪"。
+        // 基础武器与材料开工时已扣，这里只合成变体 → 登记身份（不登记就装不上、存不住）→ 入库。
+        if (WeaponModLogic.TargetOf(job.RecipeId) is not null)
+        {
+            WeaponModResult mod = CraftingService.CompleteWeaponModJob(job.RecipeId, _inventory);
+            if (mod.Success)
+            {
+                string modName = mod.Produced?.DisplayName ?? "改装武器";
+                _campToast.Show($"改装完成：{modName}", CampToast.Ok);
+                GD.Print($"[改装] 完工 → {modName}");
+            }
+            else
+            {
+                // 走到这说明规则在开工后变了（改装被删了之类）。料已扣，只能如实报——不静默吞掉。
+                _campToast.Show($"改装失败：{mod.FailureReason}", CampToast.Bad);
+                GD.Print($"[改装] 完工失败：{mod.FailureReason}");
+            }
+            if (_craftingOpen) RefreshCrafting();
+            if (_stashOpen) OpenStash(null);
+            return;
+        }
+
         RecipeData? recipe = RecipeBook.Find(job.RecipeId);
         if (recipe is null)
         {
             GD.Print($"[制作] 完工但配方丢失：{job.RecipeId}");
+            if (_craftingOpen) RefreshCrafting();
+            return;
+        }
+
+        // 改装台分流：它**不进库存**（一张实心工作案不是能揣兜里的东西），完工即立在车间的固定锚点上。
+        if (recipe.Id == WeaponModLogic.BenchRecipeId)
+        {
+            CompleteModBenchBuild();
+            if (_craftingOpen) RefreshCrafting();
+            return;
+        }
+
+        // [批次21·T14] 烹饪台分流：同上——一座砌好的灶揣不进兜里，完工即砌在厨房的固定锚点上。
+        if (recipe.Id == CookStation.RecipeId)
+        {
+            CompleteCookStationBuild();
             if (_craftingOpen) RefreshCrafting();
             return;
         }
@@ -8189,20 +8499,40 @@ public sealed partial class CampMain : Node2D
         if (_stashOpen) OpenStash(null); // 库存面板开着 → 材料立刻上屏
     }
 
-    /// <summary>面板「改装」→ 走 <see cref="CraftingService.ApplyWeaponMod"/> 消耗基础武器落地变体入库。成功/失败均提示 + 刷新。</summary>
+    /// <summary>
+    /// 面板「改装」→ 下一单改装（<see cref="CraftingService.StartWeaponModJob"/>）：过门槛（改装台/材料/合成合法性）→
+    /// **开工即扣**（拿走基础武器 + 扣材料）→ 存为在制任务，由夜间生产相位推进工时，满了在
+    /// <see cref="CompleteActiveCraftingJob"/> 里出货。改装**不再是点一下白送**。
+    /// <para>
+    /// 与制作/拆解**共用同一条在制队列**（一座营地一次只干一件活）——沿用拆解与制作互斥的既有语义。
+    /// </para>
+    /// </summary>
     private void OnModApplyRequested(string baseWeaponRefKey, IReadOnlyList<string> modNames, Pawn crafter)
     {
-        WeaponModResult result = CraftingService.ApplyWeaponMod(baseWeaponRefKey, modNames, _inventory);
-        if (!result.Success)
+        // 单任务队列：手头有活就不接新单（面板已置灰，此为双保险）。
+        if (_craftingJob is not null)
         {
-            _campToast.Show($"改装失败：{result.FailureReason}", CampToast.Bad);
+            _campToast.Show("工作台占用中：等手头那件完工了再改枪。", CampToast.Bad);
+            return;
+        }
+
+        WeaponModStartResult start = CraftingService.StartWeaponModJob(
+            baseWeaponRefKey, modNames, _inventory, HasModBench);
+
+        if (!start.Success)
+        {
+            _campToast.Show($"改装失败：{start.FailureText}", CampToast.Bad);
             RefreshCrafting();
             return;
         }
 
-        string name = result.Produced?.DisplayName ?? "改装武器";
-        _campToast.Show($"{crafter.DisplayName} 改装出 {name}", CampToast.Ok);
-        GD.Print($"[改装] {baseWeaponRefKey} → {name}");
+        _craftingJob = start.Job;
+        _craftingJobWorker = crafter;
+
+        _campToast.Show(
+            $"{crafter.DisplayName} 开始改装 {baseWeaponRefKey}（{start.Job!.TotalWorkMinutes} 分钟）",
+            CampToast.Ok);
+        GD.Print($"[改装] 下单 {baseWeaponRefKey} + {string.Join("・", modNames)}（{start.Job.TotalWorkMinutes} 分）");
         RefreshCrafting();
     }
 
@@ -8221,15 +8551,64 @@ public sealed partial class CampMain : Node2D
         _medicalPanel.Visible = true;
     }
 
-    /// <summary>重刷医疗面板数据（手术/用药后调，反映扣掉的耗材与更新后的伤病集）。病人候选=存活幸存者。</summary>
-    private void RefreshMedical()
-        => _medicalPanel.ShowFor(_survivors.Where(p => p.Alive).ToList(), _inventory);
+    // [批次21·impl-medicine] 「给谁用什么」的下令上下文：由角色侧入口（右键点伤员 / 角色面板「医务」）指定，
+    // 覆盖 RefreshMedical 默认的"病人=当前选中者"。关面板即清——一次下令只管这一次。
+    private Pawn? _medicalPatient;  // 本次下令要治的人（null=回落到 _selectedPawn）
+    private Pawn? _medicalMedic;    // 本次下令派去动手的人（null=面板按默认挑一个非病人）
 
-    /// <summary>关医疗面板：恢复时标、清瞬时提示。</summary>
+    /// <summary>
+    /// [批次21·impl-medicine·T11] **角色侧医务下令**：「让 <paramref name="medic"/> 去治 <paramref name="patient"/>」——
+    /// 开医务面板并把病人/施术者**预选好**，玩家进去就能直接给他用药/做手术/指派感染疗程，不必在两个下拉里再找一遍人。
+    /// <para>
+    /// 两个入口都走这里（不发明新交互，沿用既有的右键下令 + 右侧角色面板两条老路）：
+    ///   · 右键点场上的自己人（<see cref="HandleRightClick"/>）：病人=被点的人，施术者=当前选中的人；
+    ///   · 角色面板的「医务」按钮（<see cref="ShowInspect"/>）：病人=面板里这个人，施术者交给面板挑。
+    /// </para>
+    /// 没伤没病也没缺肢的人**不开面板**，只回一句"他好得很"——空面板不是信息（判定走
+    /// <see cref="MedicalOrderLogic.NeedsMedicalAttention"/>，与库存无关：没药也要让玩家看见他伤成什么样）。
+    /// </summary>
+    private void OpenMedicalFor(Pawn patient, Pawn? medic)
+    {
+        if (_gameOver || !patient.Alive)
+            return;
+
+        if (!MedicalOrderLogic.NeedsMedicalAttention(patient.Health, patient.Inspect().ProstheticSlots.Any(s => s.CanEquip)))
+        {
+            _campToast.Show($"{patient.DisplayName} 没伤没病，用不着医务。", CampToast.Ok);
+            return;
+        }
+
+        _medicalPatient = patient;
+        _medicalMedic = ReferenceEquals(medic, patient) ? null : medic; // 点自己 ⇒ 施术者交给面板挑别人（自体手术池要打 0.6 折）
+        OpenMedical();
+    }
+
+    /// <summary>
+    /// 重刷医疗面板数据（手术/用药后调，反映扣掉的耗材与更新后的伤病集）。病人候选=存活幸存者。
+    /// <para>
+    /// [批次21·impl-bedrest] 两处补强：
+    ///   · <c>hasBed</c> = 真实床位实况 ⇒「床上」不再是玩家随手勾的空头支票，得先让他走过去躺下（右键点床）；
+    ///   · <c>focus</c> = **当前选中的角色** ⇒ 这就是"选中角色 → 给他吃药/用医疗物资"那条路：选好人再按 M，
+    ///     面板直接翻到他那一页，而不是回到名单第一个再让玩家自己找。
+    /// </para>
+    /// </summary>
+    private void RefreshMedical()
+        => _medicalPanel.ShowFor(
+            _survivors.Where(p => p.Alive).ToList(), _inventory,
+            hasBed: p => _beds.HasBed(p.Id),
+            // [批次21·impl-medicine] 角色侧下令（右键点伤员 / 角色面板「医务」）指定的病人与施术者优先；
+            // 没有下令上下文时回落到 impl-bedrest 的老口径：病人=当前选中者（选好人再按 M，面板直接翻到他）。
+            focus: _medicalPatient ?? _selectedPawn,
+            medic: _medicalMedic);
+
+    /// <summary>关医疗面板：恢复时标、清瞬时提示、清掉本次下令的病人/施术者上下文（一次下令只管这一次）。</summary>
     private void CloseMedical()
     {
         _medicalPanel.Visible = false;
         _medicalOpen = false;
+        _medicalPatient = null;
+        _medicalMedic = null;
+        _medicalPanel.ResetPreselect(); // 关一次面板 = 一次下令结束：下回右键点谁，面板就该翻到谁
         _campToast.Hide();
         RestorePanelTimeState(_prevMedicalSpeed, _prevMedicalPaused);
     }
@@ -8252,7 +8631,7 @@ public sealed partial class CampMain : Node2D
         int basePoints = NightingalePerk.SurgeryBasePoints(surgeonIsNightingale, l3Legacy);
 
         SurgeryResult result = patient.Health.PerformSurgery(
-            condition, materials, onBed, _healthRng,
+            condition, materials, RealOnBed(patient), _healthRng,
             surgeonBookBonus: bookBonus, selfSurgery: self, operationCapability: capability,
             surgeryBasePoints: basePoints);
 
@@ -8294,7 +8673,7 @@ public sealed partial class CampMain : Node2D
         int basePoints = NightingalePerk.SurgeryBasePoints(surgeon.Perks.IsNightingale, _storyFlags.Has(NurseRecruit.L3LegacyFlag));
 
         SurgeryResult result = patient.AmputateInfectedLimb(
-            infection, materials, onBed, _healthRng,
+            infection, materials, RealOnBed(patient), _healthRng,
             surgeonBookBonus: bookBonus, selfSurgery: self, operationCapability: capability, surgeryBasePoints: basePoints);
 
         // 南丁格尔升级轴：真正施术（成功/失败）计一台。
@@ -8335,7 +8714,7 @@ public sealed partial class CampMain : Node2D
         int basePoints = NightingalePerk.SurgeryBasePoints(surgeon.Perks.IsNightingale, _storyFlags.Has(NurseRecruit.L3LegacyFlag));
 
         SurgeryResult result = patient.InstallProstheticSurgery(
-            region, grade, materials, onBed, _healthRng,
+            region, grade, materials, RealOnBed(patient), _healthRng,
             surgeonBookBonus: bookBonus, selfSurgery: self, operationCapability: capability, surgeryBasePoints: basePoints);
 
         if (surgeon.Perks.IsNightingale
