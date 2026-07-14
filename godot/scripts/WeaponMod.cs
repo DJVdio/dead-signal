@@ -126,8 +126,23 @@ public sealed class WeaponMod
 
     public string Name { get; init; } = "";
 
-    /// <summary>适用大类（不匹配 → 合成时拒绝）。</summary>
-    public WeaponClass RequiredClass { get; init; }
+    /// <summary>
+    /// **能装在哪几把武器上**（武器名白名单；不在其中 → 合成时拒绝）。
+    ///
+    /// <para><b>🔴 从「武器大类」换成「逐把枪的白名单」是用户拍板的</b>：按大类卡，
+    /// 没法表达"这个改装只能装步枪和霰弹枪"。白名单把约束的粒度落到**具体武器**上，
+    /// 用户就能在数值表 wiki 上逐把勾。</para>
+    ///
+    /// <para><b>⚠️ 换过来时行为是零变化的</b>：每条改装的白名单 = 它原本那个大类的**全部**武器
+    /// （<c>WeaponModCatalog.LegacyClassOf</c> + <c>AllOfClass</c>，有测试逐把钉死）。
+    /// 必须零变化，因为老存档里的改装枪靠 <c>ModdedWeaponRegistry.Rebuild</c> 用**当前**规则重算——
+    /// 规则一收严，老组合就变非法，那把枪会**静默失效**。收窄留给用户自己在 wiki 上做。</para>
+    ///
+    /// <para><b>⚠️ 顺带暴露了一个潜伏的 bug</b>：<c>WeaponMods.ClassOf</c> 是 <c>IsRanged ? Firearm : …</c>
+    /// ⇒ **弓弩也被算作"枪械"** ⇒ 现在真的能把「截短枪管」装到短弓上。迁移**如实保留**了这个行为
+    /// （否则老档要坏），但白名单给了用户一个亲手划掉它的入口。</para>
+    /// </summary>
+    public IReadOnlySet<string> FitsWeapons { get; init; } = new HashSet<string>();
 
     /// <summary>占用部位（同部位已被占 → 合成时拒绝）。</summary>
     public WeaponPart Part { get; init; }
@@ -239,10 +254,10 @@ public static class WeaponMods
 
         foreach (var mod in list)
         {
-            if (mod.RequiredClass != cls)
+            if (!mod.FitsWeapons.Contains(baseWeapon.Name))
             {
                 throw new WeaponModException(
-                    $"改装「{mod.Name}」不适用于{ClassLabel(cls)}「{baseWeapon.Name}」（需{ClassLabel(mod.RequiredClass)}）");
+                    $"改装「{mod.Name}」装不到「{baseWeapon.Name}」上（它只能装：{string.Join("、", mod.FitsWeapons)}）");
             }
 
             if (!usedParts.Add(mod.Part))

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using DeadSignal.Combat;
 
 namespace DeadSignal.Godot;
@@ -21,6 +22,49 @@ namespace DeadSignal.Godot;
 /// </summary>
 public static class WeaponModCatalog
 {
+    // ═══════════════════════════════════════════════════════════════════════════
+    // 装配约束：**逐把武器的白名单**（用户拍板，取代原来的「武器大类」）
+    //
+    // 🔴 从大类换成白名单时**行为零变化**：每条改装的白名单 = 它原本那个大类的**全部**武器。
+    //    必须零变化 —— 老存档里的改装枪靠 ModdedWeaponRegistry.Rebuild 用**当前**规则重算，
+    //    规则一收严，老组合就变非法、那把枪**静默失效**。收窄是用户的活，不是迁移的活。
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// <summary>全部可被改装的武器（常规 + 弓弩；天生武器不算，它们不是能拿起来的东西）。</summary>
+    public static IReadOnlyList<Weapon> AllModdableWeapons()
+        => WeaponTable.Arsenal()
+            .Concat(WeaponTable.ArcheryArsenal())
+            .GroupBy(w => w.Name)
+            .Select(g => g.First())
+            .ToList();
+
+    /// <summary>
+    /// 某个武器大类下的全部武器名 —— **迁移用**：把旧的「大类约束」展开成等价的白名单。
+    /// <para>⚠️ <c>WeaponMods.ClassOf</c> 把**弓弩也算作 Firearm**（<c>IsRanged</c> 为真即可），
+    /// 所以「枪械」这一类展开出来是**会带上 8 把弓弩的**。这不是笔误，这是引擎的现行行为
+    /// （现在真能把截短枪管装到短弓上）。如实展开，才叫零变化。</para>
+    /// </summary>
+    public static IReadOnlySet<string> AllOfClass(WeaponClass cls)
+        => AllModdableWeapons()
+            .Where(w => WeaponMods.ClassOf(w) == cls)
+            .Select(w => w.Name)
+            .ToHashSet();
+
+    /// <summary>
+    /// 这条改装**迁移前**属于哪个大类 —— 只给迁移护栏测试用（钉死"新白名单 ≡ 旧大类"）。
+    /// 业务代码一律走 <see cref="WeaponMod.FitsWeapons"/>，不要再按大类判定。
+    /// </summary>
+    public static WeaponClass LegacyClassOf(WeaponMod mod)
+    {
+        // ⚠️ 不能按 WeaponPart 推 —— 「防滑缠手」有刃类和钝类**两条**，都占 WeaponPart.Grip。
+        //    改按 For(WeaponClass) 那三组**硬编码分组**判：那就是迁移前真实的大类归属。
+        foreach (WeaponClass cls in new[] { WeaponClass.Firearm, WeaponClass.Blade, WeaponClass.Blunt })
+        {
+            if (For(cls).Any(m => m.Id == mod.Id)) return cls;
+        }
+        return WeaponClass.Blunt;
+    }
+
     private static IReadOnlyDictionary<string, int> Cost(params (string Key, int Qty)[] items)
     {
         var d = new Dictionary<string, int>();
@@ -38,7 +82,7 @@ public static class WeaponModCatalog
     {
         Id = "lightened_stock",
         Name = "轻质化枪托",
-        RequiredClass = WeaponClass.Firearm,
+        FitsWeapons = AllOfClass(WeaponClass.Firearm),
         Part = WeaponPart.Stock,
         Note = "全枪减重：射速↑，单发伤害略↓。draft",
         MaterialCosts = Cost(("wood", 1), ("scrap_metal", 1)),
@@ -56,7 +100,7 @@ public static class WeaponModCatalog
     {
         Id = "sawn_off_barrel",
         Name = "截短枪管",
-        RequiredClass = WeaponClass.Firearm,
+        FitsWeapons = AllOfClass(WeaponClass.Firearm),
         Part = WeaponPart.Barrel,
         Note = "短管：射程↓、精度↓、贴脸出手略快。draft",
         MaterialCosts = Cost(("scrap_metal", 1)),
@@ -75,7 +119,7 @@ public static class WeaponModCatalog
     {
         Id = "extended_barrel",
         Name = "加长枪管",
-        RequiredClass = WeaponClass.Firearm,
+        FitsWeapons = AllOfClass(WeaponClass.Firearm),
         Part = WeaponPart.Barrel,
         Note = "长管：射程↑、精度↑、出手略慢。draft",
         MaterialCosts = Cost(("metal_ingot", 1), ("scrap_metal", 1)),
@@ -101,7 +145,7 @@ public static class WeaponModCatalog
     {
         Id = "bayonet",
         Name = "刺刀型",
-        RequiredClass = WeaponClass.Firearm,
+        FitsWeapons = AllOfClass(WeaponClass.Firearm),
         Part = WeaponPart.Muzzle,
         Form = MeleeForm.Bayonet,
         Note = "枪口挂刺刀：贴脸变锐击突刺，穿透 20%（全型态最高）、出手最快最安静，单击伤害不及利爪。draft",
@@ -124,7 +168,7 @@ public static class WeaponModCatalog
     {
         Id = "claw_stock",
         Name = "利爪型",
-        RequiredClass = WeaponClass.Firearm,
+        FitsWeapons = AllOfClass(WeaponClass.Firearm),
         Part = WeaponPart.Stock,
         Form = MeleeForm.Claw,
         Note = "枪托绑利刃：贴脸变锐击挥砍，伤害最高、穿透中等（10%）、节奏不变。draft",
@@ -147,7 +191,7 @@ public static class WeaponModCatalog
     {
         Id = "trauma_stock",
         Name = "创伤型",
-        RequiredClass = WeaponClass.Firearm,
+        FitsWeapons = AllOfClass(WeaponClass.Firearm),
         Part = WeaponPart.Stock,
         Form = MeleeForm.Trauma,
         Note = "枪托改铁锤：贴脸钝击最重、更慢更响；持握变差 → 射击精度↓（唯一有射击代价的型态）。draft",
@@ -171,7 +215,7 @@ public static class WeaponModCatalog
     {
         Id = "serrated_blade",
         Name = "锯齿剑刃",
-        RequiredClass = WeaponClass.Blade,
+        FitsWeapons = AllOfClass(WeaponClass.Blade),
         Part = WeaponPart.Blade,
         Note = "锯齿：撕裂伤↑（流血倾向暂借伤害上限表达）。draft",
         MaterialCosts = Cost(("scrap_metal", 2)),
@@ -187,7 +231,7 @@ public static class WeaponModCatalog
     {
         Id = "honed_edge",
         Name = "锋刃研磨",
-        RequiredClass = WeaponClass.Blade,
+        FitsWeapons = AllOfClass(WeaponClass.Blade),
         Part = WeaponPart.Blade,
         Note = "开刃：穿透↑。draft",
         MaterialCosts = Cost(("stone", 2)),
@@ -203,7 +247,7 @@ public static class WeaponModCatalog
     {
         Id = "fuller_blade",
         Name = "镂空剑刃",
-        RequiredClass = WeaponClass.Blade,
+        FitsWeapons = AllOfClass(WeaponClass.Blade),
         Part = WeaponPart.Blade,
         Note = "镂空减重：攻速↑、伤略↓。draft",
         MaterialCosts = Cost(("scrap_metal", 1)),
@@ -220,7 +264,7 @@ public static class WeaponModCatalog
     {
         Id = "weighted_handle",
         Name = "加重剑柄",
-        RequiredClass = WeaponClass.Blade,
+        FitsWeapons = AllOfClass(WeaponClass.Blade),
         Part = WeaponPart.Handle,
         Note = "配重柄：伤↑、攻速↓。draft",
         MaterialCosts = Cost(("scrap_metal", 2), ("nails", 2)),
@@ -238,7 +282,7 @@ public static class WeaponModCatalog
     {
         Id = "lightened_handle",
         Name = "轻质化剑柄",
-        RequiredClass = WeaponClass.Blade,
+        FitsWeapons = AllOfClass(WeaponClass.Blade),
         Part = WeaponPart.Handle,
         Note = "减重柄：攻速↑、伤略↓。draft",
         MaterialCosts = Cost(("wood", 1), ("leather", 1)),
@@ -255,7 +299,7 @@ public static class WeaponModCatalog
     {
         Id = "grip_wrap_blade",
         Name = "防滑缠手",
-        RequiredClass = WeaponClass.Blade,
+        FitsWeapons = AllOfClass(WeaponClass.Blade),
         Part = WeaponPart.Grip,
         Note = "缠手防滑：出手更利落（攻速↑）。近战必中，命中项无引擎字段。draft",
         MaterialCosts = Cost(("cloth", 2), ("rope", 1)),
@@ -273,7 +317,7 @@ public static class WeaponModCatalog
     {
         Id = "wire_wrap",
         Name = "铁丝强化",
-        RequiredClass = WeaponClass.Blunt,
+        FitsWeapons = AllOfClass(WeaponClass.Blunt),
         Part = WeaponPart.Shaft,
         Note = "缠铁丝：伤↑。draft",
         MaterialCosts = Cost(("wire", 2)),
@@ -290,7 +334,7 @@ public static class WeaponModCatalog
     {
         Id = "nail_studs",
         Name = "钉子强化",
-        RequiredClass = WeaponClass.Blunt,
+        FitsWeapons = AllOfClass(WeaponClass.Blunt),
         Part = WeaponPart.Shaft,
         Note = "钉刺：伤↑、穿透↑（钉尖破防）。draft",
         MaterialCosts = Cost(("nails", 4)),
@@ -307,7 +351,7 @@ public static class WeaponModCatalog
     {
         Id = "grip_wrap_blunt",
         Name = "防滑缠手",
-        RequiredClass = WeaponClass.Blunt,
+        FitsWeapons = AllOfClass(WeaponClass.Blunt),
         Part = WeaponPart.Grip,
         Note = "缠手防滑：抡起更利落（攻速↑）。draft",
         MaterialCosts = Cost(("cloth", 2), ("rope", 1)),
@@ -336,8 +380,16 @@ public static class WeaponModCatalog
         _ => System.Array.Empty<WeaponMod>(),
     };
 
-    /// <summary>某具体武器可用的全部改装（按其大类派生）。</summary>
-    public static IReadOnlyList<WeaponMod> For(Weapon weapon) => For(WeaponMods.ClassOf(weapon));
+    /// <summary>
+    /// 某**具体武器**可用的全部改装 —— **按白名单查，不再按大类派生**。
+    /// <para>这是装配约束的唯一查询入口：<c>CraftingService</c>（能不能做）与
+    /// <c>ModdedWeaponRegistry.Rebuild</c>（老存档能不能还原）都走它。
+    /// 用户在 wiki 上把某把枪从某条改装的白名单里划掉，这里立刻就不再列出它。</para>
+    /// </summary>
+    public static IReadOnlyList<WeaponMod> For(Weapon weapon)
+        => weapon is null
+            ? System.Array.Empty<WeaponMod>()
+            : All().Where(m => m.FitsWeapons.Contains(weapon.Name)).ToList();
 
     /// <summary>全部改装（含跨类同名"防滑缠手"两条）。</summary>
     public static IReadOnlyList<WeaponMod> All()

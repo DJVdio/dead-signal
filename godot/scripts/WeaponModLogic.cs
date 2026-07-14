@@ -87,7 +87,13 @@ public static class WeaponModLogic
     /// 那是沙袋才有的豁免（沙袋恒不挡路）；改装台真挡路，不该豁免。
     /// </para>
     /// </summary>
-    public static PlaceableSpec BenchSpec => new(BenchFurnitureKey, BenchWidth, BenchHeight, IsSolid: true);
+    /// <remarks>
+    /// [T27] <c>AllowedOutdoors: true</c>：本 spec 的<b>唯一用途是设计期自检</b>（固定锚点，玩家摆不了），
+    /// 而「家具不能放到室外」那条是<b>约束玩家放置</b>的。authored 的固定作业台由设计者放在哪儿就在哪儿
+    /// （<b>工作台本身就立在院子里</b>），不该被这条规则回头卡住自己。禁建带那条它照守不误。
+    /// </remarks>
+    public static PlaceableSpec BenchSpec =>
+        new(BenchFurnitureKey, BenchWidth, BenchHeight, IsSolid: true, AllowedOutdoors: true);
 
     /// <summary>改装任务的 jobId 前缀（复用 <see cref="CraftingJob"/> 承载工时；同拆解的 "salvage:"）。</summary>
     public const string JobIdPrefix = "weaponmod:";

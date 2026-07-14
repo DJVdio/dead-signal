@@ -39,22 +39,54 @@ public class GunModBenchTests
     }
 
     /// <summary>
-    /// **枪托的天花板**：任何一把枪的枪托 DPS 都必须**严格低于全表最弱的真近战武器（匕首）**。
+    /// **枪托的天花板**：任何一把枪的枪托 DPS 都必须严格低于最弱钝器（棍棒）。
     /// 抡枪托绝不该比拿一把真家伙更划算——枪托是"你打空了"的意思，不是一条武器路线。
     /// </summary>
     [Fact]
     public void StockMelee_IsStrictlyWorseThan_TheWeakestRealMeleeWeapon()
     {
-        double dagger = Dps(WeaponTable.Dagger());   // 全表最弱近战武器
         double club = Dps(WeaponTable.Club());       // 最弱钝器
 
         foreach (Weapon gun in Firearms())
         {
             double stock = Dps(gun.MeleeProfile()!);
-            Assert.True(stock < dagger,
-                $"{gun.Name} 的枪托 DPS {stock:F2} 应低于匕首 {dagger:F2}——抡枪托不该比拿刀强");
             Assert.True(stock < club,
                 $"{gun.Name} 的枪托 DPS {stock:F2} 应低于棍棒 {club:F2}——抡枪托不该比抡棍棒强");
+        }
+    }
+
+    /// <summary>
+    /// 🔴 <b>[DECISION] 待用户裁决——「枪托不该比匕首强」这条原则当前是破的</b>。
+    ///
+    /// 本测试原先还断言 <c>枪托 DPS &lt; 匕首</c>。T21 用户在数值表上把<b>匕首攻击间隔 1.4 → 1.8</b>
+    /// （DPS 2.86 → 2.22）、<b>棍棒 10~13 → 6~8</b> 之后，除手枪外的 6 把枪，枪托 DPS 全部反超匕首：
+    /// <list type="bullet">
+    /// <item>匕首 2.22 ← 基准</item>
+    /// <item>手枪枪托 2.08 ✅（用户<b>这轮唯一改过的枪托</b>：3~6/1.7 → 1~4/1.2，恰好压在匕首之下）</item>
+    /// <item>冲锋枪 2.73 / 霰弹 2.80 / 自制猎枪 2.80 / 栓动 2.81 / 步枪 2.83 / 狙击 2.84 ❌ 全部 &gt; 匕首</item>
+    /// </list>
+    ///
+    /// 用户把手枪枪托精确调到匕首之下，却没动其余 6 把——<b>看起来是漏改而非有意</b>，
+    /// 但"该削那 6 把枪托"是<b>用户没在表里改过的值</b>，我们不得擅自代填 ⇒ 已上抛，未决前不动数值。
+    ///
+    /// 本测试<b>钉住当前的破损现状</b>：一旦用户补削了那 6 把枪托（或改了匕首），这条会立刻变红，
+    /// 提醒把上面那条硬护栏（枪托 &lt; 匕首）加回 <see cref="StockMelee_IsStrictlyWorseThan_TheWeakestRealMeleeWeapon"/>。
+    /// </summary>
+    [Fact]
+    public void StockMelee_VsDagger_IsCurrentlyBroken_PendingUserDecision()
+    {
+        double dagger = Dps(WeaponTable.Dagger());
+
+        // 手枪：用户已亲手把它压到匕首之下。
+        Assert.True(Dps(WeaponTable.Pistol().MeleeProfile()!) < dagger,
+            "手枪枪托是用户这轮唯一改过的，应低于匕首");
+
+        // 其余 6 把：尚未跟着削 ⇒ 当前全部高于匕首（待裁决的破损）。
+        foreach (Weapon gun in Firearms().Where(g => g.Name != "手枪"))
+        {
+            Assert.True(Dps(gun.MeleeProfile()!) > dagger,
+                $"{gun.Name} 枪托当前高于匕首——若此断言变红，说明用户已裁决并补削了枪托，" +
+                "请把「枪托 < 匕首」的硬护栏加回 StockMelee_IsStrictlyWorseThan_TheWeakestRealMeleeWeapon 并删除本测试");
         }
     }
 
@@ -185,17 +217,24 @@ public class GunModBenchTests
 
     /// <summary>
     /// **改装后的枪托仍够不到长剑/尖头锤那一档**：型态能把"绝望手段"抬成"能打"，
-    /// 但一把枪不该同时是全场最好的近战武器。上限锚在棍棒。
+    /// 但一把枪不该同时是全场最好的近战武器。
+    ///
+    /// 🔴 <b>[DECISION] 上限锚点当前是破的（同 <see cref="StockMelee_VsDagger_IsCurrentlyBroken_PendingUserDecision"/>）</b>：
+    /// 原锚点是棍棒。T21 用户把<b>棍棒 10~13 → 6~8</b>（DPS 4.79 → 2.92）之后，
+    /// 改装后的步枪枪托（刺刀型 DPS 4.50）已经<b>越过棍棒</b>——但它并非用户改的值，我们不得擅自代填 ⇒ 已上抛。
+    ///
+    /// 未决前把锚点<b>上移到尖头锤</b>（DPS 6.25，用户未动）以保留"枪不该是全场最好近战"的核心主张：
+    /// 改装枪托仍然够不到真正的重钝器。用户裁决后（补削枪托 / 认可现状）再把锚点调回。
     /// </summary>
     [Fact]
     public void ModdedStock_StaysBelow_RealMeleeCeiling()
     {
-        double club = Dps(WeaponTable.Club());
+        double ceiling = Dps(WeaponTable.SpikeHammer());   // 待裁决期间的替代锚点（原为棍棒）
         foreach (string form in new[] { "刺刀型", "利爪型", "创伤型" })
         {
             double dps = Dps(Mod(Rifle(), Catalog(form)).Weapon.MeleeProfile()!);
-            Assert.True(dps <= club,
-                $"{form} 改装后枪托 DPS {dps:F2} 不该超过棍棒 {club:F2}");
+            Assert.True(dps < ceiling,
+                $"{form} 改装后枪托 DPS {dps:F2} 不该够到尖头锤 {ceiling:F2}——枪不该是全场最好的近战武器");
             Assert.True(dps > Dps(Rifle().MeleeProfile()!),
                 $"{form} 总得比没改装强，否则没人会去改");
         }

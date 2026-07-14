@@ -162,7 +162,11 @@ public sealed class WeaponModTests
         var baseSword = WeaponTable.Shortsword();
         var ex = Assert.Throws<WeaponModException>(() =>
             WeaponMods.ApplyMods(baseSword, new[] { WeaponModCatalog.SawnOffBarrel() }));
-        Assert.Contains("不适用", ex.Message);
+        // [SPEC-B21] 报错文案随白名单改了口径：不再说"需某某大类"（用户根本不关心大类），
+        // 而是直接告诉你**它到底能装哪几把**——这才是他下一步要用的信息。
+        Assert.Contains("装不到", ex.Message);
+        Assert.Contains(baseSword.Name, ex.Message);
+        Assert.Contains("它只能装", ex.Message);
     }
 
     [Fact]
@@ -266,10 +270,11 @@ public sealed class WeaponModTests
     [Fact]
     public void Catalog_For_ReturnsClassAppropriateMods()
     {
+        // [SPEC-B21] 装配约束已从「大类」换成「逐把枪的白名单」：断言改为"步枪在白名单里"
         Assert.All(WeaponModCatalog.For(WeaponTable.Rifle()),
-            m => Assert.Equal(WeaponClass.Firearm, m.RequiredClass));
+            m => Assert.Contains(WeaponTable.Rifle().Name, m.FitsWeapons));
         Assert.All(WeaponModCatalog.For(WeaponTable.Club()),
-            m => Assert.Equal(WeaponClass.Blunt, m.RequiredClass));
+            m => Assert.Contains(WeaponTable.Club().Name, m.FitsWeapons));
         Assert.NotEmpty(WeaponModCatalog.All());
     }
 }
