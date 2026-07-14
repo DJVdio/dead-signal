@@ -464,6 +464,19 @@ public static class ExplorationCache
     public const string WayOfBowAndArrowBookId = "way_of_bow_and_arrow";
 
     /// <summary>
+    /// [批次21·T26] 《机械之美》书 id（**加油站·修车棚·零件货架，全局唯一一本**），须与 <c>BookLibrary.MechanicalBeautyId</c> 一致。
+    /// <para>
+    /// <b>两把可制作弩（单手轻弩/双手重弩）的唯一门槛</b> —— 它们搜刮不到、只能造 ⇒ <b>找不到这本书就没有弩</b>
+    /// （破甲之王「复合弩」不受影响：它在金手指帮军械柜里，不可制作、只能搜）。
+    /// </para>
+    /// <para>
+    /// <b>放修车棚是按语义挑的</b>：一本讲机括与传动的书，本来就该躺在机修工的零件货架上，而不是超市货架或药店抽屉。
+    /// 投放点<b>拟定待调</b>（用户可在 wiki 上改）。
+    /// </para>
+    /// </summary>
+    public const string MechanicalBeautyBookId = "mechanical_beauty";
+
+    /// <summary>
     /// 某目的地铺出的搜刮点 id 清单（近入口在前、藏深在后；TestExploration 按此序铺 Area2D）。
     /// 非搜刮点目的地返回空清单（行为不变）。
     /// </summary>
@@ -816,6 +829,10 @@ public static class ExplorationCache
                     LootItem.Material("nails", 3),
                     LootItem.Material("wood", 3),
                     LootItem.Material("rope", 1),
+                    // [批次21·T26] 武器零件 2：农机维修柜里的淬火簧与销子——**联合收割机也是一台机器**，
+                    // 修它的人手边就有这些。这是**最早能拿到武器零件的点**（前中期），但书还在加油站
+                    // ⇒ 先攒着，等找到《机械之美》再动手。数量拟定待调。
+                    LootItem.Material(Materials.WeaponPartsKey, 2),
                 },
                 WarehouseToolCabinetTitle, WarehouseToolCabinetNarrative),
 
@@ -1222,6 +1239,17 @@ public static class ExplorationCache
                     LootItem.Material("bullet_parts", 5),   // 帮派的复装台底料——玩家最大的一笔零件收入
                     LootItem.Weapon(CompoundCrossbowName),
                     LootItem.Material("ammo_arrow_heavy", 4),
+                    // [批次21·T26] **武器零件**（弩的 defining 材料）：全局最大的一笔（3 个）。
+                    // 军火帮的军械柜是它最该在的地方 —— 而且"打过才拿"：想自己造弩，先把这帮人打服。
+                    // 帮派自己抢来的复合弩就摆在旁边，这堆备件本来就是给它备的。数量拟定待调。
+                    LootItem.Material(Materials.WeaponPartsKey, 3),
+                    // [批次21·T26] **《机械之美》——全局唯一的一本**，和复合弩锁在同一个柜子里。
+                    // 语义：帮派抢来了一把弩，也抢来了教人造弩的书；备件就堆在旁边——这一柜子是自洽的。
+                    // 后果：**弩是"打赢金手指帮才拿得到"的中后期武器**（书 + 最大一笔零件都在这儿），
+                    // 与"弓＝开局线"（《野外生存指南》开局就有）形成完整阶梯。
+                    // ⚠️ 曾拟放加油站修车棚（机修语义也贴），但那里有条身份护栏「燃油大户·无招牌武器/书」，故改此处。
+                    // 投放点**拟定待调**（用户可在 wiki 上改）。
+                    LootItem.Book(MechanicalBeautyBookId),
                     LootItem.Material("ammo_arrow_carbon", 5),
                     LootItem.Material("gunpowder", 2), LootItem.Material("components", 1),
                 },
@@ -1518,14 +1546,26 @@ public static class ExplorationCache
                 GasStoreBackroomTitle, GasStoreBackroomNarrative),
 
             // 修车棚(中/工具零件)：工位/零件货架/机油货架。
+            // [批次21·T26] 修车棚＝**机械语义最贴的点**，故《机械之美》与部分**武器零件**都落在这儿
+            //（对照：超市/药店/医院语义不搭，一个零件都不放）。
             GasRepairBayId when NotYet(flags, GasRepairBayFlag) => new CacheResult(
                 GasRepairBayFlag,
-                new[] { LootItem.Material("scrap_metal", 2), LootItem.Material("components", 1) },
+                new[]
+                {
+                    LootItem.Material("scrap_metal", 2), LootItem.Material("components", 1),
+                    LootItem.Material(Materials.WeaponPartsKey, 1),   // 工位上散着的淬火簧片
+                },
                 GasRepairBayTitle, GasRepairBayNarrative),
 
             GasPartsShelfId when NotYet(flags, GasPartsShelfFlag) => new CacheResult(
                 GasPartsShelfFlag,
-                new[] { LootItem.Material("components", 2), LootItem.Material("wire", 1) },
+                new[]
+                {
+                    LootItem.Material("components", 2), LootItem.Material("wire", 1),
+                    LootItem.Material(Materials.WeaponPartsKey, 2),   // 货架深处那一格：不是给车用的零件
+                    // ⚠️ 《机械之美》**曾拟放这儿，已改放金手指帮军械柜**——加油站有一条身份护栏
+                    //（NewVillageGasCacheTests：「燃油大户·无招牌武器/书」，批次13 定的），别再往这儿塞书。
+                },
                 GasPartsShelfTitle, GasPartsShelfNarrative),
 
             GasOilRackId when NotYet(flags, GasOilRackFlag) => new CacheResult(

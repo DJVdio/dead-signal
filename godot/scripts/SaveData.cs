@@ -144,6 +144,16 @@ public sealed class CampSave
     public int BedSeq { get; set; }
 
     /// <summary>
+    /// [批次21·T26·impl-traps] 玩家摆下的陷阱的命名序号（不存的话读档后新陷阱会和旧的重名，同沙袋/床）。
+    /// <para>
+    /// <b>陷阱的"数量"不在这儿，也不该在</b>：捕获几率按"场上第 n 个"递减（<see cref="TrapLogic.ChanceOf"/>），
+    /// 而 n 是从 <see cref="PlacedFurniture"/> **数出来的**（<c>CampMain.TrapCount</c>）——陷阱本体逐个摆回场上，
+    /// 数量就自动回来了。单独再存一份数量只会制造出<b>第二个事实源</b>，早晚与场上实况分叉。
+    /// </para>
+    /// </summary>
+    public int TrapSeq { get; set; }
+
+    /// <summary>
     /// [批次21·impl-gunmod] 玩家改装出来的武器变体的**身份**（"步枪（刺刀型）"是什么做的）。
     /// <para>
     /// <b>为什么必须单独存</b>：库存里的一件武器只存一个名字（<see cref="ItemSave.RefKey"/>），

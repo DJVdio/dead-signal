@@ -106,7 +106,8 @@ public static class Materials
         new MaterialDef("tanning_solution", "鞣制药水", "鞣皮用的化学药水，气味感人，效果扎实。", MaterialCategory.Chemical),
         new MaterialDef("fuel", "燃料", "汽油或柴油，发电机和燃烧瓶都靠它——文明烧剩下的那点体面。", MaterialCategory.Chemical),
         // [批次20·拆除回收] 胶水：把废木料粘回木料的**唯一**途径 ⇒ 木材要完整回收，就得交这份「胶水税」。
-        // **刻意稀缺**：只有一条产出配方（熬骨胶：骨头 + 燃料 + 烧杯 + 化学书），而燃料同时是火把/发电机/火药/全部枪弹的命根子。
+        // **刻意稀缺**：只有一条产出配方（骨头 + 燃料 + 烧杯 + 化学书；配方与产物同名，见 Recipe.cs 的 glue），
+        // 而燃料同时是火把/发电机/火药/全部枪弹的命根子。搜刮来的那一罐和自己熬的那一罐，是同一样东西。
         // 于是"这罐胶是拿去回收木料，还是留着熬火药"成了真的选择——胶水一旦遍地都是，这条税就白设计了。
         new MaterialDef("glue", "胶水", "一罐熬出来的骨胶，黏、稠、气味上不了台面。它粘得住断掉的木头，粘不回断掉的日子。", MaterialCategory.Chemical),
         new MaterialDef("stone", "石料", "凿下来的石块，砌墙够沉，砸头也够。", MaterialCategory.Misc),
@@ -138,6 +139,18 @@ public static class Materials
         // —— [批次18] 子弹零件：四种子弹的**唯一**共同原料（用户拍板新增的材料）。——
         // 归「金属」而非「弹药」类：它不是弹药，是造弹药的料（弹药分区只列真能打出去的东西）。
         new MaterialDef(BulletPartsKey, "子弹零件", "弹壳、底火、弹头坯——枪匠时代留下的精密小玩意。火药你能自己熬，这些你只能捡；捡完了，枪就真的只是根铁棍。", MaterialCategory.Metal),
+
+        // —— [批次21·T26] 武器零件：两把**弩**的 defining 材料（用户拍板新增的材料）。——
+        //
+        // ⚠️ **它不是「机械零件」，这是刻意的**（用户明确要另一种东西）：
+        //   · 「机械零件」(components) —— 通用的机括小件，喂**改装台 / 自制枪 / 一堆杂活**；
+        //   · 「武器零件」(weapon_parts) —— 弩机、扳机组、簧片这类**武器专用**的精密件，只喂弩。
+        // 两者**互不争抢**：想造改装台又想造弩，不必在同一堆零件上做取舍。**别把它们又并回去。**
+        //
+        // 归「金属」类，同「子弹零件」——它们是同一种东西的两个方向：那个"只能捡、造不出来"的精密件。
+        // **只能搜刮**（军械/机修点位，见 ExplorationCache）。**未来可考虑「拆枪回收零件」**——
+        // 那是一套全新机制（拆武器回收），本单没做，要做另开一单。
+        new MaterialDef(WeaponPartsKey, "武器零件", "弩机、扳机组、几片淬过火的簧——造枪的人早死绝了，留下的这些小东西还硬邦邦地不肯锈。你造不出它们，只能指望别人也没找到。", MaterialCategory.Metal),
         // —— [批次18] 弹药四种（用户拍板：短/中/长子弹 + 鹿弹；键对齐引擎 AmmoKeys）——
         // **稀缺梯度写在制作比里**（用户拍板）：1 个子弹零件 → 短 8 / 中 5 / 鹿 4 / 长 2 发。
         // 越强的枪，同一份原料能喂它的次数越少。枪的强度现在完全由这四行的供给量决定。
@@ -180,6 +193,16 @@ public static class Materials
     /// 制作比（1 个 → N 发）见 <c>BulletParts.YieldPer</c>：短 8 / 中 5 / 鹿 4 / 长 2。
     /// </summary>
     public const string BulletPartsKey = "bullet_parts";
+
+    /// <summary>
+    /// [批次21·T26] 武器零件标识键 —— **两把弩的 defining 材料**（单手轻弩 2 / 双手重弩 3，见 <see cref="RecipeBook"/>）。
+    /// <para>
+    /// ⚠️ <b>与「机械零件」(<c>components</c>) 是两种东西，别合并</b>：那个是通用机括件（喂改装台/自制枪/杂活），
+    /// 这个是<b>武器专用</b>的精密件（只喂弩）。用户拍板新建它，正是为了让<b>弩与改装台不争抢同一堆零件</b>。
+    /// </para>
+    /// <para><b>只能搜刮</b>（军械/机修点位）；没有配方。未来可考虑"拆枪回收零件"，那是另一套机制，本单未做。</para>
+    /// </summary>
+    public const string WeaponPartsKey = "weapon_parts";
 
     private static readonly IReadOnlyDictionary<string, MaterialDef> _byKey =
         _all.ToDictionary(m => m.Key);

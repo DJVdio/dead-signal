@@ -365,23 +365,23 @@ public sealed partial class StashPanel : CanvasLayer
     }
 
     /// <summary>
-    /// 「摆放」按钮——玩家能自己往地上摆的东西。点它进入放置模式，再点地面落位（CampMain 校验位置）。
+    /// 「摆放」按钮——玩家能自己往地上摆的东西（沙袋 / 床 / 桌子）。点它进入放置模式，再点地面落位
+    /// （<c>CampMain.CheckFurniturePlacement</c> 校验位置：不许贴大门/围栏的 64px 禁建带）。
     /// <para>
-    /// ⚠️ <b>改装台**不在此列**</b>：用户拍板它是营地内的**固定位置**（车间＝空牛棚），造好即自动立在那儿，
-    /// 玩家摆不了、也挪不动（见 <see cref="WeaponModLogic"/> 的锚点论证）。所以它**不该有这个按钮**——
-    /// 它压根不会变成一件库存物品。
+    /// ⚠️ <b>谁能摆，问 <see cref="PlaceableItems"/> 这一张表</b>，别在这儿再硬写一遍 key ——
+    /// 那正是**床此前摆不下去**的根因：<c>CampMain.OnStashPlaceRequested</c> 早就接好了床的分支，
+    /// 而这儿硬写着"只有沙袋"，于是床造出来只能躺在库存里，按钮压根不长出来。
+    /// </para>
+    /// <para>
+    /// ⚠️ <b>改装台 / 烹饪台刻意不在那张表里</b>：用户拍板它们是营地内的**固定位置**设施（车间/厨房），
+    /// 造好即自动立在锚点上、**不进库存** ⇒ 玩家根本没有"摆放"这个动作。别好心给它们加回按钮：
+    /// 那会把已经撤掉的 kill box 风险重新引进来（它们实心、挖导航洞、不可跨越）。
     /// </para>
     /// </summary>
     private void AddPlaceButton(HBoxContainer hbox, Item item)
     {
         string key = item.RefKey ?? "";
-        bool isSandbag = key == SandbagSpec.ItemKey;
-
-        // ⚠️ [批次21·T14] **烹饪台刻意不在此列**（改装台亦然）：用户拍板它们是"营地内**固定位置**"的设施——
-        // 造完自动砌在厨房/车间的锚点上、**不进库存** ⇒ 玩家根本没有"摆放"这个动作。
-        // 别好心给它们加回摆放按钮：那会把已经撤掉的 kill box 风险重新引进来（它们实心、挖导航洞、不可跨越）。
-        // 现在这里只剩**沙袋**——它恒不挡路，这正是它获准自由摆放的全部理由。
-        if (!isSandbag)
+        if (!PlaceableItems.IsPlaceable(key))
         {
             hbox.AddChild(new Control { CustomMinimumSize = new Vector2(76, 30) });
             return;
@@ -390,13 +390,26 @@ public sealed partial class StashPanel : CanvasLayer
         var btn = new Button();
         btn.Text = "摆放";
         btn.CustomMinimumSize = new Vector2(76, 30);
-        btn.TooltipText =
-            "选好位置垒起来。它挡不住任何人走过去——只是让子弹更可能打在它身上，而不是你身上。\n"
-            + "（贴着它才算数；敌人绕到你背后，它就白垒了——而且他们也能蹲在它后面。）";
+        btn.TooltipText = PlaceTooltipOf(key);
         btn.Pressed += () => PlaceRequested?.Invoke(key);
         UiStyle.StyleButton(btn, new Color(0.45f, 0.42f, 0.3f), fontSize: 13);
         hbox.AddChild(btn);
     }
+
+    /// <summary>「摆放」按钮的悬停提示（各摆件说各自的话；说清它挡不挡路——那是玩家最容易误会的一点）。</summary>
+    private static string PlaceTooltipOf(string key) => key switch
+    {
+        SandbagSpec.ItemKey =>
+            "选好位置垒起来。它挡不住任何人走过去——只是让子弹更可能打在它身上，而不是你身上。\n"
+            + "（贴着它才算数；敌人绕到你背后，它就白垒了——而且他们也能蹲在它后面。）",
+        BedSpec.ItemKey =>
+            "找块地方铺下。一张床只睡一个人，躺着的那个夜里不站岗、不生产。\n"
+            + "（别贴着围栏和大门摆——墙根下那条道得留着。）",
+        TableSpec.ItemKey =>
+            "摆在屋里。贴着它挨远程有 25% 无效——和沙袋一样，只是它进不了院子。\n"
+            + "（它不挡路：谁都能跨过去，只是会慢一点。绕到你背后就白摆了，敌人也能蹲它后面。）",
+        _ => "选好位置摆下（右键作罢）。",
+    };
 
     /// <summary>
     /// 「拆解」按钮：只挂给**拆得动**的东西（有单件产物配方者，见 <see cref="SalvageLogic.CanSalvageKey"/>）。

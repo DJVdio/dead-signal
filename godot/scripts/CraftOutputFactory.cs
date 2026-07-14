@@ -27,8 +27,13 @@ public static class CraftOutputFactory
     // 走上面 Materials.Has(outputKey) 那条分支自动落地为一堆材料。
     // 护甲类产物：粗布背心 / 布夹克 + 布鲁斯狗装备五件套（DogGearCatalog 键）。落地为 Item.Armor，
     // RefKey=产物 key（狗装备穿戴走 DogApparelSlots 按此键查 DogGearCatalog）。
+    // [批次21·T26] 战争面具 + 粗布衬衫/短裤/长裤：同为护甲产物（RefKey=中文显示名，对齐 ArmorTable/ApparelCatalog）。
     private static readonly IReadOnlySet<string> ArmorOutputs = new HashSet<string>(
-        new[] { "cloth_vest", "cloth_jacket" }.Concat(DogGearCatalog.AllKeys));
+        new[]
+        {
+            "cloth_vest", "cloth_jacket",
+            "war_mask", "coarse_shirt", "coarse_shorts", "coarse_trousers",
+        }.Concat(DogGearCatalog.AllKeys));
     // 光源类产物（火把）：落地为 Item.Light，refKey=产物 key（对齐 LightSource 目录）。手电不可制作，不列此表。
     private static readonly IReadOnlySet<string> LightOutputs = new HashSet<string> { "torch" };
 
@@ -77,6 +82,11 @@ public static class CraftOutputFactory
         CookStation.ItemKey => CookStation.ItemDescription,
         CookStation.PotItemKey => "一口砸扁又敲圆的铁锅。锅底那层黑是历任主人共同的作品——他们都不在了，锅还在。",
         CookStation.GrillItemKey => "几根铁丝架成的烤架。它做不出什么讲究的东西，但它让火不再白烧。",
+        TrapSpec.ItemKey => TrapSpec.ItemDescription,   // [批次21·T26] 圈套陷阱（造出来进库存 → 玩家自己摆）
+        // [批次21·T25] 桌子（纯家具）。⚠️ **床是顺手补的**：BedSpec.ItemDescription 写好了却**全仓无人引用**
+        // ⇒ 造出来的床在库存里一句描述都没有（本表是它唯一的落点）。
+        BedSpec.ItemKey => BedSpec.ItemDescription,
+        TableSpec.ItemKey => TableSpec.ItemDescription,
         _ => "",
     };
 }

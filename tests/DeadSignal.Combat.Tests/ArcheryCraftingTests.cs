@@ -110,15 +110,41 @@ public class ArcheryCraftingTests
         Assert.DoesNotContain(RecipeBook.All, r => r.DisplayName == "碳纤维箭");
     }
 
+    /// <summary>
+    /// 削尖的木箭：<b>无工具槽</b>、只吃木料，但<b>要读《野外生存指南》</b>（[SPEC-B21·T26] 用户拍板）。
+    /// <para>
+    /// ⚠️ <b>本条推翻了旧断言</b>「无工具槽<b>无书门槛</b>」——用户在 wiki 书籍表里把「削减木箭」写进了
+    /// 《野外生存指南》的效果列（表赢代码）。
+    /// </para>
+    /// <para>
+    /// <b>这不会卡死弓弩线的开局</b>（核实过，别再当成收紧）：① 这本书<b>开局就在共享库存里</b>
+    /// （camp.json 住宅-柜子 role=storage），不用搜刮，只需读完；② <b>短弓本身已经要这同一本书</b>
+    /// ⇒ 没读书的人根本没弓可射，给箭加同一道门槛不多锁任何东西；③ 就算搜到成品弓却没读书，
+    /// <b>重头箭仍是零书门槛</b>（只要卡尺）。
+    /// </para>
+    /// </summary>
     [Fact]
-    public void 削尖的木箭_开局即可做_无工具槽无书门槛()
+    public void 削尖的木箭_无工具槽_但要读野外生存指南()
     {
-        // 应急货：没箭了不至于打不响。它必须是全表门槛最低的配方之一。
         RecipeData stick = RecipeBook.All.Single(r => r.OutputKey == ArrowKeys.SharpenedStick);
 
-        Assert.Empty(stick.RequiredTools);
-        Assert.Empty(stick.RequiredBookIds);
+        Assert.Empty(stick.RequiredTools);                                                  // 工具门槛照旧：一把刀削根棍
+        Assert.Equal(new[] { RecipeBook.WildernessSurvivalGuideBookId }, stick.RequiredBookIds.ToArray());
         Assert.Equal(new[] { "wood" }, stick.MaterialCosts.Keys.ToArray());
+    }
+
+    /// <summary>
+    /// <b>没读书之前也不会彻底没箭可用</b> —— 这条是上面那道新门槛的<b>安全网</b>：
+    /// <b>重头箭</b>（用户没提 ⇒ 一个字没动）仍是<b>零书门槛</b>，只要卡尺（营地展示柜里就有）。
+    /// <para>谁哪天顺手把重头箭也"统一"到某本书名下，这条会红一次 —— 那一刻弓弩线才真的可能被书卡死。</para>
+    /// </summary>
+    [Fact]
+    public void 重头箭仍是零书门槛_这是没读书时的安全网()
+    {
+        RecipeData heavy = RecipeBook.All.Single(r => r.OutputKey == ArrowKeys.Heavy);
+
+        Assert.Empty(heavy.RequiredBookIds);
+        Assert.Contains(ToolSlot.Calipers, heavy.RequiredTools);
     }
 
     [Fact]
@@ -192,13 +218,26 @@ public class ArcheryCraftingTests
         Assert.DoesNotContain(RecipeBook.All, r => r.OutputKey == BookLibrary.WayOfBowAndArrowId);
     }
 
+    /// <summary>
+    /// 《弓与箭之道》<b>解锁「自制箭」，且只解锁这一条</b>（[SPEC-B21·T26] 用户拍板）。
+    /// <para>
+    /// ⚠️ <b>本条推翻了旧断言</b>「本书不解锁任何配方，它给的是被动加成」——那曾是这本书的"新用法"，
+    /// 现在它<b>两样都给</b>：解锁自制箭 <b>＋</b> 四项被动（回收率 25%→50%、射程 +10%、锥形角 −10%、攻速 +2%）。
+    /// </para>
+    /// <para>
+    /// <b>只解锁这一条</b>是关键：<b>重头箭用户没提 ⇒ 没动</b>（仍零书门槛）。这条断言把"别顺手统一成
+    /// 『好箭都归这本书』"钉死 —— 那是引申，不是用户说的。
+    /// </para>
+    /// </summary>
     [Fact]
-    public void 弓与箭之道_不解锁任何配方_它给的是被动加成()
+    public void 弓与箭之道_只解锁自制箭这一条()
     {
-        // 这本书是项目里书籍的**新用法**：既有的《木匠入门》《裁缝手记》都是"解锁配方"的门槛，
-        // 而它给的是**被动效果**（箭矢回收率 25% → 50%）——沿用 MedicalBookPoints 已经确立的同一套模式
-        // （引擎只吃一个值，调用方从读者的 ReadBookSet 里取），**不新造架构**。
-        Assert.DoesNotContain(RecipeBook.All, r => r.RequiredBookIds.Contains(BookLibrary.WayOfBowAndArrowId));
+        var unlocked = RecipeBook.All
+            .Where(r => r.RequiredBookIds.Contains(BookLibrary.WayOfBowAndArrowId))
+            .Select(r => r.OutputKey)
+            .ToArray();
+
+        Assert.Equal(new[] { ArrowKeys.Handmade }, unlocked);
     }
 
     [Fact]
@@ -253,6 +292,44 @@ public class ArcheryCraftingTests
         ExplorationCache.SupermarketName,
         ExplorationCache.HospitalName,
     };
+
+    /// <summary>
+    /// 《机械之美》<b>能搜到</b> —— 否则两把可制作的弩永远拿不到（它们搜刮不到，只能造）。
+    /// <para>照抄 <see cref="弓与箭之道_能搜到_否则50pct回收率永远拿不到"/> 那条的用意：
+    /// <b>一本拿不到的书 = 一整条武器线不存在</b>，而这种事编译器和别的测试都抓不到。</para>
+    /// </summary>
+    [Fact]
+    public void 机械之美能搜到_否则两把可制作的弩永远拿不到()
+    {
+        Assert.Contains(BookLibrary.MechanicalBeautyId, AllLootRefIds(LootKind.Book));
+    }
+
+    /// <summary>
+    /// <b>武器零件的全图总量，够造 2~3 把弩</b>（[SPEC-B21·T26] 稀缺度靶心；数值拟定待调）。
+    /// <para>
+    /// 弩＝中后期武器 ⇒ 零件该<b>稀缺但不至于拿不到</b>。这条断言是那条线的两侧护栏：
+    /// 低于 5（连一套轻弩+重弩都凑不齐）⇒ 太紧，弩形同虚设；高于 12 ⇒ 太松，弩变成量产品。
+    /// </para>
+    /// <para>投放点按<b>语义</b>挑：金手指帮军械柜(3，打过才拿) / 加油站修车棚零件货架(2) / 工位(1) / 联合收割机仓库工具柜(2)。</para>
+    /// </summary>
+    [Fact]
+    public void 武器零件全图总量_够造两三把弩()
+    {
+        var flags = new StoryFlags();
+        int total = Destinations
+            .SelectMany(ExplorationCache.CacheIdsFor)
+            .Select(id => ExplorationCache.Resolve(id, flags))
+            .Where(r => r.HasValue)
+            .SelectMany(r => r!.Value.Loot)
+            .Where(l => l.Kind == LootKind.Material && l.RefId == Materials.WeaponPartsKey)
+            .Sum(l => l.Quantity);
+
+        int light = RecipeBook.Find("light_crossbow")!.MaterialCosts[Materials.WeaponPartsKey];   // 2
+        int heavy = RecipeBook.Find("heavy_crossbow")!.MaterialCosts[Materials.WeaponPartsKey];   // 3
+
+        Assert.InRange(total, light + heavy, 12);     // 至少凑得齐一套轻+重；上限防"弩变量产品"
+        Assert.InRange(total / heavy, 2, 4);          // 全押重弩也能出 2~4 把
+    }
 
     /// <summary>把所有探索点的所有搜刮点跑一遍，收集某类战利品的全部引用 id。</summary>
     private static string[] AllLootRefIds(LootKind kind)

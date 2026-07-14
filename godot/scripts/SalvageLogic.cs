@@ -39,7 +39,7 @@ public static class SalvageLogic
     /// <summary>「回收木料」配方 id（4 废木料 + 1 胶水 → 4 木料，需锯片工作台）。</summary>
     public const string ScrapWoodRecipeId = "wood_from_scrap";
 
-    /// <summary>「熬骨胶」配方 id（胶水的唯一产出途径，见 <see cref="RecipeBook"/>）。</summary>
+    /// <summary>「胶水」配方 id（自己熬的和搜刮来的是同一样东西，见 <see cref="RecipeBook"/>）。</summary>
     public const string GlueRecipeId = "glue";
 
     /// <summary>通用返还率：拆什么都还一半。</summary>

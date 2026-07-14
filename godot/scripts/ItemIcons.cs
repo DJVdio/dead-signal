@@ -118,6 +118,13 @@ public static class ItemIcons
         ["军用头盔"] = new(Armor, "military_helmet", "delapouite/custodian-helmet"),
         ["防暴头盔"] = new(Armor, "riot_helmet", "delapouite/full-motorcycle-helmet"),
 
+        // [批次21·T26] 三件可制作穿戴品 + 战争面具。粗布三件与它们各自的搜刮版（长袖布衣/长裤/短裤）
+        // **共用同一张 Source**（game-icons 里衬衫/裤子就那么几张剪影，同族先共用；slug 各自独立，日后可换专属图）。
+        ["战争面具"] = new(Armor, "war_mask", "lorc/tribal-mask"),
+        ["粗布衬衫"] = new(Armor, "coarse_shirt", "lucasms/shirt"),
+        ["粗布短裤"] = new(Armor, "coarse_shorts", "delapouite/shorts"),
+        ["粗布长裤"] = new(Armor, "coarse_trousers", "irongamer/armored-pants"),
+
         // —— 护甲：布鲁斯的狗装五件套（DogGearCatalog；口袋狗衣不提供防护，只加负重）——
         ["布制狗衣"] = new(Armor, "dog_cloth_vest", "lorc/armor-vest"),
         ["皮制狗衣"] = new(Armor, "dog_leather_vest", "lorc/leather-vest"),
@@ -166,6 +173,7 @@ public static class ItemIcons
 
         // —— 材料：弹药与其原料 ——
         ["bullet_parts"] = new(Mats, "bullet_parts", "delapouite/machine-gun-magazine"),
+        ["weapon_parts"] = new(Mats, "weapon_parts", "lorc/gear-hammer"),   // [批次21·T26] 武器零件（弩机/扳机组，只喂弩）
         ["ammo_short"] = new(Mats, "ammo_short", "lorc/bullets"),
         ["ammo_medium"] = new(Mats, "ammo_medium", "delapouite/heavy-bullets"),
         ["ammo_long"] = new(Mats, "ammo_long", "lorc/supersonic-bullet"),
@@ -189,6 +197,7 @@ public static class ItemIcons
         ["carpentry_basics"] = new(Books, "book_carpentry", "willdabeast/white-book"),
         ["advanced_carpentry"] = new(Books, "book_carpentry_adv", "willdabeast/black-book"),
         ["way_of_bow_and_arrow"] = new(Books, "book_archery", "delapouite/rule-book"),
+        ["mechanical_beauty"] = new(Books, "book_mechanics", "lorc/gears"),   // [批次21·T26] 《机械之美》（弩的解锁书）
         ["goldfinger_diary_a"] = new(Books, "book_diary_a", "delapouite/book-pile"),
         ["goldfinger_diary_b"] = new(Books, "book_diary_b", "lorc/papers"),
 
@@ -200,10 +209,12 @@ public static class ItemIcons
         ["chair"] = new(Furniture, "chair", "delapouite/wooden-chair"),
         ["sandbag"] = new(Furniture, "sandbag", "delapouite/concrete-bag"),
         ["bed"] = new(Furniture, "bed", "delapouite/bed"),
+        ["table"] = new(Furniture, "table", "delapouite/table"),            // [批次21·T25] 桌子
         ["mod_bench"] = new(Furniture, "mod_bench", "lorc/anvil"),
         ["cook_station"] = new(Furniture, "cook_station", "delapouite/gas-stove"),
         ["cooking_pot"] = new(Furniture, "cooking_pot", "delapouite/cooking-pot"),
         ["cooking_grill"] = new(Furniture, "cooking_grill", "delapouite/barbecue"),
+        ["snare_trap"] = new(Furniture, "snare_trap", "lorc/wolf-trap"),   // [批次21·T26] 圈套陷阱
 
         // —— 食材（MaterialCategory.Food，烹饪系统的原料；与那张泛化的「口粮份数」图标 FoodRefKey 不是一回事）——
         // 注意：材料键 "ration"（军用单兵口粮）与泛化口粮图标的 slug "ration" 撞名，故它的 slug 取 ration_military。

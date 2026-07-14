@@ -57,7 +57,22 @@ public sealed record RecipeData(
 /// </summary>
 public static class RecipeBook
 {
-    /// <summary>《野外生存指南》书 id（对齐 <see cref="BookLibrary.WildernessSurvivalGuide"/>）。骨刀解锁读它。</summary>
+    /// <summary>
+    /// 《野外生存指南》书 id（对齐 <see cref="BookLibrary.WildernessSurvivalGuide"/>）。
+    /// <para>
+    /// <b>解锁：骨刀 / 短弓 / 圈套陷阱 / 战争面具</b>（[SPEC-B21·T26] 按用户 wiki 书籍表重排）。
+    /// 另有被动：不投任何手术耗材时手术加成点数 +6（见 <c>HealthConditions</c>，非配方门槛）。
+    /// </para>
+    /// <para>
+    /// <b>它是开局营地就有的书</b>（camp.json 的柜子里，同《裁缝手记》《土法化学笔记》《农场主的一百个问题》）——
+    /// 这决定了挂在它名下的东西<b>开局读完书就能做</b>。对照：《木匠入门》/《进阶木匠技术》/《弓与箭之道》
+    /// 都要出门搜刮（<c>ExplorationCache</c>）。往这本书上挂配方＝<b>放宽</b>，往那三本上挂＝<b>收紧</b>，别弄反。
+    /// </para>
+    /// <para>
+    /// ⚠️ 用户表里还写着「削减木箭」（＝削尖的木箭 <c>ammo_arrow_stick</c>）——<b>暂未落地</b>：
+    /// 它是全项目<b>唯一一条零门槛配方</b>，加书门槛是真实的开局节奏改动，已 [DECISION] 上抛待拍板。
+    /// </para>
+    /// </summary>
     public const string WildernessSurvivalGuideBookId = "wilderness_survival_guide";
 
     /// <summary>《裁缝手记》纺织书 id（对齐 <see cref="BookLibrary.TailorsNotes"/>）。粗布背心解锁读它。</summary>
@@ -66,8 +81,61 @@ public static class RecipeBook
     /// <summary>《土法化学笔记》化学书 id（对齐 <see cref="BookLibrary.FolkChemistryNotes"/>）。火药 / 鞣制药水解锁读它。</summary>
     public const string FolkChemistryNotesBookId = "folk_chemistry_notes";
 
-    /// <summary>《木匠入门》木工书 id（对齐 <see cref="BookLibrary.CarpentryBasics"/>）。木椅 / 自制弓解锁读它（一本管两条，同构化学书）。</summary>
+    /// <summary>
+    /// 《木匠入门》木工书 id（对齐 <see cref="BookLibrary.CarpentryBasics"/>）。<b>要出门搜刮</b>（<c>ExplorationCache</c>，商人也卖）。
+    /// <para>
+    /// <b>解锁：木椅 / 床 / 桌子 / 回收木料</b>——[SPEC-B21·T26] 用户把弓弩全搬走后，它<b>成了一本纯家具书</b>
+    /// （另有被动：制作家具速度 +5%，见 <c>CraftWorkTime</c>）。<b>这是用户有意的</b>，不是被掏空的事故。
+    /// </para>
+    /// <para>
+    /// 搬走的去向：<b>短弓 → 《野外生存指南》</b>（开局就有的书）；<b>反曲弓 / 长弓 → 《进阶木匠技术》</b>（要搜刮）；
+    /// <b>单手轻弩 / 双手重弩 → 《机械之美》</b>（用户拍板的新书，见 <see cref="MechanicalBeautyBookId"/>）。
+    /// </para>
+    /// <para>
+    /// ⇒ <b>本书现在真的只剩家具了</b>（弓弩一把不剩）。这是用户有意为之的终态，别再往里塞武器。
+    /// </para>
+    /// </summary>
     public const string CarpentryBasicsBookId = "carpentry_basics";
+
+    /// <summary>
+    /// 《进阶木匠技术》木工进阶书 id（对齐 <see cref="BookLibrary.AdvancedCarpentry"/>；前置＝《木匠入门》）。<b>只能搜刮</b>（<c>ExplorationCache</c>）。
+    /// <para>
+    /// <b>解锁：反曲弓 / 长弓</b>（[SPEC-B21·T26] 用户拍板，从《木匠入门》搬来）。
+    /// 另有被动：做家具<b>再快 5%</b>（与《木匠入门》那 5% <b>连乘</b>：两本都读过 = 0.95 × 0.95 = 0.9025，见 <see cref="CraftWorkTime"/>）。
+    /// </para>
+    /// <para>
+    /// <b>这本书是"弓的阶梯"的第二级</b>：开局读《野外生存指南》只能削出<b>短弓</b>；想要反曲弓/长弓，
+    /// <b>得出门把这本书搜回来</b>。⇒ 弓弩线从"开局白送"变成"开局能起步、要变强得冒险"。
+    /// </para>
+    /// </summary>
+    public const string AdvancedCarpentryBookId = "advanced_carpentry";
+
+    /// <summary>
+    /// 《弓与箭之道》书 id（对齐 <see cref="BookLibrary.WayOfBowAndArrowId"/>）。<b>只能搜刮</b>（<c>ExplorationCache</c>）。
+    /// <para>
+    /// <b>解锁：自制箭</b>（[SPEC-B21·T26] 用户拍板 —— 此前本书<b>一条配方都不解锁</b>，只有被动）。
+    /// 另有被动四项：箭矢回收率 25% → 50%、弓箭射程 +10%、锥形角 −10%、攻速 +2%（见 <c>Archery</c>）。
+    /// </para>
+    /// <para>
+    /// ⚠️ <b>重头箭用户没提 ⇒ 没动</b>（仍是零书门槛，只要卡尺）。别顺手"统一"成"好箭都归这本书"——那是引申。
+    /// </para>
+    /// </summary>
+    public const string WayOfBowBookId = BookLibrary.WayOfBowAndArrowId;
+
+    /// <summary>
+    /// 《机械之美》书 id（对齐 <see cref="BookLibrary.MechanicalBeautyId"/>）。<b>书名是用户给的</b>
+    /// （原话：「《机械之美》用武器零件造」），正文待用户 authored。
+    /// <para>
+    /// <b>解锁：单手轻弩 / 双手重弩</b>（[SPEC-B21·T26] 从《木匠入门》挪来）。弩机是机械活，
+    /// 两条配方的 defining 材料本就是<b>机械零件</b>（<c>components</c>，轻弩 1 / 重弩 2）—— 正好呼应书名。
+    /// </para>
+    /// <para>
+    /// 🔴 <b>本书还没有任何投放点</b>（"从哪来"是设计决策，已 [DECISION] 上抛）⇒ 两把弩<b>眼下拿不到</b>：
+    /// 它们<b>搜刮不到</b>（全图 0 处投放，只能造），书又拿不到 ⇒ 暂时不存在于游戏中。
+    /// 用户定了来源后往 <c>ExplorationCache</c>/商人货架加一条即可。
+    /// </para>
+    /// </summary>
+    public const string MechanicalBeautyBookId = BookLibrary.MechanicalBeautyId;
 
     /// <summary>
     /// 狗装备制作者门槛键（批次5）：满足＝**制作者是道格且与布鲁斯羁绊≥2 级**（消费 <see cref="DougBruceBond.CanCraftDogGear"/>）。
@@ -177,6 +245,24 @@ public static class RecipeBook
             RequiredBookIds: Books(CarpentryBasicsBookId),
             WorkMinutes: 150),
 
+        // ── [批次21·T25] 桌子：用户在书籍表里点名的那张配方（《木匠入门》解锁"木椅、床、桌子、废木料回收"）──
+        // ⚠️ **桌子目前没有任何玩法作用**：营地里没有"桌子"这个概念（聚餐是模态相位，不需要一张桌子；
+        // camp.json 里也没有桌子这件 prop），本作又**没有心情系统** ⇒ 不许给它编一个"吃饭+心情"出来。
+        // 它现在是一件**纯家具**：可造、可摆、**可跨越（跨过减速 25%）**、可拆。用处待用户定，见 TableSpec 类注。
+        // 材料：木 8（一块面 + 四条腿）+ 钉 4。工时 120 分——比木椅（150）省事：一张平板不用弯靠背。
+        // 门槛同木椅/床：锯片 + 读过《木匠入门》。数值全部拟定待调。
+        // 读过《木匠入门》的人做它只要 ⌊120 × 0.95⌋ = 114 分（CraftWorkTime 的家具工时轴）。
+        new RecipeData(
+            Id: TableSpec.RecipeId,
+            DisplayName: "桌子",
+            Category: RecipeCategory.Woodwork,
+            OutputKey: TableSpec.ItemKey,
+            OutputQuantity: 1,
+            MaterialCosts: Cost(("wood", 8), ("nails", 4)),
+            RequiredTools: Tools(ToolSlot.SawBlade),
+            RequiredBookIds: Books(CarpentryBasicsBookId),
+            WorkMinutes: 120),
+
         // ── [批次20·掩体] 沙袋：**用户拍板"可自由建造摆放"**——项目里第一件玩家能自己往地上摆的防御工事 ──
         // 为什么沙袋能建而**墙不能建**（"墙不能建"是用户为防 kill box 拍的板，别以为规则不一致而"统一"掉）：
         // 沙袋**不阻挡移动、不改变寻路**（SandbagSpec.IsSolid/CarvesNavHole 恒 false）⇒ 敌人照样直线冲过来、
@@ -212,13 +298,17 @@ public static class RecipeBook
             RequiredBookIds: Books(),
             WorkMinutes: 40),
 
-        // ── [批次20·拆除回收] 熬骨胶：胶水的**唯一**产出途径（守门测试盯着这一点）──
+        // ── [批次20·拆除回收] 胶水：**唯一**的产出途径（守门测试盯着这一点）──
         // 三重稀缺是设计而非疏漏：① 吃**燃料**——火把/发电机/火药/全部枪弹都在抢同一桶油；
         // ② 吃**骨头**——得先有动物或尸骨；③ 要烧杯槽 + 《土法化学笔记》——开局这两样都没有。
         // ⇒ 前几天你拆错位置的墙，木料**就是回不满**。这正是「胶水税」该有的痛感。
+        //
+        // 🔴 [批次22] **配方名必须与产物同名**。它从前叫「熬骨胶」——那是做法，不是东西；
+        //    于是制作菜单里挂着一个玩家在库存里从没见过的名字，看着像是和搜刮来的「胶水」两回事。
+        //    其实两者从第一天起就是同一个材料键（glue）。名字归一后，造的和搜的才真是一样东西。
         new RecipeData(
             Id: "glue",
-            DisplayName: "熬骨胶",
+            DisplayName: "胶水",
             Category: RecipeCategory.Chemistry,
             OutputKey: "glue",
             OutputQuantity: 2,
@@ -251,7 +341,16 @@ public static class RecipeBook
             RequiredBookIds: Books(FolkChemistryNotesBookId),
             WorkMinutes: 60),
 
-        // 短弓（原名「自制弓」）：卡尺类精工 + 读过《木匠入门》解锁（用户拍板：木椅/弓也要读木工书）。
+        // ── 短弓（原名「自制弓」）：卡尺类精工 + 读过《**野外生存指南**》解锁 ──
+        // ⚠️ [SPEC-B21·T26] **书门槛从《木匠入门》挪到了《野外生存指南》**（用户在 wiki 书籍表里重排了解锁归属，
+        // 表赢代码）：那本书的效果列现在写的是「骨刀、短弓、削减木箭、圈套陷阱、战争面具」，
+        // 而《木匠入门》那一列只剩「木椅、床、桌子、废木料回收」—— **一把弓都没有**。
+        // 这推翻了更早一轮的拍板（"木椅/弓也要读木工书"），以新表为准。
+        //
+        // **这是放宽而非收紧**：《野外生存指南》在 camp.json 的开局柜子里，《木匠入门》要出门搜刮
+        // ⇒ 短弓从"搜到书才能做"变成"**开局读完书就能做**"。一本开局的野外生存书教你削一张最朴素的弓
+        // （木料 2 + 绳 1 = 一根木头 + 一根弦），比"得先学会做椅子"自然得多。
+        // **工具门槛（卡尺）未动** —— 用户只重排了书，没提工具。
         // **改名说明**：用户拍板的 5 把弓是「短弓/反曲弓/长弓/竞技复合弓/狩猎弓」，没有「自制弓」——
         // 留着它就是凭空多出第 6 把弓。而「木料 2 + 绳 1」＝一根木头 + 一根弦，本来就是最朴素的短弓，
         // 故这条配方由「短弓」承接（它此前是**悬空引用**：有配方，WeaponTable 却查不到武器数值）。
@@ -264,7 +363,7 @@ public static class RecipeBook
             OutputQuantity: 1,
             MaterialCosts: Cost(("wood", 2), ("rope", 1)),
             RequiredTools: Tools(ToolSlot.Calipers),
-            RequiredBookIds: Books(CarpentryBasicsBookId),
+            RequiredBookIds: Books(WildernessSurvivalGuideBookId),
             WorkMinutes: 120),
 
         // 自制猎枪（批次18b，用户拍板新增；旧「土制枪」已删）：唯一**能自己造**的枪。
@@ -413,12 +512,25 @@ public static class RecipeBook
         // 射出四支只捡回一支，箭是**持续消耗品**。若造箭近乎白送，"跑回战场把箭捡回来"就不值得玩家冒一次险，
         // 回收率这条机制也就白设计了。故除了应急用的木箭，**每一支箭都要吃到金属**（废金属 / 金属锭）。
         //
-        // 三种箭的门槛梯度（拟定待调）：木箭「什么都不要」→ 自制箭「要卡尺 + 废金属」→ 重头箭「要卡尺 + 金属锭」。
-        // 注意**造箭一律不要书**：削一根箭是苦力活，不是手艺活（要读书的是造**弓**；《弓与箭之道》管的是回收率，不是配方）。
+        // ══════════ 三种箭的门槛梯度（[SPEC-B21·T26] 用户按 wiki 书籍表重排，**推翻了下面这条旧口径**）══════════
+        // ⚠️ 旧注释写的是「**造箭一律不要书**：削一根箭是苦力活……《弓与箭之道》管的是回收率，不是配方」——**已作废**。
+        // 用户在书籍表里明写：《野外生存指南》解锁「削减木箭」，《弓与箭之道》解锁「自制箭」。表赢代码。
+        //
+        // 新梯度＝一条**"要走多远才配得上更好的箭"**的曲线：
+        //   削尖的木箭 → 《野外生存指南》（**开局共享库存就有**，读完即可造）
+        //   重头箭     → **无书门槛**（只要卡尺）——⚠️ 用户没提它，**一个字没动**，别顺手"统一"
+        //   自制箭     → 《弓与箭之道》（**只能搜刮**）⇒ 基线箭反而成了要出门换来的东西
+        // 材料/工具门槛全部维持原样，本轮**只重排书**。
 
-        // 削尖的木箭：**便宜好用的主力箭**（用户手改后的定位）。木料 1 → 4 支，无工具槽、无书门槛 —— **开局第一天就能做**。
-        // 它不再是"没箭了才用的应急货"：伤害 ×0.75、破甲 ×0.75，样样差一档但都不致残；
-        // 代价集中在**射程 ×0.75**（全表最短）——它是新营地唯一撑得起弓手的箭。
+        // 削尖的木箭：**便宜好用的主力箭**（用户手改后的定位）。木料 1 → 3 支，无工具槽。
+        // 伤害 ×0.75、破甲 ×0.75，样样差一档但都不致残；代价集中在**射程 ×0.75**（全表最短）——新营地唯一撑得起弓手的箭。
+        //
+        // ⚠️ [SPEC-B21·T26] **它不再是零门槛配方了**：加了《野外生存指南》书门槛（用户拍板）。
+        // **这不会卡死开局**，三条理由（核实过，别再当成收紧）：
+        //   ① 这本书**开局就在共享库存里**（camp.json 住宅-柜子 role=storage），不用搜刮，只需读完（24 小时）；
+        //   ② **短弓本身已经要这同一本书** ⇒ 没读书的人根本没弓可射，给箭加同一道门槛**不多锁任何东西**；
+        //   ③ 就算搜到成品弓却还没读书，**重头箭仍是零书门槛**（只要卡尺，营地展示柜里就有）。
+        // 它真正的作用是把"开局第一晚读哪本书"变成一个**真选择**：读它 ⇒ 一次拿到 骨刀＋短弓＋木箭＋陷阱＋战争面具。
         new RecipeData(
             Id: "ammo_arrow_stick",
             DisplayName: "削尖的木箭",
@@ -427,10 +539,13 @@ public static class RecipeBook
             OutputQuantity: 3,
             MaterialCosts: Cost(("wood", 1)),
             RequiredTools: Tools(),
-            RequiredBookIds: Books(),
+            RequiredBookIds: Books(WildernessSurvivalGuideBookId),
             WorkMinutes: 20),
 
-        // 自制箭：**基线**（修正系数全 1.00）。木杆 + 铁头 + 布尾羽，要卡尺找平直度。一批 5 支 / 30 工时。
+        // 自制箭：**基线**（修正系数全 1.00）。木杆 + 铁头 + 布尾羽，要卡尺找平直度。
+        // ⚠️ [SPEC-B21·T26] 加《弓与箭之道》书门槛（用户拍板）——本书此前**一条配方都不解锁**，只有四项被动。
+        // 有点反直觉：**"基线箭"成了要出门搜书才能造的东西**。但这正是用户那条曲线的样子——
+        // 开局你有的是"差一档但够用"的木箭，想要一支不打折的箭，得先把那本书找回来。
         new RecipeData(
             Id: "ammo_arrow_handmade",
             DisplayName: "自制箭",
@@ -439,7 +554,7 @@ public static class RecipeBook
             OutputQuantity: 4,
             MaterialCosts: Cost(("wood", 2), ("scrap_metal", 1), ("cloth", 1)),
             RequiredTools: Tools(ToolSlot.Calipers),
-            RequiredBookIds: Books(),
+            RequiredBookIds: Books(WayOfBowBookId),
             WorkMinutes: 45),
 
         // 重头箭：**破甲专精**（用户原话「破甲能力更高，但射程和攻速有所削弱」）。箭头要灌实心金属 → 吃金属锭（贵）。
@@ -460,8 +575,21 @@ public static class RecipeBook
 
         // ==================== 弓弩（4 把可制作；竞技复合弓/狩猎弓/复合弩无配方，只能搜刮） ====================
         //
-        // 「短弓」的配方是既有的 handmade_bow（见上，Id 未动）。以下 4 把是它的进阶：一律**卡尺槽 + 《木匠入门》**
-        //（同一本书管全部弓弩——不新造"弩匠书"，那会带出新的书籍投放缺口）。梯度体现在**材料贵贱与工时**上。
+        // ⚠️ [SPEC-B21·T26] **书门槛已按用户的 wiki 书籍表重排，下面这条旧口径作废**：
+        //    旧：「以下 4 把一律卡尺 + 《木匠入门》（同一本书管全部弓弩——不新造"弩匠书"）」
+        //    新：**《木匠入门》名下不该再有任何弓弩**（用户把它的效果列写成了「木椅、床、桌子、废木料回收」＝纯家具书）。
+        //
+        // 现在的**弓的阶梯**（一条"要走多远才配得上更好的弓"的曲线）：
+        //    短弓（handmade_bow，见上）→ 《野外生存指南》＝**开局共享库存就有**，读完即可造
+        //    反曲弓 / 长弓             → 《**进阶木匠技术**》＝**只能搜刮** ⇒ 想升级弓，得出去把书找回来
+        //
+        // 🔴 **两把弩仍挂《木匠入门》——这是刻意的，不是漏改。** 用户要给弩**另开一本新书**，
+        //    但**书名与正文还没给**（书是 authored 内容，代码不许自己起名，CLAUDE.md 铁律）。
+        //    书名到位后，把下面两条的 CarpentryBasicsBookId 换成那本新书即可。
+        //    护栏：`CraftingTests.弓的阶梯_短弓开局书_反曲弓与长弓要搜进阶木匠` 钉着"弩还在《木匠入门》"——
+        //    谁不问书名就把弩搬走，它会红一次。
+        //
+        // 梯度仍体现在**材料贵贱与工时**上（本轮只重排书，材料/工具一个字没动）。
 
         // 反曲弓：标准均衡款。比短弓多一根木料 + 一块皮革（贴片/握把）。
         new RecipeData(
@@ -472,7 +600,7 @@ public static class RecipeBook
             OutputQuantity: 1,
             MaterialCosts: Cost(("wood", 3), ("rope", 1), ("leather", 1)),
             RequiredTools: Tools(ToolSlot.Calipers),
-            RequiredBookIds: Books(CarpentryBasicsBookId),
+            RequiredBookIds: Books(AdvancedCarpentryBookId),
             WorkMinutes: 180),
 
         // 长弓：射程之王。一张比人还高的弓 → 料最多的**纯木**配方（木料 5 + 绳 2），工时 240。
@@ -484,19 +612,31 @@ public static class RecipeBook
             OutputQuantity: 1,
             MaterialCosts: Cost(("wood", 5), ("rope", 2)),
             RequiredTools: Tools(ToolSlot.Calipers),
-            RequiredBookIds: Books(CarpentryBasicsBookId),
+            RequiredBookIds: Books(AdvancedCarpentryBookId),
             WorkMinutes: 240),
 
-        // 单手轻弩：弩＝木身 + 弩机。弩机是机械活 → 首次出现 components（机械零件）。
+        // ── 两把弩：[SPEC-B21·T26 追加] 书门槛 → 《**机械之美**》（用户拍板的新书；书名是他给的）──
+        //
+        // 用户原话：「**《机械之美》用武器零件造**」—— 两条都已落地：
+        //   ① 书门槛 = 《机械之美》（搜刮书，投放在**加油站·修车棚·零件货架**：机修工的参考书，语义最贴）
+        //   ② **defining 材料 = 「武器零件」**（`weapon_parts`，用户拍板**新建**的材料，见 Materials.WeaponPartsKey）
+        //
+        // ⚠️ **「武器零件」≠「机械零件」，这是用户特意要的区分，别把它们并回去**：
+        //   · 机械零件 `components` —— 通用机括件，喂**改装台 / 自制枪 / 一堆杂活**
+        //   · 武器零件 `weapon_parts` —— 弩机、扳机组、簧片，**只喂弩**
+        //   ⇒ 两者**互不争抢**：想造改装台又想造弩，不必在同一堆零件上做取舍。
+        //
+        // 材料改动（拟定待调）：**机械零件 → 武器零件，且提量成主料**（轻弩 1→**2**、重弩 2→**3**）——
+        // "用武器零件造"要名副其实，零件就不能只是配角。其余材料（木/废铁/绳/锭）与工时**一个字没动**。
         new RecipeData(
             Id: "light_crossbow",
             DisplayName: "单手轻弩",
             Category: RecipeCategory.Precision,
             OutputKey: "light_crossbow",
             OutputQuantity: 1,
-            MaterialCosts: Cost(("wood", 2), ("scrap_metal", 2), ("rope", 1), ("components", 1)),
+            MaterialCosts: Cost(("wood", 2), ("scrap_metal", 2), ("rope", 1), (Materials.WeaponPartsKey, 2)),
             RequiredTools: Tools(ToolSlot.Calipers),
-            RequiredBookIds: Books(CarpentryBasicsBookId),
+            RequiredBookIds: Books(MechanicalBeautyBookId),
             WorkMinutes: 200),
 
         // 双手重弩：**全表最贵、最费时的配方**（320 分 ＞ 自制猎枪 240）。钢制弩臂 → 吃金属锭。
@@ -507,9 +647,9 @@ public static class RecipeBook
             Category: RecipeCategory.Precision,
             OutputKey: "heavy_crossbow",
             OutputQuantity: 1,
-            MaterialCosts: Cost(("wood", 4), ("metal_ingot", 2), ("rope", 2), ("components", 2)),
+            MaterialCosts: Cost(("wood", 4), ("metal_ingot", 2), ("rope", 2), (Materials.WeaponPartsKey, 3)),
             RequiredTools: Tools(ToolSlot.Calipers),
-            RequiredBookIds: Books(CarpentryBasicsBookId),
+            RequiredBookIds: Books(MechanicalBeautyBookId),
             WorkMinutes: 320),
 
         // ══════════════ [批次21·T14] 烹饪台 + 两件炊具（用户拍板的新设施）══════════════
@@ -697,6 +837,81 @@ public static class RecipeBook
             RequiredBookIds: Books(),
             WorkMinutes: 55,
             RequiredCrafterGates: Books(DogGearCrafterGate)),
+
+        // ══════════════ [批次21·T26] 圈套陷阱 + 战争面具（《野外生存指南》）══════════════
+        // 三条新配方**追加在表尾、不插队**：它们全是**无工具**配方，落进 CraftingPanelFormat.GroupByTool
+        // 的第一个桶（无工具），桶序由各工具需求的**首次出现**决定 ⇒ 追加不会搅乱分桶（同 mod_bench 那条的注意事项）。
+
+        // ── 圈套陷阱：营地里**唯一不用出门、不担风险**的食物来源（正文见 TrapSpec / TrapLogic 类注）──
+        // 一圈铁丝套 + 一根弹木 + 一段绳子。**无工具门槛**——扎个活结不是手艺活，读过《野外生存指南》就会。
+        // 造出来进库存 → 玩家自己摆到营地里（同沙袋/床的"造→摆"两段式）。它**不实心、不挖导航洞**
+        // （摆不出 kill box），但**守 64px 禁建带**（不许糊在防线上）。工时 40 分。数值皆拟定待调。
+        // 拆除走通用规则（FurnitureBuildCost["陷阱"] 折半返还），两处成本由测试钉死一致——否则造一个拆一个就是永动机。
+        new RecipeData(
+            Id: "snare_trap",
+            DisplayName: "圈套陷阱",
+            Category: RecipeCategory.Misc,
+            OutputKey: "snare_trap",
+            OutputQuantity: 1,
+            MaterialCosts: Cost(("wood", 2), ("wire", 2), ("rope", 1)),
+            RequiredTools: Tools(),
+            RequiredBookIds: Books(WildernessSurvivalGuideBookId),
+            WorkMinutes: 40),
+
+        // ── 战争面具：⚠️ **作用待用户定** ──
+        // 用户在《野外生存指南》的「效果」列里点了它的名，但**没说它是什么、干什么用**。
+        // 落地取**最保守的那一种**：一件占「面部」槽的护甲（骨与皮缝的面罩，护鼻与下巴，不遮眼——你还得看得见）。
+        // **刻意不发明玩法效果**（"吓退丧尸"一类本作没有这个机制，不凭空造）。数值拟定待调。
+        // 若用户想要的是别的东西（图腾/仪式道具/士气物），改这一条 + ArmorTable.WarMask() 即可，其余不动。
+        new RecipeData(
+            Id: "war_mask",
+            DisplayName: "战争面具",
+            Category: RecipeCategory.Misc,
+            OutputKey: "war_mask",
+            OutputQuantity: 1,
+            MaterialCosts: Cost(("bone", 2), ("leather", 1)),
+            RequiredTools: Tools(),
+            RequiredBookIds: Books(WildernessSurvivalGuideBookId),
+            WorkMinutes: 60),
+
+        // ══════════════ [批次21·T26] 粗布衬衫 / 短裤 / 长裤（《裁缝手记》）══════════════
+        // 照既有「粗布背心 / 粗布外套」的模型来：同一本书、同样无工具、成本只吃布。
+        // 补的是**贴身层与裤装槽的可制作缺口**——在此之前，长袖布衣/长裤/短裤全都只能搜刮，
+        // 一件被砍烂就再也补不回来。数值对齐同槽既有件（拟定待调）。
+        new RecipeData(
+            Id: "coarse_shirt",
+            DisplayName: "粗布衬衫",
+            Category: RecipeCategory.Tailoring,
+            OutputKey: "coarse_shirt",
+            OutputQuantity: 1,
+            MaterialCosts: Cost(("cloth", 3)),
+            RequiredTools: Tools(),
+            RequiredBookIds: Books(TailorsNotesBookId),
+            WorkMinutes: 60),
+
+        // 粗布短裤：布最省、工时最短——护得也最少（只护大腿，小腿裸着，同既有「短裤」的取舍）。
+        new RecipeData(
+            Id: "coarse_shorts",
+            DisplayName: "粗布短裤",
+            Category: RecipeCategory.Tailoring,
+            OutputKey: "coarse_shorts",
+            OutputQuantity: 1,
+            MaterialCosts: Cost(("cloth", 2)),
+            RequiredTools: Tools(),
+            RequiredBookIds: Books(TailorsNotesBookId),
+            WorkMinutes: 40),
+
+        // 粗布长裤：多一段布，多护两条小腿。
+        new RecipeData(
+            Id: "coarse_trousers",
+            DisplayName: "粗布长裤",
+            Category: RecipeCategory.Tailoring,
+            OutputKey: "coarse_trousers",
+            OutputQuantity: 1,
+            MaterialCosts: Cost(("cloth", 3)),
+            RequiredTools: Tools(),
+            RequiredBookIds: Books(TailorsNotesBookId),
+            WorkMinutes: 70),
     };
 
     private static readonly IReadOnlyDictionary<string, RecipeData> _byId = ToMap(_all);

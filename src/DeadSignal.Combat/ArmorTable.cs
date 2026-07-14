@@ -2,8 +2,8 @@ namespace DeadSignal.Combat;
 
 /// <summary>
 /// 唯一权威护甲数据源，逐格对齐数据表 <c>docs/items-data.xlsx</c>『护甲表』（[SPEC-B18] 整表重做，[SPEC-B19] 补头盔）。
-/// 表 22 件 = 人形 17（长袖布衣/花衬衫/长裤/运动鞋/短裤/皮革胸甲/粗布背心/粗布外套/布夹克/牛仔外套/皮夹克/皮甲/板甲/<b>军用头盔/防暴头盔</b>/劳保手套/腐皮）
-/// + 狗 5（布制/皮制/口袋狗衣、铁皮/铁丝头甲）。**护甲不分阵营**（[SPEC-B16-补·护甲纠错]）——
+/// 表 26 件 = 人形 21（长袖布衣/花衬衫/长裤/运动鞋/短裤/皮革胸甲/粗布背心/粗布外套/布夹克/牛仔外套/皮夹克/皮甲/板甲/<b>军用头盔/防暴头盔</b>/劳保手套/腐皮
+/// + [批次21·T26] <b>战争面具/粗布衬衫/粗布短裤/粗布长裤</b>）+ 狗 5（布制/皮制/口袋狗衣、铁皮/铁丝头甲）。**护甲不分阵营**（[SPEC-B16-补·护甲纠错]）——
 /// <see cref="ArmorLayer"/> 只有防御值与覆盖部位，谁穿是生成侧的事。
 /// <para>
 /// <b>⚠️ <see cref="ArmorSlot"/> 是「伤害逐层结算的层序」，不是装备槽</b>——两者是不同的东西，别混。
@@ -209,6 +209,55 @@ public static class ArmorTable
         Name = "劳保手套", Description = "“劳动人民最光荣。”——奶奶",
         Slot = ArmorSlot.Skin, SharpDefense = 6, BluntDefense = 3, Weight = 0.05,
         CoversParts = HumanBody.SubtreeNames(HumanBody.LeftHand, HumanBody.RightHand),
+    };
+
+    // ---- [批次21·T26] 新增可制作穿戴品（《野外生存指南》/《裁缝手记》解锁；见 RecipeBook）----
+    //
+    // ⚠️ **追加在末尾、不插队**（同"新武器追加末尾"那条铁律）：本节四件对 Sim 是**结构性零漂移**——
+    // Sim 的护甲套是 Program.cs 里逐条列出的具名组合（长袖布衣 / 皮夹克+长袖布衣 / 板甲… ），
+    // 它**按名点菜、不遍历本表** ⇒ 新增工厂方法根本进不了 Duel 的结算路径，既有基线一个字节都不会动。
+
+    /// <summary>
+    /// <b>战争面具</b>（面部槽；骨与皮缝的面罩，护鼻+下巴，<b>不遮眼</b>——你还得看得见）。
+    /// <para>
+    /// ⚠️ <b>作用待用户定</b>：用户只在《野外生存指南》的「效果」列里点了它的名，没说它是什么、干什么用。
+    /// 这里取<b>最保守</b>的一种落地：一件普通的面部护甲，<b>不发明任何玩法效果</b>
+    /// （"吓退丧尸"一类本作没有这个机制，不凭空造）。数值拟定待调。
+    /// </para>
+    /// <para>
+    /// 与<b>防毒面具</b>同占面部槽（互斥）：那件遮眼+鼻不给防护，这件给防护但不遮眼 —— 是个真取舍。
+    /// 与<b>防暴头盔</b>也互斥（那顶头盔的面罩已经罩住整张脸）；<b>军用头盔</b>只占头槽，可与本件同戴。
+    /// </para>
+    /// </summary>
+    public static ArmorLayer WarMask() => new()
+    {
+        Name = "战争面具", Description = "骨片与生皮缝成的脸。戴上它你不会更能打——但扑上来的东西第一口咬到的是骨头，不是你的鼻子。",
+        Slot = ArmorSlot.Plate, SharpDefense = 8, BluntDefense = 4, Weight = 0.3,
+        CoversParts = new HashSet<string> { HumanBody.Nose, HumanBody.Chin },
+    };
+
+    /// <summary>粗布衬衫（贴身层，护胸+腹+双臂）：<b>可制作</b>版的长袖布衣，数值同档（同槽互斥）。</summary>
+    public static ArmorLayer CoarseClothShirt() => new()
+    {
+        Name = "粗布衬衫", Description = "自己缝的衬衫，针脚歪得像条走投无路的路。它挡不住多少东西，但它至少是你的。",
+        Slot = ArmorSlot.Skin, SharpDefense = 6, BluntDefense = 3, Weight = 0.15,
+        CoversParts = TorsoAndArms(),
+    };
+
+    /// <summary>粗布短裤（裤装槽，<b>仅护大腿</b>——小腿裸着，同既有短裤的覆盖取舍）。</summary>
+    public static ArmorLayer CoarseShorts() => new()
+    {
+        Name = "粗布短裤", Description = "布不够长，就成了短裤。小腿从此归风、蚊子和一切有牙齿的东西共有。",
+        Slot = ArmorSlot.Skin, SharpDefense = 6, BluntDefense = 3, Weight = 0.1,
+        CoversParts = new HashSet<string> { HumanBody.LeftLeg, HumanBody.RightLeg },
+    };
+
+    /// <summary>粗布长裤（裤装槽，护大腿+小腿）：<b>可制作</b>版的长裤，数值同档（同槽互斥）。</summary>
+    public static ArmorLayer CoarseTrousers() => new()
+    {
+        Name = "粗布长裤", Description = "多缝了一截，小腿就有了着落。末日里的奢侈就是这么算的。",
+        Slot = ArmorSlot.Skin, SharpDefense = 6, BluntDefense = 3, Weight = 0.15,
+        CoversParts = Legs(),
     };
 
     // ---- 生物·天生（不可穿戴）----

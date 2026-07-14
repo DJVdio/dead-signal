@@ -62,6 +62,9 @@ public static class ItemWeights
         ["leather"] = 0.5,
         ["rope"] = 0.5,
         ["components"] = 0.5,
+        // [批次21·T26] 武器零件：弩机与扳机组是**淬过火的钢件**，比通用机括件（components 0.5）沉一档。
+        // 造一把重弩要 3 个 ⇒ 1.8kg，光零件就顶得上一件皮夹克。数值拟定待调。
+        [Materials.WeaponPartsKey] = 0.6,
         ["first_aid_kit"] = 0.5,
         // [批次20·拆除回收] 胶水：一罐骨胶。它不重——重的是它稀缺。
         ["glue"] = 0.5,

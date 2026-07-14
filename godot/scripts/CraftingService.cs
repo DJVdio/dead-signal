@@ -268,8 +268,14 @@ public static class CraftingService
 
     /// <summary>
     /// 开一件在制品（夜间工时制）：同 <see cref="Craft"/> 的三门槛+批量材料校验，通过则**开工即扣材料（锁定，防重复下单）**
-    /// 并返回可推进的 <see cref="CraftingJob"/>（总工时 = 配方 <see cref="RecipeData.WorkMinutes"/> × <paramref name="times"/>，拟定待调）；
-    /// 产出留待进度满后调 <see cref="CompleteJob"/>。不通过原样失败、不动库存。
+    /// 并返回可推进的 <see cref="CraftingJob"/>；产出留待进度满后调 <see cref="CompleteJob"/>。不通过原样失败、不动库存。
+    /// <para>
+    /// 总工时走 <see cref="CraftWorkTime.TotalMinutes"/>（<b>不再是死数 <c>WorkMinutes × times</c></b>）——
+    /// 那儿是**总工时乘算轴**：读过《木匠入门》的人做家具，这活本身就更省工（×0.95）。
+    /// 无加成时乘子恰为 1.0 ⇒ 与旧式逐分钟相等（零回归）。
+    /// **另一条轴在推进侧**（每分钟投多少工时：操作能力 × 光环 × 疲劳，见 <c>CampMain.TickCraftingWorktime</c>），
+    /// 两条互不覆盖、天然连乘。
+    /// </para>
     /// 遗留（待确认）：任务中途取消/失败是否返还已扣材料——当前不返还（开工即消耗）。
     /// </summary>
     public static CraftStartResult StartJob(
@@ -290,7 +296,7 @@ public static class CraftingService
             return CraftStartResult.Fail(blocks);
         }
 
-        var job = new CraftingJob(recipe.Id, recipe.WorkMinutes * mult, mult);
+        var job = new CraftingJob(recipe.Id, CraftWorkTime.TotalMinutes(recipe, isBookRead, mult), mult);
         return new CraftStartResult(true, Array.Empty<CraftBlock>(), job);
     }
 

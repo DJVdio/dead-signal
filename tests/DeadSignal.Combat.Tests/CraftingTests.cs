@@ -103,12 +103,177 @@ public class RecipeBookTests
         Assert.Contains(RecipeBook.CarpentryBasicsBookId, ids); // 《木匠入门》须在书目里，否则木椅/自制弓永久不可制作
     }
 
+    /// <summary>
+    /// 短弓的书门槛＝《<b>野外生存指南</b>》（[SPEC-B21·T26]，用户在 wiki 书籍表里重排了解锁归属）。
+    /// <para>
+    /// ⚠️ <b>本条推翻了旧断言</b>「自制弓也要读《木匠入门》」——那是更早一轮的用户拍板，
+    /// 现已被<b>表赢代码</b>的新表覆盖：用户写的《野外生存指南》效果列是「骨刀、短弓、削减木箭、圈套陷阱、战争面具」，
+    /// 《木匠入门》那一列则只剩「木椅、床、桌子、废木料回收」——<b>一把弓都没有</b>。
+    /// </para>
+    /// <para>
+    /// <b>这是放宽而非收紧</b>：《野外生存指南》在 camp.json 的开局柜子里，《木匠入门》要出门搜刮
+    /// ⇒ 短弓从"搜到书才能做"变成"<b>开局读完书就能做</b>"。工具门槛（卡尺）<b>未动</b>——用户只重排了书。
+    /// </para>
+    /// </summary>
     [Fact]
-    public void HandmadeBow_RequiresCalipers_AndCarpentryBasics()
+    public void HandmadeBow_RequiresCalipers_AndWildernessSurvivalGuide()
     {
         var r = RecipeBook.Find("handmade_bow")!;
         Assert.Contains(ToolSlot.Calipers, r.RequiredTools);
-        Assert.Contains(RecipeBook.CarpentryBasicsBookId, r.RequiredBookIds); // 用户拍板：自制弓也要读《木匠入门》
+        Assert.Contains(RecipeBook.WildernessSurvivalGuideBookId, r.RequiredBookIds);
+        Assert.DoesNotContain(RecipeBook.CarpentryBasicsBookId, r.RequiredBookIds);
+    }
+
+    /// <summary>
+    /// 《野外生存指南》解锁的<b>五条</b>配方＝用户 wiki 书籍表那一行的逐条编码
+    /// （骨刀 / 短弓 / <b>削尖的木箭</b> / 圈套陷阱 / 战争面具）。[SPEC-B21·T26]
+    /// <para>
+    /// <b>它是开局共享库存里就有的书</b>（camp.json 住宅-柜子 role=storage）⇒ 挂在它名下＝<b>开局读完就能做</b>。
+    /// 这一行因此是「开局第一晚该读哪本书」那个选择的<b>全部赌注</b>：读它，一次拿到 刀＋弓＋箭＋陷阱＋面具 一整条生存线。
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void 野外生存指南_解锁五条配方()
+    {
+        var byBook = RecipeBook.All
+            .Where(r => r.RequiredBookIds.Contains(RecipeBook.WildernessSurvivalGuideBookId))
+            .Select(r => r.Id)
+            .OrderBy(x => x)
+            .ToList();
+
+        Assert.Equal(
+            new[] { "ammo_arrow_stick", "bone_knife", "handmade_bow", "snare_trap", "war_mask" }.OrderBy(x => x),
+            byBook);
+    }
+
+    /// <summary>
+    /// <b>弓的阶梯＝一条"要不要出门搜书"的曲线</b>（[SPEC-B21·T26] 用户拍板）：
+    /// <list type="bullet">
+    /// <item><b>短弓</b> ← 《野外生存指南》（<b>开局共享库存就有</b>）⇒ 开局读完书即可造，不必出门。</item>
+    /// <item><b>反曲弓 / 长弓</b> ← 《<b>进阶木匠技术</b>》（<b>只能搜刮</b>，见 ExplorationCache）⇒ 想升级弓，<b>得出去搜书</b>。</item>
+    /// </list>
+    /// <item><b>单手轻弩 / 双手重弩</b> ← 《<b>机械之美</b>》（用户拍板的新书；<b>只能靠这本书</b>，见下条测试）。</item>
+    /// </summary>
+    [Fact]
+    public void 弓弩的阶梯_短弓开局书_进阶弓搜书_弩要机械之美()
+    {
+        Assert.Contains(RecipeBook.WildernessSurvivalGuideBookId, RecipeBook.Find("handmade_bow")!.RequiredBookIds);
+
+        foreach (string id in new[] { "recurve_bow", "longbow" })
+        {
+            RecipeData r = RecipeBook.Find(id)!;
+            Assert.Contains(RecipeBook.AdvancedCarpentryBookId, r.RequiredBookIds);
+            Assert.DoesNotContain(RecipeBook.CarpentryBasicsBookId, r.RequiredBookIds);   // 已从入门书搬走
+        }
+
+        foreach (string id in new[] { "light_crossbow", "heavy_crossbow" })
+        {
+            RecipeData r = RecipeBook.Find(id)!;
+            Assert.Contains(RecipeBook.MechanicalBeautyBookId, r.RequiredBookIds);
+            Assert.DoesNotContain(RecipeBook.CarpentryBasicsBookId, r.RequiredBookIds);   // 已从入门书搬走
+        }
+    }
+
+    /// <summary>
+    /// <b>《木匠入门》现在真的只剩家具了</b>（[SPEC-B21·T26] 终态）——短弓 / 反曲弓 / 长弓 / 两把弩全部搬走。
+    /// <para>用户把弓弩线整条从这本书上剥离，这是<b>有意为之</b>。这条断言防的是"日后谁顺手又往里塞一把武器"。</para>
+    /// </summary>
+    [Fact]
+    public void 木匠入门_只剩家具_一把弓弩都没有()
+    {
+        var unlocked = RecipeBook.All
+            .Where(r => r.RequiredBookIds.Contains(RecipeBook.CarpentryBasicsBookId))
+            .Select(r => r.Id)
+            .OrderBy(x => x)
+            .ToList();
+
+        Assert.Equal(new[] { "bed", "chair", "table" }.OrderBy(x => x), unlocked);
+    }
+
+    /// <summary>
+    /// 🔴 <b>《机械之美》是两把可制作弩的唯一来路 —— 而它眼下没有任何投放点。</b>
+    /// <para>
+    /// 单手轻弩 / 双手重弩<b>搜刮不到</b>（全图 0 处投放，只能造）⇒ 书拿不到，这两把弩就<b>在游戏里不存在</b>。
+    /// <b>"书从哪来"是设计决策，已 [DECISION] 上抛用户，代码不许自己塞进某个搜刮点。</b>
+    /// </para>
+    /// <para>
+    /// 本条断言钉的是<b>依赖关系</b>（弩 ⇔ 这本书），<b>不是</b>"书拿得到"——后者眼下为假。
+    /// 用户定了来源、往 <c>ExplorationCache</c> 加上投放后，请再补一条"这本书能搜到"的断言
+    /// （照抄 <c>ArcheryCraftingTests.弓与箭之道_能搜到_否则50pct回收率永远拿不到</c>）。
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void 机械之美_是两把可制作弩的唯一门槛()
+    {
+        var unlocked = RecipeBook.All
+            .Where(r => r.RequiredBookIds.Contains(RecipeBook.MechanicalBeautyBookId))
+            .Select(r => r.Id)
+            .OrderBy(x => x)
+            .ToList();
+
+        Assert.Equal(new[] { "heavy_crossbow", "light_crossbow" }, unlocked);
+
+        // 书本身存在于书目里（否则这两条配方永久不可解锁，且 UI 会拿一个查不到的 id 去渲染）。
+        Assert.Contains(RecipeBook.MechanicalBeautyBookId, BookLibrary.All().Select(b => b.Id));
+    }
+
+    /// <summary>
+    /// <b>「武器零件」与「机械零件」是两种东西 —— 别合并</b>（[SPEC-B21·T26] 用户拍板新建前者）。
+    /// <para>
+    /// 用户特意要新材料，<b>正是为了让弩与改装台不争抢同一堆零件</b>：
+    /// <list type="bullet">
+    /// <item><b>机械零件</b> <c>components</c> → 改装台 / 自制枪 / 杂活（通用机括件）</item>
+    /// <item><b>武器零件</b> <c>weapon_parts</c> → <b>只喂弩</b>（弩机/扳机组/簧片）</item>
+    /// </list>
+    /// 这条断言就是那个隔离带的看门人：谁哪天把弩改回吃 <c>components</c>，或让改装台吃上 <c>weapon_parts</c>，它会红。
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void 武器零件与机械零件不争抢_弩只吃武器零件_改装台只吃机械零件()
+    {
+        Assert.True(Materials.Has(Materials.WeaponPartsKey));
+        Assert.NotEqual(Materials.WeaponPartsKey, "components");
+
+        foreach (string id in new[] { "light_crossbow", "heavy_crossbow" })
+        {
+            IReadOnlyDictionary<string, int> cost = RecipeBook.Find(id)!.MaterialCosts;
+            Assert.True(cost.ContainsKey(Materials.WeaponPartsKey), $"{id} 该吃武器零件");
+            Assert.False(cost.ContainsKey("components"), $"{id} 不该再吃机械零件（那是改装台的料）");
+        }
+
+        IReadOnlyDictionary<string, int> bench = RecipeBook.Find("mod_bench")!.MaterialCosts;
+        Assert.True(bench.ContainsKey("components"));
+        Assert.False(bench.ContainsKey(Materials.WeaponPartsKey), "改装台不该吃武器零件（那是弩的料）");
+    }
+
+    /// <summary>
+    /// <b>武器零件只能搜刮，没有配方</b> —— 同「子弹零件」那条：造不出来的精密件才有稀缺可言。
+    /// <para>未来若要做"拆枪回收零件"，那是一套全新机制（拆武器回收），本单没做，届时这条断言要一起改。</para>
+    /// </summary>
+    [Fact]
+    public void 武器零件没有配方_只能搜刮()
+    {
+        Assert.DoesNotContain(RecipeBook.All, r => r.OutputKey == Materials.WeaponPartsKey);
+    }
+
+    /// <summary>
+    /// 《弓与箭之道》从"<b>只给被动加成</b>"变成"<b>解锁自制箭 + 那四项加成</b>"（[SPEC-B21·T26] 用户拍板）。
+    /// <para>
+    /// ⚠️ <b>重头箭用户没提 ⇒ 一个字没动</b>（保持零书门槛，只要卡尺）。别顺手"统一"成"好箭都归这本书"——
+    /// 那是引申，不是用户说的。
+    /// </para>
+    /// <para>
+    /// 三种箭因此摊成一条清晰的曲线：削尖的木箭（开局书）→ 重头箭（无书，只要卡尺）→ 自制箭（<b>要搜到这本书</b>）。
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void 弓与箭之道_解锁自制箭_但重头箭不动()
+    {
+        Assert.Contains(RecipeBook.WayOfBowBookId, RecipeBook.Find("ammo_arrow_handmade")!.RequiredBookIds);
+
+        RecipeData heavy = RecipeBook.Find("ammo_arrow_heavy")!;
+        Assert.Empty(heavy.RequiredBookIds);                       // 用户没提 ⇒ 保持零书门槛
+        Assert.Contains(ToolSlot.Calipers, heavy.RequiredTools);   // 工具门槛照旧
     }
 
     [Fact]

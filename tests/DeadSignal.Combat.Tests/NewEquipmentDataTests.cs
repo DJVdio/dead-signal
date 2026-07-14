@@ -78,10 +78,18 @@ public class NewEquipmentDataTests
         Assert.True(bolt.TwoHanded);
         Assert.Equal(1, bolt.BurstCount);                       // 单发，非连发
         Assert.Equal(4.5, bolt.AttackInterval, 6);              // 栓动慢冷却锚点
-        // 伤害/射程介于步枪（军用强）与自制猎枪（土法弱）之间。
-        // ⚠ 穿透不再夹在中间：自制猎枪经用户拍板改为 25%（>步枪 21%，"打得不重但钻得深"），
-        // 故栓动猎枪 16% 现在是全枪械最低，穿透维度改为只与步枪比。
-        Assert.InRange(bolt.DamageMax, zip.DamageMax, rifle.DamageMax);
+
+        // ⚠ T21：「伤害介于步枪与自制猎枪之间」这条旧意图**已被用户的新值推翻**——
+        // 他把步枪削到 10~24，栓动 16~28 的**单发伤害反而高于步枪**了。
+        // 这不是倒挂，是生态位分化，且说得通：
+        //   · 栓动猎枪 = 大口径慢速单发（一枪很重：上限 28 > 步枪 24，但 4.5s 才一发 ⇒ DPS ≈ 4.9）
+        //   · 军用步枪 = 小口径快速二连发（单发轻，但 2.8s 打两发 ⇒ DPS ≈ 12.1，仍远强）
+        // 故改钉新意图：单发更重、但 DPS 显著更低；穿透仍低于步枪。
+        Assert.True(bolt.DamageMax > rifle.DamageMax, "栓动＝大口径，单发上限应高于军用步枪");
+        Assert.True(bolt.DamageMax > zip.DamageMax, "但仍强于土法自制猎枪");
+        double Dps(Weapon w) => (w.DamageMin + w.DamageMax) / 2.0 * w.BurstCount / w.AttackInterval;
+        Assert.True(Dps(bolt) < Dps(rifle), "栓动虽然单发重，DPS 必须显著低于步枪（慢+单发）");
+
         Assert.True(bolt.Penetration < rifle.Penetration);
         Assert.InRange(bolt.MaxRange!.Value, zip.MaxRange!.Value, rifle.MaxRange!.Value);
     }

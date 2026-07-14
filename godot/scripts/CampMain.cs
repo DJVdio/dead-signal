@@ -715,6 +715,9 @@ public sealed partial class CampMain : Node2D
         _traversal.Clear();
         _looseTraversableRects.Clear();
 
+        // 室内可用区同理清空（防重入累积）——BuildBuilding 逐座重新登记。
+        _indoorAreas.Clear();
+
         // 尸体管家：无碰撞体、不改导航图，只维护「尸体格」占用（同格不堆叠，落点冲突自动挤到旁边）。
         // 尸体身上穿的东西**原样**成为它的战利品（CorpseLoot.Strip，零掷骰）；被回收时注销它的可搜刮点。
         _corpseYard = new CorpseYard { Name = "CorpseYard" };
@@ -1057,6 +1060,11 @@ public sealed partial class CampMain : Node2D
         }
         float wt = b.wallThickness > 0 ? (float)b.wallThickness : 18f;
         float wallH = b.wallHeight > 0 ? (float)b.wallHeight : (float)_heights.wall;
+
+        // [T27] 室内可用区 = 外框**缩进墙厚**（墙本身不是室内）。这是「家具不能放到室外」的事实源。
+        // 只有四面墙段是实心的（见 WallSegments），屋内地板可走 ⇒ "在屋里" = 占位整个落在这个内框里。
+        _indoorAreas.Add(new Rect2(
+            foot.Position + new Vector2(wt, wt), foot.Size - new Vector2(wt * 2, wt * 2)));
 
         // 地基/地板（平铺，比墙暗，屋顶半透时可见）。
         var floorStyle = new PixelStyle { color = ScaleColor(b.wallColor, 0.6f), jitter = 0.04 };
@@ -3079,6 +3087,22 @@ public sealed partial class CampMain : Node2D
             }
         }
 
+        // [批次21·T26] 摆放陷阱模式：左键落位、右键作罢（同沙袋/床；正文在 CampMain.Traps.cs）。
+        if (_placingTrap)
+        {
+            if (mb is { ButtonIndex: MouseButton.Left, Pressed: true })
+            {
+                TryPlaceTrap(Iso.Unproject(GetGlobalMousePosition()));
+                return;
+            }
+            if (mb is { ButtonIndex: MouseButton.Right, Pressed: true })
+            {
+                EndTrapPlacement();
+                _campToast.Show("算了，陷阱先收着。", CampToast.Ok);
+                return;
+            }
+        }
+
         // 摆放床模式：左键落位、右键作罢（同沙袋；正文在 CampMain.Bedrest.cs）。
         if (_placingBed)
         {
@@ -3091,6 +3115,22 @@ public sealed partial class CampMain : Node2D
             {
                 EndBedPlacement();
                 _campToast.Show("算了，床先搁着。", CampToast.Ok);
+                return;
+            }
+        }
+
+        // 摆放桌子模式：左键落位、右键作罢（同沙袋/床；正文在 CampMain.Table.cs）。
+        if (_placingTable)
+        {
+            if (mb is { ButtonIndex: MouseButton.Left, Pressed: true })
+            {
+                TryPlaceTable(Iso.Unproject(GetGlobalMousePosition()));
+                return;
+            }
+            if (mb is { ButtonIndex: MouseButton.Right, Pressed: true })
+            {
+                EndTablePlacement();
+                _campToast.Show("算了，桌子先搁着。", CampToast.Ok);
                 return;
             }
         }
@@ -3837,6 +3877,12 @@ public sealed partial class CampMain : Node2D
             "cookstation" => $"烹饪台 · 做饭只能在这儿做 · 选中角色后右键前往{noSel} · Shift+右键拆走",
             // 沙袋：半身掩体。提示里把"紧贴才算"和"敌人也能用"说清楚——这 25% 若是隐形的，玩家会以为它没生效。
             "sandbag" => "沙袋 · 贴着它挨远程有 25% 无效（绕到你背后就白垒了，敌人也能蹲它后面）· Shift+右键拆走",
+            // [批次21·T26] 陷阱：几率按"场上第几个"递减 ⇒ 提示里**把这一个的当前几率报出来**。
+            // 玩家看不见这条递减曲线的话，第 7 个陷阱和第 1 个在他眼里长得一模一样（而收益差了六倍）。
+            "trap" => TrapHoverText(c),
+            // [批次21·T25] 桌子：室内的半身掩体（用户拍板）。把"紧贴才算"和"敌人也能用"说清楚——同沙袋，
+            // 这 25% 若是隐形的，玩家会以为它没生效。顺带说清它不挡路（跨得过去，只是慢 25%）。
+            "table" => "桌子 · 贴着它挨远程有 25% 无效（绕到你背后就白摆了，敌人也能蹲它后面）· 跨得过去但会慢 25% · Shift+右键拆走",
             "radio" => $"收音机 · 选中角色后右键前往{(RadioMainline.IsDecisionAvailable(_storyFlags) ? "抉择" : "收听")}{noSel}",
             "storage" => $"储物柜 · 选中角色后右键前往{noSel}",
             // 商人在**门外**：把代价直接写在提示里（大门闩着时先说"得开门"，别让玩家点了才发现走不过去）。
@@ -4578,6 +4624,10 @@ public sealed partial class CampMain : Node2D
         // ⇒ 必经 Recycled → DeregisterCorpseContainer（可搜刮点 + 藏物登记一并注销，不泄漏）。
         // 🔴 祖母的尸体是 camp.json 的 role=corpse prop，从不进 CorpseYard ⇒ 永远不会被这条清理带走。
         _corpseYard?.AdvancePhase();
+        // [批次21·T26] 圈套陷阱：**每个相位**各掷一次点（用户原话「每个相位都有 30% 的几率」），
+        // 抓到的老鼠/兔子直接入共享库存。一天 8 相位 ⇒ 一个陷阱每天期望 0.3×8 = 2.4 只。
+        // 场上一个陷阱都没有时彻底静默（不掷点、不弹提示）。正文在 CampMain.Traps.cs。
+        ResolveTrapsForPhase();
         // 视野遮暗（批次4）：营地夜间（NightPrep/NightAct）启用；白天/暮光/探索相位全可见豁免。
         _campVisionMask?.SetEnabled(phase is DayPhase.NightPrep or DayPhase.NightAct);
         _expeditionPanel.Visible = false;
@@ -7945,9 +7995,13 @@ public sealed partial class CampMain : Node2D
         _craftingJobWorker = crafter; // 记下单者作生产者身份（3 级光环生产系数按其判定）
         _craftLastMinuteKey = -1; // 重置增量基线，下一生产帧从当前分钟起算
         _craftMinuteBudget = 0f;  // 清小数预算，新任务从零累积
-        string work = CraftingPanelFormat.FormatWorkDuration(recipe.WorkMinutes);
-        _campToast.Show($"已下单：{recipe.DisplayName}（工时 {work}，夜间生产）", CampToast.Ok);
-        GD.Print($"[制作] {crafter.DisplayName} 下单 {recipe.DisplayName}（工时 {recipe.WorkMinutes} 分）");
+        // 报**这一单的真工时**（result.Job.TotalWorkMinutes），不是配方上那个死数——
+        // 读过《木匠入门》的人做家具会打 95 折（CraftWorkTime），报配方原值等于当面骗人。
+        int ordered = result.Job!.TotalWorkMinutes;
+        string work = CraftingPanelFormat.FormatWorkDuration(ordered);
+        string faster = ordered < recipe.WorkMinutes ? "，手熟，快些" : "";
+        _campToast.Show($"已下单：{recipe.DisplayName}（工时 {work}{faster}，夜间生产）", CampToast.Ok);
+        GD.Print($"[制作] {crafter.DisplayName} 下单 {recipe.DisplayName}（工时 {ordered} 分）");
         RefreshCrafting();
     }
 
@@ -8148,6 +8202,20 @@ public sealed partial class CampMain : Node2D
         if (key == BedSpec.ItemKey)
         {
             BeginBedPlacement();
+            return;
+        }
+
+        // [批次21·T26] 圈套陷阱：非实心贴地矮物（可跨越），正文在 CampMain.Traps.cs。
+        if (key == TrapSpec.ItemKey)
+        {
+            BeginTrapPlacement();
+            return;
+        }
+
+        // 桌子：非实心矮物（跨得过去，跨过慢 25%），正文在 CampMain.Table.cs。
+        if (key == TableSpec.ItemKey)
+        {
+            BeginTablePlacement();
             return;
         }
 
@@ -8620,7 +8688,9 @@ public sealed partial class CampMain : Node2D
     /// </summary>
     private void OnSurgeryRequested(Pawn patient, HealthCondition condition, IReadOnlyList<string> materials, bool onBed, Pawn surgeon)
     {
-        int bookBonus = MedicalBookPoints.SumFor(surgeon.ReadBookIds);
+        // 医疗书加点分两桶喂进去：无条件那份恒计；「不投任何耗材才算」那份（《野外生存指南》+6）由引擎按**实际投入**的耗材决定加不加。
+        int bookBonus = MedicalBookPoints.SumAlways(surgeon.ReadBookIds);
+        int bookBonusBarehanded = MedicalBookPoints.SumWithoutSupplies(surgeon.ReadBookIds);
         double capability = surgeon.OperationCapability;
         bool self = ReferenceEquals(patient, surgeon);
 
@@ -8633,7 +8703,7 @@ public sealed partial class CampMain : Node2D
         SurgeryResult result = patient.Health.PerformSurgery(
             condition, materials, RealOnBed(patient), _healthRng,
             surgeonBookBonus: bookBonus, selfSurgery: self, operationCapability: capability,
-            surgeryBasePoints: basePoints);
+            surgeryBasePoints: basePoints, surgeonBookBonusNoSupplies: bookBonusBarehanded);
 
         // 升级轴＝她本人执行过的手术台数（[SPEC-B13-补2]，成败都计、重做每次计；门槛未过/重做冷却未真正施术不计）。
         // 计数持久化走 StoryFlags（字符串承载整数，RadioMainline 回复日先例）；升到 L3 那一刻置永续遗产旗标（她死/离营后 3级效果仍生效）。
@@ -8667,14 +8737,16 @@ public sealed partial class CampMain : Node2D
     /// </summary>
     private void OnAmputationRequested(Pawn patient, HealthCondition infection, IReadOnlyList<string> materials, bool onBed, Pawn surgeon)
     {
-        int bookBonus = MedicalBookPoints.SumFor(surgeon.ReadBookIds);
+        int bookBonus = MedicalBookPoints.SumAlways(surgeon.ReadBookIds);
+        int bookBonusBarehanded = MedicalBookPoints.SumWithoutSupplies(surgeon.ReadBookIds);
         double capability = surgeon.OperationCapability;
         bool self = ReferenceEquals(patient, surgeon);
         int basePoints = NightingalePerk.SurgeryBasePoints(surgeon.Perks.IsNightingale, _storyFlags.Has(NurseRecruit.L3LegacyFlag));
 
         SurgeryResult result = patient.AmputateInfectedLimb(
             infection, materials, RealOnBed(patient), _healthRng,
-            surgeonBookBonus: bookBonus, selfSurgery: self, operationCapability: capability, surgeryBasePoints: basePoints);
+            surgeonBookBonus: bookBonus, selfSurgery: self, operationCapability: capability, surgeryBasePoints: basePoints,
+            surgeonBookBonusNoSupplies: bookBonusBarehanded);
 
         // 南丁格尔升级轴：真正施术（成功/失败）计一台。
         if (surgeon.Perks.IsNightingale
@@ -8708,14 +8780,16 @@ public sealed partial class CampMain : Node2D
     /// </summary>
     private void OnProstheticSurgeryRequested(Pawn patient, BodyRegion region, ProstheticGrade grade, IReadOnlyList<string> materials, bool onBed, Pawn surgeon)
     {
-        int bookBonus = MedicalBookPoints.SumFor(surgeon.ReadBookIds);
+        int bookBonus = MedicalBookPoints.SumAlways(surgeon.ReadBookIds);
+        int bookBonusBarehanded = MedicalBookPoints.SumWithoutSupplies(surgeon.ReadBookIds);
         double capability = surgeon.OperationCapability;
         bool self = ReferenceEquals(patient, surgeon);
         int basePoints = NightingalePerk.SurgeryBasePoints(surgeon.Perks.IsNightingale, _storyFlags.Has(NurseRecruit.L3LegacyFlag));
 
         SurgeryResult result = patient.InstallProstheticSurgery(
             region, grade, materials, RealOnBed(patient), _healthRng,
-            surgeonBookBonus: bookBonus, selfSurgery: self, operationCapability: capability, surgeryBasePoints: basePoints);
+            surgeonBookBonus: bookBonus, selfSurgery: self, operationCapability: capability, surgeryBasePoints: basePoints,
+            surgeonBookBonusNoSupplies: bookBonusBarehanded);
 
         if (surgeon.Perks.IsNightingale
             && (result.Status == SurgeryStatus.Success || result.Status == SurgeryStatus.Failed))

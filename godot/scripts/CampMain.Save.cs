@@ -95,6 +95,7 @@ public sealed partial class CampMain
             CookwareInstalled = SaveMapper.ToSave(_cookStation),   // [批次21·T14] 烹饪台上装了锅没有、装了烤架没有
             CraftingJob = SaveMapper.ToSave(_craftingJob, _craftingJobWorker?.Id ?? -1),
             SandbagSeq = _sandbagSeq,
+            TrapSeq = _trapSeq,   // [批次21·T26] 陷阱命名序号（数量不存——从 PlacedFurniture 数出来，见 SaveData.TrapSeq）
 
             // 改装武器的**身份**（"步枪（刺刀型）" = 步枪 + 刺刀型）。不存这张表，读档后那把枪
             // 就是个查不到定义的空名字 —— 装不上、也没数值（见 ModdedWeaponRegistry 类注）。
@@ -155,9 +156,19 @@ public sealed partial class CampMain
         // [批次21·impl-modbench] 玩家垒的沙袋（"沙袋#N"）。**此前是漏的**：CampSave.Sandbags 那个字段虽然一直存在，
         // 但 CaptureCamp 从没往里填过 ⇒ 摆好的沙袋读档后**整片消失**（只剩 _sandbagSeq 这个空号）。
         // 沙袋和床、改装台一样是"位置由玩家定"的东西，走同一张 PlacedFurniture 表即可，不必再开一张。
+        //
+        // [批次21·T26·impl-traps] 玩家摆的陷阱（"陷阱#N"）。同沙袋/床：位置由玩家定 ⇒ 必须存。
+        // ⚠️ **陷阱的"数量"不必单独存**：捕获几率按"场上第 n 个"递减（TrapLogic.ChanceOf），
+        // 而 n 是**数出来的**（TrapCount 数 _furniture 里的 "陷阱#" 前缀）——把它们逐个摆回场上，
+        // 数量就自动回来了。只有**命名序号** _trapSeq 得单独存（CampSave.TrapSeq），
+        // 否则读档后新造的陷阱会从 #1 重新编号、与场上已有的撞名。
         foreach ((string key, FurnitureInstance f) in _furniture)
         {
-            if (!IsPlayerPlacedBed(key) && !SandbagSpec.IsSandbagFurniture(key))
+            // [批次21·T25] 桌子（"桌子#N"）：同床/沙袋/陷阱——位置由玩家定 ⇒ 不存就找不回来了。
+            if (!IsPlayerPlacedBed(key)
+                && !SandbagSpec.IsSandbagFurniture(key)
+                && !TrapSpec.IsTrapFurniture(key)
+                && !TableSpec.IsTableFurniture(key))
             {
                 continue;
             }
@@ -343,6 +354,13 @@ public sealed partial class CampMain
 
         _sandbagSeq = camp.SandbagSeq;
 
+        // [批次21·T26] 陷阱命名序号。
+        // ⚠️ **必须 Max、不能直接赋值**：本行跑在 RestorePlacedFurniture **之后**，而那里的 RespawnTrap 已经把
+        // _trapSeq 推到了"场上实名的最大号"。直接赋值会把它盖回去 —— 读一个手改过/旧版的档（TrapSeq=0，
+        // 但场上摆着 陷阱#1..#3）就会让下一个新陷阱又叫 陷阱#1，**与场上那个直接撞名**（字典里一个顶掉另一个）。
+        // 取 Max ⇒ 两个来源谁大听谁的，撞名在结构上不可能发生。
+        _trapSeq = Mathf.Max(_trapSeq, camp.TrapSeq);
+
         // [批次21·impl-bedrest] 床位占用（须在 RestorePlacedFurniture 之后——玩家造的床得先立回场上、
         // AddBed 进登记册，占用关系才对得上号）。卧床令与休养流水账跟着各人走（PawnSave）。
         ApplyBedSave(camp);
@@ -407,6 +425,22 @@ public sealed partial class CampMain
                 continue;
             }
 
+            // [批次21·T26·impl-traps] 玩家摆的陷阱：非实心矮物（可跨越）⇒ 同样不触发重烘焙。
+            // 摆回 _furniture 的那一刻，减速场与"场上第 n 个"的计数都自动跟着回来（都从 _furniture 重建）。
+            if (TrapSpec.IsTrapFurniture(key))
+            {
+                RespawnTrap(key, rect);
+                continue;
+            }
+
+            // [批次21·T25] 玩家摆的桌子：非实心矮物（可跨越，跨过慢 25%）⇒ 同样不触发重烘焙。
+            // 摆回 _furniture 的那一刻，减速场自动跟着回来（RebuildTraversalField 从 _furniture 唯一真源重建）。
+            if (TableSpec.IsTableFurniture(key))
+            {
+                RespawnTable(key, rect);
+                continue;
+            }
+
             // [批次21·T14] 烹饪台：**实心**（挖导航洞）⇒ 与改装台同路，摆回去要重烘焙。
             if (key == CookStation.PropName)
             {
@@ -446,7 +480,9 @@ public sealed partial class CampMain
             .Where(k => k == WeaponModLogic.BenchFurnitureKey
                      || k == CookStation.PropName          // [批次21·T14] 烹饪台也是玩家摆的
                      || IsPlayerPlacedBed(k)
-                     || SandbagSpec.IsSandbagFurniture(k))
+                     || SandbagSpec.IsSandbagFurniture(k)
+                     || TrapSpec.IsTrapFurniture(k)        // [批次21·T26] 陷阱也是玩家摆的
+                     || TableSpec.IsTableFurniture(k))     // [批次21·T25] 桌子也是玩家摆的
             .ToList();
 
         foreach (string key in doomed)

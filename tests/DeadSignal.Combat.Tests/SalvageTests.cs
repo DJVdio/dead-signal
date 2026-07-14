@@ -413,7 +413,7 @@ public class SalvageTests
     [Fact]
     public void GlueRecipe_Exists_AndEatsFuel()
     {
-        // 熬骨胶：骨头 + **燃料**。燃料同时是火把/发电机/火药/全部枪弹的命根子 ——
+        // 熬一锅胶：骨头 + **燃料**。燃料同时是火把/发电机/火药/全部枪弹的命根子 ——
         // 「这罐胶是拿去回收木料，还是留着熬火药」由此成为真的选择，而不是白设计的税。
         RecipeData? r = RecipeBook.Find(SalvageLogic.GlueRecipeId);
 
@@ -438,6 +438,25 @@ public class SalvageTests
     {
         // 守门测试：胶水**只有一条**配方产出；任何人日后想再加一条"胶水速成"，先过这一关。
         Assert.Single(RecipeBook.All.Where(r => r.OutputKey == SalvageLogic.GlueKey));
+    }
+
+    [Fact]
+    public void GlueRecipe_IsNamedAfterItsProduct_CraftedAndScavengedLookLikeOneThing()
+    {
+        // **自己熬的和搜刮来的，是同一样东西**——它们本来就共用同一个材料键（glue），
+        // 但配方从前叫「熬骨胶」，制作菜单里于是冒出一个玩家在库存里从没见过的名字，
+        // 看上去像是两种材料。⇒ 配方名 = 产物名 = 「胶水」，界面上也归一。
+        RecipeData r = RecipeBook.Find(SalvageLogic.GlueRecipeId)!;
+
+        Assert.Equal("胶水", Materials.Find(SalvageLogic.GlueKey)!.Value.DisplayName);
+        Assert.Equal("胶水", r.DisplayName);
+    }
+
+    [Fact]
+    public void NoRecipe_IsStillCalledBoneGlue()
+    {
+        // 谁把它改回「熬骨胶」，这里就红——那正是玩家分不清"造的"和"搜的"的根源。
+        Assert.DoesNotContain(RecipeBook.All, r => r.DisplayName.Contains("熬骨胶"));
     }
 
     // ══════════════ 9. 实扣实产（SalvageService：判定纯函数，库存由服务实动）══════════════

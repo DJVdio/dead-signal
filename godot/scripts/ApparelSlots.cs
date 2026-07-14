@@ -379,6 +379,16 @@ public static class ApparelCatalog
         d["防毒面具"] = new ApparelDef(
             "防毒面具", S(EquipSlot.Eyes, EquipSlot.Face),
             new HashSet<string> { HumanBody.LeftEye, HumanBody.RightEye, HumanBody.Nose }, null);
+
+        // [批次21·T26] 三件新可制作穿戴品 + 战争面具（配方见 RecipeBook；**不造新槽**，全落既有槽）。
+        //   战争面具 → 面部槽（**只占 Face**，不占眼镜槽 ⇒ 不遮眼）：与防毒面具/防暴头盔互斥（都要这张脸），
+        //             但与**军用头盔**可同戴（那顶只占头槽）—— 这正是两顶头盔那个取舍的延伸。
+        //   粗布衬衫 → 贴身层（与长袖布衣/花衬衫互斥）。
+        //   粗布短裤 / 粗布长裤 → 裤装槽（与长裤/短裤/板甲互斥；短款仅护大腿，见 ArmorTable）。
+        Add(ArmorTable.WarMask(), EquipSlot.Face);
+        Add(ArmorTable.CoarseClothShirt(), EquipSlot.SkinLayer);
+        Add(ArmorTable.CoarseShorts(), EquipSlot.Pants);
+        Add(ArmorTable.CoarseTrousers(), EquipSlot.Pants);
         return d;
     }
 
