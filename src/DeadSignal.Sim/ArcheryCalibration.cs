@@ -45,6 +45,7 @@ public static class ArcheryCalibration
         GunBaseline(sb);
         CraftableRangedLines(sb);
         LogisticsTable(sb);
+        ArcheryBookTable(sb);
 
         Directory.CreateDirectory(Path.GetDirectoryName(outPath)!);
         File.WriteAllText(outPath, sb.ToString());
@@ -249,7 +250,11 @@ public static class ArcheryCalibration
         sb.AppendLine();
         sb.AppendLine("**读法（照实说，别只挑好听的）**：");
         sb.AppendLine();
-        sb.AppendLine("⚠️ **自制霰弹枪在这张表的三列里全都最高**（95.4% / 67.1% / 39.2%），把两条弓弩线都压住了。");
+        // 三个数字**实算**，不写死：武器数值一改（如近战锐器重标定、双手攻速加成退役），写死的数字立刻变成假话。
+        Weapon shotgun = WeaponTable.ImprovisedShotgun();
+        sb.AppendLine(CultureInfo.InvariantCulture,
+            $"⚠️ **自制霰弹枪在这张表的三列里全都最高**（{WinRate(shotgun, zombie):P1} / {WinRate(shotgun, mid):P1} / " +
+            $"{WinRate(shotgun, heavy):P1}），把两条弓弩线都压住了。");
         sb.AppendLine("但**这张表量不到它的两个致命短板**，别据此以为它是万能解：");
         sb.AppendLine();
         sb.AppendLine("1. **Duel 是贴脸模型**，而霰弹枪的射程最短、衰减最重、锥形扩散最大——拉开距离只剩零星几颗命中。");
@@ -293,6 +298,51 @@ public static class ArcheryCalibration
         sb.AppendLine("> 「跑回战场把箭捡回来」就不值得玩家冒一次险，回收率这条机制也就白设计了。");
         sb.AppendLine();
     }
+
+    // ---- ⑦ 《弓与箭之道》的三项被动：Sim 只量得到其中一项 ----
+
+    private static void ArcheryBookTable(StringBuilder sb)
+    {
+        sb.AppendLine("## ⑦ 《弓与箭之道》：射程 +10% / 锥形角 −10% / 攻速 +2%");
+        sb.AppendLine();
+        sb.AppendLine(CultureInfo.InvariantCulture,
+            $"用户口径（数值表『书籍』页）：读过这本书的**射手本人**，其弓弩 **射程 ×{BookRange:0.00}**、" +
+            $"**散布 ×{BookSpread:0.00}**（锥形角收窄＝更准）、**攻速 ×{BookSpeed:0.00}**（＝出手间隔 ×{Archery.BookCooldownMult:0.0000}）。");
+        sb.AppendLine("三项都与**箭的同轴系数连乘**（乘算不加算）：长弓 × 重头箭（射程 ×0.75）× 书 = ×0.825。");
+        sb.AppendLine();
+        sb.AppendLine("> ⚠️ **这张表只量得到攻速那一项**，而且它小得几乎读不出来。Duel 是 **1v1 / 无距离 / 无走位** 的模型，");
+        sb.AppendLine("> 既不跑射程也不读散布角（`BaseSpreadDegrees`）——**射程 +10% 与锥形角 −10% 在这里结构性地量不出来**，");
+        sb.AppendLine("> 这是模型的盲区，不是漏改。那两项的价值在 Godot 空间层兑现：多站十步开火、锥形采样更收拢。");
+        sb.AppendLine("> 换句话说，**这本书的战力有三分之二是这张表照不到的**——别拿下表的 +0.x pp 去判断它值不值得读。");
+        sb.AppendLine();
+        sb.AppendLine("| 弓弩（搭自制箭） | 出手间隔 未读→读过 | vs 丧尸 | vs 中甲 | vs 重甲 |");
+        sb.AppendLine("|---|---|---|---|---|");
+
+        DuelFighter zombie = ZombieDef();
+        DuelFighter mid = RaiderDef("中甲", ArmorTable.SurvivorArmor());
+        DuelFighter heavy = RaiderDef("重甲",
+            new[] { ArmorTable.Plate(), ArmorTable.CoarseClothCoat(), ArmorTable.LongSleeveShirt() });
+
+        foreach (Weapon bow in WeaponTable.ArcheryArsenal())
+        {
+            Weapon unread = Archery.Combine(bow, ArrowTable.Handmade());
+            Weapon read = Archery.Combine(bow, ArrowTable.Handmade(), hasReadArcheryBook: true);
+
+            sb.AppendLine(CultureInfo.InvariantCulture,
+                $"| {bow.Name} | {unread.AttackInterval:0.000}s → {read.AttackInterval:0.000}s | " +
+                $"{Delta(read, unread, zombie)} | {Delta(read, unread, mid)} | {Delta(read, unread, heavy)} |");
+        }
+
+        sb.AppendLine();
+        sb.AppendLine("**读法**：胜率位移只有 +0.2~+1.7pp（攻速 +2% 本就只值这么多，且逐格还叠着蒙特卡洛噪声）。");
+        sb.AppendLine("这本书**不是一本战力书**——它的分量压在 Sim 量不到的三处：**回收率 25%→50%**（每支箭的寿命 +50%，");
+        sb.AppendLine("弓弩流的硬前置）、**射程 +10%**、**精度 +10%**。前者决定你养不养得起弓手，后两者决定你能不能在丧尸够到你之前把它放倒。");
+        sb.AppendLine();
+    }
+
+    private const double BookRange = Archery.BookRangeMult;
+    private const double BookSpread = Archery.BookSpreadMult;
+    private const double BookSpeed = Archery.BookAttackSpeedMult;
 
     // ---- harness ----
 

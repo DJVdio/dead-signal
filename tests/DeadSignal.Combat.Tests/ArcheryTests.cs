@@ -489,6 +489,167 @@ public class ArcheryTests
         Assert.Equal(0, Archery.RollArrowRecovery(3, true, new SequenceRandomSource(0.99, 0.99, 0.99)));
     }
 
+    // ==================== 《弓与箭之道》的三项被动（用户在数值表『书籍』页写下） ====================
+    //
+    // 用户原话：「弓箭射程+10%，锥形角-10%，攻速+2%」。三项都**只作用于弓弩**（"弓箭"），
+    // 且都是**射手本人读过书**才吃到（判据＝其 ReadBookSet，与回收率 25%→50% 同一条口径）。
+
+    [Fact]
+    public void 书_三项加成的方向与幅度_用户口径()
+    {
+        Assert.Equal(1.10, Archery.BookRangeMult);          // 射程 +10%
+        Assert.Equal(0.90, Archery.BookSpreadMult);         // 锥形角 −10%（散布收窄＝更准）
+        Assert.Equal(1.02, Archery.BookAttackSpeedMult);    // 攻速 +2%
+
+        // 攻速是"每秒出手数"，冷却是"两次出手的间隔"——互为倒数，不是同一个数。
+        Assert.Equal(1.0 / 1.02, Archery.BookCooldownMult, 12);
+        Assert.True(Archery.BookCooldownMult < 1.0, "攻速+2% ⇒ 出手间隔必须变短");
+    }
+
+    [Fact]
+    public void 书_未读时逐字段与旧行为一致_零回归()
+    {
+        // 默认参数 false ＝ 原样。这条护栏保证：这次加书不会碰到任何"没读书的人"的既有数值，
+        // Sim 的既有基线（一律走默认重载）不可能漂移。
+        foreach (Weapon bow in AllArchery())
+        {
+            foreach (ArrowDef arrow in ArrowTable.All)
+            {
+                Weapon oldPath = Archery.Combine(bow, arrow);
+                Weapon unread = Archery.Combine(bow, arrow, hasReadArcheryBook: false);
+
+                Assert.Equal(oldPath.DamageMax, unread.DamageMax, 12);
+                Assert.Equal(oldPath.Penetration, unread.Penetration, 12);
+                Assert.Equal(oldPath.AttackInterval, unread.AttackInterval, 12);
+                Assert.Equal(oldPath.BaseSpreadDegrees, unread.BaseSpreadDegrees, 12);
+                Assert.Equal(oldPath.MaxRange, unread.MaxRange);
+                Assert.Equal(oldPath.FalloffStart, unread.FalloffStart);
+            }
+        }
+    }
+
+    [Fact]
+    public void 书_只作用于弓弩_枪与近战一个字段都不碰()
+    {
+        // "弓箭射程+10%"是弓箭的事。读了射艺书不会让你的步枪打得更远、匕首挥得更快。
+        foreach (Weapon w in WeaponTable.Arsenal().Where(w => !Archery.UsesArrows(w)))
+        {
+            Assert.Same(w, Archery.Combine(w, ArrowTable.Handmade(), hasReadArcheryBook: true));
+            Assert.Same(w, Archery.Combine(w, (ArrowDef?)null, hasReadArcheryBook: true));
+        }
+    }
+
+    [Fact]
+    public void 书_射程与散布与冷却三项_对弓与弩都生效()
+    {
+        // 弩也吃（用户说的"弓箭"＝这套弹药体系，弓与弩共用箭，见 ArrowKeys 注释）。
+        foreach (Weapon bow in AllArchery())
+        {
+            Weapon unread = Archery.Combine(bow, ArrowTable.Handmade());
+            Weapon read = Archery.Combine(bow, ArrowTable.Handmade(), hasReadArcheryBook: true);
+
+            Assert.True(read.MaxRange > unread.MaxRange, $"{bow.Name}：读过书射程应更远");
+            Assert.True(read.BaseSpreadDegrees < unread.BaseSpreadDegrees, $"{bow.Name}：读过书应更准");
+            Assert.True(read.AttackInterval < unread.AttackInterval, $"{bow.Name}：读过书出手应更快");
+
+            // 伤害/穿透**不在这三项里**——书教的是射得远、射得准、抽箭快，不是把箭头磨利。
+            Assert.Equal(unread.DamageMax, read.DamageMax, 12);
+            Assert.Equal(unread.Penetration, read.Penetration, 12);
+        }
+    }
+
+    [Fact]
+    public void 书_与箭的同轴系数一律连乘_不是加算()
+    {
+        // CLAUDE.md 铁律：百分比一律乘算。射程 = 弓基础 × 箭系数 × 1.10，
+        // **不是** 弓基础 × (箭系数 + 0.10)。用重头箭（射程 ×0.75、冷却 ×1.15、散布 ×1.25）验三条轴。
+        Weapon bow = WeaponTable.Longbow();
+        ArrowDef heavy = ArrowTable.Heavy();
+        Weapon read = Archery.Combine(bow, heavy, hasReadArcheryBook: true);
+
+        Assert.Equal(bow.MaxRange!.Value * heavy.RangeMult * Archery.BookRangeMult, read.MaxRange!.Value, 9);
+        Assert.Equal(bow.FalloffStart!.Value * heavy.RangeMult * Archery.BookRangeMult, read.FalloffStart!.Value, 9);
+        Assert.Equal(bow.AttackInterval * heavy.CooldownMult * Archery.BookCooldownMult, read.AttackInterval, 9);
+        Assert.Equal(bow.BaseSpreadDegrees * heavy.SpreadMult * Archery.BookSpreadMult, read.BaseSpreadDegrees, 9);
+
+        // 加算会得到别的数（射程 0.75+0.10=0.85 ≠ 0.75×1.10=0.825）——钉死它不是加算。
+        Assert.NotEqual(bow.MaxRange.Value * (heavy.RangeMult + 0.10), read.MaxRange.Value, 3);
+    }
+
+    [Fact]
+    public void 书_攻速正好加2pct_不多不少()
+    {
+        // 攻速 +2% 的定义：每秒出手数 ×1.02 ⇔ 间隔 ÷1.02。
+        foreach (Weapon bow in AllArchery())
+        {
+            foreach (ArrowDef arrow in ArrowTable.All)
+            {
+                double unread = Archery.Combine(bow, arrow).AttackInterval;
+                double read = Archery.Combine(bow, arrow, hasReadArcheryBook: true).AttackInterval;
+
+                Assert.Equal(1.02, unread / read, 9);   // 出手频率之比 ＝ 攻速加成
+            }
+        }
+    }
+
+    [Fact]
+    public void 书_加成后仍受穿透上限与散布下限的钳制()
+    {
+        // 书把散布再压 10%，仍不许任何组合变成"绝对精准"——弓总有手抖。
+        foreach (Weapon bow in AllArchery())
+        {
+            foreach (ArrowDef arrow in ArrowTable.All)
+            {
+                Weapon read = Archery.Combine(bow, arrow, hasReadArcheryBook: true);
+
+                Assert.True(read.BaseSpreadDegrees >= Archery.MinSpreadDegrees);
+                Assert.True(read.Penetration <= Archery.MaxPenetration);
+            }
+        }
+    }
+
+    [Fact]
+    public void 书_Combine仍是纯函数_不改入参也可重复调用()
+    {
+        Weapon bow = WeaponTable.RecurveBow();
+        double range0 = bow.MaxRange!.Value;
+        double interval0 = bow.AttackInterval;
+
+        Weapon a = Archery.Combine(bow, ArrowTable.Carbon(), hasReadArcheryBook: true);
+        Weapon b = Archery.Combine(bow, ArrowTable.Carbon(), hasReadArcheryBook: true);
+
+        Assert.Equal(a.MaxRange, b.MaxRange);
+        Assert.Equal(a.AttackInterval, b.AttackInterval, 12);
+        Assert.Equal(range0, bow.MaxRange!.Value);          // 入参弓一个字段都没被改
+        Assert.Equal(interval0, bow.AttackInterval, 12);
+    }
+
+    [Fact]
+    public void 书_按材料键搭箭的重载也吃这三项()
+    {
+        Weapon bow = WeaponTable.ShortBow();
+
+        Weapon byKey = Archery.Combine(bow, ArrowKeys.Handmade, hasReadArcheryBook: true);
+        Weapon byDef = Archery.Combine(bow, ArrowTable.Handmade(), hasReadArcheryBook: true);
+
+        Assert.Equal(byDef.MaxRange, byKey.MaxRange);
+        Assert.Equal(byDef.AttackInterval, byKey.AttackInterval, 12);
+        Assert.Equal(byDef.BaseSpreadDegrees, byKey.BaseSpreadDegrees, 12);
+    }
+
+    [Fact]
+    public void 书_加成属于射手而非箭_空箭壶时也照样改写弓()
+    {
+        // 三项加成是**人**的本事（挂在读者身上），不是箭的属性。故即便没搭箭，弓的这三项也已是加成后的样子。
+        // （实战里没箭就射不出去，这条只是把"加成归属于谁"钉死，防止将来有人把它挪进 ArrowDef。）
+        Weapon bow = WeaponTable.HuntingBow();
+        Weapon read = Archery.Combine(bow, (ArrowDef?)null, hasReadArcheryBook: true);
+
+        Assert.Equal(bow.MaxRange!.Value * Archery.BookRangeMult, read.MaxRange!.Value, 9);
+        Assert.Equal(bow.BaseSpreadDegrees * Archery.BookSpreadMult, read.BaseSpreadDegrees, 9);
+        Assert.Equal(bow.AttackInterval * Archery.BookCooldownMult, read.AttackInterval, 9);
+    }
+
     // ==================== 挑箭兜底 ====================
 
     [Fact]

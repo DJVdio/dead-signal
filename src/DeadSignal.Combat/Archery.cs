@@ -232,6 +232,34 @@ public static class Archery
     public static double ArrowRecoveryRate(bool hasReadArcheryBook) =>
         hasReadArcheryBook ? SkilledArrowRecoveryRate : BaseArrowRecoveryRate;
 
+    // ==================== 《弓与箭之道》的三项被动加成（用户在数值表『书籍』页写下） ====================
+    //
+    // 用户原话：「弓箭射程+10%，锥形角-10%，攻速+2%」。加上上面的回收率 25%→50%，这本书一共给四项。
+    //
+    // **归属：射手，不是箭**。这三项是"人的本事"——射得远、射得准、抽箭快，与搭的是哪种箭无关。
+    // 故它们不能写进 ArrowDef（那是箭的属性），而是作为 Combine 的一个**射手侧入参**参与连乘。
+    // 与回收率完全同一条口径：引擎零依赖、看不见消费层的 ReadBookSet，故只吃一个 bool，
+    // 由调用方（Actor.ResolveRangedShot / Projectile）从射手本人的已读书集里取。
+    //
+    // ⚠ **乘算，不是加算**（CLAUDE.md 铁律）：与箭的同轴系数一律**连乘**。
+    //   长弓 × 重头箭（射程 ×0.75）× 书（×1.10）= ×0.825，**不是** ×0.85。
+
+    /// <summary>《弓与箭之道》·射程加成：**+10%**（用户口径）。同时作用于 MaxRange 与 FalloffStart，整条衰减曲线一起外推。</summary>
+    public const double BookRangeMult = 1.10;
+
+    /// <summary>《弓与箭之道》·锥形角（散布）加成：**−10%**（用户口径）——散布收窄即更准。仍受 <see cref="MinSpreadDegrees"/> 钳制。</summary>
+    public const double BookSpreadMult = 0.90;
+
+    /// <summary>《弓与箭之道》·攻速加成：**+2%**（用户口径）。攻速＝每秒出手数，故它是**冷却的倒数**，见 <see cref="BookCooldownMult"/>。</summary>
+    public const double BookAttackSpeedMult = 1.02;
+
+    /// <summary>
+    /// 攻速 +2% 折算到出手间隔上的乘数 ＝ 1 / 1.02 ≈ 0.9804（间隔变短）。
+    /// **别把 0.98 直接写死**：攻速 +2% 与间隔 −2% 不是同一件事（1/1.02 = 0.98039…），
+    /// 加成轴一律以"攻速"为准，间隔由它派生。
+    /// </summary>
+    public const double BookCooldownMult = 1.0 / BookAttackSpeedMult;
+
     /// <summary>
     /// 掷一次箭矢回收：<paramref name="arrowsFired"/> 支箭**各自独立** roll，返回捡回的支数。
     /// 粒度是**逐支**而非"一次射击整体判定"——射出去的是一支支箭，崩断与否本就该一支支算。
@@ -241,38 +269,56 @@ public static class Archery
         AmmoLogic.RollArrowRecovery(arrowsFired, ArrowRecoveryRate(hasReadArcheryBook), rng);
 
     /// <summary>
-    /// **(弓/弩, 箭) → 有效武器**。核心纯函数。
+    /// **(弓/弩, 箭, 射手读没读过《弓与箭之道》) → 有效武器**。核心纯函数。
     /// <para>
     /// 修正的 5 个字段：伤害上限 / 穿透 / 射程（MaxRange 与 FalloffStart 等比缩放，整条衰减曲线一起挪）/
     /// 冷却 / 散布角。**不改**的字段：伤害下限（恒 1，见 <see cref="DamageFloor"/>）、伤害类型、单双手、
     /// 末端衰减系数 <see cref="Weapon.FalloffFloor"/>（那是"箭还剩多少劲"的比例，与箭的种类无关）、
     /// 连发/弹丸数（弓弩恒 1）。
     /// </para>
+    /// <para>
+    /// <b>两层修正连乘</b>：箭的系数（<see cref="ArrowDef"/>）× 射手的书（<see cref="BookRangeMult"/> 等三项）。
+    /// 同轴一律**乘算**（CLAUDE.md 铁律），钳制（穿透上限 / 散布下限）在**连乘之后只做一次**。
+    /// 书只碰射程/散布/冷却三轴——伤害与穿透是箭头的事，读书读不出来。
+    /// </para>
     /// </summary>
     /// <param name="weapon">弓 / 弩。**不吃箭的武器原样返回**（同一引用，零回归）。</param>
-    /// <param name="arrow">搭上弦的那种箭；<c>null</c> 视为无修正（原样返回）。</param>
-    public static Weapon Combine(Weapon weapon, ArrowDef? arrow)
+    /// <param name="arrow">搭上弦的那种箭；<c>null</c> 视为无箭修正（系数全 1）。</param>
+    /// <param name="hasReadArcheryBook">
+    /// 射手**本人**读完《弓与箭之道》没有（判据＝其 <c>ReadBookSet</c>，同 <see cref="ArrowRecoveryRate"/>）。
+    /// 默认 <c>false</c> ＝ 原样：既有调用方（含 Sim 全部既有表）一个字节都不会漂。
+    /// </param>
+    public static Weapon Combine(Weapon weapon, ArrowDef? arrow, bool hasReadArcheryBook = false)
     {
-        if (weapon is null || arrow is null || !UsesArrows(weapon))
+        if (weapon is null || !UsesArrows(weapon) || (arrow is null && !hasReadArcheryBook))
         {
-            return weapon!;   // 枪 / 近战 / 没搭箭：一个字段都不碰。
+            return weapon!;   // 枪 / 近战 / 既没搭箭又没读书：一个字段都不碰。
         }
 
-        double maxDamage = Math.Max(DamageFloor, weapon.DamageMax * arrow.DamageMult);
+        // 箭的 5 个系数（没搭箭 → 全 1）。
+        double damageMult = arrow?.DamageMult ?? 1.0;
+        double penetrationMult = arrow?.PenetrationMult ?? 1.0;
+
+        // 射手侧的书：只碰射程 / 散布 / 冷却三轴，没读过则全 1。**与箭的同轴系数连乘，不是加算。**
+        double rangeMult = (arrow?.RangeMult ?? 1.0) * (hasReadArcheryBook ? BookRangeMult : 1.0);
+        double cooldownMult = (arrow?.CooldownMult ?? 1.0) * (hasReadArcheryBook ? BookCooldownMult : 1.0);
+        double spreadMult = (arrow?.SpreadMult ?? 1.0) * (hasReadArcheryBook ? BookSpreadMult : 1.0);
+
+        double maxDamage = Math.Max(DamageFloor, weapon.DamageMax * damageMult);
 
         return new Weapon
         {
-            Name = $"{weapon.Name}（{arrow.Name}）",
+            Name = arrow is null ? weapon.Name : $"{weapon.Name}（{arrow.Name}）",
             Description = weapon.Description,
 
-            // —— 被箭改写的 5 项 ——
+            // —— 被 箭 ⊗ 书 改写的 5 项 ——
             DamageMin = DamageFloor,
             DamageMax = maxDamage,
-            Penetration = Math.Clamp(weapon.Penetration * arrow.PenetrationMult, 0, MaxPenetration),
-            AttackInterval = weapon.AttackInterval * arrow.CooldownMult,
-            BaseSpreadDegrees = Math.Max(MinSpreadDegrees, weapon.BaseSpreadDegrees * arrow.SpreadMult),
-            MaxRange = weapon.MaxRange * arrow.RangeMult,
-            FalloffStart = weapon.FalloffStart * arrow.RangeMult,
+            Penetration = Math.Clamp(weapon.Penetration * penetrationMult, 0, MaxPenetration),
+            AttackInterval = weapon.AttackInterval * cooldownMult,
+            BaseSpreadDegrees = Math.Max(MinSpreadDegrees, weapon.BaseSpreadDegrees * spreadMult),
+            MaxRange = weapon.MaxRange * rangeMult,
+            FalloffStart = weapon.FalloffStart * rangeMult,
 
             // —— 原样继承（箭改不了的）——
             DamageType = weapon.DamageType,
@@ -298,10 +344,10 @@ public static class Archery
     }
 
     /// <summary>
-    /// 按材料键搭箭（便利重载）：查不到该键 → 当作没搭箭，原样返回。
+    /// 按材料键搭箭（便利重载）：查不到该键 → 当作没搭箭（书的三项加成仍照吃，它属于射手不属于箭）。
     /// </summary>
-    public static Weapon Combine(Weapon weapon, string arrowKey) =>
-        Combine(weapon, ArrowTable.Find(arrowKey));
+    public static Weapon Combine(Weapon weapon, string arrowKey, bool hasReadArcheryBook = false) =>
+        Combine(weapon, ArrowTable.Find(arrowKey), hasReadArcheryBook);
 
     /// <summary>
     /// 从库存余量里挑一种"当前打得出来的箭"（供 Godot 开火接线在玩家未显式选箭时兜底）。

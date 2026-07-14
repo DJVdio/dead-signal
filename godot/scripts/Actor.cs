@@ -405,8 +405,12 @@ public abstract partial class Actor : CharacterBody2D
                 float dist = GlobalPosition.DistanceTo(tgt.GlobalPosition);
                 // 交战/停下距离：远程按武器 MaxRange 判（进射程即停下开火，贴脸时 TryAttack 再切枪托近战）；
                 // 近战按有效射程边缘（AttackRange 含守卫岗位加成）。远程武器的开火距离权威口径 = MaxRange，非 AttackRange。
+                //
+                // ⚠ 弓弩必须按**有效武器**（弓 ⊗ 箭 ⊗ 书）的射程判，不能按弓的裸射程——否则停下的距离与
+                // TryAttack 真正的开火门（走的是有效武器）对不上：搭木箭（射程 ×0.75）时会停在射不到的地方
+                // 干站着，读过《弓与箭之道》（×1.10）时又白白多走十步。枪与近战走的是同一个 AttackWeapon，行为不变。
                 bool inEngage = IsRanged
-                    ? Ballistics.InRange(EffectiveRangeDistance(dist), AttackWeapon)
+                    ? Ballistics.InRange(EffectiveRangeDistance(dist), ResolveRangedShot().Shot)
                     : dist <= AttackRange + Radius + tgt.Radius;
                 if (inEngage)
                 {
@@ -561,7 +565,7 @@ public abstract partial class Actor : CharacterBody2D
     /// <summary>
     /// 当前有效出手间隔 = 基础冷却 / (操作能力 × 持握攻速系数)。操作能力 = 残疾×饥饿 经
     /// <see cref="HungerState.CombineCapability"/> 合并（与 <c>TryAttack</c> 计时器赋值同源，不改那套乘法）；
-    /// 再乘 <see cref="ActiveGrip"/> 的持握系数（双手 1.15→更短、双持 0.70→更长、单手不变）。供 wind-up 重置冷却复用。
+    /// 再乘 <see cref="ActiveGrip"/> 的持握系数（双持 0.70→更长；单手与双手均不变——双手无攻速加成）。供 wind-up 重置冷却复用。
     /// 操作能力 ≤0（断双手等无法出手）时回落基础冷却保持正值——此时 TryAttack 本就会跳过出手。
     /// <paramref name="baseCooldown"/> 为空时用 <see cref="AttackCooldown"/>（=主手武器间隔，wind-up 用）；
     /// TryAttack 出手时传入**当前生效武器**间隔（贴脸枪托则为枪托 StockMeleeInterval），使冷却随实际打出的武器走。
@@ -725,8 +729,17 @@ public abstract partial class Actor : CharacterBody2D
         ArrowDef? arrow = Archery.PickCheapestAvailable(Ammo.Count);
         return arrow is null
             ? (AttackWeapon, "")                                    // 箭壶空了
-            : (Archery.Combine(AttackWeapon, arrow), arrow.Key);
+            : (Archery.Combine(AttackWeapon, arrow, HasReadArcheryBook), arrow.Key);
     }
+
+    /// <summary>
+    /// 本射手**本人**读完《弓与箭之道》没有——读过则其弓弩 射程 ×1.10、散布 ×0.90、攻速 ×1.02
+    /// （<see cref="Archery.Combine"/> 里与箭的同轴系数**连乘**）。判据＝射手自己的已读书集，
+    /// 与箭矢回收率 25%→50%（<see cref="Projectile"/>）同一条口径：**书的加成属于人，不属于箭，也不属于营地**。
+    /// 丧尸/劫掠者不是 <see cref="Pawn"/>，恒 <c>false</c>（既有行为零回归）。
+    /// </summary>
+    private bool HasReadArcheryBook =>
+        this is Pawn pawn && pawn.HasReadBook(BookLibrary.WayOfBowAndArrowId);
 
     /// <summary>该弹药键的当前余量。不吃弹药的武器、或吃弹药但一支箭都没有（空键）→ 0。</summary>
     private int AmmoOnHand(Weapon weapon, string ammoKey)
