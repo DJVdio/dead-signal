@@ -62,36 +62,24 @@ public class NewEquipmentDataTests
         Assert.Contains("草叉", names);
     }
 
-    // ---- 栓动猎枪：新增民用猎枪，入 Arsenal（自动进 WeaponCatalog/掉落可得），数值介于步枪与自制猎枪之间 ----
+    // ---- 栓动猎枪：**已被用户从数值表删除**（T29）----
+    //
+    // 本处原有 BoltActionHuntingRifle_InArsenal_WithBetweenStats，钉的是"这把民用猎枪存在，
+    // 且数值介于步枪与自制猎枪之间"。用户在 wiki 上把整行划掉（墓碑 sync=「删除·待同步进代码」）
+    // ⇒ **它编码的意图已被整体推翻**：武器都没了，谈何"数值介于两者之间"。
+    // 故不是改数字，而是**改钉新意图**：这把枪不许再回到 Arsenal（防止日后有人"顺手补回来"）。
 
     [Fact]
-    public void BoltActionHuntingRifle_InArsenal_WithBetweenStats()
+    public void BoltActionHuntingRifle_已被用户删除_不得再出现在武器表里()
     {
         var names = WeaponTable.Arsenal().Select(w => w.Name).ToList();
-        Assert.Contains("栓动猎枪", names);
+        Assert.DoesNotContain("栓动猎枪", names);
 
-        Weapon bolt = WeaponTable.BoltActionHuntingRifle();
-        Weapon rifle = WeaponTable.Rifle();
-        Weapon zip = WeaponTable.ImprovisedHuntingGun();
-
-        Assert.True(bolt.IsRanged);
-        Assert.True(bolt.TwoHanded);
-        Assert.Equal(1, bolt.BurstCount);                       // 单发，非连发
-        Assert.Equal(4.5, bolt.AttackInterval, 6);              // 栓动慢冷却锚点
-
-        // ⚠ T21：「伤害介于步枪与自制猎枪之间」这条旧意图**已被用户的新值推翻**——
-        // 他把步枪削到 10~24，栓动 16~28 的**单发伤害反而高于步枪**了。
-        // 这不是倒挂，是生态位分化，且说得通：
-        //   · 栓动猎枪 = 大口径慢速单发（一枪很重：上限 28 > 步枪 24，但 4.5s 才一发 ⇒ DPS ≈ 4.9）
-        //   · 军用步枪 = 小口径快速二连发（单发轻，但 2.8s 打两发 ⇒ DPS ≈ 12.1，仍远强）
-        // 故改钉新意图：单发更重、但 DPS 显著更低；穿透仍低于步枪。
-        Assert.True(bolt.DamageMax > rifle.DamageMax, "栓动＝大口径，单发上限应高于军用步枪");
-        Assert.True(bolt.DamageMax > zip.DamageMax, "但仍强于土法自制猎枪");
-        double Dps(Weapon w) => (w.DamageMin + w.DamageMax) / 2.0 * w.BurstCount / w.AttackInterval;
-        Assert.True(Dps(bolt) < Dps(rifle), "栓动虽然单发重，DPS 必须显著低于步枪（慢+单发）");
-
-        Assert.True(bolt.Penetration < rifle.Penetration);
-        Assert.InRange(bolt.MaxRange!.Value, zip.MaxRange!.Value, rifle.MaxRange!.Value);
+        // 枪械剩 6 把：自制猎枪 / 手枪 / 冲锋枪 / 步枪 / 狙击枪 / 自制霰弹枪。
+        // 全表 25 把 = 23（删掉栓动猎枪之后）+ 消防斧（[批次25·T44]）+ 骨刀（[T56]），两把都追加在末尾。
+        // ⚠️ 这个计数本身**不是**本测试的意图（意图是"栓动猎枪不许回来"）——它只是顺手的护栏。
+        //    以后再加武器，改这个数字就行；但 DoesNotContain 那条一个字都不许动。
+        Assert.Equal(25, WeaponTable.Arsenal().Count);
     }
 
     // ---- 粗布外套：外套层，防护劣于皮甲 ----

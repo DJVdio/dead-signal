@@ -123,6 +123,43 @@ public class UnarmedTests
         Assert.Equal("撕咬", Unarmed.MeleeFor(WeaponTable.DogBite()).Name);
     }
 
+    // ---- wiki 设计表同步（表赢代码）：用户在 wiki 上定的天生武器数值 ----
+
+    /// <summary>
+    /// 用户拍板的全局难度口径：「丧尸本就是<b>以量取胜</b>，三打一的战力比是九比一，所以<b>单一丧尸不该很强</b>」。
+    /// 拳脚与爪击的冷却 1.2 → 1.4、爪击穿透 0.05 → 0.03 是**有意的削弱**，不是事故——
+    /// 谁要把这几格调回去，先看这条测试和 docs/research/2026-07-14-lanchester.md。
+    /// </summary>
+    [Fact]
+    public void NaturalWeapons_MatchDesignTable()
+    {
+        Weapon fists = WeaponTable.Fists();
+        Assert.Equal(1.4, fists.AttackInterval);
+        Assert.Equal(1, fists.DamageMin);
+        Assert.Equal(3, fists.DamageMax);
+        Assert.Equal(0, fists.Penetration);
+
+        Weapon claw = WeaponTable.ZombieClaw();
+        Assert.Equal(1.4, claw.AttackInterval);
+        Assert.Equal(1, claw.DamageMin);
+        Assert.Equal(3, claw.DamageMax);
+        Assert.Equal(0.03, claw.Penetration);
+    }
+
+    /// <summary>
+    /// 骨刀存在的理由：**造出来必须比空手强**。骨刀单持 DPS 1.50 > 拳脚 1.43——
+    /// 这条关系只在拳脚冷却＝1.4 时成立（1.2 时拳脚 1.67 反超骨刀 ⇒ "造把骨刀不如用拳头"）。
+    /// </summary>
+    [Fact]
+    public void BoneKnife_BeatsBareFists()
+    {
+        static double Dps(Weapon w) => (w.DamageMin + w.DamageMax) / 2 / w.AttackInterval;
+
+        Weapon boneKnife = WeaponTable.Arsenal().First(w => w.Name == "骨刀");
+        Assert.True(Dps(boneKnife) > Dps(WeaponTable.Fists()),
+            $"骨刀 DPS {Dps(boneKnife):F2} 必须高于拳脚 {Dps(WeaponTable.Fists()):F2}——花材料造出来的东西不该不如空手");
+    }
+
     // ---- Sim 基线零漂移护栏 ----
 
     [Fact]
@@ -130,7 +167,9 @@ public class UnarmedTests
     {
         // 结构性证明：Sim（Program/WeaponCalibration/UserPlanCalibration）只遍历 Arsenal()/ArcheryArsenal()。
         // 拳脚同爪击/撕咬——天生武器不入表 ⇒ Sim 的结算路径根本读不到它 ⇒ 既有基线不可能漂移。
-        Assert.Equal(24, WeaponTable.Arsenal().Count);
+        // 25 = 24 − 栓动猎枪（T29 用户从数值表删除） + 消防斧（[批次25·T44] 新建，**追加在末尾**）
+        //      + 骨刀（[T56] 它早有配方却不在 Arsenal ⇒ 造得出来、拿不起来；补进表里，**同样追加在末尾**）。
+        Assert.Equal(25, WeaponTable.Arsenal().Count);
         Assert.DoesNotContain(WeaponTable.Arsenal(), w => w.Name == WeaponTable.Fists().Name);
         Assert.DoesNotContain(WeaponTable.ArcheryArsenal(), w => w.Name == WeaponTable.Fists().Name);
     }

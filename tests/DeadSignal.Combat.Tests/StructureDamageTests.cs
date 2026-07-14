@@ -111,7 +111,7 @@ public class StructureDamageTests
         Weapon claw = WeaponTable.ZombieClaw();
         Assert.True(StructureDamage.FactorFor(claw) > StructureDamage.DefaultSharpFactor * 3,
             "丧尸砸墙不是爪尖划，是整只撞扒咬——系数必须显式高于锐器兜底");
-        Assert.Equal(7.5, PerHit(claw), 3); // 爪击均值 3 × 2.5
+        Assert.Equal(5.0, PerHit(claw), 3); // 爪击均值 2（T29 用户手改 1~3）× 撕扯系数 2.5（未动）
     }
 
     [Fact]
@@ -175,7 +175,7 @@ public class StructureDamageTests
     public void 丧尸砸基础围栏的爪数与小数血量一致()
     {
         var fence = new CampStructureState(StructureTier.FenceBasic); // 150
-        double perClaw = PerHit(WeaponTable.ZombieClaw());            // 7.5
+        double perClaw = PerHit(WeaponTable.ZombieClaw());            // 5.0（T29：爪击 1~3 之后每爪少了 2.5 点）
         int claws = 0;
         while (!fence.IsDestroyed)
         {
@@ -183,6 +183,6 @@ public class StructureDamageTests
             claws++;
         }
 
-        Assert.Equal(20, claws); // 150 / 7.5
+        Assert.Equal(30, claws); // 150 / 5.0（原 20 爪；爪变轻了，但出爪也快了近一倍 ⇒ 拆围栏的实际耗时反而更短）
     }
 }

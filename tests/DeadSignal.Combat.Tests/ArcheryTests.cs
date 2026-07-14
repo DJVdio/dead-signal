@@ -125,7 +125,9 @@ public class ArcheryTests
 
         对账(ArrowTable.SharpenedStick(), 0.75, 0.75, 0.75, 1.00, 1.10);
         对账(ArrowTable.Handmade(), 1.00, 1.00, 1.00, 1.00, 1.00);
-        对账(ArrowTable.Heavy(), 1.35, 1.45, 0.75, 1.15, 1.25);
+        // T29 用户手改重头箭：伤害 1.35 → 1.25、破甲 1.45 → 1.50
+        // （"破甲专精就该在破甲轴上兑现，别拿伤害喂它"——净效果是削弱，见 Archery.Heavy 注释）
+        对账(ArrowTable.Heavy(), 1.25, 1.50, 0.75, 1.15, 1.25);
         对账(ArrowTable.Carbon(), 1.25, 1.25, 1.20, 0.90, 0.70);
     }
 
@@ -306,10 +308,16 @@ public class ArcheryTests
         Assert.True(WeaponTable.Rifle().HasMeleeProfile, "对照组：枪有枪托兜底");
     }
 
+    /// <summary>
+    /// ⚠️ [T56] <b>狩猎弓排除在外</b>：用户在数值表上给两把弓写了**新一代数值**，伤害下限不再是 1
+    /// （狩猎弓 <b>3</b>~9、竞技复合弓 4~20）——「下限全为 1」这条旧通则正在被用户的重设**逐把推翻**。
+    /// 眼下只有狩猎弓完成了同步，故先把它排除；🔴 待 <c>review-user-mods</c> 把全表同步到新值之后，
+    /// 这条通则要么整条退役、要么改写成新口径（届时 <b>大多数弓的下限都不会是 1</b>）。
+    /// </summary>
     [Fact]
     public void 弓弩_伤害下限全为1_近战锐器通则()
     {
-        foreach (Weapon w in AllArchery())
+        foreach (Weapon w in AllArchery().Where(w => w.Name != "狩猎弓"))
         {
             Assert.Equal(1, w.DamageMin);
         }
@@ -357,12 +365,21 @@ public class ArcheryTests
         Assert.Equal("竞技复合弓", bows.OrderBy(w => w.BaseSpreadDegrees).First().Name);
     }
 
+    /// <summary>
+    /// ⚠️ [T56] <b>「狩猎弓是伤害之王」这条已被用户推翻，故从本测试中删除</b>。
+    /// <para>
+    /// 用户重设了两把弓的生态位（原话）：「竞技复合弓和狩猎弓是<b>同级别武器</b>，区别是
+    /// <b>竞技复合弓远而准，狩猎弓快</b>」——狩猎弓从"慢、重、狠的伤害之王"改成了
+    /// <b>全表最快的弓</b>（冷却 1.6s、伤害仅 3~9）。它<b>不再</b>是伤害之王，这是<b>设计意图</b>，不是回归。
+    /// 狩猎弓的新人设（最快 + 近而糙）由 <c>BoneKnifeAndHuntingBowTests</c> 钉死。
+    /// </para>
+    /// <para>「复合弩是破甲之王」不受影响，保留。</para>
+    /// </summary>
     [Fact]
-    public void 生态位_狩猎弓是伤害之王_复合弩是破甲之王()
+    public void 生态位_复合弩是破甲之王()
     {
         Weapon[] bows = AllArchery();
 
-        Assert.Equal("狩猎弓", bows.OrderByDescending(w => w.DamageMax).First().Name);
         Assert.Equal("复合弩", bows.OrderByDescending(w => w.Penetration).First().Name);
     }
 
@@ -373,7 +390,14 @@ public class ArcheryTests
 
         // 短弓与单手轻弩都"弱"，但弱法不同：短弓是伤害最低的弓，轻弩是全表最弱的远程。
         // 这里钉的是"短弓是全部**弓**里最弱的那把"（入门款，木料2+绳1 就能削出来）。
-        Assert.Equal("短弓", bows.Where(IsBow).OrderBy(w => w.DamageMax).First().Name);
+        //
+        // ⚠️ [T56] **狩猎弓排除在外**：它已按用户手改切到**新一代数值**（伤害 3~9、冷却 1.6s ——
+        // "最快的弓"，靠出手频率吃饭），而其余弓弩仍是**旧一代**（伤害上限 18~38，靠单发吃饭）。
+        // 拿 DamageMax 跨代比大小是**没有意义**的：狩猎弓的 9 会当场"夺冠"成最弱，而它其实是同级武器。
+        // 🔴 待 `review-user-mods` 把全表同步到数值表的新值之后，这条应改成按 **DPS** 比、并把狩猎弓收回来。
+        Assert.Equal(
+            "短弓",
+            bows.Where(IsBow).Where(w => w.Name != "狩猎弓").OrderBy(w => w.DamageMax).First().Name);
 
         Assert.Equal("双手重弩", bows.OrderByDescending(w => w.AttackInterval).First().Name);
     }

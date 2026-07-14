@@ -17,7 +17,7 @@ public class ShotgunPelletTests
 {
     private static BodyPart Chest() => HumanBody.Parts().First(p => p.Name == HumanBody.Chest);
 
-    /// <summary>只有布衣一层（锐防 6 / 钝防 3），穿透 10% → 挡下门槛 = 6×0.9/2 = 2.7。</summary>
+    /// <summary>只有布衣一层（锐防 6 / 钝防 3），穿透 15%（T29 用户手改）→ 挡下门槛 = 6×0.85/2 = 2.55。</summary>
     private static IReadOnlyList<ArmorLayer> Shirt() => new[] { ArmorTable.LongSleeveShirt() };
 
     // ---- 向后兼容：所有既有武器 PelletCount = 1 ----
@@ -122,31 +122,29 @@ public class ShotgunPelletTests
         Assert.Equal(0 + 1.5 + 6 + 5 * 6, v.TotalDamage);
     }
 
-    /// <summary>穿透 10% 逐颗生效：每颗弹丸各自把防御上限压到 ×0.9（防 roll 上界 6×0.9=5.4）。</summary>
+    /// <summary>穿透 15%（T29 用户手改，原 10%）逐颗生效：每颗弹丸各自把防御上限压到 ×0.85（防 roll 上界 6×0.85=5.1）。</summary>
     [Fact]
     public void 穿透逐颗生效()
     {
         Weapon shotgun = WeaponTable.ImprovisedShotgun();
-        Assert.Equal(0.10, shotgun.Penetration);
+        Assert.Equal(0.15, shotgun.Penetration);
         BodyPart chest = Chest();
 
-        // 每颗喂 防 roll = 5.4（= 6×(1−0.1) 的上界）。SequenceRandomSource 会校验越界：
-        // 若某颗弹丸没吃到穿透（上界仍是 6），5.4 合法；若吃到了，5.4 恰好落在边界内——
-        // 故改用断言 PenetrationUsed 来证明逐颗生效。
+        // 每颗喂 防 roll = 5.1（= 6×(1−0.15) 的上界）。SequenceRandomSource 会校验越界。
         var rng = new SequenceRandomSource(
-            5, 5.4, 5, 5.4, 5, 5.4, 5, 5.4, 5, 5.4, 5, 5.4, 5, 5.4, 5, 5.4);
+            5, 5.1, 5, 5.1, 5, 5.1, 5, 5.1, 5, 5.1, 5, 5.1, 5, 5.1, 5, 5.1);
 
         VolleyResult v = new CombatResolver(rng).ResolveVolley(shotgun, Shirt(), () => chest);
 
         Assert.All(v.Pellets, p =>
         {
             LayerResolution shirt = p.Layers[0];
-            Assert.Equal(0.10, shirt.PenetrationUsed);        // 每颗都用了 10% 穿透
+            Assert.Equal(0.15, shirt.PenetrationUsed);        // 每颗都用了 15% 穿透
             Assert.Equal(6, shirt.ApplicableDefense);          // 布衣锐防
         });
 
-        // 防上限被穿透压到 5.4：喂 5.5 必须越界抛（证明上限确实是 5.4 而非 6）。
-        var over = new SequenceRandomSource(5, 5.5);
+        // 防上限被穿透压到 5.1：喂 5.2 必须越界抛（证明上限确实是 5.1 而非 6）。
+        var over = new SequenceRandomSource(5, 5.2);
         Assert.Throws<InvalidOperationException>(
             () => new CombatResolver(over).ResolveVolley(shotgun, Shirt(), () => chest));
     }
@@ -159,7 +157,7 @@ public class ShotgunPelletTests
         Weapon sg = WeaponTable.ImprovisedShotgun();
 
         Assert.Equal(8, sg.PelletCount);        // 8 颗弹丸
-        Assert.Equal(0.10, sg.Penetration);     // 10% 穿透（低）
+        Assert.Equal(0.15, sg.Penetration);     // T29 用户手改（0.10 → 0.15）：仍是全枪械最低穿透
         Assert.True(sg.IsRanged);
 
         // 射程较短：短于全表任何一把远程武器。
@@ -172,8 +170,11 @@ public class ShotgunPelletTests
         // 锥形扩散较大：误差角大于全表任何一把远程武器。
         Assert.All(otherGuns, g => Assert.True(sg.BaseSpreadDegrees > g.BaseSpreadDegrees, $"扩散应大于{g.Name}"));
 
-        // 单颗弹丸伤害低（个位数）。
-        Assert.True(sg.DamageMax <= 9);
+        // 单颗弹丸伤害必须显著低于板甲的挡下门槛（50×(1−0.15)/2 = 21.25）——这是"对板甲极差"的数学根源。
+        // ⚠ T29：旧断言是「个位数」（DamageMax ≤ 9）。用户把单颗上限提到 12 ⇒ 那条字面说法不再成立，
+        // 但它真正要守的东西（"一颗弹丸打不穿板甲"）依然成立且更该被直接钉住，故改钉门槛本身。
+        Assert.True(sg.DamageMax < 21.25 * 0.6,
+            $"单颗弹丸上限 {sg.DamageMax} 必须远低于板甲挡下门槛 21.25，否则霰弹就成了破甲武器");
         Assert.True(sg.DamageMin >= 1);
     }
 
@@ -216,8 +217,12 @@ public class ShotgunPelletTests
     }
 
     /// <summary>
-    /// 涌现效果（用户预期的定位）：板甲几乎全挡、布衣挡下相当一部分、丧尸腐皮几乎挡不住。
-    /// 挡下门槛 = 护甲值×(1−穿透)/2 → 板甲 22.5 ≫ 弹丸上限 5；布衣 2.7 与弹丸区间 [1,5] 重叠。
+    /// 涌现效果（用户预期的定位）：板甲挡下绝大多数、布衣几乎挡不住、丧尸腐皮更挡不住。
+    /// 挡下门槛 = 护甲值×(1−穿透)/2 → 板甲 21.25 ≫ 弹丸上限 12；布衣 2.55 只夹得住最低那几档掷点。
+    ///
+    /// ⚠ T29：用户把单颗弹丸 2~6 → <b>2~12</b>、穿透 10% → <b>15%</b>，霰弹对甲**变强了**：
+    /// 板甲挡下率从 ~86% 掉到 <b>73.6%</b>。"对板甲极差"这条定位仍然成立（三档序没变、板甲仍挡掉近四分之三），
+    /// 但<b>严苛程度是用户主动放宽的</b> ⇒ 阈值由 &gt;0.80 下调到 &gt;0.70，钉的是"板甲仍挡下绝大多数"这个立意本身。
     /// </summary>
     [Fact]
     public void 涌现效果_对板甲极差对无甲极强()
@@ -244,7 +249,9 @@ public class ShotgunPelletTests
         double cloth = BlockRate(Shirt());
         double zombie = BlockRate(ArmorTable.ZombieHide());
 
-        Assert.True(plate > 0.80, $"板甲应挡下绝大多数弹丸，实测 {plate:P1}");
+        // [T59] 逐层口径改为「重掷+取min」后，板甲组（板甲+布衣，2 层）不再白吃"层数减伤"
+        // ⇒ 挡下率从 ~71% 降到 **67.4%**。方向正确（减伤重新由防御力说了算），门槛随之下调。
+        Assert.True(plate > 0.62, $"板甲应挡下绝大多数弹丸，实测 {plate:P1}");
 
         // ⚠ T21：旧断言是 InRange(cloth, 0.05, 0.35)「布衣挡下相当一部分」。
         // 用户把单颗弹丸下限从 1 提到 2 之后，布衣的挡下门槛（防6×(1−穿透0.1)/2 = 2.7）

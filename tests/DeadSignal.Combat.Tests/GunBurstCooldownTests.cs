@@ -89,12 +89,13 @@ public class GunBurstCooldownTests
     /// 枪械经用户拍板<b>不降下限</b>（子弹没有"擦破皮"这一说），故此处伤害断言依旧有效。见 <c>WeaponRecalibTests</c>。
     /// </summary>
     [Fact]
-    public void Smg_CooldownIsRebalancedTo2Point6_DamageUntouched()
+    public void Smg_CooldownIsRebalanced_DamageUntouched()
     {
         var smg = WeaponTable.Smg();
-        Assert.Equal(2.6, smg.AttackInterval, 3);
-        Assert.Equal(6, smg.DamageMin);    // T21 用户手改（10 → 6）；本测试主张的是"冷却重平衡时伤害没被我方代偿"，该意图不变
+        Assert.Equal(2.7, smg.AttackInterval, 3);   // T29 用户手改（2.6 → 2.7）
+        Assert.Equal(6, smg.DamageMin);    // 本测试主张的是"冷却重平衡时伤害没被我方代偿"，该意图不变
         Assert.Equal(18, smg.DamageMax);
+        Assert.Equal(0.27, smg.Penetration, 3);     // T29 用户手改（0.18 → 0.27）
         Assert.Equal(3, smg.BurstCount);
     }
 }

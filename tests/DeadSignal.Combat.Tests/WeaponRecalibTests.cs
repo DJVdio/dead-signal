@@ -30,12 +30,12 @@ public class WeaponRecalibTests
     ///    从"高方差、掷 1 挠痒 / 掷满爆发"变成"稳定可靠"，方差换成了穿透（见下面的穿透阶梯）。
     /// </summary>
     [Theory]
-    [InlineData("匕首", 1, 7, 0.09)]      // 用户未动（批次18 原案锚点）
-    [InlineData("刺剑", 2, 8, 0.16)]      // 用户手改（原 1~12 / 0.15）
-    [InlineData("短剑", 2, 9, 0.12)]      // 用户手改（原 1~15；穿透未动）
-    [InlineData("长剑", 3, 12, 0.25)]     // 用户手改（原 1~21 / 0.18）
-    [InlineData("草叉", 4, 8, 0.16)]      // 用户手改（原 1~18；穿透未动）——区间大幅收窄，同剑类取向
-    [InlineData("重剑", 5, 20, 0.40)]     // 用户手改（原 1~27 / 0.24）
+    [InlineData("匕首", 1, 7, 0.06)]      // T29 用户手改穿透（0.09 → 0.06）
+    [InlineData("刺剑", 2, 7, 0.25)]      // T29 用户手改（上限 8 → 7；穿透 0.16 → 0.25）
+    [InlineData("短剑", 3, 8, 0.12)]      // T29 用户手改（2~9 → 3~8；穿透未动）
+    [InlineData("长剑", 3, 15, 0.24)]     // T29 用户手改（上限 12 → 15；穿透 0.25 → 0.24）
+    [InlineData("草叉", 4, 9, 0.20)]      // T29 用户手改（上限 8 → 9；穿透 0.16 → 0.20）
+    [InlineData("重剑", 6, 20, 0.40)]     // T29 用户手改下限（5 → 6）；穿透未动，仍是全近战最高
     public void MeleeSharpWeapon_MatchesUserTunedTable(string name, int expectedMin, int expectedMax, double expectedPen)
     {
         Weapon w = WeaponTable.Arsenal().Single(x => x.Name == name);
@@ -47,28 +47,39 @@ public class WeaponRecalibTests
     }
 
     /// <summary>
-    /// 剑类下限阶梯（用户新值的立意）：匕首 ≤ 刺剑 ≤ 短剑 ＜ 长剑 ＜ 重剑。
+    /// 剑类下限阶梯：匕首 1 ≤ 刺剑 2 ≤ 短剑 3 ≤ 长剑 3 ＜ 重剑 6。
     /// 「越大的剑，最差的一下也越狠」——护栏：不许有人把某把剑的下限又压回 1。
+    ///
+    /// ⚠ T29：短剑→长剑之间的<b>严格</b>递增已被用户的新值抹平（他把短剑下限提到 3，与长剑持平）。
+    /// 阶梯的立意（大剑不该"轻轻划一下"）没变，变的是它现在是<b>非严格</b>递增。
+    /// 故断言由 &lt; 放宽到 ≤，只在两端保留严格性：匕首必须最低、重剑必须严格最高。
     /// </summary>
     [Fact]
     public void SwordFamily_DamageMin_FormsAscendingLadder()
     {
         Assert.True(WeaponTable.Dagger().DamageMin <= WeaponTable.Rapier().DamageMin);
         Assert.True(WeaponTable.Rapier().DamageMin <= WeaponTable.Shortsword().DamageMin);
-        Assert.True(WeaponTable.Shortsword().DamageMin < WeaponTable.Longsword().DamageMin);
+        Assert.True(WeaponTable.Shortsword().DamageMin <= WeaponTable.Longsword().DamageMin);
         Assert.True(WeaponTable.Longsword().DamageMin < WeaponTable.Greatsword().DamageMin);
+        Assert.True(WeaponTable.Dagger().DamageMin < WeaponTable.Greatsword().DamageMin);
     }
 
     /// <summary>
-    /// 剑类穿透阶梯（用户新值的立意）：短剑 12% ＜ 刺剑 16% ＜ 长剑 25% ＜ 重剑 40%。
+    /// 剑类穿透阶梯：短剑 12% ＜ 长剑 24% ＜ 刺剑 25% ＜ 重剑 40%。
     /// 用户收窄伤害区间的同时把穿透拉开——剑的成长曲线从"伤害方差"改挂到"吃甲能力"上。
+    ///
+    /// ⚠ T29 <b>阶梯的次序被用户改了</b>：旧序是「刺剑 16% ＜ 长剑 25%」，即"剑越大越吃甲"。
+    /// 他这轮把刺剑提到 25%、长剑压到 24% ⇒ <b>刺剑反超长剑</b>，成为仅次于重剑的第二吃甲近战。
+    /// 这不是倒挂，是生态位改写且说得通：刺剑是<b>突刺</b>武器（找甲缝钻），长剑是劈砍——
+    /// "尖的比宽的更吃甲"物理上本就成立。故本测试改钉<b>新的次序</b>，而不是把长剑改回去。
+    /// 立意仍在：穿透是一条有序阶梯，重剑封顶。
     /// </summary>
     [Fact]
     public void SwordFamily_Penetration_FormsAscendingLadder()
     {
-        Assert.True(WeaponTable.Shortsword().Penetration < WeaponTable.Rapier().Penetration);
-        Assert.True(WeaponTable.Rapier().Penetration < WeaponTable.Longsword().Penetration);
-        Assert.True(WeaponTable.Longsword().Penetration < WeaponTable.Greatsword().Penetration);
+        Assert.True(WeaponTable.Shortsword().Penetration < WeaponTable.Longsword().Penetration);
+        Assert.True(WeaponTable.Longsword().Penetration < WeaponTable.Rapier().Penetration);
+        Assert.True(WeaponTable.Rapier().Penetration < WeaponTable.Greatsword().Penetration);
     }
 
     // ---- ② 枪械：下限仍远高于 1，但区间已由用户重调（T21 同步） ----
@@ -85,11 +96,11 @@ public class WeaponRecalibTests
     ///    故本测试改为钉<b>用户的新区间</b>，不再宣称"保持原始"。
     /// </summary>
     [Theory]
-    [InlineData("手枪", 8, 14)]        // 用户未动
-    [InlineData("冲锋枪", 6, 18)]      // 用户手改下限（10 → 6）
-    [InlineData("步枪", 10, 24)]       // 用户手改（20~35 → 10~24）
-    [InlineData("栓动猎枪", 16, 28)]   // 用户未动伤害（只改了穿透）
-    [InlineData("狙击枪", 20, 70)]     // 用户手改下限（40 → 20）：区间拉宽
+    [InlineData("手枪", 4, 14)]        // T29 用户手改下限（8 → 4）
+    [InlineData("冲锋枪", 6, 18)]      // 用户未动
+    [InlineData("步枪", 10, 24)]       // 用户未动
+    [InlineData("狙击枪", 20, 70)]     // 用户未动：区间已是拉宽后的
+    // 「栓动猎枪」原在此列（16~28），T29 用户把整把武器从数值表删除 ⇒ 一并撤下。
     public void Gun_MatchesUserTunedDamageRange(string name, int expectedMin, int expectedMax)
     {
         Weapon w = WeaponTable.Arsenal().Single(x => x.Name == name);
@@ -105,7 +116,7 @@ public class WeaponRecalibTests
     /// 故这两把不适用本规则（它们分属 impl-shotgun / impl-bow，数值由其各自拍板）。
     /// </summary>
     private static readonly string[] SingleSlugFirearms =
-        { "自制猎枪", "手枪", "冲锋枪", "步枪", "栓动猎枪", "狙击枪" };
+        { "自制猎枪", "手枪", "冲锋枪", "步枪", "狙击枪" };   // 栓动猎枪已被用户删除
 
     /// <summary>回归护栏：单发实心弹枪械的下限都不许被压到 1（防止有人把近战下移公式误推到枪械上）。</summary>
     [Fact]
@@ -154,7 +165,12 @@ public class WeaponRecalibTests
     /// 这两把的<b>最差一击也已经越过布衣门槛</b> ⇒ 旧意图对它们不再成立，且这正是新值想要的：
     /// 一件长袖布衫本来就不该指望能挡下一记重剑。
     ///
-    /// 所以本测试钉的是<b>分界线本身</b>：轻刃（匕首/短剑/刺剑）保留挡下带，大剑（长剑/重剑）没有。
+    /// 所以本测试钉的是<b>分界线本身</b>：有挡下带的（匕首/刺剑）vs 没有的（短剑/长剑/重剑）。
+    ///
+    /// ⚠ T29 <b>分界线往下挪了一格</b>：用户把短剑下限提到 3（原 2），而布衣对短剑的门槛只有
+    /// 6×(1−0.12)/2 = 2.64 ⇒ <b>短剑的最差一击也已越过布衣门槛</b>，它不再有挡下带，站到了大剑那一侧。
+    /// 现在还留着挡下带的只剩匕首（门槛 2.82 ＞ 下限 1）与刺剑（2.25 ＞ 2）。
+    /// 立意未变（"一件布衫挡得住小刀，挡不住剑"），变的是短剑被用户划到了"剑"那边。
     /// </summary>
     [Fact]
     public void ClothArmor_BlocksLightBlades_ButNeverBigSwords()
@@ -162,78 +178,107 @@ public class WeaponRecalibTests
         ArmorLayer shirt = ArmorTable.LongSleeveShirt();
         double Threshold(Weapon w) => shirt.SharpDefense * (1 - w.Penetration) / 2.0;
 
-        // 轻刃：门槛高于下限 ⇒ 低掷点会被布衣完全吃掉
-        foreach (Weapon w in new[] { WeaponTable.Dagger(), WeaponTable.Shortsword(), WeaponTable.Rapier() })
+        // 有挡下带：门槛高于下限 ⇒ 低掷点会被布衣完全吃掉
+        foreach (Weapon w in new[] { WeaponTable.Dagger(), WeaponTable.Rapier() })
         {
             Assert.True(Threshold(w) > w.DamageMin,
                 $"{w.Name} 是轻刃，布衣门槛 {Threshold(w):F2} 应高于其下限 {w.DamageMin}（保留挡下带）");
         }
 
-        // 大剑：最差一击也越过门槛 ⇒ 布衣一下都挡不住
-        foreach (Weapon w in new[] { WeaponTable.Longsword(), WeaponTable.Greatsword() })
+        // 无挡下带：最差一击也越过门槛 ⇒ 布衣一下都挡不住
+        foreach (Weapon w in new[] { WeaponTable.Shortsword(), WeaponTable.Longsword(), WeaponTable.Greatsword() })
         {
             Assert.True(Threshold(w) <= w.DamageMin,
-                $"{w.Name} 是大剑，布衣门槛 {Threshold(w):F2} 不该拦得住它的下限 {w.DamageMin}");
+                $"{w.Name} 的下限 {w.DamageMin} 已越过布衣门槛 {Threshold(w):F2}，布衣不该拦得住它");
         }
     }
 
-    // ---- ② 丧尸爪击：1~5（用户手定） ----
+    // ---- ② 丧尸爪击：1~3 + 冷却 1.4s + 穿透 0.03（用户在 wiki 表上定稿）----
 
-    /// <summary>爪击 3~9 → 1~5：平均 6 → 3（砍半）。非公式平移（那会得出 1~7），是用户手定值。</summary>
+    /// <summary>
+    /// 爪击 <b>1~3 / 1.4s / 穿透 0.03</b>（wiki 表定稿，表赢代码；历程：1~5·2.3s → 1~3·1.2s → 今值）。
+    /// <para>
+    /// 🔴 <b>旧口径已被用户推翻</b>：本测试原先钉的是 1.2s，并写着「DPS 1.30 → 1.67（+28%）⇒ 丧尸整体是<b>变强</b>了」。
+    /// 用户随后明确反向拍板：「丧尸虽然伤害低了，但是丧尸本就是<b>以量取胜</b>，三打一的战力比是九比一，
+    /// 所以<b>单一丧尸不该很强</b>。」⇒ 冷却回到 <b>1.4s</b>、穿透压到 <b>0.03</b>，DPS <b>1.67 → 1.43</b>，
+    /// 对穿皮夹克的目标更是只剩 <b>0.74</b>。这是<b>有意的削弱</b>，不是回归——别再把它调回去。
+    /// </para>
+    /// <para>丧尸的强度不在单只身上：兰彻斯特平方律已在引擎里实证（<c>docs/research/2026-07-14-lanchester.md</c>）——
+    /// 2 只围攻就把胜率从 82.6% 打到 16.6%，3 只 0.8%。</para>
+    /// </summary>
     [Fact]
-    public void ZombieClaw_IsOneToFive()
+    public void ZombieClaw_IsOneToThree_Slower_AndBarelyPenetrates()
     {
         Weapon claw = WeaponTable.ZombieClaw();
         Assert.Equal(1, claw.DamageMin);
-        Assert.Equal(5, claw.DamageMax);
+        Assert.Equal(3, claw.DamageMax);
+        Assert.Equal(1.4, claw.AttackInterval, 6);
+        Assert.Equal(0.03, claw.Penetration, 6);
         Assert.Equal(DamageType.Sharp, claw.DamageType);
     }
 
     // ---- ③ 钝器：提基础伤害（破甲锤除外） ----
 
     /// <summary>
-    /// 棍棒（道格开局武器）＝ <b>6~8</b>（T21 用户手改）。
+    /// 棍棒（道格开局武器）＝ <b>4~7</b> / 穿透 <b>0</b> / 冷却 <b>2.7s</b> / <b>可双持</b>（T29 用户手改，原 6~8 / 0.03 / 2.4s / 单持）。
     ///
-    /// ⚠️ 旧断言名 <c>Club_BaseDamageRaised</c> 钉的是批次18 的「钝器提伤」（7~9 → 10~13）——
-    /// <b>那个意图已被用户自己回调</b>：他把棍棒压到 6~8，比批次18 之前的 7~9 还低。
-    /// 棍棒是道格的开局武器，压低它＝把开局难度拉回来。故本测试改钉新值，不再宣称"提伤"。
+    /// ⚠️ 批次18 的「钝器提伤」已被用户<b>连续两轮回调</b>：10~13 → 6~8 → 4~7，如今比批次18 之前的 7~9 还低一档。
+    /// 穿透归零后它与拳脚同列（全表仅这两个 0 穿透）。每秒伤害 2.04 ⇒ <b>全表倒数第二</b>，仅高于拳脚 1.67。
+    /// 棍棒是道格的开局武器，压低它＝把开局难度拉回来——这是用户明知的取向，别当平衡问题"修"回去。
     /// （"钝器整体高于 1 点下限"的护栏仍在 <see cref="BluntWeapons_KeepHighDamageMin"/>。）
     /// </summary>
     [Fact]
     public void Club_MatchesUserTunedTable()
     {
         Weapon club = WeaponTable.Club();
-        Assert.Equal(6, club.DamageMin);
-        Assert.Equal(8, club.DamageMax);
+        Assert.Equal(4, club.DamageMin);
+        Assert.Equal(7, club.DamageMax);
+        Assert.Equal(0, club.Penetration, 6);
+        Assert.Equal(2.7, club.AttackInterval, 6);
+        Assert.True(club.CanDualWield);
         Assert.Equal(DamageType.Blunt, club.DamageType);
     }
 
-    /// <summary>尖头锤提伤：12~16 → 15~20（+25% 平均）。</summary>
+    /// <summary>
+    /// 尖头锤＝ <b>6~14</b> / 冷却 <b>3.5s</b> / <b>强制双手</b>（T29 用户手改，原 15~20 / 3.7s / 单手）。
+    ///
+    /// ⚠️ 旧断言名 <c>SpikeHammer_BaseDamageRaised</c> 钉的是批次18 的「钝器提伤」（12~16 → 15~20）——
+    /// <b>那个意图已被用户推翻</b>：他把它压到 6~14（平均 17.5 → 10，−43%），比批次18 之前的 12~16 还低。
+    /// 同轮它被改成双手武器 ⇒ 定位从"单手重锤"变成"要两只手才抡得动的家伙"。故改钉新值，不再宣称"提伤"。
+    /// </summary>
     [Fact]
-    public void SpikeHammer_BaseDamageRaised()
+    public void SpikeHammer_MatchesUserTunedTable()
     {
         Weapon hammer = WeaponTable.SpikeHammer();
-        Assert.Equal(15, hammer.DamageMin);
-        Assert.Equal(20, hammer.DamageMax);
+        Assert.Equal(6, hammer.DamageMin);
+        Assert.Equal(14, hammer.DamageMax);
+        Assert.Equal(3.5, hammer.AttackInterval, 6);
+        Assert.True(hammer.TwoHanded);
         Assert.Equal(DamageType.Blunt, hammer.DamageType);
     }
 
     // ---- ④ 破甲锤：批次18 说"不动"，T21 用户自己动了下限 ----
 
     /// <summary>
-    /// 破甲锤 <b>16~28</b>、穿透 35%（T21 用户手改下限 20 → 16）。
+    /// 破甲锤 <b>10~18</b>、穿透 <b>15%</b>（T29 用户手改：原 16~28 / 35%）。
     ///
-    /// ⚠️ 旧断言名 <c>Warhammer_Untouched</c> 钉的是批次18 的用户拍板「破甲锤不动」——
-    /// <b>那条已被用户自己推翻</b>（他这轮把下限从 20 压到 16）。上限 28 与穿透 35% 仍未动，
-    /// 「破甲锤＝全表最高钝器穿透」的定位不变，故只改数字、不改定位。
+    /// ⚠️ <b>「破甲锤＝破甲专精」这个定位本身已被用户撤销</b>，不只是数字变了：
+    /// 穿透 35% → 15% 之后，它在近战里<b>低于</b>重剑 40% / 刺剑 25% / 长剑 24% / 草叉 20%——
+    /// 一把叫"破甲锤"的武器，如今是全表倒数第二不吃甲的近战（只比棍棒 0% 强）。
+    /// 它剩下的立身之本是<b>钝伤本身</b>（震荡/骨折用初始武器 roll、不吃护甲）与<b>全表最强砸墙 2.0</b>。
+    /// 名字与破门能力仍对得上"铁皮罐头也照开不误"，<b>穿甲杀伤则不再</b>。
+    /// 这是用户在数值表上的明确取向，别当平衡问题"修"回去；若要它名副其实，需用户重新拍板穿透。
     /// </summary>
     [Fact]
     public void Warhammer_MatchesUserTunedTable()
     {
         Weapon wh = WeaponTable.Warhammer();
-        Assert.Equal(16, wh.DamageMin);
-        Assert.Equal(28, wh.DamageMax);
-        Assert.Equal(0.35, wh.Penetration, 6);
+        Assert.Equal(10, wh.DamageMin);
+        Assert.Equal(18, wh.DamageMax);
+        Assert.Equal(0.15, wh.Penetration, 6);
+
+        // 破甲专精已易主：重剑才是全近战最高穿透。
+        Assert.True(wh.Penetration < WeaponTable.Greatsword().Penetration);
     }
 
     /// <summary>
@@ -259,20 +304,21 @@ public class WeaponRecalibTests
         Assert.True(Avg(WeaponTable.SpikeHammer()) < Avg(WeaponTable.Warhammer()));
     }
 
-    // ---- ③ 步枪穿透 21% → 40%（用户拍板；伤害/冷却不动） ----
+    // ---- ③ 步枪穿透：21% → 40%（批次18b）→ **70%**（T29 用户手改） ----
 
     /// <summary>
-    /// 步枪穿透 40%：军用步枪＝高穿透，专啃多层甲。冷却 2.8s 未动。
-    /// <b>伤害区间 T21 由用户改为 10~24</b>（原 20~35）——穿透与冷却是这条测试的主张，伤害只是附带钉值。
+    /// 步枪穿透 <b>70%</b>、冷却 <b>3.0s</b>（T29 用户手改：原 40% / 2.8s）——军用步枪＝高穿透，专啃多层甲。
+    /// 70% 正是狙击枪的旧值（狙击同轮被抬到 95%）⇒ 步枪的吃甲能力现在与"旧狙击枪"同档，
+    /// 代价是冷却又慢了 0.2s。伤害区间 10~24 未动。
     /// </summary>
     [Fact]
-    public void Rifle_Penetration40Percent_CooldownUntouched()
+    public void Rifle_Penetration70Percent_SlowerCooldown()
     {
         Weapon rifle = WeaponTable.Rifle();
-        Assert.Equal(0.40, rifle.Penetration, 6);
-        Assert.Equal(10, rifle.DamageMin);   // T21 用户手改（20 → 10）
-        Assert.Equal(24, rifle.DamageMax);   // T21 用户手改（35 → 24）
-        Assert.Equal(2.8, rifle.AttackInterval, 6);
+        Assert.Equal(0.70, rifle.Penetration, 6);
+        Assert.Equal(10, rifle.DamageMin);
+        Assert.Equal(24, rifle.DamageMax);
+        Assert.Equal(3.0, rifle.AttackInterval, 6);
     }
 
     /// <summary>
@@ -280,8 +326,9 @@ public class WeaponRecalibTests
     /// 照冲锋枪三连发的既有机制走（BurstCount + BurstInterval）。
     ///
     /// 本测试的意图是<b>护栏</b>：不许<b>我们</b>为了平衡二连发而偷偷回调数值——用户明说"平衡以后自己在表里调"。
-    /// 这个意图<b>依然成立</b>：伤害 20~35 → 10~24 正是<b>用户自己在表里调的</b>（T21），不是我们代偿。
-    /// 冷却 2.8s 与穿透 40% 至今未被任何人动过——那才是这条护栏真正盯的东西。
+    /// 这个意图<b>依然成立</b>，且这一轮尤其能说明问题：伤害 10~24 / 冷却 3.0s / 穿透 70% 三个数
+    /// <b>全是用户自己在表里调的</b>（T21 削伤害、T29 抬穿透+拉冷却），没有一处是我方代偿。
+    /// 本测试钉的是"这些数与数值表逐格一致"，而不是"它们不许变"。
     /// </summary>
     [Fact]
     public void Rifle_IsTwoRoundBurst_NoAgentSideBalanceCompensation()
@@ -290,10 +337,9 @@ public class WeaponRecalibTests
         Assert.Equal(2, rifle.BurstCount);
         Assert.True(rifle.BurstInterval > 0, "二连发必须有连发内间隔（照冲锋枪机制）");
 
-        // 冷却/穿透：自二连发落地起从未被动过（护栏——不许为平衡二连发偷偷拉冷却/削穿透）
-        Assert.Equal(2.8, rifle.AttackInterval, 6);
-        Assert.Equal(0.40, rifle.Penetration, 6);
-        // 伤害：用户本人在数值表上调的值（非我方代偿）
+        // 以下四个数一律以数值表为准（用户手改），代码只负责与表逐格对上。
+        Assert.Equal(3.0, rifle.AttackInterval, 6);
+        Assert.Equal(0.70, rifle.Penetration, 6);
         Assert.Equal(10, rifle.DamageMin);
         Assert.Equal(24, rifle.DamageMax);
     }
@@ -307,8 +353,7 @@ public class WeaponRecalibTests
 
         Assert.Equal(1, WeaponTable.Pistol().BurstCount);
         Assert.Equal(1, WeaponTable.ImprovisedHuntingGun().BurstCount);
-        Assert.Equal(1, WeaponTable.BoltActionHuntingRifle().BurstCount);
-        Assert.Equal(1, WeaponTable.SniperRifle().BurstCount);
+        Assert.Equal(1, WeaponTable.SniperRifle().BurstCount);   // 栓动猎枪原也在此列，已被用户删除
     }
 
     /// <summary>
@@ -340,7 +385,12 @@ public class ImprovisedHuntingGunTests
         Assert.DoesNotContain(WeaponTable.Arsenal(), w => w.Name == "土制枪");
     }
 
-    /// <summary>自制猎枪：远程锐器、<b>双手</b>长枪、伤害 4~16、穿透 25%、带枪托钝击。</summary>
+    /// <summary>
+    /// 自制猎枪：远程锐器、<b>双手</b>长枪、伤害 <b>6~20</b>、穿透 <b>40%</b>、带枪托钝击（T29 用户手改：原 4~16 / 25%）。
+    /// <para>⚠ 它的旧定位注脚「穿透 25% 低于步枪 40%，故不是穿甲专精」已再次被推翻：
+    /// 用户这轮把它抬到 40%、同时把步枪抬到 70% ⇒ 它仍低于步枪，结论不变，只是数字全变了。
+    /// 它的身份始终是<b>唯一能自己造的枪</b>（不靠掉落），不是穿甲专精。</para>
+    /// </summary>
     [Fact]
     public void ImprovisedHuntingGun_HasUserDecidedSpec()
     {
@@ -348,9 +398,10 @@ public class ImprovisedHuntingGunTests
         Assert.Equal("自制猎枪", g.Name);
         Assert.Contains(WeaponTable.Arsenal(), w => w.Name == "自制猎枪");
 
-        Assert.Equal(4, g.DamageMin);            // 用户拍板
-        Assert.Equal(16, g.DamageMax);           // 用户拍板
-        Assert.Equal(0.25, g.Penetration, 6);    // 用户拍板
+        Assert.Equal(6, g.DamageMin);            // T29 用户手改（4 → 6）
+        Assert.Equal(20, g.DamageMax);           // T29 用户手改（16 → 20）
+        Assert.Equal(0.40, g.Penetration, 6);    // T29 用户手改（0.25 → 0.40）
+        Assert.True(g.Penetration < WeaponTable.Rifle().Penetration, "仍低于军用步枪——它不是穿甲专精");
         Assert.Equal(DamageType.Sharp, g.DamageType);
         Assert.True(g.IsRanged);
         Assert.True(g.TwoHanded);                // 长枪＝双手（我方拍板）

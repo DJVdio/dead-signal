@@ -35,9 +35,13 @@ public static class StructureDamage
 {
     /// <summary>
     /// 钝器缺省砸墙系数（未在武器表填「砸墙系数」时兜底）。钝器天生就是对付死物的：力全砸在结构上，不靠切开什么。
+    /// <para>
+    /// <b>它同时是钝器的地板</b>：用户拍板「钝器对建筑伤害要<b>远</b>高于锐器，这是钝器的一个优势」——钝器对人偏弱
+    /// 是代价，破拆强是回报。故此值取全表最弱钝器（棍棒）的档位，任何新钝器不填系数时也自动落在锐器天花板之上。
     /// 拟定待调。
+    /// </para>
     /// </summary>
-    public const double DefaultBluntFactor = 1.2;
+    public const double DefaultBluntFactor = 1.8;
 
     /// <summary>
     /// 锐器缺省砸墙系数（未填时兜底）。拿刀砍墙是徒劳——刃口的杀伤全建立在"切开血肉"上，木头铁皮不吃这一套。

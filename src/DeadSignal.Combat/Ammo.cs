@@ -23,7 +23,7 @@ public static class AmmoKeys
     /// <summary>短子弹：手枪 / 冲锋枪。1 个子弹零件造 <b>8</b> 发——最便宜的枪弹。</summary>
     public const string ShortBullet = "ammo_short";
 
-    /// <summary>中子弹：自制猎枪 / 步枪 / 栓动猎枪。1 个子弹零件造 <b>5</b> 发。</summary>
+    /// <summary>中子弹：自制猎枪 / 步枪。1 个子弹零件造 <b>5</b> 发。</summary>
     public const string MediumBullet = "ammo_medium";
 
     /// <summary>长子弹：狙击枪。1 个子弹零件只造 <b>2</b> 发——全表最贵的一发。</summary>

@@ -27,18 +27,23 @@ public class TwoHandEnforcementTests
 
     private static LightProfile Torch => LightSource.Find(LightSource.TorchKey)!.Value;
 
-    // ---------------- 全表持握标注（24 把：9 近战 + 7 枪 + 8 弓弩） ----------------
+    // ---------------- 全表持握标注（24 把：10 近战 + 6 枪 + 8 弓弩） ----------------
     // wiki「强制双手」列直接取 Weapon.TwoHanded；本表是它的权威快照，改数据必先改这里。
+    // T29 用户手改：尖头锤 单手 → **双手**；栓动猎枪整把删除（原为双手）。
+    // [批次25·T44] 消防斧：**双手、不可双持**（消防斧/柴斧都是双手抡的）。
 
     public static TheoryData<string, bool> GripSnapshot() => new()
     {
-        // 近战 9
+        // 近战 11
         { "匕首", false }, { "短剑", false }, { "刺剑", false },
         { "长剑", true }, { "重剑", true }, { "草叉", true },
-        { "棍棒", false }, { "尖头锤", false }, { "破甲锤", true },
-        // 枪 7
+        { "消防斧", true },
+        { "棍棒", false }, { "尖头锤", true }, { "破甲锤", true },
+        // [T56] 骨刀：**单手、可双持**（用户拍板「保留双持」）——一片削出来的骨头，本来就该一手一把。
+        { "骨刀", false },
+        // 枪 6
         { "自制猎枪", true }, { "手枪", false }, { "冲锋枪", true }, { "步枪", true },
-        { "栓动猎枪", true }, { "狙击枪", true }, { "自制霰弹枪", true },
+        { "狙击枪", true }, { "自制霰弹枪", true },
         // 弓弩 8
         { "短弓", true }, { "反曲弓", true }, { "长弓", true },
         { "竞技复合弓", true }, { "狩猎弓", true },
