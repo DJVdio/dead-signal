@@ -79,6 +79,9 @@ public static class ItemIcons
         ["棍棒"] = new(Weapons, "club", "delapouite/wood-club"),
         ["尖头锤"] = new(Weapons, "spiked_mace", "lorc/spiked-mace"),
         ["破甲锤"] = new(Weapons, "warhammer", "delapouite/warhammer"),
+        // [批次25·T44] 消防斧。素材取 lorc/wood-axe（劈柴斧剪影）——**刻意不用 battle-axe**：
+        // 那是把奇幻双刃战斧，本作的消防斧是从柴房和农具棚里捡来的工具，不是从武器架上取的。
+        ["消防斧"] = new(Weapons, "axe", "lorc/wood-axe"),
         ["骨刀"] = new(Weapons, "bone_knife", "delapouite/bone-knife"),
 
         // —— 武器：枪械 ——
@@ -86,7 +89,7 @@ public static class ItemIcons
         ["手枪"] = new(Weapons, "pistol", "skoll/colt-m1911"),
         ["冲锋枪"] = new(Weapons, "smg", "delapouite/mp5"),
         ["步枪"] = new(Weapons, "rifle", "skoll/musket"),
-        ["栓动猎枪"] = new(Weapons, "hunting_shotgun", "delapouite/gun-stock"),
+        // 「栓动猎枪」已按用户在数值表上的删除撤下（原图标 weapons/hunting_shotgun）。
         ["狙击枪"] = new(Weapons, "sniper_rifle", "skoll/winchester-rifle"),
         ["自制霰弹枪"] = new(Weapons, "improvised_shotgun", "delapouite/sawed-off-shotgun"),
 
@@ -121,6 +124,8 @@ public static class ItemIcons
         // [批次21·T26] 三件可制作穿戴品 + 战争面具。粗布三件与它们各自的搜刮版（长袖布衣/长裤/短裤）
         // **共用同一张 Source**（game-icons 里衬衫/裤子就那么几张剪影，同族先共用；slug 各自独立，日后可换专属图）。
         ["战争面具"] = new(Armor, "war_mask", "lorc/tribal-mask"),
+        // [T59] 棉帽（用户在 wiki 上新加）——头槽的布甲。
+        ["棉帽"] = new(Armor, "cotton_hat", "delapouite/winter-hat"),
         ["粗布衬衫"] = new(Armor, "coarse_shirt", "lucasms/shirt"),
         ["粗布短裤"] = new(Armor, "coarse_shorts", "delapouite/shorts"),
         ["粗布长裤"] = new(Armor, "coarse_trousers", "irongamer/armored-pants"),
@@ -136,8 +141,9 @@ public static class ItemIcons
         ["wood"] = new(Mats, "wood", "delapouite/planks"),
         ["scrap_wood"] = new(Mats, "scrap_wood", "delapouite/wood-stick"),
         ["cloth"] = new(Mats, "cloth", "delapouite/rolled-cloth"),
-        ["scrap_metal"] = new(Mats, "scrap_metal", "delapouite/metal-plate"),
-        ["metal_ingot"] = new(Mats, "metal_ingot", "delapouite/melting-metal"),
+        // [T46] 铁：废金属 + 金属锭合并。沿用原废金属的 metal-plate 图（一叠锈铁皮），
+        // 金属锭那张 melting-metal（熔炉里的锭）随键一起退役——世界里已经没有"熔炼提纯"这一层了。
+        [Materials.IronKey] = new(Mats, "iron", "delapouite/metal-plate"),
         ["nails"] = new(Mats, "nails", "delapouite/coiled-nail"),
         ["wire"] = new(Mats, "wire", "delapouite/wire-coil"),
         ["rawhide"] = new(Mats, "rawhide", "delapouite/animal-hide"),
@@ -198,6 +204,7 @@ public static class ItemIcons
         ["advanced_carpentry"] = new(Books, "book_carpentry_adv", "willdabeast/black-book"),
         ["way_of_bow_and_arrow"] = new(Books, "book_archery", "delapouite/rule-book"),
         ["mechanical_beauty"] = new(Books, "book_mechanics", "lorc/gears"),   // [批次21·T26] 《机械之美》（弩的解锁书）
+        ["bow_crafting_guide"] = new(Books, "book_bowcraft", "lorc/high-shot"),   // [T59] 《弓制作指南》（反曲弓/长弓的解锁书）
         ["goldfinger_diary_a"] = new(Books, "book_diary_a", "delapouite/book-pile"),
         ["goldfinger_diary_b"] = new(Books, "book_diary_b", "lorc/papers"),
 

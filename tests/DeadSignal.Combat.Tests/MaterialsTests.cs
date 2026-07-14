@@ -1,4 +1,9 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Reflection;
+using System.Text.Json;
 using DeadSignal.Godot;
 using Xunit;
 
@@ -67,7 +72,7 @@ public class MaterialsTests
         // 拟定草稿要求覆盖的基础材料标识（用户后续可增删调整）。
         string[] required =
         {
-            "wood", "cloth", "scrap_metal", "leather", "rawhide",
+            "wood", "cloth", "iron", "leather", "rawhide",
             "bone", "nails", "wire", "gunpowder", "tanning_solution",
         };
         foreach (string key in required)
@@ -75,6 +80,194 @@ public class MaterialsTests
             Assert.True(Materials.Has(key), $"目录缺少基础材料：{key}");
         }
     }
+
+    /// <summary>
+    /// [T46] 「废金属」与「金属锭」已合并为「铁」——**两个老键必须彻底退役**。
+    /// <para>
+    /// 留一个在目录外、却还被某条配方引用着，就等于**造出一条永远做不出来的配方**
+    /// （这正是合并前金属锭的处境：12 条配方吃它，而它没有任何获取途径）。
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void 废金属与金属锭已退役_全部配方成本里都不许再出现()
+    {
+        Assert.False(Materials.Has("scrap_metal"));
+        Assert.False(Materials.Has("metal_ingot"));
+        Assert.True(Materials.Has(Materials.IronKey));
+
+        foreach (RecipeData r in RecipeBook.All)
+        {
+            Assert.False(r.MaterialCosts.ContainsKey("scrap_metal"), $"配方「{r.DisplayName}」还在吃已退役的废金属");
+            Assert.False(r.MaterialCosts.ContainsKey("metal_ingot"), $"配方「{r.DisplayName}」还在吃已退役的金属锭");
+        }
+    }
+
+    /// <summary>
+    /// 🔴 [T46] **每一种材料成本，都必须是目录里查得到的键**。
+    /// <para>
+    /// 这条护栏是本单的"起因测试"：合并前 <c>metal_ingot</c> 虽在目录里，却<b>零获取途径</b>，
+    /// 于是吃它的 12 条配方全是死配方。目录在不在是**最低门槛**——键要是连目录都查不到，
+    /// 配方面板上会直接列出一条材料名都显示不出来的东西。
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void 所有配方吃的材料_都必须在材料目录里查得到()
+    {
+        foreach (RecipeData r in RecipeBook.All)
+        {
+            foreach (string key in r.MaterialCosts.Keys)
+            {
+                Assert.True(Materials.Has(key), $"配方「{r.DisplayName}」吃了一个目录里没有的材料：{key}");
+            }
+        }
+    }
+
+    // ════════════ [T46] 「死材料」回归护栏 ════════════
+    // 本单的起因：**金属锭是个拿不到的物品**（零配方产出 / 零掉落 / 废墟不出 / 商人不卖），
+    // 而 12 条配方吃它 ⇒ 那 12 样东西**一个都造不出来**，游戏不报错、玩家也不知道为什么灰着。
+    // 下面两条护栏就是要让这类 bug **下次一写出来就红**，而不是等一次评审去人肉盘。
+
+    /// <summary>仓库根（不写死绝对路径，同 <c>RealCampCoverTests</c>）。</summary>
+    private static string RepoRoot()
+    {
+        for (DirectoryInfo? d = new(AppContext.BaseDirectory); d is not null; d = d.Parent)
+        {
+            if (File.Exists(Path.Combine(d.FullName, "godot", "data", "camp.json")))
+            {
+                return d.FullName;
+            }
+        }
+        throw new FileNotFoundException("从测试程序集向上未找到 godot/data/camp.json");
+    }
+
+    /// <summary>真实 <c>godot/data/camp.json</c> 里废墟掉出来的全部材料 id。</summary>
+    private static IEnumerable<string> RubbleMaterialIds()
+    {
+        using JsonDocument doc = JsonDocument.Parse(
+            File.ReadAllText(Path.Combine(RepoRoot(), "godot", "data", "camp.json")));
+
+        foreach (JsonElement prop in doc.RootElement.EnumerateObject()
+                     .Where(p => p.Value.ValueKind == JsonValueKind.Array)
+                     .SelectMany(p => p.Value.EnumerateArray()))
+        {
+            if (prop.ValueKind != JsonValueKind.Object
+                || !prop.TryGetProperty("drops", out JsonElement drops))
+            {
+                continue;
+            }
+            foreach (JsonElement d in drops.EnumerateArray())
+            {
+                if (d.TryGetProperty("kind", out JsonElement k) && k.GetString() == "material"
+                    && d.TryGetProperty("id", out JsonElement id) && id.GetString() is string s)
+                {
+                    yield return s;
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// 🔴 **每一种被配方消耗的材料，都必须真的拿得到**（掉落 / 废墟 / 或由另一条配方产出）。
+    /// <para>
+    /// 这条是**本单那个 bug 的直接护栏**：把 <c>metal_ingot</c> 加回配方而不给它任何来源，这条就会红。
+    /// "目录里有" ≠ "拿得到" —— 金属锭当年就在目录里，安安稳稳地在那儿躺了很久，谁也没发现它根本刷不出来。
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void 配方吃到的每一种材料_都必须真的拿得到_不许有死材料()
+    {
+        // 四条获取途径：搜刮点掉落、营地废墟、另一条配方的产物、**拆除回收**
+        //（最后一条别漏：「废木料」就只从拆木结构里来——它没有掉落也没有配方产出，
+        //  漏掉这条会把一个活得好好的材料误判成死材料）。
+        var obtainable = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (string cacheId in AllCacheIds())
+        {
+            if (ExplorationCache.Resolve(cacheId, new StoryFlags()) is { } res)
+            {
+                foreach (LootItem l in res.Loot.Where(l => l.Kind == LootKind.Material))
+                {
+                    obtainable.Add(l.RefId);
+                }
+            }
+        }
+        foreach (string id in RubbleMaterialIds())
+        {
+            obtainable.Add(id);
+        }
+        foreach (RecipeData r in RecipeBook.All)
+        {
+            obtainable.Add(r.OutputKey);
+
+            // 拆掉自己造的东西，能拿回一部分料（木料例外：25% 木料 + 25% 废木料）
+            if (SalvageLogic.CanSalvage(r))
+            {
+                foreach (string key in SalvageLogic.YieldOfRecipe(r).Keys)
+                {
+                    obtainable.Add(key);
+                }
+            }
+        }
+        foreach (StructureTier tier in Enum.GetValues<StructureTier>().Where(SalvageLogic.CanSalvageStructure))
+        {
+            foreach (string key in SalvageLogic.YieldOfStructure(tier).Keys)
+            {
+                obtainable.Add(key);
+            }
+        }
+
+        var dead = new List<string>();
+        foreach (RecipeData r in RecipeBook.All)
+        {
+            foreach (string key in r.MaterialCosts.Keys.Where(k => !obtainable.Contains(k)))
+            {
+                dead.Add($"「{r.DisplayName}」吃的「{Materials.Find(key)?.DisplayName ?? key}」({key})");
+            }
+        }
+
+        Assert.True(dead.Count == 0,
+            "下列配方吃的材料**没有任何获取途径**（掉落/废墟/配方产出都没有）⇒ 这些配方永远造不出来：\n  "
+            + string.Join("\n  ", dead.Distinct()));
+    }
+
+    /// <summary>
+    /// 🔴 **消费层自检**：真实 <c>godot/data/camp.json</c> 的废墟掉落，material id 必须条条查得到目录。
+    /// <para>
+    /// 本项目有个反复出现的静默失效模式：**纯逻辑绿、消费层没跟上**。合并材料时只改了 C# 目录、
+    /// 忘了改 <c>camp.json</c>，废墟就会掉出一堆查不到目录的幽灵物品——不报错，只是永远用不掉。
+    /// （<c>ExplorationCache</c> 那一侧由 <c>ClothMergeTests</c> 的同名护栏盯着。）
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void 真实camp_json_的废墟掉落_每条material_id都查得到目录()
+    {
+        List<string> dangling = RubbleMaterialIds().Where(id => !Materials.Has(id)).Distinct().ToList();
+
+        Assert.True(dangling.Count == 0, "camp.json 的废墟掉落了目录里不存在的材料：" + string.Join("、", dangling));
+    }
+
+    /// <summary>[T46] 铁在真实数据里**确实能捡到**——搜刮点与废墟两条路至少各有一条。</summary>
+    [Fact]
+    public void 铁在真实数据里能捡到_搜刮点与废墟都有()
+    {
+        Assert.Contains(Materials.IronKey, RubbleMaterialIds());
+
+        bool inCaches = AllCacheIds()
+            .Select(id => ExplorationCache.Resolve(id, new StoryFlags()))
+            .Where(r => r is not null)
+            .SelectMany(r => r!.Value.Loot)
+            .Any(l => l.Kind == LootKind.Material && l.RefId == Materials.IronKey);
+
+        Assert.True(inCaches, "搜刮点一处都不掉铁——铁会变成第二个「金属锭」");
+    }
+
+    /// <summary>全部搜刮点 id（反射取 <c>ExplorationCache</c> 的 <c>cache_*</c> 常量，同 <c>ClothMergeTests</c>）。</summary>
+    private static IEnumerable<string> AllCacheIds() =>
+        typeof(ExplorationCache)
+            .GetFields(BindingFlags.Public | BindingFlags.Static)
+            .Where(f => f.IsLiteral && f.FieldType == typeof(string) && f.Name.EndsWith("Id", StringComparison.Ordinal))
+            .Select(f => (string)f.GetRawConstantValue()!)
+            .Where(v => v.StartsWith("cache_", StringComparison.Ordinal));
 
     [Fact]
     public void Catalog_keys_are_unique()
@@ -131,7 +324,7 @@ public class MaterialsTests
         store.Add(Item.Weapon("匕首"));
         store.Add(Item.Food(3));
         store.Add(Materials.Find("wood")!.Value.ToItem(10));
-        store.Add(Materials.Find("scrap_metal")!.Value.ToItem(4));
+        store.Add(Materials.Find("iron")!.Value.ToItem(4));
 
         Assert.Equal(2, store.ByCategory(ItemCategory.Material).Count()); // 材料按类别筛出
         Assert.Equal(3, store.TotalFood); // 材料不计入食物合计

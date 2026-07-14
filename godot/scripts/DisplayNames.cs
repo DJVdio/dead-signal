@@ -200,6 +200,18 @@ public static class DisplayNames
         _ => Unknown,
     };
 
+    /// <summary>
+    /// 调查点危险度中文名（世界地图用）。<b>只给一个词，不给数字</b>——玩家出发前不该知道那里到底有几只丧尸，
+    /// 他只该知道"这地方危不危险"。把敌人数量摊在地图上，等于把侦查这件事从游戏里删掉。
+    /// </summary>
+    public static string Of(DangerTier tier) => tier switch
+    {
+        DangerTier.Low => "低危",
+        DangerTier.Medium => "中危",
+        DangerTier.High => "高危",
+        _ => Unknown,
+    };
+
     /// <summary>夜袭威胁规模的模糊情报文案（守卫目击给的是大概，不是精确数）。</summary>
     public static string Of(NightRaidLogic.ThreatBand band) => band switch
     {

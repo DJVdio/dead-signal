@@ -18,7 +18,7 @@ public enum MaterialCategory
     /// <summary>布：纺织物（破布与整幅布料已合并为单一材料「布」）。</summary>
     Cloth,
 
-    /// <summary>金属：废金属 / 金属锭 / 钉子 / 铁丝等。</summary>
+    /// <summary>金属：铁 / 钉子 / 铁丝 / 武器零件等（废金属与金属锭已合并为单一材料「铁」）。</summary>
     Metal,
 
     /// <summary>皮：生皮 / 皮革等。</summary>
@@ -95,8 +95,11 @@ public static class Materials
         new MaterialDef("scrap_wood", "废木料", "拆下来的断料、劈裂的板子、带钉眼的短头。单看哪一块都不成器，可你手里也没别的木头了。", MaterialCategory.Wood),
         // 布：整幅好布与撕下的碎布不再区分（用户拍板）——末日里没人挑剔布的出身，能缝上就行。
         new MaterialDef("cloth", "布", "有整幅的，也有从旧衣裳上撕下来的。缝上身之后就没人分得清了——反正原来的主人也不会来认。", MaterialCategory.Cloth),
-        new MaterialDef("scrap_metal", "废金属", "锈迹斑斑的金属废料，在会变废为宝的人手里，什么都不算废。", MaterialCategory.Metal),
-        new MaterialDef("metal_ingot", "金属锭", "熔炼提纯的金属锭，敲敲打打，就是一件能保命的家伙。", MaterialCategory.Metal),
+        // [T46] 铁：「废金属」与「金属锭」已合并为单一材料（用户拍板：「不区分废金属和金属锭，统一为 铁」）。
+        // 合并同时**修掉一个真 bug**：金属锭此前**没有任何获取途径**（零配方产出、零 loot、商人不卖）⇒
+        // 吃它的十来样东西（自制猎枪/重头箭/重弩/锅/全金属围栏/铸铁大门/金属门/加长枪管/刺刀型/创伤型…）**一个都造不出来**。
+        // 换算：1 废金属 = 1 铁，1 金属锭 = 2 铁（见 SaveMigration.IngotToIronRatio；老档按此迁移）。
+        new MaterialDef(IronKey, "铁", "锈的、卷刃的、从车壳和货架上撬下来的。你不问它以前是什么，反正它也不问你以前是谁——敲直了能用，就还算数。", MaterialCategory.Metal),
         new MaterialDef("nails", "钉子", "一把铁钉，让两块木头白头偕老的秘诀。", MaterialCategory.Metal),
         new MaterialDef("wire", "铁丝", "成卷的铁丝，捆东西、设陷阱、修栅栏，居家末日必备。", MaterialCategory.Metal),
         new MaterialDef("rawhide", "生皮", "剥下来的生兽皮，还带着点腥味，鞣好了才好意思穿上身。", MaterialCategory.Leather),
@@ -184,6 +187,22 @@ public static class Materials
         new MaterialDef("potato", "土豆", "从谁家后院刨出来的，发了点芽。削掉芽眼，剩下的部分依然是土豆——这就是土豆了不起的地方。", MaterialCategory.Food),
         new MaterialDef("mushroom", "蘑菇", "林子里采的。你认得这一种，你很确定你认得这一种。", MaterialCategory.Food),
     };
+
+    /// <summary>
+    /// [T46] 铁的材料标识键 —— 金属加工的**唯一**原料（钉子/铁丝/武器零件是另算的成品件，不由它派生）。
+    /// <para>
+    /// <b>「废金属」与「金属锭」已于此合并</b>（用户拍板）。合并前金属锭是个 <b>死物品</b>：
+    /// 没有任何配方产出它、掉落表里一条都没有、商人也不卖 ⇒ 凡是吃金属锭的配方**全都造不出来**。
+    /// 所以这次合并不只是"少一层材料深度"，而是**把一批本来不可达的内容变成可达**。
+    /// </para>
+    /// <para>
+    /// 换算率 <b>1 废 = 1 铁 / 1 锭 = 2 铁</b>（<see cref="SaveMigration.IngotToIronRatio"/>）：
+    /// 纯废金属配方的数量**原样不动**（玩家今天能造的东西成本零突变），而 ×2 是唯一能保住全部 authored 档位序的系数
+    /// （自制猎枪 铁4 &gt; 自制霰弹枪 铁3；重头箭 铁2 &gt; 自制箭 铁1；重弩 铁4 &gt; 轻弩 铁2）——
+    /// 若按 1:1 直接相加，这几组会**全部倒挂**（重头箭反而比普通箭便宜）。
+    /// </para>
+    /// </summary>
+    public const string IronKey = "iron";
 
     /// <summary>货币材料标识键（白银）。持币量 = 库存中该键各堆 <see cref="Item.MaterialQuantity"/> 之和；交易走 <c>InventoryStore.TrySpendMaterial</c> 实扣。</summary>
     public const string CurrencyKey = "silver";

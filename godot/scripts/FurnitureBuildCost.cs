@@ -43,12 +43,12 @@ public static class FurnitureBuildCost
         // 改装台（批次21·T7）：武器改造的唯一场所。成本与工时**与配方 mod_bench 保持一致**
         // （木 8 + 废金属 4 + 机械零件 2 + 钉 6，200 分），拆了按通用规则还一半。
         // 键 = camp.json prop 名 = WeaponModLogic.BenchFurnitureKey，三处必须同名（拆除按名归一）。
-        ["改装台"] = new(Cost(("wood", 8), ("scrap_metal", 4), ("components", 2), ("nails", 6)), 200),
+        ["改装台"] = new(Cost(("wood", 8), ("iron", 4), ("components", 2), ("nails", 6)), 200),
 
         // 烹饪台（批次21·T14）：做饭的唯一场所。成本与工时**与配方 cook_station 保持一致**
         // （石 8 + 木 6 + 废金属 3 + 钉 4，180 分），拆了按通用规则还一半（木料那份再分半走废木料）。
         // 键 = camp.json prop 名 = CookStation.PropName，三处必须同名（拆除按名归一）。
-        ["烹饪台"] = new(Cost(("stone", 8), ("wood", 6), ("scrap_metal", 3), ("nails", 4)), 180),
+        ["烹饪台"] = new(Cost(("stone", 8), ("wood", 6), ("iron", 3), ("nails", 4)), 180),
 
         // 储物家具：柜子 / 衣柜 / 展示柜。板材 + 钉子，木工活。
         ["住宅-柜子"] = new(Cost(("wood", 10), ("nails", 6)), 120),

@@ -22,6 +22,9 @@ public static class CraftOutputFactory
         // 弓弩（可制作的 4 把进阶款；"handmade_bow" 就是「短弓」，键沿用未改）。
         // 竞技复合弓/狩猎弓/复合弩**不在此列，也不该在**——它们没有配方，只能搜刮。
         "recurve_bow", "longbow", "light_crossbow", "heavy_crossbow",
+        // [批次25·T44] 消防斧。漏登记它 ⇒ 造出来的消防斧会静默落进最后那条"家具/杂项"分支，
+        // 变成一堆**不能装备**的杂物材料（不报错、不崩，只是永远拿不起来）。
+        "axe",
     };
     // 箭（4 种）不必登记：它们的产物 key 同时是**材料键**（ammo_arrow_*），
     // 走上面 Materials.Has(outputKey) 那条分支自动落地为一堆材料。

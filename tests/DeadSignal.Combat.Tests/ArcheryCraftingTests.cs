@@ -267,14 +267,14 @@ public class ArcheryCraftingTests
     public void 箭的造价不低_否则25pct回收率就没意义了()
     {
         // 设计口径：基础只有 25% 回收 ⇒ 箭是**持续消耗品**。若造箭近乎白送，"跑回战场捡箭"就不值得做，
-        // 回收率这条机制也就白设计了。故除了应急用的木箭，每支箭都要吃到金属（废金属/金属锭）。
+        // 回收率这条机制也就白设计了。故除了应急用的木箭，每支箭都要吃到金属（[T46] 废金属/金属锭已合并为「铁」）。
         foreach (ArrowDef arrow in ArrowTable.Craftable().Where(a => a.Key != ArrowKeys.SharpenedStick))
         {
             RecipeData recipe = RecipeBook.All.Single(r => r.OutputKey == arrow.Key);
 
             Assert.True(
-                recipe.MaterialCosts.ContainsKey("scrap_metal") || recipe.MaterialCosts.ContainsKey("metal_ingot"),
-                $"「{arrow.Name}」得吃金属——不然箭太便宜，25% 回收率就没有意义");
+                recipe.MaterialCosts.ContainsKey(Materials.IronKey),
+                $"「{arrow.Name}」得吃铁——不然箭太便宜，25% 回收率就没有意义");
         }
     }
 

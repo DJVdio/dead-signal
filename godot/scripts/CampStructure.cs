@@ -156,18 +156,25 @@ public static class StructureBuildCost
         // 围栏（**每格 100px**）：木桩 → 加支柱 → 钉铁皮 → 全金属。木料逐档让位给金属。**只能升上去，拆不下来。**
         StructureTier.FenceBasic      => Cost(("wood", 4)),
         StructureTier.FenceReinforced => Cost(("wood", 4), ("nails", 2)),
-        StructureTier.FenceSheetMetal => Cost(("wood", 2), ("scrap_metal", 3), ("nails", 2)),
-        StructureTier.FenceFullMetal  => Cost(("metal_ingot", 4), ("components", 1)),
+        StructureTier.FenceSheetMetal => Cost(("wood", 2), ("iron", 3), ("nails", 2)),
+        StructureTier.FenceFullMetal  => Cost(("iron", 8), ("components", 1)),        // [T46] 铁 8（原：金属锭 4）。仍严格贵于铁皮围栏（铁 3）。
         // 大门：比同档围栏更费料（它得又大又能开）。
         StructureTier.GateBasic       => Cost(("wood", 24), ("nails", 8)),
-        StructureTier.GateSheetMetal  => Cost(("wood", 12), ("scrap_metal", 16), ("nails", 8)),
-        StructureTier.GateCastMetal   => Cost(("metal_ingot", 24), ("components", 6)),
+        StructureTier.GateSheetMetal  => Cost(("wood", 12), ("iron", 16), ("nails", 8)),
+        StructureTier.GateCastMetal   => Cost(("iron", 48), ("components", 6)),      // [T46] 铁 48（原：金属锭 24）。全表最贵的一笔——终局工程，见下方注释。
         // 门体：整道屏障上最薄也最便宜的一环（血量同理，见 MaxHp）。
         StructureTier.DoorWood        => Cost(("wood", 8), ("nails", 4)),
         StructureTier.DoorReinforced  => Cost(("wood", 12), ("nails", 8)),
-        StructureTier.DoorMetal       => Cost(("scrap_metal", 12), ("metal_ingot", 4), ("components", 2)),
+        StructureTier.DoorMetal       => Cost(("iron", 20), ("components", 2)),      // [T46] 铁 20（原：废金属 12 + 金属锭 4 = 12 + 8）。
         _ => throw new ArgumentOutOfRangeException(nameof(tier), tier, "未知结构等级"),
     };
+
+    // ⚠️ [T46·拟定待调，用户可一个数字改掉] **铸铁大门（铁 48）是全表最贵的一笔，接近全游戏铁总量。**
+    // 盘过供给：搜刮点掉落 ≈ 44 铁 + 营地废墟 ≈ 9 铁 ⇒ 一周目能拿到的铁 ≈ **53**（再加拆除回收的一点）。
+    // ⇒ 造这扇门 = 把几乎所有的铁都焊在一扇门上（不修枪、不做箭、不升围栏）。**这是刻意的终局工程**，
+    //   也忠实于它合并前的原始定价（金属锭 24 —— 而按"锭要熔炼提纯"的原设定，那本来就意味着更多的废金属）。
+    //   合并前它**根本造不出来**（金属锭没有任何获取途径）；现在它至少是"贵得要下决心"，而不是"不可能"。
+    // 若用户觉得太狠：改这一个数字即可，不牵动别处（各档位序只要求 铸铁 > 铁皮大门的铁 16）。
 
     /// <summary>
     /// 某档结构的建造工时（游戏分钟；拆解取其一半，见 <see cref="SalvageLogic.WorkMinutesOfStructure"/>）。

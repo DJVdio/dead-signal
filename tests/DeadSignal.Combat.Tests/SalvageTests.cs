@@ -21,12 +21,12 @@ public class SalvageTests
     [Fact]
     public void GenericMaterial_RefundsHalf()
     {
-        var cost = new Dictionary<string, int> { ["nails"] = 4, ["scrap_metal"] = 6 };
+        var cost = new Dictionary<string, int> { ["nails"] = 4, ["iron"] = 6 };
 
         IReadOnlyDictionary<string, int> yield = SalvageLogic.YieldOf(cost);
 
         Assert.Equal(2, yield["nails"]);
-        Assert.Equal(3, yield["scrap_metal"]);
+        Assert.Equal(3, yield["iron"]);
     }
 
     [Fact]

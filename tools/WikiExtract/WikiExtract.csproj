@@ -235,6 +235,10 @@
     <!-- 存档系统（无 Godot 依赖）：SaveData 状态树 DTO / SaveCodec 编解码+版本闸门（版本不符即拒读，不做迁移）/ SaveMapper 纯逻辑状态⇄DTO 双向映射。磁盘侧在 SaveManager（Godot 层，不 Link）。 -->
     <Compile Include="..\..\godot\scripts\SaveData.cs" Link="Consumed\SaveData.cs" />
     <Compile Include="..\..\godot\scripts\SaveCodec.cs" Link="Consumed\SaveCodec.cs" />
+    <!-- [批次25·impl-iron] SaveMigration：SaveCodec.cs:93/95/188 引用它。**门禁抓不到这里** ——
+         WikiExtract 不在 DeadSignal.sln 里，dotnet build/test 全绿也不代表抽取器能跑（impl-cooking 踩过同一个坑）。
+         漏这一行 ⇒ wiki 抽取器直接编译失败 ⇒ 「表赢代码」那条流水线整条断掉。（由 impl-axe 顺手补上。） -->
+    <Compile Include="..\..\godot\scripts\SaveMigration.cs" Link="Consumed\SaveMigration.cs" />
     <Compile Include="..\..\godot\scripts\SaveMapper.cs" Link="Consumed\SaveMapper.cs" />
     <!-- 自动存档轮转策略（纯逻辑）：一天存两次=清晨/黄昏聚餐两个相位；保留最近 6 个（≈三天）。玩家无手动存档，故留一串历史档是设计前提。 -->
     <Compile Include="..\..\godot\scripts\SaveRotation.cs" Link="Consumed\SaveRotation.cs" />

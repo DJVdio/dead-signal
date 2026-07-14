@@ -47,7 +47,14 @@ public static class SaveCodec
     /// </summary>
     // v2（批次21·impl-bedrest）：新增卧床养病——PawnSave 加卧床令+休养流水账、CampSave 加床位占用+床序号。
     // 旧档没有这些字段，读回来会是"没人躺床、当天没养过病"的脏态 ⇒ 按上面的规矩直接作废旧档，不做迁移。
-    public const int CurrentVersion = 2;
+    //
+    // v3（T46·impl-iron）：材料「废金属」+「金属锭」合并为「铁」（用户拍板）。
+    // ⚠️ 这是**第一条真的写了迁移的版本**，破了上面"只拒绝不迁移"的惯例，理由是这次的旧档**能被无损修好**：
+    // 老档里的废金属/金属锭是**纯数量**（ItemSave.MaterialQuantity），合并规则是确定的算术
+    // （铁 = 废×1 + 锭×<see cref="SaveMigration.IngotToIronRatio"/>），不存在"猜一个不知道的字段"那种半兼容风险。
+    // ⇒ 这里恰恰**不是**上面警告的"山姆的手指长回来了"，而是"两堆金属并成一堆，一克不少"。
+    // 迁移入口：<see cref="SaveMigration.Migrate"/>（在 Deserialize 的版本闸门之前跑）。
+    public const int CurrentVersion = 3;
 
     private static readonly JsonSerializerOptions Options = new()
     {
@@ -78,6 +85,18 @@ public static class SaveCodec
         if (string.IsNullOrWhiteSpace(json))
         {
             return SaveLoadResult.Fail("存档是空的。");
+        }
+
+        // [T46] 版本闸门**之前**先试着升级：能被无损、确定地修好的旧档要迁移，迁不动的才拒读。
+        // 迁移失败一律返回人话错误（绝不返回半个世界）——见 SaveMigration 的类注释。
+        int version = PeekVersion(json);
+        if (version != CurrentVersion && SaveMigration.CanMigrate(version))
+        {
+            if (!SaveMigration.TryMigrate(json, version, out string? upgraded, out string? migrationError))
+            {
+                return SaveLoadResult.Fail(migrationError!);
+            }
+            json = upgraded!;
         }
 
         SaveData? data;
@@ -159,6 +178,12 @@ public static class SaveCodec
         }
     }
 
-    /// <summary>这份存档能不能读（列表上给"读取"按钮置灰用）。</summary>
-    public static bool IsCompatible(string? json) => PeekVersion(json) == CurrentVersion;
+    /// <summary>
+    /// 这份存档能不能读（列表上给"读取"按钮置灰用）。
+    /// <para>
+    /// 🔴 <b>必须把"可迁移的旧档"也算成能读</b>：<c>SaveManager.GetSlotInfo</c> 拿它去决定读取按钮灰不灰
+    /// —— 写了迁移却在这里对 v2 返回 <c>false</c>，按钮就永远是灰的，<b>迁移代码一行都跑不到</b>（静默失效）。
+    /// </para>
+    /// </summary>
+    public static bool IsCompatible(string? json) => SaveMigration.CanMigrate(PeekVersion(json));
 }

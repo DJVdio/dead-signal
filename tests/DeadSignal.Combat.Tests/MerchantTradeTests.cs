@@ -44,7 +44,7 @@ public class MerchantTradeTests
     {
         var shelf = new MerchantShelf();
         Assert.True(shelf.AllSoldOut); // 空货架
-        shelf.Add(new MerchantOffer(Item.Material("scrap_metal", "废金属", 3), price: 5, stock: 2));
+        shelf.Add(new MerchantOffer(Item.Material("iron", "铁", 3), price: 5, stock: 2));
         shelf.Add(new MerchantOffer(Item.Weapon("匕首"), price: 40, stock: 1));
         Assert.Equal(2, shelf.Offers.Count);
         Assert.False(shelf.AllSoldOut);

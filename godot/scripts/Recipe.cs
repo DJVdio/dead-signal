@@ -111,6 +111,14 @@ public static class RecipeBook
     public const string AdvancedCarpentryBookId = "advanced_carpentry";
 
     /// <summary>
+    /// 《弓制作指南》书 id（[T59] 用户在 wiki 上新加的书）。**造弓的书**。
+    /// <para>🔴 <b>反曲弓 / 长弓 从《进阶木匠技术》挪到了这本。</b>
+    /// <b>消防斧没挪</b>——它是木工工具，且「消防斧 + 造消防斧的书同馆」（联合收割机仓库）是 impl-axe/impl-worldgraph
+    /// 依赖的既有设计，挪走会把它拆掉。</para>
+    /// </summary>
+    public const string BowCraftingGuideBookId = BookLibrary.BowCraftingGuideId;
+
+    /// <summary>
     /// 《弓与箭之道》书 id（对齐 <see cref="BookLibrary.WayOfBowAndArrowId"/>）。<b>只能搜刮</b>（<c>ExplorationCache</c>）。
     /// <para>
     /// <b>解锁：自制箭</b>（[SPEC-B21·T26] 用户拍板 —— 此前本书<b>一条配方都不解锁</b>，只有被动）。
@@ -377,14 +385,18 @@ public static class RecipeBook
             Category: RecipeCategory.Precision,
             OutputKey: "improvised_hunting_gun",
             OutputQuantity: 1,
-            MaterialCosts: Cost(("metal_ingot", 2), ("wood", 2), ("components", 2)),
+            // [T46] 铁 4（原：金属锭 2 —— 锭按 1:2 折铁）。
+            MaterialCosts: Cost(("iron", 4), ("wood", 2), ("components", 2)),
             RequiredTools: Tools(ToolSlot.Calipers),
             RequiredBookIds: Books(FolkChemistryNotesBookId),
             WorkMinutes: 240),
 
         // 自制霰弹枪（多弹丸武器）：**全表最好造的枪**——它就是一根钢管 + 击针，没有线膛、没有精密瞄具。
-        // 故比自制猎枪更便宜也更快：用**废金属**（而非猎枪的金属锭=需先熔炼提纯）、机械零件只要 1 个（简单击发）、
+        // 故比自制猎枪更便宜也更快：**铁只要 3**（猎枪要 4：线膛与精密件费料）、机械零件只要 1 个（简单击发）、
         // 工时 150 分（猎枪 240）。代价全在数值上：射程最短、衰减最重、扩散最大、对披甲目标几乎无效。
+        // ⚠️ [T46] 这条"更便宜"的立论**原本挂在材料等级上**（霰弹用废金属 / 猎枪用需熔炼提纯的金属锭）。
+        //    废金属与金属锭合并成「铁」之后那层区分没有了 ⇒ 立论改挂在**用量**上（铁 3 vs 铁 4），排序不变。
+        //    这也是"1 锭 = 2 铁"这个换算率的由来：若按 1:1 直接相加，猎枪只要铁 2，**反而比霰弹枪还便宜**，档位当场倒挂。
         // 同样需卡尺精工 + 读过《土法化学笔记》（懂火药的人才造得了枪）。材料全取自现有 Materials 目录，未新造。
         // 枪本身不吃火药——火药是**弹药**（鹿弹 ammo_buck）的成本，见下方弹药配方。数值皆拟定待调。
         new RecipeData(
@@ -393,7 +405,7 @@ public static class RecipeBook
             Category: RecipeCategory.Precision,
             OutputKey: "improvised_shotgun",
             OutputQuantity: 1,
-            MaterialCosts: Cost(("scrap_metal", 3), ("wood", 2), ("components", 1)),
+            MaterialCosts: Cost(("iron", 3), ("wood", 2), ("components", 1)),
             RequiredTools: Tools(ToolSlot.Calipers),
             RequiredBookIds: Books(FolkChemistryNotesBookId),
             WorkMinutes: 150),
@@ -417,7 +429,7 @@ public static class RecipeBook
             Category: RecipeCategory.Precision,
             OutputKey: "mod_bench",
             OutputQuantity: 1,
-            MaterialCosts: Cost(("wood", 8), ("scrap_metal", 4), ("components", 2), ("nails", 6)),
+            MaterialCosts: Cost(("wood", 8), ("iron", 4), ("components", 2), ("nails", 6)),
             RequiredTools: Tools(ToolSlot.Calipers),
             RequiredBookIds: Books(),
             WorkMinutes: 200,
@@ -448,7 +460,7 @@ public static class RecipeBook
             Category: RecipeCategory.Precision,
             OutputKey: "bullet_parts",
             OutputQuantity: 1,
-            MaterialCosts: Cost(("scrap_metal", 2), ("components", 1)),
+            MaterialCosts: Cost(("iron", 2), ("components", 1)),
             RequiredTools: Tools(ToolSlot.Calipers),
             RequiredBookIds: Books(FolkChemistryNotesBookId),
             WorkMinutes: 60),
@@ -465,7 +477,7 @@ public static class RecipeBook
             RequiredBookIds: Books(FolkChemistryNotesBookId),
             WorkMinutes: 45),
 
-        // 中子弹（自制猎枪/步枪/栓动猎枪）：1 零件 + 1 火药 → **5 发**。
+        // 中子弹（自制猎枪/步枪）：1 零件 + 1 火药 → **5 发**。
         // 步枪二连发 → 一炉只够它扣 2 次半扳机。它 93.5% 的命中，代价就在这行。
         new RecipeData(
             Id: "ammo_medium",
@@ -552,7 +564,7 @@ public static class RecipeBook
             Category: RecipeCategory.Precision,
             OutputKey: "ammo_arrow_handmade",
             OutputQuantity: 4,
-            MaterialCosts: Cost(("wood", 2), ("scrap_metal", 1), ("cloth", 1)),
+            MaterialCosts: Cost(("wood", 2), ("iron", 1), ("cloth", 1)),
             RequiredTools: Tools(ToolSlot.Calipers),
             RequiredBookIds: Books(WayOfBowBookId),
             WorkMinutes: 45),
@@ -565,7 +577,7 @@ public static class RecipeBook
             Category: RecipeCategory.Precision,
             OutputKey: "ammo_arrow_heavy",
             OutputQuantity: 3,
-            MaterialCosts: Cost(("wood", 2), ("metal_ingot", 1)),
+            MaterialCosts: Cost(("wood", 2), ("iron", 2)),          // [T46] 铁 2（原：金属锭 1）。仍严格贵于自制箭（铁 1）。
             RequiredTools: Tools(ToolSlot.Calipers),
             RequiredBookIds: Books(),
             WorkMinutes: 60),
@@ -600,7 +612,7 @@ public static class RecipeBook
             OutputQuantity: 1,
             MaterialCosts: Cost(("wood", 3), ("rope", 1), ("leather", 1)),
             RequiredTools: Tools(ToolSlot.Calipers),
-            RequiredBookIds: Books(AdvancedCarpentryBookId),
+            RequiredBookIds: Books(BowCraftingGuideBookId),
             WorkMinutes: 180),
 
         // 长弓：射程之王。一张比人还高的弓 → 料最多的**纯木**配方（木料 5 + 绳 2），工时 240。
@@ -612,7 +624,7 @@ public static class RecipeBook
             OutputQuantity: 1,
             MaterialCosts: Cost(("wood", 5), ("rope", 2)),
             RequiredTools: Tools(ToolSlot.Calipers),
-            RequiredBookIds: Books(AdvancedCarpentryBookId),
+            RequiredBookIds: Books(BowCraftingGuideBookId),
             WorkMinutes: 240),
 
         // ── 两把弩：[SPEC-B21·T26 追加] 书门槛 → 《**机械之美**》（用户拍板的新书；书名是他给的）──
@@ -634,7 +646,7 @@ public static class RecipeBook
             Category: RecipeCategory.Precision,
             OutputKey: "light_crossbow",
             OutputQuantity: 1,
-            MaterialCosts: Cost(("wood", 2), ("scrap_metal", 2), ("rope", 1), (Materials.WeaponPartsKey, 2)),
+            MaterialCosts: Cost(("wood", 2), ("iron", 2), ("rope", 1), (Materials.WeaponPartsKey, 2)),
             RequiredTools: Tools(ToolSlot.Calipers),
             RequiredBookIds: Books(MechanicalBeautyBookId),
             WorkMinutes: 200),
@@ -647,7 +659,7 @@ public static class RecipeBook
             Category: RecipeCategory.Precision,
             OutputKey: "heavy_crossbow",
             OutputQuantity: 1,
-            MaterialCosts: Cost(("wood", 4), ("metal_ingot", 2), ("rope", 2), (Materials.WeaponPartsKey, 3)),
+            MaterialCosts: Cost(("wood", 4), ("iron", 4), ("rope", 2), (Materials.WeaponPartsKey, 3)),   // [T46] 铁 4（原：金属锭 2）。仍严格贵于轻弩（铁 2）。
             RequiredTools: Tools(ToolSlot.Calipers),
             RequiredBookIds: Books(MechanicalBeautyBookId),
             WorkMinutes: 320),
@@ -670,7 +682,7 @@ public static class RecipeBook
             Category: RecipeCategory.Misc,
             OutputKey: CookStation.ItemKey,
             OutputQuantity: 1,
-            MaterialCosts: Cost(("stone", 8), ("wood", 6), ("scrap_metal", 3), ("nails", 4)),
+            MaterialCosts: Cost(("stone", 8), ("wood", 6), ("iron", 3), ("nails", 4)),
             RequiredTools: Tools(),
             RequiredBookIds: Books(),
             WorkMinutes: 180,
@@ -684,7 +696,7 @@ public static class RecipeBook
             Category: RecipeCategory.Misc,
             OutputKey: CookStation.PotItemKey,
             OutputQuantity: 1,
-            MaterialCosts: Cost(("metal_ingot", 1), ("scrap_metal", 2)),
+            MaterialCosts: Cost(("iron", 4)),   // [T46] 铁 4（原：金属锭 1 + 废金属 2 = 2 + 2）。
             RequiredTools: Tools(),
             RequiredBookIds: Books(),
             WorkMinutes: 60),
@@ -697,7 +709,7 @@ public static class RecipeBook
             Category: RecipeCategory.Misc,
             OutputKey: CookStation.GrillItemKey,
             OutputQuantity: 1,
-            MaterialCosts: Cost(("wire", 4), ("scrap_metal", 2)),
+            MaterialCosts: Cost(("wire", 4), ("iron", 2)),
             RequiredTools: Tools(),
             RequiredBookIds: Books(),
             WorkMinutes: 45),
@@ -819,7 +831,7 @@ public static class RecipeBook
             Category: RecipeCategory.Misc,
             OutputKey: "铁皮头甲",
             OutputQuantity: 1,
-            MaterialCosts: Cost(("scrap_metal", 2), ("leather", 1)),
+            MaterialCosts: Cost(("iron", 2), ("leather", 1)),
             RequiredTools: Tools(),
             RequiredBookIds: Books(),
             WorkMinutes: 70,
@@ -889,6 +901,24 @@ public static class RecipeBook
             RequiredBookIds: Books(TailorsNotesBookId),
             WorkMinutes: 60),
 
+        // ══════════════ [T59] 棉帽（用户在 wiki 上新加的一件）══════════════
+        // 数值层由我拟定（用户只给了护甲 6/3 与 0.15kg，没给配方）：**照最小号布衣那一档来**——
+        //   布 ×2 / 40 分钟，与「粗布短裤」（同为小件、同为 2 布 40 分）完全同档，**不另立新数**。
+        // 依据：布类配方的成本按「用了多少布」走，而布的用量与成衣重量同阶（短裤 0.1kg=2布、衬衫/长裤 0.15kg=3布）。
+        //   棉帽 0.15kg 但只罩一个头 + 两只耳朵（全是小部位）⇒ 取**下限档 2 布**，不给它 3 布：
+        //   一顶帽子不该和一条长裤一样费布。工时同理取 40 分（全表最短的那一档）。
+        // 书：《裁缝手记》—— 它是布类成衣的那本书，棉帽是布类成衣，不新开门槛。
+        new RecipeData(
+            Id: "cotton_hat",
+            DisplayName: "棉帽",
+            Category: RecipeCategory.Tailoring,
+            OutputKey: "cotton_hat",
+            OutputQuantity: 1,
+            MaterialCosts: Cost(("cloth", 2)),
+            RequiredTools: Tools(),
+            RequiredBookIds: Books(TailorsNotesBookId),
+            WorkMinutes: 40),
+
         // 粗布短裤：布最省、工时最短——护得也最少（只护大腿，小腿裸着，同既有「短裤」的取舍）。
         new RecipeData(
             Id: "coarse_shorts",
@@ -912,6 +942,33 @@ public static class RecipeBook
             RequiredTools: Tools(),
             RequiredBookIds: Books(TailorsNotesBookId),
             WorkMinutes: 70),
+
+        // ══════════════ [批次25·T44] 消防斧（《进阶木匠技术》）══════════════
+        //
+        // **为什么挂《进阶木匠技术》而不是别的书**（三本都逐一排除过，不是随手挑的）：
+        //   · 《野外生存指南》＝**开局营地就有**（见本类顶部那段）⇒ 挂它等于"开局第一天就能造出一把长剑档武器"
+        //     （消防斧 DPS 2.79 ≈ 长剑 2.81）。这会一口气抹平武器荒——那是设计里刻意的压力，不能顺手拆掉。
+        //   · 《木匠入门》＝[SPEC-B21·T26追加3] 已被用户清成**纯家具书终态**（木椅/床/桌子，再无武器），
+        //     `CraftingTests` 里有断言钉死这件事 ⇒ **往它上面挂武器会当场打红**，这是设计意图不是误报。
+        //   · 《进阶木匠技术》＝**搜刮书**（联合收割机仓库·阁楼铁皮箱，全局最深处），且它已经是"木工里的武器书"
+        //     （反曲弓 / 长弓挂在它名下）⇒ 消防斧进来语义自洽，且**门槛与它的强度匹配**：要造消防斧，先出门把书找到。
+        //
+        // 工具槽取**锯片**（做斧柄是锯木头的活；对照 反曲弓/长弓 走卡尺＝弓臂找基准面的精工，斧柄不是）。
+        // ⚠️ 锯片在 `CraftingPanelFormat.GroupByTool` 的桶序里**早已出现过**（木椅/床），故本条追加到表尾
+        //    不会搅乱分桶——同 mod_bench / 陷阱那两条的注意事项。
+        //
+        // 材料：铁 3（消防斧钢头）+ 木料 2（斧柄）。工时 180 分（介于反曲弓 180 与长弓 240 之间）。数值皆拟定待调。
+        // [T46·impl-iron] 已接手 impl-axe 留的占位：原 `scrap_metal 3` → `iron 3`（废金属 1:1 折铁，用量不变）。
+        new RecipeData(
+            Id: "axe",
+            DisplayName: "消防斧",
+            Category: RecipeCategory.Woodwork,
+            OutputKey: "axe",
+            OutputQuantity: 1,
+            MaterialCosts: Cost(("iron", 3), ("wood", 2)),
+            RequiredTools: Tools(ToolSlot.SawBlade),
+            RequiredBookIds: Books(AdvancedCarpentryBookId),
+            WorkMinutes: 180),
     };
 
     private static readonly IReadOnlyDictionary<string, RecipeData> _byId = ToMap(_all);
