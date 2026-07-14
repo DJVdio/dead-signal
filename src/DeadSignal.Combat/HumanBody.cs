@@ -117,6 +117,18 @@ public static class HumanBody
     public static Body NewBody() => new(Parts());
 
     /// <summary>
+    /// 新建一个丧尸 <see cref="Body"/>：与人类同一套部位树，但**失血流速只有 1/3**
+    /// （<see cref="BleedModel.ZombieBleedRateMultiplier"/>，用户口径「丧尸没那么容易流血致死」）。
+    /// 丧尸的 <see cref="DuelFighter.BodyFactory"/> / Godot 的 <c>Zombie</c> 一律走这个工厂。
+    /// </summary>
+    public static Body NewZombieBody()
+    {
+        var body = new Body(Parts());
+        body.BleedRateMultiplier = BleedModel.ZombieBleedRateMultiplier;
+        return body;
+    }
+
+    /// <summary>
     /// 展开给定根部位及其全部后代的部位名集合（含根自身）。供护甲覆盖表达用：
     /// 如 <see cref="SubtreeNames"/>("左手") = { 左手 + 左手五指 }，让手套连带护住手指。
     /// </summary>

@@ -74,6 +74,10 @@ public class EffectTests
         Assert.Contains(outcome.Effects, e => e.Kind == DamageEffectKind.Bleed);
     }
 
+    /// <summary>
+    /// [T58 读法B] 流血**仍有概率门**（p = 进肉伤害 / 部位MaxHp）；三级流血改的是「挂上之后它是哪一级」。
+    /// 掷点高于 p ⇒ 不挂。（若用户裁定取字面的读法 A「锐伤必挂」，本条要改成"必挂、不耗 roll"。）
+    /// </summary>
     [Fact]
     public void Bleed_SkipsWhenRollAboveProbability()
     {

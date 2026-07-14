@@ -42,6 +42,44 @@ public sealed class Weapon
 
     public DamageType DamageType { get; init; }
 
+    // ---- 流血轴（[T53]）：武器影响它**造成的伤口**流得多快。中性默认 ⇒ 既有武器零漂移。----
+
+    /// <summary>
+    /// 这把武器造成的伤口的**流血速率乘数**（1.0 = 常规刃口，不改变流血）。「锯齿剑刃」改装填 **1.4**（流血速度 +40%）。
+    ///
+    /// <para>
+    /// 它是**伤口**的属性，由造成伤口的武器在建档时写入（<see cref="Body.RegisterBleed(string, double)"/>），
+    /// 与**受害者**侧的体质倍率 <see cref="Body.BleedRateMultiplier"/>（丧尸 1/3）**正交相乘** ——
+    /// 「谁在砍」和「谁在流血」是两件事，各自一根轴。
+    /// </para>
+    /// <para>
+    /// 🔴 <b>零漂移</b>：默认 1.0，且 <see cref="Body.TickBleed"/> 里 Σ(乘数) 在全 1.0 时**逐位等于**旧的伤口计数
+    /// ⇒ 既有武器的结算路径逐字节不变。
+    /// </para>
+    /// </summary>
+    public double BleedRateMultiplier { get; init; } = 1.0;
+
+    /// <summary>
+    /// 造成伤害时**额外**引发一处「小流血」的概率（0 = 不会，默认）。「钉子强化」改装填 **0.25**
+    /// （棍棒独有：25% 几率造成小流血）。
+    /// <para>
+    /// 🔴 [T58]「小流血」**现在有了正式语义**：它就是 <see cref="BleedModel.BleedSeverity.Small"/> 这一级
+    /// （旧的 <c>SmallWoundRateMultiplier = 0.5</c>「速率减半的普通伤口」**已退役**）。
+    /// ⇒ 钉子扎出的口子会和别的小流血**按同一套规则合并**（同一处扎两下 ⇒ 中流血）。
+    /// </para>
+    ///
+    /// <para>
+    /// 这条**独立于锐器流血**：钝器（棍棒）本来一处伤口都不会造成（流血资格要求锐器抵达），
+    /// 钉子强化正是要给钝器开一个**小口子**。
+    /// </para>
+    /// <para>
+    /// 🔴 <b>零漂移</b>：<see cref="CombatEffectResolver.Apply"/> 里以 <c>&gt; 0</c> 为**前置短路**条件 ——
+    /// 值为 0（＝所有既有武器）时**一次随机都不抽**，随机流不错位。护栏见
+    /// <c>WeaponBleedAxisTests.Zero_drift_no_rng_consumed_when_bleed_on_hit_is_zero</c>。
+    /// </para>
+    /// </summary>
+    public double BleedOnHitChance { get; init; }
+
     /// <summary>true = 双手武器；false = 单手。</summary>
     public bool TwoHanded { get; init; }
 

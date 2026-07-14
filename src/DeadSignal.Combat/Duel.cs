@@ -96,11 +96,20 @@ public sealed class DuelResult
 /// <summary>对决数值参数（全部拟定待调）。</summary>
 public sealed class DuelConfig
 {
-    /// <summary>每处伤口每秒失血量（写入 Body.BleedRatePerWound）。</summary>
-    public double BleedRatePerWound { get; init; } = 1.5;
+    /// <summary>
+    /// 每处伤口每秒失血量（写入 Body.BleedRatePerWound）。
+    /// **读 <see cref="BleedModel.DefaultBleedRatePerWound"/>——与实机（`Body` 默认值）同一个事实源**（[T53] 焊死）。
+    /// </summary>
+    public double BleedRatePerWound { get; init; } = BleedModel.DefaultBleedRatePerWound;
 
-    /// <summary>对决用储血量上限（拟定待调，比默认 100 略低以让失血分级/昏迷/致死真实出现）。</summary>
-    public double BloodMax { get; init; } = 70;
+    /// <summary>
+    /// 对决用储血量上限。**读 <see cref="BleedModel.DefaultBloodMax"/>——与实机（`Body` 构造默认值）同一个事实源**。
+    /// <para>
+    /// [T53] 之前这里写死 70、而 `Body` 默认 100，注释还自陈"比默认 100 略低" ——
+    /// 那正是实机与 Sim 漂开 3.9 倍的一半原因。现在两边**物理上不可能再分叉**。
+    /// </para>
+    /// </summary>
+    public double BloodMax { get; init; } = BleedModel.DefaultBloodMax;
 
     /// <summary>失血推进步长（秒）：有出血时按此细分时间轴以获得分级/昏迷/致死的合理时点。</summary>
     public double BleedStep { get; init; } = 0.5;

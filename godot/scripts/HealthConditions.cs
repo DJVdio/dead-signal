@@ -1144,16 +1144,33 @@ public static class HealthMapping
     /// 从一具 <see cref="Body"/> 的当前出血伤口(<see cref="Body.BleedingWounds"/>)与骨折部位(<see cref="Body.FracturedParts"/>)
     /// 播种一份伤病集（只读 Body，不改其状态）。初始严重度 draft。
     /// </summary>
+    /// <param name="bleedingSeverity">
+    /// 🔴 [T58] **已退役为兜底值**：出血的初始严重度现在**由该部位的出血【等级】决定**
+    /// （<see cref="BleedModel.ConditionSeverityOf"/>：小 0.25 / 中 0.45 / **大 0.70**），
+    /// 而**不再是所有伤口一个平摊的 0.35**。
+    /// <para>
+    /// 这就是用户那句「防止过多的伤口浪费手术时间」在手术侧的落地：
+    /// **手术台数按【部位】走（本来就是——每部位一条 Bleeding），而难度/剩余抢救时间按【等级】走。**
+    /// 三个小口子在 <see cref="Body"/> 里已经合并成一个大口子 ⇒ 这里出的是**一台**手术，
+    /// 而且它是一台**大流血**的手术（0.70 ⇒ 不治只剩 3 昼夜），不是三台各自轻飘飘的小手术。
+    /// </para>
+    /// 只有当 <see cref="Body"/> 里查不到等级（理论上不会发生）时才回落到本参数。
+    /// </param>
     public static HealthConditionSet SeedFromBody(Body body, double bleedingSeverity = 0.35, double fractureSeverity = 0.6)
     {
         var set = new HealthConditionSet();
         foreach (string part in body.BleedingWounds)
         {
+            // [T58] 严重度 = 该部位那处出血的【等级】（合并后的结果）。
+            double severity = body.BleedSeverityOn(part) is BleedModel.BleedSeverity lvl
+                ? BleedModel.ConditionSeverityOf(lvl)
+                : bleedingSeverity;
+
             // 三层梯度：很小的伤(微小部位/擦伤级)→自愈；中等非致命小伤(手/脚)→需手术不自愈；大部位→致命失血。
-            bool selfHealing = IsMicroBleedPart(body, part) || bleedingSeverity <= HealthConditionSet.AbrasionSeverityThreshold;
+            bool selfHealing = IsMicroBleedPart(body, part) || severity <= HealthConditionSet.AbrasionSeverityThreshold;
             bool lethal = !selfHealing && IsLethalBleedPart(body, part); // 自愈伤绝不致命失血
             set.Add(new HealthCondition(
-                HealthConditionType.Bleeding, bleedingSeverity, part, IsLimb(body, part),
+                HealthConditionType.Bleeding, severity, part, IsLimb(body, part),
                 lethal, InfectionPronenessOf(body, part), selfHealing));
         }
         foreach (string part in body.FracturedParts)
@@ -1168,18 +1185,14 @@ public static class HealthMapping
         => body.Parts.TryGetValue(part, out BodyPart? p) && p.Category == BodyPartCategory.Limb;
 
     /// <summary>
-    /// 该部位的出血是否为**致命失血**（拖久失血致死）。draft 启发式：大部位（躯干/头/上臂/大腿）= 致命失血；
-    /// 小/远端部位（手/脚/指/趾/眼/面/耳）= 只溃烂感染、非致命失血（对应"小锐器/咬伤类"口径）。部位表查不到按致命（从狠）。
-    /// 注：引擎不逐伤口记武器类型，此处以部位尺寸作可判定代理，语义为"拟定待调"。
+    /// 该部位的出血是否为**致命失血**（拖久失血致死）：大部位（躯干/头/颈/上臂/大腿）= 致命失血；
+    /// 小/远端部位（手/脚/指/趾/眼/面/耳）= 只溃烂感染、非致命失血（对应"小锐器/咬伤类"口径）。
+    /// <para>
+    /// 分级本身已下沉到引擎 <see cref="BleedModel"/>，**战斗内失血与战后建档读同一个函数** ——
+    /// 此前两边各写一份，导致"手指划伤在战斗中能把人流血流死、战后却算不致命"的自相矛盾。
+    /// </para>
     /// </summary>
-    private static bool IsLethalBleedPart(Body body, string part)
-    {
-        if (!body.Parts.TryGetValue(part, out BodyPart? p))
-        {
-            return true; // 未知部位从狠：按致命失血
-        }
-        return p.Region is BodyRegion.Torso or BodyRegion.Head or BodyRegion.Neck or BodyRegion.Arm or BodyRegion.Leg;
-    }
+    private static bool IsLethalBleedPart(Body body, string part) => BleedModel.IsLethalPart(body, part);
 
     /// <summary>
     /// 该部位出血伤口的**感染倾向系数**（越小的伤越低，draft）：大部位(躯干/头/颈/上臂/大腿) 1.0、
@@ -1199,8 +1212,55 @@ public static class HealthMapping
         };
     }
 
-    /// <summary>是否为"微小部位"（指/趾/眼/面/耳）：其出血伤口属"很小的伤"，可自行闭合。部位表查不到按非微小。</summary>
-    private static bool IsMicroBleedPart(Body body, string part)
-        => body.Parts.TryGetValue(part, out BodyPart? p)
-           && p.Region is BodyRegion.Finger or BodyRegion.Toe or BodyRegion.Eye or BodyRegion.Face or BodyRegion.Ear;
+    /// <summary>是否为"微小部位"（指/趾/眼/面/耳）：其出血伤口属"很小的伤"，可自行闭合。
+    /// 同样读引擎 <see cref="BleedModel"/> 的分级，与战斗内失血口径一致。</summary>
+    private static bool IsMicroBleedPart(Body body, string part) => BleedModel.IsMicroPart(body, part);
+}
+
+/// <summary>
+/// 【T53】休养自然回血的**规则层**（纯函数，无 Godot 依赖 ⇒ Link 进单测）。
+/// 用户拍板：「**补——休养自然回血**」（不做输血/血袋；医院「血库」保留为叙事，不接机制）。
+///
+/// <para>
+/// 🔴 <b>它补的是一个真空</b>：此前**实机没有任何回血手段** —— <c>Body.Blood</c> 只有 <c>LoseBlood</c>（只减）
+/// 与 <c>SetBloodMax</c>（回满）两条路径，而 <c>SetBloodMax</c> 在 Godot 层**一次都没被调用**
+/// ⇒ 幸存者的储血整个战役单调递减、无恢复路径。手术只"止住伤口"，**流掉的血不会回来**。
+/// </para>
+/// <para>
+/// 规则写在这里（而不是 <c>Pawn</c> 里）是刻意的：<c>Pawn</c> 是 Godot 节点、**无法单测**，
+/// 把判据留在它身体里就等于没有护栏（项目长期教训：纯逻辑绿 ≠ 功能生效）。<c>Pawn</c> 只当三行调用方。
+/// </para>
+/// </summary>
+public static class BloodRecovery
+{
+    /// <summary>
+    /// 本昼夜应回复的血量。
+    ///
+    /// <para>量 = <see cref="BleedModel.BloodRegenPerRestDay"/>(10) × 休养占比 × 睡床加成
+    /// （复用既有 <see cref="HealthConditionSet.BedSleepHealBonusPct"/>=10 个百分点，**加算、同族**，不另起炉灶）。
+    /// 70 储血 ÷ 10 = **7 昼夜从零回满**，与「骨折愈合 7 昼夜」同量级（占床、不能干活、不能站岗）。</para>
+    /// </summary>
+    /// <param name="restFraction">本昼夜休养占比 0..1（来自 <c>RestLedger</c>）。0 = 没休养 ⇒ 不回血。</param>
+    /// <param name="bedFraction">本昼夜睡床占比 0..1。地铺不吃这一轴，床要造。</param>
+    /// <param name="hasOpenWound">
+    /// 身上是否还有**未止住**的出血伤口（<c>Body.BleedingWoundCount &gt; 0</c>）。
+    /// 🔴 <b>还在流就不回血</b>：边流边补是自欺欺人，也会架空用户「任何时候只要伤口没被手术治疗就会流血」这条规则。
+    /// ⇒ **必须先手术缝合，才谈得上养回来。**
+    /// </param>
+    public static double PerRestDay(double restFraction, double bedFraction, bool hasOpenWound)
+    {
+        if (hasOpenWound)
+        {
+            return 0; // 口子还开着：先去做手术
+        }
+
+        double rest = Math.Clamp(restFraction, 0, 1);
+        if (rest <= 0)
+        {
+            return 0; // 没休养就没有回血——干活/站岗的人不回血
+        }
+
+        double bedBonus = 1.0 + (HealthConditionSet.BedSleepHealBonusPct / 100.0) * Math.Clamp(bedFraction, 0, 1);
+        return BleedModel.BloodRegenPerRestDay * rest * bedBonus;
+    }
 }

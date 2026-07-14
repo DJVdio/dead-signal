@@ -12,10 +12,12 @@ public class BloodTests
         body.BleedRatePerWound = 1.0;
         double handHpBefore = body.HpOf(HumanBody.LeftHand);
 
-        body.RegisterBleed(HumanBody.LeftHand);
-        body.TickBleed(5); // 1 伤口 × 1.0 × 5s = 5 失血
+        body.RegisterBleed(HumanBody.LeftHand, BleedModel.BleedSeverity.Medium);
+        body.TickBleed(5); // 手=轻微伤（权重 0.5）：1 伤口 × 0.5 × 1.0 × 5s = 2.5 失血
 
-        Assert.Equal(95, body.Blood, 9);       // 储血扣了
+        // 断言**失血量**而非绝对血量：储血上限是可调数值（BleedModel.DefaultBloodMax），
+        // 写死 100 只是碰巧和当时的默认值一样，上限一改就假红。
+        Assert.Equal(2.5, body.BloodMax - body.Blood, 9);     // 储血扣了
         Assert.Equal(handHpBefore, body.HpOf(HumanBody.LeftHand), 9); // 部位 HP 不变
     }
 
@@ -24,26 +26,29 @@ public class BloodTests
     {
         var body = HumanBody.NewBody();
         body.BleedRatePerWound = 1.0;
-        body.RegisterBleed(HumanBody.LeftHand);
-        body.RegisterBleed(HumanBody.Chest);
-        body.TickBleed(2); // 2 伤口 × 1.0 × 2s = 4
+        body.RegisterBleed(HumanBody.LeftHand, BleedModel.BleedSeverity.Medium); // 轻微（权重 0.5）
+        body.RegisterBleed(HumanBody.Chest, BleedModel.BleedSeverity.Medium);    // 致命（权重 1.0）
+        body.TickBleed(2); // (0.5 + 1.0) × 1.0 × 2s = 3
 
-        Assert.Equal(96, body.Blood, 9);
+        // 伤口叠加，但按部位分级加权——胸口的深伤口比手上的划伤放血快一倍。
+        Assert.Equal(3, body.BloodMax - body.Blood, 9);
     }
 
     [Fact]
     public void BloodTiers_TransitionAtThresholds()
     {
-        var body = HumanBody.NewBody(); // 100
+        // 分级是**比例**阈值（75/50/25%），故按 BloodMax 的比例扣，不写死绝对值。
+        var body = HumanBody.NewBody();
+        double max = body.BloodMax;
         Assert.Equal(BloodLossTier.None, body.BloodTier);
 
-        body.LoseBlood(30); // 70% → 轻度
+        body.LoseBlood(max * 0.30); // 剩 70% → 轻度
         Assert.Equal(BloodLossTier.Mild, body.BloodTier);
 
-        body.LoseBlood(25); // 45% → 中度
+        body.LoseBlood(max * 0.25); // 剩 45% → 中度
         Assert.Equal(BloodLossTier.Moderate, body.BloodTier);
 
-        body.LoseBlood(25); // 20% → 重度昏迷
+        body.LoseBlood(max * 0.25); // 剩 20% → 重度昏迷
         Assert.Equal(BloodLossTier.Severe, body.BloodTier);
         Assert.True(body.IsUnconscious);
         Assert.False(body.IsDead);
@@ -53,7 +58,7 @@ public class BloodTests
     public void BloodPool_ToZero_BleedsToDeath()
     {
         var body = HumanBody.NewBody();
-        body.LoseBlood(100);
+        body.LoseBlood(body.BloodMax);
         Assert.Equal(0, body.Blood, 9);
         Assert.True(body.BledOut);
         Assert.True(body.IsDead);
@@ -66,10 +71,10 @@ public class BloodTests
     {
         var body = HumanBody.NewBody();
         body.BleedRatePerWound = 1.0;
-        body.RegisterBleed(HumanBody.LeftHand);
-        body.StopBleed(HumanBody.LeftHand);
+        body.RegisterBleed(HumanBody.Chest, BleedModel.BleedSeverity.Medium);
+        body.StopBleed(HumanBody.Chest);
         body.TickBleed(10);
-        Assert.Equal(100, body.Blood, 9); // 止血后不再失血
+        Assert.Equal(body.BloodMax, body.Blood, 9); // 止血后不再失血（一滴没掉）
     }
 
     [Fact]

@@ -32,8 +32,31 @@ public sealed class BodySnapshot
     /// <summary>已失能的部位（致残/致盲，但还长在身上）。</summary>
     public List<string> Disabled { get; set; } = new();
 
-    /// <summary>正在流血的伤口部位。</summary>
+    /// <summary>
+    /// 正在流血的部位。[T58] 三级流血之后**每部位只有一处出血** ⇒ 本表**不再有重复项**。
+    /// <para>
+    /// 🔴 **老存档（T58 之前）里同一部位会重复出现 N 次**（那时一个部位最多 3 处伤口）——
+    /// <see cref="Body.Restore"/> 会把重复项**逐个按小流血合并**：1 次 ⇒ 小、2 次 ⇒ 中、3 次 ⇒ 大。
+    /// 这**恰好**把旧的"1/2/3 处伤口"三档映射到新的"小/中/大"三级，且旧的封顶（3 处 × 速率 1.0 = 3.0）
+    /// 与新的大流血速率（3.0）**完全相等** ⇒ 老档里最重的那档流血**一分不差**。故**无需存档版本闸门**。
+    /// </para>
+    /// </summary>
     public List<string> Bleeding { get; set; } = new();
+
+    /// <summary>
+    /// 与 <see cref="Bleeding"/> **按下标一一对应**的流血速率乘数（[T53] 伤口带属性）：
+    /// 普通 1.0；锯齿剑刃造成的 1.4。（老存档没有此字段 ⇒ 空表 ⇒ 回落 1.0。）
+    /// </summary>
+    public List<double> BleedingRates { get; set; } = new();
+
+    /// <summary>
+    /// 与 <see cref="Bleeding"/> **按下标一一对应**的出血**等级**（[T58]：1=小 / 2=中 / 3=大）。
+    /// <para>
+    /// **老存档没有这个字段** ⇒ 反序列化成空表 ⇒ <see cref="Body.Restore"/> 取不到时**回落成"小流血"**，
+    /// 再靠重复项合并还原出等级（见 <see cref="Bleeding"/> 的说明）。**无需版本闸门。**
+    /// </para>
+    /// </summary>
+    public List<int> BleedingLevels { get; set; } = new();
 
     /// <summary>骨折的部位。</summary>
     public List<string> Fractured { get; set; } = new();
@@ -49,6 +72,9 @@ public sealed class BodySnapshot
 
     /// <summary>每处伤口每秒失血量（可被上层调参，故存）。</summary>
     public double BleedRatePerWound { get; set; }
+
+    /// <summary>实体级失血抗性倍率（丧尸 1/3）。旧存档缺此字段 → 0 → <see cref="Body.Restore"/> 回落成 1.0。</summary>
+    public double BleedRateMultiplier { get; set; } = 1.0;
 
     /// <summary>是否已失血致死。</summary>
     public bool BledOut { get; set; }

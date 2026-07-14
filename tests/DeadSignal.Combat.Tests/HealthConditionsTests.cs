@@ -670,9 +670,9 @@ public class HealthConditionsTests
     public void SeedFromBody_classifies_small_parts_as_minor_and_large_as_lethal_bleed()
     {
         Body body = HumanBody.NewBody();
-        body.RegisterBleed("左大腿"); // 大部位 → 致命失血
-        body.RegisterBleed("右手");   // 小部位（咬伤/小锐器类）→ 只感染不致命
-        body.RegisterBleed("躯干");   // 要害 → 致命失血
+        body.RegisterBleed("左大腿", BleedModel.BleedSeverity.Medium); // 大部位 → 致命失血
+        body.RegisterBleed("右手", BleedModel.BleedSeverity.Medium);   // 小部位（咬伤/小锐器类）→ 只感染不致命
+        body.RegisterBleed("躯干", BleedModel.BleedSeverity.Medium);   // 要害 → 致命失血
 
         HealthConditionSet set = HealthMapping.SeedFromBody(body);
 
@@ -709,9 +709,9 @@ public class HealthConditionsTests
     public void Infection_proneness_scales_down_with_wound_size()
     {
         Body body = HumanBody.NewBody();
-        body.RegisterBleed("左大腿");     // 大部位
-        body.RegisterBleed("右手");       // 中（手掌）
-        body.RegisterBleed("右手食指");   // 微（指）
+        body.RegisterBleed("左大腿", BleedModel.BleedSeverity.Medium);     // 大部位
+        body.RegisterBleed("右手", BleedModel.BleedSeverity.Medium);       // 中（手掌）
+        body.RegisterBleed("右手食指", BleedModel.BleedSeverity.Medium);   // 微（指）
         HealthConditionSet set = HealthMapping.SeedFromBody(body);
 
         double leg = set.Conditions.Single(c => c.BodyPart == "左大腿").InfectionProneness;
@@ -783,7 +783,7 @@ public class HealthConditionsTests
         // 接入波(Pawn.AdvanceHealthDay)以"该部位已无活跃出血条目"作**单一路径**从 Body 止血（手术/自愈/截肢清理同走此路）。
         // 此处验证该契约：微小伤自愈后 Health 不再有该出血条目 → 同款判定即可把 Body 侧出血止住。
         Body body = HumanBody.NewBody();
-        body.RegisterBleed("右手食指");
+        body.RegisterBleed("右手食指", BleedModel.BleedSeverity.Medium);
         HealthConditionSet set = HealthMapping.SeedFromBody(body); // 微小部位 → 自愈档
         for (int day = 0; day <= HealthConditionSet.InfectionWindowDays; day++)
         {
@@ -817,23 +817,35 @@ public class HealthConditionsTests
     }
 
     [Fact]
-    public void SeedFromBody_marks_only_very_small_or_abrasion_wounds_as_self_healing()
+    /// <summary>
+    /// [T58] 自愈判据现在只剩**微小部位**（指/趾/眼/面/耳）这一条 ——
+    /// 因为出血的初始严重度改由**等级**决定（小 0.25 / 中 0.45 / 大 0.70），
+    /// 而**最小的一级（0.25）也高于擦伤自愈线（0.2）** ⇒ 大部位上的小流血**仍然要做一台（很轻的）手术**。
+    /// <para>这是刻意的：小流血若自愈，用户那条「任何时候只要伤口没被手术治疗就会流血」的规则就被架空了
+    /// （躯干上的小流血未治疗每昼夜恶化 0.10，7.5 昼夜后照样致死）。</para>
+    /// </summary>
+    public void SeedFromBody_marks_only_micro_parts_as_self_healing()
     {
         Body body = HumanBody.NewBody();
-        body.RegisterBleed("右手食指"); // 微小部位 → 自愈
-        body.RegisterBleed("右手");     // 手（中等小伤）→ 不自愈
-        body.RegisterBleed("左大腿");   // 大部位 → 不自愈
-        HealthConditionSet set = HealthMapping.SeedFromBody(body); // 默认 severity 0.35
+        body.RegisterBleed("右手食指", BleedModel.BleedSeverity.Medium); // 微小部位 → 自愈
+        body.RegisterBleed("右手", BleedModel.BleedSeverity.Medium);     // 手（中等小伤）→ 不自愈
+        body.RegisterBleed("左大腿", BleedModel.BleedSeverity.Medium);   // 大部位 → 不自愈
+        HealthConditionSet set = HealthMapping.SeedFromBody(body);
 
         Assert.True(set.Conditions.Single(c => c.BodyPart == "右手食指").SelfHealing);
         Assert.False(set.Conditions.Single(c => c.BodyPart == "右手").SelfHealing);
         Assert.False(set.Conditions.Single(c => c.BodyPart == "左大腿").SelfHealing);
 
-        // 擦伤级（低初始严重度）在大部位上也自愈。
+        // 🔴 [T58] 严重度**按等级走**，不再是所有伤口一个平摊值。
+        Assert.Equal(BleedModel.ConditionSeverityOf(BleedModel.BleedSeverity.Medium),
+                     set.Conditions.Single(c => c.BodyPart == "左大腿").Severity, 9);
+
+        // 大部位上的**小流血**：仍需手术（0.25 > 擦伤自愈线 0.2），但比中/大轻得多。
         Body grazed = HumanBody.NewBody();
-        grazed.RegisterBleed("左大腿");
-        HealthConditionSet low = HealthMapping.SeedFromBody(grazed, bleedingSeverity: 0.1);
-        Assert.True(low.Conditions.Single().SelfHealing, "擦伤级低严重度伤口应自愈");
+        grazed.RegisterBleed("左大腿", BleedModel.BleedSeverity.Small);
+        HealthCondition small = HealthMapping.SeedFromBody(grazed).Conditions.Single();
+        Assert.False(small.SelfHealing, "大部位上的小流血不自愈——不治疗照样会慢慢流死");
+        Assert.Equal(0.25, small.Severity, 9);
     }
 
     // ---- 骨折治疗档回写 Body：三态（未治 -30% / 术后 -15% / 痊愈 0）端到端到 Body 能力系数 ----
@@ -1508,7 +1520,7 @@ public class HealthConditionsTests
     public void SeedFromBody_reads_bleeding_and_fracture_states_without_mutating_body()
     {
         Body body = HumanBody.NewBody();
-        body.RegisterBleed("左上臂");
+        body.RegisterBleed("左上臂", BleedModel.BleedSeverity.Medium);
         body.MarkFractured("右大腿");
 
         HealthConditionSet set = HealthMapping.SeedFromBody(body);
@@ -1523,7 +1535,7 @@ public class HealthConditionsTests
     public void SeedFromBody_marks_vital_parts_as_not_on_limb()
     {
         Body body = HumanBody.NewBody();
-        body.RegisterBleed("躯干");
+        body.RegisterBleed("躯干", BleedModel.BleedSeverity.Medium);
         HealthConditionSet set = HealthMapping.SeedFromBody(body);
         HealthCondition c = set.Conditions.Single();
         Assert.False(c.OnLimb);

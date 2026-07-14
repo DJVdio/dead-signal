@@ -18,8 +18,15 @@ public sealed class DamageEffect
     public DamageEffectKind Kind { get; init; }
     public string PartName { get; init; } = "";
 
-    /// <summary>严重度 0~1（触发时的概率 p，或切除固定 1）。供叙事/后续减益强度使用。</summary>
+    /// <summary>严重度 0~1（流血＝这一次占部位血量的比例；切除固定 1；震荡/骨折＝触发时的概率 p）。供叙事/UI 使用。</summary>
     public double Severity { get; init; }
+
+    /// <summary>
+    /// 仅 <see cref="DamageEffectKind.Bleed"/> 使用：这一次造成的**出血等级**（[T58] 小/中/大）。
+    /// 其余效果为 null。⚠️ 这是**这一击**的等级，**不是**该部位合并后的当前等级 ——
+    /// 合并后的现状请查 <see cref="Body.BleedSeverityOn"/>。
+    /// </summary>
+    public BleedModel.BleedSeverity? BleedSeverity { get; init; }
 
     /// <summary>
     /// 时序时长（秒）。仅 <see cref="DamageEffectKind.Concussion"/> 使用：本次震荡的硬打断时长
@@ -214,9 +221,16 @@ public sealed class CombatEffectResolver
             severedParts.AddRange(sr.RemovedParts);
             death = death || sr.CausedDeath;
             effects.Add(new DamageEffect { Kind = DamageEffectKind.Sever, PartName = partName, Severity = 1.0 });
-            // 切除即重创出血：附带流血（不再走概率 roll），登记为持续出血伤口。
-            effects.Add(new DamageEffect { Kind = DamageEffectKind.Bleed, PartName = partName, Severity = 1.0 });
-            body.RegisterBleed(partName);
+            // 切除即重创出血。[T58] 断口一律 **大流血**：肢体被整个砍下来，血管是全断的 ——
+            // 这本来就是"封顶"那一档的定义。（切除的判据本就是"单次伤害 ≥ 部位 MaxHp"，
+            // 按比例算也必然 >60%；唯一的例外是砍在已经 0HP 的部位上，那更该按最狠算。）
+            // 断口按**这把武器**的流血速率放血（锯齿剑砍下的断口流得更快）。
+            effects.Add(new DamageEffect
+            {
+                Kind = DamageEffectKind.Bleed, PartName = partName, Severity = 1.0,
+                BleedSeverity = BleedModel.BleedSeverity.Large,
+            });
+            body.RegisterBleed(partName, BleedModel.BleedSeverity.Large, weapon.BleedRateMultiplier);
         }
 
         // 2b. MaxHp 磨损（非状态效果）：0HP 部位受实质钝伤（降解钝伤/天然钝器）→ 永久磨损上限，归 0 则损毁。
@@ -235,14 +249,72 @@ public sealed class CombatEffectResolver
             }
         }
 
-        // 3. 流血（锐器抵达、造成伤害、未切除）
+        // 3. 流血（锐器抵达、造成伤害、未切除）—— [T58] **三级流血**。
+        //
+        // 用户规格：「一次伤害造成了锐器伤害，就是小流血；一次大于该部位最大生命值的 30%，就中流血；
+        //           一次超过 60% 就造成大流血。封顶大流血。」
+        //
+        // 🔴 **【DECISION 待用户裁决】这句话有两种自洽读法，本实现取【读法 B】** ——
+        //    **读法 A（字面）**：锐器**只要进了肉就必挂**流血（去掉概率门）。
+        //    **读法 B（本实现）**：**保留既有的概率门**（p = 进肉伤害 / 部位MaxHp），
+        //                        这句话定义的是「**挂上流血时它是哪一级**」——默认小，超 30% 中，超 60% 大。
+        //
+        //    **为什么取 B**：读法 A 与用户**自己的另一条硬口径直接冲突**。实测（`lanchester`，同一棵树 A/B）：
+        //    | N 只丧尸围攻 | 改前 | **读法 A** | **读法 B** |
+        //    | 2 只 | 61.5% | **15.7%** 🔴 | **87.6%** |
+        //    | 3 只 | 11.1% | **0.4%**  🔴 | **28.3%** |
+        //    读法 A 之下，爪击**每一下必挂小流血**，而用户的合并规则（两小合中、小+中合大）会让
+        //    **同一部位挨满 3 下就 ratchet 到大流血** ⇒ 围攻时全身部位一路升到封顶 ⇒ **平方律必然恶化**。
+        //    用户此前已**明确拒绝**过「两只丧尸就是死局」（[T53] 因此把流血口径回退过一次）。
+        //    读法 B 不但不冲突，还**兑现了三级流血的设计初衷**：浅爪多半连血都挂不上、挂上也只是小流血（0.1），
+        //    ⇒ **2 只丧尸从 61.5% 抬到 87.6%、3 只从 11.1% 抬到 28.3%** —— 封顶真的打断了平方律。
+        //    ⇒ 若用户确认要字面的读法 A，把下面这个 `if (_rng.Range(0, 1) < p)` 拆掉即可（一行）。
+        //
+        // 🔴 分级看的是 **进肉伤害 ÷ 部位最大生命值** ⇒ **护甲自动防住了流血**：
+        //    穿甲后只渗进去 1~2 点的剐蹭 ⇒ 比例极小 ⇒ 只挂小流血；砍在裸背上的深劈 ⇒ 超 60% ⇒ 大流血。
+        //    （[T53] 查明的根因正是"流血速率与口子多深完全无关 ⇒ 流血对护甲免疫"。本条即其修复。）
+        bool bledThisHit = severed; // 切除已经登记过大流血，别再叠
         if (sharp && dmg > 0 && !severed)
         {
             double p = Clamp01Cap(_cfg.BleedK * dmg / maxHp, _cfg.BleedCap);
             if (_rng.Range(0, 1) < p)
             {
-                effects.Add(new DamageEffect { Kind = DamageEffectKind.Bleed, PartName = partName, Severity = p });
-                body.RegisterBleed(partName);
+                var level = BleedModel.SeverityOf(dmg, maxHp);
+                effects.Add(new DamageEffect
+                {
+                    Kind = DamageEffectKind.Bleed, PartName = partName,
+                    Severity = maxHp > 0 ? dmg / maxHp : 1.0, // 严重度＝这一刀占了部位血量的几成（叙事/UI 用）
+                    BleedSeverity = level,
+                });
+                // 出血带上**这把武器**的流血速率（锯齿剑刃 1.4 ⇒ 这道口子流得比普通刀伤快 40%）。
+                // 同部位再挨一刀 ⇒ Body 内部**即时合并**（两小合中、两中合大、小+中合大、封顶大流血）。
+                body.RegisterBleed(partName, level, weapon.BleedRateMultiplier);
+                bledThisHit = true;
+            }
+        }
+
+        // 3b. 「小流血」（[T53] 钉子强化：棍棒造成伤害时 25% 几率扎出一个小口子）。
+        //
+        // 🔴 [T58]「小流血」**现在有了正式语义** —— 它就是 <see cref="BleedModel.BleedSeverity.Small"/> 这一级，
+        //    **不再是"速率乘数减半的普通伤口"**（旧的 `SmallWoundRateMultiplier = 0.5` 已退役）。
+        //    ⇒ 钉子强化扎出的口子会和别的小流血**按同一套规则合并**（扎两下同一处 ⇒ 中流血）。
+        //
+        // 🔴 **零漂移的关键**：`weapon.BleedOnHitChance > 0` 是**前置短路**条件 ——
+        // 所有既有武器该值为 0 ⇒ 整个分支连 `_rng.Range` 都不会调用 ⇒ 随机流不受它影响。
+        //
+        // 它**独立于上面的锐器流血**：钝器（棍棒）本来一处出血都造不出来（流血资格要求锐器抵达），
+        // 钉子强化正是要给钝器开一个小口子。已经流血的这一击不再叠（!bledThisHit）。
+        if (weapon.BleedOnHitChance > 0 && dmg > 0 && !bledThisHit)
+        {
+            if (_rng.Range(0, 1) < weapon.BleedOnHitChance)
+            {
+                effects.Add(new DamageEffect
+                {
+                    Kind = DamageEffectKind.Bleed, PartName = partName,
+                    Severity = weapon.BleedOnHitChance,
+                    BleedSeverity = BleedModel.BleedSeverity.Small,
+                });
+                body.RegisterBleed(partName, BleedModel.BleedSeverity.Small, weapon.BleedRateMultiplier);
             }
         }
 

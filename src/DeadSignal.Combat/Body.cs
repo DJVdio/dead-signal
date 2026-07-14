@@ -58,11 +58,30 @@ public sealed class Body
     private readonly HashSet<string> _severed = new();
     private readonly HashSet<string> _destroyed = new();
     private readonly HashSet<string> _disabled = new();
-    private readonly HashSet<string> _bleeding = new();
+    /// <summary>
+    /// 出血（部位 → **该部位那【唯一】一处出血**）。[T58 三级流血]
+    ///
+    /// <para>
+    /// 演进史：HashSet（按部位去重，叠不起来）→ Dictionary&lt;string,int&gt;（裸计数，能叠但每处一模一样）
+    /// → Dictionary&lt;string,List&lt;double&gt;&gt;（[T53] 伤口带速率乘数）
+    /// → **Dictionary&lt;string, BleedWound&gt;（[T58] 每部位只有一处，带等级）**。
+    /// </para>
+    /// <para>
+    /// 🔴 **为什么退回"每部位一处"**：用户拍板的三级流血里「**封顶大流血**」要求一个部位**只能有一个等级**
+    /// （否则两处大流血就突破了封顶）。多刀砍同一处 ⇒ **即时合并**（<see cref="BleedModel.Merge"/>），
+    /// 不是再挂一处。这同时解决了「一个部位攒一堆小伤口、每个都要单独做一台手术」——
+    /// **三个小口合成一个大口 = 一台手术。**
+    /// </para>
+    /// </summary>
+    private readonly Dictionary<string, BleedWound> _bleeding = new();
     private readonly HashSet<string> _fractured = new();
     private readonly HashSet<string> _treatedFractures = new();
 
-    public Body(IEnumerable<BodyPart> parts, double bloodMax = 100)
+    /// <param name="bloodMax">
+    /// 储血上限。默认读 <see cref="BleedModel.DefaultBloodMax"/> —— **与 Sim 的 `DuelConfig` 同一个事实源**
+    /// （[T53] 之前实机默认 100、Duel 用 70，两套数静默漂了很久）。
+    /// </param>
+    public Body(IEnumerable<BodyPart> parts, double bloodMax = BleedModel.DefaultBloodMax)
     {
         _parts = parts.ToDictionary(p => p.Name);
         _hp = _parts.Values.ToDictionary(p => p.Name, p => p.MaxHp);
@@ -88,8 +107,22 @@ public sealed class Body
     /// <summary>当前储血量。</summary>
     public double Blood { get; private set; }
 
-    /// <summary>每处伤口每秒失血量（拟定待调）；多处伤口叠加流速。战斗内实时失血由此驱动（0.8→0.55 下调：慢节奏下放宽多伤口抢救窗）。</summary>
-    public double BleedRatePerWound { get; set; } = 0.55;
+    /// <summary>
+    /// 每处伤口每秒失血量；多处伤口叠加流速。战斗内实时失血由此驱动。
+    /// 默认读 <see cref="BleedModel.DefaultBleedRatePerWound"/> —— **与 Sim 的 `DuelConfig` 同一个事实源**。
+    /// <para>
+    /// [T53] 修正：此处**曾经是 0.55**（注释写着"0.8→0.55 下调"），而 `DuelConfig` 是 **1.5** ——
+    /// 于是「流血大幅加强」只加强了 Sim，实机反而被调弱，实机的流血对丧尸致死占比是 **0.0%**。
+    /// 用户拍板：实机对齐到 Sim。
+    /// </para>
+    /// </summary>
+    public double BleedRatePerWound { get; set; } = BleedModel.DefaultBleedRatePerWound;
+
+    /// <summary>
+    /// **实体级**失血抗性倍率（1.0 = 常人）。丧尸填 <see cref="BleedModel.ZombieBleedRateMultiplier"/>（1/3，用户口径）。
+    /// 挂在身体上而非武器上：这是"谁在流血"的属性，不是"谁在砍"的属性——精英丧尸/动物/其他敌人各自设定。
+    /// </summary>
+    public double BleedRateMultiplier { get; set; } = 1.0;
 
     /// <summary>设定储血量上限并回满（拟定期用于按体型/难度调参）。</summary>
     public void SetBloodMax(double max)
@@ -114,16 +147,91 @@ public sealed class Body
     /// <summary>重度出血昏迷（未死但丧失行动）。</summary>
     public bool IsUnconscious => !IsDead && BloodTier == BloodLossTier.Severe;
 
-    public IReadOnlyCollection<string> BleedingWounds => _bleeding;
+    /// <summary>正在出血的**部位**。[T58] 每部位恰好一处出血 ⇒ 这也就是"出血处数"。</summary>
+    public IReadOnlyCollection<string> BleedingWounds => _bleeding.Keys;
 
+    /// <summary>
+    /// 出血处数 = **正在出血的部位数**（[T58] 每部位只有一处，合并制）。
+    /// 供"身上还有没有没止住的口子"这类判定（如休养回血的闸门）使用。
+    /// </summary>
     public int BleedingWoundCount => _bleeding.Count;
 
-    /// <summary>登记一个出血伤口（部位即使被移除，断口仍持续出血）。</summary>
-    public void RegisterBleed(string part) => _bleeding.Add(part);
+    /// <summary>该部位当前的出血**等级**（null = 该部位没有出血）。</summary>
+    public BleedModel.BleedSeverity? BleedSeverityOn(string part)
+        => _bleeding.TryGetValue(part, out BleedWound w) ? w.Severity : null;
 
-    /// <summary>止血/治疗接口：清除某伤口的持续出血。</summary>
+    /// <summary>该部位那处出血的**流血速率乘数**（武器侧的轴，如锯齿剑刃 1.4）；无出血则 0。</summary>
+    public double BleedRateMultiplierOn(string part)
+        => _bleeding.TryGetValue(part, out BleedWound w) ? w.RateMultiplier : 0;
+
+    /// <summary>该部位那处出血的**等级权重 × 速率乘数**（诊断/测试用；无出血则 0）。</summary>
+    public double BleedRateOn(string part)
+        => _bleeding.TryGetValue(part, out BleedWound w)
+            ? BleedModel.SeverityRateOf(w.Severity) * w.RateMultiplier
+            : 0;
+
+    /// <summary>
+    /// 登记一处出血（部位即使被切除，断口仍持续出血）。[T58 三级流血]
+    ///
+    /// <para>
+    /// 🔴 **同一部位再挨一刀 = 【即时合并】，不是再挂一处**（用户规格：两小合中、两中合大、小+中合大、
+    /// **封顶大流血**）。合并规则见 <see cref="BleedModel.Merge"/>。**每部位始终只有一处出血** ——
+    /// 这既是"封顶"的唯一自洽读法，也直接兑现了用户那句「防止过多的伤口浪费手术时间」：
+    /// 三个小口合成一个大口 ⇒ **一台手术，不是三台**。
+    /// </para>
+    /// <para>
+    /// <b>合并时速率乘数取【较大者】</b>（这是我拍的实现细节，已写进 journal）：一道由普通刀伤和锯齿剑伤
+    /// 并成的大口子，凶的那一半决定了它流得多快 —— 取平均会让"再补一刀普通刀"反而把伤口变得更温和，荒谬。
+    /// </para>
+    /// </summary>
+    /// <param name="severity">这一次造成的出血等级（由 <see cref="BleedModel.SeverityOf"/> 按伤害/部位血量算出）。</param>
+    /// <param name="rateMultiplier">
+    /// 这一次的**流血速率乘数**（默认 1.0 = 普通伤口；锯齿剑刃 = <see cref="Weapon.BleedRateMultiplier"/> 1.4）。
+    /// 负值按 0 处理（不允许"负流血"回血）。
+    /// </param>
+    public void RegisterBleed(string part, BleedModel.BleedSeverity severity, double rateMultiplier = 1.0)
+    {
+        double rate = Math.Max(0, rateMultiplier);
+        if (_bleeding.TryGetValue(part, out BleedWound existing))
+        {
+            _bleeding[part] = new BleedWound(
+                BleedModel.Merge(existing.Severity, severity),
+                Math.Max(existing.RateMultiplier, rate));
+            return;
+        }
+
+        _bleeding[part] = new BleedWound(severity, rate);
+    }
+
+    /// <summary>止血/治疗接口：清除某部位的持续出血（包扎一处 = 该部位所有伤口一起止住）。</summary>
     /// TODO(治疗): 由治疗系统调用。
     public void StopBleed(string part) => _bleeding.Remove(part);
+
+    /// <summary>
+    /// 休养回血（用户拍板 T53：「补——休养自然回血」）。把储血加回来，封顶 <see cref="BloodMax"/>。
+    ///
+    /// <para>
+    /// 🔴 <b>为什么需要它</b>：此前**实机没有任何回血手段** —— <see cref="Blood"/> 只有 <see cref="LoseBlood"/>（只减）
+    /// 与 <see cref="SetBloodMax"/>（回满）两条路径，而 <c>SetBloodMax</c> 在 Godot 层**一次都没被调用**
+    /// （只有 Sim/Duel 的 init 在调）⇒ 幸存者的储血在整个战役里**单调递减、无恢复路径**，最终必然见底。
+    /// 手术只"止住伤口"，**流掉的血不会回来**。
+    /// </para>
+    /// <para>
+    /// <b>死人不回血</b>；已出血致死（<see cref="BledOut"/>）者不复活 —— 回血是休养，不是复活术。
+    /// </para>
+    /// </summary>
+    /// <returns>实际回复的血量（可能因封顶而少于 <paramref name="amount"/>）。</returns>
+    public double RecoverBlood(double amount)
+    {
+        if (amount <= 0 || IsDead || BledOut)
+        {
+            return 0;
+        }
+
+        double before = Blood;
+        Blood = Math.Min(BloodMax, Blood + amount);
+        return Blood - before;
+    }
 
     /// <summary>直接扣储血量；归 0 → 出血致死。</summary>
     public void LoseBlood(double amount)
@@ -141,7 +249,19 @@ public sealed class Body
         }
     }
 
-    /// <summary>推进一段时间的持续失血：失血 = 伤口数 × 每伤口流速 × dt（扣储血，不扣部位 HP）。返回本次失血量。</summary>
+    /// <summary>
+    /// 推进一段时间的持续失血（扣储血，不扣部位 HP）。返回本次失血量。
+    ///
+    /// <para>
+    /// 失血 = Σ(每处伤口的**速率乘数** × 该部位的分级权重) × <see cref="BleedRatePerWound"/>
+    /// × <see cref="BleedRateMultiplier"/>（受害者体质）× dt。
+    /// **三根轴正交**：伤口乘数＝「谁砍的」（<see cref="Weapon.BleedRateMultiplier"/>，锯齿剑刃 1.4）、
+    /// 分级权重＝「砍在哪」（部位）、体质倍率＝「谁在流」（丧尸 1/3）。分级见 <see cref="BleedModel"/>：
+    /// 大部位深伤口全速且**能放干致死**；手/脚、指/趾等小伤口流速低，且**只能把血抽到
+    /// <see cref="BleedModel.NonLethalBloodFloorRatio"/> 为止** —— 它们让人虚弱，但永远不是最后一根稻草。
+    /// 断口（部位已被切除）按致命算（微小部位除外）。
+    /// </para>
+    /// </summary>
     public double TickBleed(double dt)
     {
         if (dt <= 0 || _bleeding.Count == 0 || BledOut)
@@ -149,10 +269,46 @@ public sealed class Body
             return 0;
         }
 
-        double loss = _bleeding.Count * BleedRatePerWound * dt;
-        LoseBlood(loss);
-        return loss;
+        double lethalRate = 0, nonLethalRate = 0;
+        foreach (var (part, wound) in _bleeding)
+        {
+            var tier = BleedModel.WoundTierOf(this, part);
+            // [T58] 三根轴正交相乘：
+            //   等级权重（小 0.3 / 中 1.0 / 大 3.0）＝「口子多大」
+            // × 速率乘数（锯齿剑刃 1.4）      ＝「谁砍的」
+            // × 部位分级权重（致命/轻微/微小）＝「砍在哪」
+            double rate = BleedModel.SeverityRateOf(wound.Severity)
+                          * wound.RateMultiplier
+                          * BleedModel.RateWeightOf(tier);
+            if (tier == BleedTier.Lethal)
+            {
+                lethalRate += rate;
+            }
+            else
+            {
+                nonLethalRate += rate;
+            }
+        }
+
+        // 实体级失血抗性（丧尸 1/3）：只缩放流速，不改"小伤口永不致死"的下限语义。
+        double perSecond = BleedRatePerWound * Math.Max(0, BleedRateMultiplier);
+
+        double before = Blood;
+        LoseBlood(lethalRate * perSecond * dt); // 致命伤口：无下限，可放干
+
+        // 非致命伤口：只能抽到下限，抽不动就是抽不动（已被大出血压到下限以下时贡献 0）。
+        double floor = BloodBleedFloor;
+        double headroom = Math.Max(0, Blood - floor);
+        if (headroom > 0)
+        {
+            LoseBlood(Math.Min(nonLethalRate * perSecond * dt, headroom));
+        }
+
+        return before - Blood;
     }
+
+    /// <summary>非致命伤口的失血下限（绝对储血量）。</summary>
+    private double BloodBleedFloor => BleedModel.NonLethalBloodFloorRatio * BloodMax;
 
     // ---- 骨折持久态（供角色面板"健康页签"查询；第一版只进不出、不做治疗/时间恢复）----
 
@@ -479,12 +635,17 @@ public sealed class Body
         Severed = _severed.ToList(),
         Destroyed = _destroyed.ToList(),
         Disabled = _disabled.ToList(),
-        Bleeding = _bleeding.ToList(),
+        // [T58] 每部位只有一处出血 ⇒ 三条**平行**列表，各一条：部位名 / 速率乘数 / 等级(1小 2中 3大)。
+        // 平行而非嵌套：老存档的 Bleeding 格式**逐字不变**（那时同部位会重复出现），仍能读（见 Restore）。
+        Bleeding = _bleeding.Keys.ToList(),
+        BleedingRates = _bleeding.Keys.Select(k => _bleeding[k].RateMultiplier).ToList(),
+        BleedingLevels = _bleeding.Keys.Select(k => (int)_bleeding[k].Severity).ToList(),
         Fractured = _fractured.ToList(),
         TreatedFractures = _treatedFractures.ToList(),
         Blood = Blood,
         BloodMax = BloodMax,
         BleedRatePerWound = BleedRatePerWound,
+        BleedRateMultiplier = BleedRateMultiplier,
         BledOut = BledOut,
         IsDead = IsDead,
         Prosthetics = _prosthetics.Select(p => new ProstheticSnapshot
@@ -518,13 +679,33 @@ public sealed class Body
         RefillSet(_severed, s.Severed);
         RefillSet(_destroyed, s.Destroyed);
         RefillSet(_disabled, s.Disabled);
-        RefillSet(_bleeding, s.Bleeding);
+        _bleeding.Clear();
+        for (int i = 0; i < s.Bleeding.Count; i++)
+        {
+            // 速率乘数按下标对齐取；**老存档没有 BleedingRates（或长度不够）⇒ 回落 1.0（普通伤口）**，
+            // 不是 0 —— 默认 0 会让老档里所有伤口当场变成"不流血"，等于静默治好了他们。
+            double rate = i < s.BleedingRates.Count ? s.BleedingRates[i] : 1.0;
+
+            // [T58] 等级按下标对齐取；**老存档没有 BleedingLevels ⇒ 回落成"小流血"**。
+            // 老档里同一部位会**重复出现 N 次**（那时一处伤口一条）⇒ RegisterBleed 会把它们**逐个合并**：
+            // 1 次 ⇒ 小、2 次 ⇒ 中、3 次（旧的封顶）⇒ 大。旧封顶速率 3×1.0 = 3.0 ＝ 新大流血速率 3.0，
+            // **一分不差**。新档写的是不重复的部位名 + 真实等级，走的是同一条路径（合并对单条是恒等）。
+            var level = i < s.BleedingLevels.Count && s.BleedingLevels[i] > 0
+                ? (BleedModel.BleedSeverity)Math.Clamp(s.BleedingLevels[i], 1, 3)
+                : BleedModel.BleedSeverity.Small;
+
+            RegisterBleed(s.Bleeding[i], level, rate);
+        }
+
         RefillSet(_fractured, s.Fractured);
         RefillSet(_treatedFractures, s.TreatedFractures);
 
         BloodMax = s.BloodMax;
         Blood = s.Blood;
         BleedRatePerWound = s.BleedRatePerWound;
+        // 旧存档没有这个字段 → 反序列化出 0 → 回落成 1.0（常人）。存档 schema 因此无需版本闸门：
+        // 被持久化的身体只有幸存者与狗，本来就都是 1.0；丧尸不进存档。
+        BleedRateMultiplier = s.BleedRateMultiplier > 0 ? s.BleedRateMultiplier : 1.0;
         BledOut = s.BledOut;
         IsDead = s.IsDead;
 
