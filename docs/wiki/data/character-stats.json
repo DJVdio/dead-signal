@@ -1,0 +1,636 @@
+{
+  "id": "character-stats",
+  "label": "角色数值",
+  "source": "godot/scripts/SurvivorPerks.cs 等（每行的「代码位置」列写明了各自的出处）",
+  "note": "角色身上所有能调的数字，一行一个。改完这里，agent 会照「代码位置」把它同步进代码。「已拍板」打勾的是你亲口定过的（比如山姆 3 人升 2 级、护士手术点 15→30），不是可以随手调的草稿值。",
+  "columns": [
+    {
+      "key": "label",
+      "label": "数值项",
+      "type": "text",
+      "primary": true
+    },
+    {
+      "key": "who",
+      "label": "角色",
+      "type": "chip"
+    },
+    {
+      "key": "value",
+      "label": "值",
+      "type": "number"
+    },
+    {
+      "key": "unit",
+      "label": "单位",
+      "type": "text",
+      "readonly": true
+    },
+    {
+      "key": "settled",
+      "label": "已拍板",
+      "type": "bool",
+      "hint": "勾上 = 你定过的值，别当「拟定待调」随手改；空 = 拟定待调"
+    },
+    {
+      "key": "_id",
+      "label": "内部 id",
+      "type": "text",
+      "internal": true
+    },
+    {
+      "key": "_anchor",
+      "label": "代码位置",
+      "type": "text",
+      "internal": true
+    },
+    {
+      "key": "sync",
+      "label": "同步状态",
+      "type": "chip",
+      "readonly": true,
+      "hint": "空 = 已在代码里。「新增/删除·待同步进代码」= 你在网页上的改动还没进游戏，需要 agent 同步到 C#。"
+    },
+    {
+      "key": "_icon",
+      "label": "图标",
+      "type": "text",
+      "internal": true,
+      "hint": "godot/assets/items/<这个>.png（映射表在 godot/scripts/ItemIcons.cs）"
+    }
+  ],
+  "rows": [
+    {
+      "label": "升 2 级所需营地人数",
+      "who": "山姆",
+      "value": 3,
+      "unit": "人",
+      "settled": true,
+      "_id": "sam_l2_pop",
+      "_anchor": "godot/scripts/SurvivorPerks.cs :: SamPerk.Level2CampPopulation",
+      "_icon": "",
+      "sync": ""
+    },
+    {
+      "label": "升 3 级所需营地人数",
+      "who": "山姆",
+      "value": 6,
+      "unit": "人",
+      "settled": true,
+      "_id": "sam_l3_pop",
+      "_anchor": "godot/scripts/SurvivorPerks.cs :: SamPerk.Level3CampPopulation",
+      "_icon": "",
+      "sync": ""
+    },
+    {
+      "label": "1 级 自身减伤",
+      "who": "山姆",
+      "value": 10,
+      "unit": "%",
+      "settled": true,
+      "_id": "sam_l1_damage_reduction",
+      "_anchor": "godot/scripts/SurvivorPerks.cs :: SamPerk.Level1DamageReduction",
+      "_icon": "",
+      "sync": ""
+    },
+    {
+      "label": "2 级 自身负重上限加成",
+      "who": "山姆",
+      "value": 15,
+      "unit": "%",
+      "settled": true,
+      "_id": "sam_l2_carry",
+      "_anchor": "godot/scripts/SurvivorPerks.cs :: SamPerk.Level2CarryBonus",
+      "_icon": "",
+      "sync": ""
+    },
+    {
+      "label": "3 级光环 全营负重上限",
+      "who": "山姆",
+      "value": 3,
+      "unit": "%",
+      "settled": true,
+      "_id": "sam_aura_carry",
+      "_anchor": "godot/scripts/SurvivorPerks.cs :: SamPerk.AuraCarryBonus",
+      "_icon": "",
+      "sync": ""
+    },
+    {
+      "label": "3 级光环 全营干活效率",
+      "who": "山姆",
+      "value": 3,
+      "unit": "%",
+      "settled": true,
+      "_id": "sam_aura_work",
+      "_anchor": "godot/scripts/SurvivorPerks.cs :: SamPerk.AuraWorkSpeedBonus",
+      "_icon": "",
+      "sync": ""
+    },
+    {
+      "label": "3 级光环 全营恢复速度",
+      "who": "山姆",
+      "value": 3,
+      "unit": "%",
+      "settled": true,
+      "_id": "sam_aura_heal",
+      "_anchor": "godot/scripts/SurvivorPerks.cs :: SamPerk.AuraHealSpeedBonus",
+      "_icon": "",
+      "sync": ""
+    },
+    {
+      "label": "3 级光环 全营感染恶化减缓",
+      "who": "山姆",
+      "value": 3,
+      "unit": "%",
+      "settled": true,
+      "_id": "sam_aura_infection",
+      "_anchor": "godot/scripts/SurvivorPerks.cs :: SamPerk.AuraInfectionWorsenReduction",
+      "_icon": "",
+      "sync": ""
+    },
+    {
+      "label": "开局操作能力（缺两指的代价）",
+      "who": "山姆",
+      "value": 86,
+      "unit": "%",
+      "settled": true,
+      "_id": "sam_operation",
+      "_anchor": "src/DeadSignal.Combat/Body.cs :: FingerPenalty（−7%/指·该手累加）+ SurvivorBackstory.SeveredAtStart",
+      "_icon": "",
+      "sync": ""
+    },
+    {
+      "label": "升 2 级所需累计阅读",
+      "who": "诺蒂",
+      "value": 48,
+      "unit": "小时",
+      "settled": false,
+      "_id": "nordi_l2_hours",
+      "_anchor": "godot/scripts/SurvivorPerks.cs :: BookwormPerk.Level2ThresholdHours",
+      "_icon": "",
+      "sync": ""
+    },
+    {
+      "label": "升 3 级所需累计阅读",
+      "who": "诺蒂",
+      "value": 120,
+      "unit": "小时",
+      "settled": false,
+      "_id": "nordi_l3_hours",
+      "_anchor": "godot/scripts/SurvivorPerks.cs :: BookwormPerk.Level3ThresholdHours",
+      "_icon": "",
+      "sync": ""
+    },
+    {
+      "label": "1 级 自身读速加成",
+      "who": "诺蒂",
+      "value": 25,
+      "unit": "%",
+      "settled": false,
+      "_id": "nordi_l1_read",
+      "_anchor": "godot/scripts/SurvivorPerks.cs :: BookwormPerk.BonusForLevel",
+      "_icon": "",
+      "sync": ""
+    },
+    {
+      "label": "2 级 自身读速加成",
+      "who": "诺蒂",
+      "value": 50,
+      "unit": "%",
+      "settled": false,
+      "_id": "nordi_l2_read",
+      "_anchor": "godot/scripts/SurvivorPerks.cs :: BookwormPerk.BonusForLevel",
+      "_icon": "",
+      "sync": ""
+    },
+    {
+      "label": "3 级 自身读速加成",
+      "who": "诺蒂",
+      "value": 50,
+      "unit": "%",
+      "settled": false,
+      "_id": "nordi_l3_read",
+      "_anchor": "godot/scripts/SurvivorPerks.cs :: BookwormPerk.BonusForLevel",
+      "_icon": "",
+      "sync": ""
+    },
+    {
+      "label": "3 级 全营读速加成",
+      "who": "诺蒂",
+      "value": 25,
+      "unit": "%",
+      "settled": false,
+      "_id": "nordi_l3_campwide",
+      "_anchor": "godot/scripts/SurvivorPerks.cs :: BookwormPerk.CampWideBonusAtMax",
+      "_icon": "",
+      "sync": ""
+    },
+    {
+      "label": "没座位读书的速度",
+      "who": "诺蒂",
+      "value": 90,
+      "unit": "%",
+      "settled": false,
+      "_id": "read_no_seat",
+      "_anchor": "godot/scripts/SurvivorPerks.cs :: ReadingSpeed.NoSeatMultiplier",
+      "_icon": "",
+      "sync": ""
+    },
+    {
+      "label": "升 2 级所需共同存活",
+      "who": "道格",
+      "value": 5,
+      "unit": "天",
+      "settled": false,
+      "_id": "doug_l2_days",
+      "_anchor": "godot/scripts/DougBruceBond.cs :: DougBruceBond.Level2Days",
+      "_icon": "",
+      "sync": ""
+    },
+    {
+      "label": "升 3 级所需共同存活",
+      "who": "道格",
+      "value": 12,
+      "unit": "天",
+      "settled": false,
+      "_id": "doug_l3_days",
+      "_anchor": "godot/scripts/DougBruceBond.cs :: DougBruceBond.Level3Days",
+      "_icon": "",
+      "sync": ""
+    },
+    {
+      "label": "1 级 道格视野角加成",
+      "who": "道格",
+      "value": 10,
+      "unit": "%",
+      "settled": false,
+      "_id": "doug_angle",
+      "_anchor": "godot/scripts/DougBruceBond.cs :: DougBruceBond.DougAngleBonusMult",
+      "_icon": "",
+      "sync": ""
+    },
+    {
+      "label": "1 级 布鲁斯视野角加成",
+      "who": "道格",
+      "value": 10,
+      "unit": "%",
+      "settled": false,
+      "_id": "bruce_angle",
+      "_anchor": "godot/scripts/DougBruceBond.cs :: DougBruceBond.BruceAngleBonusMult",
+      "_icon": "",
+      "sync": ""
+    },
+    {
+      "label": "2 级 布鲁斯视距加成",
+      "who": "道格",
+      "value": 10,
+      "unit": "%",
+      "settled": false,
+      "_id": "bruce_range",
+      "_anchor": "godot/scripts/DougBruceBond.cs :: DougBruceBond.BruceRangeBonusMult",
+      "_icon": "",
+      "sync": ""
+    },
+    {
+      "label": "3 级光环 生产效率",
+      "who": "道格",
+      "value": 10,
+      "unit": "%",
+      "settled": false,
+      "_id": "bond_aura_production",
+      "_anchor": "godot/scripts/DougBruceBond.cs :: DougBruceBond.AuraProductionMult",
+      "_icon": "",
+      "sync": ""
+    },
+    {
+      "label": "3 级光环 受伤减免",
+      "who": "道格",
+      "value": 10,
+      "unit": "%",
+      "settled": false,
+      "_id": "bond_aura_damage",
+      "_anchor": "godot/scripts/DougBruceBond.cs :: DougBruceBond.AuraDamageTakenMult",
+      "_icon": "",
+      "sync": ""
+    },
+    {
+      "label": "3 级光环 生效半径",
+      "who": "道格",
+      "value": 160,
+      "unit": "像素",
+      "settled": false,
+      "_id": "bond_aura_radius",
+      "_anchor": "godot/scripts/DougBruceBond.cs :: DougBruceBond.DefaultAuraRadius",
+      "_icon": "",
+      "sync": ""
+    },
+    {
+      "label": "救援点围困丧尸数",
+      "who": "道格",
+      "value": 5,
+      "unit": "只",
+      "settled": false,
+      "_id": "village_siege_zombies",
+      "_anchor": "godot/scripts/VillageRescue.cs :: SiegeZombieCount",
+      "_icon": "",
+      "sync": ""
+    },
+    {
+      "label": "布鲁斯吠叫引路半径",
+      "who": "道格",
+      "value": 520,
+      "unit": "像素",
+      "settled": false,
+      "_id": "village_bark_radius",
+      "_anchor": "godot/scripts/VillageRescue.cs :: BarkTriggerRadius",
+      "_icon": "",
+      "sync": ""
+    },
+    {
+      "label": "站岗效率（相对人类）",
+      "who": "布鲁斯",
+      "value": 75,
+      "unit": "%",
+      "settled": false,
+      "_id": "bruce_guard_efficiency",
+      "_anchor": "godot/scripts/DougBruceBond.cs :: DougBruceBond.BruceGuardEfficiency",
+      "_icon": "",
+      "sync": ""
+    },
+    {
+      "label": "解锁狗装备所需羁绊等级",
+      "who": "布鲁斯",
+      "value": 2,
+      "unit": "级",
+      "settled": true,
+      "_id": "dog_gear_unlock_level",
+      "_anchor": "godot/scripts/DougBruceBond.cs :: DougBruceBond.DogGearUnlockLevel",
+      "_icon": "",
+      "sync": ""
+    },
+    {
+      "label": "饥饿上限",
+      "who": "布鲁斯",
+      "value": 6,
+      "unit": "刻",
+      "settled": false,
+      "_id": "dog_hunger_cap",
+      "_anchor": "godot/scripts/DogHungerState.cs :: Cap",
+      "_icon": "",
+      "sync": ""
+    },
+    {
+      "label": "吃一份食物回复（人只回 1）",
+      "who": "布鲁斯",
+      "value": 3,
+      "unit": "刻",
+      "settled": true,
+      "_id": "dog_hunger_eat",
+      "_anchor": "godot/scripts/DogHungerState.cs :: EatGain",
+      "_icon": "",
+      "sync": ""
+    },
+    {
+      "label": "每个聚餐相位消耗",
+      "who": "布鲁斯",
+      "value": 1,
+      "unit": "刻",
+      "settled": true,
+      "_id": "dog_hunger_drain",
+      "_anchor": "godot/scripts/DogHungerState.cs :: ResolvePhase",
+      "_icon": "",
+      "sync": ""
+    },
+    {
+      "label": "升 2 级所需手术台数",
+      "who": "南丁格尔",
+      "value": 3,
+      "unit": "台",
+      "settled": false,
+      "_id": "nurse_l2_surgeries",
+      "_anchor": "godot/scripts/SurvivorPerks.cs :: NightingalePerk.Level2ThresholdSurgeries",
+      "_icon": "",
+      "sync": ""
+    },
+    {
+      "label": "升 3 级所需手术台数",
+      "who": "南丁格尔",
+      "value": 8,
+      "unit": "台",
+      "settled": false,
+      "_id": "nurse_l3_surgeries",
+      "_anchor": "godot/scripts/SurvivorPerks.cs :: NightingalePerk.Level3ThresholdSurgeries",
+      "_icon": "",
+      "sync": ""
+    },
+    {
+      "label": "常人的手术基础点数",
+      "who": "南丁格尔",
+      "value": 15,
+      "unit": "点",
+      "settled": true,
+      "_id": "surgery_base_default",
+      "_anchor": "godot/scripts/SurvivorPerks.cs :: NightingalePerk.DefaultSurgeryBasePoints",
+      "_icon": "",
+      "sync": ""
+    },
+    {
+      "label": "1 级 她本人的手术基础点数",
+      "who": "南丁格尔",
+      "value": 30,
+      "unit": "点",
+      "settled": true,
+      "_id": "surgery_base_nurse",
+      "_anchor": "godot/scripts/SurvivorPerks.cs :: NightingalePerk.NightingaleSurgeryBasePoints",
+      "_icon": "",
+      "sync": ""
+    },
+    {
+      "label": "3 级 全营手术基础点加成（永续）",
+      "who": "南丁格尔",
+      "value": 5,
+      "unit": "点",
+      "settled": true,
+      "_id": "surgery_base_camp_bonus",
+      "_anchor": "godot/scripts/SurvivorPerks.cs :: NightingalePerk.CampSurgeryBaseBonus",
+      "_icon": "",
+      "sync": ""
+    },
+    {
+      "label": "2 级 全营感染率降低",
+      "who": "南丁格尔",
+      "value": 15,
+      "unit": "%",
+      "settled": true,
+      "_id": "nurse_l2_infection",
+      "_anchor": "godot/scripts/SurvivorPerks.cs :: NightingalePerk.Level2InfectionReduction",
+      "_icon": "",
+      "sync": ""
+    },
+    {
+      "label": "3 级 全营感染率再降低（永续）",
+      "who": "南丁格尔",
+      "value": 10,
+      "unit": "%",
+      "settled": true,
+      "_id": "nurse_l3_infection",
+      "_anchor": "godot/scripts/SurvivorPerks.cs :: NightingalePerk.Level3InfectionReduction",
+      "_icon": "",
+      "sync": ""
+    },
+    {
+      "label": "累计几次「暂不」后她离开",
+      "who": "克莉丝汀",
+      "value": 3,
+      "unit": "次",
+      "settled": false,
+      "_id": "christine_declines",
+      "_anchor": "godot/scripts/ChristineRequestLogic.cs :: DeclinesToLeave",
+      "_icon": "",
+      "sync": ""
+    },
+    {
+      "label": "劫掠者掉血到多少触发她反水",
+      "who": "克莉丝汀",
+      "value": 50,
+      "unit": "%血量",
+      "settled": false,
+      "_id": "christine_raider_wounded",
+      "_anchor": "godot/scripts/TutorialRaidLogic.cs :: RaiderWoundedThreshold",
+      "_icon": "",
+      "sync": ""
+    },
+    {
+      "label": "她自己掉血到多少触发反水",
+      "who": "克莉丝汀",
+      "value": 100,
+      "unit": "%血量",
+      "settled": false,
+      "_id": "christine_self_hurt",
+      "_anchor": "godot/scripts/TutorialRaidLogic.cs :: ChristineHurtThreshold",
+      "_icon": "",
+      "sync": ""
+    },
+    {
+      "label": "玩家买入价（占基准价）",
+      "who": "神秘商人",
+      "value": 100,
+      "unit": "%",
+      "settled": true,
+      "_id": "merchant_buy_rate",
+      "_anchor": "godot/scripts/MerchantTrade.cs :: BuyRatePercent",
+      "_icon": "",
+      "sync": ""
+    },
+    {
+      "label": "玩家卖出价（占基准价）",
+      "who": "神秘商人",
+      "value": 60,
+      "unit": "%",
+      "settled": true,
+      "_id": "merchant_sell_rate",
+      "_anchor": "godot/scripts/MerchantTrade.cs :: SellRatePercent",
+      "_icon": "",
+      "sync": ""
+    },
+    {
+      "label": "来访间隔下限",
+      "who": "神秘商人",
+      "value": 1,
+      "unit": "天",
+      "settled": true,
+      "_id": "merchant_gap_min",
+      "_anchor": "godot/scripts/MerchantSchedule.cs :: 构造默认 minGap",
+      "_icon": "",
+      "sync": ""
+    },
+    {
+      "label": "来访间隔上限",
+      "who": "神秘商人",
+      "value": 5,
+      "unit": "天",
+      "settled": true,
+      "_id": "merchant_gap_max",
+      "_anchor": "godot/scripts/MerchantSchedule.cs :: 构造默认 maxGap",
+      "_icon": "",
+      "sync": ""
+    },
+    {
+      "label": "至少还穿着一件的比例",
+      "who": "丧尸",
+      "value": 85,
+      "unit": "%",
+      "settled": true,
+      "_id": "zombie_dressed_rate",
+      "_anchor": "src/DeadSignal.Combat/ZombieOutfit.cs :: Presets（权重和）",
+      "_icon": "",
+      "sync": ""
+    },
+    {
+      "label": "日常着装预设套数",
+      "who": "丧尸",
+      "value": 9,
+      "unit": "套",
+      "settled": true,
+      "_id": "zombie_outfit_count",
+      "_anchor": "src/DeadSignal.Combat/ZombieOutfit.cs :: Presets",
+      "_icon": "",
+      "sync": ""
+    },
+    {
+      "label": "背刺围攻人数",
+      "who": "超市的「幸存者」",
+      "value": 4,
+      "unit": "名",
+      "settled": true,
+      "_id": "supermarket_ambushers",
+      "_anchor": "godot/scripts/SupermarketAmbush.cs :: AmbushRaiderCount",
+      "_icon": "",
+      "sync": ""
+    },
+    {
+      "label": "随机抽取权重（0 = 永不随机出现）",
+      "who": "防暴警察丧尸",
+      "value": 0,
+      "unit": "",
+      "settled": true,
+      "_id": "elite_weight_elite_riot_police",
+      "_anchor": "src/DeadSignal.Combat/ZombieOutfit.cs :: ElitePresets",
+      "_icon": "",
+      "sync": ""
+    },
+    {
+      "label": "身上的衣物/护甲件数",
+      "who": "防暴警察丧尸",
+      "value": 5,
+      "unit": "件",
+      "settled": true,
+      "_id": "elite_layers_elite_riot_police",
+      "_anchor": "src/DeadSignal.Combat/ZombieOutfit.cs :: ElitePresets",
+      "_icon": "",
+      "sync": ""
+    },
+    {
+      "label": "随机抽取权重（0 = 永不随机出现）",
+      "who": "军人丧尸",
+      "value": 0,
+      "unit": "",
+      "settled": true,
+      "_id": "elite_weight_elite_soldier",
+      "_anchor": "src/DeadSignal.Combat/ZombieOutfit.cs :: ElitePresets",
+      "_icon": "",
+      "sync": ""
+    },
+    {
+      "label": "身上的衣物/护甲件数",
+      "who": "军人丧尸",
+      "value": 6,
+      "unit": "件",
+      "settled": true,
+      "_id": "elite_layers_elite_soldier",
+      "_anchor": "src/DeadSignal.Combat/ZombieOutfit.cs :: ElitePresets",
+      "_icon": "",
+      "sync": ""
+    }
+  ]
+}

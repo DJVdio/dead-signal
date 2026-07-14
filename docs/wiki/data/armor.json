@@ -1,0 +1,305 @@
+{
+  "id": "armor",
+  "label": "护甲服装",
+  "source": "src/DeadSignal.Combat/ArmorTable.cs",
+  "note": "人穿的衣服与护甲。护甲值按部位覆盖生效——没覆盖到的部位一点也不挡。「腐皮」是丧尸天生的一层，不是能穿的衣服。",
+  "columns": [
+    {
+      "key": "name",
+      "label": "名称",
+      "type": "text",
+      "primary": true
+    },
+    {
+      "key": "layer",
+      "label": "甲层",
+      "type": "chip",
+      "hint": "同一部位可叠穿：贴身 → 外套 → 护甲板"
+    },
+    {
+      "key": "equipSlot",
+      "label": "穿戴槽",
+      "type": "chip",
+      "readonly": true,
+      "hint": "成对装备（手套/鞋）一件占一槽，两件才护全"
+    },
+    {
+      "key": "sharpDefense",
+      "label": "锐防",
+      "type": "number"
+    },
+    {
+      "key": "bluntDefense",
+      "label": "钝防",
+      "type": "number"
+    },
+    {
+      "key": "weight",
+      "label": "重量(公斤)",
+      "type": "number"
+    },
+    {
+      "key": "covers",
+      "label": "覆盖部位",
+      "type": "text",
+      "hint": "多个部位用「、」隔开"
+    },
+    {
+      "key": "description",
+      "label": "说明",
+      "type": "longtext"
+    },
+    {
+      "key": "_id",
+      "label": "内部 id",
+      "type": "text",
+      "internal": true
+    },
+    {
+      "key": "_anchor",
+      "label": "代码位置",
+      "type": "text",
+      "internal": true
+    },
+    {
+      "key": "sync",
+      "label": "同步状态",
+      "type": "chip",
+      "readonly": true,
+      "hint": "空 = 已在代码里。「新增/删除·待同步进代码」= 你在网页上的改动还没进游戏，需要 agent 同步到 C#。"
+    },
+    {
+      "key": "_icon",
+      "label": "图标",
+      "type": "text",
+      "internal": true,
+      "hint": "godot/assets/items/<这个>.png（映射表在 godot/scripts/ItemIcons.cs）"
+    }
+  ],
+  "rows": [
+    {
+      "name": "长袖布衣",
+      "layer": "贴身层",
+      "equipSlot": "贴身层",
+      "sharpDefense": 6,
+      "bluntDefense": 3,
+      "weight": 0.15,
+      "covers": "胸、腹、左上臂、右上臂",
+      "description": "袖子确实是长的。",
+      "_id": "LongSleeveShirt",
+      "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.LongSleeveShirt()",
+      "sync": "",
+      "_icon": "armor/long_sleeve_shirt"
+    },
+    {
+      "name": "花衬衫",
+      "layer": "贴身层",
+      "equipSlot": "贴身层",
+      "sharpDefense": 6,
+      "bluntDefense": 3,
+      "weight": 0.15,
+      "covers": "胸、腹、左上臂、右上臂",
+      "description": "夏威夷风格，足够喜庆。",
+      "_id": "FloralShirt",
+      "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.FloralShirt()",
+      "sync": "",
+      "_icon": "armor/floral_shirt"
+    },
+    {
+      "name": "长裤",
+      "layer": "贴身层",
+      "equipSlot": "裤子",
+      "sharpDefense": 6,
+      "bluntDefense": 3,
+      "weight": 0.15,
+      "covers": "左大腿、右大腿、左小腿、右小腿",
+      "description": "挡风挡蚊子，挡不住长牙的东西。",
+      "_id": "Trousers",
+      "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.Trousers()",
+      "sync": "",
+      "_icon": "armor/trousers"
+    },
+    {
+      "name": "运动鞋",
+      "layer": "贴身层",
+      "equipSlot": "左脚、右脚",
+      "sharpDefense": 6,
+      "bluntDefense": 3,
+      "weight": 0.25,
+      "covers": "右脚、右脚五趾、右脚四趾、右脚三趾、右脚二趾、右脚拇趾、左脚、左脚五趾、左脚四趾、左脚三趾、左脚二趾、左脚拇趾",
+      "description": "跑快一点点——但愿比丧尸快点。",
+      "_id": "Sneakers",
+      "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.Sneakers()",
+      "sync": "",
+      "_icon": "armor/sneakers"
+    },
+    {
+      "name": "短裤",
+      "layer": "贴身层",
+      "equipSlot": "裤子",
+      "sharpDefense": 6,
+      "bluntDefense": 3,
+      "weight": 0.1,
+      "covers": "左大腿、右大腿",
+      "description": "夏日风格。",
+      "_id": "Shorts",
+      "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.Shorts()",
+      "sync": "",
+      "_icon": "armor/shorts"
+    },
+    {
+      "name": "皮革胸甲",
+      "layer": "装甲层",
+      "equipSlot": "装甲层",
+      "sharpDefense": 18,
+      "bluntDefense": 9,
+      "weight": 4,
+      "covers": "胸",
+      "description": "保护你的心。",
+      "_id": "ChestPlate",
+      "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.ChestPlate()",
+      "sync": "",
+      "_icon": "armor/leather_cuirass"
+    },
+    {
+      "name": "粗布背心",
+      "layer": "外套层",
+      "equipSlot": "外套层",
+      "sharpDefense": 6,
+      "bluntDefense": 3,
+      "weight": 0.1,
+      "covers": "胸、腹",
+      "description": "“缝缝补补又三年。”——奶奶",
+      "_id": "CoarseClothVest",
+      "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.CoarseClothVest()",
+      "sync": "",
+      "_icon": "armor/cloth_vest"
+    },
+    {
+      "name": "粗布外套",
+      "layer": "外套层",
+      "equipSlot": "外套层",
+      "sharpDefense": 6,
+      "bluntDefense": 3,
+      "weight": 0.25,
+      "covers": "胸、腹、左上臂、右上臂",
+      "description": "天气转凉了，记得添外套。",
+      "_id": "CoarseClothCoat",
+      "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.CoarseClothCoat()",
+      "sync": "",
+      "_icon": "armor/cloth_coat"
+    },
+    {
+      "name": "布夹克",
+      "layer": "外套层",
+      "equipSlot": "外套层",
+      "sharpDefense": 8,
+      "bluntDefense": 4,
+      "weight": 0.3,
+      "covers": "胸、腹、左上臂、右上臂",
+      "description": "上班穿它，开会穿它，被咬那天也穿着它。",
+      "_id": "ClothJacket",
+      "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.ClothJacket()",
+      "sync": "",
+      "_icon": "armor/cloth_jacket"
+    },
+    {
+      "name": "牛仔外套",
+      "layer": "外套层",
+      "equipSlot": "外套层",
+      "sharpDefense": 10,
+      "bluntDefense": 5,
+      "weight": 0.6,
+      "covers": "胸、腹、左上臂、右上臂",
+      "description": "耐磨、耐脏、耐撕咬——前两样是真的。",
+      "_id": "DenimJacket",
+      "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.DenimJacket()",
+      "sync": "",
+      "_icon": "armor/denim_jacket"
+    },
+    {
+      "name": "皮夹克",
+      "layer": "外套层",
+      "equipSlot": "外套层",
+      "sharpDefense": 12,
+      "bluntDefense": 6,
+      "weight": 0.5,
+      "covers": "胸、腹、左上臂、右上臂",
+      "description": "骑上摩托，倍有范儿。",
+      "_id": "LeatherJacket",
+      "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.LeatherJacket()",
+      "sync": "",
+      "_icon": "armor/leather_jacket"
+    },
+    {
+      "name": "皮甲",
+      "layer": "装甲层",
+      "equipSlot": "装甲层",
+      "sharpDefense": 18,
+      "bluntDefense": 9,
+      "weight": 6,
+      "covers": "胸、腹、左上臂、右上臂",
+      "description": "结实的鞣皮甲。",
+      "_id": "Leather",
+      "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.Leather()",
+      "sync": "",
+      "_icon": "armor/leather_armor"
+    },
+    {
+      "name": "板甲",
+      "layer": "装甲层",
+      "equipSlot": "装甲层、裤子",
+      "sharpDefense": 50,
+      "bluntDefense": 25,
+      "weight": 15,
+      "covers": "胸、腹、左上臂、右上臂、左大腿、右大腿、左小腿、右小腿",
+      "description": "重吗？他能保护你脆弱的肉体。",
+      "_id": "Plate",
+      "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.Plate()",
+      "sync": "",
+      "_icon": "armor/plate_armor"
+    },
+    {
+      "name": "军用头盔",
+      "layer": "装甲层",
+      "equipSlot": "头部",
+      "sharpDefense": 28,
+      "bluntDefense": 14,
+      "weight": 2.5,
+      "covers": "头",
+      "description": "钢盔挡得住从天上掉下来的一切。麻烦在于，咬人的东西是从正面扑过来的。",
+      "_id": "MilitaryHelmet",
+      "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.MilitaryHelmet()",
+      "sync": "",
+      "_icon": "armor/military_helmet"
+    },
+    {
+      "name": "防暴头盔",
+      "layer": "装甲层",
+      "equipSlot": "头部、眼镜、面部",
+      "sharpDefense": 28,
+      "bluntDefense": 14,
+      "weight": 4.5,
+      "covers": "头、左眼、右眼、鼻、下巴",
+      "description": "面罩挡得下砖头、棍棒和唾沫星子——上一任主人遇上的，不在这三样里。",
+      "_id": "RiotHelmet",
+      "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.RiotHelmet()",
+      "sync": "",
+      "_icon": "armor/riot_helmet"
+    },
+    {
+      "name": "劳保手套",
+      "layer": "贴身层",
+      "equipSlot": "左手、右手",
+      "sharpDefense": 6,
+      "bluntDefense": 3,
+      "weight": 0.05,
+      "covers": "右手、右手小指、右手无名指、右手中指、右手食指、右手拇指、左手、左手小指、左手无名指、左手中指、左手食指、左手拇指",
+      "description": "“劳动人民最光荣。”——奶奶",
+      "_id": "WorkGloves",
+      "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.WorkGloves()",
+      "sync": "",
+      "_icon": "armor/work_gloves"
+    }
+  ]
+}

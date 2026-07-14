@@ -1,0 +1,140 @@
+{
+  "id": "furniture",
+  "label": "家具建造",
+  "source": "godot/scripts/FurnitureBuildCost.cs",
+  "note": "营地里造得出、也拆得掉的东西。拆除返还向下取整——所以拆了再建，永远是亏的。",
+  "columns": [
+    {
+      "key": "name",
+      "label": "名称",
+      "type": "text",
+      "primary": true
+    },
+    {
+      "key": "materials",
+      "label": "建造材料",
+      "type": "text",
+      "hint": "格式：木料×16、钉子×8"
+    },
+    {
+      "key": "buildMinutes",
+      "label": "建造工时(游戏分钟)",
+      "type": "number"
+    },
+    {
+      "key": "salvage",
+      "label": "拆了能还回多少",
+      "type": "text",
+      "readonly": true,
+      "hint": "通用还一半；木材例外——一半变木料、一半变废木料"
+    },
+    {
+      "key": "_id",
+      "label": "内部 id",
+      "type": "text",
+      "internal": true
+    },
+    {
+      "key": "_anchor",
+      "label": "代码位置",
+      "type": "text",
+      "internal": true
+    },
+    {
+      "key": "sync",
+      "label": "同步状态",
+      "type": "chip",
+      "readonly": true,
+      "hint": "空 = 已在代码里。「新增/删除·待同步进代码」= 你在网页上的改动还没进游戏，需要 agent 同步到 C#。"
+    },
+    {
+      "key": "_icon",
+      "label": "图标",
+      "type": "text",
+      "internal": true,
+      "hint": "godot/assets/items/<这个>.png（映射表在 godot/scripts/ItemIcons.cs）"
+    }
+  ],
+  "rows": [
+    {
+      "name": "工作台",
+      "materials": "木料×16、钉子×8",
+      "buildMinutes": 180,
+      "salvage": "木料×4、废木料×4、钉子×4",
+      "_id": "工作台",
+      "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
+      "sync": "",
+      "_icon": ""
+    },
+    {
+      "name": "改装台",
+      "materials": "木料×8、废金属×4、机械零件×2、钉子×6",
+      "buildMinutes": 200,
+      "salvage": "木料×2、废木料×2、废金属×2、机械零件×1、钉子×3",
+      "_id": "改装台",
+      "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
+      "sync": "",
+      "_icon": ""
+    },
+    {
+      "name": "烹饪台",
+      "materials": "石料×8、木料×6、废金属×3、钉子×4",
+      "buildMinutes": 180,
+      "salvage": "石料×4、木料×1、废木料×1、废金属×1、钉子×2",
+      "_id": "烹饪台",
+      "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
+      "sync": "",
+      "_icon": ""
+    },
+    {
+      "name": "住宅-柜子",
+      "materials": "木料×10、钉子×6",
+      "buildMinutes": 120,
+      "salvage": "木料×2、废木料×2、钉子×3",
+      "_id": "住宅-柜子",
+      "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
+      "sync": "",
+      "_icon": ""
+    },
+    {
+      "name": "住宅-衣柜",
+      "materials": "木料×12、钉子×6",
+      "buildMinutes": 140,
+      "salvage": "木料×3、废木料×3、钉子×3",
+      "_id": "住宅-衣柜",
+      "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
+      "sync": "",
+      "_icon": ""
+    },
+    {
+      "name": "住宅-展示柜",
+      "materials": "木料×8、钉子×4",
+      "buildMinutes": 100,
+      "salvage": "木料×2、废木料×2、钉子×2",
+      "_id": "住宅-展示柜",
+      "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
+      "sync": "",
+      "_icon": ""
+    },
+    {
+      "name": "床",
+      "materials": "木料×12、布×4、钉子×6",
+      "buildMinutes": 150,
+      "salvage": "木料×3、废木料×3、布×2、钉子×3",
+      "_id": "床",
+      "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
+      "sync": "",
+      "_icon": ""
+    },
+    {
+      "name": "沙袋",
+      "materials": "布×2、石料×4",
+      "buildMinutes": 30,
+      "salvage": "布×1、石料×2",
+      "_id": "沙袋",
+      "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
+      "sync": "",
+      "_icon": ""
+    }
+  ]
+}

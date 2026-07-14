@@ -1,0 +1,111 @@
+{
+  "generatedAt": "2026-07-14 00:52:31",
+  "iconDir": "godot/assets/items",
+  "categories": [
+    {
+      "id": "weapons",
+      "label": "武器",
+      "file": "weapons.json",
+      "count": 27,
+      "source": "src/DeadSignal.Combat/WeaponTable.cs"
+    },
+    {
+      "id": "armor",
+      "label": "护甲服装",
+      "file": "armor.json",
+      "count": 16,
+      "source": "src/DeadSignal.Combat/ArmorTable.cs"
+    },
+    {
+      "id": "dog-gear",
+      "label": "狗装备",
+      "file": "dog-gear.json",
+      "count": 5,
+      "source": "godot/scripts/DogApparel.cs + src/DeadSignal.Combat/ArmorTable.cs"
+    },
+    {
+      "id": "ammo",
+      "label": "弹药与箭",
+      "file": "ammo.json",
+      "count": 8,
+      "source": "godot/scripts/Materials.cs + src/DeadSignal.Combat/Ammo.cs + src/DeadSignal.Combat/Archery.cs"
+    },
+    {
+      "id": "materials",
+      "label": "材料",
+      "file": "materials.json",
+      "count": 22,
+      "source": "godot/scripts/Materials.cs"
+    },
+    {
+      "id": "medical",
+      "label": "医疗与草药",
+      "file": "medical.json",
+      "count": 10,
+      "source": "godot/scripts/Materials.cs + godot/scripts/HealthConditions.cs"
+    },
+    {
+      "id": "recipes",
+      "label": "配方",
+      "file": "recipes.json",
+      "count": 40,
+      "source": "godot/scripts/Recipe.cs"
+    },
+    {
+      "id": "lights",
+      "label": "光源",
+      "file": "lights.json",
+      "count": 4,
+      "source": "godot/scripts/LightSource.cs"
+    },
+    {
+      "id": "books",
+      "label": "书籍",
+      "file": "books.json",
+      "count": 9,
+      "source": "godot/scripts/BookData.cs"
+    },
+    {
+      "id": "weapon-mods",
+      "label": "武器改装",
+      "file": "weapon-mods.json",
+      "count": 15,
+      "source": "godot/scripts/WeaponModCatalog.cs"
+    },
+    {
+      "id": "furniture",
+      "label": "家具建造",
+      "file": "furniture.json",
+      "count": 8,
+      "source": "godot/scripts/FurnitureBuildCost.cs"
+    },
+    {
+      "id": "food",
+      "label": "食物与食材",
+      "file": "food.json",
+      "count": 12,
+      "source": "godot/scripts/CookingLogic.cs + godot/scripts/Materials.cs"
+    },
+    {
+      "id": "cooking",
+      "label": "烹饪规则",
+      "file": "cooking.json",
+      "count": 4,
+      "source": "godot/scripts/CookingLogic.cs"
+    },
+    {
+      "id": "characters",
+      "label": "角色",
+      "file": "characters.json",
+      "count": 16,
+      "source": "godot/scripts/SurvivorPerks.cs · SurvivorBackstory.cs · DougBruceBond.cs · NurseRecruit.cs · MerchantLineage.cs · src/DeadSignal.Combat/ZombieOutfit.cs"
+    },
+    {
+      "id": "character-stats",
+      "label": "角色数值",
+      "file": "character-stats.json",
+      "count": 52,
+      "source": "godot/scripts/SurvivorPerks.cs 等（每行的「代码位置」列写明了各自的出处）"
+    }
+  ]
+}

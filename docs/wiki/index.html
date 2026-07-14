@@ -1,0 +1,1051 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dead Signal · 数值 wiki</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%230c0e0d'/><rect x='3' y='3' width='10' height='10' fill='%238fbf6a'/></svg>">
+<!--
+  Dead Signal 本地数值 wiki —— 纯静态单页，零 CDN、零外部依赖、离线可用。
+
+  数据流：C# 是唯一事实源 → tools/WikiExtract 抽成 data/*.json → 你在这页上改 → 点保存 PUT 回 json
+         → 之后由 agent 把 json 的改动落回 C# 并跑测试门禁。这页**不直接改代码**。
+
+  加一个新分区：往 data/ 丢一个同结构的 json，再在 data/index.json 的 categories 里加一行。
+  本页不认识任何具体分区——列、类型、配色全部由 json 里的 columns 元数据驱动。
+-->
+<style>
+  :root {
+    --bg:        #0c0e0d;
+    --panel:     #141815;
+    --panel-2:   #1b201d;
+    --line:      #2a312c;
+    --line-soft: #1f2521;
+    --text:      #cbd3cc;
+    --text-dim:  #7d887f;
+    --text-mute: #545d56;
+    --accent:    #8fbf6a;  /* 生存绿：可交互 / 主键 */
+    --rust:      #b4462f;  /* 血锈红：锐伤 / 危险 / 脏 */
+    --amber:     #c9963f;  /* 钝伤 / 警告 / 脏标记 */
+    --steel:     #6f93a8;  /* 冷色：远程 / 信息 */
+    --violet:    #8d78b8;
+    --teal:      #58a08c;
+    --dirty:     #d9a441;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 13px/1.45 -apple-system, "PingFang SC", "Microsoft YaHei", "Helvetica Neue", sans-serif;
+    display: flex; flex-direction: column;
+    overflow: hidden;
+  }
+  .mono { font-family: "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace; }
+
+  /* ── 顶栏 ───────────────────────────────────────────── */
+  header {
+    display: flex; align-items: center; gap: 14px;
+    padding: 0 14px; height: 46px; flex: 0 0 46px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--line);
+  }
+  .brand {
+    font-weight: 700; letter-spacing: .16em; font-size: 12px;
+    color: var(--accent); text-transform: uppercase;
+    font-family: "SF Mono", Menlo, monospace;
+  }
+  .brand span { color: var(--text-mute); }
+  .spacer { flex: 1; }
+
+  .status { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-dim); }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-mute); }
+  .dot.live { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+  .dot.offline { background: var(--amber); }
+
+  button {
+    font: inherit; font-size: 12px;
+    background: var(--panel-2); color: var(--text);
+    border: 1px solid var(--line); border-radius: 2px;
+    padding: 5px 11px; cursor: pointer;
+  }
+  button:hover:not(:disabled) { border-color: var(--text-mute); background: #232a25; }
+  button:disabled { opacity: .38; cursor: not-allowed; }
+  button.primary { background: #2c4a20; border-color: #4b7a37; color: #d6ecc4; }
+  button.primary:hover:not(:disabled) { background: #375c28; }
+  button.primary:disabled { background: var(--panel-2); border-color: var(--line); color: var(--text-mute); }
+
+  /* ── 主体 ───────────────────────────────────────────── */
+  main { flex: 1; display: flex; min-height: 0; }
+
+  nav {
+    flex: 0 0 176px; background: var(--panel);
+    border-right: 1px solid var(--line);
+    overflow-y: auto; padding: 8px 0;
+  }
+  nav .navitem {
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 14px; cursor: pointer;
+    border-left: 2px solid transparent;
+    color: var(--text-dim); font-size: 13px;
+  }
+  nav .navitem:hover { background: var(--panel-2); color: var(--text); }
+  nav .navitem.active {
+    background: var(--panel-2); color: var(--accent);
+    border-left-color: var(--accent); font-weight: 600;
+  }
+  nav .navitem .count {
+    margin-left: auto; font-size: 11px; color: var(--text-mute);
+    font-family: "SF Mono", Menlo, monospace;
+  }
+  nav .navitem .pip {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--dirty); flex: 0 0 6px;
+  }
+  nav .navhead {
+    padding: 10px 14px 5px; font-size: 10px; letter-spacing: .12em;
+    color: var(--text-mute); text-transform: uppercase;
+  }
+
+  section.content { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+
+  .cathead { padding: 11px 16px 9px; border-bottom: 1px solid var(--line-soft); }
+  .cathead h1 { margin: 0 0 3px; font-size: 15px; font-weight: 600; }
+  .cathead .note { margin: 0; font-size: 12px; color: var(--text-dim); max-width: 92ch; line-height: 1.5; }
+  .cathead .src { font-size: 11px; color: var(--text-mute); margin-top: 4px; font-family: "SF Mono", Menlo, monospace; }
+
+  .toolbar {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    padding: 8px 16px; border-bottom: 1px solid var(--line);
+    background: var(--panel);
+  }
+  input[type=search], input.cell {
+    font: inherit; background: #0d100e; color: var(--text);
+    border: 1px solid var(--line); border-radius: 2px; padding: 4px 8px;
+  }
+  input[type=search] { width: 220px; }
+  input[type=search]:focus, input.cell:focus { outline: none; border-color: var(--accent); }
+
+  .filters { display: flex; gap: 5px; flex-wrap: wrap; align-items: center; }
+  .fchip {
+    font-size: 11px; padding: 2px 8px; border-radius: 9px; cursor: pointer;
+    border: 1px solid var(--line); color: var(--text-dim); background: transparent;
+    user-select: none;
+  }
+  .fchip:hover { border-color: var(--text-mute); }
+  .fchip.on { background: #253022; border-color: var(--accent); color: var(--accent); }
+
+  label.toggle { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text-dim); cursor: pointer; }
+
+  /* ── 表 ───────────────────────────────────────────── */
+  .tablewrap { flex: 1; overflow: auto; }
+  table { border-collapse: separate; border-spacing: 0; width: max-content; min-width: 100%; }
+  thead th {
+    position: sticky; top: 0; z-index: 2;
+    background: var(--panel-2);
+    border-bottom: 1px solid var(--line);
+    border-right: 1px solid var(--line-soft);
+    padding: 6px 9px; text-align: left;
+    font-size: 11px; font-weight: 600; color: var(--text-dim);
+    white-space: nowrap; cursor: pointer; user-select: none;
+  }
+  thead th:hover { color: var(--text); }
+  thead th .arrow { color: var(--accent); margin-left: 3px; }
+  thead th.internal { color: var(--text-mute); background: #171a18; font-style: italic; }
+  thead th.num { text-align: right; }
+
+  tbody td {
+    border-bottom: 1px solid var(--line-soft);
+    border-right: 1px solid var(--line-soft);
+    padding: 3px 9px; height: 27px;
+    white-space: nowrap; max-width: 340px; overflow: hidden; text-overflow: ellipsis;
+  }
+  tbody tr:hover td { background: #171c18; }
+  tbody tr.dirty td { background: #1d1a12; }
+  tbody tr.dirty:hover td { background: #241f14; }
+
+  td.editable { cursor: text; }
+  td.editable:hover { box-shadow: inset 0 0 0 1px var(--line); }
+  td.locked { color: var(--text-mute); cursor: not-allowed; }
+  td.internal { color: var(--text-mute); background: #121412; font-size: 11px; font-family: "SF Mono", Menlo, monospace; cursor: not-allowed; }
+  tbody tr:hover td.internal { background: #161816; }
+  td.num { text-align: right; font-family: "SF Mono", Menlo, monospace; }
+  td.name { font-weight: 600; color: var(--text); position: sticky; left: 0; z-index: 1; background: var(--bg); }
+  tbody tr:hover td.name { background: #171c18; }
+  tbody tr.dirty td.name { background: #1d1a12; }
+  td.changed { box-shadow: inset 2px 0 0 var(--dirty); color: var(--dirty); }
+  td.empty { color: var(--text-mute); }
+
+  td.icon { width: 34px; padding: 1px 4px; text-align: center; position: sticky; left: 0; z-index: 1; background: var(--bg); }
+  tbody tr:hover td.icon { background: #171c18; }
+  tbody tr.dirty td.icon { background: #1d1a12; }
+  td.icon img { width: 22px; height: 22px; image-rendering: pixelated; vertical-align: middle; display: block; margin: auto; }
+  td.icon .ph {
+    width: 22px; height: 22px; margin: auto; border: 1px dashed var(--line);
+    color: var(--text-mute); font-size: 9px; display: flex; align-items: center; justify-content: center;
+  }
+  td.name.sticky2 { left: 34px; }
+  th.stick0 { position: sticky; left: 0; z-index: 3; }
+  th.stick1 { position: sticky; left: 34px; z-index: 3; }
+
+  .chip {
+    display: inline-block; padding: 1px 7px; border-radius: 3px;
+    font-size: 11px; border: 1px solid transparent;
+  }
+  .bool { display: inline-block; width: 8px; height: 8px; border-radius: 50%; }
+  .bool.yes { background: var(--accent); }
+  .bool.no  { background: #2b332c; }
+
+  input.cell { width: 100%; padding: 2px 5px; }
+  textarea.cell {
+    font: inherit; width: 100%; min-height: 76px;
+    background: #0d100e; color: var(--text);
+    border: 1px solid var(--accent); border-radius: 2px; padding: 4px 6px; resize: vertical;
+  }
+  textarea.cell:focus { outline: none; }
+  td.editing { padding: 2px 4px; overflow: visible; white-space: normal; }
+
+  /* ── 提示条 ───────────────────────────────────────── */
+  #toast {
+    position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%);
+    padding: 9px 18px; border-radius: 3px; font-size: 13px;
+    background: var(--panel-2); border: 1px solid var(--line);
+    opacity: 0; pointer-events: none; transition: opacity .18s; z-index: 50;
+    max-width: 70vw;
+  }
+  #toast.show { opacity: 1; }
+  #toast.ok   { border-color: var(--accent); color: #d6ecc4; background: #22301b; }
+  #toast.err  { border-color: var(--rust);   color: #f0c8bd; background: #331a14; }
+
+  /* 待同步的行：靠配色和划线一眼认出「这条还没进游戏」 */
+  tbody tr.pending-new td { box-shadow: inset 0 1px 0 rgba(143,191,106,.18); }
+  tbody tr.pending-new td.name { border-left: 2px solid var(--accent); }
+  tbody tr.tombstone td {
+    color: var(--text-mute); text-decoration: line-through;
+    background: #17120f; opacity: .62;
+  }
+  tbody tr.tombstone:hover td { background: #1d1613; }
+  tbody tr.tombstone td.name { border-left: 2px solid var(--rust); text-decoration: line-through; }
+  tbody tr.tombstone td.icon img { filter: grayscale(1); opacity: .4; }
+
+  /* 行尾删除钮：悬停才显形，免得一排 × 扰乱读表 */
+  td.delcol, th.delcol { width: 30px; padding: 0 4px; text-align: center; border-right: none; }
+  .delbtn {
+    padding: 0; width: 19px; height: 19px; line-height: 1;
+    background: transparent; border: 1px solid transparent; color: var(--text-mute);
+    opacity: 0; font-size: 13px;
+  }
+  tbody tr:hover .delbtn { opacity: 1; }
+  tbody tr.tombstone .delbtn { opacity: 1; color: var(--accent); }
+  .delbtn:hover { color: var(--rust); border-color: var(--rust); background: #2a1512; }
+  tbody tr.tombstone .delbtn:hover { color: var(--accent); border-color: var(--accent); background: #1f2a19; }
+
+  .banner {
+    padding: 7px 16px; font-size: 12px;
+    background: #2b2312; border-bottom: 1px solid #5a4718; color: #e3c179;
+  }
+  .banner.info {
+    background: #16201c; border-bottom: 1px solid #2c4034; color: var(--text-dim);
+  }
+  .banner.info b { color: var(--accent); }
+  .banner b { color: #f2d79a; }
+  .banner code { font-family: "SF Mono", Menlo, monospace; background: #1c1709; padding: 1px 5px; border-radius: 2px; }
+  .hidden { display: none !important; }
+
+  .empty-state { padding: 40px; text-align: center; color: var(--text-mute); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">Dead Signal <span>/ 数值 wiki</span></div>
+  <div class="status">
+    <span class="dot" id="conn-dot"></span>
+    <span id="conn-text">连接中…</span>
+  </div>
+  <div class="spacer"></div>
+  <span id="dirty-summary" style="font-size:12px;color:var(--dirty)"></span>
+  <button id="btn-revert" disabled>撤销改动</button>
+  <button id="btn-export">导出 JSON</button>
+  <button id="btn-save" class="primary" disabled>保存</button>
+</header>
+
+<div class="banner info">
+  这里改的是<b>设计表（JSON）</b>，不是游戏代码。改数值、<b>新增</b>、<b>删除</b>都要
+  <b>让 agent 同步进 C#</b> 才会在游戏里生效——带「待同步进代码」标记的行就是还没进游戏的。
+  改完跟 agent 说一声：「wiki 上改了 XX，同步进代码」。
+</div>
+
+<div id="offline-banner" class="banner hidden">
+  <b>只读模式</b> —— 没连上本地服务，改动无法写回文件（但可以「导出 JSON」下载）。
+  要能保存，在仓库根跑：<code>python3 tools/wiki-serve.py</code>，然后打开它打印的地址。
+</div>
+
+<main>
+  <nav id="nav"></nav>
+  <section class="content">
+    <div class="cathead">
+      <h1 id="cat-title">—</h1>
+      <p class="note" id="cat-note"></p>
+      <div class="src" id="cat-src"></div>
+    </div>
+    <div class="toolbar">
+      <button id="btn-add" title="在这个分区末尾加一条新记录（一律追加末尾，不插队）">+ 新增一条</button>
+      <input type="search" id="q" placeholder="搜索（名称/说明/任意列）…" autocomplete="off">
+      <div class="filters" id="filters"></div>
+      <div class="spacer"></div>
+      <label class="toggle"><input type="checkbox" id="show-internal"> 显示内部 id 列</label>
+    </div>
+    <div class="tablewrap" id="tablewrap">
+      <div class="empty-state">加载中…</div>
+    </div>
+  </section>
+</main>
+
+<div id="toast"></div>
+
+<!-- file:// 直接打开时的降级数据源（浏览器不允许 fetch 本地文件）。有服务时以服务上的 json 为准。 -->
+<script src="data/bundle.js" onerror="window.__bundleMissing=true"></script>
+<script>
+"use strict";
+
+// ═══════════════════════════════════════════════════════════════════
+// 新增 / 删除
+//
+// ⚠️ 这两个动作**只改 JSON 设计表，不改游戏代码** —— 在网页上删掉一把武器，游戏里那把枪还在。
+// 所以新增/删除的行会一直带着「待同步进代码」的标记，直到 agent 把改动落进 C#。
+// 删除走**软删除（墓碑）**：行留在表里、划掉显示。理由很实在——若直接从 JSON 抹掉，
+// 下次重跑抽取器又会从代码里把它捡回来，用户的删除就"自己撤销"了。
+// 等 agent 把 C# 里那条也删了，重跑时墓碑自动消失（TableMerge.cs 里有完整的生命周期）。
+// ═══════════════════════════════════════════════════════════════════
+const SYNC = {
+  OK: "",
+  NEW: "新增·待同步进代码",
+  DELETED: "删除·待同步进代码",
+  BADID: "⚠️ 内部 id 有问题",
+};
+
+// ═══════════════════════════════════════════════════════════════════
+// 状态
+// ═══════════════════════════════════════════════════════════════════
+const S = {
+  online: false,          // 是否连上了本地服务（决定能不能保存）
+  index: null,            // data/index.json
+  cats: {},               // id → 分区数据（含 columns/rows）
+  orig: {},               // id → 原始快照（用来算「哪格改了」和撤销）
+  current: null,          // 当前分区 id
+  icons: new Set(),       // 磁盘上现有的图标（相对路径，如 "weapons/dagger"）；不在其中就画占位框
+  sort: {},               // id → {key, dir}
+  filters: {},            // id → {列key → 选中的值集合}
+  query: "",
+  showInternal: false,
+};
+
+const $ = (sel) => document.querySelector(sel);
+
+// ═══════════════════════════════════════════════════════════════════
+// 加载：优先本地服务（可保存），退化到 bundle.js（只读）
+// ═══════════════════════════════════════════════════════════════════
+async function boot() {
+  const served = location.protocol.startsWith("http");
+  if (served) {
+    try {
+      S.index = await (await fetch("data/index.json", { cache: "no-store" })).json();
+      S.online = true;
+      try {
+        S.icons = new Set((await (await fetch("api/icons", { cache: "no-store" })).json()).icons || []);
+      } catch (e) {
+        S.icons = new Set();   // 拿不到清单就当全都没图：一律画占位框，不发一堆 404
+      }
+    } catch (e) {
+      S.online = false;
+    }
+  }
+  if (!S.online) {
+    if (!window.WIKI_BUNDLE) {
+      $("#tablewrap").innerHTML =
+        '<div class="empty-state">读不到数据。<br><br>先跑一次抽取器生成 data/：<br>' +
+        '<code>~/.dotnet/dotnet run --project tools/WikiExtract</code></div>';
+      setConn(false);
+      return;
+    }
+    S.index = window.WIKI_BUNDLE.index;
+    for (const [id, obj] of Object.entries(window.WIKI_BUNDLE.data)) {
+      S.cats[id] = deepClone(obj);
+      S.orig[id] = deepClone(obj);
+    }
+  }
+  setConn(S.online);
+  renderNav();
+  await selectCat(S.index.categories[0].id);
+}
+
+function setConn(online) {
+  $("#conn-dot").className = "dot " + (online ? "live" : "offline");
+  $("#conn-text").textContent = online ? "本地服务已连接 · 可保存" : "离线 · 只读";
+  $("#offline-banner").classList.toggle("hidden", online);
+  $("#btn-save").disabled = true;
+}
+
+async function loadCat(id) {
+  if (S.cats[id]) return S.cats[id];
+  const meta = S.index.categories.find((c) => c.id === id);
+  const obj = await (await fetch("data/" + meta.file, { cache: "no-store" })).json();
+  S.cats[id] = obj;
+  S.orig[id] = deepClone(obj);
+  return obj;
+}
+
+const deepClone = (o) => JSON.parse(JSON.stringify(o));
+
+// ═══════════════════════════════════════════════════════════════════
+// 左侧分区（完全由 index.json 驱动 —— 加分区不用碰这里）
+// ═══════════════════════════════════════════════════════════════════
+function renderNav() {
+  const nav = $("#nav");
+  nav.innerHTML = '<div class="navhead">分区</div>';
+  for (const c of S.index.categories) {
+    const el = document.createElement("div");
+    el.className = "navitem" + (c.id === S.current ? " active" : "");
+    el.dataset.id = c.id;
+    el.innerHTML =
+      (isDirty(c.id) ? '<span class="pip"></span>' : "") +
+      `<span>${esc(c.label)}</span><span class="count">${c.count}</span>`;
+    el.onclick = () => selectCat(c.id);
+    nav.appendChild(el);
+  }
+}
+
+async function selectCat(id) {
+  S.current = id;
+  S.query = "";
+  $("#q").value = "";
+  await loadCat(id);
+  renderNav();
+  renderHead();
+  renderFilters();
+  renderTable();
+}
+
+function renderHead() {
+  const c = S.cats[S.current];
+  $("#cat-title").textContent = c.label;
+  $("#cat-note").textContent = c.note || "";
+  $("#cat-src").textContent = "数据来自：" + (c.source || "");
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// 筛选（chip 类型的列自动变成一排可点的筛选钮）
+// ═══════════════════════════════════════════════════════════════════
+function renderFilters() {
+  const c = S.cats[S.current];
+  const box = $("#filters");
+  box.innerHTML = "";
+  S.filters[S.current] = S.filters[S.current] || {};
+
+  for (const col of c.columns) {
+    if (col.type !== "chip" || col.internal) continue;
+    const values = [...new Set(c.rows.map((r) => r[col.key]).filter((v) => v !== null && v !== ""))];
+    if (values.length < 2 || values.length > 12) continue; // 值太少/太散都不值得做筛选
+    const sel = (S.filters[S.current][col.key] = S.filters[S.current][col.key] || new Set());
+    for (const v of values) {
+      const chip = document.createElement("span");
+      chip.className = "fchip" + (sel.has(v) ? " on" : "");
+      chip.textContent = v;
+      chip.style.borderLeft = "3px solid " + chipColor(v);
+      chip.onclick = () => {
+        sel.has(v) ? sel.delete(v) : sel.add(v);
+        renderFilters();
+        renderTable();
+      };
+      box.appendChild(chip);
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// 配色：不另立「状态文字列」，靠颜色区分（钝伤黄、锐伤红是全项目口径）
+// ═══════════════════════════════════════════════════════════════════
+const CHIP_COLORS = {
+  "锐": "var(--rust)", "钝": "var(--amber)",
+  "近战锐器": "var(--rust)", "近战钝器": "var(--amber)",
+  "枪械": "var(--steel)", "弓": "var(--teal)", "弩": "var(--teal)",
+  "天生武器": "var(--violet)",
+  "手持": "var(--amber)", "固定": "var(--steel)",
+  "子弹": "var(--steel)", "箭": "var(--teal)",
+  "手术耗材": "var(--rust)", "药品": "var(--teal)", "草药原料": "var(--accent)",
+  "新增·待同步进代码": "var(--accent)", "删除·待同步进代码": "var(--rust)", "⚠️ 内部 id 有问题": "var(--amber)",
+  "流血": "var(--rust)", "骨折": "var(--amber)", "感染": "var(--violet)", "疾病": "var(--steel)",
+};
+const PALETTE = ["var(--accent)", "var(--steel)", "var(--amber)", "var(--teal)", "var(--violet)", "var(--rust)", "#9a8f6b", "#7f9ab8"];
+function chipColor(v) {
+  if (CHIP_COLORS[v]) return CHIP_COLORS[v];
+  let h = 0;
+  for (const ch of String(v)) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return PALETTE[h % PALETTE.length];
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// 表
+// ═══════════════════════════════════════════════════════════════════
+function visibleRows() {
+  const c = S.cats[S.current];
+  const q = S.query.trim().toLowerCase();
+  const filters = S.filters[S.current] || {};
+
+  let rows = c.rows.map((r, i) => ({ r, i }));
+
+  for (const [key, sel] of Object.entries(filters)) {
+    if (sel.size) rows = rows.filter(({ r }) => sel.has(r[key]));
+  }
+  if (q) {
+    rows = rows.filter(({ r }) =>
+      Object.values(r).some((v) => v !== null && String(v).toLowerCase().includes(q)));
+  }
+
+  const s = S.sort[S.current];
+  if (s) {
+    const col = c.columns.find((x) => x.key === s.key);
+    rows.sort((a, b) => {
+      const va = a.r[s.key], vb = b.r[s.key];
+      if (va === null || va === undefined || va === "") return 1;   // 空值一律沉底
+      if (vb === null || vb === undefined || vb === "") return -1;
+      let d;
+      if (col && col.type === "number") d = Number(va) - Number(vb);
+      else if (typeof va === "boolean") d = (va ? 1 : 0) - (vb ? 1 : 0);
+      else d = String(va).localeCompare(String(vb), "zh-CN");
+      return s.dir === "asc" ? d : -d;
+    });
+  }
+  return rows;
+}
+
+function renderTable() {
+  const c = S.cats[S.current];
+  const cols = c.columns.filter((col) => !col.internal || S.showInternal);
+  const rows = visibleRows();
+  const s = S.sort[S.current];
+
+  const table = document.createElement("table");
+
+  const thead = document.createElement("thead");
+  const tr = document.createElement("tr");
+  const thIcon = document.createElement("th");
+  thIcon.className = "stick0";
+  thIcon.title = "图标：" + iconDir() + "/" + S.current + "/<内部id>.png（缺图显示虚框占位）";
+  thIcon.textContent = "";
+  tr.appendChild(thIcon);
+
+  cols.forEach((col, ci) => {
+    const th = document.createElement("th");
+    th.className =
+      (col.internal ? "internal " : "") +
+      (col.type === "number" ? "num " : "") +
+      (col.primary ? "stick1" : "");
+    th.textContent = col.label;
+    if (col.hint) th.title = col.hint;
+    if (col.readonly) th.title = (col.hint ? col.hint + "\n" : "") + "（只读：由代码推导，改这里没用）";
+    if (s && s.key === col.key) {
+      const a = document.createElement("span");
+      a.className = "arrow";
+      a.textContent = s.dir === "asc" ? "▲" : "▼";
+      th.appendChild(a);
+    }
+    th.onclick = () => {
+      const cur = S.sort[S.current];
+      if (!cur || cur.key !== col.key) S.sort[S.current] = { key: col.key, dir: "asc" };
+      else if (cur.dir === "asc") S.sort[S.current] = { key: col.key, dir: "desc" };
+      else delete S.sort[S.current];
+      renderTable();
+    };
+    tr.appendChild(th);
+  });
+
+  // 行尾的删除钮（悬停才显形，免得一排 × 扰乱读表）
+  const thDel = document.createElement("th");
+  thDel.className = "delcol";
+  thDel.textContent = "";
+  thDel.style.cursor = "default";
+  thDel.onclick = null;
+  tr.appendChild(thDel);
+
+  thead.appendChild(tr);
+  table.appendChild(thead);
+
+  const tbody = document.createElement("tbody");
+  for (const { r, i } of rows) {
+    const trow = document.createElement("tr");
+    trow.dataset.i = i;
+    if (rowDirty(i)) trow.classList.add("dirty");
+    if (r.sync === SYNC.DELETED) trow.classList.add("tombstone");   // 待删除：划掉、变暗
+    if (r.sync === SYNC.NEW || r.sync === SYNC.BADID) trow.classList.add("pending-new");
+
+    trow.appendChild(iconCell(r));
+    for (const col of cols) trow.appendChild(cellFor(col, r, i));
+    trow.appendChild(deleteCell(r, i));
+    tbody.appendChild(trow);
+  }
+  table.appendChild(tbody);
+
+  const wrap = $("#tablewrap");
+  wrap.innerHTML = "";
+  if (!rows.length) {
+    wrap.innerHTML = '<div class="empty-state">没有匹配的条目。</div>';
+  } else {
+    wrap.appendChild(table);
+  }
+  updateDirtyUi();
+}
+
+function iconDir() {
+  return (S.index && S.index.iconDir) || "godot/assets/items";
+}
+
+
+/** 新增一条：**一律追加到末尾，不许往中间插**（CLAUDE.md 铁律：插队会打乱 Sim 的随机流）。 */
+function addRow() {
+  const c = S.cats[S.current];
+  const row = {};
+  for (const col of c.columns) {
+    row[col.key] = col.type === "number" ? null : col.type === "bool" ? false : "";
+  }
+  row._id = freshId(c);
+  row._anchor = "（新增行：代码里还没有，等 agent 建）";
+  row._icon = "";
+  row.sync = SYNC.NEW;
+
+  c.rows.push(row);
+
+  // 让新行一定看得见：清掉搜索/筛选/排序，否则它可能被过滤掉或排到别处，用户会以为没加上
+  S.query = "";
+  $("#q").value = "";
+  S.filters[S.current] = {};
+  delete S.sort[S.current];
+  S.showInternal = true;              // 内部 id 是新行必须填对的东西，直接摊开给他看
+  $("#show-internal").checked = true;
+
+  renderNav();
+  renderFilters();
+  renderTable();
+
+  const trs = document.querySelectorAll("tbody tr");
+  const last = trs[trs.length - 1];
+  if (last) {
+    last.scrollIntoView({ block: "center" });
+    const nameTd = last.querySelector("td.name");
+    if (nameTd) nameTd.click();       // 光标直接落在名称格上，可以马上开打
+  }
+  toast("新行已加在末尾。填好「名称」和置灰的「内部 id」，再点保存。", "ok");
+}
+
+/** 生成一个不重复的内部 id 占位（沿用本分区现有 id 的风格：多数是小写蛇形）。 */
+function freshId(c) {
+  const taken = new Set(c.rows.map((r) => r._id));
+  const stem = (c.id || "item").replace(/-/g, "_").replace(/s$/, "");   // weapons → weapon
+  for (let n = 1; ; n++) {
+    const id = `new_${stem}_${n}`;
+    if (!taken.has(id)) return id;
+  }
+}
+
+/** 删一行：新增的直接抹掉；代码里已有的立墓碑（再点一下可撤销）。 */
+function deleteCell(r, i) {
+  const td = document.createElement("td");
+  td.className = "delcol";
+  const btn = document.createElement("button");
+  btn.className = "delbtn";
+
+  const tomb = r.sync === SYNC.DELETED;
+  btn.textContent = tomb ? "↩" : "×";
+  btn.title = tomb ? "撤销删除" : "删除这一条";
+  btn.onclick = (e) => {
+    e.stopPropagation();
+    if (tomb) {                                   // 撤销：把墓碑挖了
+      r.sync = SYNC.OK;
+      afterEdit();
+      return;
+    }
+    const name = rowName(S.cats[S.current], r) || r._id || "这一条";
+    const brandNew = r.sync === SYNC.NEW || r.sync === SYNC.BADID;
+    const msg = brandNew
+      ? `删掉新增的「${name}」？\n\n它还没进过代码，删了就没了。`
+      : `删掉「${name}」？\n\n注意：这只改 JSON 设计表，**游戏里那一条还在**——\n要等 agent 把它从 C# 代码里也删掉才真的生效。\n\n在那之前它会以划掉的样子留在表里。`;
+    if (!confirm(msg)) return;
+
+    if (brandNew) {
+      S.cats[S.current].rows.splice(i, 1);        // 从没同步过，直接抹掉，不留墓碑
+    } else {
+      r.sync = SYNC.DELETED;                      // 立墓碑，等 agent 同步
+    }
+    afterEdit();
+  };
+  td.appendChild(btn);
+  return td;
+}
+
+/**
+ * 一行的主键名（给确认框/报错指认是哪一条）。**读分区自己声明的 primary 列**，不写死 name/title ——
+ * 各分区的主键列名并不一样（武器=名称、书籍=书名、角色数值=数值项），写死就会把主键当成"没填"。
+ */
+function rowName(c, r) {
+  const pk = (c.columns.find((col) => col.primary) || {}).key;
+  const v = pk ? r[pk] : null;
+  return (v === null || v === undefined || v === "") ? "" : String(v);
+}
+
+/**
+ * 保存前的 id 体检。内部 id 是**回写代码的定位锚** —— 空的、重复的、带中文的，
+ * agent 就找不到该改哪一行代码，所以宁可挡下保存也不能让它存进去。
+ */
+function badIds() {
+  const problems = [];
+  for (const id of dirtyCats()) {
+    const c = S.cats[id];
+    const seen = new Set();
+    for (const r of c.rows) {
+      if (r.sync !== SYNC.NEW && r.sync !== SYNC.BADID) { seen.add(r._id); continue; }
+      const v = (r._id || "").trim();
+      const nm = rowName(c, r);
+      const who = nm || "(未命名)";
+      if (!v) problems.push(`${c.label}·${who}：内部 id 是空的`);
+      else if (seen.has(v)) problems.push(`${c.label}·${who}：内部 id「${v}」和别的行重复了`);
+      else if (!/^[\x20-\x7e]+$/.test(v)) problems.push(`${c.label}·${who}：内部 id「${v}」不能有中文`);
+      else if (!nm) problems.push(`${c.label}：有一行新记录还没填「${primaryLabel(c)}」`);
+      seen.add(v);
+    }
+  }
+  return problems;
+}
+
+/** 本分区主键列的中文列名（「名称」/「书名」/「数值项」…），用于报错文案。 */
+function primaryLabel(c) {
+  const col = c.columns.find((x) => x.primary);
+  return col ? col.label : "名称";
+}
+
+// 图标：每行的 `_icon` 是相对 godot/assets/items/ 的路径（如 "weapons/short_sword"），
+// 由抽取器查 godot/scripts/ItemIcons.cs 这张**单一事实源**表得来（wiki 不自造 slug）。服务把 godot/assets/ 挂在 /assets/ 下。
+// 素材是分批加的 ⇒ 有些条目暂时没图。故先问服务要一份**磁盘上现有的图标清单**，只给真有图的条目发 <img>：
+// 否则每开一次页面就是几十个 404，把真正的报错淹了。
+function iconCell(r) {
+  const td = document.createElement("td");
+  td.className = "icon";
+  const rel = r._icon || "";
+
+  if (!rel || !S.icons.has(rel)) {
+    const ph = document.createElement("div");
+    ph.className = "ph";
+    ph.textContent = "?";
+    ph.title = rel ? "缺图标：" + iconDir() + "/" + rel + ".png" : "这条没有图标位";
+    td.appendChild(ph);
+    return td;
+  }
+
+  const img = document.createElement("img");
+  img.src = "/assets/items/" + rel.split("/").map(encodeURIComponent).join("/") + ".png";
+  img.alt = "";
+  img.onerror = () => {   // 清单和磁盘赛跑了（刚被删掉）——照样不显示破图
+    const ph = document.createElement("div");
+    ph.className = "ph";
+    ph.textContent = "?";
+    img.replaceWith(ph);
+  };
+  td.appendChild(img);
+  return td;
+}
+
+function cellFor(col, r, i) {
+  const td = document.createElement("td");
+  const v = r[col.key];
+  const isNew = r.sync === SYNC.NEW || r.sync === SYNC.BADID;
+
+  // 内部 id 平时锁死（它是回写代码的定位锚，改了 agent 就找不到该改哪一行）。
+  // **唯一的例外是新增行**：那一条代码里还没有，id 得由用户/agent 现取一个，所以放开给他改。
+  const idOfNewRow = col.key === "_id" && isNew;
+  const editable = idOfNewRow || (!col.internal && !col.readonly);
+
+  td.className =
+    (col.internal ? "internal " : "") +
+    (col.type === "number" ? "num " : "") +
+    (col.primary ? "name sticky2 " : "") +
+    (editable ? "editable " : "locked ") +
+    (cellChanged(i, col.key) ? "changed " : "");
+
+  paint(td, col, v);
+
+  if (idOfNewRow) {
+    td.title = "新增行的内部 id —— 这条代码里还没有，给它取个 id（小写英文/数字/下划线，不能重复、不能有中文）";
+    td.onclick = () => edit(td, col, r, i);
+  } else if (col.internal) {
+    td.title = "内部 id / 代码位置 —— 勿改（回写代码时靠它定位）";
+  } else if (col.readonly) {
+    td.title = "只读：由代码推导，改这里不会生效";
+  } else {
+    td.onclick = () => edit(td, col, r, i);
+    if (col.type === "bool") {
+      td.onclick = () => {
+        r[col.key] = !v;
+        afterEdit();
+      };
+    }
+  }
+  return td;
+}
+
+function paint(td, col, v) {
+  td.innerHTML = "";
+  if (v === null || v === undefined || v === "") {
+    td.classList.add("empty");
+    td.textContent = col.type === "bool" ? "" : "—";
+    if (col.type === "bool") {
+      const b = document.createElement("span");
+      b.className = "bool no";
+      td.appendChild(b);
+    }
+    return;
+  }
+  td.classList.remove("empty");
+
+  if (col.type === "bool") {
+    const b = document.createElement("span");
+    b.className = "bool " + (v ? "yes" : "no");
+    b.title = v ? "是" : "否";
+    td.appendChild(b);
+    return;
+  }
+  if (col.type === "chip") {
+    const c = document.createElement("span");
+    const color = chipColor(v);
+    c.className = "chip";
+    c.style.color = color;
+    c.style.borderColor = color;
+    c.style.background = "transparent";
+    c.textContent = v;
+    td.appendChild(c);
+    return;
+  }
+  td.textContent = String(v);
+  if (col.type === "longtext") td.title = String(v);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// 行内编辑
+// ═══════════════════════════════════════════════════════════════════
+let editingTd = null;
+
+function edit(td, col, r, i) {
+  if (editingTd) return;
+  editingTd = td;
+  const old = r[col.key];
+  td.classList.add("editing");
+  td.innerHTML = "";
+
+  const long = col.type === "longtext";
+  const input = document.createElement(long ? "textarea" : "input");
+  input.className = "cell";
+  if (!long) input.type = col.type === "number" ? "number" : "text";
+  if (col.type === "number") input.step = "any";
+  input.value = old === null || old === undefined ? "" : String(old);
+  td.appendChild(input);
+  input.focus();
+  if (!long) input.select();
+
+  const commit = () => {
+    if (editingTd !== td) return;
+    editingTd = null;
+    td.classList.remove("editing");
+    const raw = input.value;
+    let nv;
+    if (col.type === "number") {
+      nv = raw.trim() === "" ? null : Number(raw);
+      if (nv !== null && Number.isNaN(nv)) nv = old;      // 打错了就当没改
+    } else {
+      nv = raw;
+    }
+    r[col.key] = nv;
+    afterEdit();
+  };
+  const cancel = () => {
+    if (editingTd !== td) return;
+    editingTd = null;
+    td.classList.remove("editing");
+    renderTable();
+  };
+
+  input.onblur = commit;
+  input.onkeydown = (e) => {
+    if (e.key === "Escape") { e.preventDefault(); cancel(); }
+    else if (e.key === "Enter" && (!long || e.metaKey || e.ctrlKey)) { e.preventDefault(); input.blur(); }
+  };
+}
+
+function afterEdit() {
+  renderNav();
+  renderTable();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// 脏标记（拿当前值和原始快照逐格比）
+// ═══════════════════════════════════════════════════════════════════
+// **按 _id 匹配，不按行下标**：有了「新增/删除」之后下标会错位（新行在快照里根本没有；
+// 删掉一行后面的全体前移），按下标比就会把 A 行的值拿去和 B 行的快照比，满屏乱标脏。
+function origRow(catId, id) {
+  const o = S.orig[catId];
+  if (!o) return null;
+  if (!o._byId) {                       // 建一次索引，之后 O(1)（每张表几十到几百行，重绘很频繁）
+    o._byId = new Map(o.rows.map((r) => [r._id, r]));
+  }
+  return o._byId.get(id) || null;
+}
+
+function cellChanged(i, key) {
+  const b = S.cats[S.current].rows[i];
+  if (!b) return false;
+  const a = origRow(S.current, b._id);
+  if (!a) return false;                 // 新增行：整行都是新的，不逐格标脏（它已经有绿色的"新增"样式）
+  return norm(a[key]) !== norm(b[key]);
+}
+
+function rowDirty(i) {
+  const b = S.cats[S.current].rows[i];
+  if (!b) return false;
+  const a = origRow(S.current, b._id);
+  if (!a) return true;                  // 快照里没有它 = 用户刚加的
+  return Object.keys(b).some((k) => norm(a[k]) !== norm(b[k]));
+}
+
+function isDirty(id) {
+  if (!S.cats[id] || !S.orig[id]) return false;
+  return JSON.stringify(S.cats[id].rows) !== JSON.stringify(S.orig[id].rows);
+}
+const norm = (v) => (v === null || v === undefined ? "" : String(v));
+
+function dirtyCats() {
+  return Object.keys(S.cats).filter(isDirty);
+}
+
+function countDirtyCells() {
+  let n = 0;
+  for (const id of dirtyCats()) {
+    const seen = new Set();
+    for (const row of S.cats[id].rows) {
+      seen.add(row._id);
+      const a = origRow(id, row._id);
+      if (!a) { n++; continue; }        // 新增的一行算一处改动
+      for (const k of Object.keys(row)) if (norm(a[k]) !== norm(row[k])) n++;
+    }
+    for (const r of S.orig[id].rows) if (!seen.has(r._id)) n++;   // 被彻底删掉的行也算一处
+  }
+  return n;
+}
+
+function updateDirtyUi() {
+  const cats = dirtyCats();
+  const cells = countDirtyCells();
+  $("#dirty-summary").textContent = cells ? `${cells} 处改动 · ${cats.length} 个分区` : "";
+  $("#btn-save").disabled = !cells || !S.online;
+  $("#btn-revert").disabled = !cells;
+  $("#btn-save").title = !S.online && cells ? "没连上本地服务，存不了 —— 用「导出 JSON」" : "";
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// 保存 / 导出 / 撤销
+// ═══════════════════════════════════════════════════════════════════
+async function save() {
+  const cats = dirtyCats();
+  if (!cats.length) return;
+
+  // id 体检：宁可挡下保存，也不让一个坏 id 进 JSON —— agent 靠它定位代码。
+  const bad = badIds();
+  if (bad.length) {
+    toast("这些新增行还不能存：" + bad.join("；"), "err");
+    return;
+  }
+
+  $("#btn-save").disabled = true;
+
+  const failed = [];
+  let saved = 0;
+  for (const id of cats) {
+    const file = S.index.categories.find((c) => c.id === id).file;
+    try {
+      const res = await fetch("data/" + file, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(S.cats[id], null, 2),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok || !j.ok) throw new Error(j.error || `HTTP ${res.status}`);
+      S.orig[id] = deepClone(S.cats[id]);   // 存住了才推进基线
+      saved++;
+    } catch (e) {
+      failed.push(`${id}: ${e.message}`);
+    }
+  }
+
+  renderNav();
+  renderTable();
+  if (failed.length) {
+    toast(`保存失败（${failed.length} 个分区）：${failed.join("；")}`, "err");
+  } else {
+    toast(`已保存 ${saved} 个分区 → docs/wiki/data/`, "ok");
+  }
+}
+
+function exportJson() {
+  const cats = dirtyCats().length ? dirtyCats() : [S.current];
+  for (const id of cats) {
+    const blob = new Blob([JSON.stringify(S.cats[id], null, 2)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = id + ".json";
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+  toast(`已下载 ${cats.length} 个 json —— 覆盖到 docs/wiki/data/ 即可`, "ok");
+}
+
+function revert() {
+  for (const id of dirtyCats()) S.cats[id] = deepClone(S.orig[id]);
+  renderNav();
+  renderTable();
+  toast("已撤销全部未保存的改动", "ok");
+}
+
+let toastTimer = null;
+function toast(msg, kind) {
+  const t = $("#toast");
+  t.textContent = msg;
+  t.className = "show " + (kind || "");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => (t.className = ""), 3600);
+}
+
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+// ═══════════════════════════════════════════════════════════════════
+// 接线
+// ═══════════════════════════════════════════════════════════════════
+$("#q").oninput = (e) => { S.query = e.target.value; renderTable(); };
+$("#show-internal").onchange = (e) => { S.showInternal = e.target.checked; renderTable(); };
+$("#btn-save").onclick = save;
+$("#btn-add").onclick = addRow;
+$("#btn-export").onclick = exportJson;
+$("#btn-revert").onclick = revert;
+
+document.addEventListener("keydown", (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key === "s") {
+    e.preventDefault();
+    if (!$("#btn-save").disabled) save();
+  }
+});
+window.addEventListener("beforeunload", (e) => {
+  if (dirtyCats().length) { e.preventDefault(); e.returnValue = ""; }
+});
+
+boot();
+</script>
+</body>
+</html>

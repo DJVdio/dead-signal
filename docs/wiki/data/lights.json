@@ -1,0 +1,108 @@
+{
+  "id": "lights",
+  "label": "光源",
+  "source": "godot/scripts/LightSource.cs",
+  "note": "夜里看得见东西，全靠这几样。代价是：点着光的人，在黑暗里也是最显眼的那个。",
+  "columns": [
+    {
+      "key": "name",
+      "label": "名称",
+      "type": "text",
+      "primary": true
+    },
+    {
+      "key": "kind",
+      "label": "类型",
+      "type": "chip",
+      "hint": "手持的占一只手；固定的钉在营地里"
+    },
+    {
+      "key": "intensity",
+      "label": "亮度",
+      "type": "number",
+      "hint": "0~1。照亮自己，也照亮别人眼里的你"
+    },
+    {
+      "key": "radius",
+      "label": "照亮半径(像素)",
+      "type": "number"
+    },
+    {
+      "key": "description",
+      "label": "说明",
+      "type": "longtext"
+    },
+    {
+      "key": "_id",
+      "label": "内部 id",
+      "type": "text",
+      "internal": true
+    },
+    {
+      "key": "_anchor",
+      "label": "代码位置",
+      "type": "text",
+      "internal": true
+    },
+    {
+      "key": "sync",
+      "label": "同步状态",
+      "type": "chip",
+      "readonly": true,
+      "hint": "空 = 已在代码里。「新增/删除·待同步进代码」= 你在网页上的改动还没进游戏，需要 agent 同步到 C#。"
+    },
+    {
+      "key": "_icon",
+      "label": "图标",
+      "type": "text",
+      "internal": true,
+      "hint": "godot/assets/items/<这个>.png（映射表在 godot/scripts/ItemIcons.cs）"
+    }
+  ],
+  "rows": [
+    {
+      "name": "手电",
+      "kind": "手持",
+      "intensity": 0.9,
+      "radius": 340,
+      "description": "一束聚焦的电光，帮你看清黑暗里的东西，也帮黑暗里的东西看清你。",
+      "_id": "flashlight",
+      "_anchor": "godot/scripts/LightSource.cs :: LightSource",
+      "sync": "",
+      "_icon": "lights/flashlight"
+    },
+    {
+      "name": "火把",
+      "kind": "手持",
+      "intensity": 0.7,
+      "radius": 240,
+      "description": "布条裹木棒、蘸油点着的火把，暖光一圈，浪漫又暴露——燃着就别想藏行踪。",
+      "_id": "torch",
+      "_anchor": "godot/scripts/LightSource.cs :: LightSource",
+      "sync": "",
+      "_icon": "lights/torch"
+    },
+    {
+      "name": "油灯",
+      "kind": "固定",
+      "intensity": 0.75,
+      "radius": 300,
+      "description": "挂在营地里的油灯，照亮一小片起居，也照亮「我们还没散伙」这件事。",
+      "_id": "lamp",
+      "_anchor": "godot/scripts/LightSource.cs :: LightSource",
+      "sync": "",
+      "_icon": "lights/lamp"
+    },
+    {
+      "name": "火堆",
+      "kind": "固定",
+      "intensity": 0.95,
+      "radius": 460,
+      "description": "营地中央的火堆，驱散黑暗、烤暖人心，顺便把「这儿有人」写在夜空上，给远处看。",
+      "_id": "campfire",
+      "_anchor": "godot/scripts/LightSource.cs :: LightSource",
+      "sync": "",
+      "_icon": "lights/campfire"
+    }
+  ]
+}

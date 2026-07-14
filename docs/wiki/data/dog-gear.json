@@ -1,0 +1,138 @@
+{
+  "id": "dog-gear",
+  "label": "狗装备",
+  "source": "godot/scripts/DogApparel.cs + src/DeadSignal.Combat/ArmorTable.cs",
+  "note": "布鲁斯（狗）能穿的五件套：身体一件 + 头一件。要道格与布鲁斯的羁绊到 2 级才能做。",
+  "columns": [
+    {
+      "key": "name",
+      "label": "名称",
+      "type": "text",
+      "primary": true
+    },
+    {
+      "key": "slot",
+      "label": "穿戴部位",
+      "type": "chip"
+    },
+    {
+      "key": "sharpDefense",
+      "label": "锐防",
+      "type": "number"
+    },
+    {
+      "key": "bluntDefense",
+      "label": "钝防",
+      "type": "number"
+    },
+    {
+      "key": "weight",
+      "label": "重量(公斤)",
+      "type": "number"
+    },
+    {
+      "key": "carryBonus",
+      "label": "额外携带容量(公斤)",
+      "type": "number",
+      "hint": "只有口袋狗衣有"
+    },
+    {
+      "key": "description",
+      "label": "说明",
+      "type": "longtext"
+    },
+    {
+      "key": "_id",
+      "label": "内部 id",
+      "type": "text",
+      "internal": true
+    },
+    {
+      "key": "_anchor",
+      "label": "代码位置",
+      "type": "text",
+      "internal": true
+    },
+    {
+      "key": "sync",
+      "label": "同步状态",
+      "type": "chip",
+      "readonly": true,
+      "hint": "空 = 已在代码里。「新增/删除·待同步进代码」= 你在网页上的改动还没进游戏，需要 agent 同步到 C#。"
+    },
+    {
+      "key": "_icon",
+      "label": "图标",
+      "type": "text",
+      "internal": true,
+      "hint": "godot/assets/items/<这个>.png（映射表在 godot/scripts/ItemIcons.cs）"
+    }
+  ],
+  "rows": [
+    {
+      "name": "布制狗衣",
+      "slot": "躯干",
+      "sharpDefense": 6,
+      "bluntDefense": 3,
+      "weight": 0.15,
+      "carryBonus": 0,
+      "description": "给可爱的狗狗穿上可爱的衣服。",
+      "_id": "布制狗衣",
+      "_anchor": "godot/scripts/DogApparel.cs :: DogGearCatalog.Defs（护甲值在 ArmorTable.Dog*）",
+      "sync": "",
+      "_icon": "armor/dog_cloth_vest"
+    },
+    {
+      "name": "皮制狗衣",
+      "slot": "躯干",
+      "sharpDefense": 12,
+      "bluntDefense": 6,
+      "weight": 0.5,
+      "carryBonus": 0,
+      "description": "狗皮外的另一层皮。",
+      "_id": "皮制狗衣",
+      "_anchor": "godot/scripts/DogApparel.cs :: DogGearCatalog.Defs（护甲值在 ArmorTable.Dog*）",
+      "sync": "",
+      "_icon": "armor/dog_leather_vest"
+    },
+    {
+      "name": "口袋狗衣",
+      "slot": "躯干",
+      "sharpDefense": 2,
+      "bluntDefense": 1,
+      "weight": 0.25,
+      "carryBonus": 6,
+      "description": "好狗，好狗。",
+      "_id": "口袋狗衣",
+      "_anchor": "godot/scripts/DogApparel.cs :: DogGearCatalog.Defs（护甲值在 ArmorTable.Dog*）",
+      "sync": "",
+      "_icon": "armor/dog_pocket_vest"
+    },
+    {
+      "name": "铁皮头甲",
+      "slot": "头部",
+      "sharpDefense": 18,
+      "bluntDefense": 12,
+      "weight": 3,
+      "carryBonus": 0,
+      "description": "狗狗也戴头盔。",
+      "_id": "铁皮头甲",
+      "_anchor": "godot/scripts/DogApparel.cs :: DogGearCatalog.Defs（护甲值在 ArmorTable.Dog*）",
+      "sync": "",
+      "_icon": "armor/dog_iron_helmet"
+    },
+    {
+      "name": "铁丝头甲",
+      "slot": "头部",
+      "sharpDefense": 12,
+      "bluntDefense": 12,
+      "weight": 1.5,
+      "carryBonus": 0,
+      "description": "曾经他是不让狗咬你的，现在他是用来保护狗咬你的。",
+      "_id": "铁丝头甲",
+      "_anchor": "godot/scripts/DogApparel.cs :: DogGearCatalog.Defs（护甲值在 ArmorTable.Dog*）",
+      "sync": "",
+      "_icon": "armor/dog_wire_helmet"
+    }
+  ]
+}

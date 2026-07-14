@@ -78,7 +78,8 @@ public sealed class BookwormPerk
     public double CampWideReadingSpeedBonus => Level >= 3 ? CampWideBonusAtMax : 0.0;
 
     // draft：L3 满级全营读速加成幅度。
-    private const double CampWideBonusAtMax = 0.25;
+    /// <summary>L3 满级贡献给全营的读速加成幅度（draft）。</summary>
+    public const double CampWideBonusAtMax = 0.25;
 
     /// <summary>某等级的自身读速加成（加法：L1=+0.25 / L2=+0.50 / L3=+0.50，L3 与 L2 同；越界按最近级钳制）。draft。</summary>
     public static double BonusForLevel(int level) => level switch

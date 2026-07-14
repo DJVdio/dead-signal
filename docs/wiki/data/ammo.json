@@ -1,0 +1,232 @@
+{
+  "id": "ammo",
+  "label": "弹药与箭",
+  "source": "godot/scripts/Materials.cs + src/DeadSignal.Combat/Ammo.cs + src/DeadSignal.Combat/Archery.cs",
+  "note": "四种子弹（短/中/长/鹿弹）全部从「子弹零件」造，1 个零件造几发决定了这把枪贵不贵。四种箭是另一回事——**箭反过来改写弓的属性**：最终属性 = 弓的基础属性 × 这里的倍率。箭可回收，子弹不能。",
+  "columns": [
+    {
+      "key": "name",
+      "label": "名称",
+      "type": "text",
+      "primary": true
+    },
+    {
+      "key": "kind",
+      "label": "类型",
+      "type": "chip"
+    },
+    {
+      "key": "yieldPerPart",
+      "label": "1 个子弹零件造几发",
+      "type": "number",
+      "hint": "箭不吃子弹零件，故为空"
+    },
+    {
+      "key": "damageMult",
+      "label": "伤害倍率",
+      "type": "number",
+      "hint": "箭专用：反过来改写弓/弩的属性"
+    },
+    {
+      "key": "penetrationMult",
+      "label": "破甲倍率",
+      "type": "number"
+    },
+    {
+      "key": "rangeMult",
+      "label": "射程倍率",
+      "type": "number"
+    },
+    {
+      "key": "cooldownMult",
+      "label": "冷却倍率",
+      "type": "number",
+      "hint": "大于 1 = 出手更慢"
+    },
+    {
+      "key": "spreadMult",
+      "label": "散布倍率",
+      "type": "number",
+      "hint": "大于 1 = 更不准"
+    },
+    {
+      "key": "craftable",
+      "label": "可制作",
+      "type": "bool"
+    },
+    {
+      "key": "weight",
+      "label": "单位重量(公斤)",
+      "type": "number"
+    },
+    {
+      "key": "description",
+      "label": "说明",
+      "type": "longtext"
+    },
+    {
+      "key": "_id",
+      "label": "内部 id",
+      "type": "text",
+      "internal": true
+    },
+    {
+      "key": "_anchor",
+      "label": "代码位置",
+      "type": "text",
+      "internal": true
+    },
+    {
+      "key": "sync",
+      "label": "同步状态",
+      "type": "chip",
+      "readonly": true,
+      "hint": "空 = 已在代码里。「新增/删除·待同步进代码」= 你在网页上的改动还没进游戏，需要 agent 同步到 C#。"
+    },
+    {
+      "key": "_icon",
+      "label": "图标",
+      "type": "text",
+      "internal": true,
+      "hint": "godot/assets/items/<这个>.png（映射表在 godot/scripts/ItemIcons.cs）"
+    }
+  ],
+  "rows": [
+    {
+      "name": "短子弹",
+      "kind": "子弹",
+      "yieldPerPart": 8,
+      "damageMult": null,
+      "penetrationMult": null,
+      "rangeMult": null,
+      "cooldownMult": null,
+      "spreadMult": null,
+      "craftable": true,
+      "weight": 0.03,
+      "description": "手枪和冲锋枪吃的小家伙。最不值钱的一种子弹——这话你打空弹匣之前也是这么说的。",
+      "_id": "ammo_short",
+      "_anchor": "godot/scripts/Materials.cs :: Materials（名称/说明）+ src/DeadSignal.Combat/Ammo.cs :: BulletParts.YieldPer（制作比）",
+      "sync": "",
+      "_icon": "materials/ammo_short"
+    },
+    {
+      "name": "中子弹",
+      "kind": "子弹",
+      "yieldPerPart": 5,
+      "damageMult": null,
+      "penetrationMult": null,
+      "rangeMult": null,
+      "cooldownMult": null,
+      "spreadMult": null,
+      "craftable": true,
+      "weight": 0.03,
+      "description": "步枪和猎枪的口粮。一份零件只出五发，而步枪一次扣扳机就吞掉两发——算术很简单，心疼是真的。",
+      "_id": "ammo_medium",
+      "_anchor": "godot/scripts/Materials.cs :: Materials（名称/说明）+ src/DeadSignal.Combat/Ammo.cs :: BulletParts.YieldPer（制作比）",
+      "sync": "",
+      "_icon": "materials/ammo_medium"
+    },
+    {
+      "name": "长子弹",
+      "kind": "子弹",
+      "yieldPerPart": 2,
+      "damageMult": null,
+      "penetrationMult": null,
+      "rangeMult": null,
+      "cooldownMult": null,
+      "spreadMult": null,
+      "craftable": true,
+      "weight": 0.03,
+      "description": "又长又沉的狙击弹，一份零件只做得出两发。别拿它打丧尸，那是在用金子砸苍蝇。",
+      "_id": "ammo_long",
+      "_anchor": "godot/scripts/Materials.cs :: Materials（名称/说明）+ src/DeadSignal.Combat/Ammo.cs :: BulletParts.YieldPer（制作比）",
+      "sync": "",
+      "_icon": "materials/ammo_long"
+    },
+    {
+      "name": "鹿弹",
+      "kind": "子弹",
+      "yieldPerPart": 4,
+      "damageMult": null,
+      "penetrationMult": null,
+      "rangeMult": null,
+      "cooldownMult": null,
+      "spreadMult": null,
+      "craftable": true,
+      "weight": 0.03,
+      "description": "红壳的鹿弹，一发里塞着八颗铅丸。贴脸时它是神，二十步外它只是响。",
+      "_id": "ammo_buck",
+      "_anchor": "godot/scripts/Materials.cs :: Materials（名称/说明）+ src/DeadSignal.Combat/Ammo.cs :: BulletParts.YieldPer（制作比）",
+      "sync": "",
+      "_icon": "materials/ammo_buck"
+    },
+    {
+      "name": "削尖的木箭",
+      "kind": "箭",
+      "yieldPerPart": null,
+      "damageMult": 0.75,
+      "penetrationMult": 0.75,
+      "rangeMult": 0.75,
+      "cooldownMult": 1,
+      "spreadMult": 1.1,
+      "craftable": true,
+      "weight": 0.03,
+      "description": "一根削尖的木棍，勉强算箭。它会飞，也会中，就是别指望它飞直，或者中得深。",
+      "_id": "ammo_arrow_stick",
+      "_anchor": "src/DeadSignal.Combat/Archery.cs :: ArrowTable（倍率）+ godot/scripts/Materials.cs（名称/说明）",
+      "sync": "",
+      "_icon": "materials/ammo_arrow_stick"
+    },
+    {
+      "name": "自制箭",
+      "kind": "箭",
+      "yieldPerPart": null,
+      "damageMult": 1,
+      "penetrationMult": 1,
+      "rangeMult": 1,
+      "cooldownMult": 1,
+      "spreadMult": 1,
+      "craftable": true,
+      "weight": 0.03,
+      "description": "木杆、铁头、布尾羽，手工出品。称不上精良，但每一支都长得一样——对一个弓手来说，这比精良更要紧。",
+      "_id": "ammo_arrow_handmade",
+      "_anchor": "src/DeadSignal.Combat/Archery.cs :: ArrowTable（倍率）+ godot/scripts/Materials.cs（名称/说明）",
+      "sync": "",
+      "_icon": "materials/ammo_arrow_handmade"
+    },
+    {
+      "name": "重头箭",
+      "kind": "箭",
+      "yieldPerPart": null,
+      "damageMult": 1.35,
+      "penetrationMult": 1.45,
+      "rangeMult": 0.75,
+      "cooldownMult": 1.15,
+      "spreadMult": 1.25,
+      "craftable": true,
+      "weight": 0.03,
+      "description": "箭头灌了铅，沉得手腕发酸。飞不远，抬手也慢，但扎上去的时候，护甲的意见就不太重要了。",
+      "_id": "ammo_arrow_heavy",
+      "_anchor": "src/DeadSignal.Combat/Archery.cs :: ArrowTable（倍率）+ godot/scripts/Materials.cs（名称/说明）",
+      "sync": "",
+      "_icon": "materials/ammo_arrow_heavy"
+    },
+    {
+      "name": "碳纤维箭",
+      "kind": "箭",
+      "yieldPerPart": null,
+      "damageMult": 1.25,
+      "penetrationMult": 1.25,
+      "rangeMult": 1.2,
+      "cooldownMult": 0.9,
+      "spreadMult": 0.7,
+      "craftable": false,
+      "weight": 0.03,
+      "description": "碳纤维箭杆，笔直、轻盈、贵得离谱。工厂早就停工了，用一支少一支——所以射出去之后，你一定会回去把它捡起来。",
+      "_id": "ammo_arrow_carbon",
+      "_anchor": "src/DeadSignal.Combat/Archery.cs :: ArrowTable（倍率）+ godot/scripts/Materials.cs（名称/说明）",
+      "sync": "",
+      "_icon": "materials/ammo_arrow_carbon"
+    }
+  ]
+}

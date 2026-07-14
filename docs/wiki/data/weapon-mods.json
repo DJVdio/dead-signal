@@ -1,0 +1,314 @@
+{
+  "id": "weapon-mods",
+  "label": "武器改装",
+  "source": "godot/scripts/WeaponModCatalog.cs",
+  "note": "给武器加零件。一个部位只装得下一件，装不下的会被拒绝。",
+  "columns": [
+    {
+      "key": "name",
+      "label": "名称",
+      "type": "text",
+      "primary": true
+    },
+    {
+      "key": "weaponClass",
+      "label": "能装在什么武器上",
+      "type": "chip"
+    },
+    {
+      "key": "fitsOn",
+      "label": "可装于",
+      "type": "text",
+      "readonly": true,
+      "hint": "引擎按「武器大类」限制，这里把该大类的武器逐个列出来——加了新武器它会自己出现"
+    },
+    {
+      "key": "part",
+      "label": "占用部位",
+      "type": "chip",
+      "hint": "一个部位只能装一件；不同部位可以同时装"
+    },
+    {
+      "key": "stats",
+      "label": "数值改动",
+      "type": "text",
+      "readonly": true,
+      "hint": "结构化数据，改它要连带改代码——想调数值请直接跟 agent 说"
+    },
+    {
+      "key": "form",
+      "label": "近战型态",
+      "type": "chip",
+      "hint": "改写枪托近战的打法；一把枪只能装一条带型态的改装"
+    },
+    {
+      "key": "materials",
+      "label": "材料",
+      "type": "text",
+      "hint": "格式：废金属×2、布×1"
+    },
+    {
+      "key": "workMinutes",
+      "label": "工时(游戏分钟)",
+      "type": "number"
+    },
+    {
+      "key": "note",
+      "label": "说明",
+      "type": "longtext"
+    },
+    {
+      "key": "_id",
+      "label": "内部 id",
+      "type": "text",
+      "internal": true
+    },
+    {
+      "key": "_anchor",
+      "label": "代码位置",
+      "type": "text",
+      "internal": true
+    },
+    {
+      "key": "sync",
+      "label": "同步状态",
+      "type": "chip",
+      "readonly": true,
+      "hint": "空 = 已在代码里。「新增/删除·待同步进代码」= 你在网页上的改动还没进游戏，需要 agent 同步到 C#。"
+    },
+    {
+      "key": "_icon",
+      "label": "图标",
+      "type": "text",
+      "internal": true,
+      "hint": "godot/assets/items/<这个>.png（映射表在 godot/scripts/ItemIcons.cs）"
+    }
+  ],
+  "rows": [
+    {
+      "name": "轻质化枪托",
+      "weaponClass": "枪械",
+      "fitsOn": "自制猎枪、手枪、冲锋枪、步枪、栓动猎枪、狙击枪、自制霰弹枪",
+      "part": "枪托",
+      "stats": "攻击间隔 ×0.85、伤害上限 ×0.92、枪托间隔 ×0.9",
+      "form": "",
+      "materials": "木料×1、废金属×1",
+      "workMinutes": 50,
+      "note": "全枪减重：射速↑，单发伤害略↓。draft",
+      "_id": "轻质化枪托",
+      "_anchor": "godot/scripts/WeaponModCatalog.cs :: WeaponModCatalog",
+      "sync": "",
+      "_icon": ""
+    },
+    {
+      "name": "截短枪管",
+      "weaponClass": "枪械",
+      "fitsOn": "自制猎枪、手枪、冲锋枪、步枪、栓动猎枪、狙击枪、自制霰弹枪",
+      "part": "枪管",
+      "stats": "最大射程 ×0.6、衰减起点 ×0.6、基础散布 ×1.4、攻击间隔 ×0.9",
+      "form": "",
+      "materials": "废金属×1",
+      "workMinutes": 40,
+      "note": "短管：射程↓、精度↓、贴脸出手略快。draft",
+      "_id": "截短枪管",
+      "_anchor": "godot/scripts/WeaponModCatalog.cs :: WeaponModCatalog",
+      "sync": "",
+      "_icon": ""
+    },
+    {
+      "name": "加长枪管",
+      "weaponClass": "枪械",
+      "fitsOn": "自制猎枪、手枪、冲锋枪、步枪、栓动猎枪、狙击枪、自制霰弹枪",
+      "part": "枪管",
+      "stats": "最大射程 ×1.3、衰减起点 ×1.3、基础散布 ×0.85、攻击间隔 ×1.1",
+      "form": "",
+      "materials": "金属锭×1、废金属×1",
+      "workMinutes": 70,
+      "note": "长管：射程↑、精度↑、出手略慢。draft",
+      "_id": "加长枪管",
+      "_anchor": "godot/scripts/WeaponModCatalog.cs :: WeaponModCatalog",
+      "sync": "",
+      "_icon": ""
+    },
+    {
+      "name": "刺刀型",
+      "weaponClass": "枪械",
+      "fitsOn": "自制猎枪、手枪、冲锋枪、步枪、栓动猎枪、狙击枪、自制霰弹枪",
+      "part": "枪口",
+      "stats": "枪托伤害下限 ×1.35、枪托伤害上限 ×1.35、枪托穿透 =0.2、枪托间隔 ×0.85、StockMeleeNoiseRadius ×0.8",
+      "form": "刺刀型",
+      "materials": "金属锭×1、废金属×2、绳子×1",
+      "workMinutes": 90,
+      "note": "枪口挂刺刀：贴脸变锐击突刺，穿透 20%（全型态最高）、出手最快最安静，单击伤害不及利爪。draft",
+      "_id": "刺刀型",
+      "_anchor": "godot/scripts/WeaponModCatalog.cs :: WeaponModCatalog",
+      "sync": "",
+      "_icon": ""
+    },
+    {
+      "name": "利爪型",
+      "weaponClass": "枪械",
+      "fitsOn": "自制猎枪、手枪、冲锋枪、步枪、栓动猎枪、狙击枪、自制霰弹枪",
+      "part": "枪托",
+      "stats": "枪托伤害下限 ×1.5、枪托伤害上限 ×1.5、枪托穿透 =0.1",
+      "form": "利爪型",
+      "materials": "废金属×3、皮革×1、钉子×2",
+      "workMinutes": 80,
+      "note": "枪托绑利刃：贴脸变锐击挥砍，伤害最高、穿透中等（10%）、节奏不变。draft",
+      "_id": "利爪型",
+      "_anchor": "godot/scripts/WeaponModCatalog.cs :: WeaponModCatalog",
+      "sync": "",
+      "_icon": ""
+    },
+    {
+      "name": "创伤型",
+      "weaponClass": "枪械",
+      "fitsOn": "自制猎枪、手枪、冲锋枪、步枪、栓动猎枪、狙击枪、自制霰弹枪",
+      "part": "枪托",
+      "stats": "枪托伤害下限 ×1.6、枪托伤害上限 ×1.6、枪托穿透 +0.03、枪托间隔 ×1.25、StockMeleeNoiseRadius ×1.2、基础散布 ×1.1",
+      "form": "创伤型",
+      "materials": "金属锭×1、废金属×2、钉子×4",
+      "workMinutes": 100,
+      "note": "枪托改铁锤：贴脸钝击最重、更慢更响；持握变差 → 射击精度↓（唯一有射击代价的型态）。draft",
+      "_id": "创伤型",
+      "_anchor": "godot/scripts/WeaponModCatalog.cs :: WeaponModCatalog",
+      "sync": "",
+      "_icon": ""
+    },
+    {
+      "name": "锯齿剑刃",
+      "weaponClass": "近战锐器",
+      "fitsOn": "匕首、短剑、刺剑、长剑、重剑、草叉",
+      "part": "刃",
+      "stats": "伤害上限 +3",
+      "form": "",
+      "materials": "废金属×2",
+      "workMinutes": 50,
+      "note": "锯齿：撕裂伤↑（流血倾向暂借伤害上限表达）。draft",
+      "_id": "锯齿剑刃",
+      "_anchor": "godot/scripts/WeaponModCatalog.cs :: WeaponModCatalog",
+      "sync": "",
+      "_icon": ""
+    },
+    {
+      "name": "锋刃研磨",
+      "weaponClass": "近战锐器",
+      "fitsOn": "匕首、短剑、刺剑、长剑、重剑、草叉",
+      "part": "刃",
+      "stats": "穿透 +0.05",
+      "form": "",
+      "materials": "石料×2",
+      "workMinutes": 30,
+      "note": "开刃：穿透↑。draft",
+      "_id": "锋刃研磨",
+      "_anchor": "godot/scripts/WeaponModCatalog.cs :: WeaponModCatalog",
+      "sync": "",
+      "_icon": ""
+    },
+    {
+      "name": "镂空剑刃",
+      "weaponClass": "近战锐器",
+      "fitsOn": "匕首、短剑、刺剑、长剑、重剑、草叉",
+      "part": "刃",
+      "stats": "攻击间隔 ×0.88、伤害上限 ×0.95",
+      "form": "",
+      "materials": "废金属×1",
+      "workMinutes": 45,
+      "note": "镂空减重：攻速↑、伤略↓。draft",
+      "_id": "镂空剑刃",
+      "_anchor": "godot/scripts/WeaponModCatalog.cs :: WeaponModCatalog",
+      "sync": "",
+      "_icon": ""
+    },
+    {
+      "name": "加重剑柄",
+      "weaponClass": "近战锐器",
+      "fitsOn": "匕首、短剑、刺剑、长剑、重剑、草叉",
+      "part": "柄",
+      "stats": "伤害下限 +2、伤害上限 +3、攻击间隔 ×1.15",
+      "form": "",
+      "materials": "废金属×2、钉子×2",
+      "workMinutes": 45,
+      "note": "配重柄：伤↑、攻速↓。draft",
+      "_id": "加重剑柄",
+      "_anchor": "godot/scripts/WeaponModCatalog.cs :: WeaponModCatalog",
+      "sync": "",
+      "_icon": ""
+    },
+    {
+      "name": "轻质化剑柄",
+      "weaponClass": "近战锐器",
+      "fitsOn": "匕首、短剑、刺剑、长剑、重剑、草叉",
+      "part": "柄",
+      "stats": "攻击间隔 ×0.85、伤害上限 ×0.92",
+      "form": "",
+      "materials": "木料×1、皮革×1",
+      "workMinutes": 40,
+      "note": "减重柄：攻速↑、伤略↓。draft",
+      "_id": "轻质化剑柄",
+      "_anchor": "godot/scripts/WeaponModCatalog.cs :: WeaponModCatalog",
+      "sync": "",
+      "_icon": ""
+    },
+    {
+      "name": "防滑缠手",
+      "weaponClass": "近战钝器",
+      "fitsOn": "匕首、短剑、刺剑、长剑、重剑、草叉",
+      "part": "缠手",
+      "stats": "攻击间隔 ×0.95",
+      "form": "",
+      "materials": "布×2、绳子×1",
+      "workMinutes": 20,
+      "note": "缠手防滑：抡起更利落（攻速↑）。draft",
+      "_id": "防滑缠手",
+      "_anchor": "godot/scripts/WeaponModCatalog.cs :: WeaponModCatalog",
+      "sync": "",
+      "_icon": ""
+    },
+    {
+      "name": "铁丝强化",
+      "weaponClass": "近战钝器",
+      "fitsOn": "棍棒、尖头锤、破甲锤",
+      "part": "杆",
+      "stats": "伤害下限 +1、伤害上限 +2",
+      "form": "",
+      "materials": "铁丝×2",
+      "workMinutes": 30,
+      "note": "缠铁丝：伤↑。draft",
+      "_id": "铁丝强化",
+      "_anchor": "godot/scripts/WeaponModCatalog.cs :: WeaponModCatalog",
+      "sync": "",
+      "_icon": ""
+    },
+    {
+      "name": "钉子强化",
+      "weaponClass": "近战钝器",
+      "fitsOn": "棍棒、尖头锤、破甲锤",
+      "part": "杆",
+      "stats": "伤害上限 +3、穿透 +0.03",
+      "form": "",
+      "materials": "钉子×4",
+      "workMinutes": 30,
+      "note": "钉刺：伤↑、穿透↑（钉尖破防）。draft",
+      "_id": "钉子强化",
+      "_anchor": "godot/scripts/WeaponModCatalog.cs :: WeaponModCatalog",
+      "sync": "",
+      "_icon": ""
+    },
+    {
+      "name": "防滑缠手",
+      "weaponClass": "近战钝器",
+      "fitsOn": "棍棒、尖头锤、破甲锤",
+      "part": "缠手",
+      "stats": "攻击间隔 ×0.95",
+      "form": "",
+      "materials": "布×2、绳子×1",
+      "workMinutes": 20,
+      "note": "缠手防滑：抡起更利落（攻速↑）。draft",
+      "_id": "防滑缠手",
+      "_anchor": "godot/scripts/WeaponModCatalog.cs :: WeaponModCatalog",
+      "sync": "",
+      "_icon": ""
+    }
+  ]
+}

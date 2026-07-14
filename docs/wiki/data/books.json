@@ -1,0 +1,163 @@
+{
+  "id": "books",
+  "label": "书籍",
+  "source": "godot/scripts/BookData.cs",
+  "note": "本作没有技能系统——**能力只由角色的专属效果和读过的书承载**。配方解锁只看谁读过哪本书。",
+  "columns": [
+    {
+      "key": "title",
+      "label": "书名",
+      "type": "text",
+      "primary": true
+    },
+    {
+      "key": "readHours",
+      "label": "读完要几小时",
+      "type": "number"
+    },
+    {
+      "key": "unlocks",
+      "label": "效果",
+      "type": "text",
+      "hint": "读完这本书带来什么：解锁的配方，或给的被动加成"
+    },
+    {
+      "key": "medicalPoints",
+      "label": "手术加成点数",
+      "type": "number",
+      "hint": "读过的医疗书给施术者加手术点；不对玩家显示具体数字"
+    },
+    {
+      "key": "body",
+      "label": "正文",
+      "type": "longtext"
+    },
+    {
+      "key": "_id",
+      "label": "内部 id",
+      "type": "text",
+      "internal": true
+    },
+    {
+      "key": "_anchor",
+      "label": "代码位置",
+      "type": "text",
+      "internal": true
+    },
+    {
+      "key": "sync",
+      "label": "同步状态",
+      "type": "chip",
+      "readonly": true,
+      "hint": "空 = 已在代码里。「新增/删除·待同步进代码」= 你在网页上的改动还没进游戏，需要 agent 同步到 C#。"
+    },
+    {
+      "key": "_icon",
+      "label": "图标",
+      "type": "text",
+      "internal": true,
+      "hint": "godot/assets/items/<这个>.png（映射表在 godot/scripts/ItemIcons.cs）"
+    }
+  ],
+  "rows": [
+    {
+      "title": "野外生存指南",
+      "readHours": 24,
+      "unlocks": "骨刀",
+      "medicalPoints": 5,
+      "body": "封皮磨得发白，边角卷起。翻开第一页，是一行褪色的钢笔字：\n\"活下去不靠运气，靠的是在天黑前把该做的都做完。\"\n\n第一章 取火。第二章 净水。第三章 用一根铁丝和一点耐心，让林子替你狩猎——书里画着一套简陋却致命的陷阱，只要照着做，晚上就不必空着肚子睡。",
+      "_id": "wilderness_survival_guide",
+      "_anchor": "godot/scripts/BookData.cs :: BookLibrary",
+      "sync": "",
+      "_icon": "books/book_wilderness"
+    },
+    {
+      "title": "农场主的一百个问题",
+      "readHours": 24,
+      "unlocks": "",
+      "medicalPoints": null,
+      "body": "一本被翻烂的问答手册，扉页盖着某个已经不存在的农业合作社的红章。\n\n\"问：土豆几时下种？答：清明前后，看你的地，也看你的胆量。\"\n\"问：一块地能养活几口人？答：伺候得好，比你想的多；伺候不好，一个都不剩。\"\n一百个问题，一百个答案，藏着从一粒种子到一顿饱饭的全部门道。",
+      "_id": "farmer_hundred_questions",
+      "_anchor": "godot/scripts/BookData.cs :: BookLibrary",
+      "sync": "",
+      "_icon": "books/book_farming"
+    },
+    {
+      "title": "裁缝手记",
+      "readHours": 20,
+      "unlocks": "粗布背心、布夹克",
+      "medicalPoints": null,
+      "body": "一本用粗线装订的手记，纸页间还夹着几缕褪色的棉线。\n\n\"针脚要密，密了才挡风；线头要藏，藏了才耐磨。\"\n\n从量体、裁片到缝合，作者把一件挡身的粗布背心拆成了十几道工序，一笔一画描得清清楚楚。照着做，几块破布也能变成能穿的东西。",
+      "_id": "tailors_notes",
+      "_anchor": "godot/scripts/BookData.cs :: BookLibrary",
+      "sync": "",
+      "_icon": "books/book_tailoring"
+    },
+    {
+      "title": "土法化学笔记",
+      "readHours": 20,
+      "unlocks": "熬骨胶、火药、鞣制药水、自制猎枪、自制霰弹枪、子弹零件、短子弹、中子弹、鹿弹、长子弹",
+      "medicalPoints": null,
+      "body": "封面被药水浸出几块焦黄，翻开一股刺鼻的酸味似乎还没散尽。\n\n\"配比错一分，是废料；错一钱，是要命。动手前先把窗户打开。\"\n\n笔记里记满了土法配方——如何把硝石、木炭和硫磺研成火药，如何调一锅鞣制生皮的药水。字迹潦草，却每一步都标着分量与火候。",
+      "_id": "folk_chemistry_notes",
+      "_anchor": "godot/scripts/BookData.cs :: BookLibrary",
+      "sync": "",
+      "_icon": "books/book_chemistry"
+    },
+    {
+      "title": "木匠入门",
+      "readHours": 20,
+      "unlocks": "木椅、床、短弓、反曲弓、长弓、单手轻弩、双手重弩",
+      "medicalPoints": null,
+      "body": "一本封皮沾满木屑的旧册子，翻开时还簌簌往下掉。\n\n\"量两遍，锯一遍。急着下刀的人，做出来的东西也急着散架。\"\n\n从认木料、开榫到打磨收边，作者把一把结实的椅子、一张能拉满的弓，拆成一道道看得见摸得着的工序。照着做，几根木头也能拼成能坐能用的东西。",
+      "_id": "carpentry_basics",
+      "_anchor": "godot/scripts/BookData.cs :: BookLibrary",
+      "sync": "",
+      "_icon": "books/book_carpentry"
+    },
+    {
+      "title": "进阶木匠技术",
+      "readHours": 28,
+      "unlocks": "",
+      "medicalPoints": null,
+      "body": "纸页泛黄，字里行间满是术语与受力草图，像是写给已经会做椅子的人看的。\n\n\"没摸熟基本功就翻到这一页的，先回去把《木匠入门》读透——否则这里每一句你都得多琢磨半天。\"\n\n开卯连接、层压弯曲、承重结构……门道比入门深了不止一层，读起来也慢得多。但真吃透了，能造的就不只是能用的东西了。",
+      "_id": "advanced_carpentry",
+      "_anchor": "godot/scripts/BookData.cs :: BookLibrary",
+      "sync": "",
+      "_icon": "books/book_carpentry_adv"
+    },
+    {
+      "title": "弓与箭之道",
+      "readHours": 18,
+      "unlocks": "被动：箭矢回收率 25% → 50%",
+      "medicalPoints": null,
+      "body": "一本薄薄的射艺小册，封面上是一张画得极认真的弓。扉页题着一句话：\n\n\"射出去的箭，一半的功夫在把它捡回来。\"\n\n书里没怎么讲怎么瞄准——作者显然觉得那是各人的事。整整三章都在讲别的：怎么挑不劈的木头，怎么让箭杆经得起一次次撞击，怎么从尸体、树干和泥里把箭起出来而不折断它，以及最要紧的——射之前先想好，这一箭你捡不捡得回来。\n\n\"新手一天能射光一筒箭。老手一筒箭能用一个月。\"\n\"区别不在准头。在于老手每射一箭之前，都已经知道那支箭会落在哪里。\"",
+      "_id": "way_of_bow_and_arrow",
+      "_anchor": "godot/scripts/BookData.cs :: BookLibrary",
+      "sync": "",
+      "_icon": "books/book_archery"
+    },
+    {
+      "title": "一本卷边的日记（其一）",
+      "readHours": 6,
+      "unlocks": "",
+      "medicalPoints": null,
+      "body": "字迹潦草，像是就着火光匆匆写下的。\n\n灾变头一个月，是老陈拉了我一把。我们俩背靠背，从加油站一路抢到城郊，谁也没抛下谁——那时候我还觉得，能活下来的都是好人。\n\n后来我们撞上了这伙人。有吃的，有墙，有枪。代价是，你得跟他们一样。\n\n第一次把那女人拖进屋的时候，我手在抖。哥顿说，男人就该拿在手里，拿不住的，不配活。老陈先动的手，我跟上了。往后就不抖了。\n\n他们管自己叫\"金手指\"。头目说，指头是男人身上最诚实的东西——它按住扳机，也按住女人，它做过的事，脑子可以不认，指头认。\n所以入伙那天，每个人都要用手指在她们身上留下印子。这就是规矩。\n\n我写下这些，不是想被原谅。我只是怕哪天连自己都忘了，我曾经也算个人。",
+      "_id": "goldfinger_diary_a",
+      "_anchor": "godot/scripts/BookData.cs :: BookLibrary",
+      "sync": "",
+      "_icon": "books/book_diary_a"
+    },
+    {
+      "title": "一本硬壳笔记（其二）",
+      "readHours": 6,
+      "unlocks": "",
+      "medicalPoints": null,
+      "body": "硬壳笔记本，扉页只写着一个名字：哥顿。字迹工整得不像个恶人。\n\n我母亲从不许我父亲说完一句话。她的声音、她的手，压着这个家二十年。父亲低着头吃饭、低着头挨骂、低着头老去。我恨他的软弱，也害怕自己就是他。\n\n变尸的那天，是母亲先咬穿了父亲的喉咙。他没有反抗，甚至没有后退——他就那样看着她扑上来，像是终于等到了什么。我躲在门后，一动没动。\n\n后来我立了规矩，教弟兄们如何拿捏一个女人，如何让恐惧替我说话。他们怕我，就没人看得见：我不过是那个躲在门后、连喊都不敢喊的孩子。\n\n可这些天我总在想——把她们折磨到死，我究竟证明了什么？\n什么都没有。指头按下去，按住的从来不是别人，是我自己那点没用的怕。\n\n我一个人来了这片林子。守林人小屋后院那棵老树的横枝够粗，绳子我也试过了。\n没人认得我，也没人替我说话——很好。这一次，我不必再装了。",
+      "_id": "goldfinger_diary_b",
+      "_anchor": "godot/scripts/BookData.cs :: BookLibrary",
+      "sync": "",
+      "_icon": "books/book_diary_b"
+    }
+  ]
+}
