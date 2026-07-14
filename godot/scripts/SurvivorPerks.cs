@@ -49,6 +49,16 @@ public sealed class SurvivorPerks
 
     /// <summary>把本 pawn 标记为山姆（赋予"英雄风范"专属效果身份）。建角时对山姆调用一次（<c>Pawn.Create</c> 按名授予）。</summary>
     public void GrantSam() => IsSam = true;
+
+    /// <summary>
+    /// 本 pawn 是否为**耗子**（下水道招募的无名幸存者，[T61]）。同南丁格尔的形态：效果规则/等级/计数皆走静态
+    /// <see cref="RatPerk"/> + <c>StoryFlags</c>（计数持久化走旗标 <see cref="RatPerk.ScavengeCountFlag"/>），
+    /// 本处只标"这人是不是耗子"。其余角色恒 false。
+    /// </summary>
+    public bool IsRat { get; private set; }
+
+    /// <summary>把本 pawn 标记为耗子（赋予其三级专属效果身份）。招募入队时调用一次。</summary>
+    public void GrantRat() => IsRat = true;
 }
 
 /// <summary>
@@ -145,10 +155,18 @@ public static class NightingalePerk
     public const int NightingaleSurgeryBasePoints = 30;
     /// <summary>3级：全营手术基础点 +5（永续遗产）。</summary>
     public const int CampSurgeryBaseBonus = 5;
-    /// <summary>2级：全营感染率 −10%（她在营存活时生效）。T21 用户在数值表上手改：−15% → −10%。</summary>
-    public const double Level2InfectionReduction = 0.10;
-    /// <summary>3级：全营感染率再 −5%（永续遗产）。T21 用户在数值表上手改：−10% → −5%。</summary>
-    public const double Level3InfectionReduction = 0.05;
+    /// <summary>
+    /// 2级：全营感染率 <b>−15%</b>（她在营存活时生效）。
+    /// <para>⚠️ 这个数**来回改过两轮**，别再"顺手改回去"：
+    /// 初版 −15% →（T21 用户在数值表上手改<b>下调</b>）−10% →（T59 用户在 wiki 上<b>又调回</b>）−15%。
+    /// 以表为准（表赢代码）。</para>
+    /// </summary>
+    public const double Level2InfectionReduction = 0.15;
+    /// <summary>
+    /// 3级：全营感染率再 <b>−10%</b>（永续遗产）。
+    /// <para>⚠️ 同上，来回两轮：初版 −10% →（T21 下调）−5% →（T59 又调回）−10%。</para>
+    /// </summary>
+    public const double Level3InfectionReduction = 0.10;
 
     /// <summary>她本人累计手术台数的持久化旗标 key（字符串承载整数，RadioMainline 回复日先例）。</summary>
     public const string SurgeryCountFlag = "nightingale_surgery_count";
@@ -187,9 +205,14 @@ public static class NightingalePerk
            + (l3LegacyActive ? CampSurgeryBaseBonus : 0);
 
     /// <summary>
-    /// 全营**感染率乘子**：2级 −10%（<paramref name="nurseAliveInCamp"/> 且 <paramref name="nurseLevel"/>≥2）
-    /// + 3级 −5%（<paramref name="l3LegacyActive"/>，永续遗产，她死/离营仍生效）。减免走**加法**（用户口径）：
-    /// 存活 L3 = ×(1−0.10−0.05)=×0.85；死后/离营仅遗产 = ×0.95；仅 L2 存活 = ×0.90；无 = ×1.0。
+    /// 全营**感染率乘子**：2级 −15%（<paramref name="nurseAliveInCamp"/> 且 <paramref name="nurseLevel"/>≥2）
+    /// × 3级 −10%（<paramref name="l3LegacyActive"/>，永续遗产，她死/离营仍生效）。
+    ///
+    /// <para>🔴 <b>两级减免走乘算，不是加法</b>（CLAUDE.md 铁律：「百分比加成一律乘算，禁止加算」）。
+    /// T59 之前这里是 <c>reduction += …; return 1 − reduction;</c> —— 一条**加算残留**，
+    /// 它会让减免可以线性堆到 100%（堆够就"永不感染"）；乘算则永远逼近而不触及 0。
+    /// 存活 L3 = ×(1−0.15)×(1−0.10) = <b>×0.765</b>（加算会给出 0.75，差的不只是这 0.015，而是方向）；
+    /// 死后/离营仅遗产 = ×0.90；仅 L2 存活 = ×0.85；无 = ×1.0。</para>
     /// 供 <c>CampMain.AdvanceSurvivorsHealthDay</c> 喂各幸存者 <c>TickDay(infectionChanceMultiplier:…)</c>。纯静态、可脱实例。
     ///
     /// ⚠️ <b>[DECISION] 未决——轴的归属</b>：本乘子作用在<b>预防轴</b>（<c>infectionChanceMultiplier</c>＝"会不会感染"的几率），
@@ -200,10 +223,10 @@ public static class NightingalePerk
     /// </summary>
     public static double CampInfectionMultiplier(int nurseLevel, bool nurseAliveInCamp, bool l3LegacyActive)
     {
-        double reduction = 0.0;
-        if (nurseAliveInCamp && nurseLevel >= 2) reduction += Level2InfectionReduction;
-        if (l3LegacyActive) reduction += Level3InfectionReduction;
-        return 1.0 - reduction;
+        double multiplier = 1.0;
+        if (nurseAliveInCamp && nurseLevel >= 2) multiplier *= 1.0 - Level2InfectionReduction;
+        if (l3LegacyActive) multiplier *= 1.0 - Level3InfectionReduction;
+        return multiplier;
     }
 }
 
@@ -395,4 +418,201 @@ public static class ReadingSpeed
            * (1.0 + selfBonus + campWideBonusSum)
            * (hasSeat ? 1.0 : NoSeatMultiplier)
            * prerequisiteFactor;
+}
+
+/// <summary>
+/// **耗子**专属效果（[T61] 下水道招募的无名幸存者；authored，数值为**用户原话**，非拟定、勿标待调）。
+/// <para>
+/// 形态照抄 <see cref="NightingalePerk"/>：**无实例状态**，等级由**累计搜出的物品件数**派生
+/// （<see cref="EvaluateLevel"/>），件数持久化在 <c>StoryFlags</c>（<see cref="ScavengeCountFlag"/>，
+/// "字符串承载整数"，同 <c>nightingale_surgery_count</c>）⇒ <b>存档天然覆盖，不加 SaveData 字段、不撞版本号</b>。
+/// 身份标记 = <see cref="SurvivorPerks.IsRat"/>。
+/// </para>
+/// <para>
+/// <b>「一件」的口径</b>：一件 = 藏物清单里的**一个 <c>LootItem</c> 条目**（见 <c>LootSession</c> 头注释：
+/// 「8 发子弹是一堆、**一次转出**」）—— <b>不按数量/重量/价值</b>。故 75/250 件 = 75/250 个条目，
+/// 计数源 = <c>LootSession</c> 每转出一件就 <see cref="RecordScavenged"/> 一次。
+/// </para>
+/// </summary>
+public static class RatPerk
+{
+    /// <summary>她的名字（用户原话：「**没有名字，叫"耗子"**」）。</summary>
+    public const string RatName = "耗子";
+
+    // —— 升级阈值（用户原话：「搜刮寻找物品，累计转出来 75 件物品升到二级，250 件升到三级」）——
+    /// <summary>升到 L2 所需累计搜出件数（**用户原话 75**，非拟定）。</summary>
+    public const int Level2ThresholdItems = 75;
+    /// <summary>升到 L3 所需累计搜出件数（**用户原话 250**，非拟定）。</summary>
+    public const int Level3ThresholdItems = 250;
+
+    /// <summary>她累计搜出件数的持久化旗标 key（字符串承载整数，同南丁格尔的手术台数）。</summary>
+    public const string ScavengeCountFlag = "rat_scavenge_count";
+
+    // —— L1（用户原话：「耗子的脚步和动作轻不可闻，声音减少 40%。（战斗、开枪、破坏这些不减少），
+    //     耗子的翻找搜刮速度 +50%」）——
+    /// <summary>
+    /// L1：她的**动作噪音半径乘子** = 0.60（＝"声音减少 40%"）。
+    /// <para>
+    /// 🔴 <b>这里绝不能拿 <see cref="NoiseKind"/> 当开关，别"顺手简化"</b>：那个枚举的语义轴是
+    /// **"分不分阵营"**，不是 **"是不是战斗"** —— <b>开门(100) / 撬锁(30) / 静默拆除(35) 现在全都归
+    /// <see cref="NoiseKind.Combat"/></b>。若按枚举分，耗子的**开门声会静默地不减**（而用户排除的只有
+    /// 「战斗、开枪、破坏」，开门/撬锁属于"动作"，该减）。
+    /// </para>
+    /// <para>
+    /// ⇒ <b>按用户原话的语义逐个 emitter 点名</b>（见 <see cref="AppliesToActionNoise"/>）：<br/>
+    /// <b>减</b>：脚步 / 开门 / 撬锁 / 静默拆除（＝"脚步和动作"）。<br/>
+    /// <b>不减</b>：武器攻击噪音（战斗、开枪）/ 砸门破防（破坏）。
+    /// </para>
+    /// </summary>
+    public const double Level1ActionNoiseMultiplier = 0.60;
+
+    /// <summary>L1：翻找搜刮速度 **+50%**（用户原话）。</summary>
+    public const double Level1LootSpeedBonus = 0.50;
+
+    // —— L2（用户原话：「在下水道捡垃圾是耗子的生存秘诀，耗子翻找物品的速度**再 +100%**，
+    //     并且她翻找东西**不会产生任何噪音**」）——
+    /// <summary>L2：翻找搜刮速度**再** +100%（用户原话「再 +100%」）。</summary>
+    public const double Level2LootSpeedBonus = 1.00;
+
+    // —— L3（[T61 挂起] 见下方 TODO：两条都是**引擎新轴**，主 agent 裁决为「与今日其余新轴统一立项」——
+    //     常量先落，**不接线**，护栏测试钉死"未接线"）——
+    /// <summary>
+    /// L3：「黑暗带来的**隐匿点** +40%」（用户原话）。
+    /// <para>
+    /// 🔴 <b>[T61 挂起 · 未接线]</b>：「隐匿点」这个标量目前**只存在于 <see cref="NightWatchContest.ComputeStealth"/>**
+    /// （营地夜袭对抗，**潜行方恒为劫掠者、警戒方恒为我方守卫**）⇒ <b>玩家 pawn 在探索关根本没有隐匿分这个量</b>。
+    /// 探索关里"黑暗难被发现"走的是**另一条形态**：视锥几何（暗 ⇒ 观察者视锥缩窄 <c>VisionLogic.ConeFor</c>；
+    /// 身上有光 ⇒ 别人看你的视距被放大 <c>Actor.ExposedCone</c>）。**+40% 无处可挂**，
+    /// 硬挂到视锥上＝<b>拿别的效果冒充</b> ⇒ 不干。落地它需要新建「玩家 pawn 的探索关隐匿分」这条**引擎新轴**。
+    /// </para>
+    /// </summary>
+    public const double Level3DarknessStealthBonus = 0.40;
+
+    /// <summary>
+    /// L3：「**破隐先手攻击**额外再造成 **35%** 的伤害」（用户原话）。
+    /// <para>
+    /// 🔴 <b>[T61 挂起 · 未接线]</b>：<c>CombatResolver</c> **没有任何攻方伤害乘子**（只有守方的
+    /// <c>incomingDamageReduction</c>），**更没有"未被发现/偷袭"的概念**。项目里唯一叫 <c>FirstStrike</c> 的是
+    /// **岗位属性**（<c>GuardPost</c> 的"暗哨"给一次**无冷却的免费攻击**）—— 它**既不是伤害加成，也不看有没有被发现**，
+    /// <b>不是同一个东西</b>。落地它需要两样引擎里都没有的东西：①攻方伤害乘子入口 ②"我此刻未被任何敌人发现"的判定，
+    /// 且**会进 Sim 结算路径 ⇒ 要受控 A/B**。
+    /// </para>
+    /// </summary>
+    public const double Level3AmbushDamageBonus = 0.35;
+
+    /// <summary>读她累计搜出的件数（未设置/不可解析 → 0）。</summary>
+    public static int ItemsScavenged(StoryFlags flags)
+        => flags != null && int.TryParse(flags.Get(ScavengeCountFlag), out int n) ? n : 0;
+
+    /// <summary>
+    /// 记 <paramref name="count"/> 件**她本人搜出**的物品（由 <c>LootSession</c> 每转出一件即记；
+    /// 别人搜的不算 —— 这是**她的**生存秘诀）：累计件数 +count、写回旗标，返回**新件数**。
+    /// </summary>
+    public static int RecordScavenged(StoryFlags flags, int count = 1)
+    {
+        if (flags is null || count <= 0)
+        {
+            return ItemsScavenged(flags!);
+        }
+        int n = ItemsScavenged(flags) + count;
+        flags.Set(ScavengeCountFlag, n.ToString());
+        return n;
+    }
+
+    /// <summary>由累计搜出件数派生等级（入队即 L1；≥75→L2；≥250→L3）。</summary>
+    public static int EvaluateLevel(int itemsScavenged)
+        => itemsScavenged >= Level3ThresholdItems ? 3
+         : itemsScavenged >= Level2ThresholdItems ? 2
+         : 1;
+
+    /// <summary>由 StoryFlags 直接取她当前等级（读件数→派生）。</summary>
+    public static int LevelOf(StoryFlags flags) => EvaluateLevel(ItemsScavenged(flags));
+
+    /// <summary>
+    /// **搜刮速度倍率**（喂给 <c>LootSession.Advance(delta, workEfficiency)</c> / <c>EffectiveSecondsPerItem</c>
+    /// 的那条乘子链**之上再乘一层**）。非耗子恒 1.0（零回归）。
+    /// <para>
+    /// 🔴 <b>这一条是"加算"，而且是<u>用户明确指定</u>的例外，不是漏网的加算残留 —— 别"顺手改成乘算"</b>：
+    /// 用户原话 L1「速度 <b>+50%</b>」、L2「速度<b>再 +100%</b>」⇒ 主 agent 拍板口径
+    /// <b>L2 = 1 + 0.50 + 1.00 = 2.50</b>。（项目通则「百分比一律乘算」针对的是**不同来源**的加成相叠；
+    /// 这里是**同一个 perk 自己的两级台阶**，用户是按"总量"口述的。）有护栏测试钉死 2.50，改成乘算(3.0)当场红。
+    /// </para>
+    /// <para>
+    /// ⚠️ <b>绝不能挂进 <c>CampMain.WorkEfficiencyOf</c></b> —— 那条乘子链是**制作/砌墙/挖废墟/搜刮共用**的，
+    /// 而耗子的加成是**搜刮专属**（用户原话就是"翻找搜刮速度"）。必须在搜刮调用点单独乘这一层。
+    /// </para>
+    /// </summary>
+    public static double LootSpeedMultiplier(bool isRat, int ratLevel)
+    {
+        if (!isRat)
+        {
+            return 1.0;
+        }
+        double bonus = Level1LootSpeedBonus;                       // L1：+50%
+        if (ratLevel >= 2)
+        {
+            bonus += Level2LootSpeedBonus;                          // L2：再 +100% ⇒ 合计 +150%
+        }
+        return 1.0 + bonus;                                         // L1=1.50 / L2=L3=2.50
+    }
+
+    /// <summary>
+    /// **动作噪音半径乘子**：耗子的脚步/开门/撬锁/静默拆除按此缩（L1 起 0.60）。非耗子恒 1.0（零回归）。
+    /// <para>见 <see cref="Level1ActionNoiseMultiplier"/> 的大段注释：<b>调用方必须逐个 emitter 点名，
+    /// 不许拿 <see cref="NoiseKind"/> 当开关</b>（武器攻击/砸门破防**不得**经过这里）。</para>
+    /// </summary>
+    public static double ActionNoiseMultiplier(bool isRat, int ratLevel)
+        => isRat ? Level1ActionNoiseMultiplier : 1.0;
+
+    /// <summary>
+    /// **搜刮噪音乘子**：L2 起「她翻找东西**不会产生任何噪音**」⇒ 0.0；L1 与非耗子恒 1.0。
+    /// <para>
+    /// ⚠️ <b>现状：搜刮本身在引擎里就不发噪音</b>（<c>LootSession</c> 不走 <c>EmitNoise</c> 任何通道）
+    /// ⇒ 本乘子当前**恒等于"无事发生"**，是一条**面向未来的护栏**：哪天给"翻找"加了噪音（如 <c>SilentDismantleLogic</c> 那样的
+    /// 35 半径工作噪音），耗子 L2 必须**自动**是 0 —— 而不是等人想起来再补。有护栏测试钉死这个语义。
+    /// </para>
+    /// </summary>
+    public static double LootNoiseMultiplier(bool isRat, int ratLevel)
+        => isRat && ratLevel >= 2 ? 0.0 : 1.0;
+
+    /// <summary>
+    /// 该噪音**来源**是否吃耗子的 −40%（<b>唯一的分类真值表</b> —— 调用方一律查这里，别自己判）。
+    /// <para>用户原话：「耗子的**脚步和动作**轻不可闻，声音减少 40%。（**战斗、开枪、破坏**这些不减少）」。</para>
+    /// </summary>
+    /// <param name="source">噪音来源，见 <see cref="RatNoiseSource"/>。</param>
+    public static bool AppliesToActionNoise(RatNoiseSource source) => source switch
+    {
+        RatNoiseSource.Footstep => true,           // 脚步 —— 用户点名
+        RatNoiseSource.DoorOpen => true,           // 开门 —— "动作"，且**不是**战斗/开枪/破坏
+        RatNoiseSource.Lockpick => true,           // 撬锁 —— 同上
+        RatNoiseSource.SilentDismantle => true,    // 静默拆除 —— 同上（拆的是自家结构，不是"破坏"敌方门）
+        RatNoiseSource.WeaponAttack => false,      // 🔴 战斗、开枪 —— 用户明确排除
+        RatNoiseSource.Breach => false,            // 🔴 砸门破防＝"破坏" —— 用户明确排除
+        _ => false,                                 // 未知来源一律不减（保守：宁可不给，不可偷偷给）
+    };
+}
+
+/// <summary>
+/// 噪音的**来源**（[T61]）。<b>这是给耗子的 −40% 用的分类轴，和 <see cref="NoiseKind"/> 是两个正交的轴，别混</b>：
+/// <list type="bullet">
+/// <item><see cref="NoiseKind"/> 的语义轴 = <b>"这个声音分不分阵营"</b>（Movement 分 / Combat 不分）。</item>
+/// <item><see cref="RatNoiseSource"/> 的语义轴 = <b>"这个声音是不是'脚步和动作'"</b>（⇔ 战斗/开枪/破坏）。</item>
+/// </list>
+/// 两者**不重合**：开门/撬锁/静默拆除在 <see cref="NoiseKind"/> 里是 <c>Combat</c>（不分阵营 —— 谁听见都过来看），
+/// 但在本轴里是**"动作"**（该被耗子压低）。⇒ <b>拿 NoiseKind 当耗子的开关是错的</b>。
+/// </summary>
+public enum RatNoiseSource
+{
+    /// <summary>脚步（<c>Actor.FootstepNoiseRadius</c>）。</summary>
+    Footstep,
+    /// <summary>开门（<c>DoorLogic.NoiseOfOpening</c>）。</summary>
+    DoorOpen,
+    /// <summary>撬锁（<c>NoiseLogic.LockpickNoiseRadius</c>）。</summary>
+    Lockpick,
+    /// <summary>静默拆除（<c>NoiseLogic.SilentDismantleNoiseRadius</c>）。</summary>
+    SilentDismantle,
+    /// <summary>🔴 武器攻击（近战挥击 / 开枪 / 枪托）—— <b>用户明确排除，不减</b>。</summary>
+    WeaponAttack,
+    /// <summary>🔴 砸门破防（"破坏"）—— <b>用户明确排除，不减</b>。</summary>
+    Breach,
 }

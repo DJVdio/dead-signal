@@ -192,10 +192,50 @@ public class SurvivorPerksTests
         Assert.True(BookLibrary.WildernessSurvivalGuide().ReadHours > 0);
     }
 
+    /// <summary>
+    /// 🔴 <b>[T59] 原来那条「日记必须比技术书读得快」的不变量已<u>作废并重写</u> —— 因为它问错了问题。</b>
+    ///
+    /// <para>它假设「日记是一种读得快的书」，于是去比两者的工时。<b>用户澄清后这个前提整个塌了</b>：
+    /// <list type="bullet">
+    /// <item><b>书</b>给<b>角色</b>读 —— 代价是**角色的时间**（整夜占座位，不能站岗、不能干活）。</item>
+    /// <item><b>日记</b>给<b>玩家</b>读 —— 是**道具**，点开就看，游戏冻结着，**零角色时间**。</item>
+    /// </list>
+    /// ⇒ 日记<b>根本不该有"阅读工时"这个字段</b>，「日记比书读得快多少」是个**没有意义的比较**。
+    /// （此前它被做成了 <c>readHours: 6</c> 的书，还会出现在夜间读书指派列表里 —— 那是个真 bug，已修。）</para>
+    ///
+    /// <para>故本测试改成钉住<b>新语义</b>：日记不是书 / 日记没有工时 / 日记不进"派谁去读"的清单。</para>
+    /// </summary>
     [Fact]
-    public void BookData_LoreShorterThanTechnical()
+    public void 日记不是书_它没有阅读工时_也不吃角色的时间()
     {
-        // 技术书长、lore 短：日记(纯 lore) 应比技术工具书读得快
-        Assert.True(BookLibrary.GoldfingerDiaryA().ReadHours < BookLibrary.WildernessSurvivalGuide().ReadHours);
+        foreach (BookData d in BookLibrary.Diaries())
+        {
+            Assert.True(d.IsDiary, $"《{d.Title}》应被归类为日记（道具），不是书");
+
+            // 🔴 日记没有"阅读工时"——它不由角色去读，这个字段对它不适用。
+            Assert.Equal(0.0, d.ReadHours, 6);
+
+            // 日记什么也不解锁：它是叙事，不是能力（能力只由 authored 专属效果 + 读过的书承载）。
+            Assert.Null(d.GrantsRecipeStub);
+        }
+
+        // 日记**不在**"真正的书"里 ⇒ 派不了人去读它（CampMain.PopulateReadingPanel 拿 Manuals 筛）。
+        Assert.DoesNotContain(BookLibrary.Manuals(), b => b.IsDiary);
+
+        // 但它仍然在库存目录里（掉落/存档/图标照旧走书那条线，只是不再是"一件可以派人干的活"）。
+        Assert.Contains(BookLibrary.All(), b => b.Id == "goldfinger_diary_a");
+    }
+
+    /// <summary>
+    /// 把日记摘出去之后，**真正的书**这一侧的不变量还成不成立：<b>每一本书都必须有正的阅读工时</b>
+    /// —— 工时就是书的代价，一本零工时的"书"＝白送的能力。
+    /// </summary>
+    [Fact]
+    public void 真正的书_每一本都必须有正的阅读工时()
+    {
+        foreach (BookData b in BookLibrary.Manuals())
+        {
+            Assert.True(b.ReadHours > 0, $"《{b.Title}》的阅读工时是 {b.ReadHours} —— 书的代价就是工时，不能为零");
+        }
     }
 }
