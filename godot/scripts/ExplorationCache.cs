@@ -827,6 +827,9 @@ public static class ExplorationCache
                     LootItem.Material("fuel", 2),
                     LootItem.Material("first_aid_kit", 1),
                     LootItem.Food(1),
+                    LootItem.Material("flour", 2),          // [批次21·T14] 食材：仓库存的面粉
+                    LootItem.Material("canned_food", 2),    // [批次21·T14] 食材：整箱罐头，只剩两听
+                    LootItem.Material("rat", 2),            // [批次21·T14] 食材：阁楼上跑的东西——你现在管这叫食材
                 },
                 WarehouseAtticChestTitle, WarehouseAtticChestNarrative),
 
@@ -838,6 +841,7 @@ public static class ExplorationCache
                     LootItem.Material("bandage", 2),        // 服务台常备急救小物
                     LootItem.Material("cloth", 2),          // 礼品店纪念围巾/布艺
                     LootItem.Material("scrap_metal", 2),    // 投币望远镜零钱箱/纪念币撬出的碎金属
+                    LootItem.Material("canned_food", 1),    // [批次21·T14] 食材：柜台底下的一听罐头
                 },
                 LookoutGiftShopTitle, LookoutGiftShopNarrative),
 
@@ -850,6 +854,7 @@ public static class ExplorationCache
                     LootItem.Material("components", 1),     // 望远镜/信号设备拆出的电子件
                     LootItem.Material("wire", 2),           // 光学/信号线材
                     LootItem.Food(1),                       // 瞭望员的口粮
+                    LootItem.Material("ration", 1),         // [批次21·T14] 食材：抽屉里压着的单兵口粮
                 },
                 LookoutWardensRoomTitle, LookoutWardensRoomNarrative),
 
@@ -860,6 +865,8 @@ public static class ExplorationCache
                     LootItem.Food(2),                       // 值班人员留下的口粮/瓶装水
                     LootItem.Material("bandage", 2),        // 茶水间常备急救小物
                     LootItem.Material("first_aid_kit", 1),  // 台里应急急救包
+                    LootItem.Material("canned_food", 2),    // [批次21·T14] 食材：茶水间柜子里的罐头
+                    LootItem.Material("ration", 1),         // [批次21·T14] 食材：军方送来的单兵口粮，只剩一份
                 },
                 BroadcastBreakRoomTitle, BroadcastBreakRoomNarrative),
 
@@ -881,6 +888,9 @@ public static class ExplorationCache
                 {
                     LootItem.Food(2),                       // 守林人独居的过冬存粮
                     LootItem.Material("bandage", 1),        // 应急急救小物
+                    LootItem.Material("canned_food", 2),    // [批次21·T14] 食材：碗柜深处的罐头
+                    LootItem.Material("beans", 2),          // [批次21·T14] 食材：一袋干豆
+                    LootItem.Material("potato", 3),         // [批次21·T14] 食材：菜窖里的土豆
                 },
                 RangersCabinPantryTitle, RangersCabinPantryNarrative),
 
@@ -894,6 +904,7 @@ public static class ExplorationCache
                     LootItem.Material("ammo_arrow_stick", 5), // [批次18] 柴堆边削了一半的木箭——最简陋的那种，他大概也是临时凑合
                     LootItem.Material("dandelion", 1),      // [SPEC-B14] 后院墙根的蒲公英
                     LootItem.Material("rosehip", 1),        // [SPEC-B14] 篱边野蔷薇的玫瑰果
+                    LootItem.Material("mushroom", 2),       // [批次21·T14] 食材：柴堆背阴处的蘑菇
                 },
                 RangersCabinShedTitle, RangersCabinShedNarrative),
 
@@ -936,12 +947,12 @@ public static class ExplorationCache
 
             RiversideFishingId when NotYet(flags, RiversideFishingFlag) => new CacheResult(
                 RiversideFishingFlag,
-                new[] { LootItem.Material("rope", 1), LootItem.Material("wire", 1), LootItem.Material("dandelion", 1), LootItem.Material("laojunxu", 1) }, // [SPEC-B14] 河边野草：蒲公英/老君须
+                new[] { LootItem.Material("rope", 1), LootItem.Material("wire", 1), LootItem.Material("dandelion", 1), LootItem.Material("laojunxu", 1), LootItem.Material("fish", 2) }, // [SPEC-B14] 河边野草：蒲公英/老君须；[批次21·T14] 河汊里叉到的鱼
                 RiversideFishingTitle, RiversideFishingNarrative),
 
             RiversideCellarId when NotYet(flags, RiversideCellarFlag) => new CacheResult(
                 RiversideCellarFlag,
-                new[] { LootItem.Food(1), LootItem.Material("bone", 1), LootItem.Material("rosehip", 1) }, // [SPEC-B14] 窖里阴干的玫瑰果
+                new[] { LootItem.Food(1), LootItem.Material("bone", 1), LootItem.Material("rosehip", 1), LootItem.Material("potato", 3), LootItem.Material("mushroom", 1) }, // [SPEC-B14] 窖里阴干的玫瑰果；[批次21·T14] 窖里的土豆与蘑菇
                 RiversideCellarTitle, RiversideCellarNarrative),
 
             // —— [SPEC-B12] 瞭望台补 3 处（小点）——
@@ -1130,7 +1141,7 @@ public static class ExplorationCache
 
             VillageBackhillKilnId when NotYet(flags, VillageBackhillKilnFlag) => new CacheResult(
                 VillageBackhillKilnFlag,
-                new[] { LootItem.Material("wood", 2), LootItem.Material("fuel", 1), LootItem.Material("laojunxu", 1), LootItem.Material("dandelion", 1) }, // [SPEC-B14] 后山坡的老君须/蒲公英
+                new[] { LootItem.Material("wood", 2), LootItem.Material("fuel", 1), LootItem.Material("laojunxu", 1), LootItem.Material("dandelion", 1), LootItem.Material("mushroom", 2), LootItem.Material("rabbit", 1) }, // [SPEC-B14] 后山坡的老君须/蒲公英；[批次21·T14] 林下蘑菇 + 套子里的野兔
                 VillageBackhillKilnTitle, VillageBackhillKilnNarrative),
 
             VillageBackhillCaveId when NotYet(flags, VillageBackhillCaveFlag) => new CacheResult(
@@ -1146,7 +1157,7 @@ public static class ExplorationCache
 
             VillageRiverbankShackId when NotYet(flags, VillageRiverbankShackFlag) => new CacheResult(
                 VillageRiverbankShackFlag,
-                new[] { LootItem.Food(1), LootItem.Material("bone", 1), LootItem.Material("dandelion", 1) }, // [SPEC-B14] 河滩草丛的蒲公英
+                new[] { LootItem.Food(1), LootItem.Material("bone", 1), LootItem.Material("dandelion", 1), LootItem.Material("fish", 2) }, // [SPEC-B14] 河滩草丛的蒲公英；[批次21·T14] 浅滩的鱼
                 VillageRiverbankShackTitle, VillageRiverbankShackNarrative),
 
             VillageRiverbankPumpId when NotYet(flags, VillageRiverbankPumpFlag) => new CacheResult(
@@ -1474,13 +1485,15 @@ public static class ExplorationCache
             NewVillageOld2MedCabId when NotYet(flags, NewVillageOld2MedCabFlag) => new CacheResult(
                 NewVillageOld2MedCabFlag,
                 new[] { LootItem.Material("antibiotics", 1), LootItem.Material("rosehip", 1) }, // [SPEC-B14] 老屋药柜里存的干玫瑰果
+                // ⚠️ [批次21·T14] 这里**刻意不投食材**：东部新村的设计身份是「杂而薄·每点只准 1~2 件」（[SPEC-B13-补3]，
+                // NewVillageGasCacheTests 钉死）；而且药柜里也不该长出灶边的土豆。食材投放集中在仓库/守林人小屋/河滩/超市囤粮。
                 NewVillageOld2MedCabTitle, NewVillageOld2MedCabNarrative),
 
             // —— [SPEC-B13·拟设定待确认] 加油站（燃油大户：fuel 为主要产出；便利店食品少量+修车零件；draft 待用户改）——
             // 加油区(近)：加油岛/收银亭，油枪残油+零食。
             GasPumpIslandId when NotYet(flags, GasPumpIslandFlag) => new CacheResult(
                 GasPumpIslandFlag,
-                new[] { LootItem.Material("fuel", 3), LootItem.Material("dandelion", 1) }, // [SPEC-B14] 泵岛裂缝里钻出的蒲公英
+                new[] { LootItem.Material("fuel", 3), LootItem.Material("dandelion", 1), LootItem.Material("rat", 2), LootItem.Material("pigeon", 1) }, // [SPEC-B14] 泵岛裂缝里钻出的蒲公英；[批次21·T14] 便利店废墟里的老鼠与鸽子
                 GasPumpIslandTitle, GasPumpIslandNarrative),
 
             GasKioskId when NotYet(flags, GasKioskFlag) => new CacheResult(
@@ -1571,7 +1584,15 @@ public static class ExplorationCache
             // 内圈·幸存者囤货(4, 打赢/闯入才拿；量稍厚但仍克制)：
             SupermarketHoardFoodId when NotYet(flags, SupermarketHoardFoodFlag) => new CacheResult(
                 SupermarketHoardFoodFlag,
-                new[] { LootItem.Food(3) },
+                new[]
+                {
+                    LootItem.Food(3),
+                    // [批次21·T14] 食材：他们骗人骗来的囤货——全图最大的一笔存粮，也是最贵的一笔
+                    LootItem.Material("canned_food", 4),
+                    LootItem.Material("ration", 2),
+                    LootItem.Material("flour", 2),
+                    LootItem.Material("beans", 3),
+                },
                 SupermarketHoardFoodTitle, SupermarketHoardFoodNarrative),
 
             SupermarketHoardMedsId when NotYet(flags, SupermarketHoardMedsFlag) => new CacheResult(

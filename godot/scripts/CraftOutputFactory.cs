@@ -72,6 +72,11 @@ public static class CraftOutputFactory
     private static string FurnitureFlavor(string outputKey) => outputKey switch
     {
         SandbagSpec.ItemKey => SandbagSpec.ItemDescription,
+        // [批次21·T14] 烹饪台与两件炊具。⚠️ 描述里**不写热量数字**——"装上省几点"是玩家要自己试出来的
+        //（见 CookingLogic 顶部那段：食材热量点与每份需求全程对玩家隐藏）。
+        CookStation.ItemKey => CookStation.ItemDescription,
+        CookStation.PotItemKey => "一口砸扁又敲圆的铁锅。锅底那层黑是历任主人共同的作品——他们都不在了，锅还在。",
+        CookStation.GrillItemKey => "几根铁丝架成的烤架。它做不出什么讲究的东西，但它让火不再白烧。",
         _ => "",
     };
 }

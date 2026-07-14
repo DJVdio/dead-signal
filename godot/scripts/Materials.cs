@@ -30,11 +30,35 @@ public enum MaterialCategory
     /// <summary>杂项：骨头 / 石料 / 绳 / 零件等不归上述类的材料。</summary>
     Misc,
 
-    /// <summary>医疗：绷带 / 针线 / 夹板 / 急救包 等手术耗材（按 <c>SurgeryCatalog</c> 计点），抗生素 / 成药 等药品（按 <c>MedicineCatalog</c> 消费）。</summary>
+    /// <summary>
+    /// 医疗：绷带 / 针线 / 夹板 / 急救包 等手术耗材（按 <c>SurgeryCatalog</c> 计点），抗生素 / 成药 等药品（按 <c>MedicineCatalog</c> 消费）。
+    /// <para>
+    /// ⚠️ <b>本类目里还躺着三味"药材"：蒲公英 / 玫瑰果 / 老君须。它们是【材料】，不是药</b>（用户口径）——
+    /// 采来的原料，得经配方熬成草药膏 / 蒲公英茶 / 玫瑰果茶 / 草药绷带才能用在人身上，直接吃是没用的。
+    /// 它们挂在 Medical 下只是因为**归口在医疗那条线**（和玫瑰果 / 蒲公英同时是食材、却不归 <see cref="Food"/> 一个道理）。
+    /// </para>
+    /// ⇒ <b>判"这东西是不是能直接用在人身上的医疗物资"一律问 <see cref="MedicalOrderLogic.IsMedicalSupply"/>，不要问这个类别</b>
+    /// （三味药材在那里恒为 <c>false</c>，有单测钉死）。这条与 <see cref="Food"/> 上"判能不能煮要问 <see cref="FoodCalories.Has"/>"是同一个道理：
+    /// <b>类别是归口，不是能力</b>。
+    /// </summary>
     Medical,
 
     /// <summary>货币：末日流通的交易媒介（白银，同 RimWorld 以白银计价），成堆持有，用 <see cref="MaterialDef.Key"/> 标识、按 <see cref="Item.MaterialQuantity"/> 计数。神秘商人交易的支付手段。</summary>
     Currency,
+
+    /// <summary>
+    /// 食材（批次21·T14 烹饪）：**下得了锅的生料**（老鼠 / 罐头 / 军用单兵口粮 / 土豆…）。
+    /// <para>
+    /// 每种食材有一个**热量点**，但它<b>不是本目录的字段</b>——热量点在外挂表 <see cref="FoodCalories"/> 里，
+    /// 因为"是不是食材"是**跨类别**的：玫瑰果 / 蒲公英归 <see cref="Medical"/>（草药那条线），却照样能下锅。
+    /// ⇒ <b>判"能不能煮"一律问 <see cref="FoodCalories.Has"/>，不要问这个类别。</b>
+    /// </para>
+    /// <para>
+    /// 与 <see cref="ItemCategory.Food"/>（成品「份数」，1 份 = 1 人 1 餐）也不是一回事：
+    /// 食材是**生的**，得在烹饪台上烧成份数才吃得下。搜到的现成食物照旧直接进份数，不经这一层。
+    /// </para>
+    /// </summary>
+    Food,
 
     /// <summary>
     /// 弹药：枪/弓的消耗品（子弹 / 霰弹 / 箭矢，键见 <c>AmmoKeys</c>）。
@@ -131,6 +155,21 @@ public static class Materials
         new MaterialDef("ammo_arrow_handmade", "自制箭", "木杆、铁头、布尾羽，手工出品。称不上精良，但每一支都长得一样——对一个弓手来说，这比精良更要紧。", MaterialCategory.Ammo),
         new MaterialDef("ammo_arrow_heavy", "重头箭", "箭头灌了铅，沉得手腕发酸。飞不远，抬手也慢，但扎上去的时候，护甲的意见就不太重要了。", MaterialCategory.Ammo),
         new MaterialDef("ammo_arrow_carbon", "碳纤维箭", "碳纤维箭杆，笔直、轻盈、贵得离谱。工厂早就停工了，用一支少一支——所以射出去之后，你一定会回去把它捡起来。", MaterialCategory.Ammo),
+        // —— [批次21·T14] 食材：下得了锅的生料。热量点在 FoodCalories（外挂表），**不在这儿** ——
+        // ⚠️ 描述里**一个热量数字都不许出现**：每种食材值几点是玩家要自己试出来的（用户拍板的核心玩法）。
+        // 文案可以暗示"顶不顶饱"（"啃两口就没了"vs"顶一整天"），但绝不能报数——那是给 wiki 看的，不是给玩家看的。
+        // 玫瑰果 / 蒲公英**不在此列**（它们归「医疗」，见上方草药三档）——但它们照样是食材：
+        // 「是不是食材」问的是 FoodCalories.Has，不是这个类别。
+        new MaterialDef("rat", "老鼠", "末日里最先繁荣起来的物种。抓它、剥它、炖它——你曾经以为自己这辈子都不会做这三件事。", MaterialCategory.Food),
+        new MaterialDef("pigeon", "鸽子", "城市广场上那种鸽子，如今没人喂了，也没人拍照了。肉少，骨头多，但它是肉。", MaterialCategory.Food),
+        new MaterialDef("rabbit", "兔子", "一只野兔，够一顿像样的。抓到它的那天，你会想起从前「运气不错」是个多么轻飘飘的词。", MaterialCategory.Food),
+        new MaterialDef("fish", "鱼", "河里的鱼。没人知道那水现在还干不干净，但煮熟了，谁也不会先问这个问题。", MaterialCategory.Food),
+        new MaterialDef("ration", "军用单兵口粮", "军方发的单兵口粮，密封、耐放、量足。包装上印着「一日份」——印它的那个人还相信会有下一日。", MaterialCategory.Food),
+        new MaterialDef("canned_food", "罐头", "标签早泡烂了，里面是肉是豆全凭运气。铁皮鼓起来的那种别开——它已经替你尝过了。", MaterialCategory.Food),
+        new MaterialDef("flour", "面粉", "一袋面粉。它做不成面包（谁还有烤箱），但撒进锅里能让一锅稀汤变得像顿饭。", MaterialCategory.Food),
+        new MaterialDef("beans", "干豆", "一把干豆，硬得能崩掉牙。泡一夜、煮一晌，然后它就成了这个屋子里最像「正经饭」的东西。", MaterialCategory.Food),
+        new MaterialDef("potato", "土豆", "从谁家后院刨出来的，发了点芽。削掉芽眼，剩下的部分依然是土豆——这就是土豆了不起的地方。", MaterialCategory.Food),
+        new MaterialDef("mushroom", "蘑菇", "林子里采的。你认得这一种，你很确定你认得这一种。", MaterialCategory.Food),
     };
 
     /// <summary>货币材料标识键（白银）。持币量 = 库存中该键各堆 <see cref="Item.MaterialQuantity"/> 之和；交易走 <c>InventoryStore.TrySpendMaterial</c> 实扣。</summary>
