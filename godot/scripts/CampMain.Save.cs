@@ -92,8 +92,16 @@ public sealed partial class CampMain
             Food = _resources.Food,
             Inventory = SaveMapper.ToSave(_inventory),   // 白银也在里头（一条 material item）
             WorkbenchTools = SaveMapper.ToSave(_workbench),
+            CookwareInstalled = SaveMapper.ToSave(_cookStation),   // [批次21·T14] 烹饪台上装了锅没有、装了烤架没有
             CraftingJob = SaveMapper.ToSave(_craftingJob, _craftingJobWorker?.Id ?? -1),
             SandbagSeq = _sandbagSeq,
+
+            // 改装武器的**身份**（"步枪（刺刀型）" = 步枪 + 刺刀型）。不存这张表，读档后那把枪
+            // 就是个查不到定义的空名字 —— 装不上、也没数值（见 ModdedWeaponRegistry 类注）。
+            ModdedWeapons = SaveMapper.CaptureModdedWeapons(),
+
+            // 玩家**自己摆到地上**的家具（改装台）：位置是玩家定的，不存就找不回来了。
+            PlacedFurniture = CapturePlacedFurniture(),
             Structures = _structures
                 .Where(s => !s.Removed)   // 已摧毁清场的不存——读档时它本来就该是个缺口
                 .Select(CaptureStructure)
@@ -102,8 +110,77 @@ public sealed partial class CampMain
 
         // 容器藏物 + 已搜/搜了一半——「逐件搜刮到一半退出」的进度天然就在这三份账里。
         SaveMapper.CaptureContainerLoot(_containerLoot, camp);
+
+        // [批次21·impl-bedrest] 谁躺在哪张床上 + 床的命名序号（正文在 CampMain.Bedrest.cs）。
+        CaptureBedSave(camp);
         return camp;
     }
+
+    /// <summary>
+    /// 玩家自己摆到地上的家具（**改装台** + 玩家造的**床** + 玩家垒的**沙袋**）。
+    /// camp.json 预置的家具（工作台/柜子/开局那两张床/建图时就摆好的那几垛沙袋）**不进这张表**——
+    /// 它们每次建图都在原地长出来，不需要记位置。
+    /// </summary>
+    private List<PlacedFurnitureSave> CapturePlacedFurniture()
+    {
+        var list = new List<PlacedFurnitureSave>();
+        if (_furniture.TryGetValue(WeaponModLogic.BenchFurnitureKey, out FurnitureInstance? bench))
+        {
+            list.Add(new PlacedFurnitureSave
+            {
+                Key = WeaponModLogic.BenchFurnitureKey,
+                X = bench.Rect.Position.X,
+                Y = bench.Rect.Position.Y,
+                W = bench.Rect.Size.X,
+                H = bench.Rect.Size.Y,
+            });
+        }
+
+        // [批次21·T14] 烹饪台：同改装台，营地里独一份、按类型名索引，位置由玩家定 ⇒ 必须存。
+        if (_furniture.TryGetValue(CookStation.PropName, out FurnitureInstance? stove))
+        {
+            list.Add(new PlacedFurnitureSave
+            {
+                Key = CookStation.PropName,
+                X = stove.Rect.Position.X,
+                Y = stove.Rect.Position.Y,
+                W = stove.Rect.Size.X,
+                H = stove.Rect.Size.Y,
+            });
+        }
+
+        // [批次21·impl-bedrest] 玩家造的床（"床#3" 起）。开局那两张（床#1/床#2）在 camp.json 里，建图自会长出来，
+        // 故按**序号**过滤而非按名字：Key 存实例名（床位占用表 CampSave.BedOccupancy 按它对号入座）。
+        //
+        // [批次21·impl-modbench] 玩家垒的沙袋（"沙袋#N"）。**此前是漏的**：CampSave.Sandbags 那个字段虽然一直存在，
+        // 但 CaptureCamp 从没往里填过 ⇒ 摆好的沙袋读档后**整片消失**（只剩 _sandbagSeq 这个空号）。
+        // 沙袋和床、改装台一样是"位置由玩家定"的东西，走同一张 PlacedFurniture 表即可，不必再开一张。
+        foreach ((string key, FurnitureInstance f) in _furniture)
+        {
+            if (!IsPlayerPlacedBed(key) && !SandbagSpec.IsSandbagFurniture(key))
+            {
+                continue;
+            }
+            list.Add(new PlacedFurnitureSave
+            {
+                Key = key,
+                X = f.Rect.Position.X,
+                Y = f.Rect.Position.Y,
+                W = f.Rect.Size.X,
+                H = f.Rect.Size.Y,
+            });
+        }
+        return list;
+    }
+
+    /// <summary>
+    /// 这张床是玩家造的（要存位置），还是 camp.json 预置的（建图自会长出来，不必存）？
+    /// 按序号分：床#1/床#2 是开局那两张，床#3 起是玩家造的。
+    /// </summary>
+    private static bool IsPlayerPlacedBed(string key)
+        => key.StartsWith(BedSpec.FurnitureKey + "#")
+           && int.TryParse(key[(BedSpec.FurnitureKey.Length + 1)..], out int n)
+           && n > 2;
 
     /// <summary>
     /// 一处结构。<b>用几何位置当标识</b>（不是列表下标）——下标会随建图逻辑变动（比如围栏切格的粒度改了）而错位，
@@ -247,9 +324,17 @@ public sealed partial class CampMain
     private void RestoreCamp(CampSave camp)
     {
         _resources = new CampResources(camp.Food);
+        // ⚠️ **必须在复原库存/持械之前**：改装武器只是一个名字（"步枪（刺刀型）"），
+        // 得先把它的身份注册回去，后面按名回查（库存物品、Pawn 持械）才认得出这把枪。
+        SaveMapper.RestoreModdedWeapons(camp.ModdedWeapons);
+
         SaveMapper.RestoreInventory(_inventory, camp.Inventory);
         SaveMapper.RestoreWorkbench(_workbench, camp.WorkbenchTools);
+        SaveMapper.RestoreCookStation(_cookStation, camp.CookwareInstalled);   // [批次21·T14]
         SaveMapper.RestoreContainerLoot(_containerLoot, camp);
+
+        // 玩家自己摆的家具（改装台）：按存档里的位置重新立起来（含碰撞/导航洞/可点击容器）。
+        RestorePlacedFurniture(camp.PlacedFurniture);
 
         _craftingJob = SaveMapper.FromSave(camp.CraftingJob);
         _craftingJobWorker = camp.CraftingJob is { WorkerId: >= 0 } cj
@@ -257,6 +342,10 @@ public sealed partial class CampMain
             : null;
 
         _sandbagSeq = camp.SandbagSeq;
+
+        // [批次21·impl-bedrest] 床位占用（须在 RestorePlacedFurniture 之后——玩家造的床得先立回场上、
+        // AddBed 进登记册，占用关系才对得上号）。卧床令与休养流水账跟着各人走（PawnSave）。
+        ApplyBedSave(camp);
 
         // 结构：按几何位置对号入座，把血量/档位/门态盖回去。
         var byId = camp.Structures.ToDictionary(x => x.Id);
@@ -273,6 +362,130 @@ public sealed partial class CampMain
             inst.Door = saved.DoorState;
             inst.Lock = saved.LockTier;
         }
+    }
+
+    /// <summary>
+    /// 读档：把玩家摆过的家具（**改装台** + 玩家造的**床** + 玩家垒的**沙袋**）重新立回世界。
+    /// 已经在场的（同名）跳过——不摆两件。
+    /// <para>
+    /// 只有**实心**家具（改装台）会挖导航洞 ⇒ 摆过才需重烘焙导航。
+    /// 床与沙袋都是**非实心**的（床要让人走上去躺下；沙袋恒不挡路——那正是它获准自由摆放的全部理由），
+    /// 立回去不动寻路图。
+    /// </para>
+    /// </summary>
+    private void RestorePlacedFurniture(List<PlacedFurnitureSave> placed)
+    {
+        // ⚠️ 先清场，再复原。**读档是就地覆盖世界，不是重载场景**（见 ApplySave）——
+        // 不清场的话，本局摆下、而存档里并没有的家具会**赖在场上不走**：
+        // 你垒了三垛沙袋、造好了改装台，然后读一个"还没造改装台"的旧档 —— 台子和沙袋照样杵在那儿，
+        // `HasModBench` 还是 true，等于读档读出一个**存档里从不存在的营地**。
+        // （这是"读档丢家具"的对称面：一个少东西，一个多东西，根因是同一个。）
+        ClearPlayerPlacedFurniture();
+
+        bool solidPlaced = false;
+        foreach (PlacedFurnitureSave p in placed ?? new List<PlacedFurnitureSave>())
+        {
+            // 存档里的键可能是 null（手改过的档 / 旧版档）——跳过，别把 null 喂进字典。
+            if (p.Key is not { Length: > 0 } key || _furniture.ContainsKey(key))
+            {
+                continue;   // 无键，或已在场则不重复摆
+            }
+
+            var rect = new Rect2((float)p.X, (float)p.Y, (float)p.W, (float)p.H);
+
+            // [批次21·impl-bedrest] 玩家造的床：**不挡路、不进导航**（非实心，人要走上去躺下）⇒ 不触发重烘焙。
+            if (IsPlayerPlacedBed(key))
+            {
+                RespawnPlayerBed(key, rect);
+                continue;
+            }
+
+            // [批次21·impl-modbench] 玩家垒的沙袋：非实心矮物 ⇒ 同样不触发重烘焙。
+            if (SandbagSpec.IsSandbagFurniture(key))
+            {
+                RespawnSandbag(key, rect);
+                continue;
+            }
+
+            // [批次21·T14] 烹饪台：**实心**（挖导航洞）⇒ 与改装台同路，摆回去要重烘焙。
+            if (key == CookStation.PropName)
+            {
+                SpawnCookStation(rect);
+                solidPlaced = true;
+                continue;
+            }
+
+            if (key != WeaponModLogic.BenchFurnitureKey)
+            {
+                continue;
+            }
+            SpawnModBench(rect);
+            solidPlaced = true;
+        }
+        if (solidPlaced)
+        {
+            RebakeNavigation();   // 实心家具挡路 ⇒ 寻路图得知道
+        }
+    }
+
+    /// <summary>
+    /// 读档前清场：把**本局玩家摆下的**家具（改装台 / 玩家造的床 / 沙袋）从世界上抹干净，
+    /// 好让 <see cref="RestorePlacedFurniture"/> 按存档重新摆一遍。
+    /// <para>
+    /// camp.json 预置的家具（工作台/柜子/开局那两张床）**不动**——它们不由存档管，建图时就在原地。
+    /// </para>
+    /// <para>
+    /// 走 <c>RemoveFurniture</c> 这个**唯一出口**，故连带清干净：碰撞体 / 视觉块 / 可点击登记 /
+    /// 半身掩体场 / 导航洞（+ 重烘焙）/ 床位册占用。自己手动删字典会漏掉后面这一串。
+    /// </para>
+    /// </summary>
+    private void ClearPlayerPlacedFurniture()
+    {
+        // 先拍快照：RemoveFurniture 会改 _furniture，不能边遍历边删。
+        var doomed = _furniture.Keys
+            .Where(k => k == WeaponModLogic.BenchFurnitureKey
+                     || k == CookStation.PropName          // [批次21·T14] 烹饪台也是玩家摆的
+                     || IsPlayerPlacedBed(k)
+                     || SandbagSpec.IsSandbagFurniture(k))
+            .ToList();
+
+        foreach (string key in doomed)
+        {
+            RemoveFurniture(key);
+        }
+    }
+
+    /// <summary>
+    /// 读档：把一垛沙袋按存档里的**实例名 + 原位置**立回世界（镜像 <c>PlaceSandbagAt</c> 的登记，但不扣库存、不改流水号、不弹提示）。
+    /// <para>
+    /// <b>刻意不 AddSolid、刻意不进 <c>_navHoles</c></b> —— 沙袋恒不挡路（<see cref="SandbagSpec.IsSolid"/>=false），
+    /// 这是它获准自由摆放的全部理由；读档复原当然也不能偷偷把它变成实心的。
+    /// </para>
+    /// <para>
+    /// 视觉种子取自实例名里的流水号（"沙袋#3" → 3），与当初摆下时用的是同一个 ⇒ 读档后那垛沙袋
+    /// **长得跟存档前一模一样**，而不是换了一副随机面孔。
+    /// </para>
+    /// </summary>
+    private void RespawnSandbag(string name, Rect2 rect)
+    {
+        var style = new PixelStyle { color = new[] { 0.56, 0.51, 0.36 }, jitter = 0.18 };
+        var visuals = new List<Node2D>();
+        AddOccluderVisual(rect, style, seed: 19 + SandbagSeqOf(name), height: CoverPropHeight, cell: 48f, collect: visuals);
+
+        // 半身掩体登记：贴着它的双方都吃 25% 远程无效（读档后这份收益必须还在，否则玩家的工事白垒了）。
+        _coverField.Add(rect.Position.X, rect.Position.Y, rect.Size.X, rect.Size.Y,
+            SandbagSpec.CoverChance, SandbagSpec.BlocksMelee);
+
+        // 可拆句柄（Body=null：它压根没有碰撞体）+ 可点击登记 ⇒ 读档后照样能 Shift+右键拆走重摆。
+        _furniture[name] = new FurnitureInstance { Rect = rect, Body = null, Visuals = visuals };
+        _containers.Add(new ContainerRef { Name = name, Rect = rect, Role = "sandbag" });
+    }
+
+    /// <summary>从实例名里取流水号（"沙袋#3" → 3）；取不到给 0（只影响视觉种子，不影响玩法）。</summary>
+    private static int SandbagSeqOf(string name)
+    {
+        int hash = name.IndexOf('#');
+        return hash >= 0 && int.TryParse(name[(hash + 1)..], out int n) ? n : 0;
     }
 
     private void RestoreSurvivors(List<PawnSave> saved)

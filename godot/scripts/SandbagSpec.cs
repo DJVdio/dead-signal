@@ -28,6 +28,18 @@ public static class SandbagSpec
     /// <summary>库存里那件"沙袋"的物品 key（配方产物；摆放时从库存扣一件）。</summary>
     public const string ItemKey = "sandbag";
 
+    /// <summary>
+    /// 场上每垛沙袋的家具名前缀（实例名带流水号："沙袋#3"）。沙袋可重复摆放，故名字必须唯一。
+    /// <para>拆除按**类型名**归一（<see cref="FurnitureBuildCost"/> 截掉 '#' 后缀）；
+    /// 存读档按**实例名**对号入座（<c>CampSave.PlacedFurniture</c>）——摆了三垛就得还你三垛，位置一垛不差。</para>
+    /// </summary>
+    public const string FurnitureNamePrefix = "沙袋#";
+
+    /// <summary>这个家具名是不是一垛玩家摆的沙袋（"沙袋#3" → true；"工作台" → false）。</summary>
+    public static bool IsSandbagFurniture(string? furnitureName)
+        => furnitureName is not null
+        && furnitureName.StartsWith(FurnitureNamePrefix, System.StringComparison.Ordinal);
+
     /// <summary>库存里的物品描述（黑色幽默文风，同批次15 的物品级 flavor）。</summary>
     public const string ItemDescription =
         "一只麻袋，装满了土。它替你挨枪子，四分之一的时候还真挡得住——它对这份工作没有怨言，也没有别的抱负。";
