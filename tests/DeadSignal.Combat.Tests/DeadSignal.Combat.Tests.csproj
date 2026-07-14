@@ -142,6 +142,9 @@
     <Compile Include="..\..\godot\scripts\SupermarketAmbush.cs" Link="Consumed\SupermarketAmbush.cs" />
     <!-- 调查点规模三级 + 探索完成度聚合纯逻辑（无 Godot 依赖）：SizeTier 枚举/TierLabel + 目的地登记点位集 vs StoryFlags 旗标 → 已调查 X/Y。 -->
     <Compile Include="..\..\godot\scripts\ExplorationProgress.cs" Link="Consumed\ExplorationProgress.cs" />
+    <!-- [T57] 调查点网状解锁图纯逻辑（无 Godot 依赖）：world_graph.json → 图 + 「前置去过 且 探索度>50%」门槛 + 反死锁/反孤岛/反环校验。
+         ⚠️ 图本身是**数据**（godot/data/world_graph.json，wiki 上有对应表）；本文件只写规则，重排路线不用改代码。 -->
+    <Compile Include="..\..\godot\scripts\WorldGraph.cs" Link="Consumed\WorldGraph.cs" />
     <!-- 瞭望台望远镜瞭望尸潮发现点纯逻辑（无 Godot 依赖）：discoveryId → 置 HordeTimeline.SightedFlag + 环境叙事。 -->
     <Compile Include="..\..\godot\scripts\LookoutSighting.cs" Link="Consumed\LookoutSighting.cs" />
     <!-- 叙事调查点框架纯逻辑（无 Godot 依赖，[SPEC-B12] 极乐迪斯科式）：注册表 id → (标题+多屏文本+去重旗标)，一次性/可重读；各图样例点位。 -->

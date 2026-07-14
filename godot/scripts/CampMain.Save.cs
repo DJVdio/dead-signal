@@ -58,6 +58,9 @@ public sealed partial class CampMain
             },
             // 剧情/发现/提示/搜刮完成度——半个存档都在这一个字典里（那些系统自身零字段）。
             StoryFlags = _storyFlags.Snapshot().ToDictionary(kv => kv.Key, kv => kv.Value),
+            // [T57] 网状解锁的「去过哪些点」名单。**永远写一份真列表**（哪怕空的）——
+            // null 是留给老档的信号（见 SaveData.VisitedDestinations：null ⇒ 老档 ⇒ 全解锁兜底）。
+            VisitedDestinations = _visitedDestinations.ToList(),
             Survivors = _survivors.Select(p => p.CaptureSave()).ToList(),
             Dog = CaptureDog(),
             Corpses = CaptureCorpses(),
@@ -289,6 +292,17 @@ public sealed partial class CampMain
 
         // 2) 剧情 flag（半个存档）。
         RestoreStoryFlags(s.StoryFlags);
+
+        // 2.5) [T57] 网状解锁：去过哪些调查点。
+        // 🔴 **null ⇒ 这是 T57 之前的存档**（那时候全图一开局就都能去）⇒ 一律视为「全部已解锁」，
+        //    不去剥夺玩家已经打下来的进度。空列表 [] ⇒ 新档，只有两个起点开着。
+        _legacyFullUnlock = s.VisitedDestinations is null;
+        _visitedDestinations.Clear();
+        if (s.VisitedDestinations is { } visited)
+        {
+            foreach (string d in visited)
+                _visitedDestinations.Add(d);
+        }
 
         // 3) 营地物资与结构。
         RestoreCamp(s.Camp);
