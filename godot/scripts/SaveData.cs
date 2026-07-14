@@ -103,6 +103,13 @@ public sealed class CampSave
     /// <summary>工作台已装的工具槽。</summary>
     public List<ToolSlot> WorkbenchTools { get; set; } = new();
 
+    /// <summary>
+    /// [批次21·T14] 烹饪台已装的炊具（锅 / 烤架）。**不存"每份要几点热量"**——那是按当前规则现算的
+    /// （<c>CookingLogic.PortionCost</c>），日后调了减免幅度，老存档自动跟着改，不会腐化成一份旧数值。
+    /// 烹饪台本体是家具（在 <see cref="PlacedFurniture"/> / <see cref="Furniture"/> 里），本表只存"台上装了什么"。
+    /// </summary>
+    public List<CookwareSlot> CookwareInstalled { get; set; } = new();
+
     /// <summary>在制品（没有就 null）。</summary>
     public CraftingJobSave? CraftingJob { get; set; }
 
@@ -126,6 +133,66 @@ public sealed class CampSave
 
     /// <summary>动过但没搜完的容器（悬停提示"搜了一半"靠它）。</summary>
     public List<string> ContainersPartial { get; set; } = new();
+
+    /// <summary>
+    /// [批次21·impl-bedrest] 床位占用：床键（"床#1"）→ 占床者 pawnId。**一人一床、一床一人**（见 <see cref="BedRegistry"/>）。
+    /// 床本体是家具（在上面的 <see cref="Furniture"/> 里，拆了就不在），本表只存"谁躺哪张"。
+    /// </summary>
+    public Dictionary<string, int> BedOccupancy { get; set; } = new();
+
+    /// <summary>[批次21·impl-bedrest] 玩家造出来的床的命名序号（不存的话读档后新床会和旧的重名，同沙袋）。</summary>
+    public int BedSeq { get; set; }
+
+    /// <summary>
+    /// [批次21·impl-gunmod] 玩家改装出来的武器变体的**身份**（"步枪（刺刀型）"是什么做的）。
+    /// <para>
+    /// <b>为什么必须单独存</b>：库存里的一件武器只存一个名字（<see cref="ItemSave.RefKey"/>），
+    /// 战斗/装备一律拿这个名字去 <c>WeaponTable</c> 回查——而改装变体**不在** WeaponTable 里。
+    /// 不存这张表，读档后那把改装枪就是个查不到定义的空名字（装不上、也没数值）。
+    /// </para>
+    /// 只存三个字符串、**不存任何数值**：读档时按当前规则重新合成（见 <see cref="ModdedWeaponRegistry"/>）。
+    /// </summary>
+    public List<ModdedWeaponSave> ModdedWeapons { get; set; } = new();
+
+    /// <summary>[批次21·impl-gunmod] 玩家自己摆到地上的家具（改装台…）：不存位置就找不回来了。</summary>
+    public List<PlacedFurnitureSave> PlacedFurniture { get; set; } = new();
+}
+
+/// <summary>
+/// 一件**玩家自己摆到地上的家具**（改装台…）：家具键 + 世界占位。
+/// <para>
+/// camp.json 预置的家具（工作台/柜子）不需要这张表——它们每次建图都在原地长出来，存档只需记"拆没拆"。
+/// 而玩家摆的家具**位置是玩家定的**，不存就找不回来了。
+/// </para>
+/// ⚠️ 沙袋目前**没有**走这条路（<see cref="CampSave.Sandbags"/> 字段存在但 CaptureCamp 从未填过 ⇒
+/// 摆好的沙袋读档后会消失）——那是本任务之前就有的缺口，已在 journal 记为遗留。
+/// </summary>
+public sealed class PlacedFurnitureSave
+{
+    /// <summary>家具键（= <see cref="FurnitureBuildCost"/> 键 / 场上容器名，如"改装台"）。</summary>
+    public string? Key { get; set; }
+
+    /// <summary>cartesian 世界占位（<b>不是</b> iso 屏幕坐标）。</summary>
+    public double X { get; set; }
+    public double Y { get; set; }
+    public double W { get; set; }
+    public double H { get; set; }
+}
+
+/// <summary>
+/// 一把改装武器的身份：变体名 + 基础武器名 + 改装名列表。数值不入档——读档按当前规则重算，
+/// 故日后调了改装数值，老存档里的枪自动跟着改，不会腐化成一把旧数值的枪。
+/// </summary>
+public sealed class ModdedWeaponSave
+{
+    /// <summary>变体名（= 库存 <see cref="ItemSave.RefKey"/>，如"步枪（刺刀型）"）。</summary>
+    public string? VariantName { get; set; }
+
+    /// <summary>基础武器名（WeaponTable 里的原厂武器，如"步枪"）。</summary>
+    public string? BaseWeaponName { get; set; }
+
+    /// <summary>已施加的改装名（WeaponModCatalog 里的 <see cref="WeaponMod.Name"/>）。</summary>
+    public List<string> ModNames { get; set; } = new();
 }
 
 /// <summary>
@@ -237,6 +304,17 @@ public sealed class PawnSave
 
     /// <summary>感染疗程指派的药（断药会清疗程，故这是真状态）。</summary>
     public string? InfectionTreatmentMedKey { get; set; }
+
+    /// <summary>
+    /// [批次21·impl-bedrest] 玩家下的**卧床养病令**（跨相位持续的意图，非当下 Role——Role 每相位都会被重排掉）。
+    /// 漏了它，读档回来伤员就自己从床上爬起来了。
+    /// </summary>
+    public bool BedrestOrdered { get; set; }
+
+    /// <summary>[批次21·impl-bedrest] 当日休养流水账：已记相位数 / 其中休养的 / 其中睡床的。存档跨相位，账不能丢（否则读档等于当天白养）。</summary>
+    public int RestPhases { get; set; }
+    public int RestRestPhases { get; set; }
+    public int RestBedPhases { get; set; }
 }
 
 /// <summary>一条伤病/感染。不变量走构造器，进度是可变量。</summary>

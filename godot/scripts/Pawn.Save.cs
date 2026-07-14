@@ -44,6 +44,12 @@ public sealed partial class Pawn
         AssignedBookId = AssignedBookId,
 
         InfectionTreatmentMedKey = InfectionTreatmentMedKey,
+
+        // [批次21·impl-bedrest] 卧床令 + 当日休养流水账（漏了它，读档回来伤员自己爬起来、当天的觉白睡）。
+        BedrestOrdered = BedrestOrdered,
+        RestPhases = Rest.PhasesCounted,
+        RestRestPhases = Rest.RestPhases,
+        RestBedPhases = Rest.BedPhases,
     };
 
     /// <summary>
@@ -74,6 +80,10 @@ public sealed partial class Pawn
         AssignedBookId = s.AssignedBookId;
 
         InfectionTreatmentMedKey = s.InfectionTreatmentMedKey;
+
+        // [批次21·impl-bedrest] 卧床令 + 当日休养流水账。床位占用是营地级的（CampSave.BedOccupancy），不在这儿。
+        BedrestOrdered = s.BedrestOrdered;
+        Rest.Restore(s.RestPhases, s.RestRestPhases, s.RestBedPhases);
 
         // 护甲**数值层**是派生缓存（穿戴态 + 护甲表 → 层），不进存档——存了反而会和护甲表打架。
         // 穿戴态摆回来之后，照着它把缓存重建一次，再投影出生效战斗数据。

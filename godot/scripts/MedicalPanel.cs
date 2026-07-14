@@ -54,6 +54,14 @@ public sealed partial class MedicalPanel : CanvasLayer
     private Pawn? _patient;
     private Pawn? _surgeon;
     private bool _onBed;
+
+    /// <summary>[批次21·impl-bedrest] 查"这人是否真躺在床上"（营地注入 <see cref="BedRegistry.HasBed"/>）；null=无营地上下文，回落手勾开关。</summary>
+    private Func<Pawn, bool>? _hasBed;
+
+    // [批次21·impl-medicine] 上一次 ShowFor 收到的预选对象：用来分辨"这是一条新的下令"还是"只是又刷新了一次面板"。
+    // 只有新下令才动病人/施术者，否则玩家在下拉里的手动选择会被每次刷新吞掉（见 ShowFor 里的注释）。
+    private Pawn? _lastFocus;
+    private Pawn? _lastMedic;
     // 每条伤当前勾选的手术耗材（按伤条目引用；ShowFor 重刷时清空——伤病集已变）。
     private readonly Dictionary<HealthCondition, HashSet<string>> _matSel = new();
 
@@ -175,15 +183,50 @@ public sealed partial class MedicalPanel : CanvasLayer
     /// <summary>
     /// 打开/刷新面板：传入病人候选（存活幸存者）与营地共享库存。手术/用药后由营地再调一次以反映扣掉的耗材与更新后的伤病集。
     /// </summary>
-    public void ShowFor(IReadOnlyList<Pawn> pawns, InventoryStore inventory)
+    /// <param name="hasBed">
+    /// [批次21·impl-bedrest] 该幸存者当前是否**真的躺在床上**（营地传 <see cref="BedRegistry.HasBed"/>）。
+    /// 「床上」从此不再是玩家随手勾的开关 —— 床是营地里实打实的家具，得先让他走过去躺下（右键点床）。
+    /// 传 null 时回落成旧的手勾开关（供无营地上下文的调用点/测试）。
+    /// </param>
+    /// <param name="focus">
+    /// [批次21·impl-bedrest] 直接以此人为病人打开（营地传**当前选中的角色**）：这就是"选中角色 → 给他吃药/用医疗物资"
+    /// 那条路 —— 玩家选好人再按 M，面板就该已经翻到他那一页，而不是回到名单第一个再让他自己找。
+    /// null=沿用旧的默认选人。
+    /// </param>
+    /// <param name="medic">
+    /// [批次21·impl-medicine] 直接以此人为**施术者**打开（营地在"右键点伤员下医务令"时传**当前选中的角色**）：
+    /// 玩家选中 A、右键点 B，意思就是"让 A 去治 B"——面板不该再把施术者甩回名单第一个人。
+    /// 与 <paramref name="focus"/> 同为病人的（=点自己）时忽略，让下面的默认逻辑挑个别人来动刀（自体手术池要打 0.6 折）。
+    /// null=沿用旧的默认选人。
+    /// </param>
+    public void ShowFor(IReadOnlyList<Pawn> pawns, InventoryStore inventory, Func<Pawn, bool>? hasBed = null,
+        Pawn? focus = null, Pawn? medic = null)
     {
         _pawns = pawns ?? Array.Empty<Pawn>();
         _inventory = inventory ?? new InventoryStore();
+        _hasBed = hasBed;
         _matSel.Clear(); // 伤病集已变，清掉旧勾选
 
+        // [批次21·impl-medicine] 预选只在**换了一个新的下令对象**时生效，重复同一个 focus 不再覆盖。
+        // 为什么必须这样：营地在每次手术/用药之后都会再调一遍 ShowFor 刷新（RefreshMedical），
+        // 若每次都无条件把病人拽回 focus，玩家在下拉里手动切到别人身上的选择就会被**当场吞掉**——
+        // 他刚点开"给老李看看"，一按手术，面板又跳回原来那个人。预选是"帮你翻到那一页"，不是"锁死这一页"。
+        bool newFocus = focus is not null && !ReferenceEquals(focus, _lastFocus);
+        bool newMedic = medic is not null && !ReferenceEquals(medic, _lastMedic);
+        _lastFocus = focus;
+        _lastMedic = medic;
+
+        if (newFocus && _pawns.Contains(focus!))
+        {
+            _patient = focus;
+        }
         if (_patient is null || !_pawns.Contains(_patient))
         {
             _patient = _pawns.FirstOrDefault();
+        }
+        if (newMedic && _pawns.Contains(medic!) && !ReferenceEquals(medic, _patient))
+        {
+            _surgeon = medic;
         }
         if (_surgeon is null || !_pawns.Contains(_surgeon))
         {
@@ -193,8 +236,41 @@ public sealed partial class MedicalPanel : CanvasLayer
 
         PopulateDropdown(_patientDropdown, _patient);
         PopulateDropdown(_surgeonDropdown, _surgeon);
-        _bedCheck.ButtonPressed = _onBed;
+        SyncBedCheck();
         Rebuild();
+    }
+
+    /// <summary>
+    /// [批次21·impl-medicine] 关面板时清掉"上次的下令对象"记忆（营地在 <c>CloseMedical</c> 里调）。
+    /// 不清的话会出这种事：玩家开面板给甲下令、在下拉里改成乙、关掉，再右键甲下一次令——面板认得这还是"上次那个甲"，
+    /// 于是不翻页，他看到的还是乙。**关一次面板 = 一次下令结束**，下次右键谁就该看见谁。
+    /// </summary>
+    public void ResetPreselect()
+    {
+        _lastFocus = null;
+        _lastMedic = null;
+    }
+
+    /// <summary>
+    /// 把「床上」同步成病人的**真实床位状态**：躺着就是躺着，没躺就是没躺，玩家勾不出来。
+    /// 没床可躺时把原因写在提示里 —— 照 SiteActionOption 的规矩：不藏选项，灰掉并说明为什么。
+    /// </summary>
+    private void SyncBedCheck()
+    {
+        if (_hasBed is null)
+        {
+            _bedCheck.Disabled = false;
+            _bedCheck.ButtonPressed = _onBed;
+            _bedCheck.TooltipText = "";
+            return;
+        }
+
+        _onBed = _patient is not null && _hasBed(_patient);
+        _bedCheck.Disabled = true; // 由床位实况驱动，不给手勾
+        _bedCheck.ButtonPressed = _onBed;
+        _bedCheck.TooltipText = _onBed
+            ? "病人正躺在床上——手术更稳。"
+            : "病人没躺在床上。先选中他、右键点一张床让他躺下，手术会更稳。";
     }
 
     private void PopulateDropdown(OptionButton dropdown, Pawn? selected)
@@ -217,6 +293,7 @@ public sealed partial class MedicalPanel : CanvasLayer
         int id = _patientDropdown.GetItemId((int)index);
         _patient = _pawns.FirstOrDefault(p => p.Id == id);
         _matSel.Clear();
+        SyncBedCheck(); // 换了病人 → 「床上」跟着他的实况走（这个躺着、那个没躺）
         Rebuild();
     }
 
@@ -321,12 +398,34 @@ public sealed partial class MedicalPanel : CanvasLayer
         _listContainer.AddChild(sep);
     }
 
-    /// <summary>玫瑰果茶病人级动作行：显示库存与当前 buff 态；有茶且未在 buff 中才可喝。</summary>
+    /// <summary>
+    /// [批次21·impl-medicine] 「现在能不能给这位病人用这件医疗物资」——**唯一判定入口**。
+    /// 从前这条规则散在各按钮的 <c>Disabled</c> 表达式里（缺货？疗程中？没对症的伤？各写各的），
+    /// 现在统一走纯逻辑 <see cref="MedicalOrderLogic.Evaluate"/>（有单测），面板只负责把拒绝理由说给玩家听。
+    /// </summary>
+    private MedicalUseOption Evaluate(string materialKey)
+    {
+        Pawn p = _patient!;
+        return MedicalOrderLogic.Evaluate(
+            materialKey, p.Health,
+            CraftingPanelFormat.MaterialCount(_inventory, materialKey),
+            p.HasRosehipTeaHealBuff, p.InfectionTreatmentMedKey, p.Alive);
+    }
+
+    /// <summary>不可用时给按钮挂上"为什么不能用"（照 SiteActionPopup 的规矩：**不藏选项，灰掉并说明原因**）。</summary>
+    private static void ApplyUsability(Button btn, MedicalUseOption option)
+    {
+        btn.Disabled = !option.Usable;
+        btn.TooltipText = option.Usable ? "" : DisplayNames.Of(option.Refusal);
+    }
+
+    /// <summary>玫瑰果茶病人级动作行：显示库存与当前 buff 态；有茶、未在 buff 中、且身上有养得好的伤才可喝（没伤喝了是白扔一份）。</summary>
     private void AddRosehipTeaRow()
     {
         if (_patient is null)
             return;
-        int have = CraftingPanelFormat.MaterialCount(_inventory, "rosehip_tea");
+        MedicalUseOption tonic = Evaluate(MedicalOrderLogic.RecoveryTonicKey);
+        int have = tonic.Stock;
         bool active = _patient.HasRosehipTeaHealBuff;
 
         var row = new HBoxContainer();
@@ -345,7 +444,7 @@ public sealed partial class MedicalPanel : CanvasLayer
         var btn = new Button();
         btn.Text = "喝玫瑰果茶";
         btn.CustomMinimumSize = new Vector2(120, 28);
-        btn.Disabled = have <= 0 || active;
+        ApplyUsability(btn, tonic);
         btn.Pressed += () => { if (_patient is not null) RosehipTeaRequested?.Invoke(_patient); };
         UiStyle.StyleButton(btn, new Color(0.45f, 0.45f, 0.5f), fontSize: 12);
         row.AddChild(btn);
@@ -469,6 +568,10 @@ public sealed partial class MedicalPanel : CanvasLayer
             var check = new CheckBox();
             string name = Materials.Find(key)?.DisplayName ?? key;
             check.Text = have > 0 ? $"{name}（{have}）" : name;
+            // 耗材图标挂在勾选框与文字之间（Button.Icon）。TextureFilter 走 Nearest，
+            // 否则 Godot 会把这张 32×32 的硬边图标线性插值成一团糊。
+            check.Icon = ItemIconTextures.ForRefKey(key);
+            check.TextureFilter = CanvasItem.TextureFilterEnum.Nearest;
             check.ButtonPressed = selected;
             string capturedKey = key;
             check.Toggled += on =>
@@ -562,12 +665,12 @@ public sealed partial class MedicalPanel : CanvasLayer
         row.AddThemeConstantOverride("separation", 8);
         foreach ((string key, string name) in InfectionRemedies)
         {
-            int have = CraftingPanelFormat.MaterialCount(_inventory, key);
+            MedicalUseOption opt = Evaluate(key);
             bool isCurrent = course == key;
             var btn = new Button();
-            btn.Text = $"{(isCurrent ? "疗程中·" : "指派")}{name}{EfficacyTag(key)}（{have}）";
+            btn.Text = $"{(isCurrent ? "疗程中·" : "指派")}{name}{EfficacyTag(key)}（{opt.Stock}）";
             btn.CustomMinimumSize = new Vector2(180, 30);
-            btn.Disabled = have <= 0 || isCurrent;
+            ApplyUsability(btn, opt);
             string capturedKey = key;
             btn.Pressed += () => { if (_patient is not null) TreatmentAssigned?.Invoke(_patient, capturedKey); };
             UiStyle.StyleButton(btn, new Color(0.4f, 0.5f, 0.4f), fontSize: 12);
@@ -602,7 +705,8 @@ public sealed partial class MedicalPanel : CanvasLayer
     // ---- 用药区（仅疾病单发）：一档药一行——名+库存，缺货则灰 ----
     private void BuildTreatSection(VBoxContainer card, HealthCondition c, string medicineKey, string btnText)
     {
-        int have = CraftingPanelFormat.MaterialCount(_inventory, medicineKey);
+        MedicalUseOption opt = Evaluate(medicineKey);
+        int have = opt.Stock;
         string medName = Materials.Find(medicineKey)?.DisplayName ?? medicineKey;
 
         var row = new HBoxContainer();
@@ -621,7 +725,7 @@ public sealed partial class MedicalPanel : CanvasLayer
         var btn = new Button();
         btn.Text = btnText;
         btn.CustomMinimumSize = new Vector2(120, 30);
-        btn.Disabled = have <= 0;
+        ApplyUsability(btn, opt);
         HealthCondition captured = c;
         string capturedKey = medicineKey;
         btn.Pressed += () =>

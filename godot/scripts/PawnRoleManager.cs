@@ -97,6 +97,16 @@ public sealed class PawnRoleManager
                 break;
         }
 
+        // [批次21·impl-bedrest] 卧床养病的令**跨相位持续**：顶部循环每次都把 Role 抹成 Idle，
+        // 所以躺着的人必须在这里重新贴回 Bedrest —— 否则一到相位切换他就自己爬起来了。
+        // 优先级：盖过 Guard/Reading/Sleeping/Idle（躺着的人不站岗、不生产、不读书，**这就是养病的代价**），
+        // 但**不碰探险队**：人已经在野外了，够不着（下令时 BedrestLogic.CanOrderBedrest 也拦着不让给外出者下令）。
+        foreach (var p in _allPawns)
+        {
+            if (p.BedrestOrdered && !ExpeditionIds.Contains(p.Id))
+                p.Role = PawnRole.Bedrest;
+        }
+
         RolesChanged?.Invoke();
     }
 }

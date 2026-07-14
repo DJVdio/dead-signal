@@ -114,7 +114,10 @@
         { "kind": "material", "id": "rope", "qty": 2 },
         { "kind": "material", "id": "bandage", "qty": 3 },
         { "kind": "material", "id": "splint", "qty": 1 },
-        { "kind": "material", "id": "antibiotics", "qty": 1 }
+        { "kind": "material", "id": "antibiotics", "qty": 1 },
+        { "_comment": "[批次21·T14] 开局食材：橱柜里还剩的一点吃的。够砌好烹饪台之后试煮一两锅——每种食材值几点热量，得玩家自己试出来。", "kind": "material", "id": "potato", "qty": 3 },
+        { "kind": "material", "id": "canned_food", "qty": 2 },
+        { "kind": "material", "id": "beans", "qty": 2 }
       ],
       "rect": [440, 470, 72, 44],
       "color": [0.46, 0.36, 0.24],
@@ -262,6 +265,25 @@
       "color": [0.56, 0.51, 0.36],
       "tile": 12,
       "jitter": 0.18
+    },
+    {
+      "_bedComment": "床（role=bed）：CampMain 建成非实心可站点（无碰撞/不挖导航洞→伤员能寻路走上去躺下），登记为可点击容器 ⇒ 选中角色右键点床=前往躺下养病（见 BedrestLogic / ExecuteContainerInteract 的 bed 分支）。一人一床，占用制。开局只有 2 张——**第三张起要自己造**（配方 bed），床位稀缺是有意的：谁躺床谁打地铺，伤员优先。摆在住宅内开阔地板，避开柜子/衣柜/展示柜与座椅区。",
+      "name": "床#1",
+      "role": "bed",
+      "cover": false,
+      "rect": [694, 636, 68, 40],
+      "color": [0.46, 0.38, 0.36],
+      "tile": 12,
+      "jitter": 0.08
+    },
+    {
+      "name": "床#2",
+      "role": "bed",
+      "cover": false,
+      "rect": [694, 700, 68, 40],
+      "color": [0.46, 0.38, 0.36],
+      "tile": 12,
+      "jitter": 0.08
     }
   ],
 

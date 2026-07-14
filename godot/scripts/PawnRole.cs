@@ -6,5 +6,11 @@ public enum PawnRole
     Expedition,
     Sleeping,
     Guard,
-    Reading
+    Reading,
+
+    /// <summary>
+    /// 卧床养病（玩家主动下令，见 <see cref="BedrestLogic"/>）：跨相位持续，直到玩家叫他起来。
+    /// 与 Guard/Reading 互斥——躺着的人夜里不站岗、不生产、不读书，这就是养病的代价。
+    /// </summary>
+    Bedrest
 }

@@ -45,7 +45,9 @@ public static class SaveCodec
     /// 新增/删除状态字段、改部位表、改枚举取值、改单位（如白银从整数改成分制）。
     /// 纯文案改动（物品描述）不用动——那些是照抄进存档的，不影响状态语义。
     /// </summary>
-    public const int CurrentVersion = 1;
+    // v2（批次21·impl-bedrest）：新增卧床养病——PawnSave 加卧床令+休养流水账、CampSave 加床位占用+床序号。
+    // 旧档没有这些字段，读回来会是"没人躺床、当天没养过病"的脏态 ⇒ 按上面的规矩直接作废旧档，不做迁移。
+    public const int CurrentVersion = 2;
 
     private static readonly JsonSerializerOptions Options = new()
     {
