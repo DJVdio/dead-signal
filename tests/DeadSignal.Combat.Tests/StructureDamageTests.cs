@@ -65,9 +65,11 @@ public class StructureDamageTests
         Assert.Equal(expectedHit, PerHit(rifle), 6);
         Assert.Equal(stock.AttackInterval, StructureDamage.Interval(rifle), 6);
 
-        // 子弹伤害（20~35，均值 27.5）远高于枪托（6~10）——若误取子弹伤害，本条会炸。
+        // 子弹伤害仍显著高于枪托——若误取子弹伤害，本条会炸。
+        // ⚠ T21：原断言是 < 子弹均值的 50%。用户把步枪削到 10~24（均值 17）后，枪托均值 8.5 恰好 = 17×0.5，
+        // 这个启发式阈值刚好卡死在边界上 ⇒ 改为直接断言"严格低于子弹均值"（意图不变：砸墙取的是枪托不是子弹）。
         double bulletAvg = (rifle.DamageMin + rifle.DamageMax) / 2;
-        Assert.True(PerHit(rifle) < bulletAvg * 0.5, "砸墙不该按子弹伤害算（子弹打不穿承重墙）");
+        Assert.True(PerHit(rifle) < bulletAvg, "砸墙不该按子弹伤害算（子弹打不穿承重墙）");
     }
 
     [Fact]

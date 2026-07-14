@@ -145,10 +145,10 @@ public static class NightingalePerk
     public const int NightingaleSurgeryBasePoints = 30;
     /// <summary>3级：全营手术基础点 +5（永续遗产）。</summary>
     public const int CampSurgeryBaseBonus = 5;
-    /// <summary>2级：全营感染率 −15%（她在营存活时生效）。</summary>
-    public const double Level2InfectionReduction = 0.15;
-    /// <summary>3级：全营感染率再 −10%（永续遗产）。</summary>
-    public const double Level3InfectionReduction = 0.10;
+    /// <summary>2级：全营感染率 −10%（她在营存活时生效）。T21 用户在数值表上手改：−15% → −10%。</summary>
+    public const double Level2InfectionReduction = 0.10;
+    /// <summary>3级：全营感染率再 −5%（永续遗产）。T21 用户在数值表上手改：−10% → −5%。</summary>
+    public const double Level3InfectionReduction = 0.05;
 
     /// <summary>她本人累计手术台数的持久化旗标 key（字符串承载整数，RadioMainline 回复日先例）。</summary>
     public const string SurgeryCountFlag = "nightingale_surgery_count";
@@ -187,10 +187,16 @@ public static class NightingalePerk
            + (l3LegacyActive ? CampSurgeryBaseBonus : 0);
 
     /// <summary>
-    /// 全营**感染率乘子**：2级 −15%（<paramref name="nurseAliveInCamp"/> 且 <paramref name="nurseLevel"/>≥2）
-    /// + 3级 −10%（<paramref name="l3LegacyActive"/>，永续遗产，她死/离营仍生效）。减免走**加法**（用户口径"合计 −25%"）：
-    /// 存活 L3 = ×(1−0.15−0.10)=×0.75；死后/离营仅遗产 = ×0.90；仅 L2 存活 = ×0.85；无 = ×1.0。
+    /// 全营**感染率乘子**：2级 −10%（<paramref name="nurseAliveInCamp"/> 且 <paramref name="nurseLevel"/>≥2）
+    /// + 3级 −5%（<paramref name="l3LegacyActive"/>，永续遗产，她死/离营仍生效）。减免走**加法**（用户口径）：
+    /// 存活 L3 = ×(1−0.10−0.05)=×0.85；死后/离营仅遗产 = ×0.95；仅 L2 存活 = ×0.90；无 = ×1.0。
     /// 供 <c>CampMain.AdvanceSurvivorsHealthDay</c> 喂各幸存者 <c>TickDay(infectionChanceMultiplier:…)</c>。纯静态、可脱实例。
+    ///
+    /// ⚠️ <b>[DECISION] 未决——轴的归属</b>：本乘子作用在<b>预防轴</b>（<c>infectionChanceMultiplier</c>＝"会不会感染"的几率），
+    /// 与山姆 L3 的<b>速率轴</b> <see cref="SamPerk.CampInfectionWorsenMultiplier"/>（"感染条涨多快"）显式正交。
+    /// 用户已在数值表上把她的文案由「感染率降低」改成「感染<b>条速度</b>降低」，字面指向速率轴，
+    /// 但换轴是行为变更（会与山姆的速率乘子叠加）⇒ <b>已上抛用户，未决前代码轴不动</b>。
+    /// 护栏见 <c>NurseRecruitTests.NightingaleInfectionPerk_ActsOnPreventionAxis_NotProgressionAxis</c>。
     /// </summary>
     public static double CampInfectionMultiplier(int nurseLevel, bool nurseAliveInCamp, bool l3LegacyActive)
     {

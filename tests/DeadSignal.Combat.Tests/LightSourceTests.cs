@@ -113,7 +113,7 @@ public class LightSourceTests
     {
         float flash = LightSource.ExposureDetectionMultiplier(Flashlight, ambient: 0f);
         float torch = LightSource.ExposureDetectionMultiplier(Torch, ambient: 0f);
-        Assert.True(flash > torch); // 手电(0.9) 比火把(0.7) 更亮更显眼
+        Assert.True(flash > torch); // 手电(0.9) 比火把(0.5，T21 用户手改自 0.7) 更亮更显眼
     }
 
     [Fact]

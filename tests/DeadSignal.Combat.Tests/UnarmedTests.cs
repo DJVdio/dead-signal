@@ -48,7 +48,7 @@ public class UnarmedTests
     {
         // 钝伤 ⇒ 结算读护甲的**钝防**（锐防再高也不管用）。
         var layer = new ArmorLayer { Name = "皮夹克", Slot = ArmorSlot.Outer, SharpDefense = 99, BluntDefense = 0 };
-        var rng = new SequenceRandomSource(4, 0);   // 攻击 roll=4、防御 roll=0（钝防 0 → 只能 roll 0）
+        var rng = new SequenceRandomSource(3, 0);   // 攻击 roll=3（T21 拳脚上限由 4 降到 3，roll 必须落在区间内）、防御 roll=0
         CombatResult r = new CombatResolver(rng).Resolve(WeaponTable.Fists(), new[] { layer }, Chest);
 
         Assert.Equal(DamageType.Blunt, r.FinalDamageType);

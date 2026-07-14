@@ -46,31 +46,31 @@ public static class WeaponTable
         StructureFactor = 0.4,   // 砸墙系数：拿匕首捅墙是徒劳（锐器兜底档）
         NoiseRadius = 90,            // 拟定待调：全近战最静——短促捅刺，几乎不带风声。呼应它自己的 flavor「小巧、贴身、安静」
         CanDualWield = true,
-        AttackInterval = 1.4,    // 拟定待调（全局慢节奏锚点：匕首 0.7→1.4，×2.0）
+        AttackInterval = 1.8,    // 用户手改（1.4 → 1.8）
     };
 
-    /// <summary>短剑：近战锐器，穿透 12%。</summary>
+    /// <summary>短剑：近战锐器，穿透 12%。伤害区间为用户在数值表上手改（T21：1~15 → 2~9，收窄）。</summary>
     public static Weapon Shortsword() => new()
     {
         Name = "短剑",
         Description = "一把趁手的短剑，比匕首多一寸，也多一分底气。",
-        DamageMin = 1,           // 拟定待调
-        DamageMax = 15,          // 拟定待调
-        Penetration = 0.12,
+        DamageMin = 2,           // 用户手改（1 → 2）
+        DamageMax = 9,           // 用户手改（15 → 9）：区间收窄，从"看脸"变稳定
+        Penetration = 0.12,      // 用户未动
         DamageType = DamageType.Sharp,
         StructureFactor = 0.4,   // 砸墙系数：刃口是拿来切开血肉的，木头铁皮不吃这套
         NoiseRadius = 105,           // 拟定待调：有挥砍幅度了，风声与金属碰撞都上来
         AttackInterval = 2.4,    // 拟定待调（近战倍率曲线 0.9→×2.64）
     };
 
-    /// <summary>刺剑：单手近战锐器，突刺路线——伤害区间窄、穿透略高于短剑，攻速略快。可双持。</summary>
+    /// <summary>刺剑：单手近战锐器，突刺路线——伤害区间窄、穿透略高于短剑，攻速略快。可双持。（T21 用户手改：1~12 → 2~8、穿透 15% → 16%）</summary>
     public static Weapon Rapier() => new()
     {
         Name = "刺剑",
         Description = "轻巧的刺剑，讲究的是一击致命，而不是大力出奇迹。",
-        DamageMin = 1,           // 拟定待调（刺击：区间窄）
-        DamageMax = 12,          // 拟定待调
-        Penetration = 0.15,      // 拟定待调（刺击穿透略高于短剑 12%）
+        DamageMin = 2,           // 用户手改（1 → 2）
+        DamageMax = 8,           // 用户手改（12 → 8）：全表最窄的区间——突刺就该稳
+        Penetration = 0.16,      // 用户手改（0.15 → 0.16；仍高于短剑 12%）
         DamageType = DamageType.Sharp,
         StructureFactor = 0.3,   // 砸墙系数：刺击对结构尤其无用——扎个洞，墙纹丝不动
         NoiseRadius = 95,            // 拟定待调：轻剑突刺，动静略大于匕首
@@ -78,29 +78,29 @@ public static class WeaponTable
         AttackInterval = 1.9,    // 拟定待调（近战倍率曲线 0.8→×2.32；略快于短剑）
     };
 
-    /// <summary>长剑：近战锐器，穿透 18%。双手武器。</summary>
+    /// <summary>长剑：近战锐器，穿透 25%。双手武器。（T21 用户手改：1~21 → 3~12、穿透 18% → 25%——收窄区间换吃甲能力）</summary>
     public static Weapon Longsword() => new()
     {
         Name = "长剑",
         Description = "双手长剑，一寸长一寸强——前提是你抡得动。",
-        DamageMin = 1,          // 拟定待调
-        DamageMax = 21,          // 拟定待调
-        Penetration = 0.18,
+        DamageMin = 3,           // 用户手改（1 → 3）：大剑的最差一下也已越过布衣门槛
+        DamageMax = 12,          // 用户手改（21 → 12）
+        Penetration = 0.25,      // 用户手改（0.18 → 0.25）
         DamageType = DamageType.Sharp,
         StructureFactor = 0.4,   // 砸墙系数：再长的刃砍在门上也只是崩口
         NoiseRadius = 120,           // 拟定待调：双手抡圆，破风声明显
         TwoHanded = true,        // 拟定待调
-        AttackInterval = 3.6,    // 拟定待调（全局慢节奏锚点：长剑 1.1→3.6，×3.27）
+        AttackInterval = 3.2,    // 用户手改（3.6 → 3.2）
     };
 
-    /// <summary>重剑：近战锐器，穿透 24%。双手武器。</summary>
+    /// <summary>重剑：近战锐器，穿透 40%。双手武器。（T21 用户手改：1~27 → 5~20、穿透 24% → 40%——全近战最高穿透，已与步枪持平、超过破甲锤 35%）</summary>
     public static Weapon Greatsword() => new()
     {
         Name = "重剑",
         Description = "沉重的大剑，挥一下费半条命，中一下要一条命。",
-        DamageMin = 1,          // 拟定待调
-        DamageMax = 27,          // 拟定待调
-        Penetration = 0.24,
+        DamageMin = 5,           // 用户手改（1 → 5）：抡得动它，就没有"轻轻划一下"这回事
+        DamageMax = 20,          // 用户手改（27 → 20）
+        Penetration = 0.40,      // 用户手改（0.24 → 0.40）
         DamageType = DamageType.Sharp,
         StructureFactor = 0.5,   // 砸墙系数：全靠自重砸出的那一点效果（仍是锐器：拿它当破门锤会先毁了刃）
         NoiseRadius = 135,           // 拟定待调：沉重挥击，抡一下半条街都听得见风
@@ -113,14 +113,14 @@ public static class WeaponTable
     {
         Name = "草叉",
         Description = "农具改的草叉，本来是叉草的，现在叉什么全看你。",
-        DamageMin = 1,           // 拟定待调
-        DamageMax = 18,          // 拟定待调
-        Penetration = 0.16,      // 拟定待调（多齿刺击，略低于长剑 18%）
+        DamageMin = 4,           // 用户手改（1 → 4）
+        DamageMax = 8,           // 用户手改（18 → 8）：区间大幅收窄
+        Penetration = 0.16,      // 拟定待调（多齿刺击）。⚠ 原注「略低于长剑 18%」已过时：T21 用户把长剑提到 25%，草叉本身未动
         DamageType = DamageType.Sharp,
         StructureFactor = 0.3,   // 砸墙系数：三根尖齿，戳墙等于挠痒
         NoiseRadius = 120,           // 拟定待调：长杆多齿，挥起来带风、扎中带响
         TwoHanded = true,        // 拟定待调
-        AttackInterval = 3.7,    // 拟定待调（重近战曲线 1.2→3.7，略慢于长剑）
+        AttackInterval = 3.0,    // 用户手改（3.7 → 3.0）
     };
 
     // ---- 近战钝器 ----
@@ -133,8 +133,8 @@ public static class WeaponTable
     {
         Name = "棍棒",
         Description = "一根结实的棍棒，简单、可靠、不讲道理。",
-        DamageMin = 10,          // 拟定待调（批次18 提伤：7 → 10）
-        DamageMax = 13,          // 拟定待调（批次18 提伤：9 → 13；区间仍窄=钝器稳定输出）
+        DamageMin = 6,           // 用户手改（10 → 6）：批次18 的"钝器提伤"被用户回调
+        DamageMax = 8,           // 用户手改（13 → 8）
         Penetration = 0.03,
         DamageType = DamageType.Blunt,
         StructureFactor = 1.2,   // 砸墙系数：钝器，但轻——能砸开木板，砸不动铁皮
@@ -167,8 +167,8 @@ public static class WeaponTable
     {
         Name = "破甲锤",
         Description = "专治各种不服的破甲锤，铁皮罐头也照开不误。",
-        DamageMin = 20,          // 拟定待调
-        DamageMax = 28,          // 拟定待调
+        DamageMin = 16,          // 用户手改（20 → 16）：批次18 的"破甲锤不动"已被用户自己推翻
+        DamageMax = 28,          // 用户未动
         Penetration = 0.35,      // 拟定待调（20%→35%，破甲专精，全近战最高穿透）
         DamageType = DamageType.Blunt,
         StructureFactor = 2.0,   // 砸墙系数：**全表最强破门武器**——「铁皮罐头也照开不误」这句介绍，从此有数值兜底
@@ -264,10 +264,10 @@ public static class WeaponTable
         FalloffStart = 55,       // 拟定待调
         FalloffFloor = 0.5,      // 拟定待调
         // 枪托近战（1.0kg，全表最轻）：拿枪柄敲人——最快、最弱、最安静的枪托。DPS 2.65（全表最低）。
-        StockMeleeDamageMin = 3,
-        StockMeleeDamageMax = 6,
+        StockMeleeDamageMin = 1,   // 用户手改（3 → 1）
+        StockMeleeDamageMax = 4,   // 用户手改（6 → 4）
         StockMeleePenetration = 0.02,
-        StockMeleeInterval = 1.7,
+        StockMeleeInterval = 1.2,       // 用户手改（1.7 → 1.2）
         StockMeleeNoiseRadius = 85,     // 全表最轻的枪托动静（枪声 350 → 砸击 85）
     };
 
@@ -278,15 +278,18 @@ public static class WeaponTable
     {
         Name = "冲锋枪",
         Description = "三连发的冲锋枪，子弹管够的时候，谁跟你讲道理。",
-        DamageMin = 10,          // 拟定待调
-        DamageMax = 18,          // 拟定待调
+        DamageMin = 6,           // 用户手改（10 → 6）
+        DamageMax = 18,          // 用户未动
         Penetration = 0.18,
         DamageType = DamageType.Sharp,
         StructureFactor = 1.0,   // 砸墙系数：作用于枪托，不是子弹
         // 双手抵肩、**不可双持**（用户拍板「保双手，放弃双持」）。这里曾挂过一行 `CanDualWield = true`，
         // 但双手武器在 WeaponLoadout.EquipToHand 里直接短路走 EquipTwoHanded（占满两手）、根本进不了双持分支，
-        // 那行从来没生效过 ⇒ 已删。双手 +15% 攻速（DualWield.TwoHandedSpeedBonus）保留，B18「削冷却不削伤害」
-        // 那轮的平衡就是按含 +15% 的 DPS 调的。护栏见 TwoHandEnforcementTests.TwoHandedWeapons_AreNeverDualWieldable。
+        // 那行从来没生效过 ⇒ 已删。护栏见 TwoHandEnforcementTests.TwoHandedWeapons_AreNeverDualWieldable。
+        // ⚠️ 此处原有一句「双手 +15% 攻速保留，B18『削冷却不削伤害』那轮的平衡就是按含 +15% 的 DPS 调的」——
+        // **该说法不成立，已随双手加成一并删除**：B18 调冷却时看的是 weaponsweep 的 DPS 表，而那张表
+        // （WeaponCalibration）自始至终按**单手**算（DuelFighter 从不设 Grip、DPS 公式直接用 w.AttackInterval），
+        // 持握系数根本没进过它 ⇒ 冷却 1.8→2.6 的平衡与 +15% 无关，删掉加成也不改变它的依据。
         TwoHanded = true,        // 拟定待调
         IsRanged = true,
         AmmoKey = AmmoKeys.ShortBullet,   // 冲锋枪：短子弹，三连发 → **3 发/次**。泼水一样的伤害，也泼水一样地烧弹：1 个零件的 8 发，够它扣两次半扳机。
@@ -318,8 +321,8 @@ public static class WeaponTable
     {
         Name = "步枪",
         Description = "军用步枪，站得远、打得准，让对话在安全距离进行。",
-        DamageMin = 20,          // 拟定待调
-        DamageMax = 35,          // 拟定待调
+        DamageMin = 10,          // 用户手改（20 → 10）：「枪不降下限」旧规仍在（10 ≫ 1），但"保持原区间"已被用户推翻
+        DamageMax = 24,          // 用户手改（35 → 24）
         Penetration = 0.40,      // 用户拍板（批次18b：0.21 → 0.40，军用高穿透）
         DamageType = DamageType.Sharp,
         StructureFactor = 1.0,   // 砸墙系数：作用于枪托重砸，不是子弹
@@ -355,7 +358,7 @@ public static class WeaponTable
         Description = "民用栓动猎枪，一枪一栓，郑重其事——毕竟每一发都得省着用。",
         DamageMin = 16,          // 拟定待调（介于步枪 20 与自制猎枪 4 之间）
         DamageMax = 28,          // 拟定待调（介于步枪 35 与自制猎枪 16 之间）
-        Penetration = 0.16,      // 拟定待调（全枪械最低穿透：步枪已 40%、自制猎枪 25%）
+        Penetration = 0.21,      // 用户手改（0.16 → 0.21；仍低于自制猎枪 25%）
         DamageType = DamageType.Sharp,
         StructureFactor = 1.0,   // 砸墙系数：作用于枪托重砸，不是子弹
         TwoHanded = true,        // 拟定待调
@@ -380,8 +383,8 @@ public static class WeaponTable
     {
         Name = "狙击枪",
         Description = "狙击枪，你还没听见响，事情就已经结束了。",
-        DamageMin = 40,          // 拟定待调
-        DamageMax = 70,          // 拟定待调
+        DamageMin = 20,          // 用户手改（40 → 20）：区间大幅拉宽，一枪不再必定抹除
+        DamageMax = 70,          // 用户未动
         Penetration = 0.70,
         DamageType = DamageType.Sharp,
         StructureFactor = 1.0,   // 砸墙系数：作用于枪托——拿五十倍镜的枪去砸门，光荣但笨拙
@@ -390,7 +393,7 @@ public static class WeaponTable
         AmmoKey = AmmoKeys.LongBullet,   // 狙击枪：长子弹，1 发/次。1 个零件只出 2 发 —— 全表最贵的一发。一颗子弹一条命，前提是你打得中。
         NoiseRadius = 700,           // 拟定待调：**全表最响**。大口径、高初速——它的 flavor 说「你还没听见响事情就结束了」，那是对**目标**而言；对周围一公里的所有东西来说，它响得像开了个宴会
         BaseSpreadDegrees = 0.5, // 拟定待调
-        AttackInterval = 5.0,    // 拟定待调（枪械倍率回调 ×3~4：狙击 1.5→×3.33；栓动猎枪 4.5 接手全表最慢枪之一）
+        AttackInterval = 7.5,    // 用户手改（5.0 → 7.5）：全表最慢——一枪一世界
         MaxRange = 900,          // 拟定待调（狙击：远而缓，末端仍高伤）
         FalloffStart = 450,      // 拟定待调
         FalloffFloor = 0.8,      // 拟定待调
@@ -428,8 +431,8 @@ public static class WeaponTable
     {
         Name = "自制霰弹枪",
         Description = "钢管、铁钉、一把火药——离得越近，讲的道理越充分。",
-        DamageMin = 1,           // 拟定待调（单颗弹丸；低于布衣挡下门槛 2.7 → 布甲才挡得下一部分）
-        DamageMax = 5,           // 拟定待调（单颗弹丸；远低于板甲门槛 22.5 → 对板甲颗颗被弹开）
+        DamageMin = 2,           // 用户手改（1 → 2；单颗弹丸）
+        DamageMax = 6,           // 用户手改（5 → 6；单颗弹丸）
         PelletCount = 8,         // 用户拍板：8 颗弹丸，单独计算
         Penetration = 0.10,      // 用户拍板：10% 穿透（低）
         // 弹药：霰弹专用壳。一次扣扳机烧掉**一发霰弹**（不是 8 发）——8 颗弹丸装在同一个壳里。
@@ -440,7 +443,7 @@ public static class WeaponTable
         TwoHanded = true,        // 拟定待调（长管双手抵肩）
         IsRanged = true,
         BaseSpreadDegrees = 18,  // 拟定待调（全表最大锥角——"锥形扩散较大"）
-        AttackInterval = 4.0,    // 拟定待调（土制单管，每发重新装填）
+        AttackInterval = 4.2,    // 用户手改（4.0 → 4.2）
         MaxRange = 90,           // 拟定待调（全表最短——"射程较短"）
         FalloffStart = 18,       // 拟定待调（出膛即开始掉，满伤只在贴脸）
         FalloffFloor = 0.2,      // 拟定待调（全表最重衰减——"伤害衰减严重"）
@@ -759,7 +762,7 @@ public static class WeaponTable
         Name = "拳脚",
         Description = "你还有一双手。它们打不穿任何东西，但至少能让扑上来的那位知道你还没打算躺下。",
         DamageMin = 1,           // 拟定待调
-        DamageMax = 4,           // 拟定待调（均值 2.5 < 匕首 4.0）
+        DamageMax = 3,           // 用户手改（4 → 3；均值 2.0 < 匕首 4.0）
         Penetration = 0,         // 赤手无破甲——全表唯一的 0
         DamageType = DamageType.Blunt,   // 用户拍板：空手 = 钝伤
         StructureFactor = 0.2,   // 砸墙系数：徒手拆墙近乎徒劳（只比射箭砸墙的 0.1 强一点）

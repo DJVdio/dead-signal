@@ -19,8 +19,19 @@ public class TutorialRaidLogicTests
     [Fact]
     public void ShouldTurncoat_ChristineTookAnyDamage_True()
     {
-        // 克莉丝汀掉一丝血即翻转（阈值=满血）。
+        // 克莉丝汀掉血超过 1% 即翻转。
         Assert.True(TutorialRaidLogic.ShouldTurncoat(new[] { 1f, 1f }, christineHealthFraction: 0.98f));
+    }
+
+    /// <summary>
+    /// T21（用户在数值表上手改 100 → 99）：反水阈值由「满血，掉一丝血就翻」放宽到「<b>掉血超过 1% 才翻</b>」。
+    /// 意图：给"擦伤级"的一两点掉血留出容错，免得教学关被一次无关刮蹭误触发反水。
+    /// 故 0.995（掉 0.5%）**不该**翻转——这是新旧口径的分水岭，旧阈值(=1f)下它会翻。
+    /// </summary>
+    [Fact]
+    public void ShouldTurncoat_ChristineGrazed_BelowOnePercent_False()
+    {
+        Assert.False(TutorialRaidLogic.ShouldTurncoat(new[] { 1f, 1f }, christineHealthFraction: 0.995f));
     }
 
     [Fact]

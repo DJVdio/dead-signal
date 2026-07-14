@@ -17,8 +17,12 @@ public static class TutorialRaidLogic
     /// <summary>劫掠者血量比低于此值即判"受伤较重"，触发克莉丝汀反水。</summary>
     public const float RaiderWoundedThreshold = 0.5f;
 
-    /// <summary>克莉丝汀血量比低于此值即判"受到伤害"（=满血，任意掉血即触发）。</summary>
-    public const float ChristineHurtThreshold = 1f;
+    /// <summary>
+    /// 克莉丝汀血量比低于此值即判"受到伤害"。T21 用户在数值表上手改：1.00 → <b>0.99</b>——
+    /// 由「满血，掉一丝血就翻」放宽到「掉血超过 1% 才翻」，给擦伤级的一两点掉血留容错，
+    /// 免得教学关被一次无关刮蹭误触发反水。
+    /// </summary>
+    public const float ChristineHurtThreshold = 0.99f;
 
     /// <summary>
     /// 反水触发判定：**任一劫掠者 HP 低于阈值** 或 **克莉丝汀受到任意伤害**，先到者即翻转。

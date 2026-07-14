@@ -95,16 +95,16 @@ public class ShotgunPelletTests
     [Fact]
     public void 每颗弹丸独立过护甲三段判定()
     {
-        Weapon shotgun = WeaponTable.ImprovisedShotgun(); // 1~5 伤害
+        Weapon shotgun = WeaponTable.ImprovisedShotgun(); // 2~6 伤害（T21 用户手改，原 1~5）
         BodyPart chest = Chest();
 
-        // 三颗：①攻1 vs 防5.0 → 1 < 2.5 挡下；②攻3 vs 防5.0 → 2.5 ≤ 3 < 5 半伤；③攻5 vs 防2.0 → 全伤。
-        // 其余 5 颗喂全伤（攻5 vs 防0）。每颗 2 次 roll（攻、防）。
+        // 三颗：①攻2 vs 防5.0 → 2 < 2.5 挡下；②攻3 vs 防5.0 → 2.5 ≤ 3 < 5 半伤；③攻6 vs 防2.0 → 全伤。
+        // 其余 5 颗喂全伤（攻6 vs 防0）。每颗 2 次 roll（攻、防）。攻击 roll 必须落在新区间 2~6 内。
         var rng = new SequenceRandomSource(
-            1, 5.0,
+            2, 5.0,
             3, 5.0,
-            5, 2.0,
-            5, 0, 5, 0, 5, 0, 5, 0, 5, 0);
+            6, 2.0,
+            6, 0, 6, 0, 6, 0, 6, 0, 6, 0);
 
         VolleyResult v = new CombatResolver(rng).ResolveVolley(shotgun, Shirt(), () => chest);
 
@@ -115,11 +115,11 @@ public class ShotgunPelletTests
         Assert.True(v.Pellets[0].Terminated);   // 被布衣挡下 → 0 伤
         Assert.Equal(0, v.Pellets[0].FinalDamage);
         Assert.Equal(1.5, v.Pellets[1].FinalDamage); // 半伤 3/2
-        Assert.Equal(5, v.Pellets[2].FinalDamage);   // 全伤
+        Assert.Equal(6, v.Pellets[2].FinalDamage);   // 全伤（T21：满掷点 5 → 6）
 
         Assert.Equal(1, v.BlockedCount);
         Assert.Equal(7, v.LandedCount);              // 8 颗里 7 颗进肉
-        Assert.Equal(0 + 1.5 + 5 + 5 * 5, v.TotalDamage);
+        Assert.Equal(0 + 1.5 + 6 + 5 * 6, v.TotalDamage);
     }
 
     /// <summary>穿透 10% 逐颗生效：每颗弹丸各自把防御上限压到 ×0.9（防 roll 上界 6×0.9=5.4）。</summary>
@@ -245,8 +245,15 @@ public class ShotgunPelletTests
         double zombie = BlockRate(ArmorTable.ZombieHide());
 
         Assert.True(plate > 0.80, $"板甲应挡下绝大多数弹丸，实测 {plate:P1}");
-        Assert.InRange(cloth, 0.05, 0.35);                    // 布衣挡下相当一部分（但远非全挡）
+
+        // ⚠ T21：旧断言是 InRange(cloth, 0.05, 0.35)「布衣挡下相当一部分」。
+        // 用户把单颗弹丸下限从 1 提到 2 之后，布衣的挡下门槛（防6×(1−穿透0.1)/2 = 2.7）
+        // 只夹得住掷点 2 那一档 ⇒ 布衣挡下率跌到 ~2.3%，旧区间的下界 5% 已不成立。
+        // 这是提下限的直接后果，且方向明确（"薄衣挡不住霰弹"更符合直觉）⇒ 改钉新事实：
+        // 布衣几乎挡不住，但仍略好于丧尸腐皮（腐皮防更低）。
+        Assert.InRange(cloth, 0.005, 0.05);
         Assert.True(zombie < 0.05, $"丧尸腐皮几乎挡不住，实测 {zombie:P1}");
+        Assert.True(cloth > zombie, $"布衣仍应略强于丧尸腐皮（布 {cloth:P1} vs 腐皮 {zombie:P1}）");
         Assert.True(plate > cloth * 2, "对披甲目标应显著差于对薄衣目标");
     }
 }

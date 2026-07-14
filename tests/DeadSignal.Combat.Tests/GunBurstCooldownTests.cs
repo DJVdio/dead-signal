@@ -93,7 +93,7 @@ public class GunBurstCooldownTests
     {
         var smg = WeaponTable.Smg();
         Assert.Equal(2.6, smg.AttackInterval, 3);
-        Assert.Equal(10, smg.DamageMin);
+        Assert.Equal(6, smg.DamageMin);    // T21 用户手改（10 → 6）；本测试主张的是"冷却重平衡时伤害没被我方代偿"，该意图不变
         Assert.Equal(18, smg.DamageMax);
         Assert.Equal(3, smg.BurstCount);
     }
