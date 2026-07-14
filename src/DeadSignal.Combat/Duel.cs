@@ -20,7 +20,7 @@ public sealed class DuelFighter
     public IReadOnlyDictionary<string, string> Equipment { get; init; } = new Dictionary<string, string>();
 
     /// <summary>
-    /// 持握态（单手/双手/双持）。默认单手。表达攻速系数：双手 +15%、双持 ×0.70。
+    /// 持握态（单手/双手/双持）。默认单手。表达攻速系数：双持 ×0.70（双手无加成，与单手同 1.0）。
     /// 与旧字段 <see cref="DualWielding"/> 的关系见 <see cref="EffectiveGrip"/>。
     /// </summary>
     public GripMode Grip { get; init; } = GripMode.OneHanded;
@@ -343,7 +343,7 @@ public sealed class DuelEngine
     private double EffectiveInterval(Runtime rt, WeaponMount mount)
     {
         double baseInterval = mount.Weapon.AttackInterval > 0 ? mount.Weapon.AttackInterval : 1.0;
-        // 持握态攻速系数：单手 1.0、双手 ×1.15（加速）、双持 ×0.70（减速），互斥（单一枚举）。
+        // 持握态攻速系数：单手 1.0、双手 1.0（无加成）、双持 ×0.70（减速），互斥（单一枚举）。
         double grip = DualWield.GripSpeedFactor(rt.Def.EffectiveGrip);
         double blood = BloodSpeedFactor(rt.Body.BloodTier);
         // 瞬态系数（持握/震荡/手骨折/失血）叠乘，锁下限 MinSpeedMult。

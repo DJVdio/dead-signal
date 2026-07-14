@@ -6,7 +6,7 @@ namespace DeadSignal.Combat.Tests;
 
 /// <summary>
 /// 武器持械模型（左右手 → GripMode）。用户拍板口径：
-/// 两把单手 = 双持；一把双手武器占两手；一把单手 = 单手；一把单手改双手握 = 双手（+15%）。断手 → 该手不能持械。
+/// 两把单手 = 双持；一把双手武器占两手；一把单手 = 单手；一把单手改双手握 = 双手（**无攻速加成**）。断手 → 该手不能持械。
 /// </summary>
 public class WeaponLoadoutTests
 {
@@ -117,7 +117,7 @@ public class WeaponLoadoutTests
     [Fact]
     public void EquipTwoHanded_OneHandWeaponGivesTwoHandedGrip()
     {
-        // 单手武器改双手握 → 双手（+15%）
+        // 单手武器改双手握 → 双手（持握态变了，但**无攻速加成**）
         var lo = new WeaponLoadout();
         Assert.True(lo.EquipTwoHanded(OneHandDW()));
         Assert.Equal(GripMode.TwoHanded, lo.Grip);

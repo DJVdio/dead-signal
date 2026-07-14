@@ -12,7 +12,7 @@ public enum Hand
 /// <summary>
 /// 武器持械模型（纯逻辑，无 Godot 依赖）：左手 / 右手各持一把武器，推导 <see cref="GripMode"/> 供引擎系数消费。
 /// 用户拍板口径：两把单手武器 = 双持（引擎 ×0.70 攻速、远程误差角 ×1.25）；一把双手武器占两手；
-/// 一把单手 = 单手；一把单手改双手握 = 双手（+15% 攻速）。断手 → 该手不能持械。
+/// 一把单手 = 单手；一把单手改双手握 = 双手（**无攻速加成**，与单手同速）。断手 → 该手不能持械。
 /// 断手/GripMode 皆纯逻辑入参，不耦合 Body/Godot。
 /// </summary>
 public sealed class WeaponLoadout
@@ -23,7 +23,7 @@ public sealed class WeaponLoadout
     /// <summary>右手所持武器；null = 空手。双手持一把时左右手指向同一把。</summary>
     public Weapon? RightHand { get; private set; }
 
-    /// <summary>true = 一把武器同时占据两手（双手武器，或单手武器改双手握）——攻速 +15%。</summary>
+    /// <summary>true = 一把武器同时占据两手（双手武器，或单手武器改双手握）——**不带攻速加成**，纯装备约束。</summary>
     public bool TwoHandGrip { get; private set; }
 
     /// <summary>左手是否已切除（断手 → 不能持械）。</summary>
@@ -96,7 +96,7 @@ public sealed class WeaponLoadout
         return true;
     }
 
-    /// <summary>双手持一把武器（双手武器，或单手武器改双手握 +15%）：占两手、另一手清空。任一手断则拒绝。</summary>
+    /// <summary>双手持一把武器（双手武器，或单手武器改双手握——**无攻速加成**）：占两手、另一手清空。任一手断则拒绝。</summary>
     public bool EquipTwoHanded(Weapon weapon)
     {
         if (LeftHandLost || RightHandLost)

@@ -5,45 +5,52 @@ using Xunit;
 namespace DeadSignal.Combat.Tests;
 
 /// <summary>
-/// 持握三态 + 双手奖励 + 远程枪托近战 profile（设计文档 §5：单手/双手之分；双持惩罚）。
-/// 用户拍板口径：单手持单武器=基线；双手持一把武器=攻速 +15%；双持两把单手武器=攻速×0.70 + 远程误差角×1.25。
-/// 数值（+15% / ×0.70 / ×1.25 / 枪托值）为原型期拟定待调。
+/// 持握三态 + 远程枪托近战 profile（设计文档 §5：单手/双手之分；双持惩罚）。
+/// 用户拍板口径：单手持单武器=基线；<b>双手持一把武器=同样是基线（无攻速加成）</b>；
+/// 双持两把单手武器=攻速×0.70 + 远程误差角×1.25。
+/// <para><b>双手握的 +15% 攻速加成已按用户口径删除</b>（旧 <c>DualWield.TwoHandedSpeedBonus</c> 已退役）：
+/// 双手武器的代价（占满两只手、不能同时持光源/第二把武器）是<b>装备约束</b>，不再附带攻速回报。
+/// 下面的测试就是钉死"双手握 == 单手握，攻速上一模一样"的护栏。</para>
+/// 数值（×0.70 / ×1.25 / 枪托值）为原型期拟定待调。
 /// </summary>
 public class TwoHandedGripTests
 {
-    // ---- DualWield：双手奖励常量 + 三态纯函数 ----
-
-    [Fact]
-    public void TwoHandedBonus_IsFifteenPercentFaster()
-    {
-        Assert.Equal(1.15, DualWield.TwoHandedSpeedBonus, 9);
-    }
+    // ---- DualWield：三态纯函数（双手无加成）----
 
     [Fact]
     public void GripSpeedFactor_ThreeStates()
     {
         Assert.Equal(1.00, DualWield.GripSpeedFactor(GripMode.OneHanded), 9); // 基线
-        Assert.Equal(1.15, DualWield.GripSpeedFactor(GripMode.TwoHanded), 9); // 双手 +15%（更快）
+        Assert.Equal(1.00, DualWield.GripSpeedFactor(GripMode.TwoHanded), 9); // 双手：无加成，同基线
         Assert.Equal(0.70, DualWield.GripSpeedFactor(GripMode.DualWield), 9); // 双持 ×0.70（更慢）
     }
 
     [Fact]
-    public void GripInterval_TwoHandedShortens_DualLengthens()
+    public void TwoHandedGrip_GivesNoAttackSpeedBonus()
+    {
+        // 本单的核心口径：双手握**不再**加攻速——系数与单手逐位相等，有效间隔 == 武器基础间隔。
+        Assert.Equal(DualWield.GripSpeedFactor(GripMode.OneHanded),
+            DualWield.GripSpeedFactor(GripMode.TwoHanded), 9);
+        Assert.Equal(0.7, DualWield.EffectiveGripInterval(0.7, GripMode.TwoHanded), 9);
+    }
+
+    [Fact]
+    public void GripInterval_TwoHandedUnchanged_DualLengthens()
     {
         Assert.Equal(1.0, DualWield.EffectiveGripInterval(1.0, GripMode.OneHanded), 9);
-        Assert.Equal(1.0 / 1.15, DualWield.EffectiveGripInterval(1.0, GripMode.TwoHanded), 9);
+        Assert.Equal(1.0, DualWield.EffectiveGripInterval(1.0, GripMode.TwoHanded), 9); // 无加成
         Assert.Equal(1.0 / 0.70, DualWield.EffectiveGripInterval(1.0, GripMode.DualWield), 9);
     }
 
     [Fact]
-    public void TwoHandedBonusAndDualPenalty_AreMutuallyExclusive()
+    public void DualPenalty_IsTheOnlyGripSpeedModifier()
     {
-        // 持握态是单一枚举值——不可能既双持又双手；且两者方向相反（一快一慢）。
-        double twoHanded = DualWield.GripSpeedFactor(GripMode.TwoHanded);
-        double dual = DualWield.GripSpeedFactor(GripMode.DualWield);
-        Assert.True(twoHanded > 1.0, "双手是加速");
-        Assert.True(dual < 1.0, "双持是减速");
-        Assert.NotEqual(twoHanded, dual);
+        // 删掉双手加成后，持握态里**只剩双持这一个减速**——没有任何持握能把攻速抬到基线之上。
+        foreach (GripMode grip in System.Enum.GetValues<GripMode>())
+        {
+            Assert.True(DualWield.GripSpeedFactor(grip) <= 1.0, $"{grip} 不该快于基线");
+        }
+        Assert.True(DualWield.GripSpeedFactor(GripMode.DualWield) < 1.0, "双持是减速");
     }
 
     // ---- 远程枪托近战 profile ----
@@ -148,9 +155,11 @@ public class TwoHandedGripTests
     }
 
     [Fact]
-    public void Duel_TwoHanded_FifteenPercentFaster()
+    public void Duel_TwoHanded_KeepsBaseInterval_NoBonus()
     {
-        Assert.Equal(0.7 / 1.15, FirstInterval(GripMode.TwoHanded), 6);
+        // 双手握在 Duel 的出手节奏上也**与单手完全一致**（基础间隔 0.7s，不缩短）。
+        Assert.Equal(0.7, FirstInterval(GripMode.TwoHanded), 6);
+        Assert.Equal(FirstInterval(GripMode.OneHanded), FirstInterval(GripMode.TwoHanded), 6);
     }
 
     [Fact]

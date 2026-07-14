@@ -17,12 +17,12 @@ public class GripCombatTests
     }
 
     [Fact]
-    public void Interval_TwoHanded_ShortensInterval()
+    public void Interval_TwoHanded_NoBonus_SameAsOneHanded()
     {
-        // 双手 ×1.15 → 间隔更短（攻更快）。
-        Assert.Equal(1.0 / DualWield.TwoHandedSpeedBonus,
+        // 双手握**无攻速加成**（旧 ×1.15 已按用户口径删除）→ 有效间隔 == 基础冷却，与单手逐位相同。
+        Assert.Equal(1.0, GripCombat.EffectiveInterval(1.0, 1.0, GripMode.TwoHanded), 9);
+        Assert.Equal(GripCombat.EffectiveInterval(1.0, 1.0, GripMode.OneHanded),
             GripCombat.EffectiveInterval(1.0, 1.0, GripMode.TwoHanded), 9);
-        Assert.True(GripCombat.EffectiveInterval(1.0, 1.0, GripMode.TwoHanded) < 1.0);
     }
 
     [Fact]
@@ -37,12 +37,15 @@ public class GripCombatTests
     [Fact]
     public void Interval_KeepsDisabilityHungerMultiplication()
     {
-        // 操作能力 0.5（残疾/饥饿）先把间隔翻倍，再乘 grip：0.5×1.15 的合并乘法，不被 grip 覆盖。
+        // 操作能力 0.5（残疾/饥饿）先把间隔翻倍，再乘 grip 系数——这条乘法链本身不因删掉双手加成而改变，
+        // 只是双手那一项现在是 ×1.0。双持仍照常并入（0.5 × 0.70）。
         double operation = 0.5;
         Assert.Equal(1.0 / operation, // 单手：仍是原来的翻倍
             GripCombat.EffectiveInterval(1.0, operation, GripMode.OneHanded), 9);
-        Assert.Equal(1.0 / (operation * DualWield.TwoHandedSpeedBonus),
+        Assert.Equal(1.0 / operation, // 双手：无加成 ⇒ 与单手同值
             GripCombat.EffectiveInterval(1.0, operation, GripMode.TwoHanded), 9);
+        Assert.Equal(1.0 / (operation * DualWield.AttackSpeedFactor),
+            GripCombat.EffectiveInterval(1.0, operation, GripMode.DualWield), 9);
     }
 
     [Fact]

@@ -11,7 +11,7 @@ using DeadSignal.Combat;
 
 /// <summary>
 /// 持握态战斗消费（纯函数）。把引擎 <see cref="DualWield"/> 的持握系数接进 Actor 的实时攻速/误差角：
-/// 双手一把 ×1.15（攻更快）、双持两把 ×0.70（更慢，远程另放大误差角）、单手 ×1.0（基线）。
+/// 双持两把 ×0.70（更慢，远程另放大误差角）；单手与双手一把同为 ×1.0（基线——**双手握无攻速加成**）。
 /// 不改残疾×饥饿那套操作能力乘法，只在其上再乘一个 grip 因子。
 /// </summary>
 public static class GripCombat
@@ -19,7 +19,7 @@ public static class GripCombat
     /// <summary>
     /// 含持握的有效出手间隔（秒/次）。<paramref name="operation"/>=残疾×饥饿合并后的操作能力（0~1，
     /// 见 <see cref="HungerState.CombineCapability"/>）；有效间隔 = 基础冷却 / (操作能力 × 持握攻速系数)。
-    /// 双手 1.15→间隔更短、双持 0.70→更长、单手 1.0 不变。操作能力 ≤0（断双手等无法出手）时回落基础冷却
+    /// 双持 0.70→间隔更长；单手与双手均 1.0 不变（双手无加成）。操作能力 ≤0（断双手等无法出手）时回落基础冷却
     /// 保持正值——此时 Actor 本就跳过出手，避免除零变 NaN/负值。
     /// </summary>
     public static double EffectiveInterval(double baseCooldown, double operation, GripMode grip)
