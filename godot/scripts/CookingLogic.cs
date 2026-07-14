@@ -97,7 +97,7 @@ public static class FoodCalories
 
         // ——— 存粮 / 罐头 ———
         new FoodDef("ration", 30),           // 军用单兵口粮（用户给定）
-        new FoodDef("canned_food", 12),      // 罐头
+        new FoodDef("canned_food", 16),      // 罐头（热量点 T21 用户手改：12 → 16）
         new FoodDef("flour", 7),             // 面粉
         new FoodDef("beans", 5),             // 干豆
 
@@ -210,7 +210,11 @@ public static class CookStation
     /// </para>
     /// <para><b>刻意不填 <c>AllowedAgainstDefenses</c></b>（缺省 false = 受约束）：豁免只给恒不挡路的沙袋。</para>
     /// </summary>
-    public static PlaceableSpec Spec => new(PropName, Width, Height, IsSolid: IsSolid);
+    /// <remarks>
+    /// [T27] <c>AllowedOutdoors: true</c>：同改装台 —— 本 spec 的<b>唯一用途是设计期自检</b>（固定锚点，玩家摆不了），
+    /// 而「家具不能放到室外」那条是<b>约束玩家放置</b>的。authored 固定设施不该被它回头卡住自己。禁建带那条照守不误。
+    /// </remarks>
+    public static PlaceableSpec Spec => new(PropName, Width, Height, IsSolid: IsSolid, AllowedOutdoors: true);
 
     /// <summary>营地里有没有一座烹饪台（<paramref name="furnitureNames"/> = 场上家具名，营地层给）。</summary>
     public static bool HasStation(IEnumerable<string>? furnitureNames)

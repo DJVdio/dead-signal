@@ -256,11 +256,15 @@ public class FixedFacilityAnchorTests
         }
 
         PlacementRules.Box a = anchor.Value;
-        var spec = new PlaceableSpec(facility, a.W, a.H, IsSolid: true);
+        // [T27] AllowedOutdoors:true —— 本组自检的是**固定锚点**（玩家摆不了），而「家具不能放到室外」那条
+        // 是约束玩家放置的。authored 设施由设计者放在哪儿就在哪儿（工作台本身就立在院子里），
+        // 不该被那条规则回头卡住自己。本组要守的是**禁建带**，故室内区传空表。
+        var spec = new PlaceableSpec(facility, a.W, a.H, IsSolid: true, AllowedOutdoors: true);
         var center = new Vector2(a.X + a.W / 2f, a.Y + a.H / 2f);
 
         PlacementVerdict verdict = PlacementRules.CanPlace(
-            spec, center, Bounds(camp), Defenses(camp), Solids(camp, except: facility), new List<PlacementRules.Box>());
+            spec, center, Bounds(camp), Defenses(camp), Solids(camp, except: facility),
+            new List<PlacementRules.Box>(), new List<PlacementRules.Box>());
 
         Assert.True(
             verdict == PlacementVerdict.Ok,
@@ -372,7 +376,7 @@ public class FixedFacilityAnchorTests
 
         PlacementVerdict verdict = PlacementRules.CanPlace(
             WeaponModLogic.BenchSpec, atTheGate, Bounds(camp), Defenses(camp),
-            new List<PlacementRules.Box>(), new List<PlacementRules.Box>());
+            new List<PlacementRules.Box>(), new List<PlacementRules.Box>(), new List<PlacementRules.Box>());
 
         Assert.Equal(PlacementVerdict.TooCloseToDefenses, verdict);
     }

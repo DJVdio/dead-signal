@@ -29,6 +29,15 @@ public sealed partial class CampMain
     private PlacementGhost? _placementGhost;
 
     /// <summary>
+    /// 各建筑的<b>室内可用区</b>（外框缩进墙厚 —— <b>墙本身不是室内</b>）。建图时由 <c>BuildBuilding</c> 逐座登记。
+    /// <para>
+    /// 用户拍板「家具不能放到室外」的事实源。<b>建筑外框不是实心的</b>（只有四面墙段是），屋内地板可走，
+    /// 所以"在屋里" = 占位矩形整个落在某一间的<b>内框</b>里。
+    /// </para>
+    /// </summary>
+    private readonly List<Rect2> _indoorAreas = new();
+
+    /// <summary>
     /// <b>放置校验 + 拒绝时弹一行中文提示</b>。<c>true</c> = 可以放（调用方随后扣料 + 落地）。
     /// <para>
     /// 拒绝时<b>不要退出放置模式</b> —— 让玩家换个地方接着点（沿用 <c>TryPlaceSandbag</c> 的既有范式）。
@@ -82,8 +91,15 @@ public sealed partial class CampMain
                 f.Rect.Position.X, f.Rect.Position.Y, f.Rect.Size.X, f.Rect.Size.Y));
         }
 
+        // 室内可用区（建图时逐座建筑登记的内框）。家具只能落在这里面（用户拍板）；沙袋/陷阱有户外豁免。
+        var indoors = new List<PlacementRules.Box>(_indoorAreas.Count);
+        foreach (Rect2 a in _indoorAreas)
+        {
+            indoors.Add(new PlacementRules.Box(a.Position.X, a.Position.Y, a.Size.X, a.Size.Y));
+        }
+
         return PlacementRules.CanPlace(
-            spec, new System.Numerics.Vector2(cart.X, cart.Y), bounds, defenses, solids, placed);
+            spec, new System.Numerics.Vector2(cart.X, cart.Y), bounds, defenses, solids, placed, indoors);
     }
 
     /// <summary>

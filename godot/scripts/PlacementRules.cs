@@ -27,12 +27,32 @@ namespace DeadSignal.Godot;
 /// 且与"防止家具阻挡寻路"这个动机毫无关系。
 /// </para>
 /// </param>
+/// <param name="AllowedOutdoors">
+/// <b>获准放在室外</b>（缺省 <c>false</c> = <b>只能放在建筑里</b>）。
+/// <para>
+/// 用户拍板：「<b>家具不能放到室外</b>」「<b>沙袋能放到室内和室外</b>」。
+/// </para>
+/// <para>
+/// ⚠️ <b>缺省值是"只能室内"，与 <paramref name="AllowedAgainstDefenses"/> 同一套 fail-safe</b>：
+/// 新家具的作者忘了填这个标记时，拿到的是<b>受限</b>的那一侧。忘填只会导致"这件家具只能摆屋里"（一句提示的事），
+/// 而反过来设默认会让新家具<b>悄悄获得户外特权</b> —— 那正是用户要禁的东西，且没有任何测试会报红。
+/// </para>
+/// <para>
+/// <b>这条与「桌子算掩体」是一对</b>：桌子（室内掩体，打巷战用）与沙袋（唯一能垒在门口/院子里的掩体，守门用）
+/// 因此<b>不再互相替代</b> —— 否则"木8+钉4 换 25% 远程无伤"会直接架空沙袋机制。
+/// </para>
+/// <para>
+/// <b>目前拿到户外豁免的</b>：沙袋（本职就是垒在门口）、圈套陷阱（一圈铁丝套，摆屋里等于废掉它）、
+/// 以及 authored 的固定作业台（工作台本身就在院子里）。<b>床与桌子没有</b>——它们是家具。
+/// </para>
+/// </param>
 public readonly record struct PlaceableSpec(
     string TypeName,
     float Width,
     float Height,
     bool IsSolid,
-    bool AllowedAgainstDefenses = false);
+    bool AllowedAgainstDefenses = false,
+    bool AllowedOutdoors = false);
 
 /// <summary>放置被拒的原因（<see cref="PlacementVerdict.Ok"/> = 可以放）。</summary>
 /// <remarks>
@@ -45,6 +65,11 @@ public enum PlacementVerdict
 
     /// <summary>超出营地边界。</summary>
     OutOfBounds,
+
+    /// <summary>
+    /// <b>家具只能放在建筑里</b>（用户拍板：「家具不能放到室外」）。沙袋/陷阱等有户外豁免的东西不会撞上这条。
+    /// </summary>
+    OutdoorsNotAllowed,
 
     /// <summary><b>贴着围栏/大门/门</b>——本规则的主角，见 <see cref="PlacementRules"/> 类注。</summary>
     TooCloseToDefenses,
@@ -156,19 +181,36 @@ public static class PlacementRules
     /// </param>
     /// <param name="solids">场上一切实心障碍（建筑墙 / 废墟 / 实心岗位 / 已放好的实心家具，即 <c>_navHoles</c>）。</param>
     /// <param name="furniture">已放好的家具占位（不许摞第二件）。</param>
+    /// <param name="indoorAreas">
+    /// 场上各建筑的<b>室内可用区</b>（外框<b>缩进墙厚</b>后的矩形——墙本身不是室内）。
+    /// <para>
+    /// ⚠️ <b>这是必填参数，刻意不给缺省</b>：给它一个"缺省 = 不校验"的空表，就等于让任何忘了传它的调用方
+    /// <b>悄悄绕过</b>「家具不能放到室外」——规则还在，却没人执行，而且<b>不会有任何测试报红</b>。
+    /// 这个坑本项目刚踩过一次（沙袋减速在纯逻辑里是绿的，消费层却从没登记过它）。
+    /// <b>没有室内数据的调用方，本就没资格判这件事。</b>
+    /// </para>
+    /// </param>
     public static PlacementVerdict CanPlace(
         in PlaceableSpec spec,
         Vector2 center,
         in Box bounds,
         IReadOnlyList<Box> defenses,
         IReadOnlyList<Box> solids,
-        IReadOnlyList<Box> furniture)
+        IReadOnlyList<Box> furniture,
+        IReadOnlyList<Box> indoorAreas)
     {
         Box box = BoxAt(spec, center);
 
         if (!box.InsideOf(bounds))
         {
             return PlacementVerdict.OutOfBounds;
+        }
+
+        // 家具只能放屋里（用户拍板）。**整个占位矩形**都得在同一间屋子里 —— 一张桌子半截探出墙外不算"在屋里"。
+        // 排在防线/实心物判定之前：对一个把床往院子里放的玩家，"家具只能摆屋里"远比"离围栏远点"说明问题。
+        if (!spec.AllowedOutdoors && !IsIndoors(box, indoorAreas))
+        {
+            return PlacementVerdict.OutdoorsNotAllowed;
         }
 
         // 防线缓冲带 —— 本类的主角。**先于实心物判定**：一件压在围栏身上的家具，
@@ -203,11 +245,32 @@ public static class PlacementRules
         return PlacementVerdict.Ok;
     }
 
+    /// <summary>
+    /// <b>这个占位是不是整个都在某一间屋子里。</b>
+    /// <para>
+    /// <b>"整个"是关键</b>：只判中心点的话，一张桌子可以半截探出墙外——那既不是室内，视觉上也穿模。
+    /// 而且必须落在<b>同一间</b>屋子里（<see cref="Box.InsideOf"/> 逐间试）：横跨两栋楼的家具不存在。
+    /// </para>
+    /// </summary>
+    public static bool IsIndoors(in Box box, IReadOnlyList<Box> indoorAreas)
+    {
+        for (int i = 0; i < indoorAreas.Count; i++)
+        {
+            if (box.InsideOf(indoorAreas[i]))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /// <summary>放置被拒时给玩家的一行提示（中文，黑色幽默文风，同 <see cref="SandbagSpec.RejectionText"/>）。</summary>
     public static string RejectionText(PlacementVerdict verdict) => verdict switch
     {
         PlacementVerdict.OutOfBounds =>
             "那已经是营地外面了。围栏是用来把东西挡在外头的——包括你的家具。",
+        PlacementVerdict.OutdoorsNotAllowed =>
+            "家具得摆在屋里。露天摆一张床，你会连人带被子一起泡在雨里——沙袋倒是不挑地方。",
         PlacementVerdict.TooCloseToDefenses =>
             "离围栏和大门远一点。墙根下那条道得留着：砌墙的人要走，逃命的人也要走。",
         PlacementVerdict.BlockedBySolid =>

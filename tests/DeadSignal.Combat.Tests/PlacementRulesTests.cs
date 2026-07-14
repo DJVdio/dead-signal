@@ -31,8 +31,11 @@ public class PlacementRulesTests
     /// <summary>一张改装台（实心、受本规则约束——默认值即"受约束"）。</summary>
     private static readonly PlaceableSpec Bench = new("改装台", 120f, 74f, IsSolid: true);
 
+    /// <summary>整片测试区都算"室内" —— 下面这些用例测的是禁建带/重叠，不是「家具只能室内」那条（那条另有专测）。</summary>
+    private static readonly IReadOnlyList<Box> Indoors = new[] { Bounds };
+
     private static PlacementVerdict Place(PlaceableSpec spec, float x, float y) =>
-        PlacementRules.CanPlace(spec, new Vector2(x, y), Bounds, Defenses, NoSolids, NoFurniture);
+        PlacementRules.CanPlace(spec, new Vector2(x, y), Bounds, Defenses, NoSolids, NoFurniture, Indoors);
 
     // ---------- 核心：贴着围栏放 = 拒 ----------
 
@@ -85,7 +88,7 @@ public class PlacementRulesTests
         var gate = new Box(400f, 500f, 200f, 22f);
         var defenses = new[] { gate };
         PlacementVerdict v = PlacementRules.CanPlace(
-            Bench, new Vector2(500f, 463f), Bounds, defenses, NoSolids, NoFurniture);
+            Bench, new Vector2(500f, 463f), Bounds, defenses, NoSolids, NoFurniture, Indoors);
         Assert.Equal(PlacementVerdict.TooCloseToDefenses, v);
     }
 
@@ -102,7 +105,7 @@ public class PlacementRulesTests
         var sandbag = new PlaceableSpec(
             "沙袋", SandbagSpec.Width, SandbagSpec.Height, IsSolid: false, AllowedAgainstDefenses: true);
         Assert.Equal(PlacementVerdict.Ok, PlacementRules.CanPlace(
-            sandbag, new Vector2(200f, 486f), Bounds, Defenses, NoSolids, NoFurniture));
+            sandbag, new Vector2(200f, 486f), Bounds, Defenses, NoSolids, NoFurniture, Indoors));
     }
 
     /// <summary>
@@ -130,7 +133,7 @@ public class PlacementRulesTests
     {
         var wall = new[] { new Box(150f, 150f, 100f, 100f) };
         PlacementVerdict v = PlacementRules.CanPlace(
-            Bench, new Vector2(200f, 200f), Bounds, Defenses, wall, NoFurniture);
+            Bench, new Vector2(200f, 200f), Bounds, Defenses, wall, NoFurniture, Indoors);
         Assert.Equal(PlacementVerdict.BlockedBySolid, v);
     }
 
@@ -139,7 +142,7 @@ public class PlacementRulesTests
     {
         var placed = new[] { new Box(150f, 150f, 100f, 100f) };
         PlacementVerdict v = PlacementRules.CanPlace(
-            Bench, new Vector2(200f, 200f), Bounds, NoSolids, NoSolids, placed);
+            Bench, new Vector2(200f, 200f), Bounds, NoSolids, NoSolids, placed, Indoors);
         Assert.Equal(PlacementVerdict.OverlapsFurniture, v);
     }
 
@@ -182,5 +185,98 @@ public class PlacementRulesTests
     public void Ok_has_no_rejection_text()
     {
         Assert.Equal("", PlacementRules.RejectionText(PlacementVerdict.Ok));
+    }
+
+    // ═══════════════ [T27] 家具只能放屋里；沙袋室内外都行 ═══════════════
+    //
+    // 用户原话：「修改一下，家具不能放到室外」「沙袋能放到室内和室外」。
+    // 这条与「桌子算掩体」是一对：桌子＝室内掩体（打巷战），沙袋＝唯一能垒在门口/院子里的掩体（守门）
+    // ⇒ 两者不再互相替代，否则"木8+钉4 换 25% 远程无伤"会直接架空沙袋机制。
+
+    /// <summary>一间屋子（内框，已缩进墙厚）。</summary>
+    private static readonly Box House = new(400f, 100f, 300f, 200f);
+    private static readonly IReadOnlyList<Box> Houses = new[] { House };
+    private static readonly IReadOnlyList<Box> NoIndoors = System.Array.Empty<Box>();
+
+    private static PlacementVerdict PlaceIn(PlaceableSpec spec, float x, float y, IReadOnlyList<Box> indoors) =>
+        PlacementRules.CanPlace(spec, new Vector2(x, y), Bounds, NoSolids, NoSolids, NoFurniture, indoors);
+
+    /// <summary>把床往院子里放 ⇒ 拒。这是本条规则的主场。</summary>
+    [Fact]
+    public void Furniture_outdoors_is_rejected()
+    {
+        Assert.Equal(PlacementVerdict.OutdoorsNotAllowed, PlaceIn(Bench, 200f, 200f, Houses));
+    }
+
+    /// <summary>放进屋里 ⇒ 放行。</summary>
+    [Fact]
+    public void Furniture_indoors_is_ok()
+    {
+        Assert.Equal(PlacementVerdict.Ok, PlaceIn(Bench, 550f, 200f, Houses));
+    }
+
+    /// <summary>
+    /// <b>半截探出墙外 ⇒ 拒</b>（占位矩形<b>整个</b>要在屋里，不是只看中心点）。
+    /// 中心点还在屋内、但桌角已经戳到墙外的那种摆法，既不是"在屋里"，视觉上也穿模。
+    /// </summary>
+    [Fact]
+    public void Furniture_half_poking_out_of_the_wall_is_rejected()
+    {
+        // Bench 宽 120 ⇒ 中心 x = 房子东沿(700) - 30 时，右半边（60px）里有 30px 已经出墙。
+        Assert.Equal(PlacementVerdict.OutdoorsNotAllowed, PlaceIn(Bench, 670f, 200f, Houses));
+
+        // 整个塞进去（右沿贴齐墙内侧）⇒ 放行。边界是精确的。
+        Assert.Equal(PlacementVerdict.Ok, PlaceIn(Bench, 700f - 120f / 2f, 200f, Houses));
+    }
+
+    /// <summary><b>家具不能横跨两间屋子</b>：必须整个落在**同一间**里（两间之间隔着墙和院子）。</summary>
+    [Fact]
+    public void Furniture_straddling_two_houses_is_rejected()
+    {
+        var west = new Box(100f, 100f, 150f, 200f);
+        var east = new Box(260f, 100f, 150f, 200f);   // 两间之间留 10px 缝
+        Assert.Equal(PlacementVerdict.OutdoorsNotAllowed,
+            PlaceIn(Bench, 255f, 200f, new[] { west, east }));
+    }
+
+    /// <summary>
+    /// <b>沙袋室内室外都能放</b>（用户点名的唯一豁免）——它的本职就是垒在门口。
+    /// 一个营地里连一间屋子都没有的极端情形下它照样放得下（<see cref="NoIndoors"/>）。
+    /// </summary>
+    [Fact]
+    public void Sandbag_may_be_placed_outdoors()
+    {
+        var sandbag = new PlaceableSpec("沙袋", SandbagSpec.Width, SandbagSpec.Height,
+            IsSolid: false, AllowedAgainstDefenses: true, AllowedOutdoors: true);
+
+        Assert.Equal(PlacementVerdict.Ok, PlaceIn(sandbag, 200f, 200f, Houses));    // 院子里
+        Assert.Equal(PlacementVerdict.Ok, PlaceIn(sandbag, 550f, 200f, Houses));    // 屋里
+        Assert.Equal(PlacementVerdict.Ok, PlaceIn(sandbag, 200f, 200f, NoIndoors)); // 压根没有屋子
+    }
+
+    /// <summary>
+    /// <b>忘填户外标记 = 只能室内</b>（fail-safe，同 <see cref="PlaceableSpec.AllowedAgainstDefenses"/> 那套）。
+    /// 忘填只会导致"这件家具只能摆屋里"（一句提示的事）；反过来设默认会让新家具<b>悄悄获得户外特权</b>——
+    /// 那正是用户要禁的东西，且不会有任何测试报红。
+    /// </summary>
+    [Fact]
+    public void Default_spec_is_indoor_only()
+    {
+        var careless = new PlaceableSpec("某件新家具", 40f, 40f, IsSolid: false);
+        Assert.False(careless.AllowedOutdoors);
+        Assert.Equal(PlacementVerdict.OutdoorsNotAllowed, PlaceIn(careless, 200f, 200f, Houses));
+    }
+
+    /// <summary>
+    /// <b>户外豁免 ≠ 防线豁免</b>：两条限制互相独立。陷阱能摆院子里，但照样不许贴着围栏
+    /// （墙根下那条道要留给砌墙工）。
+    /// </summary>
+    [Fact]
+    public void Outdoor_exemption_does_not_grant_defense_exemption()
+    {
+        var trap = new PlaceableSpec("陷阱", 40f, 28f, IsSolid: false, AllowedOutdoors: true);
+        PlacementVerdict v = PlacementRules.CanPlace(
+            trap, new Vector2(200f, 470f), Bounds, Defenses, NoSolids, NoFurniture, NoIndoors);
+        Assert.Equal(PlacementVerdict.TooCloseToDefenses, v);
     }
 }

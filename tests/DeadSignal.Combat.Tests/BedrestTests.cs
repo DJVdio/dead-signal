@@ -379,15 +379,19 @@ public class BedrestTests
         var defenses = new[] { fence };
         var none = System.Array.Empty<PlacementRules.Box>();
 
+        // [T27] 本组测的是**禁建带**，不是"家具只能室内"那条 —— 故把整片测试区当成室内，
+        // 免得床先撞上 OutdoorsNotAllowed 而测不到想测的东西。室内那条另有专测。
+        var indoors = new[] { bounds };
+
         // 紧贴围栏 → 拒（禁建带 64px）
         Assert.Equal(PlacementVerdict.TooCloseToDefenses,
             PlacementRules.CanPlace(BedSpecForPlacement(),
-                new System.Numerics.Vector2(460, 500), bounds, defenses, none, none));
+                new System.Numerics.Vector2(460, 500), bounds, defenses, none, none, indoors));
 
         // 离远了 → 放行
         Assert.Equal(PlacementVerdict.Ok,
             PlacementRules.CanPlace(BedSpecForPlacement(),
-                new System.Numerics.Vector2(200, 500), bounds, defenses, none, none));
+                new System.Numerics.Vector2(200, 500), bounds, defenses, none, none, indoors));
     }
 
     [Fact]
