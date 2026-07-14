@@ -83,6 +83,23 @@ if (args.Length > 0 && args[0] == "endgamecal")
     return;
 }
 
+if (args.Length > 0 && args[0] == "goldfinger")
+{
+    // 金手指帮之战：不只出胜率，还出**赢下来要付的代价**（阵亡/永久残缺/骨折）——战斗本身就是成本。
+    GoldfingerCalibration.Run();
+    return;
+}
+
+if (args.Length > 0 && args[0] == "lanchester")
+{
+    // 兰彻斯特平方律：N 只丧尸围攻一个人的胜率断崖。[T58] 三级流血的「封顶大流血」正是为了打断它——
+    // 群殴挨的一堆浅爪全是小流血、且封顶，不会像旧制那样被线性放大。**这份表就是验收判据。**
+    // ⚠️ 此前 harness 在、但 Program 里**没注册这个分支**（死代码）⇒ 报告里的数是旧口径的。[T58] 补上。
+    string lcOut = args.Length > 1 ? args[1] : "docs/research/2026-07-14-lanchester.md";
+    LanchesterCalibration.Run(lcOut);
+    return;
+}
+
 if (args.Length > 0 && args[0] == "wallcal")
 {
     // ⚠ 默认出口**不能**指向人写的分析报告（`2026-07-13-wall-hp-analysis.md`）——那份是手写结论，
@@ -103,6 +120,25 @@ if (args.Length > 0 && args[0] == "weaponsweep")
 {
     string wcOut = args.Length > 1 ? args[1] : "docs/research/2026-07-13-weapon-recalib.md";
     WeaponCalibration.Run(wcOut);
+    return;
+}
+
+if (args.Length > 0 && args[0] == "bleedcal")
+{
+    string bcOut = args.Length > 1 ? args[1] : "docs/research/2026-07-14-bleed-axis.md";
+    BleedCalibration.Run(bcOut);
+    return;
+}
+
+// 🔴 [T53] `cost` 模式此前**根本没注册**（CLAUDE.md 与 combat-cost.md 都说有，`CombatCostCalibration.cs` 也在，
+//    但 Program.cs 里没有这个分支 ⇒ 它是**死代码**，报告无法重算）。
+//    后果很阴险：`dotnet run … cost <路径>` 会掉进下面的默认分支，把 **"cost" 当成 outPath**，
+//    于是在仓库根目录**写出一个名叫 `cost` 的垃圾文件**，而 combat-cost.md 纹丝不动 ——
+//    看起来"重跑了且零漂移"，实际上一次都没跑。（我自己就先被它骗过一次。）
+if (args.Length > 0 && args[0] == "cost")
+{
+    string ccOut = args.Length > 1 ? args[1] : "docs/research/2026-07-14-combat-cost.md";
+    CombatCostCalibration.Run(ccOut);
     return;
 }
 

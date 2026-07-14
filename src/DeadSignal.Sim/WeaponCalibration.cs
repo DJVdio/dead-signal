@@ -92,7 +92,7 @@ public static class WeaponCalibration
         Parallel.For(0, weapons.Count, i =>
         {
             var w = weapons[i];
-            var zombie = Fighter("丧尸", WeaponTable.ZombieClaw(), ArmorTable.ZombieHide().ToArray());
+            var zombie = Fighter("丧尸", WeaponTable.ZombieClaw(), ArmorTable.ZombieHide().ToArray(), HumanBody.NewZombieBody);
             double a = Duel(Fighter("我方", w, StarterKit()), zombie, TtkSeeds).WinRate;
             double b = Duel(Fighter("我方", w, MidKit()),
                 Fighter("长剑手", WeaponTable.Longsword(), MidKit()), TtkSeeds).WinRate;
@@ -125,9 +125,31 @@ public static class WeaponCalibration
         Console.Write(sb.ToString());
     }
 
+    /// <summary>
+    /// 稳定字符串哈希（FNV-1a 32 位）。
+    ///
+    /// <para><b>🔴 这里绝不能用 <c>string.GetHashCode()</c></b>：.NET Core 起它<b>每个进程随机加盐</b>——
+    /// 同一棵树连跑两次，种子就不一样，表里的数字会自己抖动（实测 ±0.01）。那样这张表既不可复现，
+    /// 也**不能用来做零漂移对比**（改动引起的漂移和随机噪声分不开）。用它换成确定性哈希后，
+    /// 同一棵树跑几次都是逐字节相同的输出。</para>
+    /// </summary>
+    private static int StableHash(string s)
+    {
+        unchecked
+        {
+            uint h = 2166136261;
+            foreach (char c in s)
+            {
+                h = (h ^ c) * 16777619;
+            }
+
+            return (int)(h % 1000);
+        }
+    }
+
     private static Cell Measure(Weapon w, string comboName, ArmorLayer[] template, IReadOnlyList<BodyPart> parts)
     {
-        var rng = new SystemRandomSource(20260713 + comboName.GetHashCode() % 1000 + w.Name.Length * 7919);
+        var rng = new SystemRandomSource(20260713 + StableHash(comboName) + w.Name.Length * 7919);
         var resolver = new CombatResolver(rng);
         var hit = new VolumeWeightedHitSelector(rng);
         var layers = CombatResolver.OrderOuterToInner(template);
@@ -163,8 +185,15 @@ public static class WeaponCalibration
         }
 
         int burst = Math.Max(1, w.BurstCount);
+
+        // 🔴 弹丸数必须乘进来（霰弹枪 PelletCount=8）：上面的采样循环是**逐颗弹丸**结算的
+        // （resolver.Resolve 一次 = 一颗弹丸独立选部位、独立走三段判定），所以 perHit 是「一颗弹丸」的期望伤害，
+        // 而玩家扣一次扳机打出的是 8 颗。此前这里漏了 ×pellets ⇒ **表 1 的霰弹枪 DPS 被低估 8 倍**
+        // （harness 的 bug，不是数值问题）。连发（BurstCount）与弹丸（PelletCount）是两个独立的乘数：
+        // 连发是"一次出手打几发"（拉长周期），弹丸是"一发里飞几颗"（不拉长周期）。
+        int pellets = Math.Max(1, w.PelletCount);
         double perHit = dmgSum / HitSamples;
-        double perSwing = perHit * burst;
+        double perSwing = perHit * pellets * burst;
         double cycle = w.AttackInterval + (burst - 1) * Math.Max(0, w.BurstInterval);
         double dps = cycle > 0 ? perSwing / cycle : 0;
 
@@ -199,11 +228,13 @@ public static class WeaponCalibration
         return ((double)wins / seeds, dur / seeds);
     }
 
-    private static DuelFighter Fighter(string name, Weapon w, ArmorLayer[] armor) => new()
+    private static DuelFighter Fighter(string name, Weapon w, ArmorLayer[] armor, Func<Body>? bodyFactory = null) => new()
     {
         Name = name,
         Weapons = new[] { new WeaponMount { Weapon = w, RequiresHand = false } },
         Armor = armor,
+        // 默认人类；丧尸传 HumanBody.NewZombieBody（失血流速 1/3，用户口径）。
+        BodyFactory = bodyFactory ?? HumanBody.NewBody,
     };
 
     /// <summary>开局三件套（长袖布衣+长裤+运动鞋）——PvE 基线的玩家着装。</summary>
@@ -275,7 +306,9 @@ public static class WeaponCalibration
         sb.AppendLine("> 远程武器假设弹道命中（几何误差与射程衰减属实时层，不在此模型内）。");
         sb.AppendLine();
 
-        sb.AppendLine("## 表 1：每秒伤害（全身平均，含攻速与连发）");
+        sb.AppendLine("## 表 1：每秒伤害（全身平均，含攻速、连发与弹丸数）");
+        sb.AppendLine();
+        sb.AppendLine("> 多弹丸武器（自制霰弹枪 8 颗）按「一次扣扳机 = 8 颗各自独立结算」计入 —— 弹丸不拉长出手周期，故整发进 DPS。");
         sb.AppendLine();
         sb.Append("| 武器 | 类型 |");
         foreach (var (cn, _) in combos) sb.Append(CultureInfo.InvariantCulture, $" {cn} |");
@@ -464,6 +497,7 @@ public static class WeaponCalibration
         TwoHanded = w.TwoHanded,
         CanDualWield = w.CanDualWield,
         IsRanged = w.IsRanged,
+        PelletCount = w.PelletCount,   // 别丢弹丸数——漏掉它，霰弹枪的变体会当单弹丸算（同表 1 那个 bug）
         BurstCount = w.BurstCount,
         BurstInterval = w.BurstInterval,
         AttackInterval = interval ?? w.AttackInterval,
@@ -473,7 +507,7 @@ public static class WeaponCalibration
     private static (double VsZombie, double VsMid, double HeavyTtk, double HeavyBlocked, double Dps) Probe(
         Weapon v, IReadOnlyList<BodyPart> parts)
     {
-        var zombie = Fighter("丧尸", WeaponTable.ZombieClaw(), ArmorTable.ZombieHide().ToArray());
+        var zombie = Fighter("丧尸", WeaponTable.ZombieClaw(), ArmorTable.ZombieHide().ToArray(), HumanBody.NewZombieBody);
         double z = Duel(Fighter("我方", v, StarterKit()), zombie, TtkSeeds).WinRate;
         double m = Duel(Fighter("我方", v, MidKit()),
             Fighter("长剑手", WeaponTable.Longsword(), MidKit()), TtkSeeds).WinRate;

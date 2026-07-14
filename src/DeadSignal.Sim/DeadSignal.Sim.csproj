@@ -20,6 +20,9 @@
     <!-- 破防「攻击位名额」：Sim 没有碰撞体积/攻击距离，靠这份与运行时同源的规则显式建模「一处只站得下几只」。 -->
     <Compile Include="..\..\godot\scripts\BreachLogic.cs" Link="Consumed\BreachLogic.cs" />
     <Compile Include="..\..\godot\scripts\BreachSlots.cs" Link="Consumed\BreachSlots.cs" />
+    <!-- 金手指帮守备编制表（持械 + 伤情）。**必须 Link、不许在 Sim 里抄一份**：抄一份就会漂移，
+         那样"算出来的敌人"和"玩家真打到的敌人"是两拨人，校准结论直接作废。 -->
+    <Compile Include="..\..\godot\scripts\GoldfingerGang.cs" Link="Consumed\GoldfingerGang.cs" />
   </ItemGroup>
 
   <PropertyGroup>

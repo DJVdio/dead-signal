@@ -143,11 +143,13 @@ public static class UserPlanCalibration
             (double)bleed / HitSamples);
     }
 
-    private static DuelFighter F(string name, Weapon w, ArmorLayer[] armor) => new()
+    private static DuelFighter F(string name, Weapon w, ArmorLayer[] armor, Func<Body>? bodyFactory = null) => new()
     {
         Name = name,
         Weapons = new[] { new WeaponMount { Weapon = w, RequiresHand = false } },
         Armor = armor,
+        // 默认人类；丧尸传 HumanBody.NewZombieBody（失血流速 1/3，用户口径）。
+        BodyFactory = bodyFactory ?? HumanBody.NewBody,
     };
 
     private static (double WinRate, double Duration) Duel(DuelFighter a, DuelFighter b)
@@ -230,7 +232,7 @@ public static class UserPlanCalibration
             ("**1~13（平均 7，保平均）**", WithRange(WeaponTable.Dagger(), 1, 13)),
         };
 
-        var zombie = F("丧尸", WeaponTable.ZombieClaw(), ArmorTable.ZombieHide().ToArray());
+        var zombie = F("丧尸", WeaponTable.ZombieClaw(), ArmorTable.ZombieHide().ToArray(), HumanBody.NewZombieBody);
 
         sb.AppendLine("| 匕首改成 | 长袖布衣挡下率 | 丧尸腐皮挡下率 | 皮夹克组挡下率 | 重甲挡下率 | 打丧尸胜率 | 打丧尸耗时 | 切除率 |");
         sb.AppendLine("|----------|---------------:|---------------:|---------------:|-----------:|-----------:|-----------:|-------:|");
@@ -385,7 +387,7 @@ public static class UserPlanCalibration
             var dagger = Apply(WeaponTable.Dagger(), p, 1.0);
             var rifle = Apply(WeaponTable.Rifle(), p, 1.0);
             var sword = Apply(WeaponTable.Longsword(), p, 1.0);
-            var zombie = F("丧尸", WeaponTable.ZombieClaw(), Hide());
+            var zombie = F("丧尸", WeaponTable.ZombieClaw(), Hide(), HumanBody.NewZombieBody);
 
             double z = Duel(F("我方", dagger, Starter()), zombie).WinRate;
             double r = Duel(F("步枪手", rifle, Mid()), F("长剑手", sword, Mid())).WinRate;
@@ -416,7 +418,7 @@ public static class UserPlanCalibration
         // 在推荐的「方案戊」环境下重算：锐器全部下限 1、上限抬到保平均（对手长剑 = 1~39，平均仍是 20）
         var envPlan = plans.First(p => p.Name.StartsWith("方案戊", StringComparison.Ordinal));
         var swordNew = Apply(WeaponTable.Longsword(), envPlan, 1.0);
-        var zombie = F("丧尸", WeaponTable.ZombieClaw(), Hide());
+        var zombie = F("丧尸", WeaponTable.ZombieClaw(), Hide(), HumanBody.NewZombieBody);
 
         var rows = new List<(string W, double Mul)>();
         foreach (double m in new[] { 1.0, 1.2, 1.3, 1.5, 1.8 }) rows.Add(("棍棒", m));

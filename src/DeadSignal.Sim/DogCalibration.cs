@@ -32,6 +32,7 @@ public static class DogCalibration
     {
         Name = "丧尸",
         Weapons = new[] { new WeaponMount { Weapon = WeaponTable.ZombieClaw(), RequiresHand = false } },
+        BodyFactory = HumanBody.NewZombieBody, // 失血 1/3
         ArmorFactory = ZombieOutfit.RollArmor,
     };
 

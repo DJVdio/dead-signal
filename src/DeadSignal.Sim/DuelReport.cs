@@ -36,7 +36,7 @@ public static class DuelReport
     {
         (
             new DuelFighter { Name = "匕首幸存者", Weapons = new[] { new WeaponMount { Weapon = Dagger() } }, Armor = new[] { Shirt() }, Equipment = Kit("布袖", "布手套", "布裤") },
-            new DuelFighter { Name = "游荡丧尸", Weapons = new[] { new WeaponMount { Weapon = ZombieClaw(), RequiresHand = false } }, ArmorFactory = ZombieOutfit.RollArmor }
+            new DuelFighter { Name = "游荡丧尸", Weapons = new[] { new WeaponMount { Weapon = ZombieClaw(), RequiresHand = false } }, BodyFactory = HumanBody.NewZombieBody, ArmorFactory = ZombieOutfit.RollArmor }
         ),
         (
             new DuelFighter { Name = "长剑手", Weapons = new[] { new WeaponMount { Weapon = Longsword() } }, Armor = new[] { Jacket(), Shirt() }, Equipment = Kit("皮护臂", "皮手套", "皮护腿") },

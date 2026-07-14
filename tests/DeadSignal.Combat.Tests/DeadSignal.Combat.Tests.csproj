@@ -263,6 +263,9 @@
     <Compile Include="..\..\godot\scripts\SaveRotation.cs" Link="Consumed\SaveRotation.cs" />
     <!-- 幸存者角色枚举（存档要存 Role，故 Link 进来）。 -->
     <Compile Include="..\..\godot\scripts\PawnRole.cs" Link="Consumed\PawnRole.cs" />
+    <!-- Sim 的 N vs M 竞技场（纯 C#、只依赖 Combat）。Link 进来是为了给"它确实消费了震荡/骨折"上护栏——
+         此前它悄悄省掉震荡，把钝器的胜率系统性低估了一半，而没有任何测试能发现。 -->
+    <Compile Include="..\..\src\DeadSignal.Sim\Arena.cs" Link="Consumed\Arena.cs" />
   </ItemGroup>
 
 </Project>

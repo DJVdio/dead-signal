@@ -148,7 +148,7 @@ public static class ArcheryCalibration
         sb.AppendLine("> 于是「破甲 ×1.45」几乎买不到胜率，而「冷却 ×1.25」是实打实的 −20% DPS。");
         sb.AppendLine("> 修法是把收益挪到吃得上劲的轴上：伤害 ×1.35、冷却惩罚收窄到 ×1.15。");
         sb.AppendLine("> **用户的三个方向（破甲↑/射程↓/攻速↓）一个没动，动的只是幅度**（数值本就「拟定待调」）。");
-        sb.AppendLine("> 它真正的代价落在 Sim 量不到的两处：**射程 −25%**（空间层兑现）与**造价**（吃金属锭）。");
+        sb.AppendLine("> 它真正的代价落在 Sim 量不到的两处：**射程 −25%**（空间层兑现）与**造价**（吃铁 2，自制箭只要 1）。");
         sb.AppendLine();
         sb.AppendLine("| 弓弩 | 丧尸：重头 − 自制 | 中甲：重头 − 自制 | 重甲：重头 − 自制 |");
         sb.AppendLine("|---|---|---|---|");
@@ -233,8 +233,8 @@ public static class ArcheryCalibration
 
         (Weapon w, string ammo)[] rows =
         {
-            (Archery.Combine(WeaponTable.HeavyCrossbow(), ArrowTable.Heavy()), "箭：木料+金属锭，**可捡回 25%**"),
-            (Archery.Combine(WeaponTable.Longbow(), ArrowTable.Handmade()), "箭：木料+废金属+布，**可捡回 25%**"),
+            (Archery.Combine(WeaponTable.HeavyCrossbow(), ArrowTable.Heavy()), "箭：木料+铁2，**可捡回 25%**"),
+            (Archery.Combine(WeaponTable.Longbow(), ArrowTable.Handmade()), "箭：木料+铁1+布，**可捡回 25%**"),
             (Archery.Combine(WeaponTable.ShortBow(), ArrowTable.SharpenedStick()), "箭：木料，**可捡回 25%**"),
             (WeaponTable.ImprovisedHuntingGun(), "子弹：子弹零件（不可捡回）"),
             (WeaponTable.ImprovisedShotgun(), "鹿弹：子弹零件（不可捡回）"),
@@ -353,6 +353,7 @@ public static class ArcheryCalibration
     {
         Name = "丧尸",
         Weapons = new[] { new WeaponMount { Weapon = WeaponTable.ZombieClaw(), RequiresHand = false } },
+        BodyFactory = HumanBody.NewZombieBody, // 失血 1/3
         ArmorFactory = ZombieOutfit.RollArmor,
     };
 

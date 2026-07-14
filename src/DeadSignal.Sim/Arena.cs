@@ -5,13 +5,31 @@ using DeadSignal.Combat;
 /// （<see cref="CombatResolver"/>/<see cref="VolumeWeightedHitSelector"/>/<see cref="CombatEffectResolver"/> + <see cref="Body"/>），
 /// 支持 N vs M：聚焦火力（打对方首个存活者），全局失血 tick。用于确认"道格+布鲁斯 2v1 稳赢"这类压制性结论。
 ///
-/// 与 DuelEngine 的差异（有意简化，对 2v1 压制判定无实质影响）：不建模震荡硬打断窗口（丧尸爪击为锐器不致震荡，
-/// 己方不吃打断；反向丧尸被道格棍棒震荡只对己方有利，略去只会让结论更保守）；不建模持握/双持系数（本对局无）。
-/// 复用 DuelConfig 的失血/攻速节奏常量。
+/// 与 DuelEngine 的口径**已对齐**：震荡硬打断+冷却清零+抗性窗、手骨折的持久操作惩罚，两边同一套
+/// （用户口径「sim 把震荡也要算上」）。此前 Arena 把震荡当"略去只会更保守"的简化省掉了，但那个假设是错的——
+/// 钝器的杀伤本来就**建立在打断上**（棍棒对丧尸零流血，全靠 HP 磨），不给它震荡就等于只留代价不留收益：
+/// 复跑显示"道格·棍棒 vs 丧尸"被低估到 19%（DuelEngine 同类对局是 30%+）。
+/// 仍有意简化的只剩：不建模持握/双持系数（本对局无）。复用 DuelConfig 的失血/攻速节奏常量。
 /// </summary>
 public static class Arena
 {
     public readonly record struct ArenaStat(double TeamAWinRate, double NoLossRate, double AvgDuration);
+
+    /// <summary>
+    /// 一场打完的<b>详细结局</b>（<see cref="RunDetailed"/> 用）：胜负 / 时长 之外，还带回 <b>A 队每个人的终局身体</b>。
+    /// <para>
+    /// 存在理由：<see cref="ArenaStat"/> 只回答"打不打得赢"，而<b>战斗本身就是成本</b> —— 赢了但断一只手、
+    /// 躺三个人、把医疗物资烧光，跟毫发无伤地赢，在这个游戏里根本不是一回事。要把"惨胜"算出来，
+    /// 就必须看到<b>活下来的人身上还剩什么</b>（骨折 / 切除 / 失能 / 失血），而不是只数一个胜率。
+    /// </para>
+    /// </summary>
+    /// <param name="WinnerTeam">0=A 胜，1=B 胜，−1=超时判平。</param>
+    /// <param name="TeamAEnd">A 队每人的终局身体快照（含死者）。</param>
+    public readonly record struct ArenaOutcome(
+        int WinnerTeam,
+        bool AAllAlive,
+        double Duration,
+        IReadOnlyList<BodySnapshot> TeamAEnd);
 
     private sealed class Unit
     {
@@ -23,6 +41,12 @@ public static class Arena
         public required int Team;
         public double NextTime;
         public double SpeedMult = 1.0;
+
+        /// <summary>震荡硬打断截止时刻（绝对秒）；now &lt; 此值时该单位处打断态、不能出手。同 DuelEngine 口径。</summary>
+        public double InterruptUntil;
+
+        /// <summary>震荡抗性窗截止时刻（绝对秒）；窗内再次被震荡的触发概率 ×ConcussionResistFactor（防死锁）。</summary>
+        public double ConcussionResistUntil;
     }
 
     public static ArenaStat Run(IReadOnlyList<DuelFighter> teamA, IReadOnlyList<DuelFighter> teamB, int seeds)
@@ -31,16 +55,44 @@ public static class Arena
         double durSum = 0;
         for (int seed = 0; seed < seeds; seed++)
         {
-            var (winnerTeam, aAllAlive, dur) = OneFight(teamA, teamB, new SystemRandomSource(30260712 + seed * 131));
-            durSum += dur;
-            if (winnerTeam == 0) aWins++;
-            if (winnerTeam == 0 && aAllAlive) noLoss++;
+            var o = OneFight(teamA, teamB, new SystemRandomSource(30260712 + seed * 131), capture: false);
+            durSum += o.Duration;
+            if (o.WinnerTeam == 0) aWins++;
+            if (o.WinnerTeam == 0 && o.AAllAlive) noLoss++;
         }
         return new ArenaStat((double)aWins / seeds, (double)noLoss / seeds, durSum / seeds);
     }
 
-    private static (int winnerTeam, bool aAllAlive, double dur) OneFight(
-        IReadOnlyList<DuelFighter> teamA, IReadOnlyList<DuelFighter> teamB, IRandomSource rng)
+    /// <summary>
+    /// 同 <see cref="Run"/>，但<b>逐场</b>带回 A 队的终局身体（<see cref="ArenaOutcome"/>）——用于算"赢下来要付什么代价"。
+    /// <para>
+    /// ⚠️ <b>与 <see cref="Run"/> 随机流逐字节相同</b>：同样的种子序列、同样的 <see cref="OneFight"/>；
+    /// 唯一区别是打完之后多 <c>Capture()</c> 一次（纯读，不碰随机源）。所以既有校准（dogcal / endgamecal…）的
+    /// 输出零漂移。
+    /// </para>
+    /// </summary>
+    public static IReadOnlyList<ArenaOutcome> RunDetailed(
+        IReadOnlyList<DuelFighter> teamA, IReadOnlyList<DuelFighter> teamB, int seeds)
+    {
+        var outcomes = new List<ArenaOutcome>(seeds);
+        for (int seed = 0; seed < seeds; seed++)
+        {
+            outcomes.Add(OneFight(teamA, teamB, new SystemRandomSource(30260712 + seed * 131), capture: true));
+        }
+        return outcomes;
+    }
+
+    /// <summary>
+    /// 打<b>一场</b>（外部喂随机源）。存在理由：<b>连续遭遇</b>——关卡里的敌人不是一次性全扑上来的，
+    /// 玩家是一波一波推进的，而<b>伤是累积的</b>（第一波挨的那一刀，第二波还在身上）。
+    /// 要建模这个，就得把"上一波打完的身体"喂进下一波，故需要一个逐场可控的入口。
+    /// </summary>
+    public static ArenaOutcome RunOnce(
+        IReadOnlyList<DuelFighter> teamA, IReadOnlyList<DuelFighter> teamB, IRandomSource rng) =>
+        OneFight(teamA, teamB, rng, capture: true);
+
+    private static ArenaOutcome OneFight(
+        IReadOnlyList<DuelFighter> teamA, IReadOnlyList<DuelFighter> teamB, IRandomSource rng, bool capture)
     {
         var cfg = new DuelConfig();
         var resolver = new CombatResolver(rng);
@@ -53,6 +105,12 @@ public static class Arena
 
         double now = 0;
         int aStart = teamA.Count;
+
+        // A 队终局身体：只在 capture 时才 Capture()（纯读、不碰随机源）；Run 走 capture:false ⇒ 一分额外开销都不付。
+        IReadOnlyList<BodySnapshot> SnapA() => capture
+            ? units.Where(u => u.Team == 0).Select(u => u.Body.Capture()).ToList()
+            : Array.Empty<BodySnapshot>();
+
         while (true)
         {
             bool aAlive = units.Any(u => u.Team == 0 && Fightable(u));
@@ -61,11 +119,11 @@ public static class Arena
             {
                 bool aAllAlive = units.Where(u => u.Team == 0).All(u => !u.Body.IsDead);
                 int winner = aAlive ? 0 : (bAlive ? 1 : -1);
-                return (winner, aAllAlive && winner == 0, now);
+                return new ArenaOutcome(winner, aAllAlive && winner == 0, now, SnapA());
             }
             if (now > cfg.MaxSimSeconds)
             {
-                return (-1, false, now); // 超时判平（2v1 极少发生）
+                return new ArenaOutcome(-1, false, now, SnapA()); // 超时判平（2v1 极少发生）
             }
 
             // 下一个出手者：Fightable 中 NextTime 最小。
@@ -87,7 +145,7 @@ public static class Arena
             }
             else
             {
-                return (-1, false, now);
+                return new ArenaOutcome(-1, false, now, SnapA());
             }
 
             double dt = System.Math.Max(0, eventTime - now);
@@ -104,7 +162,7 @@ public static class Arena
                                   .FirstOrDefault();
                 if (target != null)
                 {
-                    Attack(next, target, resolver, hit, effects, cfg, rng);
+                    Attack(next, target, resolver, hit, effects, cfg, rng, now);
                 }
                 next.NextTime = now + EffectiveInterval(next, cfg);
             }
@@ -143,11 +201,28 @@ public static class Arena
         double transient = System.Math.Max(cfg.MinSpeedMult, u.SpeedMult * blood);
         double operation = 1.0 - u.Body.DisabilityModifiers.OperationPenalty;
         if (operation <= 0) return double.PositiveInfinity;
-        return baseInterval / (transient * operation);
+
+        // 手部骨折的持久操作/攻速惩罚（与 DuelEngine.EffectiveInterval 同一套口径）。
+        double fractureOp = u.Body.HandFractureOperationFactor(
+            cfg.Effects.HandFractureOperationMult, cfg.Effects.HandFractureHealedOperationMult,
+            cfg.Effects.FractureCapabilityFloor);
+
+        return baseInterval / (transient * operation * fractureOp);
+    }
+
+    /// <summary>
+    /// 施加一次震荡（与 <see cref="DuelEngine"/> 同口径）：目标进入硬打断，已积累的冷却清零、
+    /// 打断结束后从零重走一次完整冷却；抗性窗覆盖「打断 + 首轮重走冷却」，窗内再次被震荡的概率打折（防死锁）。
+    /// </summary>
+    private static void ApplyConcussion(Unit target, double now, double durationSeconds, DuelConfig cfg)
+    {
+        target.InterruptUntil = System.Math.Max(target.InterruptUntil, now + System.Math.Max(0, durationSeconds));
+        target.NextTime = target.InterruptUntil + EffectiveInterval(target, cfg);
+        target.ConcussionResistUntil = System.Math.Max(target.ConcussionResistUntil, target.NextTime);
     }
 
     private static void Attack(Unit actor, Unit target, CombatResolver resolver,
-        VolumeWeightedHitSelector hit, CombatEffectResolver effects, DuelConfig cfg, IRandomSource rng)
+        VolumeWeightedHitSelector hit, CombatEffectResolver effects, DuelConfig cfg, IRandomSource rng, double now)
     {
         // 整次闪避（同 DuelEngine 口径）。
         if (target.Def.DodgeChance > 0 && rng.Range(0.0, 1.0) < target.Def.DodgeChance)
@@ -169,7 +244,18 @@ public static class Arena
 
             var part = hit.Select(alive);
             var result = resolver.Resolve(w, armor, part);
-            effects.Apply(target.Body, w, result);
+            // 抗性窗内（吃过震荡、打断+首轮冷却尚未走完）再次被震荡的概率打折，防死锁（同 DuelEngine）。
+            double concResist = now < target.ConcussionResistUntil ? cfg.Effects.ConcussionResistFactor : 1.0;
+            var outcome = effects.Apply(target.Body, w, result, concResist);
+
+            // 震荡消费：硬打断 + 冷却清零（钝器的杀伤本来就建立在打断上，不消费等于只留代价不留收益）。
+            foreach (var e in outcome.Effects)
+            {
+                if (e.Kind == DamageEffectKind.Concussion)
+                {
+                    ApplyConcussion(target, now, e.DurationSeconds, cfg);
+                }
+            }
 
             if (target.Body.IsDead) return; // 目标已死：剩余弹丸不再结算
         }

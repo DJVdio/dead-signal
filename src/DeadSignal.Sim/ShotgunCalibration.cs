@@ -131,6 +131,7 @@ public static class ShotgunCalibration
     {
         Name = "丧尸",
         Weapons = new[] { new WeaponMount { Weapon = WeaponTable.ZombieClaw(), RequiresHand = false } },
+        BodyFactory = HumanBody.NewZombieBody, // 失血 1/3
         ArmorFactory = ZombieOutfit.RollArmor, // 每场现抽一套生前装束（含腐皮）
     };
 
