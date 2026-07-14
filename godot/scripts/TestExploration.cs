@@ -57,6 +57,26 @@ public sealed partial class TestExploration : ExplorationLevel
     private Area2D _returnZone = null!;
     private Node2D _actorLayer = null!;
 
+    /// <summary>导航区（<see cref="BuildNavigation"/> 建；开关门后 <see cref="RebakeNavigation"/> 换掉它的 polygon）。</summary>
+    private NavigationRegion2D _navRegion = null!;
+
+    /// <summary>
+    /// 关内**可关的门**（当前只有废弃医院有：防火门/安全门/卷帘门）。
+    /// 门的"挡 / 不挡"和营地是<b>同一个开关</b>：切墙层 <see cref="VisionOcclusion.WallMask"/> ⇒
+    /// 挡人（碰撞）+ 挡视线（射线打的就是这一层）+ 断寻路（进 <see cref="_obstructions"/> 后重烘焙）三件事一起生效。
+    /// </summary>
+    private readonly List<LevelDoorInstance> _levelDoors = new();
+
+    /// <summary>一扇关内门的运行时实例（门板矩形 + 状态 + 碰撞体/视觉）。</summary>
+    private sealed class LevelDoorInstance
+    {
+        public string Name = "";
+        public Rect2 Rect;
+        public DoorState State;
+        public StaticBody2D Body = null!;
+        public Polygon2D Panel = null!;
+    }
+
     // 视野遮暗（批次4）：探索关全程启用。发现点视觉容器供检测层隐藏（视野外不揭示）。
     private VisionMask? _visionMask;
 
@@ -107,6 +127,16 @@ public sealed partial class TestExploration : ExplorationLevel
             SetupSupermarket();
         else if (DestinationName == ExplorationCache.HospitalName)
             SetupHospital();
+        else if (DestinationName == StuartManor.DestinationName)
+            SetupStuartManor();
+        else if (DestinationName == ExplorationCache.FireStationName)
+            SetupFireStation();
+        else if (DestinationName == RuinedChurch.DestinationName)
+            SetupRuinedChurch();
+        else if (DestinationName == RefugeeCamp.DestinationName)
+            SetupRefugeeCamp();
+        else if (DestinationName == ExplorationCache.SewerName)
+            SetupSewer();
 
         // 叙事调查点（极乐迪斯科式，[SPEC-B12]）：按目的地迭代注册表铺 Area2D（与物资/主线点并存，命名空间隔离）。
         // 须在 SetupVisionMask 之前（视觉容器进 _discoveryVisuals，供视野外隐藏）。
@@ -186,10 +216,30 @@ public sealed partial class TestExploration : ExplorationLevel
         }
     }
 
-    /// <summary>探索关预置固定光源（油灯示例，拟定待调）：入口附近 + 关内中段各一盏。</summary>
+    /// <summary>
+    /// 本关是否<b>室内恒暗</b>（压过昼夜相位，环境光锁死在 <see cref="VisionLogic.IndoorsDarkAmbient"/>＝0.10）。
+    /// 判据在纯逻辑 <see cref="ExplorationLighting.IsIndoorsDark"/>（单一事实源，单测与运行时读同一个）。
+    /// <para>
+    /// 🔴 [T60] <b>此前这三处环境光调用一律硬编码 <c>indoorsDark: false</c></b> —— 也就是说
+    /// <c>VisionLogic.IndoorsDarkAmbient</c> 这条常量写好了却<b>从来没有任何一关用过</b>。
+    /// 难民营地（用户原话「光线昏暗，视野受限」）是它第一次真的接上线。
+    /// </para>
+    /// </summary>
+    private bool LevelIndoorsDark => ExplorationLighting.IsIndoorsDark(DestinationName);
+
+    /// <summary>
+    /// 探索关预置固定光源（油灯示例，拟定待调）：入口附近 + 关内中段各一盏。
+    /// <para>
+    /// 🔴 <b>室内恒暗的关卡一盏都不预置</b>：难民营地的「昏暗」是这一关的<b>主轴</b>——
+    /// 摆两盏常亮的油灯进去，等于把用户要的东西直接删掉。那里的光只有一个来源：<b>你自己带的</b>
+    /// （<see cref="HeldLightState"/>：占一只手 ⇒ 双手武器与光源互斥 ⇒ <b>看得见还是打得动，二选一</b>）。
+    /// </para>
+    /// </summary>
     private void SetupLevelLights()
     {
         _levelLights.Clear();
+        if (LevelIndoorsDark)
+            return;
         _levelLights.AddFixed(LightSource.LampKey, LevelW / 2f, LevelH - 200f); // 入口/返回区附近
         _levelLights.AddFixed(LightSource.LampKey, LevelW * 0.5f, LevelH * 0.4f); // 关内中段
     }
@@ -197,7 +247,7 @@ public sealed partial class TestExploration : ExplorationLevel
     /// <summary>关内某点合成局部光照 L∈[0,1]（环境光与固定光源取 max），供丧尸感知 ConeFor 消费。</summary>
     private float SampleLevelLight(Vector2 pos)
         => VisionLogic.CombineLight(
-            VisionLogic.AmbientLight(Clock.CurrentPhase, indoorsDark: false),
+            VisionLogic.AmbientLight(Clock.CurrentPhase, LevelIndoorsDark),
             _levelLights.StrongestAt(pos.X, pos.Y));
 
     private void SetupVisionMask()
@@ -211,7 +261,7 @@ public sealed partial class TestExploration : ExplorationLevel
             IEnumerable<Actor> viewers = ExpeditionTeam.Where(p => p.Alive).Cast<Actor>();
             return CompanionDog is { Alive: true } dog ? viewers.Append(dog) : viewers;
         });
-        _visionMask.SetAmbientProvider(() => VisionLogic.AmbientLight(Clock.CurrentPhase, indoorsDark: false));
+        _visionMask.SetAmbientProvider(() => VisionLogic.AmbientLight(Clock.CurrentPhase, LevelIndoorsDark));
         // 光源场：玩家侧遮暗按局部光照（灯旁视野更远），VisionMask 内部 CombineLight(ambient, 源贡献)。
         _visionMask.SetSourceProvider(pos => _levelLights.StrongestAt(pos.X, pos.Y));
         _visionMask.SetRevealablesProvider(Revealables);
@@ -222,7 +272,14 @@ public sealed partial class TestExploration : ExplorationLevel
         AddChild(_visionMask);
     }
 
-    /// <summary>视野检测层的可揭示物：存活丧尸（隐 Actor 节点即隐其地面标记）+ 发现点视觉容器。</summary>
+    /// <summary>
+    /// 视野检测层的可揭示物：存活丧尸 + <b>存活的敌对幸存者</b>（隐 Actor 节点即隐其地面标记）+ 发现点视觉容器。
+    /// <para>
+    /// 🔴 Raider 此前<b>不在这个列表里</b>（既有洞，超市那 4 个据点幸存者一直中招）⇒ 他们不受视野遮罩管辖、
+    /// <b>隔着墙也看得见</b>。金手指帮的 8 个守备现在也是 Raider（还站岗），漏掉他们等于把"绕开哨兵视野锥摸进去"
+    /// 直接废掉——玩家一进关就把全据点的红点数清楚了，还潜入什么。
+    /// </para>
+    /// </summary>
     private IEnumerable<(Vector2 worldPos, Action<bool> setVisible)> Revealables()
     {
         foreach (Zombie z in _zombies)
@@ -230,6 +287,18 @@ public sealed partial class TestExploration : ExplorationLevel
             if (!IsInstanceValid(z) || !z.Alive)
                 continue;
             Zombie captured = z;
+            yield return (captured.GlobalPosition, v =>
+            {
+                if (IsInstanceValid(captured))
+                    captured.Visible = v;
+            });
+        }
+
+        foreach (Raider r in _levelRaiders)
+        {
+            if (!IsInstanceValid(r) || !r.Alive)
+                continue;
+            Raider captured = r;
             yield return (captured.GlobalPosition, v =>
             {
                 if (IsInstanceValid(captured))
@@ -256,6 +325,15 @@ public sealed partial class TestExploration : ExplorationLevel
                 z.QueueFree();
         }
         _zombies.Clear();
+
+        // 敌对幸存者同样要拆干净：不 Clear 的话，下一趟探索的 LevelHostiles 会遍历到上一关已释放的节点。
+        // （既有洞：超市那 4 个 Raider 一直没被清；金手指帮 8 个守备也走这条列表 ⇒ 一并收口。）
+        foreach (var r in _levelRaiders)
+        {
+            if (IsInstanceValid(r))
+                r.QueueFree();
+        }
+        _levelRaiders.Clear();
 
         foreach (var kv in _markers)
         {
@@ -347,8 +425,14 @@ public sealed partial class TestExploration : ExplorationLevel
 
     private void BuildNavigation()
     {
-        var region = new NavigationRegion2D();
-        var navPoly = new NavigationPolygon { AgentRadius = 14f };
+        _navRegion = new NavigationRegion2D { NavigationPolygon = BakeNavPoly() };
+        AddChild(_navRegion);
+    }
+
+    /// <summary>照当前的 <see cref="_obstructions"/> 烘一张导航网格（墙 + 关着的门都是障碍）。</summary>
+    private NavigationPolygon BakeNavPoly()
+    {
+        var navPoly = new NavigationPolygon { AgentRadius = ExplorationWalls.NavAgentRadius };
         var src = new NavigationMeshSourceGeometryData2D();
 
         float inset = 22f;
@@ -359,8 +443,175 @@ public sealed partial class TestExploration : ExplorationLevel
             src.AddObstructionOutline(Quad(obs.Position, obs.Size));
 
         NavigationServer2D.BakeFromSourceGeometryData(navPoly, src);
-        region.NavigationPolygon = navPoly;
-        AddChild(region);
+        return navPoly;
+    }
+
+    /// <summary>
+    /// 开关门后重烘焙导航（门是障碍的增删）。
+    /// <para>
+    /// ⚠️ <b>nav region 同步滞后（本仓已知隐坑）</b>：换掉 polygon 之后，NavigationServer 要到**下一次服务器同步**
+    /// 才让新网格生效。营地那边为此专门留了破防 AI 的宽限期（<c>CampMain.DoorNavSyncGraceMs</c>）——
+    /// <b>探索关不需要</b>：关内没有砸门的 AI（<c>BreachController</c> 是营地专属），
+    /// 唯一会踩这一帧的场景（"AI 刚开了门却被告知走不通，于是转身砸自己刚开的门"）在这里根本不存在。
+    /// 玩家侧从"推开门"到"下一条移动指令"至少隔着一次输入事件，那时早已同步完毕。
+    /// </para>
+    /// </summary>
+    private void RebakeNavigation()
+    {
+        if (_navRegion is null || !IsInstanceValid(_navRegion))
+            return;
+        _navRegion.NavigationPolygon = BakeNavPoly();
+    }
+
+    // ---- 关内可关的门（当前只有废弃医院；玩家交互入口在 CampMain 的容器体系，见 LevelDoorTargets/ToggleLevelDoor）----
+
+    /// <summary>
+    /// 建一扇关内的门：门板 = <see cref="StaticBody2D"/>（墙层）+ 可见的门板多边形 + 导航洞。
+    /// 三样随开关一起增删（见 <see cref="SetLevelDoorBlocking"/>）—— 与营地门同一口径：**一处开关，三件事同时生效**。
+    /// </summary>
+    private void AddLevelDoor(ExplorationDoor spec, Color color)
+    {
+        var rect = new Rect2(spec.Rect.X, spec.Rect.Y, spec.Rect.Width, spec.Rect.Height);
+
+        var body = new StaticBody2D { Position = rect.Position + rect.Size / 2 };
+        body.CollisionMask = 0u;
+        body.AddChild(new CollisionShape2D { Shape = new RectangleShape2D { Size = rect.Size } });
+
+        var panel = new Polygon2D
+        {
+            Polygon = Quad(-rect.Size / 2, rect.Size),
+            Color = color,
+            ZIndex = -4, // 压在墙(-5)之上：关着的门看得出是"门"，不是墙
+        };
+        body.AddChild(panel);
+        AddChild(body);
+
+        var inst = new LevelDoorInstance
+        {
+            Name = spec.Name,
+            Rect = rect,
+            State = spec.Initial,
+            Body = body,
+            Panel = panel,
+        };
+        _levelDoors.Add(inst);
+
+        // 建图期：直接按初始态设好挡/不挡，**不重烘焙**（BuildNavigation 还没跑，等它一次性烘）。
+        ApplyLevelDoorBlocking(inst, DoorLogic.Blocks(inst.State));
+    }
+
+    /// <summary>门的「挡 / 不挡」落地：碰撞层（=挡人+挡视线）、门板视觉、导航洞，三样一起切。<b>不</b>重烘焙。</summary>
+    private void ApplyLevelDoorBlocking(LevelDoorInstance door, bool blocking)
+    {
+        if (IsInstanceValid(door.Body))
+            door.Body.CollisionLayer = blocking ? VisionOcclusion.WallMask : 0u;
+        if (IsInstanceValid(door.Panel))
+            door.Panel.Visible = blocking; // 开着＝你看到的是一个洞
+
+        if (blocking)
+        {
+            if (!_obstructions.Contains(door.Rect))
+                _obstructions.Add(door.Rect);
+        }
+        else
+        {
+            _obstructions.Remove(door.Rect); // Rect2 值相等
+        }
+    }
+
+    /// <summary>切一扇门的挡/不挡并重烘焙导航（运行时开关门走这条）。</summary>
+    private void SetLevelDoorBlocking(LevelDoorInstance door, bool blocking)
+    {
+        ApplyLevelDoorBlocking(door, blocking);
+        RebakeNavigation();
+    }
+
+    /// <summary>关内可交互的门（名字 + 门板矩形）。CampMain 据此把它们登记进容器体系（右键前往 → 到达开关门）。</summary>
+    public IReadOnlyList<(string Name, Rect2 Rect)> LevelDoorTargets()
+    {
+        var list = new List<(string, Rect2)>(_levelDoors.Count);
+        foreach (LevelDoorInstance d in _levelDoors)
+            list.Add((d.Name, d.Rect));
+        return list;
+    }
+
+    /// <summary>某扇关内门当前的状态（不存在则 null）。</summary>
+    public DoorState? LevelDoorState(string name)
+    {
+        foreach (LevelDoorInstance d in _levelDoors)
+        {
+            if (d.Name == name)
+                return d.State;
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// <b>开 / 关</b>一扇关内的门（<b>开门只有一种动作</b>，与营地同口径：开着就关上，关着就推开）。
+    /// 关内的门<b>都没上锁</b>（不需要铁丝，玩家绝不会被一扇门永久卡死）。
+    /// <para>
+    /// 返回是否真的动了门；<paramref name="message"/> 给调用方出提示。关门时若门缝里站着东西则关不上
+    /// （否则会把它实心夹进门板里）。
+    /// </para>
+    /// </summary>
+    public bool ToggleLevelDoor(string name, out string message)
+    {
+        LevelDoorInstance? door = null;
+        foreach (LevelDoorInstance d in _levelDoors)
+        {
+            if (d.Name == name) { door = d; break; }
+        }
+        if (door is null)
+        {
+            message = "";
+            return false;
+        }
+
+        bool wasBlocking = DoorLogic.Blocks(door.State);
+        if (wasBlocking)
+        {
+            door.State = DoorState.Open;
+            SetLevelDoorBlocking(door, false);
+            message = $"推开了{door.Name}。";
+            return true;
+        }
+
+        if (LevelDoorwayOccupied(door))
+        {
+            message = $"{door.Name}关不上——门口还站着东西。";
+            return false;
+        }
+
+        door.State = DoorState.Closed;
+        SetLevelDoorBlocking(door, true);
+        message = $"关上了{door.Name}。——门后的东西暂时过不来了。";
+        return true;
+    }
+
+    /// <summary>门缝里站着人/狗/丧尸吗（关门前必查，否则会把它实心夹进门板里）。</summary>
+    private bool LevelDoorwayOccupied(LevelDoorInstance door)
+    {
+        Rect2 gap = door.Rect.Grow(10f);
+
+        foreach (Zombie z in _zombies)
+        {
+            if (IsInstanceValid(z) && z.Alive && gap.HasPoint(z.Position))
+                return true;
+        }
+        foreach (Raider r in _levelRaiders)
+        {
+            if (IsInstanceValid(r) && r.Alive && gap.HasPoint(r.Position))
+                return true;
+        }
+        foreach (Pawn p in ExpeditionTeam)
+        {
+            if (IsInstanceValid(p) && p.Alive && gap.HasPoint(p.Position))
+                return true;
+        }
+        if (CompanionDog is { } dog && IsInstanceValid(dog) && dog.Alive && gap.HasPoint(dog.Position))
+            return true;
+
+        return false;
     }
 
     private void SetupCamera()
@@ -373,7 +624,10 @@ public sealed partial class TestExploration : ExplorationLevel
 
     private void SetupReturnZone()
     {
-        Vector2 pos = new(LevelW / 2 - 40, LevelH - 120);
+        // [T61] 下水道：返回区＝那口检修竖井的井底（唯一的出口）。默认那个"地图正下方"的位置在下水道里是**实心墙**。
+        Vector2 pos = DestinationName == ExplorationCache.SewerName
+            ? new Vector2(ExplorationWalls.SewerEntry.X - 40f, ExplorationWalls.SewerEntry.Y - 40f)
+            : new Vector2(LevelW / 2 - 40, LevelH - 120);
 
         var visual = new Polygon2D
         {
@@ -414,12 +668,18 @@ public sealed partial class TestExploration : ExplorationLevel
 
     private void PlaceTeam()
     {
-        Vector2 spawn = new(200, LevelH - 200);
-        float stepX = 40f;
+        // [T61] 下水道的入口是一口**竖井**（通道宽 140）——默认那个横排落点会把人放进墙里。
+        // 故这一关**沿竖井纵向排队**下来（x 不动，y 逐个上移），与 ExplorationWalls.SewerEntry 同源。
+        bool sewer = DestinationName == ExplorationCache.SewerName;
+        Vector2 spawn = sewer
+            ? new Vector2(ExplorationWalls.SewerEntry.X - 10f, ExplorationWalls.SewerEntry.Y - 20f)
+            : new Vector2(200, LevelH - 200);
+        float stepX = sewer ? 0f : 40f;
+        float stepY = sewer ? -34f : 0f;
         for (int i = 0; i < ExpeditionTeam.Count; i++)
         {
             Pawn p = ExpeditionTeam[i];
-            p.Position = spawn + new Vector2(i * stepX, 0);
+            p.Position = spawn + new Vector2(i * stepX, i * stepY);
             p.Reparent(_actorLayer, keepGlobalTransform: false);
             _markers[p] = CreateActorMarker(p, p.BodyTint);
         }
@@ -428,7 +688,7 @@ public sealed partial class TestExploration : ExplorationLevel
         // 的敌对 provider 读 LevelHostiles）由其既有 AI 驱动；战斗引擎已在营地 Inject 过（跨关卡复用同一实例）。
         if (CompanionDog is { } dog)
         {
-            dog.Position = spawn + new Vector2(ExpeditionTeam.Count * stepX, 0);
+            dog.Position = spawn + new Vector2(ExpeditionTeam.Count * stepX, ExpeditionTeam.Count * stepY);
             dog.Reparent(_actorLayer, keepGlobalTransform: false);
             _markers[dog] = CreateActorMarker(dog, dog.BodyTint);
         }
@@ -444,14 +704,17 @@ public sealed partial class TestExploration : ExplorationLevel
             yield return dog;
     }
 
-    /// <summary>本关存活敌对单位＝存活丧尸 + 关内敌对幸存者（超市骗局伏击的 Raider）——供随队布鲁斯经 CampMain 敌对 provider 自主缠斗、视野揭示。</summary>
+    /// <summary>
+    /// 本关存活敌对单位＝存活丧尸 + 关内敌对幸存者（超市骗局伏击的据点幸存者 / <b>金手指帮的 8 名守备</b>）——
+    /// 供随队布鲁斯经 CampMain 敌对 provider 自主缠斗、视野揭示。
+    /// </summary>
     public override IEnumerable<Actor> LevelHostiles()
     {
         foreach (Zombie z in _zombies)
-            if (z.Alive)
+            if (IsInstanceValid(z) && z.Alive)
                 yield return z;
         foreach (Raider r in _levelRaiders)
-            if (r.Alive)
+            if (IsInstanceValid(r) && r.Alive)
                 yield return r;
     }
 
@@ -490,10 +753,76 @@ public sealed partial class TestExploration : ExplorationLevel
         if (DestinationName == ExplorationCache.SupermarketName)
             return;
 
-        // [SPEC-B13] 医院：丧尸巢废墟，密度显著高于他图（14 只，band 12~16），向住院部/药房/手术层深区扎堆——"大量丧尸占据"是其身份，数值拟定待调（归 param-calibration）。
+        // [T49] 废弃医院：全图最高丧尸密度（14 只，band 12~16），向住院部/药房/手术层深区扎堆——"大量丧尸"是其身份。
+        // 🔴 但这 14 只**不是让你清完的**（连场战斗的代价见 docs/research/2026-07-14-combat-cost.md）：
+        // 分区隔墙断了视线、每道边界有多个门洞、防火门可以关上 ⇒ 正解是**绕、关门、别开枪**。布点/数值拟定待调。
         if (DestinationName == ExplorationCache.HospitalName)
         {
-            SpawnZombiesAt(HospitalZombieSpots);
+            var hospitalSpots = new List<Vector2>(ExplorationWalls.HospitalZombieSpots.Count);
+            foreach ((float x, float y) in ExplorationWalls.HospitalZombieSpots)
+                hospitalSpots.Add(new Vector2(x, y));
+            SpawnZombiesAt(hospitalSpots);
+            return;
+        }
+
+        // [T61] 下水道：**3 只，各蹲一个拐角**（用户原话「除了某几个拐角可能有**一只**丧尸，**基本没有危险**」）。
+        // 🔴 布点被硬不变量钉死（SewerTests：**任何位置最多被 1 只感知**）——依据 sim-lanchester：
+        //    2 只围攻胜率 16.6%、3 只 0.8% ⇒ **围攻是断崖**。这地方要的是"吓人"，不是"危险"，两者必须焊开。
+        //    **要挪/要加，先跑 SewerTests。**
+        if (DestinationName == ExplorationCache.SewerName)
+        {
+            var sewerSpots = new List<Vector2>(ExplorationWalls.SewerZombieSpots.Count);
+            foreach ((float x, float y) in ExplorationWalls.SewerZombieSpots)
+                sewerSpots.Add(new Vector2(x, y));
+            SpawnZombiesAt(sewerSpots);
+            return;
+        }
+
+        // [SPEC-T51] 斯图尔特家族庄园：**盘踞的是劫掠者，不是丧尸**——庄园里一只游荡丧尸都不铺。
+        // 唯一的丧尸在**门口**：用户原话「男性尸体吊挂在门口**喂丧尸**」⇒ 吊尸把丧尸引在了大门那儿，成了一道活的护城河。
+        if (DestinationName == StuartManor.DestinationName)
+        {
+            SpawnStuartManorRaiders();
+            SpawnStuartGateZombies();
+            return;
+        }
+
+        // [批次25·T50] 消防站：用户口径「**低危**」⇒ **全图最少的丧尸（3 只，band 2~4）**，且全部铺在深处
+        //   （器材间/值班室/后院），**入口的车库一只都没有** —— 玩家一进门就能安安稳稳把消防斧摘下来。
+        //   这是三个新点里最容易的那个，也是开局最该去的那个。数量/布点拟定待调（归 param-calibration）。
+        if (DestinationName == ExplorationCache.FireStationName)
+        {
+            SpawnZombiesAt(FireStationZombieSpots);
+            return;
+        }
+
+        // [SPEC-T60] 破败教堂：教堂本体 3 只（稀——进关不会当场被淹）+ **后院墓地 12 只**（「大量」）。
+        // 墓地那 12 只在关着的门后：它们看不见你，你也看不见它们。推开门的那一刻，一片同时进你的视野。
+        // 🔴 **不是让你清完的**（2 只围攻＝16.6%，3 只＝0.8%，4 只起＝0%）——**是让你转身跑、并把门关上。**
+        if (DestinationName == RuinedChurch.DestinationName)
+        {
+            foreach ((float x, float y) in RuinedChurch.ChurchZombieSpots)
+                SpawnZombieAt(new Vector2(x, y), LevelWanderRect());
+            foreach ((float x, float y) in RuinedChurch.GraveyardZombieSpots)
+                SpawnZombieAt(new Vector2(x, y), LevelWanderRect());
+            return;
+        }
+
+        // [SPEC-T60] 难民营地：10 只**开门跳脸**（各锁在一间房里，就贴在门后 ≤90px）+ 4 只过道游荡。
+        // 跳脸的那 10 只徘徊区**只有它自己那间房**：它必须待在门后——它就是那扇门的全部意义。
+        if (DestinationName == RefugeeCamp.DestinationName)
+        {
+            foreach (AmbushZombie a in RefugeeCamp.AmbushZombies)
+            {
+                WallRect room = RefugeeCamp.Room(a.RoomNumber).Rect;
+                const float pad = RefugeeCamp.RoomWallThickness + 20f;
+                var box = new Rect2(
+                    room.X + pad, room.Y + pad,
+                    Mathf.Max(1f, room.Width - pad * 2f), Mathf.Max(1f, room.Height - pad * 2f));
+                SpawnZombieAt(new Vector2(a.X, a.Y), box);
+            }
+            foreach ((float x, float y) in RefugeeCamp.CorridorZombieSpots)
+                SpawnZombieAt(new Vector2(x, y), LevelWanderRect());
             return;
         }
 
@@ -514,10 +843,18 @@ public sealed partial class TestExploration : ExplorationLevel
     /// <summary>[SPEC-B13] 在给定点位各造一只丧尸、共享一个覆盖全关的徘徊区（用于东部新村/加油站等按分区手铺敌对的关卡）。</summary>
     private void SpawnZombiesAt(IReadOnlyList<Vector2> spots)
     {
-        var wander = new Rect2(WallT + 40, WallT + 40, LevelW - WallT * 2 - 80, LevelH - WallT * 2 - 80);
+        Rect2 wander = LevelWanderRect();
         foreach (Vector2 spot in spots)
             SpawnZombieAt(spot, wander);
     }
+
+    /// <summary>
+    /// 覆盖全关的徘徊区。<b>注意它只是"想去哪"，不是"去得了哪"</b>——真正的通行由导航网格说了算，
+    /// 而关着的门是导航障碍 ⇒ 被门关住的丧尸（教堂后院那 12 只、难民营地各房里那 10 只）**出不来**。
+    /// "关门隔开丧尸"因此是真的，不是靠给它们画一个小圈。
+    /// </summary>
+    private static Rect2 LevelWanderRect()
+        => new(WallT + 40, WallT + 40, LevelW - WallT * 2 - 80, LevelH - WallT * 2 - 80);
 
     /// <summary>[SPEC-B13·拟设定待确认] 东部新村游荡丧尸布点（中等 7 只，band 6~8）：散在工地/老屋分区之间，远离南侧排屋入口，数量/布点拟定待调（归 param-calibration）。</summary>
     private static readonly Vector2[] EastNewVillageZombieSpots =
@@ -541,17 +878,20 @@ public sealed partial class TestExploration : ExplorationLevel
         new(1980f, 360f),  // 地下储油间深处（守着高价值燃油）
     };
 
-    /// <summary>[SPEC-B13] 医院游荡丧尸布点（丧尸巢·高密度 14 只，band 12~16）：显著高于他图，向住院部/药房/手术层深区扎堆，"大量丧尸占据"是其身份。数量/布点拟定待调（归 param-calibration）。</summary>
-    private static readonly Vector2[] HospitalZombieSpots =
+    /// <summary>
+    /// [批次25·T50] 消防站游荡丧尸布点（<b>低危·全图最少：3 只，band 2~4</b>）。用户原话「低危」。
+    /// <para>
+    /// 参照：加油站 5（中低）/ 东部新村 7（中）/ 医院 14（丧尸巢）⇒ 消防站 3 是**全图最低**，名副其实。
+    /// 三只**全在深处**（器材间外 / 值班室 / 后院训练塔），队伍出生点（200,1400）所在的**车库入口区一只都没有**——
+    /// 玩家进门就能把器材墙上那把消防斧摘下来，不必先打一架。这正是"开局友好"的意思。
+    /// </para>
+    /// 数量/布点拟定待调（归 param-calibration）。
+    /// </summary>
+    private static readonly Vector2[] FireStationZombieSpots =
     {
-        // 门诊/急诊大厅（南·近，2·稀）
-        new(700f, 1150f), new(1500f, 1200f),
-        // 住院部（中，4）
-        new(600f, 850f), new(1100f, 780f), new(1600f, 900f), new(900f, 650f),
-        // 药房（北·深，4·扎堆守医疗）
-        new(1200f, 450f), new(700f, 400f), new(1600f, 420f), new(2000f, 500f),
-        // 手术层（最北·最深，4·扎堆守高价值医疗）
-        new(1000f, 220f), new(1400f, 200f), new(1800f, 240f), new(500f, 260f),
+        new(1120f, 940f),  // 器材间门外（挡在急救柜那条路上）
+        new(1700f, 1130f), // 值班室附近
+        new(1880f, 640f),  // 后院·训练塔下（最深）
     };
 
     /// <summary>造一只关内丧尸（与营地同 combat/clock、含随队布鲁斯的目标池、局部光照感知）并登记标记。</summary>
@@ -627,30 +967,67 @@ public sealed partial class TestExploration : ExplorationLevel
         GD.Print($"[Supermarket] 背刺先手 ×{NightWatchContest.PreemptiveStrikeMultiplier:0.0} 命中 {victim.DisplayName}。");
     }
 
-    /// <summary>金手指帮根据地守备丧尸数（中型·战斗为主，较默认 5 加强，拟定待调，归 param-calibration 校准）。</summary>
-    private const int GoldfingerGuardZombieCount = 8;
+    /// <summary>
+    /// 金手指帮守备布点：读 <see cref="GoldfingerGang.Posts"/>（相对坐标）投到本关尺寸。
+    /// <b>布点的真源在那张表，不在这里</b>——因为"开一枪会招来几个人"是纯几何、Sim 要算它
+    /// （<see cref="GoldfingerGang.AlertedBy"/>），而 Sim 够不着 Godot 场景层。两处各写一份就会漂移。
+    /// </summary>
+    private Vector2[] GoldfingerGuardSpots() => GoldfingerGang.Posts
+        .Select(p => new Vector2((float)(LevelW * p.X), (float)(LevelH * p.Y)))
+        .ToArray();
+
+    /// <summary>据点入口方位（关内世界坐标，南侧）：哨兵的扫视中心朝这儿——他们防的是从这个方向进来的人。</summary>
+    private Vector2 GoldfingerEntrance => new(LevelW * 0.5f, LevelH * 0.95f);
 
     /// <summary>
-    /// 金手指帮根据地守备布防（[SPEC-B12-补]）：<see cref="GoldfingerGuardZombieCount"/> 只丧尸，向根据地深处（北侧远角，
-    /// 军械柜/头目区所在）与中段 gauntlet 加权布点，使深处 loot 必须打穿才能取。数量/布点拟定待调。
+    /// 金手指帮根据地守备布防。
+    ///
+    /// <para>🔴 <b>他们是人，不是丧尸</b>（用户澄清：「金手指帮是人，不是丧尸，不过他们刚经历完异常战斗，
+    /// 大家的状态都不是巅峰」）。此前这 8 个"守备"生成的是 <c>Zombie</c> ⇒ 丧尸不持械 ⇒
+    /// <b>打赢金手指帮一把武器都捡不到</b>，而这本该是玩家最重要的装备通道。</para>
+    ///
+    /// <para>改成 <see cref="Raider"/> 后三样东西<b>全部白拿、零新规则</b>：
+    /// ① <b>持械</b> ⇒ 杀了能扒（<c>CorpseLoot.Strip</c> 必掉零掷骰，走 <c>SpawnLevelCorpse</c> 落尸通道）；
+    /// ② <b>会站岗</b>（<c>Raider.ConfigureSentry</c> 早已实现、此前<b>全项目零调用点</b>——设计文档 §5 的
+    /// 敌营岗哨/三角波扫视、TODO 里记的"岗哨没有调用点"，就是卡在"守备是丧尸，而丧尸不会站岗"上）；
+    /// ③ <b>会开门/会砸墙/听得见动静</b>（Raider 本就有这些，丧尸只会砸）。</para>
+    ///
+    /// <para><b>编制、持械、伤情全在 <see cref="GoldfingerGang.Roster"/>（authored 表）</b>，本方法只管把它摆到地图上——
+    /// 数值改动去改那张表，别改这里。</para>
     /// </summary>
     private void SpawnGoldfingerGuards()
     {
-        // 深处/中段加权：多数落在关卡上半（y 小＝北，深处 loot 区），少数在中段与近入口，逼出"打过才拿"。
-        Vector2[] spots =
-        {
-            new(LevelW * 0.78f, LevelH * 0.18f), // 深·头目/银库区
-            new(LevelW * 0.90f, LevelH * 0.15f), // 深·银库暗格侧
-            new(LevelW * 0.70f, LevelH * 0.24f), // 深·军械柜侧
-            new(LevelW * 0.55f, LevelH * 0.32f), // 中深·修械/弹药区
-            new(LevelW * 0.62f, LevelH * 0.45f), // 中·皮件/gauntlet
-            new(LevelW * 0.38f, LevelH * 0.40f), // 中·铺位/油料区
-            new(LevelW * 0.30f, LevelH * 0.62f), // 中前·前院
-            new(LevelW * 0.50f, LevelH * 0.72f), // 近入口·岗哨侧
-        };
+        Vector2[] spots = GoldfingerGuardSpots();
         var wander = new Rect2(WallT + 40, WallT + 40, LevelW - WallT * 2 - 80, LevelH - WallT * 2 - 80);
-        for (int i = 0; i < GoldfingerGuardZombieCount && i < spots.Length; i++)
-            SpawnZombieAt(spots[i], wander);
+        IReadOnlyList<GangGuard> roster = GoldfingerGang.Roster;
+
+        for (int i = 0; i < roster.Count && i < spots.Length; i++)
+        {
+            GangGuard guard = roster[i];
+            Vector2 pos = spots[i];
+
+            var r = Raider.Create(
+                wander, LevelTargets,
+                displayName: guard.DisplayName,
+                weapon: GoldfingerGang.WeaponFor(guard.Arm));
+            r.Inject(Combat, Clock);
+            r.ConfigurePerception(localLightAt: SampleLevelLight);
+            r.ApplyInjury(guard.Injury); // 「刚经历完异常战斗」＝预置部位伤 + 骨折（不登记出血，否则他们会自己流血死）
+            r.Position = pos;
+
+            if (guard.IsSentry)
+            {
+                // 钉在岗位上、绕"朝向入口"的中心有规律地左右扫视 ⇒ 玩家可以蹲着数拍子、算准背对的那几秒摸过去。
+                // 深处两个走懈怠档（扫得慢、端点发呆久＝好绕）——伤兵守内院；近入口那个走警觉档（难绕）。
+                float facing = (GoldfingerEntrance - pos).Angle();
+                bool deep = pos.Y < LevelH * 0.5f;
+                r.ConfigureSentry(pos, facing, deep ? SentrySweep.Slack : SentrySweep.Alert);
+            }
+
+            _actorLayer.AddChild(r);
+            _levelRaiders.Add(r);
+            _markers[r] = CreateActorMarker(r, new Color(0.72f, 0.26f, 0.22f)); // 暗红：敌对幸存者（与丧尸绿/己方一眼区分）
+        }
     }
 
     /// <summary>村庄区域游荡丧尸数（大点区域危险，锁屋 5 围困之外散布在各分区间，拟定待调）。</summary>
@@ -879,7 +1256,7 @@ public sealed partial class TestExploration : ExplorationLevel
 
     /// <summary>
     /// 河边小屋（前中期探索点，用户拍板）：两处搜刮点（发现点式，踏入即入库+弹环境叙事，投放/叙事见 <see cref="ExplorationCache"/>）。
-    /// · 枪柜（← 栓动猎枪）铺在靠近入口处（近入口＝易得）；· 床底木箱（通用搜刮）位置更深。
+    /// · 枪柜（← 弹药/箭；原本的栓动猎枪已随该武器被删除而撤下）铺在靠近入口处（近入口＝易得）；· 床底木箱（通用搜刮）位置更深。
     /// 触发链路复用现有 <see cref="AddDiscoveryPoint"/>；掉落解析在 CampMain.OnExplorationDiscovery 走 <see cref="ExplorationCache.Resolve"/>。
     /// </summary>
     private void SetupRiversideCabinCaches()
@@ -1192,10 +1569,29 @@ public sealed partial class TestExploration : ExplorationLevel
     }
 
     /// <summary>
-    /// [SPEC-B13] 医院：被大量丧尸占据的废墟（丧尸密度显著高于他图，见 <see cref="HospitalZombieSpots"/>），高风险高收益——
-    /// 医疗物资集中投放于药房/手术层（打破全域"禁医疗灌水"的例外点，正是医院身份）。分区近→深：
-    ///   门诊/急诊大厅(南/近) → 住院部(中) → 药房(北/深·医疗集中) → 手术层(最北/最深·手术耗材+高价值医疗)。
-    /// 占位美术：四片分区地台 + 30 处搜刮点标记；掉落/叙事在 <see cref="ExplorationCache.Resolve"/>。叙事调查点（分诊台公告/住院部病房）见 NarrativeSpotRegistry。
+    /// [T49] <b>废弃医院</b>（用户原话：「有医疗物资和大量丧尸，大地图，中危」）。
+    /// 全游戏**手术与治疗的补给来源**：医疗物资集中投放于药房/手术层（打破全域"禁医疗灌水"的例外点，正是医院身份）。
+    /// 分区近→深：门诊/急诊大厅(南) → 住院部 → 药房(医疗集中) → 手术层(手术耗材+高价值医疗)。
+    ///
+    /// <para>
+    /// 🔴 <b>「大量丧尸」+「中危」这两句，只有在能绕过去时才同时成立。</b>
+    /// 改造前这里是**一片开阔地**（一堵墙都没有）：14 只丧尸共享同一片视野，进门就被全楼看见，
+    /// 既躲不掉也隔不开——那不是中危，是死亡陷阱（连场战斗的代价见 <c>docs/research/2026-07-14-combat-cost.md</c>：
+    /// 单场 68% 胜率、不治疗连打，能撑过第 3 个的只剩 3.5%）。
+    /// </para>
+    ///
+    /// <para>
+    /// 所以医院现在是一栋**建筑**（几何全部取自纯逻辑 <see cref="ExplorationWalls.HospitalWalls"/>，已上单测）：
+    /// <list type="bullet">
+    /// <item><b>三个入口</b>：正门 / 急诊入口 / 员工侧门（西面，**跳过大厅直插住院部**的捷径——更短，也更没退路）。</item>
+    /// <item><b>每道分区边界多个门洞</b>：一条走廊挤满丧尸时，还有第二条。</item>
+    /// <item><b>可关的门</b>（防火门/安全门/卷帘门，初始<b>关着</b>）：关上＝把追你的丧尸挡在门后，
+    ///       它得绕到这道边界的另一个门洞去。**每道边界都留了一个关不上的洞**，故你永远关不死自己（单测钉死）。</item>
+    /// <item>隔墙同时<b>挡视线</b>（<see cref="VisionOcclusion"/> 打的就是这批矩形）⇒ 丧尸不再一次性全员发现你。</item>
+    /// </list>
+    /// <b>噪音是这一关的主轴</b>：推门 100、走路 40，而开一枪是 350（手枪）~600（步枪）——足以横穿两三个分区，
+    /// 等于**把整层楼叫醒**。医院的正解是近战/弓（70）、关门、绕路，而不是站着清 14 只。
+    /// </para>
     /// </summary>
     private void SetupHospital()
     {
@@ -1205,48 +1601,394 @@ public sealed partial class TestExploration : ExplorationLevel
         AddZonePad(new Vector2(400, 380), new Vector2(1780, 220), new Color(0.20f, 0.28f, 0.24f, 0.58f));  // 药房（医疗集中，偏药绿）
         AddZonePad(new Vector2(300, 120), new Vector2(1900, 240), new Color(0.28f, 0.30f, 0.32f, 0.60f));  // 手术层（无菌灰白，最深）
 
-        var lobbyC = new Color(0.5f, 0.5f, 0.5f);      // 门诊/急诊（非医疗为主）
-        var wardC = new Color(0.5f, 0.54f, 0.56f);     // 住院部
-        var pharmC = new Color(0.42f, 0.62f, 0.44f);   // 药房（医疗，药绿）
-        var orC = new Color(0.62f, 0.66f, 0.62f);      // 手术层（无菌灰白·高价值）
+        // ——楼层平面：外墙（三个入口处断开）+ 三道分区隔墙（各留多个门洞）——
+        // 同一批矩形三用：碰撞（挡人）/ 导航 obstruction（阻断寻路）/ 墙层射线（挡视线）。
+        var wallC = new Color(0.30f, 0.31f, 0.33f, 0.95f);
+        foreach (WallRect w in ExplorationWalls.HospitalWalls())
+            AddSolidWall(w, wallC, zIndex: -5);
 
-        // 门诊/急诊大厅（近，7·非医疗为主）
-        AddDiscoveryPoint(ExplorationCache.HospitalReceptionId, new Vector2(700, 1300), markerColor: lobbyC, label: "挂号台");
-        AddDiscoveryPoint(ExplorationCache.HospitalTriageId, new Vector2(900, 1150), markerColor: lobbyC, label: "分诊台");
-        AddDiscoveryPoint(ExplorationCache.HospitalWaitingRoomId, new Vector2(1200, 1250), markerColor: lobbyC, label: "候诊区");
-        AddDiscoveryPoint(ExplorationCache.HospitalVendingId, new Vector2(1500, 1300), markerColor: lobbyC, label: "自动贩卖机");
-        AddDiscoveryPoint(ExplorationCache.HospitalErTrolleyId, new Vector2(1750, 1150), markerColor: lobbyC, label: "急诊抢救推车");
-        AddDiscoveryPoint(ExplorationCache.HospitalSecurityId, new Vector2(400, 1150), markerColor: lobbyC, label: "保安室");
-        AddDiscoveryPoint(ExplorationCache.HospitalCafeteriaId, new Vector2(2000, 1250), markerColor: lobbyC, label: "食堂");
+        // ——可关的门（初始关着：医院的防火门本就是关着的，深区的丧尸因此不会在你进门那一刻全员涌来）——
+        var doorC = new Color(0.55f, 0.42f, 0.28f, 0.95f); // 门板：木色，和灰墙区分得开
+        foreach (ExplorationDoor d in ExplorationWalls.HospitalDoors())
+            AddLevelDoor(d, doorC);
 
-        // 住院部（中，8）
-        AddDiscoveryPoint(ExplorationCache.HospitalWardLinenId, new Vector2(600, 900), markerColor: wardC, label: "病房布草间");
-        AddDiscoveryPoint(ExplorationCache.HospitalWardLockerId, new Vector2(900, 850), markerColor: wardC, label: "病床储物柜");
-        AddDiscoveryPoint(ExplorationCache.HospitalNurseStationId, new Vector2(1200, 900), markerColor: pharmC, label: "护士站");
-        AddDiscoveryPoint(ExplorationCache.HospitalDoctorOfficeId, new Vector2(1600, 850), markerColor: wardC, label: "医生办公室");
-        AddDiscoveryPoint(ExplorationCache.HospitalDirtyUtilityId, new Vector2(1900, 950), markerColor: wardC, label: "污物处置间");
-        AddDiscoveryPoint(ExplorationCache.HospitalKitchenetteId, new Vector2(700, 680), markerColor: wardC, label: "配餐间");
-        AddDiscoveryPoint(ExplorationCache.HospitalFloorStoreId, new Vector2(2050, 700), markerColor: wardC, label: "楼层库房");
-        AddDiscoveryPoint(ExplorationCache.HospitalMorgueId, new Vector2(350, 700), markerColor: new Color(0.42f, 0.44f, 0.5f), label: "太平间");
+        // ——30 处搜刮点（坐标/文案/分区皆取自纯逻辑，与墙体同源，故不会有点被砌进墙里——单测钉死）——
+        foreach (HospitalCacheSpot s in ExplorationWalls.HospitalCacheSpots)
+        {
+            AddDiscoveryPoint(
+                s.Id,
+                new Vector2(s.X, s.Y),
+                markerColor: HospitalZoneColor(s.Zone),
+                label: s.Label);
+        }
+    }
 
-        // 药房（深，7·医疗集中——高价值）
-        AddDiscoveryPoint(ExplorationCache.HospitalPharmacyCounterId, new Vector2(700, 520), markerColor: pharmC, label: "药房前台");
-        AddDiscoveryPoint(ExplorationCache.HospitalPharmacyShelfId, new Vector2(1000, 470), markerColor: pharmC, label: "处方药架");
-        AddDiscoveryPoint(ExplorationCache.HospitalPharmacyFridgeId, new Vector2(1300, 500), markerColor: pharmC, label: "冷藏药柜");
-        AddDiscoveryPoint(ExplorationCache.HospitalPharmacyBackId, new Vector2(1600, 460), markerColor: pharmC, label: "药库后间");
-        AddDiscoveryPoint(ExplorationCache.HospitalNarcoticsCabinetId, new Vector2(1900, 520), markerColor: pharmC, label: "管制药柜");
-        AddDiscoveryPoint(ExplorationCache.HospitalDispensaryId, new Vector2(500, 420), markerColor: pharmC, label: "配药室");
-        AddDiscoveryPoint(ExplorationCache.HospitalMedSupplyRoomId, new Vector2(2100, 460), markerColor: pharmC, label: "医材库");
+    /// <summary>医院分区的标记色：越深越"洁净"（药房药绿 / 手术层无菌灰白），呼应"越深越危险、也越值钱"。</summary>
+    private static Color HospitalZoneColor(HospitalZone zone) => zone switch
+    {
+        HospitalZone.Lobby => new Color(0.5f, 0.5f, 0.5f),           // 门诊/急诊（非医疗为主）
+        HospitalZone.Ward => new Color(0.5f, 0.54f, 0.56f),          // 住院部
+        HospitalZone.Pharmacy => new Color(0.42f, 0.62f, 0.44f),     // 药房（医疗，药绿）
+        _ => new Color(0.62f, 0.66f, 0.62f),                          // 手术层（无菌灰白·高价值）
+    };
 
-        // 手术层（最深，8·手术耗材+高价值医疗）
-        AddDiscoveryPoint(ExplorationCache.HospitalOrScrubId, new Vector2(600, 300), markerColor: orC, label: "刷手准备间");
-        AddDiscoveryPoint(ExplorationCache.HospitalOrTheatreId, new Vector2(900, 240), markerColor: orC, label: "手术室");
-        AddDiscoveryPoint(ExplorationCache.HospitalSterileStoreId, new Vector2(1200, 300), markerColor: orC, label: "无菌耗材库");
-        AddDiscoveryPoint(ExplorationCache.HospitalIcuId, new Vector2(1500, 240), markerColor: orC, label: "ICU 重症监护");
-        AddDiscoveryPoint(ExplorationCache.HospitalBloodBankId, new Vector2(1800, 300), markerColor: orC, label: "血库");
-        AddDiscoveryPoint(ExplorationCache.HospitalAnesthesiaId, new Vector2(2050, 240), markerColor: orC, label: "麻醉科");
-        AddDiscoveryPoint(ExplorationCache.HospitalSterilizerId, new Vector2(350, 280), markerColor: orC, label: "器械灭菌室");
-        AddDiscoveryPoint(ExplorationCache.HospitalChiefSafeId, new Vector2(1250, 150), markerColor: new Color(0.72f, 0.68f, 0.5f), label: "主任药品保险柜");
+    // ================= [T61] 下水道 =================
+    //
+    // 🔴 用户原话：「规模小，下水道，**除了某几个拐角可能有一只丧尸，基本没有危险**，
+    //    主要靠**黑暗逼仄的环境**和**大量拐角的差视野**，配合滴滴答答的水滴声和脚步声和回声吓人。」
+    //
+    // ⇒ **这一关的恐怖全部来自"你看不见"，没有一点来自"你打不过"。**
+    //    几何（蛇形通道 / 8 个直角弯 / 一条死胡同 / 3 只分散的丧尸）全在纯逻辑 <see cref="ExplorationWalls"/>
+    //    的 Sewer* 段里，**并且上了单测**（SewerTests：任何位置最多被 1 只丧尸感知 / 墙不漏也不堵 / 入口看不见最深处）。
+    //    这里只做空间执行：把矩形实体化、把点铺出来。**别在这里另写一份几何。**
+    //
+    // 📌 **黑暗**：本关经 <see cref="ExplorationLighting.IsIndoorsDark"/> 标为室内恒暗（0.10）⇒ 视锥 ~124px / 半角 30°
+    //    ⇒ 玩家基本上**必须手持光源**（占一只手 ⇒ 与双手武器互斥）。**不铺任何固定光源** —— 那正是这一关的身份。
+    // 📌 **音效**：用户要的"滴滴答答的水滴声/脚步声/回声"**没有承载它的系统**（本项目至今无音效系统）
+    //    ⇒ **不在此伪造**，已作为重大缺口上报。当前只能靠搜刮点的环境叙事文字兑现（见 ExplorationCache 的 Sewer* 叙事）。
+
+    /// <summary>
+    /// [T61] 下水道：一条**蛇形的窄管**——入口竖井 → 横廊 → 弯 → 竖廊 → 弯（岔出一条死胡同）→ … → 最深处汇流室（**耗子**）。
+    /// </summary>
+    private void SetupSewer()
+    {
+        // 地台：污水的墨绿灰（比任何一关都暗——它本来就该是全图最暗的地方）。
+        AddZonePad(new Vector2(320, 140), new Vector2(1360, 1300), new Color(0.13f, 0.16f, 0.15f, 0.60f));
+
+        // ——墙：由通道的**补集**自动推出（ExplorationWalls.SewerWalls）⇒ 通道与墙不可能对不上。
+        //   同一批矩形三用：碰撞（挡人）/ 导航 obstruction（阻断寻路）/ 墙层射线（**挡视线** —— 拐角就是靠它成立的）。
+        var wallC = new Color(0.17f, 0.19f, 0.18f, 0.98f);
+        foreach (WallRect w in ExplorationWalls.SewerWalls())
+            AddSolidWall(w, wallC, zIndex: -5);
+
+        // ——5 处搜刮点（**很少量**物资：蘑菇、老鼠、几样基础材料。这地方的价值是耗子，不是战利品）——
+        var lootC = new Color(0.42f, 0.46f, 0.38f);   // 苔绿
+        foreach (SewerCacheSpot spot in ExplorationWalls.SewerCacheSpots)
+            AddDiscoveryPoint(spot.Id, new Vector2(spot.X, spot.Y), markerColor: lootC, label: spot.Label);
+
+        // ——最深处：**耗子**（可招募幸存者）。非物资点 ⇒ 不计探索完成度（同护士相遇点口径）。
+        //   踏进去 → CampMain.OnDiscovery → RatRecruit.Resolve → 弹招募对话。
+        (float rx, float ry) = ExplorationWalls.SewerDeepestPoint;
+        AddDiscoveryPoint(
+            RatRecruit.MeetDiscoveryId,
+            new Vector2(rx, ry),
+            markerColor: new Color(0.72f, 0.66f, 0.52f),   // 昏黄：一个活人
+            label: RatPerk.RatName);
+    }
+
+    // ================= [SPEC-T60] 破败教堂 =================
+    //
+    // 🔴 用户原话：「破败教堂，规模中，穿过教堂的视野盲区，打开门看到后院墓地中有大量丧尸（突然看到吓一跳的感觉），
+    //    在这里可以找到一些军方留下的被烧了一半的忏悔录和一些被军方屠杀的人用血写在墙上的对军方的辱骂。」
+    //
+    // 🔴 **这一关的每一堵墙都是为挡视线砌的，不是为了挡路。** 几何、门、丧尸布点、"吓一跳"的那两条数字
+    //    （门关着＝可见 0 只 / 门一开＝一片同时进锥）全在纯逻辑 <see cref="RuinedChurch"/> 里，并且**上了单测**。
+    //    这里只做空间执行：把矩形实体化、把门装上、把点铺出来。**别在这里另写一份几何。**
+
+    /// <summary>
+    /// [SPEC-T60] 破败教堂：一关**视野**，不是一关战力。
+    /// 分区（南→北，近→深）：门厅(告解亭) → 中殿(长椅/立柱的盲区·墙上的血字) → 圣坛(祭台/圣器室) → **后院墓地(门后那一片)**。
+    /// </summary>
+    private void SetupRuinedChurch()
+    {
+        // 分区占位地台（纯视觉）。墓地那一片刻意压暗——但你在推开门之前**根本看不到它**。
+        AddZonePad(new Vector2(300, 1240), new Vector2(1800, 164), new Color(0.24f, 0.22f, 0.24f, 0.55f)); // 门厅
+        AddZonePad(new Vector2(300, 792), new Vector2(1800, 448), new Color(0.22f, 0.21f, 0.25f, 0.55f));  // 中殿
+        AddZonePad(new Vector2(300, 512), new Vector2(1800, 268), new Color(0.26f, 0.24f, 0.20f, 0.58f));  // 圣坛（旧金色）
+        AddZonePad(new Vector2(300, 136), new Vector2(1800, 364), new Color(0.16f, 0.19f, 0.17f, 0.62f));  // 后院墓地（最暗）
+
+        // ——墙体：外墙 / 墓地边界 / 屏风 / 长椅 / 立柱 / 告解亭 / 祭台 / 圣器室——
+        // 同一批矩形三用：碰撞（挡人）/ 导航 obstruction（阻断寻路）/ 墙层射线（**挡视线**）。
+        var stoneC = new Color(0.33f, 0.32f, 0.30f, 0.95f);
+        foreach (WallRect w in RuinedChurch.Walls())
+            AddSolidWall(w, stoneC, zIndex: -5);
+
+        // ——两扇可关的门，**都在墓地边界上，初始关着**——
+        // 关着 ⇒ 门在墙层上 ⇒ **它挡视线** ⇒ 你在门这边真的看不见后院。推开它的那一刻，一片丧尸同时进视野。
+        var doorC = new Color(0.42f, 0.30f, 0.22f, 0.95f);
+        foreach (ExplorationDoor d in RuinedChurch.Doors())
+            AddLevelDoor(d, doorC);
+
+        // ——12 处搜刮点（穷：布/木/铁/蜡 + 一点白银，**没有枪没有弹药**）——
+        foreach (ChurchCacheSpot s in RuinedChurch.CacheSpots)
+            AddDiscoveryPoint(s.Id, new Vector2(s.X, s.Y), markerColor: ChurchZoneColor(s.Zone), label: s.Label);
+    }
+
+    /// <summary>教堂分区的标记色（墓地那两处刻意发绿——你看见它们时，多半也看见了别的东西）。</summary>
+    private static Color ChurchZoneColor(ChurchZone zone) => zone switch
+    {
+        ChurchZone.Narthex => new Color(0.52f, 0.48f, 0.44f),
+        ChurchZone.Nave => new Color(0.55f, 0.50f, 0.40f),
+        ChurchZone.Chancel => new Color(0.62f, 0.55f, 0.36f),   // 圣坛（旧金）
+        _ => new Color(0.42f, 0.52f, 0.40f),                     // 墓地（苔绿）
+    };
+
+    // ================= [SPEC-T60] 难民营地 =================
+    //
+    // 🔴 用户原话：「难民营地，规模中，临时建起的一片平房，内是大量的小房间，过道狭窄，光线昏暗，视野受限，
+    //    并且物资分散在每一个房间中，一同在房间中的还有开门跳脸的丧尸。」
+    //
+    // 🔴 **昏暗＝ <see cref="ExplorationLighting.IsIndoorsDark"/>（环境光 0.10）** ⇒ 视距 300→约 124、半角 60°→33°。
+    //    「视野受限」是算出来的，不是画出来的。**一盏固定光源都不预置**（见 <see cref="SetupLevelLights"/>）。
+    // 🔴 **窄是玩家的朋友**：房门 48px ⇒ 门口一次只过得来一只丧尸 ⇒ **卡门口＝把围攻打成 1v1**。
+    //    几何、门、跳脸布点、那三个数（48/72/90）全在纯逻辑 <see cref="RefugeeCamp"/> 里并上了单测。
+
+    /// <summary>
+    /// [SPEC-T60] 难民营地：一片临时排屋——18 间小房、18 扇关着的门、两条窄过道、**没有一盏灯**。
+    /// </summary>
+    private void SetupRefugeeCamp()
+    {
+        // 地台（纯视觉）：整片营区一块暗地台。这一关不靠地台分区——**它靠门**。
+        AddZonePad(new Vector2(276, 156), new Vector2(1848, 1248), new Color(0.17f, 0.16f, 0.15f, 0.60f));
+
+        // ——墙体：营区外墙（两个**关不上**的入口）+ 18 间平房的轮廓（各一处 48px 门洞）——
+        var shackC = new Color(0.30f, 0.27f, 0.23f, 0.95f);
+        foreach (WallRect w in RefugeeCamp.Walls())
+            AddSolidWall(w, shackC, zIndex: -5);
+
+        // ——18 扇房门，初始全部关着。门＝墙层 ⇒ 挡视线 ⇒ **你没有任何办法提前知道门后有什么**——
+        var doorC = new Color(0.45f, 0.35f, 0.26f, 0.95f);
+        foreach (ExplorationDoor d in RefugeeCamp.Doors())
+            AddLevelDoor(d, doorC);
+
+        // ——14 处搜刮点，分在 14 个不同的房间里（"物资分散在每一个房间中"）——
+        var lootC = new Color(0.52f, 0.47f, 0.38f);
+        foreach (RefugeeCacheSpot s in RefugeeCamp.CacheSpots)
+            AddDiscoveryPoint(s.Id, new Vector2(s.X, s.Y), markerColor: lootC, label: s.Label);
+    }
+
+    // ================= [SPEC-T51] 斯图尔特家族庄园 =================
+    //
+    // 🔴 用户原话（authored 唯一事实源，一字不改）：「斯图尔特家族庄园（农庄，并不是很富裕，中地图，
+    //    有盘踞的劫掠者和岗哨，高危，高风险不是永远高回报，这个调查点最富裕的地方是劫掠者们的装备和衣服，
+    //    并且这里会有斯图尔特家的一些剧情，讲述了他们好心收留一些流浪者，结果被背刺，女儿妻子被奸杀，
+    //    男性尸体吊挂在门口喂丧尸，在枯井底有抱着婴儿饿死的女性尸体）」
+    //
+    // 🔴 **别把这一关"平衡"掉**：
+    //    · 农庄**是穷的**（10 处搜刮点全是布/木头/土豆，见 ExplorationCache）——那正是「高风险不是永远高回报」；
+    //    · 回报**长在人身上**（7 个劫掠者的武器与衣服，见 StuartManor）——**先打赢，才有得扒**；
+    //    · 而「打赢劫掠者白捡一身装备」这个场景**不存在**（docs/research/2026-07-14-combat-cost.md：
+    //      持棍棒的胜率 96.5% 却 66% 留下骨折、持破甲锤 70.8% 且 13% 断肢、持手枪只有 26.2%；
+    //      不治疗连打，能撑过第 3 个的只剩 3.5%）⇒ **玩家现实里会清掉两三个就撤，或者干脆绕过去。**
+    //      **允许他不打**（潜行绕过 / 只清边缘 / 撤退）是这一关的正确玩法之一，不是设计失败。
+    //
+    // 🔴 **噪音是这一关的核心机制**：哨位间距是照着枪声半径设计的（见 StuartManor.Posts / AlertedBy）——
+    //    从庭院中央动手：弓(70)→0 人 / 匕首(90)→1 人 / **手枪(350)→3 人 / 步枪(600)→6 人（整座庄园）**。
+    //    ⇒ 「枪纸面最强，但**一开枪就没有『逐个清哨』了**」。真正的通关手段是弓弩 + 哨兵扫视的空窗。
+
+    /// <summary>庄园大门（关内世界坐标，南侧）：探索队自此进关，**一进来就看见门口横梁上的人**。哨兵的扫视中心朝这儿。</summary>
+    private static readonly Vector2 StuartGate = new(
+        (float)(StuartManor.Entrance.X * LevelW), (float)(StuartManor.Entrance.Y * LevelH));
+
+    /// <summary>门口吊尸的位置（叙事点锚点；丧尸就聚在这一小片）。与 <c>NarrativeSpotRegistry</c> 里那处 (700,1300) 一致。</summary>
+    private static readonly Vector2 StuartGallows = new(700f, 1300f);
+
+    /// <summary>
+    /// [SPEC-T51] 斯图尔特家族庄园：一座被劫掠者盘踞的<b>穷农庄</b>。
+    /// 分区（南→北，近→深）：大门/前院晒场 → 谷仓/畜栏(东) → 主屋(西·里屋在最里头) → 后院枯井(东北·最深)。
+    /// <para>占位美术：分区地台 + 主屋/谷仓占位墙体（<see cref="AddRoomOutline"/>）+ 枯井占位 + 10 处搜刮点标记；
+    /// 掉落/叙事在 <see cref="ExplorationCache.Resolve"/>，四处 authored 叙事点由 <see cref="SetupNarrativeSpots"/> 按注册表自动铺（此处不重复铺）。</para>
+    /// </summary>
+    private void SetupStuartManor()
+    {
+        // 分区占位地台（纯视觉）：前院/晒场(南)、谷仓/畜栏(东中)、主屋(西北)、后院(东北·枯井)。
+        AddZonePad(new Vector2(420, 1080), new Vector2(1160, 400), new Color(0.26f, 0.24f, 0.18f, 0.55f)); // 前院/晒谷场（土黄）
+        AddZonePad(new Vector2(1380, 840), new Vector2(560, 380), new Color(0.24f, 0.21f, 0.16f, 0.58f));  // 谷仓/畜栏
+        AddZonePad(new Vector2(1780, 220), new Vector2(500, 520), new Color(0.20f, 0.22f, 0.19f, 0.55f));  // 后院（枯井在此）
+
+        // 主屋（含**里屋**——那扇从外头钉了闩的门在最里头）：占位墙体，南墙留门。
+        AddRoomOutline(new Rect2(560, 380, 720, 440), new Color(0.34f, 0.30f, 0.24f, 0.95f), "主屋", RoomEdge.Bottom);
+        AddRoomOutline(new Rect2(920, 380, 300, 180), new Color(0.28f, 0.25f, 0.21f, 0.95f), "里屋", RoomEdge.Bottom);
+        // 谷仓：占位墙体，西墙留门（从晒场那侧进）。
+        AddRoomOutline(new Rect2(1440, 880, 420, 300), new Color(0.32f, 0.27f, 0.20f, 0.95f), "谷仓", RoomEdge.Left);
+
+        // 后院的枯井（占位视觉；authored 叙事点「枯井」由注册表铺在 2050,330）。
+        DrawWellPlaceholder(new Vector2(2050f, 330f));
+        // 门口的横梁（占位视觉：两根门柱 + 一道横梁；authored 叙事点「门口」由注册表铺在 700,1300）。
+        DrawStuartGallowsPlaceholder();
+
+        var yardC = new Color(0.55f, 0.48f, 0.36f);   // 前院/晒场（棕黄，物资）
+        var houseC = new Color(0.52f, 0.46f, 0.38f);  // 主屋
+        var barnC = new Color(0.50f, 0.44f, 0.32f);   // 谷仓/农具
+
+        // 前院/晒场（近，3）
+        AddDiscoveryPoint(ExplorationCache.StuartGateCartId, new Vector2(900, 1350), markerColor: yardC, label: "门前板车");
+        AddDiscoveryPoint(ExplorationCache.StuartThreshingYardId, new Vector2(980, 1150), markerColor: yardC, label: "晒谷场");
+        AddDiscoveryPoint(ExplorationCache.StuartChickenCoopId, new Vector2(1250, 1300), markerColor: yardC, label: "鸡舍");
+
+        // 主屋（中，4）
+        AddDiscoveryPoint(ExplorationCache.StuartKitchenId, new Vector2(640, 760), markerColor: houseC, label: "灶间");
+        AddDiscoveryPoint(ExplorationCache.StuartHallCupboardId, new Vector2(1080, 700), markerColor: houseC, label: "堂屋碗柜");
+        AddDiscoveryPoint(ExplorationCache.StuartWardrobeId, new Vector2(860, 470), markerColor: houseC, label: "卧室衣柜");
+        AddDiscoveryPoint(ExplorationCache.StuartPantryId, new Vector2(1200, 560), markerColor: houseC, label: "储藏间");
+
+        // 谷仓/农具（中，2）
+        AddDiscoveryPoint(ExplorationCache.StuartHayLoftId, new Vector2(1560, 980), markerColor: barnC, label: "草料阁");
+        AddDiscoveryPoint(ExplorationCache.StuartToolShedId, new Vector2(1750, 1120), markerColor: barnC, label: "农具棚");
+
+        // 后院菜窖（最深，1）——翻到底，也不过是一窖发芽的土豆和一卷绷带。
+        AddDiscoveryPoint(ExplorationCache.StuartRootCellarId, new Vector2(2020, 600), markerColor: barnC, label: "后院菜窖");
+    }
+
+    /// <summary>
+    /// [批次25·T50] 消防站：街区消防站——车库（卷帘门大开）+ 值班室 + 器材间 + 后院训练塔。
+    /// 用户原话：「消防站（一些基础物资和消防斧，<b>小地图</b>，<b>低危</b>）」。
+    /// <para>
+    /// <b>小地图</b>：5 处搜刮点（小点 band），空间也铺得紧凑——车库占南半场（队伍出生点 200,1400 就在它西南），
+    /// 两间小屋（值班室/器材间）+ 一片后院，走两步就到，不做迷宫。
+    /// <b>低危</b>：3 只游荡丧尸（<see cref="FireStationZombieSpots"/>，全图最少），且**入口车库区一只都没有**。
+    /// </para>
+    /// <para>
+    /// 近→深：车库(南/近·消防车+<b>器材墙上的消防斧</b>) → 值班室(东/中) → 器材间(北/深·急救柜) → 后院(东北/最深·杂物棚)。
+    /// 两间小屋用 <see cref="AddRoomOutline"/> 实体墙，门洞**都朝南**（正对车库那片开阔地）⇒ 从出生点一路向北，
+    /// 每间屋都是正面进，不存在"门顶死在别人墙上"的通行陷阱（那是 <c>SetupNightingalePharmacy</c> 记下的教训）。
+    /// 掉落/叙事在 <see cref="ExplorationCache.Resolve"/>；叙事调查点（车库出车记录板）由 <see cref="SetupNarrativeSpots"/> 按目的地自动铺。
+    /// </para>
+    /// </summary>
+    private void SetupFireStation()
+    {
+        // 分区占位地台（纯视觉）：车库(南/近·水泥灰)、后院训练场(东北/最深·土黄)。
+        AddZonePad(new Vector2(360, 1060), new Vector2(900, 420), new Color(0.26f, 0.27f, 0.29f, 0.6f));  // 车库（卷帘门大开）
+        AddZonePad(new Vector2(1500, 400), new Vector2(700, 460), new Color(0.30f, 0.28f, 0.22f, 0.55f)); // 后院·训练场
+
+        // 两间小屋（实体墙，门洞都朝南＝正对车库开阔地，见类注）。
+        AddRoomOutline(new Rect2(1420, 1080, 380, 300), new Color(0.30f, 0.32f, 0.34f, 0.95f), "值班室", RoomEdge.Bottom);
+        AddRoomOutline(new Rect2(900, 620, 420, 300), new Color(0.28f, 0.30f, 0.32f, 0.95f), "器材间", RoomEdge.Bottom);
+
+        // 消防车（纯视觉占位）：车头朝外停在车库里，器材箱那一侧就是搜刮点。
+        AddChild(new Polygon2D
+        {
+            Polygon = Quad(new Vector2(560, 1240), new Vector2(300, 110)),
+            Color = new Color(0.46f, 0.16f, 0.14f, 0.95f), // 消防红（褪色）
+            ZIndex = 5,
+        });
+
+        var bayC = new Color(0.55f, 0.5f, 0.42f);   // 车库（近）
+        var gearC = new Color(0.62f, 0.42f, 0.30f); // 器材墙：偏红，全站唯一的武器（消防斧）就挂在这儿
+        var roomC = new Color(0.5f, 0.46f, 0.38f);  // 值班室/器材间（中·深）
+        var medC = new Color(0.42f, 0.62f, 0.44f);  // 急救柜（药绿，与药店/医院同色语义）
+
+        // 车库（南/近，2）
+        AddDiscoveryPoint(ExplorationCache.FireStationEngineBayId, new Vector2(700, 1300), markerColor: bayC, label: "消防车器材箱");
+        AddDiscoveryPoint(ExplorationCache.FireStationGearWallId, new Vector2(1120, 1150), markerColor: gearC, label: "器材墙");
+        // 值班室（东/中，1）
+        AddDiscoveryPoint(ExplorationCache.FireStationDutyRoomId, new Vector2(1600, 1250), markerColor: roomC, label: "值班室铺位");
+        // 器材间（北/深，1·唯一急救包）
+        AddDiscoveryPoint(ExplorationCache.FireStationMedCabinetId, new Vector2(1110, 790), markerColor: medC, label: "急救柜");
+        // 后院（东北/最深，1）
+        AddDiscoveryPoint(ExplorationCache.FireStationBackyardShedId, new Vector2(1900, 620), markerColor: roomC, label: "杂物棚");
+    }
+
+    /// <summary>门口横梁的占位视觉（两根门柱 + 一道横梁 + 几条垂下的绳）：纯 Polygon2D，无碰撞。</summary>
+    private void DrawStuartGallowsPlaceholder()
+    {
+        var wood = new Color(0.30f, 0.25f, 0.19f, 0.95f);
+        Vector2 g = StuartGallows;
+
+        // 横梁
+        AddChild(new Polygon2D
+        {
+            Polygon = Quad(g + new Vector2(-150f, -14f), new Vector2(300f, 14f)),
+            Color = wood,
+            ZIndex = 5,
+        });
+        // 两根门柱
+        AddChild(new Polygon2D
+        {
+            Polygon = Quad(g + new Vector2(-160f, -14f), new Vector2(16f, 90f)),
+            Color = wood,
+            ZIndex = 5,
+        });
+        AddChild(new Polygon2D
+        {
+            Polygon = Quad(g + new Vector2(144f, -14f), new Vector2(16f, 90f)),
+            Color = wood,
+            ZIndex = 5,
+        });
+        // 垂下的绳（四条，间隔匀——"这个高度是有人算过的"）
+        for (int i = 0; i < 4; i++)
+        {
+            AddChild(new Polygon2D
+            {
+                Polygon = Quad(g + new Vector2(-108f + (i * 72f), 0f), new Vector2(3f, 46f)),
+                Color = new Color(0.42f, 0.38f, 0.30f, 0.95f),
+                ZIndex = 6,
+            });
+        }
+    }
+
+    /// <summary>
+    /// [SPEC-T51] 庄园劫掠者布防：编制/持械/着装/是否站岗<b>全在 <see cref="StuartManor.Roster"/>（authored 表）</b>，
+    /// 布点在 <see cref="StuartManor.Posts"/>（同一张表，与噪音几何共用）——本方法只管把它们摆到地图上。
+    /// <b>数值改动去改那张表，别改这里。</b>
+    ///
+    /// <para><b>照 <c>SpawnGoldfingerGuards</c> 的范式做，没另起炉灶</b>：<see cref="Raider.Create"/> 点名持械 + 点名着装
+    /// ⇒ 杀了能扒（<c>CorpseLoot.Strip</c> 必掉零掷骰，走 <c>SpawnLevelCorpse</c> 落尸通道，<b>零新规则</b>）；
+    /// <see cref="Raider.ConfigureSentry"/> ⇒ 会站岗（扫视<b>周期固定、可观察、可预测</b>，玩家能数着拍子摸过去）。</para>
+    ///
+    /// <para><b>三个哨兵的扫视档</b>：近入口的大门哨走<b>警觉</b>档（难绕——他就是来防你从这个方向进来的）；
+    /// 深处的谷仓/主屋哨走<b>懈怠</b>档（扫得慢、端点发呆久＝好绕）——<b>越深越好摸</b>，逼玩家在
+    /// 「从门口硬啃」和「绕开大门、摸进深处」之间做取舍。</para>
+    /// </summary>
+    private void SpawnStuartManorRaiders()
+    {
+        var wander = new Rect2(WallT + 40, WallT + 40, LevelW - WallT * 2 - 80, LevelH - WallT * 2 - 80);
+        IReadOnlyList<ManorRaider> roster = StuartManor.Roster;
+
+        for (int i = 0; i < roster.Count && i < StuartManor.Posts.Count; i++)
+        {
+            ManorRaider m = roster[i];
+            (double px, double py) = StuartManor.Posts[i];
+            var pos = new Vector2((float)(px * LevelW), (float)(py * LevelH));
+
+            var r = Raider.Create(
+                wander, LevelTargets,
+                displayName: m.DisplayName,
+                weapon: StuartManor.WeaponFor(m.Arm),
+                outfit: StuartManor.ApparelFor(m.Outfit)); // 🔴 穿什么＝掉什么：这一关的回报就长在这一行上
+            r.Inject(Combat, Clock);
+            r.ConfigurePerception(localLightAt: SampleLevelLight);
+            r.Position = pos;
+
+            if (m.IsSentry)
+            {
+                float facing = (StuartGate - pos).Angle();          // 扫视中心朝大门——他们防的是从南边进来的人
+                bool deep = pos.Y < LevelH * 0.62f;                  // 主屋/谷仓一线以北＝深处
+                r.ConfigureSentry(pos, facing, deep ? SentrySweep.Slack : SentrySweep.Alert);
+            }
+
+            _actorLayer.AddChild(r);
+            _levelRaiders.Add(r);
+            _markers[r] = CreateActorMarker(r, new Color(0.72f, 0.26f, 0.22f)); // 暗红：敌对幸存者（与丧尸绿/己方一眼区分）
+        }
+    }
+
+    /// <summary>
+    /// [SPEC-T51] 门口的丧尸（<b>用户原话「男性尸体吊挂在门口<b>喂丧尸</b>」的空间落地</b>）：
+    /// 4 只聚在大门横梁底下、给一个贴着门口的<b>紧凑</b>徘徊区 ⇒ 它们不会散进庄园，就在那儿仰着脸够。
+    ///
+    /// <para><b>它们和劫掠者互不攻击</b>——不是特判，是既有结构：关内敌对单位的目标池 <see cref="LevelTargets"/>
+    /// 只有探索队（+随队布鲁斯）⇒ 丧尸看不见劫掠者、劫掠者也不理丧尸。落到玩法上恰好就是那句话的意思：
+    /// <b>这道尸群是劫掠者给自己养的护城河，进门要先过它。</b></para>
+    ///
+    /// <para>⚠️ 在门口打这一架<b>不会惊动庄园</b>（近战噪音 90~150px，而最近的哨位在 250px 开外——见
+    /// <see cref="StuartManor.AlertedBy"/>）：这是有意的<b>喘息位</b>——门口这一架是关卡的"学费"，不是死刑。
+    /// 数量/布点拟定待调（归 param-calibration）。</para>
+    /// </summary>
+    private void SpawnStuartGateZombies()
+    {
+        // 贴着门口横梁的紧凑徘徊区（它们被吊尸拴在这儿，不往庄园里散）。
+        var gateWander = new Rect2(StuartGallows.X - 220f, StuartGallows.Y - 170f, 440f, 300f);
+
+        Vector2[] spots =
+        {
+            new(StuartGallows.X - 60f, StuartGallows.Y - 70f),
+            new(StuartGallows.X + 80f, StuartGallows.Y - 60f),
+            new(StuartGallows.X - 100f, StuartGallows.Y + 50f),
+            new(StuartGallows.X + 120f, StuartGallows.Y + 30f),
+        };
+        foreach (Vector2 spot in spots)
+            SpawnZombieAt(spot, gateWander);
     }
 
     /// <summary>
@@ -1530,6 +2272,72 @@ public sealed partial class TestExploration : ExplorationLevel
             // 踏进去的那个人要透传出去——物资搜刮点是**他**站在那儿一件件往外掏（逐件搜刮，见 LootSession）。
             if (body is Pawn finder && _firedDiscoveries.Add(discoveryId))
                 RaiseDiscovery(discoveryId, finder);
+        };
+        AddChild(zone);
+    }
+
+    /// <summary>
+    /// 在<b>关内</b>落一具可搜刮的尸体（<c>CampMain.SpawnLevelCorpse</c> 在敌人倒下时调）——
+    /// 「探索关杀敌也要落尸、也要能搜刮」（用户拍板）。
+    ///
+    /// <para><b>坐标系</b>：探索关是<b>平面 cartesian</b>（与营地的 faux-iso 无关，见 docs/TODO.md「探索关正式化专项」②），
+    /// 所以尸体点直接落在死者<b>咽气的那个点</b>上——<paramref name="worldPos"/> 是全局坐标，这里 <c>ToLocal</c>
+    /// 换算成关内坐标。营地那套「尸体格 / 不堆叠推挤 / iso 投影」（<see cref="CorpseYard"/>）在这儿一概不适用，
+    /// 也<b>不该</b>硬搬：关内没有 iso 人形层可挂。</para>
+    ///
+    /// <para><b>不发明新交互</b>：完全复用本关既有的搜刮范式（<see cref="AddDiscoveryPoint"/> 的
+    /// marker + 标签 + 踏入 Area2D）——关内一切搜刮点都是"踏进去开搜"，尸体只是<b>又一个可搜刮容器</b>。
+    /// 上报的 id ＝ 容器名本身（<see cref="CorpseNaming"/>，如「据点幸存者的尸体 #1」），营地层据此路由到逐件搜刮。</para>
+    ///
+    /// <para>⚠️ <b>与 authored 发现点的两处刻意不同</b>：
+    /// <list type="number">
+    /// <item><b>可重复踏入</b>（<b>不</b>进 <see cref="_firedDiscoveries"/>）：尸体一次掏不完是常态
+    /// （被咬了要跑），跑开还得能回来接着掏。authored 发现点是一次性的，尸体不是。</item>
+    /// <item><b>动态、无注册表</b>：现杀现落，id 是运行时生成的，不在 <see cref="ExplorationCache"/> 里。</item>
+    /// </list></para>
+    ///
+    /// <para>[HANDOFF] 探索关正式化专项（TODO#10 ③）：届时搜刮点改"点击→寻路到位→开搜"，
+    /// <b>尸体点要跟着一起改</b>（它走的就是这条 AddDiscoveryPoint 范式，改一处即可）。</para>
+    /// </summary>
+    public void AddCorpseSearchPoint(string containerName, Vector2 worldPos)
+    {
+        Vector2 pos = ToLocal(worldPos);
+
+        // 视觉容器（同发现点：进 _discoveryVisuals ⇒ 视野外不揭示——看不见的尸体不该在雾里发光）。
+        var visual = new Node2D();
+        AddChild(visual);
+
+        var mark = new Polygon2D
+        {
+            Polygon = Quad(new Vector2(-12, -12), new Vector2(24, 24)),
+            Color = new Color(0.45f, 0.16f, 0.16f, 0.65f),   // 暗血红：一具躺着的尸体（区别于物资棕黄/叙事冷青）
+            Position = pos,
+            ZIndex = 7,                                       // 压在地面之上、人形(10)之下——人从尸体上走过去
+        };
+        visual.AddChild(mark);
+
+        var tag = new Label
+        {
+            Text = containerName,   // 「据点幸存者的尸体 #1」——玩家一眼看见这儿躺着谁
+            Position = pos + new Vector2(-16, -38),
+            ZIndex = 12,
+        };
+        tag.AddThemeFontSizeOverride("font_size", 12);
+        tag.AddThemeColorOverride("font_color", new Color(0.88f, 0.72f, 0.68f));
+        tag.AddThemeColorOverride("font_outline_color", new Color(0, 0, 0, 0.9f));
+        tag.AddThemeConstantOverride("outline_size", 3);
+        visual.AddChild(tag);
+
+        _discoveryVisuals.Add((visual, pos));
+
+        var zone = new Area2D { Position = pos };
+        zone.AddChild(new CollisionShape2D { Shape = new RectangleShape2D { Size = new Vector2(56, 56) } });
+        zone.CollisionMask = 0b0001u;   // 同发现点/返回区：只感知玩家 Pawn 所在层
+        zone.BodyEntered += body =>
+        {
+            // **不去重**（见上）：走开了还能回来接着掏。搜空之后营地层自会回一句"已经搜过了"。
+            if (body is Pawn finder)
+                RaiseDiscovery(containerName, finder);
         };
         AddChild(zone);
     }

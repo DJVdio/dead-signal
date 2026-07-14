@@ -26,6 +26,36 @@ public enum SizeTier
     Large,
 }
 
+/// <summary>
+/// 调查点**危险度**三级（用户为每个新点位口述的那一档：低危 / 中危 / 高危）。具体各点定级为数据（落在
+/// <c>WorldMapPanel.Destinations</c> 的 Danger 字段，拟定待调）。
+///
+/// <para>
+/// 🔴 <b>危险度和「规模」是正交的两维，绝不能混为一谈</b>：规模说的是<b>这趟要花几天</b>（内容量），
+/// 危险度说的是<b>这趟要拿多少伤病和人命去换</b>。废弃医院正是二者背离的样板——
+/// <b>大地图 + 中危</b>：它有全游戏最多的丧尸（14 只），却<b>不是</b>高危，因为它是一栋**建筑**：
+/// 有多个入口、每道分区有多个门洞、还有能关上的防火门 ⇒ <b>你可以绕、可以关门、可以选择不打</b>。
+/// </para>
+///
+/// <para>
+/// 危险度<b>不是"敌人数量"的同义词</b>。<c>docs/research/2026-07-14-combat-cost.md</c> 已经钉死：
+/// <b>胜率不是成本</b>，而连场战斗<b>不能拿胜率相乘去想</b>（单场 68% 胜率、不治疗连打，能撑过第 3 个的只剩 3.5%）。
+/// 所以一个点危不危险，取决于<b>它逼不逼你打</b>——逼你打光弹药、逼你带着骨折回家、逼你连打第三场的，才是高危。
+/// 塞满敌人但**给了你绕过去的路**的地图，是中危。
+/// </para>
+/// </summary>
+public enum DangerTier
+{
+    /// <summary>低危：遭遇稀疏，正常操作下不该有人受伤。</summary>
+    Low,
+
+    /// <summary>中危：会挨打，但**有得选**——绕路/关门/避战是可行解，不是运气。</summary>
+    Medium,
+
+    /// <summary>高危：躲不开的硬仗，去之前要算清楚拿什么去换。</summary>
+    High,
+}
+
 /// <summary>调查点规模三级文案 + 探索完成度聚合（纯逻辑，可脱 Godot 单测）。</summary>
 public static class ExplorationProgress
 {
@@ -40,6 +70,9 @@ public static class ExplorationProgress
     /// 单一事实源在 <see cref="DisplayNames"/>。
     /// </summary>
     public static string TierLabel(SizeTier tier) => DisplayNames.Of(tier);
+
+    /// <summary>危险度标签（低危 / 中危 / 高危）。单一事实源在 <see cref="DisplayNames"/>。</summary>
+    public static string DangerLabel(DangerTier tier) => DisplayNames.Of(tier);
 
     /// <summary>
     /// 某目的地登记的"点位完成 flag"清单（物资搜刮点 + 剧情尸体发现点）。随复仇线上下文条件增删

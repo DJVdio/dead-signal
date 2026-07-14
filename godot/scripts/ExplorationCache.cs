@@ -16,8 +16,10 @@ namespace DeadSignal.Godot;
 // 本类只负责「cacheId → 掉落+叙事」的纯判定，可脱 Godot 单测。
 //
 // 两个前中期探索点（用户拍板："加两个探索点 河边小屋 联合收割机仓库"）：
-//   · 河边小屋（河边猎人小屋语境）：枪柜 ← 栓动猎枪；床底木箱 ← 通用搜刮（食物/医疗/材料）。
-//   · 联合收割机仓库（农机棚/工具房语境）：工具柜（近入口）← 通用木工材料；阁楼铁皮箱（藏深）←《进阶木匠技术》。
+//   · 河边小屋（河边猎人小屋语境）：枪柜 ← 弹药/箭（原本还有栓动猎枪，该武器已被用户从数值表删除）；床底木箱 ← 通用搜刮（食物/医疗/材料）。
+//   · 联合收割机仓库（农机棚/工具房语境）：工具柜（近入口）← 通用木工材料 + 武器零件 2；
+//     收割机驾驶室（次深）←《机械之美》[T31]；阁楼铁皮箱（藏深）←《进阶木匠技术》。
+//     ⇒ 一趟搜完＝书 + 2 零件 = 恰好 1 把单手轻弩。
 // 注：《木匠入门》原拟放本仓库工具柜，用户改单撤出——改由「神秘商人」系统出售（见商人系统，另一系统负责），本类不再投放它。
 // 投放搭配为用户拍板（"按直觉搭配投放"）；通用物资量级/位置深浅（难度梯度）为 draft 拟定待调。
 // 环境叙事为 draft 草稿，最终由用户优化；本类只保证"读值→判定→出掉落+叙事"可跑、可测，不碰 Godot、不写 flag。
@@ -52,6 +54,41 @@ public static class ExplorationCache
     public const string SupermarketName = "超市";
     /// <summary>[SPEC-B13] 医院目的地名（大型，丧尸巢废墟·高风险高收益医疗），须与 WorldMapPanel 一致（本类脱 Godot 单测，故本地持有副本）。</summary>
     public const string HospitalName = "医院";
+    /// <summary>
+    /// [批次25·T50] 消防站目的地名（<b>小地图·低危</b>，用户原话：「消防站（一些基础物资和消防斧，小地图，低危）」），
+    /// 须与 WorldMapPanel 一致（本类脱 Godot 单测，故本地持有副本）。
+    /// <para>
+    /// 定位＝<b>开局友好的那个点</b>：全图最短行程（3 分钟）、丧尸最少（3 只）、5 处搜刮点、回报"稳、少、安全"。
+    /// 它的性格是<b>救援装备</b>——绳索 / 急救 / 破拆（<b>消防斧</b>）/ 基础建材工具。
+    /// <b>没有高价值物资</b>（无白银/抗生素/书/枪械/弹药）：低危点不该白送，否则其他点位付的代价就白付了。
+    /// </para>
+    /// </summary>
+    public const string FireStationName = "消防站";
+
+    /// <summary>
+    /// [T61] 下水道（<b>前中期 · 规模小 · 低危</b>）。用户原话：「再加一个前中期地图吧，规模小，下水道，
+    /// 除了某几个拐角可能有一只丧尸，<b>基本没有危险</b>」。世界图上的位置/前置归 <c>world_graph.json</c>（impl-worldgraph），
+    /// 关内内容归本文件 + <see cref="ExplorationWalls"/>（几何）+ <see cref="RatRecruit"/>（耗子）。
+    /// </summary>
+    public const string SewerName = RatRecruit.DestinationName;   // "下水道"（单一真源在 RatRecruit）
+
+    /// <summary>
+    /// [SPEC-T51] 斯图尔特家族庄园目的地名（＝内部路由键，须与 <c>WorldMapPanel</c> / <see cref="StuartManor.DestinationName"/> 一致）。
+    /// <para>🔴 <b>这一关是"高风险不是永远高回报"的正面兑现，别把它平衡掉</b>。用户原话：
+    /// 「农庄，<b>并不是很富裕</b>，中地图，有盘踞的劫掠者和岗哨，高危，<b>高风险不是永远高回报</b>，
+    /// 这个调查点<b>最富裕的地方是劫掠者们的装备和衣服</b>」。</para>
+    /// <para>⇒ 本类给这一关的 10 处搜刮点<b>刻意穷</b>：<b>一把枪、一本书、一枚白银、一支抗生素、一只急救包、一发子弹都没有</b>
+    /// ——搜出来的是布、木头、绳子、几个土豆。这<b>不是"还没投放"，是设定</b>；<c>StuartManorTests</c> 的贫困护栏钉死它。
+    /// 真正的回报<b>全长在人身上</b>（见 <see cref="StuartManor.Roster"/>：7 个人、7 把武器、一副皮甲一顶头盔）——
+    /// 而<b>先得打赢</b>，且「打赢劫掠者白捡一身装备」这个场景根本不存在（<c>docs/research/2026-07-14-combat-cost.md</c>）。</para>
+    /// </summary>
+    public const string StuartManorName = StuartManor.DestinationName;
+
+    /// <summary>[SPEC-T60] 破败教堂（后期·中图·高危）。一关「视野」，不是一关战力：几何见 <see cref="RuinedChurch"/>。</summary>
+    public const string RuinedChurchName = RuinedChurch.DestinationName;
+
+    /// <summary>[SPEC-T60] 难民营地（后期·中图·高危）。全图唯一的室内恒暗关：几何见 <see cref="RefugeeCamp"/>。</summary>
+    public const string RefugeeCampName = RefugeeCamp.DestinationName;
 
     // ——搜刮点 id（探索关内 Area2D 触发时上报）——
     public const string RiversideGunCabinetId = "cache_riverside_gun_cabinet";
@@ -264,6 +301,74 @@ public static class ExplorationCache
     public const string HospitalSterilizerId = "cache_hospital_sterilizer";    // 器械灭菌室（最深·夹板）
     public const string HospitalChiefSafeId = "cache_hospital_chief_safe";     // 主任药品保险柜（最深·最高价值医疗）
 
+    // ==== [批次25·T50] 消防站（Small，5 处·低危）——救援装备：车库(近)→值班室(中)→器材间(深)→后院(最深) ====
+    //   量级克制：小地图＝小收成。全站唯一的武器是器材墙上的**消防斧**；急救柜里恰一个急救包，仅此而已。
+    public const string FireStationEngineBayId = "cache_firestation_engine_bay";       // 车库·消防车器材箱（近）
+    public const string FireStationGearWallId = "cache_firestation_gear_wall";         // 车库·器材墙（近 ← **消防斧**）
+    public const string FireStationDutyRoomId = "cache_firestation_duty_room";         // 值班室（中·食物/布）
+    public const string FireStationMedCabinetId = "cache_firestation_med_cabinet";     // 器材间·急救柜（深·唯一急救包）
+    public const string FireStationBackyardShedId = "cache_firestation_backyard_shed"; // 后院·训练塔杂物棚（最深·基础建材）
+
+    // ==== [T61] 下水道（Small，5 处·**低危**）——用户原话：「规模小…**基本没有危险**…**很少量**的物资点，
+    //      可以获得**蘑菇啊老鼠啊**之类的」。⇒ 收成必须**薄**，且以**食材**为主（蘑菇/老鼠），不是装备场。
+    //      🔴 别往这儿加武器/枪弹/成药：这地方的价值是**耗子**（可招募幸存者），不是战利品。
+    public const string SewerEntryDebrisId = "cache_sewer_entry_debris";        // 检修梯下的杂物（近）
+    public const string SewerDriftPileId = "cache_sewer_drift_pile";            // 水线上的漂浮杂物堆（近）
+    public const string SewerDeadEndLockerId = "cache_sewer_deadend_locker";    // 西死胡同尽头的锈铁柜（支线·绕路的报酬）
+    public const string SewerPumpRoomId = "cache_sewer_pump_room";              // 泵房检修箱（中·拐角四那只丧尸守着）
+    public const string SewerRatNestId = "cache_sewer_rat_nest";                // 老鼠窝（深）
+
+    // ==== [SPEC-T51] 斯图尔特家族庄园（Medium 下限，10 处）——**一座穷农庄**。====
+    //   用户口径「农庄，**并不是很富裕**」「**高风险不是永远高回报**」⇒ 点位数量按中图下限合规（同加油站先例），
+    //   但**每一处都薄**：布、木头、绳子、钉子、几个土豆、一卷绷带。**无枪/无书/无白银/无弹药/无高阶医疗。**
+    //   在设定里这也说得通：这伙劫掠者已经在这儿盘踞了很久，能吃的早被他们吃光了——
+    //   **值钱的东西现在穿在他们身上、握在他们手里**（见 StuartManor）。
+    //   分区（近→深）：前院/晒场 3 → 主屋 4 → 谷仓/农具 2 → 后院菜窖 1。
+    public const string StuartGateCartId = "cache_stuart_gate_cart";           // 前院·门前板车（近）
+    public const string StuartThreshingYardId = "cache_stuart_threshing_yard"; // 前院·晒谷场（近）
+    public const string StuartChickenCoopId = "cache_stuart_chicken_coop";     // 前院·鸡舍（近·空的）
+    public const string StuartKitchenId = "cache_stuart_kitchen";              // 主屋·灶间（中）
+    public const string StuartHallCupboardId = "cache_stuart_hall_cupboard";   // 主屋·堂屋碗柜（中）
+    public const string StuartWardrobeId = "cache_stuart_wardrobe";            // 主屋·卧室衣柜（中·布）
+    public const string StuartPantryId = "cache_stuart_pantry";                // 主屋·储藏间（中·被搬空过）
+    public const string StuartHayLoftId = "cache_stuart_hayloft";              // 谷仓·草料阁（中）
+    public const string StuartToolShedId = "cache_stuart_tool_shed";           // 农具棚（中·全庄园最"值钱"的一处：铁与钉子）
+    public const string StuartRootCellarId = "cache_stuart_root_cellar";       // 后院·菜窖（最深·也只是一窖土豆和一卷绷带）
+
+    // ---- [SPEC-T60] 破败教堂（中点，12 处）：门厅(3) → 中殿(4) → 圣坛(3) → 后院墓地(2·门后那一片) ----
+    // 🔴 **穷**：布/木/铁/蜡 + 一点白银，**一把枪、一发子弹都没有**（教堂本来就不该有）。
+    //    这一关最值钱的东西是告解亭里那本烧了一半的忏悔录、和侧廊墙上那些血字——它们是叙事点，不在这张表里。
+    public const string ChurchOfferingBoxId = "cache_church_offering_box";       // 门厅·奉献箱（近）
+    public const string ChurchCloakroomId = "cache_church_cloakroom";           // 门厅·衣帽间（近）
+    public const string ChurchHymnalRackId = "cache_church_hymnal_rack";        // 门厅·圣诗集架（近）
+    public const string ChurchPewUnderId = "cache_church_pew_under";            // 中殿·长椅底下（中）
+    public const string ChurchCandleStandId = "cache_church_candle_stand";      // 中殿·侧廊烛台（中）
+    public const string ChurchOrganLoftId = "cache_church_organ_loft";          // 中殿·风琴台（中）
+    public const string ChurchFontId = "cache_church_font";                     // 中殿·洗礼池（中）
+    public const string ChurchAltarId = "cache_church_altar";                   // 圣坛·祭台（深·银烛台）
+    public const string ChurchSacristyCabinetId = "cache_church_sacristy_cabinet"; // 圣坛·圣器室橱柜（深·银器/祭袍）
+    public const string ChurchChoirLockerId = "cache_church_choir_locker";      // 圣坛·唱诗席储物柜（深）
+    public const string ChurchGravediggerShedId = "cache_church_gravedigger_shed"; // 墓地·掘墓人工棚（最深·门后）
+    public const string ChurchCryptId = "cache_church_crypt";                   // 墓地·石棺墓室（最深·门后）
+
+    // ---- [SPEC-T60] 难民营地（中点，14 处）：南排(5) → 中排(5) → 北排(4)，**一间房一处，绝不两处** ----
+    // 🔴 「物资分散在每一个房间中」（用户原话）⇒ 每处**量都不大**（≤3 样），没有枪、没有护甲。
+    //    这一关的回报不是某个大堆，是**十四次「要不要推开这扇门」**。
+    public const string RefugeeCotRowId = "cache_refugee_cot_row";              // 1 号房·行军床铺（近）
+    public const string RefugeeLuggagePileId = "cache_refugee_luggage_pile";    // 2 号房·行李堆（近）
+    public const string RefugeeStoveId = "cache_refugee_stove";                 // 3 号房·煤油炉（近）
+    public const string RefugeeWaterDrumId = "cache_refugee_water_drum";        // 4 号房·水桶（近）
+    public const string RefugeeRationCrateId = "cache_refugee_ration_crate";    // 5 号房·配给箱（近）
+    public const string RefugeeSickRoomId = "cache_refugee_sick_room";          // 7 号房·隔离房（中·医疗）
+    public const string RefugeeChildRoomId = "cache_refugee_child_room";        // 8 号房·孩子的房间（中）
+    public const string RefugeeToolCornerId = "cache_refugee_tool_corner";      // 9 号房·工具角（中）
+    public const string RefugeeClothesLineId = "cache_refugee_clothes_line";    // 10 号房·晾衣绳（中）
+    public const string RefugeeSuitcaseId = "cache_refugee_suitcase";           // 11 号房·摞起来的手提箱（中）
+    public const string RefugeeRegistryDeskId = "cache_refugee_registry_desk";  // 13 号房·登记台（深）
+    public const string RefugeeStorageRoomId = "cache_refugee_storage_room";    // 15 号房·物资库房（深）
+    public const string RefugeeGeneratorId = "cache_refugee_generator";         // 16 号房·发电机房（深）
+    public const string RefugeeGuardPostId = "cache_refugee_guard_post";        // 17 号房·值守间（深）
+
     // ——一次性 flag（防重复搜刮，跨关持久）——
     public const string RiversideGunCabinetFlag = "searched_riverside_gun_cabinet";
     public const string RiversideBedChestFlag = "searched_riverside_bed_chest";
@@ -433,13 +538,79 @@ public static class ExplorationCache
     public const string HospitalAnesthesiaFlag = "searched_hospital_anesthesia";
     public const string HospitalSterilizerFlag = "searched_hospital_sterilizer";
     public const string HospitalChiefSafeFlag = "searched_hospital_chief_safe";
+    // [批次25·T50] 消防站 5 处一次性 flag（与上方 id 一一对应）：
+    public const string FireStationEngineBayFlag = "searched_firestation_engine_bay";
+    public const string FireStationGearWallFlag = "searched_firestation_gear_wall";
+    public const string FireStationDutyRoomFlag = "searched_firestation_duty_room";
+    public const string FireStationMedCabinetFlag = "searched_firestation_med_cabinet";
+    public const string FireStationBackyardShedFlag = "searched_firestation_backyard_shed";
+    // [T61] 下水道 5 处一次性 flag（与上方 id 一一对应）：
+    public const string SewerEntryDebrisFlag = "searched_sewer_entry_debris";
+    public const string SewerDriftPileFlag = "searched_sewer_drift_pile";
+    public const string SewerDeadEndLockerFlag = "searched_sewer_deadend_locker";
+    public const string SewerPumpRoomFlag = "searched_sewer_pump_room";
+    public const string SewerRatNestFlag = "searched_sewer_rat_nest";
+    // [SPEC-T51] 斯图尔特家族庄园 10 处一次性 flag（与上方 id 一一对应）：
+    public const string StuartGateCartFlag = "searched_stuart_gate_cart";
+    public const string StuartThreshingYardFlag = "searched_stuart_threshing_yard";
+    public const string StuartChickenCoopFlag = "searched_stuart_chicken_coop";
+    public const string StuartKitchenFlag = "searched_stuart_kitchen";
+    public const string StuartHallCupboardFlag = "searched_stuart_hall_cupboard";
+    public const string StuartWardrobeFlag = "searched_stuart_wardrobe";
+    public const string StuartPantryFlag = "searched_stuart_pantry";
+    public const string StuartHayLoftFlag = "searched_stuart_hayloft";
+    public const string StuartToolShedFlag = "searched_stuart_tool_shed";
+    public const string StuartRootCellarFlag = "searched_stuart_root_cellar";
+
+    // [SPEC-T60] 破败教堂
+    public const string ChurchOfferingBoxFlag = "searched_church_offering_box";
+    public const string ChurchCloakroomFlag = "searched_church_cloakroom";
+    public const string ChurchHymnalRackFlag = "searched_church_hymnal_rack";
+    public const string ChurchPewUnderFlag = "searched_church_pew_under";
+    public const string ChurchCandleStandFlag = "searched_church_candle_stand";
+    public const string ChurchOrganLoftFlag = "searched_church_organ_loft";
+    public const string ChurchFontFlag = "searched_church_font";
+    public const string ChurchAltarFlag = "searched_church_altar";
+    public const string ChurchSacristyCabinetFlag = "searched_church_sacristy_cabinet";
+    public const string ChurchChoirLockerFlag = "searched_church_choir_locker";
+    public const string ChurchGravediggerShedFlag = "searched_church_gravedigger_shed";
+    public const string ChurchCryptFlag = "searched_church_crypt";
+
+    // [SPEC-T60] 难民营地
+    public const string RefugeeCotRowFlag = "searched_refugee_cot_row";
+    public const string RefugeeLuggagePileFlag = "searched_refugee_luggage_pile";
+    public const string RefugeeStoveFlag = "searched_refugee_stove";
+    public const string RefugeeWaterDrumFlag = "searched_refugee_water_drum";
+    public const string RefugeeRationCrateFlag = "searched_refugee_ration_crate";
+    public const string RefugeeSickRoomFlag = "searched_refugee_sick_room";
+    public const string RefugeeChildRoomFlag = "searched_refugee_child_room";
+    public const string RefugeeToolCornerFlag = "searched_refugee_tool_corner";
+    public const string RefugeeClothesLineFlag = "searched_refugee_clothes_line";
+    public const string RefugeeSuitcaseFlag = "searched_refugee_suitcase";
+    public const string RefugeeRegistryDeskFlag = "searched_refugee_registry_desk";
+    public const string RefugeeStorageRoomFlag = "searched_refugee_storage_room";
+    public const string RefugeeGeneratorFlag = "searched_refugee_generator";
+    public const string RefugeeGuardPostFlag = "searched_refugee_guard_post";
 
     // ——关键投放物标识（须与 WeaponTable / BookLibrary 一致）——
-    /// <summary>栓动猎枪武器名，须与 <c>WeaponTable.BoltActionHuntingRifle().Name</c> 一致。</summary>
-    public const string BoltActionRifleName = "栓动猎枪";
+    // 「栓动猎枪」原是河边小屋枪柜的投放物，已随用户在数值表上删掉这把武器一并撤下
+    // （留着就是悬空引用：Item.Weapon 以中文名作 RefKey，查不到 WeaponTable 工厂 ⇒ 一把没有任何数值的枪）。
+    // ⚠ 后果：河边小屋枪柜**不再产出任何武器**，只剩弹药/箭/布——见下方 Resolve 与叙事文案。
 
     /// <summary>金手指帮军械柜招牌武器＝冲锋枪，须与 <c>WeaponTable.Smg().Name</c> 一致（帮派火力，[SPEC-B12-补]"打过才拿"最深处奖励，量级拟定待调）。</summary>
     public const string GangSmgName = "冲锋枪";
+
+    /// <summary>
+    /// 金手指帮**修械台**上的两把手枪，须与 <c>WeaponTable.Pistol().Name</c> 一致。
+    /// <para>
+    /// 🔴 [T57·用户拍板] 这两把枪**原本长在守备手上**（2 手枪 + 2 短剑 + 4 匕首）。这一关被重排到**中期**之后，
+    /// 实测发现持手枪的守备让中期玩家"潜行清哨赢了、但全队残废"（全身而退仅 2%、平均 3.26 处永久残缺）
+    /// ⇒ 用户拍板把手枪从守备手里全撤（现 4 短剑 + 4 匕首，见 <see cref="GoldfingerGang.Roster"/>）。
+    /// <b>但枪没有从这一关消失</b> —— 它们躺在这张台子上：「弹药打光了，空枪扔回枪械台，抄起短剑守着」。
+    /// 玩家照样捡得到枪，只是从"尸体上扒"变成"柜子里翻"，「中期拿到枪、但打不起」的张力一格不丢。
+    /// </para>
+    /// </summary>
+    public const string GangPistolName = "手枪";
 
     // —— [批次18] 三把**不可制作**的弓弩：没有配方，**只能从这里搜到**。
     // 它们的代价不是材料，是稀缺——所以每一把都压在一个"要么藏得深、要么打得赢才拿得到"的点上。
@@ -454,24 +625,52 @@ public static class ExplorationCache
     /// <summary>复合弩（破甲之王）＝金手指帮军械柜（"打过才拿"，最深处）。帮派的高端货，跟冲锋枪锁在同一个柜子里。须与 <c>WeaponTable.CompoundCrossbow().Name</c> 一致。</summary>
     public const string CompoundCrossbowName = "复合弩";
 
+    /// <summary>
+    /// [批次25·T44] 消防斧 —— <b>可造也可捡</b>（区别于上面三把"只能搜到"的弓弩）。须与 <c>WeaponTable.Axe().Name</c> 一致。
+    /// <para>
+    /// <b>两处投放</b>（[T50] 由 impl-firestation 重排，原为 仓库 + 南林村庄）：
+    /// <list type="number">
+    /// <item><b>消防站·器材墙</b>（小地图·低危·全图最短行程 3 分钟）——<b>消防斧</b>。消防斧最该在的地方，也是玩家最早能拿到它的地方。</item>
+    /// <item><b>联合收割机仓库·木料架</b>（中点·7 分钟）——伐木斧。配方挂《进阶木匠技术》，而那本书就压在<b>同一座仓库</b>的阁楼铁皮箱里
+    ///   ⇒ 一趟搜完仓库＝一把消防斧 + 造消防斧的书。这条线是自洽的，动不得。</item>
+    /// </list>
+    /// <b>撤掉了「南林村庄·民居柴垛」那第三把</b>：南林村庄是大点（30 处）/中后期/丧尸围困——走到那儿的人早有消防斧、
+    /// 或早能造消防斧，第三把纯属冗余。撤掉之后梯度才立得住：<b>低危近点拿得早拿得稳，中点远处顺手带一把（且配套那本书）</b>。
+    /// </para>
+    /// <para>
+    /// ⚠️ 刻意<b>没有</b>放进「守林人小屋·后院柴房」——那条 authored 叙事写着「斧子不见了，大概是主人最后用它做了别的事」，
+    /// 那是钩子，不是漏投。往里塞一把消防斧等于把它拆掉。
+    /// </para>
+    /// </summary>
+    public const string AxeName = "消防斧";
+
     // 注：《木匠入门》(carpentry_basics) 改由「神秘商人」系统出售，不由本类投放，故此处不再持有其常量。
 
     /// <summary>《进阶木匠技术》书 id，须与 <c>BookLibrary.AdvancedCarpentry</c> 一致。</summary>
     public const string AdvancedCarpentryBookId = "advanced_carpentry";
+    /// <summary>[T59]《弓制作指南》——反曲弓/长弓的解锁书（投在守林人小屋·阁楼）。</summary>
+    public const string BowCraftingGuideBookId = "bow_crafting_guide";
 
     /// <summary>《弓与箭之道》书 id（守林人小屋·床底，全局唯一一本），须与 <c>BookLibrary.WayOfBowAndArrowId</c> 一致。
     /// 读完把箭矢回收率 25% → 50%（<c>Archery.ArrowRecoveryRate</c>）——弓弩流的硬前置。</summary>
     public const string WayOfBowAndArrowBookId = "way_of_bow_and_arrow";
 
     /// <summary>
-    /// [批次21·T26] 《机械之美》书 id（**加油站·修车棚·零件货架，全局唯一一本**），须与 <c>BookLibrary.MechanicalBeautyId</c> 一致。
+    /// [批次21·T26/T31] 《机械之美》书 id（**联合收割机仓库·收割机驾驶室，全局唯一一本**），
+    /// 须与 <c>BookLibrary.MechanicalBeautyId</c> 一致。
     /// <para>
     /// <b>两把可制作弩（单手轻弩/双手重弩）的唯一门槛</b> —— 它们搜刮不到、只能造 ⇒ <b>找不到这本书就没有弩</b>
     /// （破甲之王「复合弩」不受影响：它在金手指帮军械柜里，不可制作、只能搜）。
     /// </para>
     /// <para>
-    /// <b>放修车棚是按语义挑的</b>：一本讲机括与传动的书，本来就该躺在机修工的零件货架上，而不是超市货架或药店抽屉。
-    /// 投放点<b>拟定待调</b>（用户可在 wiki 上改）。
+    /// <b>🔴 [T31·用户拍板] 它曾在金手指帮军械柜，已挪来这儿。</b> 挪的理由是**弹药**，不是语义：
+    /// 军械柜同时是**全图最大的一笔子弹零件（5 个）** ⇒ 打完那一仗，玩家在同一个柜子里同时拿到
+    /// 「造弩的书」和「喂枪的弹」，<b>弩一解锁就被枪淹没</b>。现在书落在一个**一颗子弹零件都没有**的
+    /// 前中期点（无战斗门槛、行程 7 分钟），弩因此有一段"只有弩、没有子弹"的独占窗口。
+    /// </para>
+    /// <para>
+    /// ⚠️ <b>别往加油站放</b>：修车棚的机修语义也贴，但那里有条身份护栏「燃油大户·**无武器/书**」
+    /// （<c>NewVillageGasCacheTests</c>，批次13 定的）。投放点<b>拟定待调</b>（用户可在 wiki 上改）。
     /// </para>
     /// </summary>
     public const string MechanicalBeautyBookId = "mechanical_beauty";
@@ -488,7 +687,7 @@ public static class ExplorationCache
             RiversideGunCabinetId, RiversideHearthId, RiversideFishingId,
             RiversideBedChestId, RiversideCellarId,
         },
-        // 联合收割机仓库（中点，10 处）：工具柜(近)→…→阁楼铁皮箱(最深←书)。
+        // 联合收割机仓库（中点，10 处）：工具柜(近←武器零件2)→…→收割机驾驶室(次深←《机械之美》)→阁楼铁皮箱(最深←《进阶木匠技术》)。
         HarvesterWarehouseName => new[]
         {
             WarehouseToolCabinetId, WarehouseWorkbenchId, WarehouseBreakCornerId,
@@ -603,6 +802,48 @@ public static class ExplorationCache
         {
             PharmacyCounterId, PharmacyShelfId,
             PharmacyDispensaryId, PharmacyColdBoxId, PharmacyAtticId,
+        },
+        // [批次25·T50] 消防站（小点，5 处·低危）：车库·消防车(近)→车库·器材墙(近←消防斧)→值班室(中)→器材间·急救柜(深)→后院·杂物棚(最深)。
+        FireStationName => new[]
+        {
+            FireStationEngineBayId, FireStationGearWallId,
+            FireStationDutyRoomId, FireStationMedCabinetId, FireStationBackyardShedId,
+        },
+        // [T61] 下水道（小点，5 处·低危）：检修梯下(近)→漂浮杂物堆(近)→西死胡同锈铁柜(支线)→泵房(中)→老鼠窝(深)。
+        // 耗子相遇点(RatRecruit.MeetDiscoveryId)**不在此列** —— 招募触发点，不计物资完成度（同护士相遇点/瞭望望远镜口径）。
+        SewerName => new[]
+        {
+            SewerEntryDebrisId, SewerDriftPileId, SewerDeadEndLockerId, SewerPumpRoomId, SewerRatNestId,
+        },
+        // [SPEC-T51] 斯图尔特家族庄园（中点下限，10 处·**穷**）：前院/晒场(近, 3) → 主屋(中, 4) → 谷仓/农具(中, 2) → 后院菜窖(最深, 1)。
+        // 叙事调查点（门口吊尸/收留痕迹/里屋/枯井）不在此列——那是第三类点，不计物资完成度（同既有口径）。
+        StuartManorName => new[]
+        {
+            // 前院/晒场(近, 3)
+            StuartGateCartId, StuartThreshingYardId, StuartChickenCoopId,
+            // 主屋(中, 4)
+            StuartKitchenId, StuartHallCupboardId, StuartWardrobeId, StuartPantryId,
+            // 谷仓/农具(中, 2)
+            StuartHayLoftId, StuartToolShedId,
+            // 后院菜窖(最深, 1)
+            StuartRootCellarId,
+        },
+        // [SPEC-T60] 破败教堂（中点，12 处）：门厅(近, 3) → 中殿(中, 4) → 圣坛(深, 3) → **后院墓地(最深, 2·门后)**。
+        // 墓地那两处是「要不要迈进去」的赌注——门一推开，12 只丧尸同时看见你。
+        // 叙事点（烧了一半的忏悔录 / 墙上的血字）不在此列（第三类点，不计物资完成度，同既有口径）。
+        RuinedChurchName => new[]
+        {
+            ChurchOfferingBoxId, ChurchCloakroomId, ChurchHymnalRackId,
+            ChurchPewUnderId, ChurchCandleStandId, ChurchOrganLoftId, ChurchFontId,
+            ChurchAltarId, ChurchSacristyCabinetId, ChurchChoirLockerId,
+            ChurchGravediggerShedId, ChurchCryptId,
+        },
+        // [SPEC-T60] 难民营地（中点，14 处）：**一间房一处**（用户原话「物资分散在每一个房间中」）。
+        RefugeeCampName => new[]
+        {
+            RefugeeCotRowId, RefugeeLuggagePileId, RefugeeStoveId, RefugeeWaterDrumId, RefugeeRationCrateId,
+            RefugeeSickRoomId, RefugeeChildRoomId, RefugeeToolCornerId, RefugeeClothesLineId, RefugeeSuitcaseId,
+            RefugeeRegistryDeskId, RefugeeStorageRoomId, RefugeeGeneratorId, RefugeeGuardPostId,
         },
         _ => Array.Empty<string>(),
     };
@@ -780,6 +1021,59 @@ public static class ExplorationCache
         PharmacyDispensaryId => PharmacyDispensaryFlag,
         PharmacyColdBoxId => PharmacyColdBoxFlag,
         PharmacyAtticId => PharmacyAtticFlag,
+        // [批次25·T50] 消防站 5：
+        FireStationEngineBayId => FireStationEngineBayFlag,
+        FireStationGearWallId => FireStationGearWallFlag,
+        FireStationDutyRoomId => FireStationDutyRoomFlag,
+        FireStationMedCabinetId => FireStationMedCabinetFlag,
+        FireStationBackyardShedId => FireStationBackyardShedFlag,
+        // [T61] 下水道 5：
+        SewerEntryDebrisId => SewerEntryDebrisFlag,
+        SewerDriftPileId => SewerDriftPileFlag,
+        SewerDeadEndLockerId => SewerDeadEndLockerFlag,
+        SewerPumpRoomId => SewerPumpRoomFlag,
+        SewerRatNestId => SewerRatNestFlag,
+        // [SPEC-T51] 斯图尔特家族庄园 10：
+        StuartGateCartId => StuartGateCartFlag,
+        StuartThreshingYardId => StuartThreshingYardFlag,
+        StuartChickenCoopId => StuartChickenCoopFlag,
+        StuartKitchenId => StuartKitchenFlag,
+        StuartHallCupboardId => StuartHallCupboardFlag,
+        StuartWardrobeId => StuartWardrobeFlag,
+        StuartPantryId => StuartPantryFlag,
+        StuartHayLoftId => StuartHayLoftFlag,
+        StuartToolShedId => StuartToolShedFlag,
+        StuartRootCellarId => StuartRootCellarFlag,
+
+        // [SPEC-T60] 破败教堂
+        ChurchOfferingBoxId => ChurchOfferingBoxFlag,
+        ChurchCloakroomId => ChurchCloakroomFlag,
+        ChurchHymnalRackId => ChurchHymnalRackFlag,
+        ChurchPewUnderId => ChurchPewUnderFlag,
+        ChurchCandleStandId => ChurchCandleStandFlag,
+        ChurchOrganLoftId => ChurchOrganLoftFlag,
+        ChurchFontId => ChurchFontFlag,
+        ChurchAltarId => ChurchAltarFlag,
+        ChurchSacristyCabinetId => ChurchSacristyCabinetFlag,
+        ChurchChoirLockerId => ChurchChoirLockerFlag,
+        ChurchGravediggerShedId => ChurchGravediggerShedFlag,
+        ChurchCryptId => ChurchCryptFlag,
+
+        // [SPEC-T60] 难民营地
+        RefugeeCotRowId => RefugeeCotRowFlag,
+        RefugeeLuggagePileId => RefugeeLuggagePileFlag,
+        RefugeeStoveId => RefugeeStoveFlag,
+        RefugeeWaterDrumId => RefugeeWaterDrumFlag,
+        RefugeeRationCrateId => RefugeeRationCrateFlag,
+        RefugeeSickRoomId => RefugeeSickRoomFlag,
+        RefugeeChildRoomId => RefugeeChildRoomFlag,
+        RefugeeToolCornerId => RefugeeToolCornerFlag,
+        RefugeeClothesLineId => RefugeeClothesLineFlag,
+        RefugeeSuitcaseId => RefugeeSuitcaseFlag,
+        RefugeeRegistryDeskId => RefugeeRegistryDeskFlag,
+        RefugeeStorageRoomId => RefugeeStorageRoomFlag,
+        RefugeeGeneratorId => RefugeeGeneratorFlag,
+        RefugeeGuardPostId => RefugeeGuardPostFlag,
         _ => "",
     };
 
@@ -795,9 +1089,9 @@ public static class ExplorationCache
                 RiversideGunCabinetFlag,
                 new[]
                 {
-                    LootItem.Weapon(BoltActionRifleName),
-                    // 弹药（批次18）：猎人的枪柜里当然压着弹。这是玩家的**第一批枪弹**，刻意只够打几枪。
-                    // 栓动猎枪吃中子弹、1 发/次 → 8 发＝8 次射击。拿到枪 ≠ 能一路突突。
+                    // ⚠ 这里原本立着一支**栓动猎枪**（玩家的第一把枪）。用户在数值表上把这把武器删了，
+                    // 故投放一并撤下 ⇒ **枪柜里现在没有枪**，只剩他留下的弹药与箭。
+                    // 弹药照旧留着：中子弹喂自制猎枪/步枪，鹿弹喂自制霰弹枪——枪要靠玩家自己造或另寻。
                     LootItem.Material("ammo_medium", 8),
                     LootItem.Material("ammo_buck", 4),      // 猎人也打鸟，柜里搁着几发鹿弹
                     // 子弹零件：**四种子弹的唯一共同瓶颈**。老猎人自己复装，抽屉里躺着几套弹壳底火。
@@ -830,8 +1124,10 @@ public static class ExplorationCache
                     LootItem.Material("wood", 3),
                     LootItem.Material("rope", 1),
                     // [批次21·T26] 武器零件 2：农机维修柜里的淬火簧与销子——**联合收割机也是一台机器**，
-                    // 修它的人手边就有这些。这是**最早能拿到武器零件的点**（前中期），但书还在加油站
-                    // ⇒ 先攒着，等找到《机械之美》再动手。数量拟定待调。
+                    // 修它的人手边就有这些。这是**最早能拿到武器零件的点**（前中期）。
+                    // [T31] **《机械之美》如今就在同一座仓库的收割机驾驶室里**（次深点）⇒ **一趟搜完这个仓库，
+                    // 书 + 2 个零件到手 = 恰好造 1 把单手轻弩**（轻弩要 2 个）。重弩要 3 个，还得再跑一趟。
+                    // 数量拟定待调。
                     LootItem.Material(Materials.WeaponPartsKey, 2),
                 },
                 WarehouseToolCabinetTitle, WarehouseToolCabinetNarrative),
@@ -857,7 +1153,7 @@ public static class ExplorationCache
                     LootItem.Food(2),                       // 游客遗留的瓶装水/零食
                     LootItem.Material("bandage", 2),        // 服务台常备急救小物
                     LootItem.Material("cloth", 2),          // 礼品店纪念围巾/布艺
-                    LootItem.Material("scrap_metal", 2),    // 投币望远镜零钱箱/纪念币撬出的碎金属
+                    LootItem.Material("iron", 2),    // 投币望远镜零钱箱/纪念币撬出的碎金属
                     LootItem.Material("canned_food", 1),    // [批次21·T14] 食材：柜台底下的一听罐头
                 },
                 LookoutGiftShopTitle, LookoutGiftShopNarrative),
@@ -894,7 +1190,7 @@ public static class ExplorationCache
                     LootItem.Material("components", 2),     // 广播设备维护备件
                     LootItem.Material("wire", 3),           // 成卷的信号线材
                     LootItem.Material("fuel", 2),           // 备用发电机燃油
-                    LootItem.Material("scrap_metal", 2),    // 拆解机架的碎金属
+                    LootItem.Material("iron", 2),    // 拆解机架的碎金属
                 },
                 BroadcastPartsStoreTitle, BroadcastPartsStoreNarrative),
 
@@ -930,9 +1226,17 @@ public static class ExplorationCache
                 RangersCabinAtticFlag,
                 // 弓弩（批次18）：**狩猎弓**（伤害之王，不可制作）压在阁楼箱底——护林员的家伙什。
                 // 他一辈子在这片林子里打猎，最后成了猎物。
+                //
+                // [T59] **《弓制作指南》也投在这里**（用户新加的书；反曲弓/长弓的解锁已从《进阶木匠技术》挪到它头上）。
+                // 🔴 **这个投放点不是可选的**：书若无处可捡，那两把弓就成了造不出来的死物品
+                //    （《机械之美》当初正是这么把两把弩锁死的）。
+                // 放这儿是因为守林人小屋本就是"弓箭的家"：阁楼是他的狩猎弓与箭，柴房是他削了一半的木箭，
+                // 床底是他的《弓与箭之道》——一个自己做弓的人，做弓的书就该在他手边。
+                // （**消防斧与《进阶木匠技术》仍同馆**在联合收割机仓库，那条"一趟搜完＝一把消防斧＋造消防斧的书"的设计一格没动。）
                 new[]
                 {
                     LootItem.Weapon(HuntingBowName),
+                    LootItem.Book(BowCraftingGuideBookId),
                     LootItem.Material("ammo_arrow_handmade", 4),
                     LootItem.Material("ammo_arrow_carbon", 3),
                     LootItem.Material("cloth", 1), LootItem.Material("wire", 1),
@@ -947,7 +1251,7 @@ public static class ExplorationCache
                 new[]
                 {
                     LootItem.Book(WayOfBowAndArrowBookId),
-                    LootItem.Material("bandage", 1), LootItem.Material("scrap_metal", 1),
+                    LootItem.Material("bandage", 1), LootItem.Material("iron", 1),
                 },
                 RangersCabinUnderbedTitle, RangersCabinUnderbedNarrative),
 
@@ -996,7 +1300,7 @@ public static class ExplorationCache
 
             WarehousePartsBinId when NotYet(flags, WarehousePartsBinFlag) => new CacheResult(
                 WarehousePartsBinFlag,
-                new[] { LootItem.Material("scrap_metal", 2), LootItem.Material("components", 1) },
+                new[] { LootItem.Material("iron", 2), LootItem.Material("components", 1) },
                 WarehousePartsBinTitle, WarehousePartsBinNarrative),
 
             WarehouseFuelDrumId when NotYet(flags, WarehouseFuelDrumFlag) => new CacheResult(
@@ -1016,17 +1320,44 @@ public static class ExplorationCache
 
             WarehouseScrapPileId when NotYet(flags, WarehouseScrapPileFlag) => new CacheResult(
                 WarehouseScrapPileFlag,
-                new[] { LootItem.Material("scrap_metal", 2), LootItem.Material("wire", 1) },
+                new[] { LootItem.Material("iron", 2), LootItem.Material("wire", 1) },
                 WarehouseScrapPileTitle, WarehouseScrapPileNarrative),
 
+            // [批次21·T31·用户拍板] **《机械之美》——全局唯一的一本**，从金手指帮军械柜挪来这儿。
+            // 【为什么是这儿】① **语义**：整座仓库就是以这台机器命名的，一本讲机括与传动的书躺在
+            //   那台收割机自己的驾驶室里，比躺在军火帮的枪柜里更像它该在的地方。
+            // ② **深度**：驾驶室是 10 个搜刮点里的**第 9 个（次深）**——要往里钻，不是白送；
+            //   最深的阁楼铁皮箱留给《进阶木匠技术》，两本书不挤同一个箱子。
+            // ③ **时点**：联合收割机仓库是**前中期点、无战斗门槛**（工业材料为主，行程 7 分钟），
+            //   而金手指帮要**打赢一场硬仗**（行程 9 分钟）⇒ 弩的解锁从"打服帮派"提前到"跑一趟仓库"。
+            // ④ **一趟成一把**：同一个仓库的墙边工具柜里就有**武器零件 2**（见上方 WarehouseToolCabinet）
+            //   ⇒ 一次搜刮拿到「书 + 2 个零件」= **恰好够造 1 把单手轻弩**（轻弩要 2 个）。
+            //   重弩要 3 个 ⇒ 还得再跑一趟别处（加油站 3 个 / 金手指帮 3 个）。这个"差一个"是有意的。
+            // ⚠️ 加油站修车棚的机修语义也贴，但那里有条身份护栏「燃油大户·**无武器/书**」
+            //   （NewVillageGasCacheTests，批次13 定的）⇒ 书不能放加油站，别再试。
+            // 投放点**拟定待调**（用户可在 wiki 上改）。
             WarehouseCombineCabId when NotYet(flags, WarehouseCombineCabFlag) => new CacheResult(
                 WarehouseCombineCabFlag,
-                new[] { LootItem.Material("components", 1), LootItem.Material("fuel", 1) },
+                new[]
+                {
+                    LootItem.Material("components", 1), LootItem.Material("fuel", 1),
+                    LootItem.Book(MechanicalBeautyBookId),
+                },
                 WarehouseCombineCabTitle, WarehouseCombineCabNarrative),
 
             WarehouseLumberRackId when NotYet(flags, WarehouseLumberRackFlag) => new CacheResult(
                 WarehouseLumberRackFlag,
-                new[] { LootItem.Material("wood", 3), LootItem.Material("nails", 1) },
+                new[]
+                {
+                    LootItem.Material("wood", 3), LootItem.Material("nails", 1),
+                    // [批次25·T44] 消防斧（其一）：**最早能捡到消防斧的地方**。放这儿有两层道理——
+                    // ①语义：木料架旁边的锯木架上插一把伐木斧，是这座农业仓库里最不需要解释的东西。
+                    // ②节奏：消防斧的配方挂《进阶木匠技术》，而那本书就压在**同一座仓库**的阁楼铁皮箱（最深处）。
+                    //   ⇒ 一趟搜完这座仓库＝拿到一把消防斧 + 拿到造更多消防斧的书。这条线是自洽的，不是巧合。
+                    // ⚠️ 刻意**没有**放在「守林人小屋·后院柴房」——那条叙事写死了「斧子不见了，大概是主人
+                    //   最后用它做了别的事」，那是 authored 的钩子，往里塞一把消防斧等于把它拆掉。
+                    LootItem.Weapon(AxeName),
+                },
                 WarehouseLumberRackTitle, WarehouseLumberRackNarrative),
 
             // —— [SPEC-B12] 广播台补 8 处（中点；电子/线材为主，食物仅食堂 1、医疗仅更衣室 1）——
@@ -1062,24 +1393,24 @@ public static class ExplorationCache
 
             BroadcastRoofAntennaId when NotYet(flags, BroadcastRoofAntennaFlag) => new CacheResult(
                 BroadcastRoofAntennaFlag,
-                new[] { LootItem.Material("scrap_metal", 2), LootItem.Material("wire", 1) },
+                new[] { LootItem.Material("iron", 2), LootItem.Material("wire", 1) },
                 BroadcastRoofAntennaTitle, BroadcastRoofAntennaNarrative),
 
             BroadcastStoreroomId when NotYet(flags, BroadcastStoreroomFlag) => new CacheResult(
                 BroadcastStoreroomFlag,
-                new[] { LootItem.Material("nails", 2), LootItem.Material("rope", 1), LootItem.Material("scrap_metal", 1) },
+                new[] { LootItem.Material("nails", 2), LootItem.Material("rope", 1), LootItem.Material("iron", 1) },
                 BroadcastStoreroomTitle, BroadcastStoreroomNarrative),
 
             // —— [SPEC-B12] 南林村庄补 21 处（大点 30；单点调薄，食物散布 7 处、医疗集中候车棚 1+后山洞深藏 1）——
             // 村口(2)
             VillageGatePostId when NotYet(flags, VillageGatePostFlag) => new CacheResult(
                 VillageGatePostFlag,
-                new[] { LootItem.Material("scrap_metal", 1), LootItem.Material("wire", 1) },
+                new[] { LootItem.Material("iron", 1), LootItem.Material("wire", 1) },
                 VillageGatePostTitle, VillageGatePostNarrative),
 
             VillageTrikeId when NotYet(flags, VillageTrikeFlag) => new CacheResult(
                 VillageTrikeFlag,
-                new[] { LootItem.Material("scrap_metal", 1), LootItem.Material("fuel", 1) },
+                new[] { LootItem.Material("iron", 1), LootItem.Material("fuel", 1) },
                 VillageTrikeTitle, VillageTrikeNarrative),
 
             // 民居(6)
@@ -1110,7 +1441,15 @@ public static class ExplorationCache
 
             VillageWoodpileId when NotYet(flags, VillageWoodpileFlag) => new CacheResult(
                 VillageWoodpileFlag,
-                new[] { LootItem.Material("wood", 2), LootItem.Material("rope", 1) },
+                new[]
+                {
+                    LootItem.Material("wood", 2), LootItem.Material("rope", 1),
+                    // [批次25·T50·impl-firestation 调整] 这里**原本有一把消防斧**（impl-axe 投的"其二"），已撤。
+                    // 撤的理由不是它不合语义（柴垛边有斧子当然合），是**冗余**：消防斧现在的两处出处是
+                    // 消防站·器材墙（低危小点·3 分钟）与 联合收割机仓库·木料架（中点·配套《进阶木匠技术》）——
+                    // 都在前期。南林村庄是大点/中后期/丧尸围困，走到这儿的人早有消防斧或早能造消防斧，第三把没有意义。
+                    // 柴垛照旧出木料和绳子——砧木上那道劈痕还在，斧子被谁拿走了，不必解释。
+                },
                 VillageWoodpileTitle, VillageWoodpileNarrative),
 
             // 村中心(4)
@@ -1126,7 +1465,7 @@ public static class ExplorationCache
 
             VillageForgeId when NotYet(flags, VillageForgeFlag) => new CacheResult(
                 VillageForgeFlag,
-                new[] { LootItem.Material("scrap_metal", 2), LootItem.Material("nails", 2) },
+                new[] { LootItem.Material("iron", 2), LootItem.Material("nails", 2) },
                 VillageForgeTitle, VillageForgeNarrative),
 
             VillageBusStopId when NotYet(flags, VillageBusStopFlag) => new CacheResult(
@@ -1169,7 +1508,7 @@ public static class ExplorationCache
             // 河滩(3)
             VillageRiverbankBoatId when NotYet(flags, VillageRiverbankBoatFlag) => new CacheResult(
                 VillageRiverbankBoatFlag,
-                new[] { LootItem.Material("rope", 1), LootItem.Material("scrap_metal", 1) },
+                new[] { LootItem.Material("rope", 1), LootItem.Material("iron", 1) },
                 VillageRiverbankBoatTitle, VillageRiverbankBoatNarrative),
 
             VillageRiverbankShackId when NotYet(flags, VillageRiverbankShackFlag) => new CacheResult(
@@ -1186,12 +1525,12 @@ public static class ExplorationCache
             // 近入口(2)：岗哨/前院，量薄。
             GoldfingerCheckpointId when NotYet(flags, GoldfingerCheckpointFlag) => new CacheResult(
                 GoldfingerCheckpointFlag,
-                new[] { LootItem.Material("scrap_metal", 2), LootItem.Material("gunpowder", 1) },
+                new[] { LootItem.Material("iron", 2), LootItem.Material("gunpowder", 1) },
                 GoldfingerCheckpointTitle, GoldfingerCheckpointNarrative),
 
             GoldfingerYardWreckId when NotYet(flags, GoldfingerYardWreckFlag) => new CacheResult(
                 GoldfingerYardWreckFlag,
-                new[] { LootItem.Material("scrap_metal", 2), LootItem.Material("fuel", 1) },
+                new[] { LootItem.Material("iron", 2), LootItem.Material("fuel", 1) },
                 GoldfingerYardWreckTitle, GoldfingerYardWreckNarrative),
 
             // 中区 gauntlet(5)：铺位/弹药/修械/皮件/油料。
@@ -1207,7 +1546,20 @@ public static class ExplorationCache
 
             GoldfingerGunBenchId when NotYet(flags, GoldfingerGunBenchFlag) => new CacheResult(
                 GoldfingerGunBenchFlag,
-                new[] { LootItem.Material("components", 2), LootItem.Material("scrap_metal", 1) },
+                new[]
+                {
+                    // 🔴 [T57·用户拍板] **那两把手枪在这儿**，不在守备手上。
+                    // 起因：这一关被重排到**中期**，而 2 个持手枪的守备让中期玩家（3 人持消防斧）
+                    // "潜行清哨赢了、但全队残废"（全身而退仅 2%、3.26 处永久残缺）。用户拍板：手枪全撤。
+                    // ⚠️ **枪没有从这一关消失** —— 它们只是换了个地方拿：
+                    //    「弹药打光了，空枪扔回枪械台，抄起短剑守着」。这比"守着军火库却端着自己的枪"更说得通。
+                    // ⇒ 玩家照样捡得到枪，「中期拿到枪、但打不起」的张力一格不丢
+                    //   （枪的真实战力由弹药供给决定，而供给在 loot 里——这个柜子里一颗子弹都没有，
+                    //    子弹在弹药箱和军械柜，那两个都在更深处）。
+                    LootItem.Weapon(GangPistolName),
+                    LootItem.Weapon(GangPistolName),
+                    LootItem.Material("components", 2), LootItem.Material("iron", 1),
+                },
                 GoldfingerGunBenchTitle, GoldfingerGunBenchNarrative),
 
             GoldfingerHidePileId when NotYet(flags, GoldfingerHidePileFlag) => new CacheResult(
@@ -1243,13 +1595,13 @@ public static class ExplorationCache
                     // 军火帮的军械柜是它最该在的地方 —— 而且"打过才拿"：想自己造弩，先把这帮人打服。
                     // 帮派自己抢来的复合弩就摆在旁边，这堆备件本来就是给它备的。数量拟定待调。
                     LootItem.Material(Materials.WeaponPartsKey, 3),
-                    // [批次21·T26] **《机械之美》——全局唯一的一本**，和复合弩锁在同一个柜子里。
-                    // 语义：帮派抢来了一把弩，也抢来了教人造弩的书；备件就堆在旁边——这一柜子是自洽的。
-                    // 后果：**弩是"打赢金手指帮才拿得到"的中后期武器**（书 + 最大一笔零件都在这儿），
-                    // 与"弓＝开局线"（《野外生存指南》开局就有）形成完整阶梯。
-                    // ⚠️ 曾拟放加油站修车棚（机修语义也贴），但那里有条身份护栏「燃油大户·无招牌武器/书」，故改此处。
-                    // 投放点**拟定待调**（用户可在 wiki 上改）。
-                    LootItem.Book(MechanicalBeautyBookId),
+                    // ⚠️ [批次21·T31·用户拍板] **《机械之美》曾放在这个柜子里，已挪走**（→ 联合收割机仓库·收割机驾驶室）。
+                    // 挪走的理由**不是语义不搭**（帮派抢来弩+书+备件，这一柜子本来是自洽的），而是**这里同时是
+                    // 全图最大的一笔子弹零件（5 个，就在上面那行）** ⇒ 打完这一仗，玩家**同一个柜子里**
+                    // 同时拿到「造弩的书」和「喂枪的弹」——**弩一解锁就被枪的弹药淹没，等于没解锁**。
+                    // 现在书在一个**一颗子弹零件都没有**的前中期点 ⇒ 弩有了一段"只有弩、没有子弹"的独占窗口。
+                    // **武器零件 3 个留在原处**（用户明示不动）：帮派仍是最大的一笔零件收入，只是不再连书一起给。
+                    // 别再把书搬回来。
                     LootItem.Material("ammo_arrow_carbon", 5),
                     LootItem.Material("gunpowder", 2), LootItem.Material("components", 1),
                 },
@@ -1276,7 +1628,7 @@ public static class ExplorationCache
                 new[]
                 {
                     LootItem.Food(1),                       // 逃难者车里没带走的干粮
-                    LootItem.Material("scrap_metal", 2),    // 撬下的车壳碎金属
+                    LootItem.Material("iron", 2),    // 撬下的车壳碎金属
                     LootItem.Material("fuel", 1),           // 油箱里抽出的一点余油
                     LootItem.Material("ammo_short", 4),     // 手套箱里滚出来的几发手枪弹（民用零星，批次18）
                     LootItem.Material("bullet_parts", 1),   // 后备箱一小盒复装料
@@ -1364,7 +1716,7 @@ public static class ExplorationCache
             // 排屋区(南/近, 11·一户户翻)：住户零碎食物/旧布/日用杂物，偶发单件药品。
             NewVillageShowroomId when NotYet(flags, NewVillageShowroomFlag) => new CacheResult(
                 NewVillageShowroomFlag,
-                new[] { LootItem.Material("cloth", 1), LootItem.Material("scrap_metal", 1) },
+                new[] { LootItem.Material("cloth", 1), LootItem.Material("iron", 1) },
                 NewVillageShowroomTitle, NewVillageShowroomNarrative),
 
             NewVillageRowKitchenId when NotYet(flags, NewVillageRowKitchenFlag) => new CacheResult(
@@ -1404,7 +1756,7 @@ public static class ExplorationCache
 
             NewVillageRowCShoeCabId when NotYet(flags, NewVillageRowCShoeCabFlag) => new CacheResult(
                 NewVillageRowCShoeCabFlag,
-                new[] { LootItem.Material("cloth", 1), LootItem.Material("scrap_metal", 1) },
+                new[] { LootItem.Material("cloth", 1), LootItem.Material("iron", 1) },
                 NewVillageRowCShoeCabTitle, NewVillageRowCShoeCabNarrative),
 
             NewVillageRowCBathId when NotYet(flags, NewVillageRowCBathFlag) => new CacheResult(
@@ -1414,7 +1766,7 @@ public static class ExplorationCache
 
             NewVillageRowDBalconyId when NotYet(flags, NewVillageRowDBalconyFlag) => new CacheResult(
                 NewVillageRowDBalconyFlag,
-                new[] { LootItem.Material("wire", 1), LootItem.Material("scrap_metal", 1) },
+                new[] { LootItem.Material("wire", 1), LootItem.Material("iron", 1) },
                 NewVillageRowDBalconyTitle, NewVillageRowDBalconyNarrative),
 
             // 工地区(中, 8·维持偏建材，但只是全图杂的一部分)：木/钉/碎金属/线材/元件，仍薄。
@@ -1425,7 +1777,7 @@ public static class ExplorationCache
 
             NewVillageScaffoldId when NotYet(flags, NewVillageScaffoldFlag) => new CacheResult(
                 NewVillageScaffoldFlag,
-                new[] { LootItem.Material("scrap_metal", 2), LootItem.Material("nails", 1) },
+                new[] { LootItem.Material("iron", 2), LootItem.Material("nails", 1) },
                 NewVillageScaffoldTitle, NewVillageScaffoldNarrative),
 
             NewVillageToolShedId when NotYet(flags, NewVillageToolShedFlag) => new CacheResult(
@@ -1435,7 +1787,7 @@ public static class ExplorationCache
 
             NewVillageRebarPileId when NotYet(flags, NewVillageRebarPileFlag) => new CacheResult(
                 NewVillageRebarPileFlag,
-                new[] { LootItem.Material("scrap_metal", 2) },
+                new[] { LootItem.Material("iron", 2) },
                 NewVillageRebarPileTitle, NewVillageRebarPileNarrative),
 
             NewVillageSiteOfficeId when NotYet(flags, NewVillageSiteOfficeFlag) => new CacheResult(
@@ -1456,7 +1808,7 @@ public static class ExplorationCache
             // 工头储物柜(工地深处)：稍杂但仍薄（2 件，非原"集中一柜"的封顶奖励）。
             NewVillageForemanLockerId when NotYet(flags, NewVillageForemanLockerFlag) => new CacheResult(
                 NewVillageForemanLockerFlag,
-                new[] { LootItem.Material("components", 1), LootItem.Material("scrap_metal", 2) },
+                new[] { LootItem.Material("components", 1), LootItem.Material("iron", 2) },
                 NewVillageForemanLockerTitle, NewVillageForemanLockerNarrative),
 
             // 老屋区(北/深, 11·一户户翻)：已入住老户的家户食物/旧布/日用杂物，最深一处药箱＝偶发单件药品(抗生素)。
@@ -1502,7 +1854,7 @@ public static class ExplorationCache
 
             NewVillageOld2YardId when NotYet(flags, NewVillageOld2YardFlag) => new CacheResult(
                 NewVillageOld2YardFlag,
-                new[] { LootItem.Material("scrap_metal", 1), LootItem.Material("bone", 1) },
+                new[] { LootItem.Material("iron", 1), LootItem.Material("bone", 1) },
                 NewVillageOld2YardTitle, NewVillageOld2YardNarrative),
 
             NewVillageOld2ShrineId when NotYet(flags, NewVillageOld2ShrineFlag) => new CacheResult(
@@ -1526,7 +1878,7 @@ public static class ExplorationCache
 
             GasKioskId when NotYet(flags, GasKioskFlag) => new CacheResult(
                 GasKioskFlag,
-                new[] { LootItem.Food(1), LootItem.Material("fuel", 1), LootItem.Material("scrap_metal", 1) },
+                new[] { LootItem.Food(1), LootItem.Material("fuel", 1), LootItem.Material("iron", 1) },
                 GasKioskTitle, GasKioskNarrative),
 
             // 便利店(中/食品少量)：零食/冷饮/里屋。
@@ -1546,13 +1898,14 @@ public static class ExplorationCache
                 GasStoreBackroomTitle, GasStoreBackroomNarrative),
 
             // 修车棚(中/工具零件)：工位/零件货架/机油货架。
-            // [批次21·T26] 修车棚＝**机械语义最贴的点**，故《机械之美》与部分**武器零件**都落在这儿
+            // [批次21·T26] 修车棚的机械语义很贴，故部分**武器零件**落在这儿
             //（对照：超市/药店/医院语义不搭，一个零件都不放）。
+            // ⚠️ **书不能放这儿**——加油站有身份护栏「燃油大户·无武器/书」（见下方零件货架的说明）。
             GasRepairBayId when NotYet(flags, GasRepairBayFlag) => new CacheResult(
                 GasRepairBayFlag,
                 new[]
                 {
-                    LootItem.Material("scrap_metal", 2), LootItem.Material("components", 1),
+                    LootItem.Material("iron", 2), LootItem.Material("components", 1),
                     LootItem.Material(Materials.WeaponPartsKey, 1),   // 工位上散着的淬火簧片
                 },
                 GasRepairBayTitle, GasRepairBayNarrative),
@@ -1563,14 +1916,15 @@ public static class ExplorationCache
                 {
                     LootItem.Material("components", 2), LootItem.Material("wire", 1),
                     LootItem.Material(Materials.WeaponPartsKey, 2),   // 货架深处那一格：不是给车用的零件
-                    // ⚠️ 《机械之美》**曾拟放这儿，已改放金手指帮军械柜**——加油站有一条身份护栏
+                    // ⚠️ 《机械之美》**曾两度拟放这儿，两度都没放成**——加油站有一条身份护栏
                     //（NewVillageGasCacheTests：「燃油大户·无招牌武器/书」，批次13 定的），别再往这儿塞书。
+                    // 它现在的家是**联合收割机仓库·收割机驾驶室**（[T31] 用户拍板，理由见 MechanicalBeautyBookId 的注释）。
                 },
                 GasPartsShelfTitle, GasPartsShelfNarrative),
 
             GasOilRackId when NotYet(flags, GasOilRackFlag) => new CacheResult(
                 GasOilRackFlag,
-                new[] { LootItem.Material("fuel", 2), LootItem.Material("scrap_metal", 1) },
+                new[] { LootItem.Material("fuel", 2), LootItem.Material("iron", 1) },
                 GasOilRackTitle, GasOilRackNarrative),
 
             // 油罐区(深/燃油大户高价值)：油罐车/地下储油间。
@@ -1608,17 +1962,17 @@ public static class ExplorationCache
 
             SupermarketHardwareId when NotYet(flags, SupermarketHardwareFlag) => new CacheResult(
                 SupermarketHardwareFlag,
-                new[] { LootItem.Material("nails", 2), LootItem.Material("wire", 1), LootItem.Material("scrap_metal", 1) },
+                new[] { LootItem.Material("nails", 2), LootItem.Material("wire", 1), LootItem.Material("iron", 1) },
                 SupermarketHardwareTitle, SupermarketHardwareNarrative),
 
             SupermarketStockroomId when NotYet(flags, SupermarketStockroomFlag) => new CacheResult(
                 SupermarketStockroomFlag,
-                new[] { LootItem.Food(1), LootItem.Material("fuel", 1), LootItem.Material("scrap_metal", 1) },
+                new[] { LootItem.Food(1), LootItem.Material("fuel", 1), LootItem.Material("iron", 1) },
                 SupermarketStockroomTitle, SupermarketStockroomNarrative),
 
             SupermarketBackAlleyId when NotYet(flags, SupermarketBackAlleyFlag) => new CacheResult(
                 SupermarketBackAlleyFlag,
-                new[] { LootItem.Material("scrap_metal", 2), LootItem.Material("fuel", 1) },
+                new[] { LootItem.Material("iron", 2), LootItem.Material("fuel", 1) },
                 SupermarketBackAlleyTitle, SupermarketBackAlleyNarrative),
 
             // 内圈·幸存者囤货(4, 打赢/闯入才拿；量稍厚但仍克制)：
@@ -1686,7 +2040,7 @@ public static class ExplorationCache
 
             HospitalSecurityId when NotYet(flags, HospitalSecurityFlag) => new CacheResult(
                 HospitalSecurityFlag,
-                new[] { LootItem.Material("scrap_metal", 1), LootItem.Material("wire", 1) },
+                new[] { LootItem.Material("iron", 1), LootItem.Material("wire", 1) },
                 HospitalSecurityTitle, HospitalSecurityNarrative),
 
             HospitalCafeteriaId when NotYet(flags, HospitalCafeteriaFlag) => new CacheResult(
@@ -1804,7 +2158,7 @@ public static class ExplorationCache
 
             HospitalSterilizerId when NotYet(flags, HospitalSterilizerFlag) => new CacheResult(
                 HospitalSterilizerFlag,
-                new[] { LootItem.Material("splint", 2), LootItem.Material("scrap_metal", 1) },
+                new[] { LootItem.Material("splint", 2), LootItem.Material("iron", 1) },
                 HospitalSterilizerTitle, HospitalSterilizerNarrative),
 
             HospitalChiefSafeId when NotYet(flags, HospitalChiefSafeFlag) => new CacheResult(
@@ -1838,6 +2192,360 @@ public static class ExplorationCache
                 new[] { LootItem.Material("bandage", 1), LootItem.Material("cloth", 2), LootItem.Material("components", 1) },
                 PharmacyAtticTitle, PharmacyAtticNarrative),
 
+            // —— [批次25·T50] 消防站（小点 5 处·低危）：救援装备（绳索/急救/破拆）+ 基础建材工具。全站唯一武器＝器材墙上的消防斧。——
+            //     ⚠️ 「撬棍」「防护服」在本作里**不是物品**（Materials/ArmorTable 里都没有）⇒ 遵"别自创新物品"，只投既有物。
+            //     量级克制：全站 5 点共 14 件，无白银/抗生素/书/枪械/弹药——低危点的回报是"稳、少、安全"，不是白捡。
+            FireStationEngineBayId when NotYet(flags, FireStationEngineBayFlag) => new CacheResult(
+                FireStationEngineBayFlag,
+                new[]
+                {
+                    LootItem.Material("rope", 2),        // 车侧器材箱里的救援绳（消防站最不缺的东西）
+                    LootItem.Material("components", 1),  // 拆自水泵/绞盘的机械零件
+                    LootItem.Material("iron", 1),        // 撬下来的铁件
+                },
+                FireStationEngineBayTitle, FireStationEngineBayNarrative),
+
+            FireStationGearWallId when NotYet(flags, FireStationGearWallFlag) => new CacheResult(
+                FireStationGearWallFlag,
+                new[]
+                {
+                    // [T50] 消防斧（其一，也是玩家最早能拿到的一把）：消防斧挂在器材墙的挂钩上——
+                    // 这座建筑里最不需要解释的东西。低危 + 3 分钟行程 ⇒ 消防斧是"开局就够得着"的破拆型武器。
+                    LootItem.Weapon(AxeName),
+                    LootItem.Material("rope", 1),
+                    LootItem.Material("wire", 1),
+                },
+                FireStationGearWallTitle, FireStationGearWallNarrative),
+
+            FireStationDutyRoomId when NotYet(flags, FireStationDutyRoomFlag) => new CacheResult(
+                FireStationDutyRoomFlag,
+                new[]
+                {
+                    LootItem.Food(1),                     // 值班灶上没吃完的那顿
+                    LootItem.Material("canned_food", 2),
+                    LootItem.Material("cloth", 1),        // 铺位上的被服
+                },
+                FireStationDutyRoomTitle, FireStationDutyRoomNarrative),
+
+            FireStationMedCabinetId when NotYet(flags, FireStationMedCabinetFlag) => new CacheResult(
+                FireStationMedCabinetFlag,
+                new[]
+                {
+                    // 救护是消防站的本职 ⇒ 急救齐全，但**仅止于此**：一个急救包、几卷绷带、一副夹板。
+                    // 不给抗生素（那是药店/医院的身份），不给第二个急救包。
+                    LootItem.Material("first_aid_kit", 1),
+                    LootItem.Material("bandage", 3),
+                    LootItem.Material("splint", 1),
+                    LootItem.Material("medicine", 1),
+                },
+                FireStationMedCabinetTitle, FireStationMedCabinetNarrative),
+
+            FireStationBackyardShedId when NotYet(flags, FireStationBackyardShedFlag) => new CacheResult(
+                FireStationBackyardShedFlag,
+                new[]
+                {
+                    LootItem.Material("wood", 3),   // 训练塔拆下来的木料
+                    LootItem.Material("nails", 2),
+                    LootItem.Material("iron", 1),
+                    LootItem.Material("fuel", 1),   // 发电机边上剩的小半桶（不是加油站那种量级）
+                },
+                FireStationBackyardShedTitle, FireStationBackyardShedNarrative),
+
+            // ==== [T61] 下水道（5 处·**很少量** · 以**食材**为主）====
+            // 🔴 用户原话：「过程中有**很少量**的物资点，可以获得**蘑菇啊老鼠啊**之类的。」
+            //    ⇒ **蘑菇 + 老鼠是这地方的身份**（两者都是既有材料，见 Materials：mushroom / rat）。
+            //    量级：**全 5 处合计 14 件**（小点带 13~22 件的**下沿** —— 这地方本来就穷，
+            //    它的价值是**耗子**，不是战利品）。**别往这儿加武器/枪弹/成药。**
+            SewerEntryDebrisId when NotYet(flags, SewerEntryDebrisFlag) => new CacheResult(
+                SewerEntryDebrisFlag,
+                new[]
+                {
+                    LootItem.Material("cloth", 1),
+                    LootItem.Material("wire", 1),
+                },
+                SewerEntryDebrisTitle, SewerEntryDebrisNarrative),
+
+            SewerDriftPileId when NotYet(flags, SewerDriftPileFlag) => new CacheResult(
+                SewerDriftPileFlag,
+                new[]
+                {
+                    LootItem.Material("mushroom", 2),  // 水线上潮气最重的地方，蘑菇长得最好
+                    LootItem.Material("cloth", 1),
+                },
+                SewerDriftPileTitle, SewerDriftPileNarrative),
+
+            SewerDeadEndLockerId when NotYet(flags, SewerDeadEndLockerFlag) => new CacheResult(
+                SewerDeadEndLockerFlag,
+                new[]
+                {
+                    // 绕进死胡同的报酬：这一处是全关最"实"的（但也就是几样基础材料而已）。
+                    LootItem.Material("iron", 1),
+                    LootItem.Material("nails", 2),
+                    LootItem.Material("rope", 1),
+                },
+                SewerDeadEndLockerTitle, SewerDeadEndLockerNarrative),
+
+            SewerPumpRoomId when NotYet(flags, SewerPumpRoomFlag) => new CacheResult(
+                SewerPumpRoomFlag,
+                new[]
+                {
+                    LootItem.Material("wire", 2),
+                    LootItem.Material("fuel", 1),      // 泵房，剩了一点
+                },
+                SewerPumpRoomTitle, SewerPumpRoomNarrative),
+
+            SewerRatNestId when NotYet(flags, SewerRatNestFlag) => new CacheResult(
+                SewerRatNestFlag,
+                new[]
+                {
+                    LootItem.Material("rat", 3),       // 老鼠窝 —— 名副其实
+                    LootItem.Material("mushroom", 1),
+                    LootItem.Material("bone", 1),
+                },
+                SewerRatNestTitle, SewerRatNestNarrative),
+
+            // ==== [SPEC-T51] 斯图尔特家族庄园（10 处·**穷**）====
+            // 🔴 别往这儿加东西。用户明写「农庄，**并不是很富裕**」「**高风险不是永远高回报**」——
+            //    这一关的高危是<b>真的</b>（7 个健全的劫掠者 + 3 个岗哨），而它的搜刮回报就该是**寒酸的**。
+            //    「最富裕的地方是劫掠者们的装备和衣服」⇒ 回报在人身上，不在柜子里（见 StuartManor）。
+            //    <c>StuartManorTests.ManorCaches_AreDirtPoor_*</c> 会把任何"往这儿塞枪/书/白银/高阶医疗"的改动打红。
+
+            StuartGateCartId when NotYet(flags, StuartGateCartFlag) => new CacheResult(
+                StuartGateCartFlag,
+                new[]
+                {
+                    LootItem.Material("wood", 2),
+                    LootItem.Material("rope", 1),
+                },
+                StuartGateCartTitle, StuartGateCartNarrative),
+
+            StuartThreshingYardId when NotYet(flags, StuartThreshingYardFlag) => new CacheResult(
+                StuartThreshingYardFlag,
+                new[]
+                {
+                    LootItem.Material("flour", 1),  // 麻袋底上刮下来的那点——一年的收成，剩这些
+                    LootItem.Material("cloth", 1),
+                },
+                StuartThreshingYardTitle, StuartThreshingYardNarrative),
+
+            StuartChickenCoopId when NotYet(flags, StuartChickenCoopFlag) => new CacheResult(
+                StuartChickenCoopFlag,
+                new[]
+                {
+                    LootItem.Material("bone", 2),   // 鸡早被吃光了，只剩骨头
+                    LootItem.Material("wood", 1),
+                },
+                StuartChickenCoopTitle, StuartChickenCoopNarrative),
+
+            StuartKitchenId when NotYet(flags, StuartKitchenFlag) => new CacheResult(
+                StuartKitchenFlag,
+                new[]
+                {
+                    LootItem.Material("potato", 1),
+                    LootItem.Material("cloth", 1),
+                },
+                StuartKitchenTitle, StuartKitchenNarrative),
+
+            StuartHallCupboardId when NotYet(flags, StuartHallCupboardFlag) => new CacheResult(
+                StuartHallCupboardFlag,
+                new[]
+                {
+                    LootItem.Material("cloth", 2),
+                    LootItem.Material("wood", 1),
+                },
+                StuartHallCupboardTitle, StuartHallCupboardNarrative),
+
+            StuartWardrobeId when NotYet(flags, StuartWardrobeFlag) => new CacheResult(
+                StuartWardrobeFlag,
+                new[]
+                {
+                    // 一柜子衣服。**扒不出一件成品护甲**——那不是他们的行头，那是一家人的衣服，
+                    // 拆开来只是布。这一关的护甲全在劫掠者身上（用户口径），不在这口衣柜里。
+                    LootItem.Material("cloth", 3),
+                    LootItem.Material("needle_thread", 1),
+                },
+                StuartWardrobeTitle, StuartWardrobeNarrative),
+
+            StuartPantryId when NotYet(flags, StuartPantryFlag) => new CacheResult(
+                StuartPantryFlag,
+                new[]
+                {
+                    LootItem.Material("beans", 1),  // 劫掠者早把这儿搬空了；这一罐是滚到墙角去的
+                },
+                StuartPantryTitle, StuartPantryNarrative),
+
+            StuartHayLoftId when NotYet(flags, StuartHayLoftFlag) => new CacheResult(
+                StuartHayLoftFlag,
+                new[]
+                {
+                    LootItem.Material("rope", 2),
+                    LootItem.Material("cloth", 1),
+                },
+                StuartHayLoftTitle, StuartHayLoftNarrative),
+
+            StuartToolShedId when NotYet(flags, StuartToolShedFlag) => new CacheResult(
+                StuartToolShedFlag,
+                new[]
+                {
+                    // 全庄园最"值钱"的一处 —— 而它给的也只是铁、钉子和木头。**没有消防斧**：消防斧在消防站/仓库，
+                    // 这儿的农具早被那伙人抄走了（其中一把草叉，现在正握在后院那个人手里，见 StuartManor）。
+                    LootItem.Material("iron", 2),
+                    LootItem.Material("nails", 3),
+                    LootItem.Material("wood", 2),
+                },
+                StuartToolShedTitle, StuartToolShedNarrative),
+
+            StuartRootCellarId when NotYet(flags, StuartRootCellarFlag) => new CacheResult(
+                StuartRootCellarFlag,
+                new[]
+                {
+                    // 最深的一处。翻到底：一窖发芽的土豆、一卷绷带、井边采的两把野果。
+                    // **这就是"高风险不是永远高回报"长的样子。**
+                    LootItem.Material("potato", 2),
+                    LootItem.Material("beans", 1),
+                    LootItem.Material("bandage", 1),
+                    LootItem.Material("rosehip", 2),
+                },
+                StuartRootCellarTitle, StuartRootCellarNarrative),
+
+
+            // ══════════ [SPEC-T60] 破败教堂（12 处）══════════
+            // 🔴 **穷**：布/木/铁/蜡 + 一点白银。**没有枪，没有弹药。**「高风险不是永远高回报」——
+            //    这一关真正的回报是告解亭里那本烧了一半的忏悔录、和侧廊墙上那些血字（叙事点，不在这张表里）。
+            ChurchOfferingBoxId when NotYet(flags, ChurchOfferingBoxFlag) => new CacheResult(
+                ChurchOfferingBoxFlag,
+                new[] { LootItem.Material("silver", 6), LootItem.Material("iron", 1) },
+                ChurchOfferingBoxTitle, ChurchOfferingBoxNarrative),
+
+            ChurchCloakroomId when NotYet(flags, ChurchCloakroomFlag) => new CacheResult(
+                ChurchCloakroomFlag,
+                new[] { LootItem.Material("cloth", 3), LootItem.Material("leather", 1) },
+                ChurchCloakroomTitle, ChurchCloakroomNarrative),
+
+            ChurchHymnalRackId when NotYet(flags, ChurchHymnalRackFlag) => new CacheResult(
+                ChurchHymnalRackFlag,
+                new[] { LootItem.Material("cloth", 2), LootItem.Material("scrap_wood", 2) },
+                ChurchHymnalRackTitle, ChurchHymnalRackNarrative),
+
+            ChurchPewUnderId when NotYet(flags, ChurchPewUnderFlag) => new CacheResult(
+                ChurchPewUnderFlag,
+                new[] { LootItem.Material("wood", 2), LootItem.Material("nails", 3) },
+                ChurchPewUnderTitle, ChurchPewUnderNarrative),
+
+            ChurchCandleStandId when NotYet(flags, ChurchCandleStandFlag) => new CacheResult(
+                ChurchCandleStandFlag,
+                new[] { LootItem.Material("iron", 2), LootItem.Material("cloth", 1) },
+                ChurchCandleStandTitle, ChurchCandleStandNarrative),
+
+            ChurchOrganLoftId when NotYet(flags, ChurchOrganLoftFlag) => new CacheResult(
+                ChurchOrganLoftFlag,
+                new[] { LootItem.Material("components", 2), LootItem.Material("wire", 2), LootItem.Material("leather", 1) },
+                ChurchOrganLoftTitle, ChurchOrganLoftNarrative),
+
+            ChurchFontId when NotYet(flags, ChurchFontFlag) => new CacheResult(
+                ChurchFontFlag,
+                new[] { LootItem.Material("stone", 2), LootItem.Material("cloth", 1) },
+                ChurchFontTitle, ChurchFontNarrative),
+
+            ChurchAltarId when NotYet(flags, ChurchAltarFlag) => new CacheResult(
+                ChurchAltarFlag,
+                new[] { LootItem.Material("silver", 14), LootItem.Material("cloth", 2) },
+                ChurchAltarTitle, ChurchAltarNarrative),
+
+            ChurchSacristyCabinetId when NotYet(flags, ChurchSacristyCabinetFlag) => new CacheResult(
+                ChurchSacristyCabinetFlag,
+                new[] { LootItem.Material("silver", 10), LootItem.Material("cloth", 3), LootItem.Material("needle_thread", 1) },
+                ChurchSacristyCabinetTitle, ChurchSacristyCabinetNarrative),
+
+            ChurchChoirLockerId when NotYet(flags, ChurchChoirLockerFlag) => new CacheResult(
+                ChurchChoirLockerFlag,
+                new[] { LootItem.Material("cloth", 3), LootItem.Material("canned_food", 1) },
+                ChurchChoirLockerTitle, ChurchChoirLockerNarrative),
+
+            // 墓地那两处＝**门后的赌注**。回报刻意不高：迈进去的代价（12 只丧尸）远不是这点东西换得来的。
+            ChurchGravediggerShedId when NotYet(flags, ChurchGravediggerShedFlag) => new CacheResult(
+                ChurchGravediggerShedFlag,
+                new[] { LootItem.Material("iron", 3), LootItem.Material("wood", 2), LootItem.Material("rope", 1) },
+                ChurchGravediggerShedTitle, ChurchGravediggerShedNarrative),
+
+            ChurchCryptId when NotYet(flags, ChurchCryptFlag) => new CacheResult(
+                ChurchCryptFlag,
+                new[] { LootItem.Material("silver", 18), LootItem.Material("bone", 2) },
+                ChurchCryptTitle, ChurchCryptNarrative),
+
+            // ══════════ [SPEC-T60] 难民营地（14 处）══════════
+            // 🔴 「物资分散在每一个房间中」⇒ **每处 ≤3 样**（不是大堆）。难民随身带的东西：吃的、布、绷带、一点白银。
+            //    **没有枪、没有护甲。** 这一关的代价不是打，是**你得推开十四扇门**——而其中十扇后面有东西。
+            RefugeeCotRowId when NotYet(flags, RefugeeCotRowFlag) => new CacheResult(
+                RefugeeCotRowFlag,
+                new[] { LootItem.Material("cloth", 3), LootItem.Material("scrap_wood", 2) },
+                RefugeeCotRowTitle, RefugeeCotRowNarrative),
+
+            RefugeeLuggagePileId when NotYet(flags, RefugeeLuggagePileFlag) => new CacheResult(
+                RefugeeLuggagePileFlag,
+                new[] { LootItem.Material("cloth", 2), LootItem.Material("leather", 2), LootItem.Material("silver", 5) },
+                RefugeeLuggagePileTitle, RefugeeLuggagePileNarrative),
+
+            RefugeeStoveId when NotYet(flags, RefugeeStoveFlag) => new CacheResult(
+                RefugeeStoveFlag,
+                new[] { LootItem.Material("fuel", 2), LootItem.Material("iron", 1) },
+                RefugeeStoveTitle, RefugeeStoveNarrative),
+
+            RefugeeWaterDrumId when NotYet(flags, RefugeeWaterDrumFlag) => new CacheResult(
+                RefugeeWaterDrumFlag,
+                new[] { LootItem.Material("iron", 2), LootItem.Material("rope", 1) },
+                RefugeeWaterDrumTitle, RefugeeWaterDrumNarrative),
+
+            RefugeeRationCrateId when NotYet(flags, RefugeeRationCrateFlag) => new CacheResult(
+                RefugeeRationCrateFlag,
+                new[] { LootItem.Material("canned_food", 2), LootItem.Material("ration", 2), LootItem.Material("flour", 1) },
+                RefugeeRationCrateTitle, RefugeeRationCrateNarrative),
+
+            RefugeeSickRoomId when NotYet(flags, RefugeeSickRoomFlag) => new CacheResult(
+                RefugeeSickRoomFlag,
+                new[] { LootItem.Material("bandage", 3), LootItem.Material("medicine", 1), LootItem.Material("cloth", 2) },
+                RefugeeSickRoomTitle, RefugeeSickRoomNarrative),
+
+            RefugeeChildRoomId when NotYet(flags, RefugeeChildRoomFlag) => new CacheResult(
+                RefugeeChildRoomFlag,
+                new[] { LootItem.Material("cloth", 2), LootItem.Material("canned_food", 1) },
+                RefugeeChildRoomTitle, RefugeeChildRoomNarrative),
+
+            RefugeeToolCornerId when NotYet(flags, RefugeeToolCornerFlag) => new CacheResult(
+                RefugeeToolCornerFlag,
+                new[] { LootItem.Material("iron", 2), LootItem.Material("nails", 4), LootItem.Material("wire", 2) },
+                RefugeeToolCornerTitle, RefugeeToolCornerNarrative),
+
+            RefugeeClothesLineId when NotYet(flags, RefugeeClothesLineFlag) => new CacheResult(
+                RefugeeClothesLineFlag,
+                new[] { LootItem.Material("cloth", 4), LootItem.Material("rope", 1) },
+                RefugeeClothesLineTitle, RefugeeClothesLineNarrative),
+
+            RefugeeSuitcaseId when NotYet(flags, RefugeeSuitcaseFlag) => new CacheResult(
+                RefugeeSuitcaseFlag,
+                new[] { LootItem.Material("cloth", 2), LootItem.Material("silver", 8), LootItem.Material("needle_thread", 1) },
+                RefugeeSuitcaseTitle, RefugeeSuitcaseNarrative),
+
+            RefugeeRegistryDeskId when NotYet(flags, RefugeeRegistryDeskFlag) => new CacheResult(
+                RefugeeRegistryDeskFlag,
+                new[] { LootItem.Material("silver", 6), LootItem.Material("scrap_wood", 1) },
+                RefugeeRegistryDeskTitle, RefugeeRegistryDeskNarrative),
+
+            RefugeeStorageRoomId when NotYet(flags, RefugeeStorageRoomFlag) => new CacheResult(
+                RefugeeStorageRoomFlag,
+                new[] { LootItem.Material("ration", 3), LootItem.Material("canned_food", 2), LootItem.Material("cloth", 3) },
+                RefugeeStorageRoomTitle, RefugeeStorageRoomNarrative),
+
+            RefugeeGeneratorId when NotYet(flags, RefugeeGeneratorFlag) => new CacheResult(
+                RefugeeGeneratorFlag,
+                new[] { LootItem.Material("components", 2), LootItem.Material("fuel", 2), LootItem.Material("wire", 1) },
+                RefugeeGeneratorTitle, RefugeeGeneratorNarrative),
+
+            RefugeeGuardPostId when NotYet(flags, RefugeeGuardPostFlag) => new CacheResult(
+                RefugeeGuardPostFlag,
+                new[] { LootItem.Material("ammo_short", 6), LootItem.Material("iron", 1), LootItem.Material("leather", 1) },
+                RefugeeGuardPostTitle, RefugeeGuardPostNarrative),
+
             _ => null,
         };
     }
@@ -1850,11 +2558,13 @@ public static class ExplorationCache
     // —— 河边小屋 ——
     private const string RiversideGunCabinetTitle = "墙上的枪柜";
 
+    // ⚠ 原文描写的是柜里立着的那支栓动猎枪。用户把这把武器从数值表上删了 ⇒ 枪柜不再产枪，
+    //   文案随之改成"枪已被人取走、只剩弹药"。本段仍属 draft，待用户验收/改写。
     private const string RiversideGunCabinetNarrative =
         "小屋靠河的一面墙上钉着个上了锁的木质枪柜，锁扣早被人撬过又胡乱合上。" +
-        "拉开柜门，里头立着一支还算齐整的栓动猎枪——枪身有些锈斑，枪机拉栓还算顺滑，" +
-        "看得出原主人是个爱惜家伙的猎人。\n\n" +
-        "柜底垫着几块擦枪用的旧棉布，顺手一并收了。";
+        "拉开柜门——空的。枪架上只剩两道压出来的凹痕，枪早让人取走了，" +
+        "走得还挺从容，连擦枪的布都叠好了放在柜底。\n\n" +
+        "他没带走的，是压在柜底的弹药和一筒箭：子弹沉，箭捡得回来，逃命的人只挑轻的拿。";
 
     private const string RiversideBedChestTitle = "床底的木箱";
 
@@ -2032,9 +2742,15 @@ public static class ExplorationCache
     private const string WarehouseScrapPileTitle = "废铁堆";
     private const string WarehouseScrapPileNarrative = "墙根堆着报废农具的废铁，扒拉出几块结实的碎金属和一段电线。";
     private const string WarehouseCombineCabTitle = "收割机驾驶室";
-    private const string WarehouseCombineCabNarrative = "钻进那台大收割机的驾驶室，仪表盘后拆出些电子件，油箱里还剩一点余油。";
+    private const string WarehouseCombineCabNarrative =
+        "钻进那台大收割机的驾驶室，仪表盘后拆出些电子件，油箱里还剩一点余油。\n\n" +
+        "座位底下压着一本卷了边的书——《机械之美》。扉页上有人用铅笔写了行小字，" +
+        "又划掉了。翻开是满页的机括图：弹簧、扳机组、储能的弩臂。开这台机器的人，" +
+        "显然对「能把力气存起来、再一下子放出去」的东西着迷。";
     private const string WarehouseLumberRackTitle = "木料架";
-    private const string WarehouseLumberRackNarrative = "靠里的木料架上码着整齐的板材，抱下几根，顺手扫了盒散钉。";
+    private const string WarehouseLumberRackNarrative =
+        "靠里的木料架上码着整齐的板材，抱下几根，顺手扫了盒散钉。" +
+        "架子尽头的锯木架上还插着一把伐木斧——刃口有豁，但它砍的是木头，不挑。";
 
     // —— 广播台补点 ——
     private const string BroadcastOfficeTitle = "台长办公室";
@@ -2070,7 +2786,9 @@ public static class ExplorationCache
     private const string VillageLoftTitle = "民居·阁楼";
     private const string VillageLoftNarrative = "顺着木梯上阁楼，堆的尽是破烂，扯下些能引火的碎布、抽走一根房梁旧料。";
     private const string VillageWoodpileTitle = "民居·柴垛";
-    private const string VillageWoodpileNarrative = "屋檐下码着过冬的柴垛，抱走几捆干柴，顺手拆下捆柴的粗绳。";
+    private const string VillageWoodpileNarrative =
+        "屋檐下码着过冬的柴垛，抱走几捆干柴，顺手拆下捆柴的粗绳。" +
+        "砧木上还嵌着那把劈柴斧，柄被手汗磨得发亮——他劈完最后一捆柴，就没再回来拔它。";
     private const string VillageCoopStoreTitle = "村中心·供销社仓";
     private const string VillageCoopStoreNarrative = "供销社后头的库房翻得七零八落，货架缝里还夹着一盒铁钉、几匹积灰的布。";
     private const string VillageSchoolTitle = "村中心·村小教室";
@@ -2108,7 +2826,10 @@ public static class ExplorationCache
     private const string GoldfingerAmmoCrateTitle = "弹药箱";
     private const string GoldfingerAmmoCrateNarrative = "墙角摞着几只帮派的弹药箱，成品弹早搬空了，箱底还剩复装用的火药和几个撞针零件。";
     private const string GoldfingerGunBenchTitle = "修械台";
-    private const string GoldfingerGunBenchNarrative = "帮里修枪的工作台，虎钳上还夹着支拆一半的枪，散落的枪机零件和钢料能拆走。";
+    // [T57] 手枪从守备手里挪到了这张台子上 ⇒ 叙事跟着改：他们**打光了子弹**，把空枪扔回台上，抄起短剑去守门。
+    private const string GoldfingerGunBenchNarrative =
+        "帮里修枪的工作台。虎钳上夹着支拆一半的枪，台面上还横着两把手枪——弹匣全是空的，" +
+        "被人随手撂在这儿，像是主人临走前抓了别的东西。散落的枪机零件和钢料能拆走。";
     private const string GoldfingerHidePileTitle = "皮件堆";
     private const string GoldfingerHidePileNarrative = "帮众抢来的皮货堆在角落，几张鞣好的皮革和裁剩的布料还整齐，是做绑带护具的好料。";
     private const string GoldfingerFuelStashTitle = "油料桶";
@@ -2306,4 +3027,265 @@ public static class ExplorationCache
     private const string PharmacyColdBoxNarrative = "断了电的冷藏箱用棉被裹着，勉强还留着点凉气。里头一个贴着红十字的急救包，压着一板舍不得用的抗生素——守店的人把最要紧的东西，都留到了最后。";
     private const string PharmacyAtticTitle = "阁楼储物间";
     private const string PharmacyAtticNarrative = "顺着后屋的爬梯上到阁楼，堆的全是进货的纸箱。拆开几个，多是包装和赠品毛巾，翻到底才摸出一卷绷带和一小盒电子秤拆下的元件。";
+
+    // —— [批次25·T50] 消防站 ——
+    // ⚠️ 用户**没有**给消防站任何剧情梗概 ⇒ 只写**环境叙事**：写物件、写这地方留下的样子，
+    //    **不编造角色、不编造前史**（authored 内容归用户）。克制、简短。
+    private const string FireStationEngineBayTitle = "车库·消防车";
+    private const string FireStationEngineBayNarrative =
+        "卷帘门半开着，消防车还停在车库里，车头朝外，像是随时要出。车门大敞，钥匙插在上头，油表指着空。" +
+        "车侧的器材箱一格格拉开着，最要紧的家伙什早被人挑走了，剩下几盘卷得整整齐齐的救援绳，还有拆水泵时落下的零件。";
+
+    private const string FireStationGearWallTitle = "车库·器材墙";
+    private const string FireStationGearWallNarrative =
+        "整面墙都是挂钩，每个钩子下面用漆写着编号，东西该挂哪儿，一目了然。多数钩子空了。" +
+        "唯独那把消防斧还在原位——红柄、单刃、背后一个鹤嘴，油都上过。它太重、太笨，" +
+        "对慌着跑路的人来说不是个好选择；对不打算跑的人，是。";
+
+    private const string FireStationDutyRoomTitle = "值班室";
+    private const string FireStationDutyRoomNarrative =
+        "值班室不大，四张铺，被子有的叠成方块，有的掀在一边。墙上的排班表停在某个再没人去翻的日期。" +
+        "灶台上一锅东西早干成了壳，橱柜里还剩两听罐头——不多，但也没人再跟你抢了。";
+
+    private const string FireStationMedCabinetTitle = "器材间·急救柜";
+    private const string FireStationMedCabinetNarrative =
+        "白色的急救柜靠墙立着，柜门上贴着「取用后登记」，底下那张登记表最后几行的字越写越潦草，再往后就是空白。" +
+        "柜里码得还算齐整：一个红十字急救包、几卷绷带、一副夹板、一小盒成药。救人的东西他们备得很足——只是最后没能给自己用上。";
+
+    private const string FireStationBackyardShedTitle = "后院·杂物棚";
+    private const string FireStationBackyardShedNarrative =
+        "后院立着座水泥训练塔，塔身几层窗洞黑着，绳子还从最高一层垂下来，晃着。塔底的杂物棚里堆着拆下来的木料和一盒散钉，" +
+        "角落一台小发电机，油桶里剩了小半桶。棚门上没锁——这地方本来也不指望防谁。";
+
+    // —— [T61] 下水道（环境叙事）——
+    // 🔴 用户**没有**给下水道任何剧情梗概（他只给了**耗子**这个人和这地方的**氛围**：黑暗、逼仄、拐角、
+    //    滴水声、脚步声、回声）⇒ 只写**环境**：写这地方的样子和声音，**不编人、不编事**。
+    // ⚠️ 他要的"滴滴答答的水滴声/脚步声/回声"**是音效**，而本项目**没有音效系统** ⇒ 那一半恐怖感
+    //    现在只能靠文字兑现（已作为重大缺口上报）。所以这几段**刻意在写声音**。
+    private const string SewerEntryDebrisTitle = "检修梯下";
+    private const string SewerEntryDebrisNarrative =
+        "梯子最后一级还在两米高的地方就锈断了，你是跳下来的。水没到脚踝，凉得刺骨。" +
+        "手电的光圈在管壁上晃，照到哪儿，哪儿就有水在慢慢地淌。梯子底下堆着些冲下来的东西——一卷线，几片还没烂透的布。" +
+        "身后那点天光很快就没了。";
+
+    private const string SewerDriftPileTitle = "水线上的漂浮杂物堆";
+    private const string SewerDriftPileNarrative =
+        "水流在这里拐了个弯，把所有漂着的东西都堆在了内侧。潮气重得能拧出水来，砖缝里长出一丛丛蘑菇，白得发亮。" +
+        "滴。滴。滴。声音从某个你看不见的地方来，撞在管壁上，来回弹，听起来像有很多个。";
+
+    private const string SewerDeadEndLockerTitle = "死胡同尽头的锈铁柜";
+    private const string SewerDeadEndLockerNarrative =
+        "这条支线走到头是堵墙。墙根立着个铁柜，锈得几乎和管壁长在一起，门是虚掩的。" +
+        "里面是维修队留下的东西：一截铁、一把钉子、一卷还能用的绳。" +
+        "你回头看了一眼来路——很长，很黑，而且只有这一条。";
+
+    private const string SewerPumpRoomTitle = "泵房检修箱";
+    private const string SewerPumpRoomNarrative =
+        "泵早就停了，但它还在滴油。检修箱开着，里面缠着几圈电线。" +
+        "你在这里站了一会儿，因为你听见了脚步声——然后你意识到那是你自己的，从前面那个拐角弹回来的。";
+
+    private const string SewerRatNestTitle = "老鼠窝";
+    private const string SewerRatNestNarrative =
+        "一个用碎布和纸絮垫起来的窝，就在管道的凹槽里。老鼠们没跑——它们已经很久没见过需要怕的东西了。" +
+        "窝边上有几朵蘑菇，还有一小截啃干净的骨头。" +
+        "有人在这附近住着。这个念头是在你转身之后才出现的。";
+
+    // —— [SPEC-T51] 斯图尔特家族庄园（环境叙事 draft·**克制、不渲染**；全文待用户 authored 验收/优化）——
+    // 🔴 文字纪律：本 agent **不编造**斯图尔特家的人名、性格、对话、日记正文、流浪者是谁、背刺的经过。
+    //    这十段只写"你在这间屋子里看见了什么"，一个字的引申都没有——让场景说话。
+    //    这一关的叙事重量在四处**叙事调查点**（NarrativeSpotRegistry：门口吊尸 / 收留痕迹 / 里屋 / 枯井），不在搜刮点上。
+
+    private const string StuartGateCartTitle = "门前的板车";
+    private const string StuartGateCartNarrative =
+        "门柱旁横着一辆农用板车，车辕朝外，像是准备装点什么走的。车上什么也没有，只有几段拆下来的车板和一卷麻绳。" +
+        "车辙从门里出来，压进泥里，走了两步就断了。";
+
+    private const string StuartThreshingYardTitle = "晒谷场";
+    private const string StuartThreshingYardNarrative =
+        "打谷的石碾停在场院中央，谷壳被风吹得到处都是。摞在墙根的麻袋一只只翻开着，全是空的——" +
+        "袋底刮一刮，还能刮出一小捧面粉。旁边搭着的凉棚塌了半边，帆布撕成了条。";
+
+    private const string StuartChickenCoopTitle = "鸡舍";
+    private const string StuartChickenCoopNarrative =
+        "鸡舍的门半掩着，铁丝网被人从外头剪开一个洞。里头一根活的羽毛都没有，只有一地碎骨和踩烂的干草。" +
+        "食槽干净得发亮，被舔过。";
+
+    private const string StuartKitchenTitle = "主屋·灶间";
+    private const string StuartKitchenNarrative =
+        "灶膛里的灰早凉透了。案板上还摆着切了一半的菜，早成了黑色的一小堆。碗橱被翻过，" +
+        "掉在地上的碗碎了满地，几只完好的摞回了架子上——摞得很随意，不是这家人的手法。" +
+        "米缸空着，缸底滚着一个土豆。";
+
+    private const string StuartHallCupboardTitle = "主屋·堂屋碗柜";
+    private const string StuartHallCupboardNarrative =
+        "堂屋正中一张八仙桌，桌上碗筷摆着，比一家人该有的多出好几副。碗柜的门敞着，" +
+        "抽屉被拉出来扣在地上。柜子最底层压着几块叠好的粗布和一截木料，" +
+        "大概是没人觉得值得拿走的东西。";
+
+    private const string StuartWardrobeTitle = "主屋·卧室衣柜";
+    private const string StuartWardrobeNarrative =
+        "衣柜的两扇门都开着，衣服还挂在里头——都是这家人的旧衣，一件件洗得发白，扣子缝得整整齐齐。" +
+        "没人动过它们：那伙人身上早换了更好的。你把布料拆下来，针线包还别在柜门内侧的挂钩上。";
+
+    private const string StuartPantryTitle = "主屋·储藏间";
+    private const string StuartPantryNarrative =
+        "储藏间的架子从上到下空得干干净净，连灰都被袖子蹭过。地上一层踩实的脚印，来来回回，" +
+        "是搬东西的人走出来的。你在最里头的墙角摸到一罐豆子，滚进去的，他们没看见。";
+
+    private const string StuartHayLoftTitle = "谷仓·草料阁";
+    private const string StuartHayLoftNarrative =
+        "谷仓的草料阁上还堆着去年的干草，被人踩出几个窝——有人在这上头睡过觉，睡了不止一夜。" +
+        "梁上垂着两卷捆草的麻绳，草堆里翻出一块脏得看不出颜色的粗布。";
+
+    private const string StuartToolShedTitle = "农具棚";
+    private const string StuartToolShedNarrative =
+        "农具棚的墙上钉着一排挂钩，钩子还在，农具没了——挂过什么，墙上留着一道道浅色的印子。" +
+        "只剩地上一堆锈铁、一盒散钉和几截木料，是拆下来没人要的那些。" +
+        "这已经是这座庄园里最像样的一处收获了。";
+
+    private const string StuartRootCellarTitle = "后院·菜窖";
+    private const string StuartRootCellarNarrative =
+        "后院的菜窖藏在一块木板底下，掀开是一道往下的土阶。窖里阴冷，霉味很重。" +
+        "藤筐里的土豆发了长长的白芽，还能吃。壁龛上搁着一小卷绷带和两把晒干的野果——" +
+        "有人把这儿当成最后的家底藏了起来，而藏起来的，也不过就是这些。";
+
+    // ══════════════════ [SPEC-T60] 破败教堂 ══════════════════
+    // ⚠️ 这些是**搜刮点**的文案（"你翻开了什么"）。authored 剧情（军方的忏悔录 / 墙上的血字）
+    //    在 NarrativeSpot.cs，**不在这里**——两个命名空间不相交，物资永远不会误触发剧情。
+
+    private const string ChurchOfferingBoxTitle = "门厅·奉献箱";
+    private const string ChurchOfferingBoxNarrative =
+        "奉献箱的锁被撬过，撬得很急，木头崩了一角。箱底还剩几枚硬币，卡在木缝里没被抠出来。" +
+        "旁边的木架上摞着一沓捐款单，最上面那张的日期后头，是一片空白。";
+
+    private const string ChurchCloakroomTitle = "门厅·衣帽间";
+    private const string ChurchCloakroomNarrative =
+        "衣帽间的挂钩上还留着几件外套，都是主日穿的那种——料子挺括，肘部磨得发亮。" +
+        "口袋一律是空的，有人先来过。倒是角落一双擦得锃亮的皮鞋没人要，鞋跟朝里，摆得很正。";
+
+    private const string ChurchHymnalRackTitle = "门厅·圣诗集架";
+    private const string ChurchHymnalRackNarrative =
+        "圣诗集一本本插在架上，边角翻卷。有几本被抽出来堆在地上，摊开着，页脚折过——" +
+        "折的都是同一首。木架被人踢裂了一条腿，勉强立着。";
+
+    private const string ChurchPewUnderTitle = "中殿·长椅底下";
+    private const string ChurchPewUnderNarrative =
+        "长椅一排排横着，中间只留一条走道。弯腰钻到椅子底下，能摸到跪垫、断掉的椅板、" +
+        "还有一小把不知谁掉的钉子。这地方很暗——你得贴着地面才看得清有没有别的东西。";
+
+    private const string ChurchCandleStandTitle = "中殿·侧廊烛台";
+    private const string ChurchCandleStandNarrative =
+        "侧廊窄得只容一人侧身。一排铁烛台立在墙边，蜡早烧尽了，铁盘里积着一层白垢。" +
+        "最靠里那座倒了，砸出一个凹坑——倒下去的方向，是朝着祭台的。";
+
+    private const string ChurchOrganLoftTitle = "中殿·风琴台";
+    private const string ChurchOrganLoftNarrative =
+        "管风琴的木箱被拆开了半边，风箱的皮革还是好的，铜制的连杆和簧片一根根排着。" +
+        "键盘上落满灰，中间几个键被按下去过——灰是新的，压出了指印。";
+
+    private const string ChurchFontTitle = "中殿·洗礼池";
+    private const string ChurchFontNarrative =
+        "石制的洗礼池，池里是干的，底上有一圈水痕。池沿搭着一条白布，叠得整整齐齐，" +
+        "像是有人正准备用它，然后被别的事叫走了。";
+
+    private const string ChurchAltarTitle = "圣坛·祭台";
+    private const string ChurchAltarNarrative =
+        "祭台的台布被扯下来堆在一边。台上还立着一对银烛台，很重，是实心的——" +
+        "抢东西的人显然进来过，但他们没拿走它。你想不出为什么。";
+
+    private const string ChurchSacristyCabinetTitle = "圣坛·圣器室橱柜";
+    private const string ChurchSacristyCabinetNarrative =
+        "圣器室的橱柜没上锁。里头是祭袍，一件件挂着，白的、紫的、绿的，按顺序排好；" +
+        "抽屉里是几件银的圣器和一套针线。所有东西都归置得一丝不苟——" +
+        "这个屋子是全教堂唯一没被翻乱的地方。";
+
+    private const string ChurchChoirLockerTitle = "圣坛·唱诗席储物柜";
+    private const string ChurchChoirLockerNarrative =
+        "唱诗席后头一排小柜，一人一格，门上贴着名字条。多数是空的。" +
+        "有一格塞满了：换洗的袍子、一听没开的罐头、一把梳子。名字条被撕掉了。";
+
+    private const string ChurchGravediggerShedTitle = "后院·掘墓人工棚";
+    private const string ChurchGravediggerShedNarrative =
+        "工棚就贴着后院的墙。铁锹、镐、一卷绳子，还有几块没刻字的石碑坯子靠在墙角。" +
+        "工具上没有锈，柄上的汗渍还是深的——这地方一直有人在用，用到很晚。";
+
+    private const string ChurchCryptTitle = "后院·石棺墓室";
+    private const string ChurchCryptNarrative =
+        "墓室的石门虚掩着，里头一具石棺，盖子被推开一道缝。缝里伸得进手。" +
+        "陪葬的银器还在，摸上去是凉的。你把手抽出来的时候，外面的声音听得格外清楚。";
+
+    // ══════════════════ [SPEC-T60] 难民营地 ══════════════════
+    // ⚠️ 用户**没有**给这里任何剧情梗概 ⇒ 一律只写"这地方留下的样子"，
+    //    **不编造角色、不编造前史、不引入新人物**。克制、简短。
+
+    private const string RefugeeCotRowTitle = "1 号房·行军床铺";
+    private const string RefugeeCotRowNarrative =
+        "屋里挤了六张行军床，头对着头，中间勉强能侧身过人。被子有的卷着，有的摊着。" +
+        "床脚都拴着一根绳，另一头系在自己的包上——睡着的时候，也没人真的放心。";
+
+    private const string RefugeeLuggagePileTitle = "2 号房·行李堆";
+    private const string RefugeeLuggagePileNarrative =
+        "一整面墙的行李，摞到房顶：编织袋、旅行箱、捆好的铺盖。多数敞着口，被翻过。" +
+        "翻的人只找一样东西，别的都原样留着——衣服、鞋、相框，一件没少。";
+
+    private const string RefugeeStoveTitle = "3 号房·煤油炉";
+    private const string RefugeeStoveNarrative =
+        "屋子中间摆着一个煤油炉，旁边一只铁桶，还剩小半桶油。炉子上坐着一口锅，" +
+        "锅里的东西早干成了黑壳。墙被熏黑了一大片——这屋子做过很久的饭。";
+
+    private const string RefugeeWaterDrumTitle = "4 号房·水桶";
+    private const string RefugeeWaterDrumNarrative =
+        "几只大铁桶排在墙边，桶口盖着木板，压着石头。里头是空的，桶壁上一圈圈水痕，" +
+        "一道比一道低。最上面那道离桶口很近。";
+
+    private const string RefugeeRationCrateTitle = "5 号房·配给箱";
+    private const string RefugeeRationCrateNarrative =
+        "木箱一排排码着，箱盖上用粉笔写着数字。多数箱子空了，粉笔的数字被人一遍遍改小。" +
+        "最里头两箱还没开封，箱底压着一沓没发出去的配给券。";
+
+    private const string RefugeeSickRoomTitle = "7 号房·隔离房";
+    private const string RefugeeSickRoomNarrative =
+        "门框上钉着一块布，算是帘子。屋里两张床，床单换过，叠得很平。" +
+        "床头一个纸箱，里头是绷带、几瓶药、一把剪刀，都按大小排好了。" +
+        "有人在这间屋子里，一直做着该做的事。";
+
+    private const string RefugeeChildRoomTitle = "8 号房·孩子的房间";
+    private const string RefugeeChildRoomNarrative =
+        "地上铺着一张凉席，边上摆着几只用罐头盒做的小玩意儿。墙根有一排划痕，一道一道，" +
+        "从矮处往上，最高的那道之后就没有了。";
+
+    private const string RefugeeToolCornerTitle = "9 号房·工具角";
+    private const string RefugeeToolCornerNarrative =
+        "这间屋子被拿来当了工具房：锤子、钳子、一盒钉子、几卷铁丝，全摊在一张翻过来的门板上。" +
+        "门板边缘钉着一圈钉子，钉得很密——他们在这儿修过很多次同一样东西。";
+
+    private const string RefugeeClothesLineTitle = "10 号房·晾衣绳";
+    private const string RefugeeClothesLineNarrative =
+        "屋里横七竖八拉了六七道绳子，上头还挂着衣服，干透了，硬邦邦的。" +
+        "都是些小件——袜子、内衣、擦手的布。谁也没来收。";
+
+    private const string RefugeeSuitcaseTitle = "11 号房·摞起来的手提箱";
+    private const string RefugeeSuitcaseNarrative =
+        "手提箱一只摞一只，摞成了桌子和凳子。最底下那只压得变了形。" +
+        "有一只没被摞进去，摆在墙角，锁扣是好的，里头是一叠折好的衣裳，衣裳中间夹着几枚硬币和一套针线。";
+
+    private const string RefugeeRegistryDeskTitle = "13 号房·登记台";
+    private const string RefugeeRegistryDeskNarrative =
+        "一张课桌拼出来的台子，台上一本登记簿，翻开着。每一行是一个名字、一个日期、一个房号。" +
+        "字迹从工整变得潦草，最后几页只写名字，不写房号了——房号已经不够用。抽屉里是收上来的零钱。";
+
+    private const string RefugeeStorageRoomTitle = "15 号房·物资库房";
+    private const string RefugeeStorageRoomNarrative =
+        "这间屋子的门比别的厚，门内侧加了一道插销。架子上还剩些东西：几袋压缩干粮、罐头、成捆的布。" +
+        "架子上贴着分配表，写着每天发多少。表上的数字被划掉重写了很多次，最后一次写的是一个很小的数。";
+
+    private const string RefugeeGeneratorTitle = "16 号房·发电机房";
+    private const string RefugeeGeneratorNarrative =
+        "一台小型发电机占了半间屋，机壳烫过又凉透了。油箱是空的。" +
+        "从它身上牵出的电线穿过墙洞，通向每一间房——这片排屋的灯，曾经是亮的。";
+
+    private const string RefugeeGuardPostTitle = "17 号房·值守间";
+    private const string RefugeeGuardPostNarrative =
+        "靠门摆着一把椅子，椅子正对着门缝，缝里能看见整条过道。椅子腿边上一个铁盒，" +
+        "里头是几发子弹，用布垫着，一发一发数得清清楚楚。墙上钉着一张排班表，只有名字，没有日期。";
 }

@@ -121,6 +121,9 @@
     <Compile Include="..\..\godot\scripts\GoldfingerDiscovery.cs" Link="Consumed\GoldfingerDiscovery.cs" />
     <!-- 探索点搜刮缓存纯逻辑（无 Godot 依赖）：cacheId → flag/一批掉落/环境叙事（河边小屋/联合收割机仓库/城市之巅瞭望观景台/守林人小屋）。 -->
     <Compile Include="..\..\godot\scripts\ExplorationCache.cs" Link="Consumed\ExplorationCache.cs" />
+    <!-- [SPEC-T51] 斯图尔特家族庄园的劫掠者编制表（无 Godot 依赖）：ExplorationCache / NarrativeSpot 都引它的常量（目的地名/叙事点 id）
+         ⇒ **抽取器必须一起编**，否则「表赢代码」流水线整条断（本工程不在 sln 里，是门禁盲区——消防斧那单已被咬过一次）。 -->
+    <Compile Include="..\..\godot\scripts\StuartManor.cs" Link="Consumed\StuartManor.cs" />
     <!-- 超市幸存者骗局纯逻辑（无 Godot 依赖，[SPEC-B13]）：接触对话一次性/拒绝后内圈敌对/伏击去重旗标 + 草稿文本。 -->
     <Compile Include="..\..\godot\scripts\SupermarketAmbush.cs" Link="Consumed\SupermarketAmbush.cs" />
     <!-- 调查点规模三级 + 探索完成度聚合纯逻辑（无 Godot 依赖）：SizeTier 枚举/TierLabel + 目的地登记点位集 vs StoryFlags 旗标 → 已调查 X/Y。 -->
@@ -129,6 +132,9 @@
     <Compile Include="..\..\godot\scripts\LookoutSighting.cs" Link="Consumed\LookoutSighting.cs" />
     <!-- 叙事调查点框架纯逻辑（无 Godot 依赖，[SPEC-B12] 极乐迪斯科式）：注册表 id → (标题+多屏文本+去重旗标)，一次性/可重读；各图样例点位。 -->
     <Compile Include="..\..\godot\scripts\NarrativeSpot.cs" Link="Consumed\NarrativeSpot.cs" />
+    <Compile Include="..\..\godot\scripts\RuinedChurch.cs" Link="Consumed\RuinedChurch.cs" />
+    <Compile Include="..\..\godot\scripts\LevelReachability.cs" Link="Consumed\LevelReachability.cs" />
+    <Compile Include="..\..\godot\scripts\RefugeeCamp.cs" Link="Consumed\RefugeeCamp.cs" />
     <!-- 武器持械模型纯逻辑（无 Godot 依赖）：左右手持械 → GripMode 推导 / 断手禁持 / 主手武器选取。 -->
     <Compile Include="..\..\godot\scripts\WeaponLoadout.cs" Link="Consumed\WeaponLoadout.cs" />
     <!-- 持握态战斗消费纯逻辑（无 Godot 依赖）：grip 攻速系数并入残疾×饥饿的有效间隔 + 双持远程误差角 ×1.25。 -->

@@ -15,7 +15,7 @@ public class RubbleDigTests
     private static IReadOnlyList<LootItem> Rubbish() => new[]
     {
         LootItem.Material("wood", 3),
-        LootItem.Material("scrap_metal", 2),
+        LootItem.Material("iron", 2),
         LootItem.Material("cloth", 2),
     };
 
@@ -247,7 +247,7 @@ public class RubbleDigTests
 
         Assert.Equal(0, food);
         Assert.Equal(3, inv.MaterialCount("wood"));
-        Assert.Equal(2, inv.MaterialCount("scrap_metal"));
+        Assert.Equal(2, inv.MaterialCount("iron"));
         Assert.Equal(2, inv.MaterialCount("cloth"));
     }
 }

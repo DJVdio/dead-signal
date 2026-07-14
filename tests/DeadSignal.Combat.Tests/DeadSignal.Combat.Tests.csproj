@@ -149,6 +149,9 @@
     <Compile Include="..\..\godot\scripts\LookoutSighting.cs" Link="Consumed\LookoutSighting.cs" />
     <!-- 叙事调查点框架纯逻辑（无 Godot 依赖，[SPEC-B12] 极乐迪斯科式）：注册表 id → (标题+多屏文本+去重旗标)，一次性/可重读；各图样例点位。 -->
     <Compile Include="..\..\godot\scripts\NarrativeSpot.cs" Link="Consumed\NarrativeSpot.cs" />
+    <Compile Include="..\..\godot\scripts\RuinedChurch.cs" Link="Consumed\RuinedChurch.cs" />
+    <Compile Include="..\..\godot\scripts\LevelReachability.cs" Link="Consumed\LevelReachability.cs" />
+    <Compile Include="..\..\godot\scripts\RefugeeCamp.cs" Link="Consumed\RefugeeCamp.cs" />
     <!-- 武器持械模型纯逻辑（无 Godot 依赖）：左右手持械 → GripMode 推导 / 断手禁持 / 主手武器选取。 -->
     <Compile Include="..\..\godot\scripts\WeaponLoadout.cs" Link="Consumed\WeaponLoadout.cs" />
     <!-- 持握态战斗消费纯逻辑（无 Godot 依赖）：grip 攻速系数并入残疾×饥饿的有效间隔 + 双持远程误差角 ×1.25。 -->

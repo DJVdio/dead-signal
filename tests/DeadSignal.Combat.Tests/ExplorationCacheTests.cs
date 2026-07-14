@@ -26,7 +26,10 @@ public class ExplorationCacheTests
 
         Assert.NotNull(r);
         Assert.Equal(ExplorationCache.RiversideGunCabinetFlag, r!.Value.StoryFlag);
-        Assert.Contains(r.Value.Loot, l => l.Kind == LootKind.Weapon && l.RefId == ExplorationCache.BoltActionRifleName);
+        // 原钉「柜里有栓动猎枪」。用户已把这把武器从数值表删除 ⇒ 枪柜不再产枪，改钉新事实：
+        // 一件武器都不给（弹药/箭/布照旧），且**不许留下悬空的武器投放**（名字查不到 WeaponTable 工厂 = 没数值的枪）。
+        Assert.DoesNotContain(r.Value.Loot, l => l.Kind == LootKind.Weapon);
+        Assert.Contains(r.Value.Loot, l => l.Kind == LootKind.Material);
         Assert.False(string.IsNullOrWhiteSpace(r.Value.Title));
         Assert.False(string.IsNullOrWhiteSpace(r.Value.Narrative));
     }
@@ -163,11 +166,27 @@ public class ExplorationCacheTests
         Assert.True(snapshot.ContainsKey(ExplorationCache.AdvancedCarpentryBookId));
     }
 
-    [Fact]
-    public void BoltRifleName_MatchesWeaponTable()
+    /// <summary>
+    /// 原 BoltRifleName_MatchesWeaponTable：钉的是"投放点的栓动猎枪名要与 WeaponTable 对得上"。
+    /// 用户已删除这把武器 ⇒ 常量与工厂双双撤下，这条断言无从谈起。改钉它背后**真正在防的那件事**：
+    /// 搜刮点投放的每一个武器名，都必须能在 WeaponTable 里查到工厂——否则玩家会捡到一把没有任何数值的枪
+    /// （Item.Weapon 以中文名作 RefKey）。这条护栏比原来那条更强：它管的是全部投放点，不止一把枪。
+    /// </summary>
+    [Theory]
+    [InlineData(ExplorationCache.RangersCabinAtticId)]      // ← 狩猎弓
+    [InlineData(ExplorationCache.GoldfingerArmoryId)]       // ← 冲锋枪 + 复合弩
+    [InlineData(ExplorationCache.SupermarketHoardGearId)]   // ← 竞技复合弓
+    public void 搜刮点投放的武器名_都能在武器表里查到(string cacheId)
     {
-        // 搜刮点给的武器名必须与 WeaponTable 一致（否则 Item.Weapon 名对不上装备/展示）。
-        Assert.Equal(ExplorationCache.BoltActionRifleName, DeadSignal.Combat.WeaponTable.BoltActionHuntingRifle().Name);
+        var arsenal = DeadSignal.Combat.WeaponTable.Arsenal().Select(w => w.Name).ToHashSet();
+
+        CacheResult r = ExplorationCache.Resolve(cacheId, new StoryFlags())!.Value;
+
+        foreach (LootItem loot in r.Loot.Where(l => l.Kind == LootKind.Weapon))
+        {
+            Assert.True(arsenal.Contains(loot.RefId),
+                $"搜刮点「{cacheId}」投放了武器「{loot.RefId}」，但 WeaponTable 里没有它 ⇒ 悬空引用（捡到的枪没有任何数值）");
+        }
     }
 
     [Fact]

@@ -104,14 +104,14 @@ public class NewVillageGasCacheTests
         // ② 杂：多品类均在场（家户零碎+建材+杂物+偶发药品）。
         int Count(string key) => results.Sum(r => r.Loot.Count(l => l.Kind == LootKind.Material && l.RefId == key));
         int FoodPoints() => results.Count(r => r.Loot.Any(l => l.Kind == LootKind.Food));
-        foreach (string key in new[] { "cloth", "wood", "nails", "scrap_metal", "wire", "components", "rope", "bandage", "bone" })
+        foreach (string key in new[] { "cloth", "wood", "nails", "iron", "wire", "components", "rope", "bandage", "bone" })
             Assert.True(Count(key) > 0, $"东部新村应含品类 {key}（杂）");
         Assert.True(FoodPoints() > 0, "东部新村应有零碎食物点");
 
         // 无单一品类独大：任一材料品类的总量不超过全部掉落件数的 25%（戒掉"建材大户"）。
         int totalItems = results.Sum(r => r.Loot.Count) + 0; // 含 Food 计件
         int foodItems = results.Sum(r => r.Loot.Count(l => l.Kind == LootKind.Food));
-        int maxCategory = new[] { "cloth", "wood", "nails", "scrap_metal", "wire", "components", "rope", "bandage", "antibiotics", "bone" }
+        int maxCategory = new[] { "cloth", "wood", "nails", "iron", "wire", "components", "rope", "bandage", "antibiotics", "bone" }
             .Select(Count).Append(foodItems).Max();
         Assert.True(maxCategory <= totalItems * 0.25 + 1, $"东部新村不应有单一品类独大（最大 {maxCategory}/{totalItems}）");
 
