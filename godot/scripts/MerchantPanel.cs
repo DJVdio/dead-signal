@@ -176,7 +176,7 @@ public sealed partial class MerchantPanel : CanvasLayer
             MerchantOffer offer = _shelf!.Offers[i];
             PurchaseCheck check = MerchantTrade.Check(offer, _currencyOwned);
 
-            HBoxContainer hbox = MakeRow(offer.Good.DisplayName);
+            HBoxContainer hbox = MakeRow(offer.Good);
 
             var priceLabel = new Label();
             priceLabel.Text = $"{Silver.Format(offer.Price)} {coinName}"; // 分→两位小数（[SPEC-B14-补6]）
@@ -232,7 +232,7 @@ public sealed partial class MerchantPanel : CanvasLayer
         for (int i = 0; i < count; i++)
         {
             SellRow row = _sellRows[i];
-            HBoxContainer hbox = MakeRow(row.DisplayName);
+            HBoxContainer hbox = MakeRow(row.UnitItem);
 
             var priceLabel = new Label();
             priceLabel.Text = $"{Silver.Format(row.UnitSellPrice)} {coinName}/个"; // 分→两位小数（[SPEC-B14-补6]）
@@ -262,17 +262,20 @@ public sealed partial class MerchantPanel : CanvasLayer
         }
     }
 
-    // —— 行构造共用 ——
-    private static HBoxContainer MakeRow(string name)
+    // —— 行构造共用（买卖两页同一副长相：图标 + 名字，后面各自接价格/库存/按钮）——
+    private static HBoxContainer MakeRow(Item good)
     {
         var hbox = new HBoxContainer();
         hbox.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
         hbox.MouseFilter = Control.MouseFilterEnum.Pass;
+        hbox.AddThemeConstantOverride("separation", 8);
+
+        hbox.AddChild(ItemIconTextures.MakeIcon(good));
 
         var nameLabel = new Label();
-        nameLabel.Text = name;
+        nameLabel.Text = good.DisplayName;
         nameLabel.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-        nameLabel.CustomMinimumSize = new Vector2(200, 32);
+        nameLabel.CustomMinimumSize = new Vector2(160, 32); // 让出 32px 图标 + 8px 间距
         nameLabel.VerticalAlignment = VerticalAlignment.Center;
         nameLabel.AddThemeFontSizeOverride("font_size", 15);
         nameLabel.AddThemeColorOverride("font_color", new Color(0.88f, 0.85f, 0.78f));

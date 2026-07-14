@@ -171,6 +171,10 @@ public sealed partial class StashPanel : CanvasLayer
         var hbox = new HBoxContainer();
         hbox.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
         hbox.MouseFilter = Control.MouseFilterEnum.Pass;
+        hbox.AddThemeConstantOverride("separation", 8);
+
+        // 背包行的图标：LootItem 走 RefId（食物没有 RefId，由 ForLoot 转查那张统一的口粮图）。
+        hbox.AddChild(ItemIconTextures.MakeIconForLoot(loot));
 
         var name = new Label();
         name.Text = LootDisplay.NameOf(loot);
@@ -288,6 +292,9 @@ public sealed partial class StashPanel : CanvasLayer
         string desc = item.Description ?? "";
         hbox.MouseEntered += () => _descLabel.Text = desc;
 
+        // 物品图标（32×32）。没配图标/PNG 还没生成的物品显示占位图，行高与对齐都不受影响。
+        hbox.AddChild(ItemIconTextures.MakeIcon(item));
+
         var nameLabel = new Label();
         // 数量后缀：食物按份、材料（含弹药）按堆叠数。其余（武器/护甲/书/光源）单件无数量。
         string suffix = item.Category switch
@@ -301,7 +308,7 @@ public sealed partial class StashPanel : CanvasLayer
             : "";
         nameLabel.Text = $"{item.DisplayName}{suffix}{readTag}";
         nameLabel.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-        nameLabel.CustomMinimumSize = new Vector2(360, 30);
+        nameLabel.CustomMinimumSize = new Vector2(320, 30); // 让出 32px 给图标 + 8px 间距
         nameLabel.MouseFilter = Control.MouseFilterEnum.Pass;
         nameLabel.MouseEntered += () => _descLabel.Text = desc;
         nameLabel.VerticalAlignment = VerticalAlignment.Center;
@@ -358,13 +365,23 @@ public sealed partial class StashPanel : CanvasLayer
     }
 
     /// <summary>
-    /// 「摆放」按钮——目前只有<b>沙袋</b>有（项目里第一件玩家能自己往地上摆的防御工事）。
-    /// 点它进入放置模式，再点地面落位（CampMain 校验位置：不能摆到墙里/营外/另一垛沙袋上）。
-    /// 摆错了可以 Shift+右键拆走，返还一半材料。
+    /// 「摆放」按钮——玩家能自己往地上摆的东西。点它进入放置模式，再点地面落位（CampMain 校验位置）。
+    /// <para>
+    /// ⚠️ <b>改装台**不在此列**</b>：用户拍板它是营地内的**固定位置**（车间＝空牛棚），造好即自动立在那儿，
+    /// 玩家摆不了、也挪不动（见 <see cref="WeaponModLogic"/> 的锚点论证）。所以它**不该有这个按钮**——
+    /// 它压根不会变成一件库存物品。
+    /// </para>
     /// </summary>
     private void AddPlaceButton(HBoxContainer hbox, Item item)
     {
-        if ((item.RefKey ?? "") != SandbagSpec.ItemKey)
+        string key = item.RefKey ?? "";
+        bool isSandbag = key == SandbagSpec.ItemKey;
+
+        // ⚠️ [批次21·T14] **烹饪台刻意不在此列**（改装台亦然）：用户拍板它们是"营地内**固定位置**"的设施——
+        // 造完自动砌在厨房/车间的锚点上、**不进库存** ⇒ 玩家根本没有"摆放"这个动作。
+        // 别好心给它们加回摆放按钮：那会把已经撤掉的 kill box 风险重新引进来（它们实心、挖导航洞、不可跨越）。
+        // 现在这里只剩**沙袋**——它恒不挡路，这正是它获准自由摆放的全部理由。
+        if (!isSandbag)
         {
             hbox.AddChild(new Control { CustomMinimumSize = new Vector2(76, 30) });
             return;
@@ -373,9 +390,10 @@ public sealed partial class StashPanel : CanvasLayer
         var btn = new Button();
         btn.Text = "摆放";
         btn.CustomMinimumSize = new Vector2(76, 30);
-        btn.TooltipText = "选好位置垒起来。它挡不住任何人走过去——只是让子弹更可能打在它身上，而不是你身上。\n"
+        btn.TooltipText =
+            "选好位置垒起来。它挡不住任何人走过去——只是让子弹更可能打在它身上，而不是你身上。\n"
             + "（贴着它才算数；敌人绕到你背后，它就白垒了——而且他们也能蹲在它后面。）";
-        btn.Pressed += () => PlaceRequested?.Invoke(SandbagSpec.ItemKey);
+        btn.Pressed += () => PlaceRequested?.Invoke(key);
         UiStyle.StyleButton(btn, new Color(0.45f, 0.42f, 0.3f), fontSize: 13);
         hbox.AddChild(btn);
     }
