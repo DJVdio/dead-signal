@@ -423,4 +423,60 @@ public class CarryCapacityTests
         // 出门那一刻：重装 29.9kg ≈ 30，仍在免罚线下不罚（用户"那出门就差不多 30 了"）
         Assert.Equal(LoadoutTier.Unencumbered, Loadout.TierOf(heavyGear, solo));
     }
+
+    // ───────────────────── [R6] 物品单一登记入口（ItemRegistry）─────────────────────
+    // 三张重量字典（武器/材料/护甲）已合并进一处按类别分区的 ItemRegistry；ItemWeights 的三个私有字段
+    // 现在是它的薄别名。下面三条护栏钉死：①别名不发生数值漂移（同一实例）②护甲侧补齐 R4 式焊死（漏登记即红）。
+
+    /// <summary>
+    /// [R6] <c>ItemWeights</c> 的三个私有重量字段与 <see cref="ItemRegistry"/> 的分区表是**同一个字典实例**——
+    /// 证明合并后没有第二份数值副本在别处偷偷分叉（两份事实源打架正是本次重构要消灭的病）。
+    /// </summary>
+    [Fact]
+    public void ItemRegistry_ItemWeightsFields_AreTheSameInstanceAsRegistry()
+    {
+        object Field(string name) => typeof(ItemWeights).GetField(
+            name, System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!.GetValue(null)!;
+
+        Assert.Same(ItemRegistry.Weapons, Field("_weaponKg"));
+        Assert.Same(ItemRegistry.Materials, Field("_materialKg"));
+        Assert.Same(ItemRegistry.Armor, Field("_armorKg"));
+
+        // 分区规模钉桩（合并当下：武器 25 / 材料 48 / 护甲 30 = 全表 103）——防止别处误插/误删一整类。
+        Assert.Equal(25, ItemRegistry.Weapons.Count);
+        Assert.Equal(48, ItemRegistry.Materials.Count);
+        Assert.Equal(30, ItemRegistry.Armor.Count);
+        Assert.Equal(103, ItemRegistry.All.Count());
+    }
+
+    /// <summary>
+    /// 🔴 [R6] 护甲侧焊死测试（补齐 R4 武器侧 <see cref="ItemWeight_EveryArsenalWeapon_HasExplicitWeightRegistered"/>）：
+    /// <c>ArmorTable</c> 里**每一个单层护甲方法**产出的护甲名，都必须在 <see cref="ItemRegistry.Armor"/> 登记，
+    /// 禁止落 <see cref="ItemWeights.DefaultArmorKg"/>（=1.0kg）兜底。
+    /// <para>
+    /// 这正是本轮修的 bug 类：棉帽 0.15kg / 战争面具 0.3kg / 木缝雪镜 0.1kg 都曾漏登记 ⇒ 被当成 1.0kg
+    /// （棉帽 6.7 倍）。护甲重量的单一事实源是引擎 <c>ArmorLayer.Weight</c>，登记花名册是 <see cref="ItemRegistry.ArmorRoster"/>——
+    /// 加一件护甲到 ArmorTable 却忘了补进花名册，本测试当场报红。
+    /// </para>
+    /// <para>⚠ 只覆盖返回单个 <c>ArmorLayer</c> 的无参方法；<c>ZombieHide()/SurvivorArmor()</c> 返回列表
+    /// （天生腐皮/组合层，不入称重花名册），按返回类型自动排除。</para>
+    /// </summary>
+    [Fact]
+    public void ItemWeight_EveryArmorTableLayer_IsRegistered()
+    {
+        var layerMethods = typeof(ArmorTable)
+            .GetMethods(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static)
+            .Where(m => m.ReturnType == typeof(ArmorLayer) && m.GetParameters().Length == 0);
+
+        var missing = layerMethods
+            .Select(m => ((ArmorLayer)m.Invoke(null, null)!).Name)
+            .Where(name => !ItemRegistry.Armor.ContainsKey(name))
+            .Distinct()
+            .ToList();
+
+        Assert.True(
+            missing.Count == 0,
+            $"以下 ArmorTable 护甲未登记进 ItemRegistry.ArmorRoster（会静默落 {ItemWeights.DefaultArmorKg}kg 兜底）：" +
+            string.Join("、", missing));
+    }
 }
