@@ -1,0 +1,27 @@
+{
+  "note": "\u300C\u5907\u6CE8\u300D\u5217\u7684\u5DF2\u5904\u7406\u6807\u8BB0\uFF08\u5185\u5BB9\u54C8\u5E0C\uFF09\u3002\u7528\u6237\u6539\u4E86\u5907\u6CE8 \u21D2 \u54C8\u5E0C\u53D8 \u21D2 \u4E0B\u6B21\u62BD\u53D6\u4F1A\u91CD\u65B0\u62A5\u51FA\u6765\u3002agent \u5904\u7406\u5B8C\u4E00\u6279\u5907\u6CE8\u540E\u8DD1 \u0060dotnet run --project tools/WikiExtract -- --ack-notes\u0060 \u66F4\u65B0\u5B83\u3002\u81EA\u52A8\u751F\u6210\uFF0C\u52FF\u624B\u6539\u3002",
+  "acked": {
+    "armor/RiotHelmet": "72F3AB196568D071",
+    "armor/new_armor_2": "B5AD89E91536D80C",
+    "armor/new_armor_3": "A1F70F8ECE83EC3A",
+    "medical/herbal_bandage": "C3009BB46F400508",
+    "medical/rosehip_tea": "D8BB69BAD08D3EC6",
+    "world-graph/\u6D88\u9632\u7AD9": "C573B8C5DD3E8990",
+    "world-graph/\u6CB3\u8FB9\u5C0F\u5C4B": "3B82E57AB6FFABC0",
+    "world-graph/\u8D85\u5E02": "43659C1AEC578E10",
+    "world-graph/\u836F\u5E97": "060FEAB0D8AE66CC",
+    "world-graph/\u8054\u5408\u6536\u5272\u673A\u4ED3\u5E93": "887D582FFE93D714",
+    "world-graph/\u4F4F\u5B85\u533A": "A9064C1EC8D243D7",
+    "world-graph/\u52A0\u6CB9\u7AD9": "FDC449D478A07CBF",
+    "world-graph/\u4E0B\u6C34\u9053": "17B7BEF4A2BBB407",
+    "world-graph/\u57CE\u5E02\u4E4B\u5DC5\u77AD\u671B\u89C2\u666F\u53F0": "5CE220647E7588F4",
+    "world-graph/\u5357\u6797\u6751\u5E84": "2C6A073EF4DF659F",
+    "world-graph/\u5B88\u671B\u8005\u68EE\u6797\u5C0F\u5C4B": "A6CC365597BE2CBF",
+    "world-graph/\u533B\u9662": "769AA222A54AA9E1",
+    "world-graph/\u91D1\u624B\u6307\u5E2E\u6839\u636E\u5730": "E6EBDE280F28A8CF",
+    "world-graph/\u96BE\u6C11\u8425\u5730": "70FFC9531FC119E3",
+    "world-graph/\u65AF\u56FE\u5C14\u7279\u5BB6\u65CF\u5E84\u56ED": "A53CD7BF099917A8",
+    "world-graph/\u7834\u8D25\u6559\u5802": "CFB896815546DE47",
+    "world-graph/\u5E7F\u64AD\u53F0": "712F8D7781738883"
+  }
+}

@@ -164,6 +164,10 @@
     <Compile Include="..\..\godot\scripts\CookingLogic.cs" Link="Consumed\CookingLogic.cs" />
     <Compile Include="..\..\godot\scripts\BedSpec.cs" Link="Consumed\BedSpec.cs" />
     <Compile Include="..\..\godot\scripts\TrapLogic.cs" Link="Consumed\TrapLogic.cs" />
+    <!-- [T67] 采集/种植/诱捕（impl-forage，无 Godot 依赖）：BirdTrapSpec/BirdTrapLogic 捕鸟陷阱 + CropPlotSpec/CropPlotLogic 菜畦 + ForageLogic 野外采集。 -->
+    <Compile Include="..\..\godot\scripts\Farming.cs" Link="Consumed\Farming.cs" />
+    <!-- [T67] 宰杀（impl-forage）：ButcherStation 两档设施 + 刀槽 + ButcheryLogic（速度**加算**＝用户拍板的例外；老鼠/鸟 → 肉 + 碎皮革/羽毛）。 -->
+    <Compile Include="..\..\godot\scripts\Butchery.cs" Link="Consumed\Butchery.cs" />
     <Compile Include="..\..\godot\scripts\Recipe.cs" Link="Consumed\Recipe.cs" />
     <Compile Include="..\..\godot\scripts\CraftingLogic.cs" Link="Consumed\CraftingLogic.cs" />
     <!-- 工时制在制品纯逻辑（无 Godot 依赖）：工时进度推进(人在台+生产相位才推进)/中断续作/封顶完工。 -->

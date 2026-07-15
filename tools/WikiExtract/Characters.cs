@@ -140,7 +140,7 @@ internal static class Characters
         Add("诺蒂", "nordi_l2_read", "2 级 自身读速加成", Pct(BookwormPerk.BonusForLevel(2)), "%", bookSrc + ".BonusForLevel");
         Add("诺蒂", "nordi_l3_read", "3 级 自身读速加成", Pct(BookwormPerk.BonusForLevel(3)), "%", bookSrc + ".BonusForLevel");
         Add("诺蒂", "nordi_l3_campwide", "3 级 全营读速加成", Pct(BookwormPerk.CampWideBonusAtMax), "%", bookSrc + ".CampWideBonusAtMax");
-        // 🔴 「没座位读书 ×0.9」**不是诺蒂的专属效果，是全员通则** —— 用户澄清，代码本来就是对的：
+        // 🔴 「没座位读书 *0.9」**不是诺蒂的专属效果，是全员通则** —— 用户澄清，代码本来就是对的：
         //    `ReadingSpeed.Effective(..., hasSeat, ...)` 对**每一个** pawn 都算，没有任何按名/按 perk 的门控。
         //    把它列在诺蒂名下，会让人以为"没座位只影响她"，从而调错数值。
         //    已移到新的「全局规则」分区（Program.GlobalRules）。诺蒂的专属效果只有书虫那三条（读速/全营/升级轴）。
@@ -234,11 +234,11 @@ internal static class Characters
                            + "这是全系统唯一会倒退的效果——人少了，等级就掉回去。护得住多少人，就有多强。",
             ["perkL1"] = $"入队即得。他从小身强体壮、性格坚韧，比常人耐揍——自身受到的伤害 −{Pct(SamPerk.Level1DamageReduction)}%"
                          + "（在护甲挡完之后再减，被甲完全挡下时依然是 0）。",
-            ["perkL2"] = $"营地 {SamPerk.Level2CampPopulation} 人。从小吃苦耐劳帮祖母打理农庄——自身负重上限 ×{1 + SamPerk.Level2CarryBonus:0.##}（1 级效果保留）。",
+            ["perkL2"] = $"营地 {SamPerk.Level2CampPopulation} 人。从小吃苦耐劳帮祖母打理农庄——自身负重上限 *{1 + SamPerk.Level2CarryBonus:0.##}（1 级效果保留）。",
             ["perkL3"] = $"营地 {SamPerk.Level3CampPopulation} 人。他散发英雄风范、影响周边的人——只要他还活着，全营（含他自己）四项："
-                         + $"干活效率 ×{1 + SamPerk.AuraWorkSpeedBonus:0.##}、负重上限 ×{1 + SamPerk.AuraCarryBonus:0.##}、"
-                         + $"恢复速度 ×{1 + SamPerk.AuraHealSpeedBonus:0.##}、感染恶化 ×{1 - SamPerk.AuraInfectionWorsenReduction:0.##}。"
-                         + "四项一律乘算——0 × 1.03 还是 0，断了双手的人，光环补不回来。",
+                         + $"干活效率 *{1 + SamPerk.AuraWorkSpeedBonus:0.##}、负重上限 *{1 + SamPerk.AuraCarryBonus:0.##}、"
+                         + $"恢复速度 *{1 + SamPerk.AuraHealSpeedBonus:0.##}、感染恶化 *{1 - SamPerk.AuraInfectionWorsenReduction:0.##}。"
+                         + "四项一律乘算——0 * 1.03 还是 0，断了双手的人，光环补不回来。",
             ["join"] = "开局就在营地（另一位是诺蒂）。",
             ["gear"] = "手枪 + 开局三件套（长袖布衣 / 长裤 / 一双运动鞋）",
             ["backstory"] =
@@ -300,7 +300,7 @@ internal static class Characters
         ["perkL2"] = $"共同活过 {DougBruceBond.Level2Days} 天。布鲁斯视野距离 +{Pct(DougBruceBond.BruceRangeBonusMult - 1)}%；"
                      + "解锁道格给布鲁斯做狗装备（五件套）。",
         ["perkL3"] = $"共同活过 {DougBruceBond.Level3Days} 天。相依为命光环（两个在 {DougBruceBond.DefaultAuraRadius:0} 距离内时生效）："
-                     + $"生产效率 ×{DougBruceBond.AuraProductionMult:0.##}、受到伤害 ×{DougBruceBond.AuraDamageTakenMult:0.##}。"
+                     + $"生产效率 *{DougBruceBond.AuraProductionMult:0.##}、受到伤害 *{DougBruceBond.AuraDamageTakenMult:0.##}。"
                      + "一方死亡即永久失去。",
         ["join"] = $"「{VillageRescue.DestinationName}」大调查点的一段救援：他和布鲁斯被困在一间上锁、被丧尸围困的屋子里，"
                    + "道格已经饿到昏迷。调查团靠近到中距离时，布鲁斯开始吠叫引路——清掉或绕开围困的丧尸、踏进去解救，"

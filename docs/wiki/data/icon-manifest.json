@@ -52,7 +52,13 @@
       "armor/cotton_hat",
       "armor/coarse_shirt",
       "armor/coarse_shorts",
-      "armor/coarse_trousers"
+      "armor/coarse_trousers",
+      "armor/horror_armor",
+      "armor/sunglasses",
+      "armor/plain_glasses",
+      "armor/horror_armor",
+      "armor/new_armor_2",
+      "armor/plain_glasses"
     ],
     "dog-gear": [
       "armor/dog_cloth_vest",
@@ -93,7 +99,11 @@
       "materials/laojunxu",
       "materials/silver",
       "materials/bullet_parts",
-      "materials/weapon_parts"
+      "materials/weapon_parts",
+      "food/rat",
+      "food/pigeon",
+      "materials/feather",
+      "materials/leather_scrap"
     ],
     "medical": [
       "materials/bandage",
@@ -155,7 +165,13 @@
       "armor/cotton_hat",
       "armor/coarse_shorts",
       "armor/coarse_trousers",
-      "weapons/axe"
+      "weapons/axe",
+      "armor/horror_armor",
+      "furniture/bird_trap",
+      "furniture/crop_plot",
+      "furniture/butcher_point",
+      "furniture/butcher_table",
+      "materials/rawhide"
     ],
     "lights": [
       "lights/flashlight",
@@ -172,7 +188,8 @@
       "books/book_carpentry_adv",
       "books/book_archery",
       "books/book_mechanics",
-      "books/book_bowcraft"
+      "books/book_bowcraft",
+      "books/new_book_1"
     ],
     "diaries": [
       "books/book_diary_a",
@@ -185,6 +202,7 @@
       "weapon-mods/bayonet",
       "weapon-mods/claw_stock",
       "weapon-mods/trauma_stock",
+      "weapon-mods/blade_stock",
       "weapon-mods/serrated_blade",
       "weapon-mods/honed_edge",
       "weapon-mods/fuller_blade",
@@ -197,11 +215,10 @@
       "weapon-mods/new_weapon_mod_2",
       "weapon-mods/new_weapon_mod_3",
       "weapon-mods/new_weapon_mod_4",
-      "weapon-mods/new_weapon_mod_5"
+      "weapon-mods/new_weapon_mod_5",
+      "weapon-mods/new_weapon_mod_6"
     ],
     "food": [
-      "food/rat",
-      "food/pigeon",
       "food/rabbit",
       "food/fish",
       "food/ration_military",
@@ -210,6 +227,8 @@
       "food/beans",
       "food/potato",
       "food/mushroom",
+      "food/rat_meat",
+      "food/bird_meat",
       "materials/rosehip"
     ],
     "cooking": [

@@ -479,7 +479,7 @@ internal static class Program
             new("dpsVsLeather", "对皮甲每秒伤害", "number", ReadOnly: true,
                 Hint: "自动算的：打一个穿着「皮甲 + 长袖布衣」的人。**含**护甲三段判定、部位覆盖（头/手/脚是裸的，打到那儿等于打无甲）、穿透、霰弹逐颗独立被挡。**不含**距离衰减、噪音、弹药、清群。⚠️ 裸 DPS 是无甲天花板，这一列才看得出「打不打得动甲」。"),
             new("dualDps", "双持每秒伤害", "number", ReadOnly: true,
-                Hint: "自动算的。两把同款一起打；不可双持的武器这里是「—」（要改 ⇒ 改「可双持」）。注意它不是「每秒伤害 ×1.4」——双持的惩罚只落在冷却上，连发那一段不受罚。"),
+                Hint: "自动算的。两把同款一起打；不可双持的武器这里是「—」（要改 ⇒ 改「可双持」）。注意它不是「每秒伤害 *1.4」——双持的惩罚只落在冷却上，连发那一段不受罚。"),
             new("weight", "重量(公斤)", "number"),
             new("stockMin", "枪托近战 伤害下限", "number"),
             new("stockMax", "枪托近战 伤害上限", "number"),
@@ -709,9 +709,9 @@ internal static class Program
             new("name", "名称", Primary: true),
             new("kind", "类型", "chip"),
             new("yieldPerPart", "1 个子弹零件造几发", "number", Hint: "箭不吃子弹零件，故为空"),
-            new("damageMult", "伤害倍率", "mult", Hint: "箭反过来改写弓的属性：最终伤害 = 弓的伤害 × 这个数"),
-            new("penetrationMult", "破甲倍率", "mult", Hint: "最终穿透力 = 弓的穿透力 × 这个数"),
-            new("rangeMult", "射程倍率", "mult", Hint: "最终射程 = 弓的射程 × 这个数"),
+            new("damageMult", "伤害倍率", "mult", Hint: "箭反过来改写弓的属性：最终伤害 = 弓的伤害 * 这个数"),
+            new("penetrationMult", "破甲倍率", "mult", Hint: "最终穿透力 = 弓的穿透力 * 这个数"),
+            new("rangeMult", "射程倍率", "mult", Hint: "最终射程 = 弓的射程 * 这个数"),
             new("cooldownMult", "冷却倍率", "mult", Hint: "大于 1 = 出手更慢"),
             new("spreadMult", "散布倍率", "mult", Hint: "大于 1 = 更不准"),
             new("craftable", "可制作", "bool"),
@@ -748,7 +748,7 @@ internal static class Program
         return new Category("ammo", "弹药与箭",
             "godot/scripts/Materials.cs + src/DeadSignal.Combat/Ammo.cs + src/DeadSignal.Combat/Archery.cs",
             "四种子弹（短/中/长/鹿弹）全部从「子弹零件」造，1 个零件造几发决定了这把枪贵不贵。"
-            + "四种箭是另一回事——**箭反过来改写弓的属性**：最终属性 = 弓的基础属性 × 这里的倍率。箭可回收，子弹不能。",
+            + "四种箭是另一回事——**箭反过来改写弓的属性**：最终属性 = 弓的基础属性 * 这里的倍率。箭可回收，子弹不能。",
             cols, rows);
     }
 
@@ -776,7 +776,10 @@ internal static class Program
             // 食材归「食物与食材」分区（那里才有热量点这一列）。
             // 玫瑰果/蒲公英是**两栖的**——既下得了锅又进得了药，故它们按上一行的草药规则留在材料里，
             // 同时也出现在食物分区。这不是重复，是它们本来就有两个身份（代码注释里也这么写的）。
-            if (m.Category is MaterialCategory.Food) continue;
+            // 🔴 [T67] 但**只跳过"下得了锅"的食材** —— 老鼠/鸟这类 Food 类却**已不在 FoodCalories** 的
+            //    （用户："老鼠和鸟不能直接入锅了，而是要先宰杀"）不属于食物分区（它们没有热量点可列），
+            //    它们现在是**宰杀的原料**⇒ 归「材料」分区，否则它们会从整个 wiki 里消失（材料表跳过、食物表也没有）。
+            if (m.Category is MaterialCategory.Food && FoodCalories.Has(m.Key)) continue;
             rows.Add(new Dictionary<string, object?>
             {
                 ["name"] = m.DisplayName,
@@ -877,7 +880,7 @@ internal static class Program
             new("category", "类别", "chip"),
             new("output", "产物", Hint: "做出来的是什么（内部 key，引擎真读它）。⚠️ 改它等于把这条配方换成做另一件东西——慎改。"),
             new("outputQty", "产量", "number"),
-            new("materials", "材料", Hint: "格式：木料×2、布×1"),
+            new("materials", "材料", Hint: "格式：木料*2、布*1"),
             new("tools", "工作台工具", "chip", Hint: "空 = 徒手就能做"),
             new("books", "要读过的书"),
             new("workMinutes", "工时", "hours", Hint: "有人站在工作台前干这么久（游戏内时间）。一天有 8 个相位，夜里那个生产相位大约能推进几小时——超过它就得跨夜接着做。"),
@@ -897,7 +900,7 @@ internal static class Program
                 ["category"] = RecipeCategoryLabel(r.Category),
                 ["output"] = r.OutputKey,
                 ["outputQty"] = r.OutputQuantity,
-                ["materials"] = string.Join('、', r.MaterialCosts.Select(kv => $"{MaterialName(kv.Key)}×{kv.Value}")),
+                ["materials"] = string.Join('、', r.MaterialCosts.Select(kv => $"{MaterialName(kv.Key)}*{kv.Value}")),
                 ["tools"] = string.Join('、', r.RequiredTools.Select(DisplayNames.Of)),
                 ["books"] = string.Join('、', r.RequiredBookIds.Select(BookTitle)),
                 ["workMinutes"] = r.WorkMinutes,
@@ -947,6 +950,10 @@ internal static class Program
         "doug_bond_l2" => "道格，且与布鲁斯的羁绊达到 2 级",
         "cook_station_absent" => "营地里还没有烹饪台（已有就不能再造第二座）",
         "mod_bench_absent" => "营地里还没有改装台（已有就不能再造第二台）",
+        // [T67] 采集/种植/诱捕支柱的三道门槛
+        "cook_station_present" => "营地里已经有一座烹饪台（茶要在灶上煮）",
+        "butcher_absent" => "营地里还没有宰杀设施（已有就不能再造）",
+        "butcher_point_present" => "营地里已有简易宰杀点（升级成宰杀台的前提）",
 
         // 🔴 新加门槛却忘了在这里给它一句人话 ⇒ 英文 id 会漏进用户的表（就是上面那个 bug）。
         //    宁可当场吵出来，也不要再静默泄一个代码腔进去。
@@ -1141,9 +1148,9 @@ internal static class Program
             new("fitsWeapons", "可装于哪些武器", "multiselect",
                 Hint: "勾上的武器才装得上这个改装。**这就是引擎真读的约束**——不是展示，改了立刻生效。"),
             new("part", "占用部位", "chip", Hint: "一个部位只能装一件；不同部位可以同时装"),
-            new("stats", "数值改动", Hint: "装上这件改装后，武器的哪些数值怎么变。格式：「伤害下限 +2、穿透 ×1.2」。加/乘/覆盖分别写 +、×、=。"),
+            new("stats", "数值改动", Hint: "装上这件改装后，武器的哪些数值怎么变。格式：「伤害下限 +2、穿透 *1.2」。加/乘/覆盖分别写 +、*、=。"),
             new("form", "近战型态", "chip", Hint: "改写枪托近战的打法；一把枪只能装一条带型态的改装"),
-            new("materials", "材料", Hint: "格式：铁×2、布×1"),
+            new("materials", "材料", Hint: "格式：铁*2、布*1"),
             new("workMinutes", "工时", "hours", Hint: "有人站在改装台前干这么久（游戏内时间）。"),
             new("note", "说明", "longtext"),
             new("_id", "内部 id", Internal: true),
@@ -1164,7 +1171,7 @@ internal static class Program
                 ["part"] = DisplayNames.Of(m.Part),
                 ["stats"] = StatsLabel(m),
                 ["form"] = m.Form is null ? "" : DisplayNames.Of(m.Form.Value),
-                ["materials"] = string.Join('、', m.MaterialCosts.Select(kv => $"{MaterialName(kv.Key)}×{kv.Value}")),
+                ["materials"] = string.Join('、', m.MaterialCosts.Select(kv => $"{MaterialName(kv.Key)}*{kv.Value}")),
                 ["workMinutes"] = m.WorkMinutes,
                 ["note"] = m.Note,
                 // 改装现在有稳定的 Id（bayonet / claw_stock…）⇒ 用它当代码锚，比中文名可靠
@@ -1176,10 +1183,13 @@ internal static class Program
             "godot/scripts/WeaponModCatalog.cs",
             "给武器加零件。一个部位只装得下一件，装不下的会被拒绝。"
             + "「可装于哪些武器」是**引擎真读的装配约束**——勾掉一把枪，它当场就装不上了，不是摆设。"
-            + "⚠️「数值改动」这一列你写的是**人话**，而代码那边是结构化字段（比如你写「攻击速度+5%」，引擎里是「攻击间隔 ×0.95」）"
+            + "⚠️「数值改动」这一列你写的是**人话**，而代码那边是结构化字段（比如你写「攻击速度+5%」，引擎里是「攻击间隔 *0.95」）"
             + "⇒ 这一列**几乎永远会显示成「待同步」，那只是两种写法的差异，不代表真的没落地**。要确认，看代码注释或问 agent。"
+            + "🔴 **一把枪只能装一种近战改装**（刺刀型 / 利爪型 / 创伤型 **三选一**）——它们各自把这把枪的近战打法整个换掉，"
+            + "同时装两个就等于给同一把枪写了两套互相打架的近战定义。装第二个时会被当场拒绝，并告诉你跟哪一个冲突。"
             + "⚠️ 弓弩**已经不能装枪械改装了**（它们曾因一个 bug 被引擎当成「枪」）。"
-            + "消防斧是新武器，还没被勾进任何一条锐器改装——想让它能改装，在这一列里勾上它即可。",
+            + "消防斧已按「和长剑同档」勾进锐器改装（6 条里的 5 条）——**唯独「镂空剑刃」没勾**："
+            + "斧子靠的就是那颗沉头，镂空把它挖空了，就成了一把很差的剑。",
             cols, rows);
     }
 
@@ -1199,7 +1209,7 @@ internal static class Program
 
         if (System.Math.Abs(m.WeightMultiplier - 1.0) > 1e-9)
         {
-            parts.Add($"重量 ×{Round(m.WeightMultiplier)}");
+            parts.Add($"重量 *{Round(m.WeightMultiplier)}");
         }
         if (m.AllowsOneHanded)
         {
@@ -1237,7 +1247,7 @@ internal static class Program
         string op = s.Op switch
         {
             StatOp.Add => s.Value >= 0 ? "+" : "",
-            StatOp.Mul => "×",
+            StatOp.Mul => "*",
             StatOp.Set => "=",
             _ => " ",
         };
@@ -1252,7 +1262,7 @@ internal static class Program
     /// 食材热量点表。**这是 wiki 唯一能看到热量点的地方 —— 游戏里不显示。**
     /// <para>
     /// 用户拍板：每种食材几点热量、一份饭要多少热量，是**玩家自己探索试错**的核心乐趣。所以游戏内
-    /// 不足一份时按钮只是不可用、不解释原因；零头浪费不提示；只有够两份时才显示产物 ×2。
+    /// 不足一份时按钮只是不可用、不解释原因；零头浪费不提示；只有够两份时才显示产物 *2。
     /// 而这张表是**给设计者调数值的**，两件事不矛盾——但别把这里的口径带进游戏 UI。
     /// </para>
     /// </summary>
@@ -1360,7 +1370,7 @@ internal static class Program
     /// **全局规则** —— 不属于任何单件物品、也不属于任何一个角色，但**对所有人一体适用**的那些数。
     ///
     /// <para><b>它为什么必须存在</b>：这些数以前**散落在代码常量里，用户在 wiki 上根本看不到、也改不了**。
-    /// 更糟的是——「没座位读书 ×0.9」曾被错列在**诺蒂名下**，让人以为那是她的专属效果。
+    /// 更糟的是——「没座位读书 *0.9」曾被错列在**诺蒂名下**，让人以为那是她的专属效果。
     /// 一条全员通则被当成某个角色的特性，用户就会调错数值（以为"只影响她一个人"）。</para>
     ///
     /// <para>⚠️ 收进来的必须是**真有代码锚点**的常量，一个都不许编。</para>
@@ -1397,7 +1407,7 @@ internal static class Program
         Add("dual_wield_speed", "双持时的攻速", Math.Round(DualWield.AttackSpeedFactor * 100, 4), "%",
             "两只手各拿一把单手武器时，**每只手**都变慢。两把一起打的总输出仍然更高——代价是精度和这个攻速。",
             "src/DeadSignal.Combat/DualWield.cs :: DualWield.AttackSpeedFactor");
-        Add("dual_wield_spread", "双持时远程的散布", Math.Round(DualWield.RangedSpreadFactor, 4), "×",
+        Add("dual_wield_spread", "双持时远程的散布", Math.Round(DualWield.RangedSpreadFactor, 4), "*",
             "双持开枪更不准（误差角乘这个数）。近战不受影响——近战本来就必中。",
             "src/DeadSignal.Combat/DualWield.cs :: DualWield.RangedSpreadFactor");
 
@@ -1426,7 +1436,7 @@ internal static class Program
             + "调低它，匕首/刺剑这种「靠放血赢」的武器会直接废掉（它们对丧尸的胜利几乎全来自失血）。",
             "src/DeadSignal.Combat/BleedModel.cs :: BleedModel.ZombieBleedRateMultiplier");
         Add("bleed_weight_lethal", "大伤口的流血速度", Math.Round(BleedModel.RateWeightOf(BleedTier.Lethal) * 100, 4), "%",
-            "**躯干/头/颈/上臂/大腿**——只有这些大部位的伤口能把人**放干致死**。基准 100%。",
+            "**躯干/头/颈/手臂/大腿**——只有这些大部位的伤口能把人**放干致死**。基准 100%。",
             "src/DeadSignal.Combat/BleedModel.cs :: BleedModel.RateWeightOf");
         Add("bleed_weight_minor", "手脚伤口的流血速度", Math.Round(BleedModel.RateWeightOf(BleedTier.Minor) * 100, 4), "%",
             "**手/脚**的伤口流得慢，而且**永远流不死**（见下面那条下限）——只会溃烂感染。",
@@ -1469,7 +1479,7 @@ internal static class Program
         var cols = new List<Col>
         {
             new("name", "名称", Primary: true),
-            new("materials", "建造材料", Hint: "格式：木料×16、钉子×8"),
+            new("materials", "建造材料", Hint: "格式：木料*16、钉子*8"),
             new("buildMinutes", "建造工时", "hours", Hint: "有人在营地里干这么久（游戏内时间）。"),
             new("salvage", "拆了能还回多少", ReadOnly: true,
                 Hint: "自动算的：通用规则是还一半（向下取整），木材例外——一半变木料、一半变废木料。要改 ⇒ 改「建造材料」。（想改返还比例本身，那是引擎规则，跟 agent 说。）"),
@@ -1484,9 +1494,9 @@ internal static class Program
             rows.Add(new Dictionary<string, object?>
             {
                 ["name"] = key,
-                ["materials"] = cost is null ? "" : string.Join('、', cost.Select(kv => $"{MaterialName(kv.Key)}×{kv.Value}")),
+                ["materials"] = cost is null ? "" : string.Join('、', cost.Select(kv => $"{MaterialName(kv.Key)}*{kv.Value}")),
                 ["buildMinutes"] = FurnitureBuildCost.BuildMinutes(key),
-                ["salvage"] = cost is null ? "" : string.Join('、', SalvageLogic.YieldOfFurniture(key).Select(kv => $"{MaterialName(kv.Key)}×{kv.Value}")),
+                ["salvage"] = cost is null ? "" : string.Join('、', SalvageLogic.YieldOfFurniture(key).Select(kv => $"{MaterialName(kv.Key)}*{kv.Value}")),
                 ["_id"] = key,
                 ["_anchor"] = "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
             });

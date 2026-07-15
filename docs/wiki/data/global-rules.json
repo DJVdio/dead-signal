@@ -106,7 +106,7 @@
     {
       "label": "双持时远程的散布",
       "value": 1.25,
-      "unit": "×",
+      "unit": "*",
       "note": "双持开枪更不准（误差角乘这个数）。近战不受影响——近战本来就必中。",
       "_id": "dual_wield_spread",
       "_anchor": "src/DeadSignal.Combat/DualWield.cs :: DualWield.RangedSpreadFactor",
@@ -167,7 +167,7 @@
       "label": "大伤口的流血速度",
       "value": 100,
       "unit": "%",
-      "note": "**躯干/头/颈/上臂/大腿**——只有这些大部位的伤口能把人**放干致死**。基准 100%。",
+      "note": "**躯干/头/颈/手臂/大腿**——只有这些大部位的伤口能把人**放干致死**。基准 100%。",
       "_id": "bleed_weight_lethal",
       "_anchor": "src/DeadSignal.Combat/BleedModel.cs :: BleedModel.RateWeightOf",
       "_icon": "",

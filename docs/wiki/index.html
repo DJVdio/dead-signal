@@ -405,14 +405,14 @@ const round4 = (x) => Math.round(x * 1e4) / 1e4;
 // ═══════════════════════════════════════════════════════════════════
 // 「零点几几」太难改 —— 百分比与倍率的读写转换
 //
-// 🔴 **只是给人看的写法，JSON 与引擎里存的仍是小数**（穿透 0.25、砸墙 ×0.2）。
+// 🔴 **只是给人看的写法，JSON 与引擎里存的仍是小数**（穿透 0.25、砸墙 *0.2）。
 //    引擎的三段判定读的就是 0~1，绝不能因为界面好看就把它改成 0~100。
 //
 //   percent：显示 25%、输入 25  ⇄  存 0.25   （0~1 的比率：穿透力、亮度、治疗效率…）
-//   mult   ：显示 ×0.75、输入 0.75 ⇄ 存 0.75  （乘数，可以大于 1：箭矢倍率、砸墙倍率…）
+//   mult   ：显示 *0.75、输入 0.75 ⇄ 存 0.75  （乘数，可以大于 1：箭矢倍率、砸墙倍率…）
 //
-// 为什么倍率不也做成百分比：箭的伤害倍率有 ×1.35，写成 135% 很别扭；
-// 而「恶化减缓 ×0.5」写成 50% 更会被读反（那是"乘0.5"，不是"减少50%"）。
+// 为什么倍率不也做成百分比：箭的伤害倍率有 *1.35，写成 135% 很别扭；
+// 而「恶化减缓 *0.5」写成 50% 更会被读反（那是"乘0.5"，不是"减少50%"）。
 // ═══════════════════════════════════════════════════════════════════
 const NUMERIC_TYPES = new Set(["number", "percent", "mult", "hours"]);
 const isNumericCol = (col) => NUMERIC_TYPES.has(col.type);
@@ -438,11 +438,11 @@ function fromEditable(col, raw) {
   return n;
 }
 
-/** 表格里怎么显示（percent → "25%"；mult → "×0.75"）。 */
+/** 表格里怎么显示（percent → "25%"；mult → "*0.75"）。 */
 function formatNum(col, v) {
   if (v === null || v === undefined || v === "") return "";
   if (col.type === "percent") return round6(Number(v) * 100) + "%";
-  if (col.type === "mult") return "×" + Number(v);
+  if (col.type === "mult") return "*" + Number(v);
   if (col.type === "hours") return (Math.round(Number(v) / 60 * 100) / 100) + " 小时";
   return String(v);
 }
@@ -1138,7 +1138,7 @@ function edit(td, col, r, i) {
   input.value = num ? (toEditable(col, old) === "" ? "" : String(toEditable(col, old)))
                     : (old === null || old === undefined ? "" : String(old));
   if (col.type === "percent") input.title = "按百分数填：25 就是 25%（小数也行，比如 16.5）";
-  if (col.type === "mult") input.title = "按倍数填：0.75 就是 ×0.75，可以大于 1";
+  if (col.type === "mult") input.title = "按倍数填：0.75 就是 *0.75，可以大于 1";
   if (col.type === "hours") input.title = "按小时填：2.5 就是两个半小时（存回代码时换算成分钟，且取整——分钟本来就只能是整数）";
   td.appendChild(input);
   input.focus();

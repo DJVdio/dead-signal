@@ -64,7 +64,7 @@
     {
       "name": "木料",
       "category": "木",
-      "weight": 2,
+      "weight": 1,
       "description": "劈好的木料，盖房、生火、打家具都指望它——文明退到这一步，好在树还在长。",
       "_id": "wood",
       "_anchor": "godot/scripts/Materials.cs :: Materials（重量在 godot/scripts/CarryWeight.cs :: ItemWeights）",
@@ -108,7 +108,7 @@
     {
       "name": "钉子",
       "category": "金属",
-      "weight": 0.2,
+      "weight": 0.05,
       "description": "一把铁钉，让两块木头白头偕老的秘诀。",
       "_id": "nails",
       "_anchor": "godot/scripts/Materials.cs :: Materials（重量在 godot/scripts/CarryWeight.cs :: ItemWeights）",
@@ -119,7 +119,7 @@
     {
       "name": "铁丝",
       "category": "金属",
-      "weight": 0.3,
+      "weight": 0.25,
       "description": "成卷的铁丝，捆东西、设陷阱、修栅栏，居家末日必备。",
       "_id": "wire",
       "_anchor": "godot/scripts/Materials.cs :: Materials（重量在 godot/scripts/CarryWeight.cs :: ItemWeights）",
@@ -130,7 +130,7 @@
     {
       "name": "生皮",
       "category": "皮",
-      "weight": 0.8,
+      "weight": 1,
       "description": "剥下来的生兽皮，还带着点腥味，鞣好了才好意思穿上身。",
       "_id": "rawhide",
       "_anchor": "godot/scripts/Materials.cs :: Materials（重量在 godot/scripts/CarryWeight.cs :: ItemWeights）",
@@ -141,7 +141,7 @@
     {
       "name": "皮革",
       "category": "皮",
-      "weight": 0.5,
+      "weight": 0.6,
       "description": "鞣制好的皮革，结实耐磨，比它原来的主人耐久多了。",
       "_id": "leather",
       "_anchor": "godot/scripts/Materials.cs :: Materials（重量在 godot/scripts/CarryWeight.cs :: ItemWeights）",
@@ -218,7 +218,7 @@
     {
       "name": "绳子",
       "category": "杂项",
-      "weight": 0.5,
+      "weight": 0.15,
       "description": "结实的绳子，捆绑、攀爬、拖拽，用途多到不必细说。",
       "_id": "rope",
       "_anchor": "godot/scripts/Materials.cs :: Materials（重量在 godot/scripts/CarryWeight.cs :: ItemWeights）",
@@ -228,7 +228,7 @@
     },
     {
       "name": "机械零件",
-      "category": "杂项",
+      "category": "零件",
       "weight": 0.5,
       "description": "拆东西拆出来的各式零件，越精密的装置，越离不开这堆不起眼的小玩意。",
       "_id": "components",
@@ -283,7 +283,7 @@
     },
     {
       "name": "子弹零件",
-      "category": "金属",
+      "category": "零件",
       "weight": 0.05,
       "description": "弹壳、底火、弹头坯——枪匠时代留下的精密小玩意。火药你能自己熬，这些你只能捡；捡完了，枪就真的只是根铁棍。",
       "_id": "bullet_parts",
@@ -294,14 +294,58 @@
     },
     {
       "name": "武器零件",
-      "category": "金属",
-      "weight": 0.6,
+      "category": "零件",
+      "weight": 0.5,
       "description": "弩机、扳机组、几片淬过火的簧——造枪的人早死绝了，留下的这些小东西还硬邦邦地不肯锈。你造不出它们，只能指望别人也没找到。",
       "_id": "weapon_parts",
       "_anchor": "godot/scripts/Materials.cs :: Materials（重量在 godot/scripts/CarryWeight.cs :: ItemWeights）",
       "userNote": "",
       "sync": "",
       "_icon": "materials/weapon_parts"
+    },
+    {
+      "name": "老鼠",
+      "category": "Food",
+      "weight": 0.3,
+      "description": "末日里最先繁荣起来的物种。抓它、剥它、炖它——你曾经以为自己这辈子都不会做这三件事。",
+      "_id": "rat",
+      "_anchor": "godot/scripts/Materials.cs :: Materials（重量在 godot/scripts/CarryWeight.cs :: ItemWeights）",
+      "userNote": "",
+      "sync": "",
+      "_icon": "food/rat"
+    },
+    {
+      "name": "鸟",
+      "category": "Food",
+      "weight": 0.3,
+      "description": "城市广场上那种鸽子，如今没人喂了，也没人拍照了。肉少，骨头多，但它是肉——前提是你肯动刀。",
+      "_id": "pigeon",
+      "_anchor": "godot/scripts/Materials.cs :: Materials（重量在 godot/scripts/CarryWeight.cs :: ItemWeights）",
+      "userNote": "",
+      "sync": "",
+      "_icon": "food/pigeon"
+    },
+    {
+      "name": "羽毛",
+      "category": "杂项",
+      "weight": 0.02,
+      "description": "一小把飞羽，理顺了扎在箭尾上。它曾经的用途和现在的用途，说到底是同一件事：让一样东西飞直。",
+      "_id": "feather",
+      "_anchor": "godot/scripts/Materials.cs :: Materials（重量在 godot/scripts/CarryWeight.cs :: ItemWeights）",
+      "userNote": "",
+      "sync": "",
+      "_icon": "materials/feather"
+    },
+    {
+      "name": "碎皮革",
+      "category": "皮",
+      "weight": 0.2,
+      "description": "一小块一小块的皮子，边缘参差不齐。攒够了，缝起来，也就还是一张皮——只是多了几十道针脚。",
+      "_id": "leather_scrap",
+      "_anchor": "godot/scripts/Materials.cs :: Materials（重量在 godot/scripts/CarryWeight.cs :: ItemWeights）",
+      "userNote": "",
+      "sync": "",
+      "_icon": "materials/leather_scrap"
     }
   ]
 }

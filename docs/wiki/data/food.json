@@ -65,28 +65,6 @@
   ],
   "rows": [
     {
-      "name": "老鼠",
-      "calories": 6,
-      "portions": 3,
-      "description": "末日里最先繁荣起来的物种。抓它、剥它、炖它——你曾经以为自己这辈子都不会做这三件事。",
-      "_id": "rat",
-      "_anchor": "godot/scripts/CookingLogic.cs :: FoodCalories（热量点）+ godot/scripts/Materials.cs（名称/说明）",
-      "userNote": "",
-      "sync": "",
-      "_icon": "food/rat"
-    },
-    {
-      "name": "鸽子",
-      "calories": 5,
-      "portions": 4,
-      "description": "城市广场上那种鸽子，如今没人喂了，也没人拍照了。肉少，骨头多，但它是肉。",
-      "_id": "pigeon",
-      "_anchor": "godot/scripts/CookingLogic.cs :: FoodCalories（热量点）+ godot/scripts/Materials.cs（名称/说明）",
-      "userNote": "",
-      "sync": "删除·待同步进代码",
-      "_icon": "food/pigeon"
-    },
-    {
       "name": "兔子",
       "calories": 11,
       "portions": 2,
@@ -173,6 +151,28 @@
       "userNote": "",
       "sync": "",
       "_icon": "food/mushroom"
+    },
+    {
+      "name": "老鼠肉",
+      "calories": 6,
+      "portions": 3,
+      "description": "剔下来的那点肉，摊在案板上还没有巴掌大。你已经不记得上一次挑食是什么时候了。",
+      "_id": "rat_meat",
+      "_anchor": "godot/scripts/CookingLogic.cs :: FoodCalories（热量点）+ godot/scripts/Materials.cs（名称/说明）",
+      "userNote": "",
+      "sync": "",
+      "_icon": "food/rat_meat"
+    },
+    {
+      "name": "鸟肉",
+      "calories": 5,
+      "portions": 4,
+      "description": "两条细腿，一小块胸脯。它飞了一辈子，最后落在这块案板上——所有的翅膀都是这么用完的。",
+      "_id": "bird_meat",
+      "_anchor": "godot/scripts/CookingLogic.cs :: FoodCalories（热量点）+ godot/scripts/Materials.cs（名称/说明）",
+      "userNote": "",
+      "sync": "",
+      "_icon": "food/bird_meat"
     },
     {
       "name": "玫瑰果",

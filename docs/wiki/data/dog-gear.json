@@ -140,7 +140,7 @@
       "bluntDefense": 12,
       "weight": 1.5,
       "carryBonus": 0,
-      "description": "曾经他是不让狗咬你的，现在他是用来保护狗咬你的。",
+      "description": "曾经保护你的，现在保护狗。",
       "_id": "铁丝头甲",
       "_anchor": "godot/scripts/DogApparel.cs :: DogGearCatalog.Defs（护甲值在 ArmorTable.Dog*）",
       "userNote": "",

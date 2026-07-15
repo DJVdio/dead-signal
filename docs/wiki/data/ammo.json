@@ -2,7 +2,7 @@
   "id": "ammo",
   "label": "弹药与箭",
   "source": "godot/scripts/Materials.cs + src/DeadSignal.Combat/Ammo.cs + src/DeadSignal.Combat/Archery.cs",
-  "note": "四种子弹（短/中/长/鹿弹）全部从「子弹零件」造，1 个零件造几发决定了这把枪贵不贵。四种箭是另一回事——**箭反过来改写弓的属性**：最终属性 = 弓的基础属性 × 这里的倍率。箭可回收，子弹不能。",
+  "note": "四种子弹（短/中/长/鹿弹）全部从「子弹零件」造，1 个零件造几发决定了这把枪贵不贵。四种箭是另一回事——**箭反过来改写弓的属性**：最终属性 = 弓的基础属性 * 这里的倍率。箭可回收，子弹不能。",
   "columns": [
     {
       "key": "name",
@@ -25,19 +25,19 @@
       "key": "damageMult",
       "label": "伤害倍率",
       "type": "mult",
-      "hint": "箭反过来改写弓的属性：最终伤害 = 弓的伤害 × 这个数"
+      "hint": "箭反过来改写弓的属性：最终伤害 = 弓的伤害 * 这个数"
     },
     {
       "key": "penetrationMult",
       "label": "破甲倍率",
       "type": "mult",
-      "hint": "最终穿透力 = 弓的穿透力 × 这个数"
+      "hint": "最终穿透力 = 弓的穿透力 * 这个数"
     },
     {
       "key": "rangeMult",
       "label": "射程倍率",
       "type": "mult",
-      "hint": "最终射程 = 弓的射程 × 这个数"
+      "hint": "最终射程 = 弓的射程 * 这个数"
     },
     {
       "key": "cooldownMult",
@@ -203,7 +203,7 @@
       "spreadMult": 1,
       "craftable": true,
       "weight": 0.03,
-      "description": "木杆、铁头、布尾羽，手工出品。称不上精良，但每一支都长得一样——对一个弓手来说，这比精良更要紧。",
+      "description": "木杆、铁头、羽毛尾翎，手工出品。称不上精良，但每一支都长得一样——对一个弓手来说，这比精良更要紧。",
       "_id": "ammo_arrow_handmade",
       "_anchor": "src/DeadSignal.Combat/Archery.cs :: ArrowTable（倍率）+ godot/scripts/Materials.cs（名称/说明）",
       "userNote": "",
