@@ -88,7 +88,7 @@ public class WeaponModWhitelistTests
     }
 
     /// <summary>
-    /// 🔴 <b>[T47] 14 条改装的白名单 = 用户在 wiki 上逐格勾出来的那张表，逐条钉死。</b>
+    /// 🔴 <b>[T47/T68] 15 条改装的白名单 = 用户在 wiki 上逐格勾出来的那张表，逐条钉死</b>（[T68] 新增锋刃型）。
     ///
     /// <para>这条**取代了**原先"白名单 ≡ 旧大类"的两条迁移护栏 —— 那个意图已经完成使命并被用户推翻：
     /// 他把每条改装的可装武器**改成各不相同**了（截短枪管划掉冲锋枪、三型态划掉手枪+冲锋枪、
@@ -98,11 +98,12 @@ public class WeaponModWhitelistTests
     /// 用户在 wiki 上改了勾选，来同步的人改这张表即可 —— <b>它就是那张表</b>。</para>
     /// </summary>
     [Fact]
-    public void 十四条改装的白名单_逐条等于用户在wiki上勾的那张表()
+    public void 十五条改装的白名单_逐条等于用户在wiki上勾的那张表()
     {
         string[] guns6 = { "自制猎枪", "手枪", "冲锋枪", "步枪", "狙击枪", "自制霰弹枪" };
         string[] gunsSawn = { "自制猎枪", "手枪", "步枪", "狙击枪", "自制霰弹枪" };          // 用户划掉冲锋枪
         string[] gunsForm = { "自制猎枪", "步枪", "狙击枪", "自制霰弹枪" };                  // 用户划掉手枪+冲锋枪
+        string[] gunsBladeForm = { "手枪", "冲锋枪" };                                       // [T68] 锋刃型＝短枪专属（与 gunsForm 不相交）
         // 🔴 消防斧已按用户拍板勾进锐器改装（「和长剑同档」）—— **唯独镂空剑刃不勾**
         //    （镂空会挖掉消防斧赖以成立的头部质量，见 消防斧按与长剑同档的口径拿到五条锐器改装_唯独镂空剑刃不勾）
         string[] blades6WithAxe = { "匕首", "短剑", "刺剑", "长剑", "草叉", "重剑", "消防斧" };
@@ -119,6 +120,7 @@ public class WeaponModWhitelistTests
             ["bayonet"] = gunsForm,
             ["claw_stock"] = gunsForm,
             ["trauma_stock"] = gunsForm,
+            ["blade_stock"] = gunsBladeForm,   // [T68] 锋刃型（手枪/冲锋枪）
             ["serrated_blade"] = serratedFits,
             ["honed_edge"] = blades6WithAxe,
             ["fuller_blade"] = fullerFits,
@@ -130,7 +132,7 @@ public class WeaponModWhitelistTests
         };
 
         IReadOnlyList<WeaponMod> actual = WeaponModCatalog.All();
-        Assert.Equal(14, actual.Count);   // 「防滑缠手（钝器）」已按用户的删除标记撤下（原 15 条）
+        Assert.Equal(15, actual.Count);   // [T68] 新增锋刃型（14 → 15）
 
         foreach (WeaponMod mod in actual)
         {
@@ -176,8 +178,10 @@ public class WeaponModWhitelistTests
     /// <summary>
     /// ✅ <b>[用户拍板] 消防斧按「和长剑同档」的口径勾进锐器改装 —— 6 条里拿到 5 条。</b>
     ///
-    /// <para>依据：消防斧 DPS <b>2.79</b> ≈ 长剑 <b>2.81</b>（同档）。用户原话是要「**和长剑同档的口径**」，
-    /// 不是"一个字不差照抄" ⇒ 逐条过了语义，**只跳掉「镂空剑刃」一条**。</para>
+    /// <para>依据（口径）：消防斧原先 DPS <b>2.79</b> ≈ 长剑 <b>2.81</b>（同档）。用户原话是要「**和长剑同档的口径**」，
+    /// 不是"一个字不差照抄" ⇒ 逐条过了语义，**只跳掉「镂空剑刃」一条**。
+    /// （⚠ [weapon-finalize] 消防斧已升到 6.5~14＝DPS 3.01，略高于长剑——但**改装白名单是用户拍板的口径归属**，
+    /// 不随 DPS 微调重算；这条测试钉的是"哪些改装装得上"，与具体 DPS 值无关，故不受升伤影响。）</para>
     ///
     /// <para>🔴 <b>为什么单单跳镂空剑刃</b>（这是本条测试真正要钉住的判断）：
     /// 理由**不是**"消防斧没有'剑刃'" —— 加重剑柄/轻质化剑柄/锯齿剑刃也都叫"剑X"，按名字否决会把 4 条一起误杀。

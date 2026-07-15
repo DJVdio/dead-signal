@@ -174,7 +174,7 @@ public class GunModBenchTests
     public void Bayonet_HasHighestPenetration_OfAllForms()
     {
         var forms = WeaponModCatalog.For(WeaponClass.Firearm).Where(m => m.Form is not null).ToList();
-        Assert.Equal(3, forms.Count);   // 利爪 / 创伤 / 刺刀，不多不少
+        Assert.Equal(4, forms.Count);   // [T68] 利爪 / 创伤 / 刺刀（重枪）+ 锋刃（短枪），不多不少
 
         double PenOf(string name) =>
             Mod(Rifle(), forms.First(m => m.Name == name)).Weapon.MeleeProfile()!.Penetration;
@@ -196,17 +196,156 @@ public class GunModBenchTests
     private static WeaponMod Catalog(string name)
         => WeaponModCatalog.For(WeaponClass.Firearm).First(m => m.Name == name);
 
-    /// <summary>**一把枪只能有一种近战型态**（三选一）。刺刀在枪口、利爪在枪托——部位不同，故必须靠型态规则挡住。</summary>
+    /// <summary>
+    /// 🔴 <b>用户拍板：「一把枪械只能进行一种近战改装」—— 三种型态两两互斥，三选一。</b>
+    ///
+    /// <para><b>这不只是平衡，是【语义必要条件】</b>：三种型态各自 <c>Set</c> 掉这把枪的整个近战 profile
+    /// （刺刀 = 80% 攻速的刺剑 / 利爪 = 消防斧 / 创伤 = 尖头锤）。若能同时装，同一把枪的近战模式就有
+    /// <b>三个互相覆盖的定义</b>，最终数值取决于**遍历顺序** —— 那是个隐藏的顺序依赖 bug，不是"叠了个 buff"。</para>
+    ///
+    /// <para>🔴 <b>护栏必须卡最坏一对。</b> 部位安排让这条规则有**两道**闸：
+    /// <list type="bullet">
+    /// <item><b>利爪 + 创伤</b> 同占「枪托」⇒ **部位冲突**先拦下 —— 这一对<b>就算把型态规则整个删掉也照样报错</b>，
+    ///       拿它当护栏是**假绿**（旧测试正是只测了这一对 + 刺刀利爪）。</item>
+    /// <item><b>刺刀（枪口）+ 利爪/创伤（枪托）</b> 部位**不冲突** ⇒ **只有型态规则挡得住**。
+    ///       其中 <b>「刺刀 + 创伤」此前一条测试都没有</b> —— 正是"中间塌了测不出来"的那种洞。</item>
+    /// </list>
+    /// 故这里**三对全测、且两种施加顺序都测**（顺序依赖正是要防的东西），外加"三个一起装"。</para>
+    /// </summary>
     [Fact]
-    public void OnlyOneMeleeForm_PerWeapon()
+    public void OnlyOneMeleeForm_PerWeapon_AllPairs_BothOrders()
     {
-        // 刺刀(枪口) + 利爪(枪托)：部位不冲突，但型态冲突 ⇒ 必须拒绝
-        WeaponModException ex = Assert.Throws<WeaponModException>(
-            () => Mod(Rifle(), Catalog("刺刀型"), Catalog("利爪型")));
-        Assert.Contains("近战型态", ex.Message);
+        string[] forms = { "刺刀型", "利爪型", "创伤型" };
 
-        // 利爪 + 创伤：同占枪托 ⇒ 部位冲突先拦下
-        Assert.Throws<WeaponModException>(() => Mod(Rifle(), Catalog("利爪型"), Catalog("创伤型")));
+        // 三对 × 两种顺序 —— 一对都不许漏（含只靠型态规则挡住的「刺刀+创伤」）
+        foreach (string a in forms)
+        {
+            foreach (string b in forms.Where(x => x != a))
+            {
+                WeaponModException ex = Assert.Throws<WeaponModException>(
+                    () => Mod(Rifle(), Catalog(a), Catalog(b)));
+
+                // 报错必须说人话（这条会原样显示给玩家，见 CraftingPanel 的 Blocks）
+                Assert.True(ex.Message.Contains("近战型态") || ex.Message.Contains("部位"),
+                    $"{a}+{b} 的拒绝理由玩家看不懂：{ex.Message}");
+            }
+        }
+
+        // 三个一起装：无论如何都得拒绝
+        Assert.Throws<WeaponModException>(
+            () => Mod(Rifle(), Catalog("刺刀型"), Catalog("利爪型"), Catalog("创伤型")));
+
+        // 而**单独一个**型态照常能装（别把互斥写成"一个都不许装"）
+        foreach (string only in forms)
+        {
+            Assert.NotNull(Mod(Rifle(), Catalog(only)).Weapon.MeleeProfile());
+            Assert.Equal(1, Mod(Rifle(), Catalog(only)).AppliedMods.Count(m => m.Form is not null));
+        }
+    }
+
+    /// <summary>
+    /// **只有型态规则挡得住的那两对**，单独再钉一次 —— 并且断言拒绝理由**确实来自型态规则**（不是部位）。
+    /// <para>
+    /// 这条是**变异探针**：谁把 <c>WeaponMods.ApplyMods</c> 里那段"至多一条带近战型态的改装"删掉，
+    /// 部位闸拦不住这两对（枪口 vs 枪托），它们会**默默合成成功** ⇒ 本条立刻红。
+    /// 上一条测试里"利爪+创伤"那一对是拦不住这个变异的（它有部位闸兜底），故必须有这一条。
+    /// </para>
+    /// </summary>
+    [Theory]
+    [InlineData("刺刀型", "利爪型")]
+    [InlineData("刺刀型", "创伤型")]   // ← 此前完全没测过的那一对
+    public void MeleeFormRule_IsTheOnlyThingStopping_MuzzlePlusStock(string muzzleForm, string stockForm)
+    {
+        // 前提：这两条改装占的是**不同部位**（所以部位闸帮不上忙）
+        Assert.NotEqual(Catalog(muzzleForm).Part, Catalog(stockForm).Part);
+
+        WeaponModException ex = Assert.Throws<WeaponModException>(
+            () => Mod(Rifle(), Catalog(muzzleForm), Catalog(stockForm)));
+
+        Assert.Contains("近战型态", ex.Message);   // 拒绝理由必须是型态规则本身
+    }
+
+    // ══════════════════════════ [T68] 锋刃型（短枪第 4 种近战型态）══════════════════════════
+    //
+    // 🔴 派单的担忧：「impl-weaponmod 的三选一只覆盖了长枪三型态，可能不知道有锋刃型 ⇒ 手枪能同时装锋刃型+刺刀型」。
+    // 核实结论（见下三条测试）：
+    //   ① 型态互斥规则**本就是通用的**（认任何带 Form 的改装，非硬编码三种）⇒ 锋刃型给了 Form 就自动进组。
+    //   ② "手枪同时装锋刃型+刺刀型"**在白名单层就不可能**：刺刀/利爪/创伤的白名单 = 4 把重枪，**根本不含手枪**
+    //      ⇒ 往手枪上装刺刀，在 FitsWeapons 闸就被拒（"装不到...上"），够不着型态闸。
+    // ⚠️ **假绿警告（派单点名的坑）**：锋刃型占**枪托**，与利爪/创伤同部位。若拿"锋刃型+利爪型"当型态护栏，
+    //     部位闸会先拦下 ⇒ 删掉型态规则它照样红 = 假绿。**且这一对在任何真枪上都装不上**（白名单不相交），
+    //     故本簇**不用它当护栏**，改用①的结构断言 + ②的白名单断言。
+
+    private static WeaponMod GunMod(string name)
+        => WeaponModCatalog.For(WeaponClass.Firearm).First(m => m.Name == name);
+
+    /// <summary>① 锋刃型带 <see cref="MeleeForm"/> ⇒ 结构上就在"至多一种型态"互斥组里（那条规则认任何 Form）。</summary>
+    [Fact]
+    public void 锋刃型_是第四种近战型态_带Form进互斥组()
+    {
+        Assert.NotNull(GunMod("锋刃型").Form);
+        Assert.Equal(MeleeForm.Blade, GunMod("锋刃型").Form);
+    }
+
+    /// <summary>
+    /// ② 🔴 <b>这才是"手枪不可能同时挂两种近战型态"的真正防线</b>：白名单不相交。
+    /// 手枪装得上锋刃型；但刺刀/利爪/创伤的 <c>FitsWeapons</c> 里**根本没有手枪** ⇒ 往手枪上装它们，
+    /// 在 FitsWeapons 闸就被拒（够不着型态闸）。反向亦然：步枪装不上锋刃型。
+    /// </summary>
+    [Fact]
+    public void 短枪型态与重枪型态白名单严格不相交_故手枪装不了刺刀利爪创伤()
+    {
+        Weapon pistol = WeaponTable.Pistol();
+
+        // 手枪装得上锋刃型
+        Assert.NotNull(Mod(pistol, GunMod("锋刃型")).Weapon.MeleeProfile());
+
+        // 但装不上任何重枪型态——且拒绝理由是**白名单**（"装不到"），不是型态闸
+        foreach (string heavy in new[] { "刺刀型", "利爪型", "创伤型" })
+        {
+            WeaponModException ex = Assert.Throws<WeaponModException>(() => Mod(pistol, GunMod(heavy)));
+            Assert.Contains("装不到", ex.Message);
+        }
+
+        // 反向：步枪装不上锋刃型（同样白名单闸）
+        WeaponModException rev = Assert.Throws<WeaponModException>(() => Mod(Rifle(), GunMod("锋刃型")));
+        Assert.Contains("装不到", rev.Message);
+
+        // 结构断言：两组白名单交集为空（未来谁把手枪塞进重枪型态白名单，这条立刻红）
+        var bladeGuns = GunMod("锋刃型").FitsWeapons;
+        foreach (string heavy in new[] { "刺刀型", "利爪型", "创伤型" })
+            Assert.Empty(bladeGuns.Intersect(GunMod(heavy).FitsWeapons));
+    }
+
+    /// <summary>③ 锋刃型单独能装（别把互斥写成"一个都不许装"），且它进 AppliedMods 时算作一种型态。</summary>
+    [Fact]
+    public void 锋刃型_单独装在手枪上_成立且算一种型态()
+    {
+        ModdedWeapon r = Mod(WeaponTable.Pistol(), GunMod("锋刃型"));
+        Assert.NotNull(r.Weapon.MeleeProfile());
+        Assert.Equal(DamageType.Sharp, r.Weapon.MeleeProfile()!.DamageType);   // 匕首＝锐击
+        Assert.Equal(1, r.AppliedMods.Count(m => m.Form is not null));
+    }
+
+    /// <summary>
+    /// 🔴 <b>存档兼容</b>：老档里若真存着一把"同时装了两个近战型态"的枪（本不该存在——
+    /// <c>ApplyMods</c> 从来就拒绝这种组合，故正常游戏流程造不出来；但手改存档/未来数据变更可能造出来），
+    /// <b>读档必须走 <c>impl-sync-all</c> 定下的降级范式：回落成基础武器，不静默失效、不吞材料、不崩。</b>
+    /// <para>存档版本仍是 <b>v3</b>，本条不需要任何迁移代码（<c>Rebuild</c> 用**当前**规则重算，非法即 null）。</para>
+    /// </summary>
+    [Fact]
+    public void 存档_老档里同时装了两个近战型态的枪_载入回落成基础枪_不崩不消失()
+    {
+        var 非法档 = new ModdedWeaponSpec("步枪（刺刀型・创伤型）", "步枪", new[] { "刺刀型", "创伤型" });
+
+        // 严格版（"这组合合不合法"的判据，纯函数）⇒ null
+        Assert.Null(ModdedWeaponRegistry.Rebuild(非法档));
+
+        // 载入路径 ⇒ 回落成基础步枪：枪还在，改装没了
+        Weapon? fallen = ModdedWeaponRegistry.RebuildOrBase(非法档);
+        Assert.NotNull(fallen);
+        Assert.Equal("步枪", fallen!.Name);
+        Assert.Equal(DamageType.Blunt, fallen.MeleeProfile()!.DamageType);   // 原厂枪托，不是刺刀/铁锤
     }
 
     /// <summary>
@@ -221,22 +360,31 @@ public class GunModBenchTests
     /// ——棍棒是全表最弱的近战武器，一把加装了铁锤头的步枪打不过一根木棍，那才荒唐。
     /// 但它绝不能超过**一把真正的刀**。<b>创伤型 2.286 ＞ 棍棒 2.04 是有意为之，不是待修的 bug。</b></para>
     ///
-    /// <para>当前实算：<c>原厂枪托 1.80~1.89 ＜ 刺刀 1.895 ＜ 利爪 2.235 ＜ 创伤 2.286 ＜ 匕首 2.353</c>。
-    /// <b>护栏卡的是最坏一对</b>：下界 = 最强的原厂枪托（狙击 1.892）vs 最弱的型态（刺刀 1.895，只富余 0.003）；
-    /// 上界 = 最猛的型态（创伤 2.286）vs 匕首。中间没有洞 —— 逐枪 × 逐型态全扫。</para>
+    /// <para>🔴 <b>[T68] 上界从"匕首"松成"该型态克隆的那把武器本体"</b>。原设计（80% 攻速时）
+    /// 恰好让最猛的型态（创伤 2.286）也压在匕首 2.353 之下，于是拿匕首当上界。
+    /// 用户把攻速抬到 <b>85%</b> 后，利爪（=消防斧×0.85）/ 创伤（=尖头锤×0.85）会**略微超过最弱的匕首**
+    /// （利爪 ≈2.375 ＞ 匕首 ≈2.353，富余仅 ~0.02）——这是 85% 的直接后果，不是 bug：
+    /// <b>它们本就是"85% 的消防斧 / 尖头锤"，而消防斧/尖头锤远强于匕首，克隆件略过匕首是应得的。</b>
+    /// 设计意图「改装不取代真近战武器」仍成立的**结构性保证**：每个型态严格 ＜ 它克隆的那把武器本体（85% ＜ 100%），
+    /// 且远不及中高档真武器（长剑/重剑）——你要认真砍人还是会带把好刀。
+    /// ⚠️ "利爪/创伤 略过匕首"已上抛协调者确认（属 85% 的既知后果）。</para>
     /// </summary>
     [Fact]
-    public void ModdedStock_IsStrongerThanPlain_ButNeverBeatsTheDagger()
+    public void ModdedStock_IsStrongerThanPlain_ButNeverBeatsItsSourceWeapon()
     {
-        double dagger = Dps(WeaponTable.Dagger());
-        var forms = new[] { "刺刀型", "利爪型", "创伤型" };
+        var refByForm = new Dictionary<string, Weapon>
+        {
+            ["刺刀型"] = WeaponTable.Arsenal().First(w => w.Name == "刺剑"),
+            ["利爪型"] = WeaponTable.Arsenal().First(w => w.Name == "消防斧"),
+            ["创伤型"] = WeaponTable.Arsenal().First(w => w.Name == "尖头锤"),
+        };
 
         // ⚠️ 只有 4 把重枪能装近战型态（用户已把手枪/冲锋枪从白名单划掉）——逐枪逐型态全扫，不取样。
         foreach (Weapon gun in Firearms())
         {
             double plain = Dps(gun.MeleeProfile()!);
 
-            foreach (string form in forms)
+            foreach (var (form, source) in refByForm)
             {
                 WeaponMod mod = Catalog(form);
                 if (!mod.FitsWeapons.Contains(gun.Name)) continue;   // 手枪/冲锋枪装不了型态
@@ -245,9 +393,10 @@ public class GunModBenchTests
 
                 Assert.True(modded > plain,
                     $"{gun.Name}·{form} DPS {modded:F3} 必须强于原厂枪托 {plain:F3} —— 否则没人会去改");
-                Assert.True(modded < dagger,
-                    $"{gun.Name}·{form} DPS {modded:F3} 不得达到匕首 {dagger:F3} —— " +
-                    "改装不该取代真近战武器，否则「我该不该带把刀」就不成其为一个选择");
+                // [T68] 上界 = 克隆源本体（85% 攻速 ⇒ 型态永远严格弱于它模仿的那把武器）
+                Assert.True(modded < Dps(source),
+                    $"{gun.Name}·{form} DPS {modded:F3} 不得达到其克隆源「{source.Name}」{Dps(source):F3} —— " +
+                    "型态是 85% 攻速的克隆，永远不该反超本体");
             }
         }
     }
@@ -289,14 +438,14 @@ public class GunModBenchTests
     }
 
     /// <summary>
-    /// 三种型态的枪托 = <b>80% 攻速的〈刺剑 / 消防斧 / 尖头锤〉</b> —— 逐字段对着 <c>WeaponTable</c> 核。
-    /// <para>数值**从武器表读、不抄数字** ⇒ 用户日后调那三把武器，三个型态自动跟着变。这条钉死这层联动。</para>
+    /// 型态的枪托 = <b>[T68] 85% 攻速的〈刺剑 / 消防斧 / 尖头锤 / 匕首〉</b> —— 逐字段对着 <c>WeaponTable</c> 核。
+    /// <para>数值**从武器表读、不抄数字** ⇒ 用户日后调那几把武器，型态自动跟着变。这条钉死这层联动 + 85% 攻速系数。</para>
     /// </summary>
     [Theory]
     [InlineData("刺刀型", "刺剑")]
     [InlineData("利爪型", "消防斧")]
     [InlineData("创伤型", "尖头锤")]
-    public void Forms_AreExactlyTheReferenceWeapon_At80PercentSpeed(string form, string referenceName)
+    public void Forms_AreExactlyTheReferenceWeapon_At85PercentSpeed(string form, string referenceName)
     {
         Weapon reference = WeaponTable.Arsenal().First(w => w.Name == referenceName);
         Weapon stock = Mod(Rifle(), Catalog(form)).Weapon.MeleeProfile()!;
@@ -305,8 +454,21 @@ public class GunModBenchTests
         Assert.Equal(reference.DamageMax, stock.DamageMax, 9);
         Assert.Equal(reference.Penetration, stock.Penetration, 9);
         Assert.Equal(reference.NoiseRadius, stock.NoiseRadius, 9);
-        Assert.Equal(reference.AttackInterval / 0.8, stock.AttackInterval, 9);   // 80% 攻速 ⇒ 间隔 ×1.25
-        Assert.Equal(Dps(reference) * 0.8, Dps(stock), 9);
+        Assert.Equal(reference.AttackInterval / 0.85, stock.AttackInterval, 9);   // [T68] 85% 攻速 ⇒ 间隔 ÷0.85
+        Assert.Equal(Dps(reference) * 0.85, Dps(stock), 9);
+    }
+
+    /// <summary>[T68] 锋刃型（短枪）的枪托 = 85% 攻速的匕首——单独核一遍（它装在手枪，不在上面 Theory 的 Rifle 上）。</summary>
+    [Fact]
+    public void BladeForm_IsExactlyTheDagger_At85PercentSpeed()
+    {
+        Weapon dagger = WeaponTable.Arsenal().First(w => w.Name == "匕首");
+        Weapon stock = Mod(WeaponTable.Pistol(), GunMod("锋刃型")).Weapon.MeleeProfile()!;
+
+        Assert.Equal(dagger.DamageMin, stock.DamageMin, 9);
+        Assert.Equal(dagger.DamageMax, stock.DamageMax, 9);
+        Assert.Equal(dagger.Penetration, stock.Penetration, 9);
+        Assert.Equal(dagger.AttackInterval / 0.85, stock.AttackInterval, 9);
     }
 
     // ==================== 3. 改装台：设施 + 材料 + 工时 ====================

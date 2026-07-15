@@ -74,11 +74,16 @@ public enum WeaponStat
 }
 
 /// <summary>
-/// **近战型态**（用户点名的三种）：给枪装上近战件之后，"贴脸/打空时抡枪托"打出来的东西变成什么。
+/// **近战型态**（用户点名的<b>四种</b>）：给枪装上近战件之后，"贴脸/打空时抡枪托"打出来的东西变成什么。
 /// <para>
-/// 一把枪**至多一种型态**（三选一，见 <see cref="WeaponMods.ApplyMods"/>）——枪口挂了刺刀又把枪托锯了改铁锤，
-/// 那是两把不同的枪。型态决定枪托近战的**伤害类型**（<see cref="StockMeleeDamageTypeOf"/>），
-/// 具体数值增量仍走各自的 <see cref="WeaponMod.Stats"/>。
+/// 一把枪**至多一种型态**（见 <see cref="WeaponMods.ApplyMods"/> 的通用互斥判据——它认<b>任何</b>带 Form 的改装，
+/// 不是硬编码那几种）——枪口挂了刺刀又把枪托锯了改铁锤，那是两把不同的枪。
+/// 型态决定枪托近战的**伤害类型**（<see cref="StockMeleeDamageTypeOf"/>），具体数值增量仍走各自的 <see cref="WeaponMod.Stats"/>。
+/// </para>
+/// <para>
+/// 🔴 <b>[T68] 前三种给 4 把重枪（刺刀/利爪/创伤，见 <c>GunsMeleeForm</c>），<see cref="Blade"/> 给 2 把短枪
+/// （手枪/冲锋枪，见 <c>GunsBladeForm</c>）——两组白名单<b>不相交</b>。所以"手枪同时装锋刃型+刺刀型"这种事
+/// **在白名单层就被挡死**（刺刀根本不进手枪的候选），型态互斥是第二道闸（防未来白名单变动）。</b>
 /// </para>
 /// </summary>
 public enum MeleeForm
@@ -91,6 +96,10 @@ public enum MeleeForm
 
     /// <summary>刺刀型：枪口挂刺刀 → **刺击穿透**。全型态最高穿透、出手最快最安静，单击伤害不及利爪。</summary>
     Bayonet,
+
+    /// <summary>[T68] 锋刃型：枪托（握把）固定一把匕首 → 锐器**切割**。**给短枪（手枪/冲锋枪）的近战型态**——
+    /// 短枪装不了刺刀/利爪/创伤（那三种是重枪专属），它换来一把 85% 攻速的匕首，近身出其不意。</summary>
+    Blade,
 }
 
 /// <summary>数值改装的运算方式。</summary>
@@ -300,6 +309,7 @@ public static class WeaponMods
     {
         MeleeForm.Claw => DamageType.Sharp,      // 绑刃挥砍
         MeleeForm.Bayonet => DamageType.Sharp,   // 刺刀突刺（引擎只有 Sharp/Blunt 两型，"刺击"归锐击，其穿透优势由 Penetration 表达）
+        MeleeForm.Blade => DamageType.Sharp,     // [T68] 锋刃型＝固定一把匕首，锐击切割
         MeleeForm.Trauma => DamageType.Blunt,    // 改铁锤，仍是钝的，只是更重
         _ => DamageType.Blunt,
     };

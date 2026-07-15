@@ -366,7 +366,7 @@ public class WeaponModWearTests
         try
         {
             double plainRifle = ItemWeights.WeaponKg("步枪");
-            Assert.Equal(4.0, plainRifle, 6);
+            Assert.Equal(7.5, plainRifle, 6);   // [carryweight2] 步枪基础重 4.0→7.5（用户 wiki 翻倍）
 
             // 创伤型 +50%
             string trauma = ModdedWeaponRegistry.Register(
@@ -383,20 +383,20 @@ public class WeaponModWearTests
     }
 
     /// <summary>
-    /// 多条改装的重量**连乘**（百分比一律乘算，CLAUDE.md 铁律）—— 满改装步枪 <b>4.0 → 8.1kg</b>。
+    /// 多条改装的重量**连乘**（百分比一律乘算，CLAUDE.md 铁律）—— [carryweight2·枪重翻倍后] 满改装步枪 <b>7.5 → 15.1875kg</b>。
     ///
     /// <para>
     /// 🔴 <b>改装的代价形态 = 「它吃掉你的搜刮余量」，不是"出门即 debuff"</b>（用户拍板：三条线就是 30/50/80，不改）：
-    /// 满改装步枪出门（中期配置 17.9kg）**仍在 30kg 免罚线下、一分不罚**；但硬余量从 66.2 掉到 62.1kg
-    /// ⇒ <b>原厂刚好搬得空最大点位（66kg），满改装就搬不空了</b>。「要么带甲带枪、要么带货」由此成立。
+    /// 满改装步枪出门（中期配置 24.99kg）**仍在 30kg 免罚线下、一分不罚**（余量只剩 5kg）；硬余量从 62.7 掉到 55.0kg
+    /// ⇒ 枪重翻倍后原厂中期步枪已搬不空最大点位（66kg），满改装再多留 7.69kg。「要么带甲带枪、要么带货」由此成立。
     /// </para>
     /// <para>
-    /// ⚠️ <c>impl-carryweight</c> 的第一版 HANDOFF 写的是 7.5kg（它按加长枪管 +25% 算的）；
-    /// **用户在 wiki 上写的是 +35%** ⇒ 实际是 <b>8.1kg</b>。以 wiki 为准（表赢代码），它已按 8.1 重标余量表。
+    /// 增重乘子沿用创伤型枪托 +50% × 加长枪管 +35%（wiki）；步枪基础重由 4.0 翻倍到 7.5（用户 wiki 手改，
+    /// carryweight2 落地）⇒ 满改装实重 = 7.5 × 1.5 × 1.35 = <b>15.1875kg</b>。
     /// </para>
     /// </summary>
     [Fact]
-    public void 多条改装的重量连乘_满改装步枪八点一公斤()
+    public void 多条改装的重量连乘_满改装步枪十五点一九公斤()
     {
         ModdedWeaponRegistry.Clear();
         try
@@ -407,8 +407,8 @@ public class WeaponModWearTests
                 WeaponTable.Rifle(),
                 new[] { WeaponModCatalog.TraumaStock(), WeaponModCatalog.ExtendedBarrel() }));
 
-            Assert.Equal(4.0 * 1.50 * 1.35, ItemWeights.WeaponKg(heavy), 6);   // = 8.1kg
-            Assert.Equal(8.1, ItemWeights.WeaponKg(heavy), 6);
+            Assert.Equal(7.5 * 1.50 * 1.35, ItemWeights.WeaponKg(heavy), 6);   // = 15.1875kg
+            Assert.Equal(15.1875, ItemWeights.WeaponKg(heavy), 6);
             Assert.True(ItemWeights.WeaponKg(heavy) > ItemWeights.WeaponKg("步枪") * 2 * 0.9,
                 "满改装步枪应该重到玩家能感觉出来——这正是用户要的核心代价");
         }
@@ -425,8 +425,8 @@ public class WeaponModWearTests
         Assert.Equal(1.0, ModdedWeaponRegistry.WeightMultiplierOf("没听说过的东西"), 9);
         Assert.Equal(1.0, ModdedWeaponRegistry.WeightMultiplierOf(null), 9);
 
-        Assert.Equal(4.0, ItemWeights.WeaponKg("步枪"), 6);
-        Assert.Equal(1.2, ItemWeights.WeaponKg("短剑"), 6);
+        Assert.Equal(7.5, ItemWeights.WeaponKg("步枪"), 6);   // [carryweight2] 步枪基础重 4.0→7.5
+        Assert.Equal(1.6, ItemWeights.WeaponKg("短剑"), 6);   // wiki 同步（1.2 → 1.6）
     }
 
     /// <summary>

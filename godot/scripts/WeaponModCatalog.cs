@@ -40,16 +40,17 @@ namespace DeadSignal.Godot;
 /// ⚠️ <b>旧口径（已作废，别照着推理）</b>：型态是"在这把枪自己的枪托数值上乘一个系数" ⇒ 重枪改出来的更猛。
 /// </para>
 /// <para>
-/// <b>新口径（用户写在 wiki 上）</b>：「近战模式**等同于 80% 攻速的〈某把近战武器〉**」——
-/// 刺刀＝刺剑、利爪＝消防斧、创伤＝尖头锤，一律 <b>覆盖（Set）</b>而非缩放。
-/// ⇒ <b>所有枪的同一型态，枪托数值完全一样</b>（<b>你捅人用的是那把刺刀，不是那把枪</b>）。
-/// 差异全部搬到**重量代价**上：+10% / +30% / +50%。
+/// <b>新口径（用户写在 wiki 上）</b>：「近战模式**等同于 85% 攻速的〈某把近战武器〉**」（[T68] 原 80%）——
+/// 刺刀＝刺剑、利爪＝消防斧、创伤＝尖头锤、<b>[T68] 锋刃＝匕首</b>，一律 <b>覆盖（Set）</b>而非缩放。
+/// ⇒ <b>所有枪的同一型态，枪托数值完全一样</b>（<b>你捅人用的是那把刀，不是那把枪</b>）。
+/// 差异全部搬到**重量代价**上：刺刀 +10% / 利爪 +30% / 创伤 +50% / 锋刃 +5%。
 /// </para>
 /// <para>
-/// 实算（80% 攻速 ⇒ 出手间隔 ×1.25 ⇒ DPS ×0.8）：
-/// <c>刺刀 1.895（刺剑 2.368×0.8） ＜ 利爪 2.235（消防斧 2.794×0.8） ＜ 创伤 2.286（尖头锤 2.857×0.8）</c>
-/// —— <b>DPS 排序与重量代价排序单调一致</b>，且三者<b>全部低于匕首 2.353</b>：
+/// [T68] 攻速 85% ⇒ 出手间隔 ÷0.85 ⇒ DPS ×0.85（原 80% 时为 ×0.8，四种型态一律提速）。
+/// DPS 排序仍与重量代价排序单调一致（刺刀 ＜ 利爪 ＜ 创伤），且全部**低于同源匕首本体**：
 /// 改装能让你"打空了还能打"，但**不能让你不必带近战武器**。
+/// 🔴 具体 DPS 数不在此钉死（刺剑/消防斧/尖头锤/匕首的数值另有 agent 在同步，钉了就会过时）——
+/// 它们从 <see cref="WeaponTable"/> 实读，用户调基准武器时四型态自动跟着变。
 /// </para>
 /// <para>
 /// 🔴 <b>创伤型 2.286 ＞ 棍棒 2.04 = 用户有意为之</b>（它代价最大：重量 +50%、材料最贵、240 工时）。
@@ -143,9 +144,17 @@ public static class WeaponModCatalog
     private static IReadOnlySet<string> GunsSawnOff()
         => Names("自制猎枪", "手枪", "步枪", "狙击枪", "自制霰弹枪");
 
-    /// <summary>能装近战型态的 4 把重枪（用户划掉了手枪与冲锋枪）。</summary>
+    /// <summary>能装**重枪型态**（刺刀/利爪/创伤）的 4 把重枪（用户划掉了手枪与冲锋枪）。</summary>
     private static IReadOnlySet<string> GunsMeleeForm()
         => Names("自制猎枪", "步枪", "狙击枪", "自制霰弹枪");
+
+    /// <summary>
+    /// [T68] 能装**短枪型态**（锋刃型）的 2 把短枪：手枪 / 冲锋枪。
+    /// 🔴 **与 <see cref="GunsMeleeForm"/> 严格不相交** —— 短枪装不了刺刀/利爪/创伤，重枪装不了锋刃。
+    /// 这是"手枪不可能同时挂两种近战型态"的**第一道闸**（白名单层）；型态互斥是第二道（防未来白名单变动）。
+    /// </summary>
+    private static IReadOnlySet<string> GunsBladeForm()
+        => Names("手枪", "冲锋枪");
 
     // ═══════════════════════════════════════════════════════════════════════════
     // 【T47 追加·用户拍板】消防斧按「**和长剑同档**」的口径勾进锐器改装。
@@ -215,15 +224,15 @@ public static class WeaponModCatalog
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // 【近战型态的数值来源】"等同于 80% 攻速的〈某把武器〉" —— 直接从 WeaponTable **读那把武器**，
-    // 覆盖（Set）到枪托近战的五个字段上。**不抄数字**：用户日后调刺剑/消防斧/尖头锤，三个型态自动跟着变。
+    // 【近战型态的数值来源】"等同于 85% 攻速的〈某把武器〉" —— 直接从 WeaponTable **读那把武器**，
+    // 覆盖（Set）到枪托近战的五个字段上。**不抄数字**：用户日后调刺剑/消防斧/尖头锤/匕首，四个型态自动跟着变。
     //
-    // 80% 攻速 ⇒ 出手间隔 ÷ 0.8（= ×1.25）。伤害/穿透/噪音**原样照抄**那把武器。
+    // [T68·用户手改] 攻速 80% → **85%**（四种型态一律）：出手间隔 ÷ 0.85（≈ ×1.176）。伤害/穿透/噪音**原样照抄**那把武器。
     // ⚠ 砸墙系数不在此列（Weapon.MeleeProfile 不复制它，枪托砸墙恒为默认 1.0）——wiki 表也没写。
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// <summary>攻速折扣：型态的枪托近战 = 该武器的 <paramref name="speed"/> 倍攻速（0.8 ⇒ 间隔 ×1.25）。</summary>
-    private const double MeleeFormSpeed = 0.8;
+    /// <summary>攻速折扣：型态的枪托近战 = 该武器的 <see cref="MeleeFormSpeed"/> 倍攻速（0.85 ⇒ 间隔 ÷0.85 ≈ ×1.176）。</summary>
+    private const double MeleeFormSpeed = 0.85;   // [T68] 用户手改，原 0.8
 
     /// <summary>把一把近战武器**覆盖**成枪托近战的五条 Set（伤害下限/上限、穿透、间隔、噪音）。</summary>
     private static StatMod[] StockMeleeLike(Weapon melee) => new[]
@@ -235,7 +244,7 @@ public static class WeaponModCatalog
         StatMod.Set(WeaponStat.StockMeleeNoiseRadius, melee.NoiseRadius),
     };
 
-    // ============ 枪械改装（6 条）============
+    // ============ 枪械改装（7 条）============
 
     /// <summary>
     /// 轻质化枪托：<b>整把枪减重 15%</b>，代价是散布 +10%。
@@ -317,8 +326,8 @@ public static class WeaponModCatalog
     // 差异全在**重量代价**：刺刀 +10% ＜ 利爪 +30% ＜ 创伤 +50%，与 DPS 排序单调一致。
 
     /// <summary>
-    /// 刺刀型（枪口）：近战 = <b>80% 攻速的刺剑</b>（2~7 / 穿透 25% / 间隔 2.375s ⇒ DPS 1.895）。
-    /// 三型态里**最快、最安静、穿透最高、伤害最低**，重量代价也最小（+10%）。
+    /// 刺刀型（枪口）：近战 = <b>85% 攻速的刺剑</b>（[T68] 原 80%；数值从 <see cref="WeaponTable.Rapier"/> 实读）。
+    /// 重枪三型态里**最快、最安静、穿透最高、伤害最低**，重量代价也最小（+10%）。
     /// </summary>
     public static WeaponMod Bayonet() => new()
     {
@@ -337,8 +346,8 @@ public static class WeaponModCatalog
     };
 
     /// <summary>
-    /// 利爪型（枪托）：近战 = <b>80% 攻速的消防斧</b>（4~15 / 穿透 18% / 间隔 4.25s ⇒ DPS 2.235）。
-    /// **单击最重**（消防斧上限 15，全型态最高），穿透中等，重量代价 +30%。
+    /// 利爪型（枪托）：近战 = <b>85% 攻速的消防斧</b>（[T68] 原 80%；数值从 <see cref="WeaponTable.Axe"/> 实读）。
+    /// **单击最重**（消防斧伤害上限全型态最高），穿透中等，重量代价 +30%。
     /// </summary>
     public static WeaponMod ClawStock() => new()
     {
@@ -357,9 +366,9 @@ public static class WeaponModCatalog
     };
 
     /// <summary>
-    /// 创伤型（枪托）：近战 = <b>80% 攻速的尖头锤</b>（6~14 / 钝击 / 间隔 4.375s ⇒ DPS 2.286）。
-    /// 三型态里 **DPS 最高**（唯一超过棍棒 2.04 的——<b>用户有意为之</b>：它代价最大），
-    /// 也**最重**（+50%）、最慢、最响。唯一一条**反向改善射击**的型态（散布 −3%：铁疙瘩压枪更稳）。
+    /// 创伤型（枪托）：近战 = <b>85% 攻速的尖头锤</b>（[T68] 原 80%；数值从 <see cref="WeaponTable.SpikeHammer"/> 实读）。
+    /// 重枪三型态里 **DPS 最高**（<b>用户有意为之</b>：它代价最大），也**最重**（+50%）、最慢、最响。
+    /// 唯一一条**反向改善射击**的型态（散布 −3%：铁疙瘩压枪更稳）。
     /// </summary>
     public static WeaponMod TraumaStock() => new()
     {
@@ -369,12 +378,39 @@ public static class WeaponModCatalog
         Part = WeaponPart.Stock,
         Form = MeleeForm.Trauma,
         Note = "枪托焊成一柄尖头锤：抡起来像铁疙瘩，砸下去也像。压枪倒是更稳了。",
-        MaterialCosts = Cost(("iron", 4), ("nails", 4)),   // [T46] 铁 4（原：金属锭 1 + 废金属 2 = 2 + 2）。
+        MaterialCosts = Cost(("iron", 4)),   // [T68·用户手改] 去掉「钉子*4」，只留铁 4（wiki 材料列 = 铁*4）。
         WorkMinutes = 240,
         WeightMultiplier = 1.50,                                  // 重量 +50%（全表最重的代价）
         Stats = StockMeleeLike(WeaponTable.SpikeHammer())
             .Append(StatMod.Mul(WeaponStat.BaseSpreadDegrees, 0.97))   // 散布 −3%（用户手改：配重让枪更稳）
             .ToArray(),
+    };
+
+    /// <summary>
+    /// [T68·用户在 wiki 上新加] 锋刃型（枪托）：近战 = <b>85% 攻速的匕首</b>（数值从 <see cref="WeaponTable.Dagger"/> 实读）。
+    /// <para>
+    /// 🔴 <b>这是给短枪（手枪 / 冲锋枪）的近战型态 —— 重枪的刺刀/利爪/创伤它们一件都装不了</b>（白名单不相交）。
+    /// 手枪贴脸时枪托本就打不出什么，固定一把匕首至少能捅；代价极小（重量 +5%、铁 1 + 绳 1、90 工时），
+    /// 换来的匕首本身也是全近战最弱的一档 —— 它补的是"短枪贴脸没有近战手段"这个洞，不是给短枪加一个强力近战。
+    /// </para>
+    /// <para>
+    /// <b>它是第四种 <see cref="MeleeForm"/></b>（<see cref="MeleeForm.Blade"/>）⇒ 自动进
+    /// <see cref="WeaponMods.ApplyMods"/> 的"至多一种近战型态"互斥组（那条规则认<b>任何</b>带 Form 的改装，非硬编码三种）。
+    /// 占**枪托**部位（与利爪/创伤同部位，但它们白名单不相交、装不到同一把枪上，故部位不会真冲突）。
+    /// </para>
+    /// </summary>
+    public static WeaponMod BladeStock() => new()
+    {
+        Id = "blade_stock",
+        Name = "锋刃型",
+        FitsWeapons = GunsBladeForm(),                           // 手枪 / 冲锋枪（与重枪三型态不相交）
+        Part = WeaponPart.Stock,
+        Form = MeleeForm.Blade,
+        Note = "将利刃固定在握把上，在近身时出其不意。",
+        MaterialCosts = Cost(("iron", 1), ("rope", 1)),
+        WorkMinutes = 90,
+        WeightMultiplier = 1.05,                                 // 重量 +5%
+        Stats = StockMeleeLike(WeaponTable.Dagger()),            // 无额外散布改动（wiki 只写了重量 +5%）
     };
 
     // ============ 近战锐器改装（6 条）============
@@ -608,6 +644,7 @@ public static class WeaponModCatalog
         WeaponClass.Firearm => new[]
         {
             LightenedStock(), SawnOffBarrel(), ExtendedBarrel(), Bayonet(), ClawStock(), TraumaStock(),
+            BladeStock(),   // [T68] 短枪（手枪/冲锋枪）专属近战型态
         },
         WeaponClass.Blade => new[]
         {
