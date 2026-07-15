@@ -361,12 +361,13 @@ public class AmmoTests
         // 拿到枪却一发能用的弹都没有 = 拿到一根烧火棍。而弹药分了 4 种 —— 给错种类等于没给。
         var flags = new StoryFlags();
 
-        // 河边小屋·枪柜：原本 ← 栓动猎枪（吃中子弹）。用户已把这把武器从数值表删除 ⇒ **枪柜不再产枪**。
-        // 本条"有枪必有弹"的断言因此在这个点上失去前提，改钉新事实：柜里没有武器、但弹药照旧留着
-        // （中子弹喂自制猎枪/步枪，鹿弹喂自制霰弹枪——枪要另寻或自己造）。
+        // 河边小屋·枪柜：原本 ← 栓动猎枪（吃中子弹）。栓动猎枪已删除后枪柜一度空了（设计缺口）⇒
+        // 用户拍板改掉**自制猎枪**填缺口——自制猎枪同吃中子弹，"有枪必有弹"的前提就地复位。
         CacheResult gunCabinet = ExplorationCache.Resolve(ExplorationCache.RiversideGunCabinetId, flags)!.Value;
-        Assert.DoesNotContain(gunCabinet.Loot, l => l.Kind == LootKind.Weapon);
-        Assert.Contains(gunCabinet.Loot, l => l.RefId == AmmoKeys.MediumBullet);
+        Assert.Contains(gunCabinet.Loot, l => l.Kind == LootKind.Weapon
+            && l.RefId == WeaponTable.ImprovisedHuntingGun().Name);
+        Assert.Contains(gunCabinet.Loot, l => l.RefId == WeaponTable.ImprovisedHuntingGun().AmmoKey);
+        Assert.Equal(AmmoKeys.MediumBullet, WeaponTable.ImprovisedHuntingGun().AmmoKey);
 
         // 金手指帮·军械柜 ← 冲锋枪（吃短子弹）
         CacheResult armory = ExplorationCache.Resolve(ExplorationCache.GoldfingerArmoryId, flags)!.Value;

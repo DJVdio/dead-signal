@@ -6,7 +6,7 @@ namespace DeadSignal.Combat.Tests;
 
 // 探索点「搜刮点」解析纯逻辑单测：cacheId → (flag/一批掉落/环境叙事)，已搜过（flag 已置）返回 null 防重复。
 // 两个前中期探索点（用户拍板"加两个探索点 河边小屋 联合收割机仓库"）：
-//   · 河边小屋：枪柜 ← 栓动猎枪；床底木箱 ← 通用搜刮（食物/医疗/材料）。
+//   · 河边小屋：枪柜 ← 自制猎枪 + 弹药/箭/布（原为栓动猎枪，该武器已删除⇒改掉自制猎枪填缺口，用户拍板）；床底木箱 ← 通用搜刮（食物/医疗/材料）。
 //   · 联合收割机仓库：工具柜 ← 通用木工材料；阁楼铁皮箱 ←《进阶木匠技术》。
 //     （《木匠入门》原拟放工具柜，用户改单撤出→改由「神秘商人」系统出售，本探索点不再投放它。）
 // 全部脱 Godot：只用 StoryFlags + ExplorationCache 的纯字符串/LootItem 状态。
@@ -19,16 +19,19 @@ public class ExplorationCacheTests
     }
 
     [Fact]
-    public void RiversideGunCabinet_FirstSearch_GrantsBoltRifleAndFlag()
+    public void RiversideGunCabinet_FirstSearch_GrantsImprovisedHuntingGunAndFlag()
     {
         var f = new StoryFlags();
         CacheResult? r = ExplorationCache.Resolve(ExplorationCache.RiversideGunCabinetId, f);
 
         Assert.NotNull(r);
         Assert.Equal(ExplorationCache.RiversideGunCabinetFlag, r!.Value.StoryFlag);
-        // 原钉「柜里有栓动猎枪」。用户已把这把武器从数值表删除 ⇒ 枪柜不再产枪，改钉新事实：
-        // 一件武器都不给（弹药/箭/布照旧），且**不许留下悬空的武器投放**（名字查不到 WeaponTable 工厂 = 没数值的枪）。
-        Assert.DoesNotContain(r.Value.Loot, l => l.Kind == LootKind.Weapon);
+        // 原钉「柜里有栓动猎枪」。用户把栓动猎枪从数值表删除后枪柜一度空了（设计缺口）⇒ 用户拍板改掉
+        // **自制猎枪**填缺口（栓动猎枪数值不复活；自制猎枪数值一字不动）。改钉新事实：
+        //   ① 枪柜给且只给「自制猎枪」这一把枪（名字须能在 WeaponTable 查到工厂，另见下方名对表护栏）；
+        //   ② 弹药/箭/布照旧。
+        LootItem gun = Assert.Single(r.Value.Loot, l => l.Kind == LootKind.Weapon);
+        Assert.Equal(DeadSignal.Combat.WeaponTable.ImprovisedHuntingGun().Name, gun.RefId);
         Assert.Contains(r.Value.Loot, l => l.Kind == LootKind.Material);
         Assert.False(string.IsNullOrWhiteSpace(r.Value.Title));
         Assert.False(string.IsNullOrWhiteSpace(r.Value.Narrative));
@@ -176,6 +179,7 @@ public class ExplorationCacheTests
     /// （Item.Weapon 以中文名作 RefKey）。这条护栏比原来那条更强：它管的是全部投放点，不止一把枪。
     /// </summary>
     [Theory]
+    [InlineData(ExplorationCache.RiversideGunCabinetId)]    // ← 自制猎枪
     [InlineData(ExplorationCache.RangersCabinAtticId)]      // ← 狩猎弓
     [InlineData(ExplorationCache.GoldfingerArmoryId)]       // ← 冲锋枪 + 复合弩
     [InlineData(ExplorationCache.SupermarketHoardGearId)]   // ← 竞技复合弓

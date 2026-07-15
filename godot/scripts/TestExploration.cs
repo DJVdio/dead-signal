@@ -1262,7 +1262,7 @@ public sealed partial class TestExploration : ExplorationLevel
 
     /// <summary>
     /// 河边小屋（前中期探索点，用户拍板）：两处搜刮点（发现点式，踏入即入库+弹环境叙事，投放/叙事见 <see cref="ExplorationCache"/>）。
-    /// · 枪柜（← 弹药/箭；原本的栓动猎枪已随该武器被删除而撤下）铺在靠近入口处（近入口＝易得）；· 床底木箱（通用搜刮）位置更深。
+    /// · 枪柜（← 自制猎枪 + 弹药/箭；原栓动猎枪随该武器删除而撤下，用户拍板改掉自制猎枪填缺口）铺在靠近入口处（近入口＝易得）；· 床底木箱（通用搜刮）位置更深。
     /// 触发链路复用现有 <see cref="AddDiscoveryPoint"/>；掉落解析在 CampMain.OnExplorationDiscovery 走 <see cref="ExplorationCache.Resolve"/>。
     /// </summary>
     private void SetupRiversideCabinCaches()

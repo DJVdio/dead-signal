@@ -16,7 +16,7 @@ namespace DeadSignal.Godot;
 // 本类只负责「cacheId → 掉落+叙事」的纯判定，可脱 Godot 单测。
 //
 // 两个前中期探索点（用户拍板："加两个探索点 河边小屋 联合收割机仓库"）：
-//   · 河边小屋（河边猎人小屋语境）：枪柜 ← 弹药/箭（原本还有栓动猎枪，该武器已被用户从数值表删除）；床底木箱 ← 通用搜刮（食物/医疗/材料）。
+//   · 河边小屋（河边猎人小屋语境）：枪柜 ← 自制猎枪 + 弹药/箭（原为栓动猎枪，该武器已删除⇒用户拍板改掉自制猎枪填缺口）；床底木箱 ← 通用搜刮（食物/医疗/材料）。
 //   · 联合收割机仓库（农机棚/工具房语境）：工具柜（近入口）← 通用木工材料 + 武器零件 2；
 //     收割机驾驶室（次深）←《机械之美》[T31]；阁楼铁皮箱（藏深）←《进阶木匠技术》。
 //     ⇒ 一趟搜完＝书 + 2 零件 = 恰好 1 把单手轻弩。
@@ -593,9 +593,13 @@ public static class ExplorationCache
     public const string RefugeeGuardPostFlag = "searched_refugee_guard_post";
 
     // ——关键投放物标识（须与 WeaponTable / BookLibrary 一致）——
-    // 「栓动猎枪」原是河边小屋枪柜的投放物，已随用户在数值表上删掉这把武器一并撤下
-    // （留着就是悬空引用：Item.Weapon 以中文名作 RefKey，查不到 WeaponTable 工厂 ⇒ 一把没有任何数值的枪）。
-    // ⚠ 后果：河边小屋枪柜**不再产出任何武器**，只剩弹药/箭/布——见下方 Resolve 与叙事文案。
+    // 「栓动猎枪」原是河边小屋枪柜的投放物，已随用户在数值表上删掉这把武器一并撤下（墓碑见 WeaponTable.cs，数值不复活）。
+    // 删除后枪柜一度空了（设计缺口）⇒ [用户拍板] 枪柜改掉「自制猎枪」填补缺口：栓动猎枪数值不复活，
+    // 自制猎枪本身数值一字不动（伤/穿/重/冷却全走 WeaponTable.ImprovisedHuntingGun）。见下方 Resolve 与叙事文案。
+
+    /// <summary>河边小屋枪柜投放的「自制猎枪」，须与 <c>WeaponTable.ImprovisedHuntingGun().Name</c> 一致
+    /// （名对不上＝悬空引用：Item.Weapon 以中文名作 RefKey，查不到工厂 ⇒ 一把没有任何数值的枪，见 ExplorationCacheTests 名对表护栏）。</summary>
+    public const string RiversideImprovisedGunName = "自制猎枪";
 
     /// <summary>金手指帮军械柜招牌武器＝冲锋枪，须与 <c>WeaponTable.Smg().Name</c> 一致（帮派火力，[SPEC-B12-补]"打过才拿"最深处奖励，量级拟定待调）。</summary>
     public const string GangSmgName = "冲锋枪";
@@ -1091,9 +1095,11 @@ public static class ExplorationCache
                 RiversideGunCabinetFlag,
                 new[]
                 {
-                    // ⚠ 这里原本立着一支**栓动猎枪**（玩家的第一把枪）。用户在数值表上把这把武器删了，
-                    // 故投放一并撤下 ⇒ **枪柜里现在没有枪**，只剩他留下的弹药与箭。
-                    // 弹药照旧留着：中子弹喂自制猎枪/步枪，鹿弹喂自制霰弹枪——枪要靠玩家自己造或另寻。
+                    // ⚠ 这里原本立着一支**栓动猎枪**（玩家的第一把枪）。用户在数值表上把这把武器删了 ⇒ 投放一并撤下、
+                    // 枪柜一度空了（设计缺口）。[用户拍板] 改掉**自制猎枪**填补缺口——它就是玩家开局最早能捡到的一把枪。
+                    // 栓动猎枪数值不复活；自制猎枪数值一字不动（走 WeaponTable.ImprovisedHuntingGun）。名对表护栏见 ExplorationCacheTests。
+                    LootItem.Weapon(RiversideImprovisedGunName),
+                    // 弹药照旧留着：中子弹喂自制猎枪/步枪，鹿弹喂自制霰弹枪——柜里的中子弹正好喂这把枪。
                     LootItem.Material("ammo_medium", 8),
                     LootItem.Material("ammo_buck", 4),      // 猎人也打鸟，柜里搁着几发鹿弹
                     // 子弹零件：**四种子弹的唯一共同瓶颈**。老猎人自己复装，抽屉里躺着几套弹壳底火。
@@ -2568,13 +2574,14 @@ public static class ExplorationCache
     // —— 河边小屋 ——
     private const string RiversideGunCabinetTitle = "墙上的枪柜";
 
-    // ⚠ 原文描写的是柜里立着的那支栓动猎枪。用户把这把武器从数值表上删了 ⇒ 枪柜不再产枪，
-    //   文案随之改成"枪已被人取走、只剩弹药"。本段仍属 draft，待用户验收/改写。
+    // ⚠ 原文描写的是柜里立着的那支栓动猎枪（已删除）。用户拍板改掉「自制猎枪」填缺口 ⇒ 文案随之改回"柜里有枪"：
+    //   一支用水管废铁凑出来的土法猎枪，配着他复装的中子弹。本段仍属 draft，待用户验收/改写。
     private const string RiversideGunCabinetNarrative =
         "小屋靠河的一面墙上钉着个上了锁的木质枪柜，锁扣早被人撬过又胡乱合上。" +
-        "拉开柜门——空的。枪架上只剩两道压出来的凹痕，枪早让人取走了，" +
-        "走得还挺从容，连擦枪的布都叠好了放在柜底。\n\n" +
-        "他没带走的，是压在柜底的弹药和一筒箭：子弹沉，箭捡得回来，逃命的人只挑轻的拿。";
+        "拉开柜门——枪架上斜靠着一支用水管和废铁凑出来的猎枪，枪管接缝处焊得歪歪扭扭，" +
+        "却擦得锃亮，看得出主人拿它当命根子。\n\n" +
+        "枪底下压着他自己复装的弹药和一筒箭：中子弹正好喂这支土枪，箭也捡得回来——" +
+        "这河边猎人，枪自己造、弹自己装，什么都留了一手。";
 
     private const string RiversideBedChestTitle = "床底的木箱";
 
