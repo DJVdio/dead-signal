@@ -89,6 +89,20 @@ public sealed partial class GameClock : Node
     public double GetNightTimeRemaining()
         => IsNight ? Math.Max(0, _cfg.NightLengthSeconds - _phaseElapsed) : 0;
 
+    /// <summary>
+    /// 当前<b>昼/夜正相位</b>铺满的实时秒长（白天 = DayLength、夜晚 = NightLength）；<b>非正相位返回 0</b>。
+    /// <para>
+    /// 只有 <see cref="DayPhase.DayExplore"/> / <see cref="DayPhase.NightAct"/> 这两段游戏钟真在走
+    /// （<see cref="ClockHm"/> 把 6:00→18:00 / 18:00→6:00 各铺 12 游戏小时映在它们身上）；
+    /// 旅行/回营/筹备/聚餐要么是过渡、要么 <c>TimeScale=0</c>，都不算"钟表时间"。
+    /// 供菜园生长这类"按游戏钟连续倒计时"的消费方把一帧 delta 折算成游戏小时（见 <c>CropPlotRuntime.GameHoursForElapsed</c>）。
+    /// </para>
+    /// </summary>
+    public double CurrentPhaseLengthSeconds
+        => CurrentPhase is DayPhase.DayExplore or DayPhase.NightAct
+            ? (IsNight ? _cfg.NightLengthSeconds : _cfg.DayLengthSeconds)
+            : 0.0;
+
     public void Configure(Config cfg)
     {
         _cfg = cfg;

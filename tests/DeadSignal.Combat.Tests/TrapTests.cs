@@ -116,19 +116,29 @@ public class TrapTests
         Assert.Equal(new[] { TrapLogic.RatKey }, TrapLogic.RollPhase(1, plain));
     }
 
+    /// <summary>
+    /// ⚠️ [T67] <b>本条已按用户的新规格改写意图（原名「产出的两个键_都是既有食材_能直接下锅」）。</b>
+    /// 用户原话「<b>老鼠和鸟不能直接入锅了，而是要先宰杀</b>」⇒ <b>老鼠已下不了锅</b>，
+    /// 它要过一遍案板（老鼠 → 老鼠肉 + 碎皮革）才变成饭。<b>兔子没被点名，仍可直接下锅。</b>
+    /// <para>不变的是那条经济链的底线：<b>陷阱抓到的东西必须"有出路"</b> —— 要么直接下得了锅，要么上得了案板。
+    /// 任一边都没有，这条链就断了（那正是"死物品"）。</para>
+    /// </summary>
     [Fact]
-    public void 产出的两个键_都是既有食材_能直接下锅()
+    public void 产出的两个键_都有出路_老鼠要先宰杀_兔子可直接下锅()
     {
-        // 陷阱是烹饪的稳定食材来源：抓到的东西必须同时是**材料目录项**（能入库存）
-        // 与**食材**（有热量点，下得了锅）。任一边没登记，这条经济链就断了。
+        // 两者都必须是**材料目录项**（否则抓到了也入不了库存）
         foreach (string key in new[] { TrapLogic.RatKey, TrapLogic.RabbitKey })
         {
             Assert.True(Materials.Has(key), $"{key} 不在材料目录里，抓到了也入不了库存");
-            Assert.True(FoodCalories.Has(key), $"{key} 不是食材，抓到了也下不了锅");
         }
 
-        // 用户给定的热量：老鼠 6 / 兔子 11。兔子更值钱 ⇒ 它该是更稀有的那个（RabbitShare < 0.5）。
-        Assert.Equal(6, FoodCalories.Of(TrapLogic.RatKey));
+        // 老鼠：[T67] **下不了锅了**，但**上得了案板** —— 出路仍在，不是死物品
+        Assert.False(FoodCalories.Has(TrapLogic.RatKey), "[T67] 老鼠已不能直接入锅");
+        Assert.True(ButcheryLogic.IsButcherable(TrapLogic.RatKey), "老鼠必须宰得了——否则它成了死物品");
+        Assert.Equal(6, FoodCalories.Of(Materials.RatMeatKey));   // 用户给定的 6 点，原样搬到了老鼠肉上
+
+        // 兔子：**用户没点它的名** ⇒ 仍可直接下锅，一个字没动
+        Assert.True(FoodCalories.Has(TrapLogic.RabbitKey));
         Assert.Equal(11, FoodCalories.Of(TrapLogic.RabbitKey));
         Assert.True(TrapLogic.RabbitShare < 0.5, "兔子比老鼠值钱，不该比老鼠还常见");
     }
@@ -147,11 +157,35 @@ public class TrapTests
     }
 
     [Fact]
-    public void 一天八个相位_一个陷阱的期望产出()
+    public void 一天只掷两次点_一个陷阱的每日期望是零点六()
     {
-        // 一天 8 相位（DayPhase 8 个值），每相位各判一次 ⇒ 一个陷阱每天期望 0.30 × 8 = 2.4 只。
-        Assert.Equal(8, System.Enum.GetValues<DayPhase>().Length);
-        Assert.Equal(2.4, TrapLogic.ExpectedCatchesPerPhase(1) * TrapLogic.PhasesPerDay, 10);
+        // 🔴 用户拍板：陷阱一天掷 2 次点（白天 1 次 + 夜晚 1 次），**不是**每个 DayPhase 都掷。
+        // 早期误按 8 个 DayPhase 逐个掷点，产出翻 4 倍（"捕鸟陷阱太强"的根因）——这条钉死频率 = 2。
+        Assert.Equal(2, TrapLogic.RollsPerDay);
+        // 一个陷阱每天期望 = 0.30 × 2 = 0.60 只（旧 bug 值 0.30 × 8 = 2.4，已退役）。
+        Assert.Equal(0.60, TrapLogic.ExpectedCatchesPerPhase(1) * TrapLogic.RollsPerDay, 10);
+    }
+
+    [Fact]
+    public void 掷点只发生在两个昼夜段边界_白天黎明聚餐加夜晚黄昏聚餐()
+    {
+        // 掷点频率的**唯一事实源**：消费层 CampMain 只在 RollsOnPhase 为真时才结算陷阱，
+        // RollsPerDay 也由这张谓词数出来 ⇒ 全 8 个 DayPhase 里恰好 2 个为真（DawnMeal / DuskMeal）。
+        // 这条断言就是"一整天走完 8 个 DayPhase，陷阱只掷 2 次点"的可单测代理。
+        var rollPhases = System.Enum.GetValues<DayPhase>()
+            .Where(TrapLogic.RollsOnPhase)
+            .ToArray();
+
+        Assert.Equal(new[] { DayPhase.DawnMeal, DayPhase.DuskMeal }, rollPhases);
+        Assert.Equal(TrapLogic.RollsPerDay, rollPhases.Length);   // 常量与谓词焊死：数出来必须一致
+
+        // 其余 6 个中间相位（出行/探索/返程/守夜等）一律不掷点。
+        Assert.False(TrapLogic.RollsOnPhase(DayPhase.DayPrep));
+        Assert.False(TrapLogic.RollsOnPhase(DayPhase.DayTravel));
+        Assert.False(TrapLogic.RollsOnPhase(DayPhase.DayExplore));
+        Assert.False(TrapLogic.RollsOnPhase(DayPhase.DayReturn));
+        Assert.False(TrapLogic.RollsOnPhase(DayPhase.NightPrep));
+        Assert.False(TrapLogic.RollsOnPhase(DayPhase.NightAct));
     }
 
     // ───────────────────────── 陷阱作为可放置物 ─────────────────────────
@@ -222,6 +256,53 @@ public class TrapTests
 
         Assert.NotNull(build);
         Assert.Equal(recipe.MaterialCosts.OrderBy(kv => kv.Key), build!.OrderBy(kv => kv.Key));
+    }
+
+    // ───────────────────────── 重构护栏：TrapRuntime.ResolveCatch 逐字节钉死（T77 抽共同编排后补钉）─────────────────────────
+
+    /// <summary>
+    /// 🔴 <b>钉死 T77 重构后的 <see cref="TrapRuntime.ResolveCatch"/> 语义</b>（掷点 → 按种分组 → 逐种入库）。
+    /// 这段 GroupBy + 入库的循环是从 <c>CampMain.ResolveTrapsForPhase</c> 内联搬进 <see cref="TrapRuntime"/> 的
+    /// —— 最容易在"搬家"时悄悄走样，而那次搬家<b>跳过了先写测试</b>，这条就是补上的钉子。
+    /// <para>喂固定随机序列（3 陷阱、混合物种），断言三件事：
+    /// ① 返回列表逐项等值（顺序不许乱）；② 库存每种数量精确（老鼠堆成 2、兔子 1）；
+    /// ③ 随机流<b>恰好用尽</b> —— 证明 ResolveCatch 的掷点数 == <see cref="TrapLogic.RollPhase"/> 的掷点数，
+    /// 入库那层<b>没有偷偷再掷点</b>（搬家没有改动随机流形状）。</para>
+    /// </summary>
+    [Fact]
+    public void 重构护栏_圈套运行时结算_混合捕获逐种入库且不多掷点()
+    {
+        var inv = new InventoryStore();
+        // 3 陷阱：第 1 个命中→物种 0.0 < 0.30 ⇒ 兔；第 2、3 个命中→物种 0.999 ≥ 0.30 ⇒ 老鼠。
+        var rng = new SequenceRandomSource(
+            0.0, 0.0,       // 陷阱 1（30%）命中 → 兔子
+            0.0, 0.999,     // 陷阱 2（25%）命中 → 老鼠
+            0.0, 0.999);    // 陷阱 3（20%）命中 → 老鼠
+
+        IReadOnlyList<string> caught = TrapRuntime.ResolveCatch(3, inv, rng);
+
+        // ① 返回列表：顺序与物种逐项钉死（搬家不许打乱顺序）。
+        Assert.Equal(new[] { TrapLogic.RabbitKey, TrapLogic.RatKey, TrapLogic.RatKey }, caught);
+        // ② 库存：按种分组入库，老鼠堆成 2、兔子 1（GroupBy + ToItem(count) 那层的精确行为）。
+        Assert.Equal(2, inv.MaterialCount(TrapLogic.RatKey));
+        Assert.Equal(1, inv.MaterialCount(TrapLogic.RabbitKey));
+        // ③ 随机流恰好用尽 ⇒ 入库层没有多抽任何一次点（掷点数与 RollPhase 一致）。
+        Assert.Equal(0, rng.Remaining);
+    }
+
+    /// <summary>
+    /// 重构护栏（配对）：场上一个陷阱都没有 ⇒ <see cref="TrapRuntime.ResolveCatch"/> 一次点都不掷、库存零变化。
+    /// 钉的是"搬家没把 count≤0 的静默短路弄丢"（旧内联代码有 <c>if(count&lt;=0) return</c>，搬家后靠 RollPhase 内部兜底）。
+    /// </summary>
+    [Fact]
+    public void 重构护栏_没有陷阱_运行时零掷点零入库()
+    {
+        var inv = new InventoryStore();
+        var rng = new SequenceRandomSource();   // 空序列：只要掷一次点就抛异常
+        IReadOnlyList<string> caught = TrapRuntime.ResolveCatch(0, inv, rng);
+        Assert.Empty(caught);
+        Assert.Equal(0, inv.MaterialCount(TrapLogic.RatKey));
+        Assert.Equal(0, inv.MaterialCount(TrapLogic.RabbitKey));
     }
 
     // ───────────────────────── Sim 零漂移的结构性护栏 ─────────────────────────

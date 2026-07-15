@@ -125,12 +125,21 @@ public static class BookLibrary
         grantsRecipeStub: "recipe:wilderness_trap", // 桩：配方系统后续接
         readHours: 4); // [T59] 用户在 wiki 上定的（原 24h）
 
-    /// <summary>《农场主的一百个问题》——读完给"作物种植"配方（桩）。</summary>
+    /// <summary>
+    /// 《农场主的一百个问题》——[T67] <b>桩已换成真的</b>：读完解锁 <b>捕鸟陷阱</b> 与 <b>菜畦</b>
+    /// （门槛真源是 <see cref="RecipeBook"/> 里那两条配方的 <c>RequiredBookIds</c>，本字段只是叙事标记）。
+    /// <para>
+    /// 🔴 <b>它是整条弓箭线的第一块砖</b>：捕鸟陷阱 → 鸟 →【宰杀】→ 鸟肉 + <b>羽毛</b> → <b>三种箭</b>。
+    /// 没读这本书 ⇒ 拿不到鸟 ⇒ 拿不到羽毛 ⇒ <b>一支箭都造不出来</b>。
+    /// 它<b>开局就在营地共享库存里</b>（<c>camp.json</c> 住宅·柜子），与《野外生存指南》同架——
+    /// 于是"开局先读哪一本"成了个真选择：<b>野外生存指南给你弓，农场主给你箭</b>，两本都读要 8 小时。
+    /// </para>
+    /// </summary>
     public static BookData FarmerHundredQuestions() => new(
         id: "farmer_hundred_questions",
         title: "农场主的一百个问题",
         body: FarmerHundredQuestionsBody,
-        grantsRecipeStub: "recipe:crop_planting", // 桩：配方系统后续接
+        grantsRecipeStub: "recipe:" + BirdTrapSpec.RecipeId + "," + CropPlotSpec.RecipeId, // [T67] 桩换成真配方 id
         readHours: 4); // [T59] 用户在 wiki 上定的（原 24h）
 
     /// <summary>《裁缝手记》（纺织书，draft）——读过它的制作者解锁粗布背心一类缝纫配方。</summary>
@@ -152,7 +161,7 @@ public static class BookLibrary
     /// <summary>《木匠入门》（木工书，draft）——读过它的制作者解锁木椅 / 自制弓一类木工配方（一本管两条，同构土法化学笔记）。</summary>
     public static BookData CarpentryBasics() => new(
         id: "carpentry_basics",
-        title: "木匠入门",
+        title: "从零到一学会木匠", // [T59] 用户在 wiki 书籍表把书名从「木匠入门」改成此名（id 不变）
         body: CarpentryBasicsBody,
         grantsRecipeStub: "recipe:chair", // 桩：书门槛已实装（RecipeBook.RequiredBookIds），此仅作叙事标记
         readHours: 8); // [T59] 用户在 wiki 上定的（原 20h）
@@ -193,14 +202,15 @@ public static class BookLibrary
     /// <summary>
     /// 《弓与箭之道》——**项目里第一本"给被动加成"而非"解锁配方"的书**（用户拍板）。
     /// <para>
-    /// <b>四项效果</b>（用户写在数值表『书籍』页「效果」列）：
+    /// <b>效果</b>（用户写在数值表『书籍』页「效果」列）：
     /// <list type="bullet">
     /// <item>箭矢回收率 <b>25% → 50%</b>（<see cref="Archery.ArrowRecoveryRate"/>）。</item>
-    /// <item>弓弩<b>射程 +10%</b>（<see cref="Archery.BookRangeMult"/>）。</item>
+    /// <item>🔴 [T68] <b>弹道速度 +20%</b>（用户把原「射程 +10%」换成了这条）——<b>引擎新轴</b>（<c>Projectile.Speed</c> 常量），
+    ///       <b>未落地、已挂起统一立项</b>；原「射程 +10%」按用户意图删除（<see cref="Archery.BookRangeMult"/> 现为 1.0＝无效果）。</item>
     /// <item>弓弩<b>锥形角 −10%</b>（散布收窄＝更准，<see cref="Archery.BookSpreadMult"/>）。</item>
     /// <item>弓弩<b>攻速 +2%</b>（<see cref="Archery.BookAttackSpeedMult"/>；折到出手间隔上是 ×1/1.02）。</item>
     /// </list>
-    /// 后三项在 <see cref="Archery.Combine"/> 里与**箭的同轴系数连乘**（乘算不加算，CLAUDE.md 铁律），
+    /// 散布/攻速两项在 <see cref="Archery.Combine"/> 里与**箭的同轴系数连乘**（乘算不加算，CLAUDE.md 铁律），
     /// 且只碰弓弩——读了射艺书不会让你的步枪打得更远。
     /// </para>
     /// <para>
@@ -297,6 +307,45 @@ public static class BookLibrary
         + "读完它，你就能自己做反曲弓和长弓了。\n"
         + "（正文待补。）";
 
+    /// <summary>《尖峰时刻》书 id（稳定键）。它是一本滑雪极限运动书，读完解锁「自制简易墨镜」。</summary>
+    public const string PeakHourId = "peak_hour";
+
+    /// <summary>
+    /// [T71]《尖峰时刻》—— <b>用户在 wiki 上新加的一本书</b>（滑雪极限运动题材，末世基调）。
+    /// <para>
+    /// <b>解锁「自制简易墨镜」</b>（木缝雪镜；门槛真源在 <c>RecipeBook</c> 的 <c>snow_goggles</c> 配方
+    /// <c>RequiredBookIds</c>，<see cref="GrantsRecipeStub"/> 只是叙事标记）。用户既 authored 了这本书，
+    /// 又 authored 了它解锁的护甲（数值表『护甲表』new_armor_2：眼镜槽·护双眼·12/6·0.1kg），本条把两者接起来。
+    /// </para>
+    /// <para>
+    /// 🔴 <b>正文＝用户明确授权代笔</b>（本会话罕见的 authored 授权：用户点名让我方补这一本的正文）。
+    /// 主题滑雪极限运动、末世基调、克制不跳戏；末句是刻意的钩子（把"极限运动"接向"末世求生"，
+    /// 不点破，留给发现现场的玩家自己体会）。<b>阅读 6h</b> 为用户在 wiki 上定的值。
+    /// </para>
+    /// <para>
+    /// 🔴 <b>必须有投放点</b>（否则解锁它的雪镜就成了造不出的死物品，同《机械之美》踩过的坑）：
+    /// 投在 <b>城市之巅瞭望观景台·瞭望员值班室</b>（<c>ExplorationCache.LookoutWardensRoomId</c>）——
+    /// 一个在城市之巅高处常年值守的人，手边压着一本讲登顶与陡坡的书，题名与地名（"之巅"／"尖峰"）也应和。
+    /// </para>
+    /// </summary>
+    public static BookData PeakHour() => new(
+        id: PeakHourId,
+        title: "尖峰时刻",
+        body: PeakHourBody,
+        grantsRecipeStub: "recipe:snow_goggles", // 桩：书门槛已实装（RecipeBook.RequiredBookIds），此仅作叙事标记
+        readHours: 6);                            // [T71] 用户在 wiki 上定的
+
+    // [T71] 用户明确授权代笔的正文（滑雪极限运动·末世基调）。末句「那时候我以为这是全世界最没用的本事」
+    // 是刻意的钩子——把极限运动接向末世求生，不点破，保留"发现现场自己体会"的处理。
+    private const string PeakHourBody =
+        "没有人能征服一座山。你只是在它允许的那几秒里，从它身上滑过去。\n\n" +
+        "陡坡教给我的第一课，是恐惧不会害死你——冻住的肌肉才会。雪面在脚下崩塌的时候，" +
+        "你唯一能做的就是滑得比崩塌更快。停下，就是被埋。\n\n" +
+        "我摔断过锁骨、两根肋骨、右手三根指头。每一次躺在雪里等救援，我都发誓再也不来了。" +
+        "可开春我又站在了索道顶端。\n\n" +
+        "后来我才想明白：我不是在跟山较劲。我是在练一件事——当脚下的一切都开始失控，怎么让自己不慌。\n\n" +
+        "那时候我以为这是全世界最没用的本事。";
+
     public static IReadOnlyList<BookData> All() => new[]
     {
         WildernessSurvivalGuide(),
@@ -308,6 +357,7 @@ public static class BookLibrary
         WayOfBowAndArrow(),
         MechanicalBeauty(),
         BowCraftingGuide(),   // [T59] 用户新加
+        PeakHour(),           // [T71] 用户新加（滑雪极限运动·解锁自制简易墨镜）
         GoldfingerDiaryA(),
         GoldfingerDiaryB(),
     };

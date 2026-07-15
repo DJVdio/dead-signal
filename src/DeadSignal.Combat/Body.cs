@@ -346,7 +346,7 @@ public sealed class Body
     /// <summary>
     /// 手部骨折对操作能力的乘算系数（用户口径：单处手骨折 −30% 操作/含攻速；已治疗减半为 −15%）。
     /// 每处**尚存的手部**（Region==Hand）骨折乘一次系数（未治疗 <paramref name="untreatedMult"/> / 已治疗 <paramref name="treatedMult"/>），
-    /// 多处乘算叠加，结果锁下限 <paramref name="floor"/>。不含手指/上臂骨折（仅 Region==Hand 计入，其余骨折为持久状态标记、无能力效果，待确认）。
+    /// 多处乘算叠加，结果锁下限 <paramref name="floor"/>。不含手指/手臂骨折（仅 Region==Hand 计入，其余骨折为持久状态标记、无能力效果，待确认）。
     /// 与残疾净惩罚（断手/断指）相互独立叠乘，不改那套加性数学。
     /// </summary>
     public double HandFractureOperationFactor(double untreatedMult, double treatedMult, double floor)
@@ -475,7 +475,7 @@ public sealed class Body
     }
 
     /// <summary>
-    /// 切除部位：连带移除其所有后代（切上臂→连带手），触发装备掉落回调。
+    /// 切除部位：连带移除其所有后代（切手臂→连带手），触发装备掉落回调。
     /// 若被移除集合含致死部位（头/胸/腹）→ 角色死亡（斩首/开膛，不生成断肢实体）。
     /// </summary>
     public SeverResult Sever(string partName)

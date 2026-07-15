@@ -60,7 +60,7 @@ public class PawnInspectionTests
     public void FromBody_ReflectsDamageEffects()
     {
         Body body = FreshBody();
-        // 左手切除（连带无后代）+ 右上臂骨折 + 左上臂流血。
+        // 左手切除（连带无后代）+ 右手臂骨折 + 左手臂流血。
         body.Sever(HumanBody.LeftHand);
         body.MarkFractured(HumanBody.RightArm);
         body.RegisterBleed(HumanBody.LeftArm, BleedModel.BleedSeverity.Medium);
@@ -95,8 +95,8 @@ public class PawnInspectionTests
 
         Assert.Equal(2, snap.Armor.Count);
         ArmorInfo jacket = snap.Armor.Single(a => a.Name == "皮夹克");
-        Assert.Equal(12, jacket.SharpDefense);   // 表值（[SPEC-B18]）
-        Assert.Equal(6, jacket.BluntDefense);
+        Assert.Equal(18, jacket.SharpDefense);   // [T68] 用户手改：12 → 18（净救活死格）
+        Assert.Equal(9, jacket.BluntDefense);    // [T68] 6 → 9
         Assert.Equal(ArmorSlot.Outer, jacket.Slot);
     }
 

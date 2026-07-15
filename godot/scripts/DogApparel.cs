@@ -85,7 +85,7 @@ public static class DogGearCatalog
         [IronHelmetKey] = new(IronHelmetKey, "铁皮头甲", DogEquipSlot.Head, ArmorTable.DogIronHelmet,
             Description: "狗狗也戴头盔。"),
         [WireHelmetKey] = new(WireHelmetKey, "铁丝头甲", DogEquipSlot.Head, ArmorTable.DogWireHelmet,
-            Description: "曾经他是不让狗咬你的，现在他是用来保护狗咬你的。"),
+            Description: "曾经保护你的，现在保护狗。"),
     };
 
     /// <summary>该键是否为已登记的狗装备。</summary>

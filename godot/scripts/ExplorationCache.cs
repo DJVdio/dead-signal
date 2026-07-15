@@ -650,6 +650,8 @@ public static class ExplorationCache
     public const string AdvancedCarpentryBookId = "advanced_carpentry";
     /// <summary>[T59]《弓制作指南》——反曲弓/长弓的解锁书（投在守林人小屋·阁楼）。</summary>
     public const string BowCraftingGuideBookId = "bow_crafting_guide";
+    /// <summary>[T71]《尖峰时刻》——自制简易墨镜的解锁书（投在城市之巅瞭望观景台·瞭望员值班室），须与 <c>BookLibrary.PeakHourId</c> 一致。</summary>
+    public const string PeakHourBookId = "peak_hour";
 
     /// <summary>《弓与箭之道》书 id（守林人小屋·床底，全局唯一一本），须与 <c>BookLibrary.WayOfBowAndArrowId</c> 一致。
     /// 读完把箭矢回收率 25% → 50%（<c>Archery.ArrowRecoveryRate</c>）——弓弩流的硬前置。</summary>
@@ -1160,8 +1162,12 @@ public static class ExplorationCache
 
             LookoutWardensRoomId when NotYet(flags, LookoutWardensRoomFlag) => new CacheResult(
                 LookoutWardensRoomFlag,
+                // [T71] 《尖峰时刻》投在这里：一个常年在"城市之巅"高处值守的人，抽屉里压着一本讲登顶与陡坡的旧书。
+                // 🔴 这个投放点不是可选的——书若无处可捡，它解锁的「自制简易墨镜」就成了造不出来的死物品
+                //    （《机械之美》当初正是这么把两把弩锁死的）。题名（"尖峰"）与地名（"之巅"）也应和。
                 new[]
                 {
+                    LootItem.Book(PeakHourBookId),
                     LootItem.Material("fuel", 2),           // 应急发电/信号灯的燃油
                     LootItem.Material("first_aid_kit", 1),  // 值班室急救包
                     LootItem.Material("components", 1),     // 望远镜/信号设备拆出的电子件
@@ -1726,7 +1732,9 @@ public static class ExplorationCache
 
             NewVillageRowAWardrobeId when NotYet(flags, NewVillageRowAWardrobeFlag) => new CacheResult(
                 NewVillageRowAWardrobeFlag,
-                new[] { LootItem.Material("cloth", 2) },
+                // [T68] 平光眼镜（用户新加的穿戴品）投放在此：谁家衣柜/床头柜上留下的那副。它**没有配方**（磨镜片是工业活），
+                // 只能搜刮 ⇒ 必须有落地投放点，否则拿不到。
+                new[] { LootItem.Material("cloth", 2), LootItem.Armor("平光眼镜") },
                 NewVillageRowAWardrobeTitle, NewVillageRowAWardrobeNarrative),
 
             NewVillageRowAUnderbedId when NotYet(flags, NewVillageRowAUnderbedFlag) => new CacheResult(
@@ -1957,7 +1965,9 @@ public static class ExplorationCache
 
             SupermarketHouseholdId when NotYet(flags, SupermarketHouseholdFlag) => new CacheResult(
                 SupermarketHouseholdFlag,
-                new[] { LootItem.Material("cloth", 2), LootItem.Material("rope", 1) },
+                // [T68] 墨镜（用户新加的穿戴品）投放在此：日用百货架的太阳镜转架。它**没有配方**（磨镜片是工业活），
+                // 只能搜刮 ⇒ 必须有落地投放点，否则它是拿不到的死物品（"金属锭零获取"那个 bug 的重演）。
+                new[] { LootItem.Material("cloth", 2), LootItem.Material("rope", 1), LootItem.Armor("墨镜") },
                 SupermarketHouseholdTitle, SupermarketHouseholdNarrative),
 
             SupermarketHardwareId when NotYet(flags, SupermarketHardwareFlag) => new CacheResult(

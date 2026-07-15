@@ -133,7 +133,7 @@ public class RecipeBookTests
     /// </para>
     /// </summary>
     [Fact]
-    public void 野外生存指南_解锁五条配方()
+    public void 野外生存指南_解锁六条配方()
     {
         var byBook = RecipeBook.All
             .Where(r => r.RequiredBookIds.Contains(RecipeBook.WildernessSurvivalGuideBookId))
@@ -142,7 +142,8 @@ public class RecipeBookTests
             .ToList();
 
         Assert.Equal(
-            new[] { "ammo_arrow_stick", "bone_knife", "handmade_bow", "snare_trap", "war_mask" }.OrderBy(x => x),
+            // [T68] 新增 horror_armor（恐怖装甲，骨+皮，呼应文案）——见 RecipeBook 对应注释。
+            new[] { "ammo_arrow_stick", "bone_knife", "handmade_bow", "horror_armor", "snare_trap", "war_mask" }.OrderBy(x => x),
             byBook);
     }
 

@@ -368,7 +368,7 @@ public class EffectTests
     {
         // 上限磨损归 0 → 部位永久损毁，连带后代
         var body = HumanBody.NewBody();
-        body.ApplyDamage(HumanBody.LeftArm, 21); // 上臂打到 0，MaxHp 21
+        body.ApplyDamage(HumanBody.LeftArm, 21); // 手臂打到 0，MaxHp 21
         var res = Hit(body, HumanBody.LeftArm, dmg: 21, DamageType.Blunt, initialRoll: 20);
         var rng = new SequenceRandomSource();
 

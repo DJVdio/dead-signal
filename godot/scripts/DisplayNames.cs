@@ -135,12 +135,13 @@ public static class DisplayNames
         _ => Unknown,
     };
 
-    /// <summary>枪械近战型态中文名（改装后"贴脸抡枪托"打出来的东西；一把枪三选一）。</summary>
+    /// <summary>枪械近战型态中文名（改装后"贴脸抡枪托"打出来的东西；一把枪至多一种，[T68] 共四种）。</summary>
     public static string Of(MeleeForm form) => form switch
     {
         MeleeForm.Claw => "利爪型",
         MeleeForm.Trauma => "创伤型",
         MeleeForm.Bayonet => "刺刀型",
+        MeleeForm.Blade => "锋刃型",   // [T68] 短枪（手枪/冲锋枪）专属
         _ => Unknown,
     };
 

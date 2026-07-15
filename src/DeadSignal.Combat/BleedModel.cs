@@ -16,7 +16,7 @@ public enum BleedTier
     /// <summary>轻微（手/脚）：会失血、会让人虚弱，但**不致命**（战后只溃烂感染，需手术）。</summary>
     Minor,
 
-    /// <summary>致命（躯干/头/颈/上臂/大腿等大部位）：深伤口，短时间内可放干致死。</summary>
+    /// <summary>致命（躯干/头/颈/手臂/大腿等大部位）：深伤口，短时间内可放干致死。</summary>
     Lethal,
 }
 
@@ -262,7 +262,7 @@ public static class BleedModel
         BodyRegion.Finger or BodyRegion.Toe or BodyRegion.Eye or BodyRegion.Face or BodyRegion.Ear
             => BleedTier.Micro,
         BodyRegion.Hand or BodyRegion.Foot => BleedTier.Minor,
-        _ => BleedTier.Lethal, // 躯干/头/颈/上臂/大腿 等大部位
+        _ => BleedTier.Lethal, // 躯干/头/颈/手臂/大腿 等大部位
     };
 
     /// <summary>该部位的出血是否为致命失血（拖久会放干）。</summary>

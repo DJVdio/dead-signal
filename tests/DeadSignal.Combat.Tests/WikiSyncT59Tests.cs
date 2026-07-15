@@ -37,6 +37,7 @@ public class WikiSyncT59Tests
     [InlineData("advanced_carpentry", 12)]         // 进阶木匠技术 28 → 12
     [InlineData("way_of_bow_and_arrow", 12)]       // 弓与箭之道 18 → 12
     [InlineData("mechanical_beauty", 8)]           // 机械之美 24 → 8
+    [InlineData("peak_hour", 6)]                    // [T71] 尖峰时刻 = 6（用户在 wiki 定的）
     public void 书籍阅读时长_与用户的表逐本一致(string bookId, double expectedHours)
     {
         BookData book = BookLibrary.All().Single(b => b.Id == bookId);
@@ -44,23 +45,39 @@ public class WikiSyncT59Tests
     }
 
     /// <summary>
-    /// 用户那 10 本书合计 <b>190h → 76h</b>（他这一刀砍掉约 60%）。任何人往回加时长，这条会红。
-    /// <para>⚠️ 分开算：<b>76h 是"用户手上那 10 本"的合计</b>，不含 [T59] 新加的《弓制作指南》
-    /// （它的 8h 是**我拟定的**，不是用户给的数）⇒ 全表现值 = 76 + 8 = <b>84h</b>。
-    /// 两个数分开钉，用户日后调哪一边都能立刻看出是谁的数变了。</para>
+    /// 用户在 wiki 书籍表里把 <c>carpentry_basics</c> 的书名从「木匠入门」改成「从零到一学会木匠」
+    /// （标题是玩家看得到的物品名，走 <see cref="BookData.Title"/> → <see cref="Item.Book"/>）。表赢代码，钉死新名。
     /// </summary>
     [Fact]
-    public void 书籍阅读时长_用户那8本合计64小时_加新书后72小时()
+    public void 木匠入门书名_已按用户改为从零到一学会木匠()
     {
-        // ⚠️ [T59·二次澄清] **日记不再计入** —— 它不是书，没有阅读工时（用户：书给角色读、日记给玩家读）。
-        //    故这里只数**真正的书**（Manuals）：用户手上那 8 本 = 64h（原 178h，砍掉约 64%）。
+        BookData book = BookLibrary.All().Single(b => b.Id == "carpentry_basics");
+        Assert.Equal("从零到一学会木匠", book.Title);
+    }
+
+    /// <summary>
+    /// 用户手上那 8 本真书合计 <b>64h</b>（原 178h，他这一刀砍掉约 64%）。任何人往回加时长，这条会红。
+    /// <para>⚠️ 分开算，用户日后调哪一边都能立刻看出是谁的数变了：
+    /// <list type="bullet">
+    /// <item><b>64h</b> = 用户手上那 8 本的合计（表赢代码，逐本钉在上面的 Theory 里）。</item>
+    /// <item>+8h [T59]《弓制作指南》—— 8h 是**我拟定的**（用户没给这个数）。</item>
+    /// <item>+6h [T71]《尖峰时刻》—— 6h 是**用户在 wiki 定的**。</item>
+    /// </list>
+    /// ⇒ 全表现值 = 64 + 8 + 6 = <b>78h</b>。</para>
+    /// </summary>
+    [Fact]
+    public void 书籍阅读时长_用户那8本合计64小时_加两本新书后78小时()
+    {
+        // ⚠️ [T59·二次澄清] **日记不计入** —— 它不是书，没有阅读工时（用户：书给角色读、日记给玩家读）。
+        //    故这里只数**真正的书**（Manuals）：用户手上那 8 本 = 64h（把两本 agent 新加的书剔掉再数）。
         double userEight = BookLibrary.Manuals()
-            .Where(b => b.Id != BookLibrary.BowCraftingGuideId)
+            .Where(b => b.Id != BookLibrary.BowCraftingGuideId && b.Id != BookLibrary.PeakHourId)
             .Sum(b => b.ReadHours);
         Assert.Equal(64.0, userEight, 6);
 
         Assert.Equal(8.0, BookLibrary.BowCraftingGuide().ReadHours, 6);   // 拟定值（用户没给）
-        Assert.Equal(72.0, BookLibrary.Manuals().Sum(b => b.ReadHours), 6);
+        Assert.Equal(6.0, BookLibrary.PeakHour().ReadHours, 6);           // [T71] 用户在 wiki 定的
+        Assert.Equal(78.0, BookLibrary.Manuals().Sum(b => b.ReadHours), 6);
 
         // 日记一小时都不该贡献。
         Assert.Equal(0.0, BookLibrary.Diaries().Sum(b => b.ReadHours), 6);
@@ -230,6 +247,15 @@ public class WikiSyncT59Tests
             if (MedicineCatalog.IsMedicine(m.Key)) continue;                          // 是药
             if (MerchantBuyList.CanSell(Item.Material(m.Key, m.DisplayName))) continue;  // 卖得掉
             if (RecipeBook.All.Any(r => r.MaterialCosts.ContainsKey(m.Key))) continue;   // 是别的东西的料
+            // 🔴 [T67] **第五条出路：上得了案板。**
+            // 这一条是被本护栏**当场抓出来的**，不是我提前想好的——用户把「老鼠/鸟」从食物表里摘走
+            // （原话「老鼠和鸟不能直接入锅了，而是要先宰杀」），它们当场被判成死物品：既下不了锅、不是药、
+            // 商人不收食材、也不是任何 RecipeData 的料。
+            // ⚠️ 而它们**恰恰不是死物品** —— 它们是【宰杀】的原料（老鼠 → 老鼠肉 + 碎皮革；鸟 → 鸟肉 + 羽毛）。
+            // 之所以第四条兜不住它们，是因为**宰杀不是一条 RecipeData**（RecipeData 只有单一 OutputKey，
+            // 表达不了"一刀出两样东西"）⇒ 它自成一套（<see cref="ButcheryLogic"/>）。
+            // ⇒ 护栏的**判据本身**要跟着世界的形状走：出路多了一条，就得在这里认它一条。
+            if (ButcheryLogic.IsButcherable(m.Key)) continue;                            // 上得了案板
 
             deadItems.Add($"{m.DisplayName}（{m.Key}）");
         }

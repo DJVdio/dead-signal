@@ -169,6 +169,13 @@ public sealed class CampSave
     public int TrapSeq { get; set; }
 
     /// <summary>
+    /// [T75] 玩家摆的**捕鸟陷阱**的命名序号（"捕鸟陷阱#N" 的 N 最大值）。同 <see cref="TrapSeq"/>：
+    /// 数量不存（从 <see cref="PlacedFurniture"/> 数出来），只存序号防读档后新造的与场上已有的撞名。
+    /// 老档没有这个字段 ⇒ 反序列化默认 0，读档时与 RespawnBirdTrap 推出的场上最大号取 Max（见 CampMain.Save.cs），不会回退撞名。
+    /// </summary>
+    public int BirdTrapSeq { get; set; }
+
+    /// <summary>
     /// [批次21·impl-gunmod] 玩家改装出来的武器变体的**身份**（"步枪（刺刀型）"是什么做的）。
     /// <para>
     /// <b>为什么必须单独存</b>：库存里的一件武器只存一个名字（<see cref="ItemSave.RefKey"/>），

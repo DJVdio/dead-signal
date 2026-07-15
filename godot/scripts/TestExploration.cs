@@ -1163,6 +1163,12 @@ public sealed partial class TestExploration : ExplorationLevel
             new Vector2(1720, 920),
             markerColor: new Color(0.5f, 0.44f, 0.34f),
             label: "柴房");
+
+        // [T67] 两处**采集点**（不是搜刮箱——弯腰在地上薅蘑菇，走 ForageLogic）：林下腐叶 + 柴堆背阴。
+        //   读过《野外生存指南》采得更多（×1.5）。绿色标记区别于搜刮点的暖色。
+        var forageC = new Color(0.42f, 0.62f, 0.36f);
+        AddDiscoveryPoint(ForageLogic.RangersCabinMushroomId, new Vector2(1520, 840), markerColor: forageC, label: "林下蘑菇");
+        AddDiscoveryPoint(ForageLogic.RangersCabinWoodpileMushroomId, new Vector2(1660, 1000), markerColor: forageC, label: "柴堆背阴");
     }
 
     /// <summary>
@@ -1828,6 +1834,11 @@ public sealed partial class TestExploration : ExplorationLevel
 
         // 后院菜窖（最深，1）——翻到底，也不过是一窖发芽的土豆和一卷绷带。
         AddDiscoveryPoint(ExplorationCache.StuartRootCellarId, new Vector2(2020, 600), markerColor: barnC, label: "后院菜窖");
+
+        // [T67] 两处**采集点**：那家人的菜地还在，只是没人回来收了（在地上刨土豆，走 ForageLogic）。
+        var forageC = new Color(0.42f, 0.62f, 0.36f);
+        AddDiscoveryPoint(ForageLogic.StuartGardenPotatoId, new Vector2(1900, 720), markerColor: forageC, label: "菜地土豆");
+        AddDiscoveryPoint(ForageLogic.StuartFurrowPotatoId, new Vector2(1980, 840), markerColor: forageC, label: "垄尾漏刨");
     }
 
     /// <summary>

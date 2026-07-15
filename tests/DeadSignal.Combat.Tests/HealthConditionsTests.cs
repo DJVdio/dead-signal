@@ -45,7 +45,7 @@ public class HealthConditionsTests
     [Fact]
     public void Bleeding_untreated_worsens_each_day_and_eventually_kills()
     {
-        var (set, bleed) = SetWith(new HealthCondition(HealthConditionType.Bleeding, 0.2, "左上臂", onLimb: true));
+        var (set, bleed) = SetWith(new HealthCondition(HealthConditionType.Bleeding, 0.2, "左手臂", onLimb: true));
 
         double last = bleed.Severity;
         bool died = false;
@@ -344,7 +344,7 @@ public class HealthConditionsTests
     [Fact]
     public void Medical_book_registry_maps_book_ids_to_points()
     {
-        Assert.Equal(6, MedicalBookPoints.For("wilderness_survival_guide")); // 《野外生存指南》+6（只在不用耗材时）
+        Assert.Equal(3, MedicalBookPoints.For("wilderness_survival_guide")); // [T68] 《野外生存指南》+3（原 +6，用户手改；只在不用耗材时）
         Assert.True(MedicalBookPoints.IsMedicalBook("wilderness_survival_guide"));
         Assert.True(MedicalBookPoints.RequiresNoSupplies("wilderness_survival_guide"));
         Assert.Equal(0, MedicalBookPoints.For("farmer_hundred_questions"));   // 非医疗书 0
@@ -356,12 +356,13 @@ public class HealthConditionsTests
         // 接入波：施术者已读书 ∩ 表 → 两个桶分开求和（无条件生效 / 只在不用耗材时生效）。
         string[] read = { "wilderness_survival_guide", "farmer_hundred_questions" };
         Assert.Equal(0, MedicalBookPoints.SumAlways(read));          // 野外生存指南是有条件的 ⇒ 不进无条件桶
-        Assert.Equal(6, MedicalBookPoints.SumWithoutSupplies(read)); // 进"徒手才算"桶
+        Assert.Equal(3, MedicalBookPoints.SumWithoutSupplies(read)); // [T68] 进"徒手才算"桶（+3）
         Assert.Equal(0, MedicalBookPoints.SumAlways(new string[0]));
         Assert.Equal(0, MedicalBookPoints.SumWithoutSupplies(new string[0]));
     }
 
-    // ===== 《野外生存指南》：**不使用任何手术材料时** +6（徒手/野路子手术的补偿；用了正规耗材就不加）=====
+    // ===== 《野外生存指南》：**不使用任何手术材料时**加成（[T68] 现为 +3，原 +6；徒手/野路子手术的补偿，用了正规耗材就不加）。
+    //       下面两条测的是 PerformSurgery 的**机制**（"没投耗材才生效"），传入的 6 只是**样例增量**，不是那本书的现值。=====
 
     [Fact]
     public void Wilderness_guide_bonus_applies_only_when_no_supply_is_used()
@@ -1091,7 +1092,7 @@ public class HealthConditionsTests
     // 内核：Severity=感染/死亡进度、CureProgress=治疗进度；每时间片 dt 天推进 AdvanceInfectionRace。
     // 用药期间：感染进度按档 ×WorsenMultiplier 减缓、治疗进度按 Efficacy×基准速率 累进；先到 1.0 者胜。全程 double 不取整。
 
-    private static HealthCondition FreshInfection(double progress = 0.0, string part = "右上臂", bool onLimb = true)
+    private static HealthCondition FreshInfection(double progress = 0.0, string part = "右手臂", bool onLimb = true)
         => new(HealthConditionType.Infection, progress, part, onLimb);
 
     // 一整日(dt=1)推进感染竞速：medKey=null 为未用药。返回 (天数, 是否治愈, 是否输(死/残))。
@@ -1453,13 +1454,13 @@ public class HealthConditionsTests
         Assert.Single(tea.MaterialCosts); // 最简：仅蒲公英
     }
 
-    // ---- [SPEC-B14-补] 草药绷带：止血手术供点 25（普通绷带上位替代）----
+    // ---- [SPEC-B14-补 / T? 用户改] 草药绷带：止血手术供点 20（普通绷带上位替代；用户从 25 下调至 20）----
 
     [Fact]
-    public void Herbal_bandage_gives_25_surgery_points_for_bleeding()
+    public void Herbal_bandage_gives_20_surgery_points_for_bleeding()
     {
         SurgerySupply hb = SurgeryCatalog.For("herbal_bandage")!.Value;
-        Assert.Equal(25, hb.Points);                     // 用户原话：草药绷带 25（普通绷带 15）
+        Assert.Equal(20, hb.Points);                     // 用户改：草药绷带 25→20（普通绷带 15）
         Assert.True(hb.CanTreat(HealthConditionType.Bleeding));
         Assert.False(hb.CanTreat(HealthConditionType.Fracture));
         Assert.False(hb.Exclusive);                       // 非独占（散件）
@@ -1520,14 +1521,14 @@ public class HealthConditionsTests
     public void SeedFromBody_reads_bleeding_and_fracture_states_without_mutating_body()
     {
         Body body = HumanBody.NewBody();
-        body.RegisterBleed("左上臂", BleedModel.BleedSeverity.Medium);
+        body.RegisterBleed("左手臂", BleedModel.BleedSeverity.Medium);
         body.MarkFractured("右大腿");
 
         HealthConditionSet set = HealthMapping.SeedFromBody(body);
 
-        Assert.Contains(set.Conditions, c => c.Type == HealthConditionType.Bleeding && c.BodyPart == "左上臂" && c.OnLimb);
+        Assert.Contains(set.Conditions, c => c.Type == HealthConditionType.Bleeding && c.BodyPart == "左手臂" && c.OnLimb);
         Assert.Contains(set.Conditions, c => c.Type == HealthConditionType.Fracture && c.BodyPart == "右大腿" && c.OnLimb);
-        Assert.Contains("左上臂", body.BleedingWounds);
+        Assert.Contains("左手臂", body.BleedingWounds);
         Assert.True(body.IsFractured("右大腿"));
     }
 

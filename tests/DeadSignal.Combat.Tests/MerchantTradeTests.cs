@@ -31,7 +31,7 @@ public class MerchantTradeTests
         MerchantOffer offer = shelf.Offers[0];
         Assert.Equal(ItemCategory.Book, offer.Good.Category);
         Assert.Equal("carpentry_basics", offer.Good.RefKey);
-        Assert.Equal("木匠入门", offer.Good.DisplayName);
+        Assert.Equal("从零到一学会木匠", offer.Good.DisplayName); // [T59] 用户在 wiki 把书名从「木匠入门」改成此名
         Assert.Equal(1, offer.Stock);
         // [SPEC-B14-补6] 分制：货架价以分计——30 银 = 3000 分。
         Assert.Equal(Silver.FromWhole(MerchantShelf.CarpentryBasicsPrice), offer.Price);

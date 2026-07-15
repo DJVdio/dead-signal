@@ -223,7 +223,7 @@ public readonly record struct SurgerySupply(string MaterialKey, int Points, bool
 /// <summary>
 /// 手术耗材目录（**draft**）：材料标识名 → 手术点数/适用伤类/是否独占。与 <see cref="Materials"/> 里
 /// <see cref="MaterialCategory.Medical"/> 手术耗材一一对应，供 <see cref="HealthConditionSet.PerformSurgery"/> 消费。
-///   · 流血：绷带 +15 / 草药绷带 +25（绷带上位替代）/ 针线 +15（非独占可叠加）；或急救包 +60（独占）。
+///   · 流血：绷带 +15 / 草药绷带 +20（绷带上位替代）/ 针线 +15（非独占可叠加）；或急救包 +60（独占）。
 ///   · 骨折：夹板 +25；或急救包 +60（独占）。
 /// </summary>
 public static class SurgeryCatalog
@@ -231,8 +231,8 @@ public static class SurgeryCatalog
     private static readonly IReadOnlyDictionary<string, SurgerySupply> _byKey = new[]
     {
         new SurgerySupply("bandage", 15, false, new[] { HealthConditionType.Bleeding }),
-        // [SPEC-B14-补] 草药绷带：普通绷带的上位替代，止血手术供点 25（15/25 用户原话非拟定）。非独占，按现有加算模型可与针线叠加。
-        new SurgerySupply("herbal_bandage", 25, false, new[] { HealthConditionType.Bleeding }),
+        // [SPEC-B14-补 / 用户改] 草药绷带：普通绷带的上位替代，止血手术供点 20（用户从 25 下调至 20；15/20 用户原话非拟定）。非独占，按现有加算模型可与针线叠加。
+        new SurgerySupply("herbal_bandage", 20, false, new[] { HealthConditionType.Bleeding }),
         new SurgerySupply("needle_thread", 15, false, new[] { HealthConditionType.Bleeding }),
         new SurgerySupply("splint", 25, false, new[] { HealthConditionType.Fracture }),
         new SurgerySupply("first_aid_kit", 60, true, new[] { HealthConditionType.Bleeding, HealthConditionType.Fracture }),
@@ -269,8 +269,9 @@ public static class MedicalBookPoints
     // book id（对齐 BookData.Id）→ 手术加点。UI 只显示"略增医学学识"之类模糊描述，不展示具体点数。
     private static readonly IReadOnlyDictionary<string, MedicalBookBonus> _byBookId = new Dictionary<string, MedicalBookBonus>
     {
-        // 《野外生存指南》：**不使用任何手术材料时** +6（用户原话）。徒手手术的补偿，投了耗材即不生效。
-        ["wilderness_survival_guide"] = new MedicalBookBonus(6, OnlyWithoutSupplies: true),
+        // 《野外生存指南》：**不使用任何手术材料时** +3（[T68] 用户手改：原 +6，砍半）。徒手手术的补偿，投了耗材即不生效。
+        // 🔴 **这个数写死在两处**（本行 + Recipe.cs 的书说明注释）——改一处漏一处，注释就会开始骗人。
+        ["wilderness_survival_guide"] = new MedicalBookBonus(3, OnlyWithoutSupplies: true),
     };
 
     /// <summary>该书的手术治疗点（**不判条件**，只是点值——问条件用 <see cref="RequiresNoSupplies"/>）；非医疗书返回 0。</summary>
@@ -493,7 +494,7 @@ public sealed class HealthConditionSet
     /// <param name="surgeonBookBonus">施术者已读医疗书里**无条件生效**的加点合计（调用方走 <see cref="MedicalBookPoints.SumAlways"/>）。</param>
     /// <param name="surgeonBookBonusNoSupplies">
     /// 施术者已读医疗书里**只在这台手术一件耗材都没投时**才生效的加点合计（调用方走 <see cref="MedicalBookPoints.SumWithoutSupplies"/>；
-    /// 《野外生存指南》+6 即此档）。判据是**实际投入**的耗材——不适用该伤类的材料本就被忽略、不消耗，故也不剥夺此加成。
+    /// 《野外生存指南》+3 即此档）。判据是**实际投入**的耗材——不适用该伤类的材料本就被忽略、不消耗，故也不剥夺此加成。
     /// </param>
     /// <param name="selfSurgery">是否对自己手术（true → 池 ×0.60）。</param>
     /// <param name="operationCapability">施术者操作能力 0..1（满=1.0，残疾&lt;1；接入波从 Pawn 操作能力映射；池 ×它）。</param>
@@ -1185,7 +1186,7 @@ public static class HealthMapping
         => body.Parts.TryGetValue(part, out BodyPart? p) && p.Category == BodyPartCategory.Limb;
 
     /// <summary>
-    /// 该部位的出血是否为**致命失血**（拖久失血致死）：大部位（躯干/头/颈/上臂/大腿）= 致命失血；
+    /// 该部位的出血是否为**致命失血**（拖久失血致死）：大部位（躯干/头/颈/手臂/大腿）= 致命失血；
     /// 小/远端部位（手/脚/指/趾/眼/面/耳）= 只溃烂感染、非致命失血（对应"小锐器/咬伤类"口径）。
     /// <para>
     /// 分级本身已下沉到引擎 <see cref="BleedModel"/>，**战斗内失血与战后建档读同一个函数** ——
@@ -1195,7 +1196,7 @@ public static class HealthMapping
     private static bool IsLethalBleedPart(Body body, string part) => BleedModel.IsLethalPart(body, part);
 
     /// <summary>
-    /// 该部位出血伤口的**感染倾向系数**（越小的伤越低，draft）：大部位(躯干/头/颈/上臂/大腿) 1.0、
+    /// 该部位出血伤口的**感染倾向系数**（越小的伤越低，draft）：大部位(躯干/头/颈/手臂/大腿) 1.0、
     /// 手/脚 0.4、指/趾/眼/面/耳 0.2。喂进每昼夜感染几率，使小伤"值得赌要不要省抗生素"。部位表查不到按 1.0（从狠）。
     /// </summary>
     private static double InfectionPronenessOf(Body body, string part)
@@ -1208,7 +1209,7 @@ public static class HealthMapping
         {
             BodyRegion.Hand or BodyRegion.Foot => 0.4,
             BodyRegion.Finger or BodyRegion.Toe or BodyRegion.Eye or BodyRegion.Face or BodyRegion.Ear => 0.2,
-            _ => 1.0, // 躯干/头/颈/上臂/大腿 等大部位
+            _ => 1.0, // 躯干/头/颈/手臂/大腿 等大部位
         };
     }
 

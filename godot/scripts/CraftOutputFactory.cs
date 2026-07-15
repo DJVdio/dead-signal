@@ -31,11 +31,18 @@ public static class CraftOutputFactory
     // 护甲类产物：粗布背心 / 布夹克 + 布鲁斯狗装备五件套（DogGearCatalog 键）。落地为 Item.Armor，
     // RefKey=产物 key（狗装备穿戴走 DogApparelSlots 按此键查 DogGearCatalog）。
     // [批次21·T26] 战争面具 + 粗布衬衫/短裤/长裤：同为护甲产物（RefKey=中文显示名，对齐 ArmorTable/ApparelCatalog）。
+    // 🔴 [T68] **补登记 `cotton_hat`（棉帽）—— 它从 T59 落地那天起就漏在这张表外**：
+    //    漏登记的后果和消防斧那次一模一样（见上方 "axe" 的注释）——造出来的棉帽会**静默落进最后那条
+    //    "家具/杂项"分支**，变成一堆**不能戴的杂物材料**：不报错、不崩，配方能做、库存里看得见，
+    //    但你**永远戴不上它**。配方层全绿、消费层没登记 = 静默失效（`pure-logic-green-not-wired`）。
+    // [T68] 新增 `horror_armor`（恐怖装甲）：本作第一件可制作的装甲层护甲。
     private static readonly IReadOnlySet<string> ArmorOutputs = new HashSet<string>(
         new[]
         {
             "cloth_vest", "cloth_jacket",
             "war_mask", "coarse_shirt", "coarse_shorts", "coarse_trousers",
+            "cotton_hat", "horror_armor",
+            "snow_goggles",   // [T71] 自制简易墨镜（木缝雪镜，读《尖峰时刻》解锁）
         }.Concat(DogGearCatalog.AllKeys));
     // 光源类产物（火把）：落地为 Item.Light，refKey=产物 key（对齐 LightSource 目录）。手电不可制作，不列此表。
     private static readonly IReadOnlySet<string> LightOutputs = new HashSet<string> { "torch" };
@@ -86,6 +93,7 @@ public static class CraftOutputFactory
         CookStation.PotItemKey => "一口砸扁又敲圆的铁锅。锅底那层黑是历任主人共同的作品——他们都不在了，锅还在。",
         CookStation.GrillItemKey => "几根铁丝架成的烤架。它做不出什么讲究的东西，但它让火不再白烧。",
         TrapSpec.ItemKey => TrapSpec.ItemDescription,   // [批次21·T26] 圈套陷阱（造出来进库存 → 玩家自己摆）
+        CropPlotSpec.ItemKey => CropPlotSpec.ItemDescription,   // [T72] 菜园（造出来进库存 → 玩家自己摆 → 种土豆）
         // [批次21·T25] 桌子（纯家具）。⚠️ **床是顺手补的**：BedSpec.ItemDescription 写好了却**全仓无人引用**
         // ⇒ 造出来的床在库存里一句描述都没有（本表是它唯一的落点）。
         BedSpec.ItemKey => BedSpec.ItemDescription,

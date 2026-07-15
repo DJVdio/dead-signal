@@ -37,7 +37,8 @@ public class CookingTests
     [Fact]
     public void 用户点名的三个热量点是定值()
     {
-        Assert.Equal(6, FoodCalories.Of("rat"));         // 老鼠 6 点
+        Assert.Equal(6, FoodCalories.Of("rat_meat"));    // [T67] 老鼠 6 点（用户给定的定值）**已搬到「老鼠肉」上**：
+                                                 //       老鼠本身下不了锅了（要先宰杀），但那 6 点一分没变。
         Assert.Equal(2, FoodCalories.Of("rosehip"));     // 玫瑰果 2 点
         Assert.Equal(30, FoodCalories.Of("ration"));     // 军用单兵口粮 30 点
     }
@@ -200,7 +201,7 @@ public class CookingTests
     public void 裸台恰好十六点_做一份()
     {
         // 老鼠 6×2 = 12 + 玫瑰果 2×2 = 4 → 16 点，正好一份。
-        CookPlan plan = CookingLogic.Plan(true, Pot(("rat", 2), ("rosehip", 2)), Slots(), Plenty);
+        CookPlan plan = CookingLogic.Plan(true, Pot(("rat_meat", 2), ("rosehip", 2)), Slots(), Plenty);
 
         Assert.True(plan.CanCook);
         Assert.Equal(16, plan.TotalCalories);
@@ -259,19 +260,19 @@ public class CookingTests
         var full = Slots(CookwareSlot.Pot, CookwareSlot.Grill);
 
         // 12 点（老鼠 2 只）→ 裸台做不了的量，装齐炊具就够一份了。
-        CookPlan twelve = CookingLogic.Plan(true, Pot(("rat", 2)), full, Plenty);
+        CookPlan twelve = CookingLogic.Plan(true, Pot(("rat_meat", 2)), full, Plenty);
         Assert.True(twelve.CanCook);
         Assert.Equal(12, twelve.TotalCalories);
         Assert.Equal(12, twelve.PortionCost);
         Assert.Equal(1, twelve.Portions);
 
         // 23 点（老鼠 3 + 罐头 0…用兔子 11 + 老鼠 2×6 = 23）→ 一到两份之间，只做一份。
-        CookPlan twentyThree = CookingLogic.Plan(true, Pot(("rabbit", 1), ("rat", 2)), full, Plenty);
+        CookPlan twentyThree = CookingLogic.Plan(true, Pot(("rabbit", 1), ("rat_meat", 2)), full, Plenty);
         Assert.Equal(23, twentyThree.TotalCalories);
         Assert.Equal(1, twentyThree.Portions);
 
         // 24 点（老鼠 4 只）→ 两份。
-        CookPlan twentyFour = CookingLogic.Plan(true, Pot(("rat", 4)), full, Plenty);
+        CookPlan twentyFour = CookingLogic.Plan(true, Pot(("rat_meat", 4)), full, Plenty);
         Assert.Equal(24, twentyFour.TotalCalories);
         Assert.Equal(2, twentyFour.Portions);
     }
@@ -282,7 +283,7 @@ public class CookingTests
         // 老鼠 1（6） + 蘑菇 1（3） + 玫瑰果 1（2） = 11 → 每份 12，还差 1。
         // （[T59] 原本用「蒲公英 1」凑那 1 点；蒲公英已不是食材，换成蘑菇+玫瑰果凑同一个 11 点。）
         CookPlan plan = CookingLogic.Plan(
-            true, Pot(("rat", 1), ("mushroom", 1), ("rosehip", 1)),
+            true, Pot(("rat_meat", 1), ("mushroom", 1), ("rosehip", 1)),
             Slots(CookwareSlot.Pot, CookwareSlot.Grill), Plenty);
 
         Assert.False(plan.CanCook);
@@ -443,7 +444,7 @@ public class CookingTests
         // 遍历一批"热量不够"的锅：任一给玩家的文案里都不许出现数字（16 / 12 / 还差几点…）。
         foreach (int rats in Enumerable.Range(0, 3))
         {
-            CookPlan plan = CookingLogic.Plan(true, Pot(("rat", rats)), Slots(), Plenty);
+            CookPlan plan = CookingLogic.Plan(true, Pot(("rat_meat", rats)), Slots(), Plenty);
             string? text = CookingLogic.PlayerFacingText(plan.Blocks);
             if (text is null) continue;
             Assert.DoesNotContain(text, char.IsDigit);

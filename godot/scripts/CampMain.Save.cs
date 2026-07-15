@@ -99,6 +99,7 @@ public sealed partial class CampMain
             CraftingJob = SaveMapper.ToSave(_craftingJob, _craftingJobWorker?.Id ?? -1),
             SandbagSeq = _sandbagSeq,
             TrapSeq = _trapSeq,   // [批次21·T26] 陷阱命名序号（数量不存——从 PlacedFurniture 数出来，见 SaveData.TrapSeq）
+            BirdTrapSeq = _birdTrapSeq,   // [T75] 捕鸟陷阱命名序号（同圈套：数量从 PlacedFurniture 数出来，只存序号防重名）
 
             // 改装武器的**身份**（"步枪（刺刀型）" = 步枪 + 刺刀型）。不存这张表，读档后那把枪
             // 就是个查不到定义的空名字 —— 装不上、也没数值（见 ModdedWeaponRegistry 类注）。
@@ -168,10 +169,13 @@ public sealed partial class CampMain
         foreach ((string key, FurnitureInstance f) in _furniture)
         {
             // [批次21·T25] 桌子（"桌子#N"）：同床/沙袋/陷阱——位置由玩家定 ⇒ 不存就找不回来了。
+            // [T72] 菜园（"菜园#N"）：同床/沙袋/陷阱/桌子——位置由玩家定 ⇒ 必须存（生长计时器另在 StoryFlags 里，天然存）。
             if (!IsPlayerPlacedBed(key)
                 && !SandbagSpec.IsSandbagFurniture(key)
                 && !TrapSpec.IsTrapFurniture(key)
-                && !TableSpec.IsTableFurniture(key))
+                && !BirdTrapSpec.IsBirdTrapFurniture(key)   // [T75] 捕鸟陷阱（"捕鸟陷阱#N"）：同圈套，位置由玩家定 ⇒ 必须存
+                && !TableSpec.IsTableFurniture(key)
+                && !CropPlotSpec.IsCropPlotFurniture(key))
             {
                 continue;
             }
@@ -375,6 +379,10 @@ public sealed partial class CampMain
         // 取 Max ⇒ 两个来源谁大听谁的，撞名在结构上不可能发生。
         _trapSeq = Mathf.Max(_trapSeq, camp.TrapSeq);
 
+        // [T75] 捕鸟陷阱命名序号：同圈套陷阱——必须 Max（RespawnBirdTrap 已在 RestorePlacedFurniture 里把它推到场上实名最大号，
+        // 直接赋值会把手改/旧档的 0 盖回去 ⇒ 下一个新陷阱撞名）。取 Max ⇒ 撞名结构上不可能。
+        _birdTrapSeq = Mathf.Max(_birdTrapSeq, camp.BirdTrapSeq);
+
         // [批次21·impl-bedrest] 床位占用（须在 RestorePlacedFurniture 之后——玩家造的床得先立回场上、
         // AddBed 进登记册，占用关系才对得上号）。卧床令与休养流水账跟着各人走（PawnSave）。
         ApplyBedSave(camp);
@@ -447,11 +455,25 @@ public sealed partial class CampMain
                 continue;
             }
 
+            // [T75] 玩家摆的捕鸟陷阱：非实心矮物（可跨越）⇒ 同圈套，不触发重烘焙。摆回 _furniture 那一刻计数自动跟着回来。
+            if (BirdTrapSpec.IsBirdTrapFurniture(key))
+            {
+                RespawnBirdTrap(key, rect);
+                continue;
+            }
+
             // [批次21·T25] 玩家摆的桌子：非实心矮物（可跨越，跨过慢 25%）⇒ 同样不触发重烘焙。
             // 摆回 _furniture 的那一刻，减速场自动跟着回来（RebuildTraversalField 从 _furniture 唯一真源重建）。
             if (TableSpec.IsTableFurniture(key))
             {
                 RespawnTable(key, rect);
+                continue;
+            }
+
+            // [T72] 玩家摆的菜园：非实心持久种植区（可跨越）⇒ 同样不触发重烘焙。生长计时器已由 RestoreStoryFlags 复原（在此之前跑）。
+            if (CropPlotSpec.IsCropPlotFurniture(key))
+            {
+                RespawnCropPlot(key, rect);
                 continue;
             }
 
@@ -496,7 +518,9 @@ public sealed partial class CampMain
                      || IsPlayerPlacedBed(k)
                      || SandbagSpec.IsSandbagFurniture(k)
                      || TrapSpec.IsTrapFurniture(k)        // [批次21·T26] 陷阱也是玩家摆的
-                     || TableSpec.IsTableFurniture(k))     // [批次21·T25] 桌子也是玩家摆的
+                     || BirdTrapSpec.IsBirdTrapFurniture(k) // [T75] 捕鸟陷阱也是玩家摆的
+                     || TableSpec.IsTableFurniture(k)      // [批次21·T25] 桌子也是玩家摆的
+                     || CropPlotSpec.IsCropPlotFurniture(k)) // [T72] 菜园也是玩家摆的
             .ToList();
 
         foreach (string key in doomed)

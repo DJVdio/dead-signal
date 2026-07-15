@@ -130,7 +130,8 @@ public class ArcheryCraftingTests
 
         Assert.Empty(stick.RequiredTools);                                                  // 工具门槛照旧：一把刀削根棍
         Assert.Equal(new[] { RecipeBook.WildernessSurvivalGuideBookId }, stick.RequiredBookIds.ToArray());
-        Assert.Equal(new[] { "wood" }, stick.MaterialCosts.Keys.ToArray());
+        // [T67] 用户在 wiki 上把它改成吃羽毛（木料 1 → 木料 1 + 羽毛 1）。羽毛的唯一来源是宰杀鸟。
+        Assert.Equal(new[] { "wood", Materials.FeatherKey }, stick.MaterialCosts.Keys.ToArray());
     }
 
     /// <summary>

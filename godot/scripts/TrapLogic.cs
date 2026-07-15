@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using DeadSignal.Combat;   // IRandomSource（纯 C# 引擎类型，无 Godot 依赖）
 
 namespace DeadSignal.Godot;
@@ -103,7 +104,7 @@ public static class TrapSpec
 /// <para>═══ <b>陷阱是烹饪的稳定食材来源</b>（这条机制真正的经济位置）═══
 /// 抓到的老鼠（<b>6 热量点</b>）与兔子（<b>11 热量点</b>）直接入库存，是 <see cref="FoodCalories"/> 里的正经食材
 /// —— 陷阱因此成了营地<b>唯一不用出门、不担风险</b>的食物来源。它<b>喂不饱</b>一个营地（见 <see cref="ExpectedCatchesPerPhase"/>
-/// 的算式：满地板 6 个陷阱一天也就约 8.4 只 ≈ 63 热量点 ≈ 不到 4 份饭），但它把"今天没搜到吃的"从<b>死局</b>变成了<b>苦日子</b>。
+/// 的算式：满地板 6 个陷阱一天掷 2 次点也就约 <b>2.1 只 ≈ 16 热量点 ≈ 约 1 份饭</b>），但它把"今天没搜到吃的"从<b>死局</b>变成了<b>苦日子</b>。
 /// </para>
 /// </summary>
 public static class TrapLogic
@@ -133,9 +134,21 @@ public static class TrapLogic
     /// </summary>
     public const double RabbitShare = 0.30;
 
-    /// <summary>一天的相位数（<see cref="DayPhase"/> 的值数量 = 8）。<b>每相位各判一次</b> ⇒ 它是"每日期望"的换算系数。</summary>
-    /// <remarks>从枚举现算而非写死 8：哪天相位增减了，这里跟着动，期望产出的算式不会悄悄失真。</remarks>
-    public static int PhasesPerDay => Enum.GetValues<DayPhase>().Length;
+    /// <summary>
+    /// <b>陷阱在这个相位掷不掷点</b>——只在<b>两个昼夜段边界</b>各掷一次：白天段（<see cref="DayPhase.DawnMeal"/>）+
+    /// 夜晚段（<see cref="DayPhase.DuskMeal"/>）⇒ <b>一天 2 次</b>（用户拍板：白天 1 次 + 夜晚 1 次，与吃饭/饥饿同频）。
+    /// <para>🔴 <b>这是掷点频率的唯一事实源</b>：消费层（<c>CampMain.ResolveTrapsForPhase</c> / 捕鸟陷阱同款）
+    /// 只在本谓词为真时才结算，<see cref="RollsPerDay"/> 也由它数出来 ⇒ <b>触发点 / 每日期望 / 常量三处焊死同一条规则</b>，
+    /// 不会各写各的。谁改这行，一天掷几次点就跟着变，期望产出的算式不会悄悄失真。</para>
+    /// <para><b>为什么不是每个 <see cref="DayPhase"/> 都掷</b>：<see cref="DayPhase"/> 有 8 个值（含出行/探索/返程等中间相位），
+    /// 但用户口中的"相位"指的是<b>昼夜段</b>（一天 2 次，同两顿聚餐）。早期误按 8 个 <see cref="DayPhase"/> 逐个掷点，
+    /// 让陷阱产出<b>翻了 4 倍</b>（这正是"捕鸟陷阱太强"的根因）——已改回 2 次/天。</para>
+    /// </summary>
+    public static bool RollsOnPhase(DayPhase phase) => phase is DayPhase.DawnMeal or DayPhase.DuskMeal;
+
+    /// <summary>陷阱一天掷几次点 = 满足 <see cref="RollsOnPhase"/> 的相位数 = <b>2</b>（白天 1 + 夜晚 1）。
+    /// <b>每日期望</b>的换算系数（<c>ExpectedCatchesPerPhase(n) × RollsPerDay</c>）。<b>从谓词数出而非写死</b> ⇒ 与触发点焊死。</summary>
+    public static int RollsPerDay => Enum.GetValues<DayPhase>().Count(RollsOnPhase);
 
     /// <summary>
     /// <b>场上第 <paramref name="ordinal"/> 个陷阱的单次捕获几率</b>（1-based）= <c>max(5%, 30% − 5%×(n−1))</c>。
@@ -190,6 +203,35 @@ public static class TrapLogic
                 continue;   // 这个陷阱本相位空着——不掷物种点
             }
             caught.Add(rng.Range(0.0, 1.0) < RabbitShare ? RabbitKey : RatKey);
+        }
+        return caught;
+    }
+}
+
+/// <summary>
+/// <b>圈套陷阱的运行时编排（纯逻辑，可单测）</b> —— 镜像 <see cref="CropPlotRuntime"/> / <see cref="BirdTrapRuntime"/>：
+/// 把"一个昼夜段掷点 → 把老鼠/兔子塞进库存"抽成一个不引 Godot 类型的纯函数，<b>让消费层（<c>CampMain.Traps.cs</c>）和单测调同一段代码</b>，
+/// 杜绝消费层自己又写一遍 roll+入库的第二事实源。掷点频率不在这儿判——由 <see cref="RollsOnPhase"/> 在消费层 gate。
+/// </summary>
+public static class TrapRuntime
+{
+    /// <summary>
+    /// <b>结算一个昼夜段</b>：场上 <paramref name="trapCount"/> 个圈套陷阱各掷一次点，捕到的老鼠/兔子<b>逐只入库</b>，返回本段捕到的猎物（材料键，可空）。
+    /// <b>一个陷阱都没有就彻底静默</b>（<see cref="TrapLogic.RollPhase"/> 在 count≤0 时一次点都不掷）。
+    /// </summary>
+    public static IReadOnlyList<string> ResolveCatch(int trapCount, InventoryStore inventory, IRandomSource rng)
+    {
+        IReadOnlyList<string> caught = TrapLogic.RollPhase(trapCount, rng);
+        if (inventory is null || caught.Count == 0)
+        {
+            return caught;
+        }
+        foreach (IGrouping<string, string> g in caught.GroupBy(k => k))
+        {
+            if (Materials.Find(g.Key) is { } def)
+            {
+                inventory.Add(def.ToItem(g.Count()));
+            }
         }
         return caught;
     }

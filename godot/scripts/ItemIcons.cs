@@ -130,6 +130,13 @@ public static class ItemIcons
         ["粗布短裤"] = new(Armor, "coarse_shorts", "delapouite/shorts"),
         ["粗布长裤"] = new(Armor, "coarse_trousers", "irongamer/armored-pants"),
 
+        // [T68] 用户在 wiki 上新加的三件。
+        ["恐怖装甲"] = new(Armor, "horror_armor", "lorc/bone-knife"),   // 骨片缝在皮衬上的胸甲——取骨系剪影
+        ["墨镜"] = new(Armor, "sunglasses", "delapouite/sunglasses"),
+        ["平光眼镜"] = new(Armor, "plain_glasses", "delapouite/spectacles"),
+        // [T71] 自制简易墨镜（木缝雪镜）——护目镜剪影
+        ["自制简易墨镜"] = new(Armor, "snow_goggles", "delapouite/goggles"),
+
         // —— 护甲：布鲁斯的狗装五件套（DogGearCatalog；口袋狗衣不提供防护，只加负重）——
         ["布制狗衣"] = new(Armor, "dog_cloth_vest", "lorc/armor-vest"),
         ["皮制狗衣"] = new(Armor, "dog_leather_vest", "lorc/leather-vest"),
@@ -205,6 +212,7 @@ public static class ItemIcons
         ["way_of_bow_and_arrow"] = new(Books, "book_archery", "delapouite/rule-book"),
         ["mechanical_beauty"] = new(Books, "book_mechanics", "lorc/gears"),   // [批次21·T26] 《机械之美》（弩的解锁书）
         ["bow_crafting_guide"] = new(Books, "book_bowcraft", "lorc/high-shot"),   // [T59] 《弓制作指南》（反曲弓/长弓的解锁书）
+        ["peak_hour"] = new(Books, "book_peak_hour", "lorc/mountains"),   // [T71] 《尖峰时刻》（滑雪极限运动书，解锁自制简易墨镜）——群山剪影
         ["goldfinger_diary_a"] = new(Books, "book_diary_a", "delapouite/book-pile"),
         ["goldfinger_diary_b"] = new(Books, "book_diary_b", "lorc/papers"),
 
@@ -222,6 +230,11 @@ public static class ItemIcons
         ["cooking_pot"] = new(Furniture, "cooking_pot", "delapouite/cooking-pot"),
         ["cooking_grill"] = new(Furniture, "cooking_grill", "delapouite/barbecue"),
         ["snare_trap"] = new(Furniture, "snare_trap", "lorc/wolf-trap"),   // [批次21·T26] 圈套陷阱
+        // —— [T67] 采集/种植/诱捕支柱的三件设施 ——
+        ["bird_trap"] = new(Furniture, "bird_trap", "delapouite/bird-cage"),        // 捕鸟陷阱（→ 鸟 → 宰杀 → 羽毛 → 箭）
+        ["crop_plot"] = new(Furniture, "crop_plot", "delapouite/plant-seed"),       // 菜畦（种土豆）
+        ["butcher_point"] = new(Furniture, "butcher_point", "delapouite/meat-hook"),// 简易宰杀点
+        ["butcher_table"] = new(Furniture, "butcher_table", "delapouite/meat-cleaver"), // 宰杀台（升级）
 
         // —— 食材（MaterialCategory.Food，烹饪系统的原料；与那张泛化的「口粮份数」图标 FoodRefKey 不是一回事）——
         // 注意：材料键 "ration"（军用单兵口粮）与泛化口粮图标的 slug "ration" 撞名，故它的 slug 取 ration_military。
@@ -235,6 +248,13 @@ public static class ItemIcons
         ["beans"] = new(Food, "beans", "delapouite/jelly-beans"),
         ["potato"] = new(Food, "potato", "delapouite/potato"),
         ["mushroom"] = new(Food, "mushroom", "delapouite/mushrooms"),
+
+        // —— [T67] 宰杀链的四样新材料（**追加末尾不插队**）——
+        // 「鸟」（键仍是 pigeon）图标不变：它还是那只鸽子，只是换了个名字。
+        ["rat_meat"] = new(Food, "rat_meat", "delapouite/meat"),                 // 老鼠肉
+        ["bird_meat"] = new(Food, "bird_meat", "delapouite/chicken-leg"),        // 鸟肉
+        ["feather"] = new(Mats, "feather", "lorc/feather"),                      // 羽毛（三种箭的共同料）
+        ["leather_scrap"] = new(Mats, "leather_scrap", "delapouite/rolled-cloth"), // 碎皮革（缝合成生皮）
 
         // —— 工作台工具（搜刮而来，落地时装进工作台的三个 ToolSlot；键对齐 camp.json 的 loot id）——
         ["calipers"] = new(Tools, "calipers", "delapouite/pencil-ruler"),

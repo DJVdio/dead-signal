@@ -265,7 +265,7 @@ public class SamPerkTests
         Assert.Equal(34.5, Loadout.FreeThresholdFor(sam), 6);   // 30 × 1.15
         Assert.Equal(57.5, Loadout.StrainThresholdFor(sam), 6); // 50 × 1.15
 
-        // 同样背 32kg（≈ 重甲出门 26.9kg + 搜了 5kg）：常人已进轻度档，山姆仍无影响
+        // 同样背 32kg（≈ 重甲出门 29.9kg + 搜了 2kg）：常人已进轻度档，山姆仍无影响
         Assert.Equal(LoadoutTier.Encumbered, Loadout.TierOf(32, Loadout.CarryLimit()));
         Assert.Equal(LoadoutTier.Unencumbered, Loadout.TierOf(32, sam));
         Assert.Equal(1.0, Loadout.SpeedMultiplier(32, sam), 6);

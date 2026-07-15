@@ -116,7 +116,9 @@ public class ExplorationCacheTests
     [Fact]
     public void LookoutCaches_HaveGeneralSuppliesNoWeaponNoBook()
     {
-        // 瞭望台是剧情主点，物资为前中期通用搭配（食水/医疗/材料/电子件），不给招牌武器/书（draft 拟定，用户可加招牌物）。
+        // 瞭望台是剧情主点，物资为前中期通用搭配（食水/医疗/材料/电子件），不给招牌武器。
+        // [T71] 招牌"书"这条 draft 限制**已被用户 authored 内容取代**：《尖峰时刻》(滑雪极限运动书) 就投在
+        // 瞭望员值班室（题名"尖峰"应和地名"之巅"）——故书只放行值班室这一处，其余 lookout 点仍无书。
         CacheResult shop = ExplorationCache.Resolve(ExplorationCache.LookoutGiftShopId, new StoryFlags())!.Value;
         Assert.Contains(shop.Loot, l => l.Kind == LootKind.Food);
         Assert.Contains(shop.Loot, l => l.Kind == LootKind.Material);
@@ -128,7 +130,8 @@ public class ExplorationCacheTests
         {
             CacheResult r = ExplorationCache.Resolve(id, new StoryFlags())!.Value;
             Assert.DoesNotContain(r.Loot, l => l.Kind == LootKind.Weapon);
-            Assert.DoesNotContain(r.Loot, l => l.Kind == LootKind.Book);
+            if (id != ExplorationCache.LookoutWardensRoomId)   // [T71] 值班室有《尖峰时刻》，其余点仍禁书
+                Assert.DoesNotContain(r.Loot, l => l.Kind == LootKind.Book);
         }
     }
 

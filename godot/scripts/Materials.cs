@@ -122,8 +122,8 @@ public static class Materials
         new MaterialDef("needle_thread", "针线", "能缝补你的伤口，却治愈不了你的心", MaterialCategory.Medical),
         new MaterialDef("splint", "夹板", "这会让它看上去直一些", MaterialCategory.Medical),
         new MaterialDef("first_aid_kit", "急救包", "“一包全搞定”——南丁格尔", MaterialCategory.Medical),
-        // [SPEC-B14-补] 草药绷带：老君须敷料裹入绷带，止血手术的上位替代（供点 25，普通绷带 15）。
-        new MaterialDef("herbal_bandage", "草药绷带", "传统医学，比普通绷带强", MaterialCategory.Medical),
+        // [SPEC-B14-补 / 用户改] 草药绷带：老君须敷料裹入绷带，止血手术的上位替代（供点 20，普通绷带 15）。
+        new MaterialDef("herbal_bandage", "草药绷带", "传统医学，据说能消炎杀菌", MaterialCategory.Medical),
         // —— 药品（感染/疾病）——
         new MaterialDef("antibiotics", "抗生素", "现代医学的结晶", MaterialCategory.Medical),
         new MaterialDef("medicine", "成药", "杂七杂八的成药，缓解发热痢疾等病症——治不了大病，但能让你多撑一天。", MaterialCategory.Medical),
@@ -136,7 +136,7 @@ public static class Materials
         new MaterialDef("herbal_salve", "草药膏", "死马当活马医", MaterialCategory.Medical),
         new MaterialDef("dandelion_tea", "蒲公英茶", "奶奶的最爱", MaterialCategory.Medical),
         // [SPEC-B14-补2] 玫瑰果茶：饮用后 24 游戏小时伤病恢复速度 +9pp。
-        new MaterialDef("rosehip_tea", "玫瑰果茶", "酸酸甜甜，抚慰你受伤的身体——喝下后一整天，身子骨恢复得更快些。", MaterialCategory.Medical),
+        new MaterialDef("rosehip_tea", "玫瑰果茶", "酸酸甜甜，抚慰你受伤的身体。", MaterialCategory.Medical),
         // —— 货币（draft）：末日流通的硬通货，神秘商人交易媒介。量级/掉落来源待用户设计。——
         new MaterialDef(CurrencyKey, "白银", "末世前铸的白银，如今废土上唯一还认的硬通货——文明没了，人对闪光东西的贪心还在。可堆叠、散落世界可搜刮。", MaterialCategory.Currency),
         // —— [批次18] 子弹零件：四种子弹的**唯一**共同原料（用户拍板新增的材料）。——
@@ -168,7 +168,7 @@ public static class Materials
         // 注意：`AmmoKeys.Arrow`（"ammo_arrow"）是**类别键**，只用于 `Weapon.AmmoKey` 表达"这武器吃箭"，
         // **它本身不是一种材料**，故不在本目录中——库存里躺的永远是下面这四种之一。
         new MaterialDef("ammo_arrow_stick", "削尖的木箭", "一根削尖的木棍，勉强算箭。它会飞，也会中，就是别指望它飞直，或者中得深。", MaterialCategory.Ammo),
-        new MaterialDef("ammo_arrow_handmade", "自制箭", "木杆、铁头、布尾羽，手工出品。称不上精良，但每一支都长得一样——对一个弓手来说，这比精良更要紧。", MaterialCategory.Ammo),
+        new MaterialDef("ammo_arrow_handmade", "自制箭", "木杆、铁头、羽毛尾翎，手工出品。称不上精良，但每一支都长得一样——对一个弓手来说，这比精良更要紧。", MaterialCategory.Ammo),
         new MaterialDef("ammo_arrow_heavy", "重头箭", "箭头灌了铅，沉得手腕发酸。飞不远，抬手也慢，但扎上去的时候，护甲的意见就不太重要了。", MaterialCategory.Ammo),
         new MaterialDef("ammo_arrow_carbon", "碳纤维箭", "碳纤维箭杆，笔直、轻盈、贵得离谱。工厂早就停工了，用一支少一支——所以射出去之后，你一定会回去把它捡起来。", MaterialCategory.Ammo),
         // —— [批次21·T14] 食材：下得了锅的生料。热量点在 FoodCalories（外挂表），**不在这儿** ——
@@ -176,8 +176,20 @@ public static class Materials
         // 文案可以暗示"顶不顶饱"（"啃两口就没了"vs"顶一整天"），但绝不能报数——那是给 wiki 看的，不是给玩家看的。
         // 玫瑰果 / 蒲公英**不在此列**（它们归「医疗」，见上方草药三档）——但它们照样是食材：
         // 「是不是食材」问的是 FoodCalories.Has，不是这个类别。
+        // 🔴 [T67] **老鼠与鸟不再下得了锅** —— 用户原话「老鼠和鸟不能直接入锅了，而是要先宰杀」。
+        //    它们仍是 MaterialCategory.Food（**它们没有离开食物链，只是多了一道工序**），
+        //    但**已从 FoodCalories 移除** ⇒ `FoodCalories.Has` 为 false ⇒ 灶上点不到它们。
+        //    ⚠️ 这条"类别留着、热量表除名"的走法**不是我发明的**：蒲公英是同一个先例
+        //    （[T59] 用户把它从食物表删了，它仍是材料、仍是药）。判据是那句既有口径：
+        //    **「是不是食材」问的是 FoodCalories.Has，不是这个类别。**
+        //    它们现在的去处是【宰杀】（见 <see cref="ButcheryLogic"/>）：老鼠 → 老鼠肉 + 碎皮革；鸟 → 鸟肉 + 羽毛。
         new MaterialDef("rat", "老鼠", "末日里最先繁荣起来的物种。抓它、剥它、炖它——你曾经以为自己这辈子都不会做这三件事。", MaterialCategory.Food),
-        new MaterialDef("pigeon", "鸽子", "城市广场上那种鸽子，如今没人喂了，也没人拍照了。肉少，骨头多，但它是肉。", MaterialCategory.Food),
+        // ⚠️ [T67] **「鸽子」已改名为「鸟」**（用户原话：「就是鸽子，但是换名字叫鸟」）——**改的是显示名，不是物品**。
+        //    🔴 **材料键仍是 `pigeon`**，这是**有意的**：本项目材料的代码主键是**英文键**（中文名只是显示名，
+        //    与武器表 `_weaponKg` 那种"中文名当主键"的字典不是一回事）⇒ 库存/存档/掉落表/图标/商人表**全部按 `pigeon` 索引**，
+        //    改键才会引发存档迁移，改显示名**一行都不用迁**（老档里存的是 `pigeon`，读出来照样显示「鸟」）。
+        //    ⇒ **别"顺手"把键也改成 `bird`** —— 那会把老档里的鸟凭空变没，换来的只是一个更好看的英文单词。
+        new MaterialDef("pigeon", "鸟", "城市广场上那种鸽子，如今没人喂了，也没人拍照了。肉少，骨头多，但它是肉——前提是你肯动刀。", MaterialCategory.Food),
         new MaterialDef("rabbit", "兔子", "一只野兔，够一顿像样的。抓到它的那天，你会想起从前「运气不错」是个多么轻飘飘的词。", MaterialCategory.Food),
         new MaterialDef("fish", "鱼", "河里的鱼。没人知道那水现在还干不干净，但煮熟了，谁也不会先问这个问题。", MaterialCategory.Food),
         new MaterialDef("ration", "军用单兵口粮", "军方发的单兵口粮，密封、耐放、量足。包装上印着「一日份」——印它的那个人还相信会有下一日。", MaterialCategory.Food),
@@ -186,7 +198,44 @@ public static class Materials
         new MaterialDef("beans", "干豆", "一把干豆，硬得能崩掉牙。泡一夜、煮一晌，然后它就成了这个屋子里最像「正经饭」的东西。", MaterialCategory.Food),
         new MaterialDef("potato", "土豆", "从谁家后院刨出来的，发了点芽。削掉芽眼，剩下的部分依然是土豆——这就是土豆了不起的地方。", MaterialCategory.Food),
         new MaterialDef("mushroom", "蘑菇", "林子里采的。你认得这一种，你很确定你认得这一种。", MaterialCategory.Food),
+
+        // ════════════════ [T67] 宰杀链的四样新材料（**追加末尾不插队**，Sim 随机流纪律）════════════════
+        //
+        // 用户拍板的新链：**捕鸟陷阱 → 鸟 →【宰杀】→ 鸟肉 + 羽毛 → 造箭**；**老鼠 →【宰杀】→ 老鼠肉 + 碎皮革**。
+        // 每一样都**必须有消费方**，否则就是死物品（今天已抓出「金属锭」「骨刀」两个前车之鉴）：
+        //   · 老鼠肉 / 鸟肉 → **下得了锅**（FoodCalories）✓
+        //   · 羽毛       → **三种箭的共同料**（削尖的木箭 / 自制箭 / 重头箭）✓
+        //   · 碎皮革     → **缝合成生皮**（`leather_stitch` 配方）✓ —— 见下方它自己的注释
+
+        // 老鼠肉：热量点 **6**，**原封不动**继承老鼠身上那个「用户给定的定值」（宰杀只是把肉从骨头上取下来，不创造也不毁灭热量）。
+        new MaterialDef("rat_meat", "老鼠肉", "剔下来的那点肉，摊在案板上还没有巴掌大。你已经不记得上一次挑食是什么时候了。", MaterialCategory.Food),
+
+        // 鸟肉：热量点 **5**，同样原样继承自「鸟」（原「鸽子」）。
+        new MaterialDef("bird_meat", "鸟肉", "两条细腿，一小块胸脯。它飞了一辈子，最后落在这块案板上——所有的翅膀都是这么用完的。", MaterialCategory.Food),
+
+        // 羽毛：**箭的尾羽**。三种箭全都吃它（用户在 wiki 上亲手改的），也就是说——
+        // **没有鸟，就没有箭**。弓不是靠木头喂活的，是靠一张网和一把刀。
+        new MaterialDef("feather", "羽毛", "一小把飞羽，理顺了扎在箭尾上。它曾经的用途和现在的用途，说到底是同一件事：让一样东西飞直。", MaterialCategory.Misc),
+
+        // 碎皮革：宰杀老鼠的副产物。
+        // 🔴 **它不是「皮革」，也不是「生皮」的重复品** —— 三者是一条**工序链**上的三个阶段，不是三个同义词：
+        //   碎皮革（rat 大小的零碎皮子，**缝起来才成幅**）→ 生皮（成幅的生兽皮，**鞣过才能穿**）→ 皮革（鞣好的成品）。
+        // ⚠️ **它给「生皮」补上了游戏里的第一条生产线**：核实过——`rawhide` 此前**没有任何掉落点、没有任何配方产出**，
+        //    只能从商人手里买（`MerchantBuyList` 里 4 银）。⇒ 碎皮革不是概念膨胀，它是在**接一条断掉的链**。
+        new MaterialDef("leather_scrap", "碎皮革", "一小块一小块的皮子，边缘参差不齐。攒够了，缝起来，也就还是一张皮——只是多了几十道针脚。", MaterialCategory.Leather),
     };
+
+    /// <summary>羽毛的材料标识键 —— 三种箭（削尖的木箭 / 自制箭 / 重头箭）的<b>共同料</b>，唯一来源是【宰杀鸟】。</summary>
+    public const string FeatherKey = "feather";
+
+    /// <summary>碎皮革的材料标识键 —— 宰杀老鼠的副产物；<b>缝合成生皮</b>（<c>leather_stitch</c>）。</summary>
+    public const string LeatherScrapKey = "leather_scrap";
+
+    /// <summary>老鼠肉的材料标识键 —— 宰杀老鼠的主产物（6 热量点，继承自老鼠）。</summary>
+    public const string RatMeatKey = "rat_meat";
+
+    /// <summary>鸟肉的材料标识键 —— 宰杀鸟的主产物（5 热量点，继承自鸟）。</summary>
+    public const string BirdMeatKey = "bird_meat";
 
     /// <summary>
     /// [T46] 铁的材料标识键 —— 金属加工的**唯一**原料（钉子/铁丝/武器零件是另算的成品件，不由它派生）。

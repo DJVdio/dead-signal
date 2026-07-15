@@ -467,7 +467,7 @@ public enum BodyPartCategory
 
 /// <summary>
 /// 身体部位定义（不可变模板，数据驱动）。命中按体积权重随机分配（瞄准指令改变权重）。
-/// 每部位独立 HP；<see cref="Parent"/> 组成树形，用于切除连带（切上臂→连带手）。
+/// 每部位独立 HP；<see cref="Parent"/> 组成树形，用于切除连带（切手臂→连带手）。
 /// 细部位表见 <see cref="HumanBody"/>，HP/权重均"拟定待调"。
 /// </summary>
 public sealed class BodyPart

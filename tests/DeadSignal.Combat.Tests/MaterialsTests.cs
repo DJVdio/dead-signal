@@ -176,10 +176,20 @@ public class MaterialsTests
     [Fact]
     public void 配方吃到的每一种材料_都必须真的拿得到_不许有死材料()
     {
-        // 四条获取途径：搜刮点掉落、营地废墟、另一条配方的产物、**拆除回收**
-        //（最后一条别漏：「废木料」就只从拆木结构里来——它没有掉落也没有配方产出，
-        //  漏掉这条会把一个活得好好的材料误判成死材料）。
+        // 获取途径：搜刮点掉落、营地废墟、另一条配方的产物、拆除回收、**宰杀产出**。
+        //（「废木料」只从拆木结构里来——漏掉拆除回收会把它误判成死材料。
+        //  🔴 [T67] **宰杀是第五条途径，且它不是 RecipeData**（RecipeData 只有单一 OutputKey，
+        //  表达不了"一刀出两样东西"）⇒ 羽毛/碎皮革/老鼠肉/鸟肉全从这条来，漏掉它会把整条弓箭线误判成死材料。
+        //  这与 WikiSyncT59Tests 那条"食物类死物品"护栏加"上得了案板"是同一处世界形状的两个投影。）
         var obtainable = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (string quarry in ButcheryLogic.ButcherableKeys)
+        {
+            ButcherYield y = ButcheryLogic.Resolve(
+                ButcherTier.SimplePoint, ButcherKnife.Dagger, quarry, new SequenceRandomSource(0.99))!.Value;
+            obtainable.Add(y.MeatKey);
+            obtainable.Add(y.ByproductKey);
+        }
 
         foreach (string cacheId in AllCacheIds())
         {

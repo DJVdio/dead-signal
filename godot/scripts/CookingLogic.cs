@@ -90,9 +90,14 @@ public static class FoodCalories
     private static readonly IReadOnlyList<FoodDef> _all = new[]
     {
         // ——— 荤 ———
-        new FoodDef("rat", 6),               // 老鼠（用户给定）
-        new FoodDef("pigeon", 5),            // 鸽子
-        new FoodDef("rabbit", 11),           // 兔子
+        // 🔴 [T67] **老鼠（rat）与鸟（pigeon）已从本表移除** —— 用户原话「**老鼠和鸟不能直接入锅了，而是要先宰杀**」。
+        //    它们**没有从游戏里消失**（仍是 Materials 目录项、仍有重量图标、陷阱照旧抓、掉落表照旧掉），
+        //    删的是"能直接下锅"这一条 ⇒ 现在灶上点不到它们，得先过一遍案板（<see cref="ButcheryLogic"/>）。
+        //    走法与 [T59] 蒲公英**完全同源**（那次是"从食物表删、材料保留"），判据也是同一句：
+        //    **「是不是食材」问的是 FoodCalories.Has，不是 MaterialCategory。**
+        //    ⚠️ 热量点**一点没蒸发**：老鼠的 6 点（**用户给定的定值**）原样搬到了 rat_meat 上，鸟的 5 点搬到了 bird_meat 上。
+        //    ⚠️ **兔子（rabbit）刻意没动** —— 用户只点名了"老鼠和鸟"。别顺手"统一"成"所有猎物都要宰杀"，那是引申。
+        new FoodDef("rabbit", 11),           // 兔子（[T67] **仍可直接下锅**：用户没提它 ⇒ 一个字没动）
         new FoodDef("fish", 8),              // 鱼
 
         // ——— 存粮 / 罐头 ———
@@ -102,8 +107,13 @@ public static class FoodCalories
         new FoodDef("beans", 5),             // 干豆
 
         // ——— 野菜 / 采集（与医疗原料共用同一批材料键，见类注）———
-        new FoodDef("potato", 4),            // 土豆
+        new FoodDef("potato", 4),            // 土豆（[T67] 菜畦种出来的也是它——同一个键，不新造"自种土豆"）
         new FoodDef("mushroom", 3),          // 蘑菇
+
+        // ——— [T67] 宰杀出来的肉（**追加末尾不插队**）———
+        // 热量点是从被宰的那只动物身上**原样继承**的，宰杀不创造也不毁灭热量（它只是把肉从骨头和皮上取下来）。
+        new FoodDef("rat_meat", 6),          // 老鼠肉 ← 继承老鼠的 6 点（用户给定的定值，一分不差）
+        new FoodDef("bird_meat", 5),         // 鸟肉   ← 继承鸟（原「鸽子」）的 5 点
         new FoodDef("rosehip", 2),           // 玫瑰果（用户给定；同时是医疗原料，归 impl-medicine 那条线，本表不碰它的类别）
 
         // 🔴 [T59] **蒲公英已从本表移除**（用户在 wiki 的「食物与食材」页把它删了）⇒ 它**下不了锅**了。

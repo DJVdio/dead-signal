@@ -404,8 +404,10 @@ public class SalvageTests
         // 负重上限 80kg 刚落地：新材料必须有自己的重量，不能吃 0.5kg 兜底。
         Assert.Equal(1.0, ItemWeights.MaterialKg(SalvageLogic.ScrapWoodKey));
         Assert.Equal(0.5, ItemWeights.MaterialKg(SalvageLogic.GlueKey));
-        // 废木料比整根木料轻（它是碎料）。
-        Assert.True(ItemWeights.MaterialKg(SalvageLogic.ScrapWoodKey) < ItemWeights.MaterialKg(SalvageLogic.WoodKey));
+        // 🔴 [T68] 用户把整根木料从 2.0 减到 1.0kg ⇒ 与废木料（碎料 1.0）**打平了**。
+        //    原不变量"废木料严格轻于整根木料"被木料减重抹平 ⇒ 改为**不重于**（≤）。
+        //    （废木料本身没被用户改动；这是木料减半的连带后果，非本单主动调整。）
+        Assert.True(ItemWeights.MaterialKg(SalvageLogic.ScrapWoodKey) <= ItemWeights.MaterialKg(SalvageLogic.WoodKey));
     }
 
     // ══════════════ 8. 胶水的获取：能造，但刻意贵（"别让胶水遍地都是"）══════════════

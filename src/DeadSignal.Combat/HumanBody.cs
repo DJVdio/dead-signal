@@ -2,7 +2,7 @@ namespace DeadSignal.Combat;
 
 /// <summary>
 /// 人类细部位表工厂（数据驱动）。HP 与体积命中权重均为**拟定待调**（参考 CDDA/RimWorld 量级）。
-/// 树形层级用于切除连带：手挂在上臂下、脚挂在小腿下、小腿挂在大腿下、眼/鼻/下巴挂在头下；
+/// 树形层级用于切除连带：手挂在手臂下、脚挂在小腿下、小腿挂在大腿下、眼/鼻/下巴挂在头下；
 /// 躯干细分为**胸+腹**（[SPEC-B17]）：胸为根，头/双臂挂胸，腹挂胸、双腿挂腹（解剖上头臂经胸廓、腿经骨盆/腹）。
 /// 细分为**纯结构性**（[SPEC-B17-修]）：胸/腹沿原躯干通用档、大/小腿沿原腿通用档，性质由 Region/Category 通用规则自然归类，不做手工特化。
 /// 归零后果：胸/腹（Vital，沿躯干）=致死；四肢/手/脚=致残；眼=致盲；鼻/下巴=毁容（无系统后果）。
@@ -20,8 +20,8 @@ public static class HumanBody
     public const string Chin = "下巴";
     public const string LeftEar = "左耳";
     public const string RightEar = "右耳";
-    public const string LeftArm = "左上臂";
-    public const string RightArm = "右上臂";
+    public const string LeftArm = "左手臂";
+    public const string RightArm = "右手臂";
     public const string LeftHand = "左手";
     public const string RightHand = "右手";
     // 下肢细分（[SPEC-B17]）：大腿→小腿→脚，逐级挂载。大/小腿均 Region.Leg（沿原腿通用档，骨折/移动同档）。

@@ -79,6 +79,17 @@ public static class FurnitureBuildCost
         // 可重复摆放 ⇒ 实例名带流水号（"陷阱#3"），本表按类型索引（见 TypeKeyOf）。
         ["陷阱"] = new(Cost(("wood", 2), ("wire", 2), ("rope", 1)), 40),
 
+        // [T75] 捕鸟陷阱（玩家可造/摆/拆，见 BirdTrapSpec）：成本与工时**与配方 bird_trap 一致**（木料 2 + 绳 2，40 分）
+        // ——两处分叉 = "造一个拆一个"的材料永动机。拆了按通用规则还一半（向下取整 ⇒ 木料 1 + 绳 1）。
+        // 可重复摆放 ⇒ 实例名带流水号（"捕鸟陷阱#3"），本表按类型索引。键 = BirdTrapSpec.FurnitureKey。
+        [BirdTrapSpec.FurnitureKey] = new(Cost(("wood", 2), ("rope", 2)), 40),
+
+        // 菜园（[T72] 玩家可造/摆/拆的持久种植区，见 CropPlotSpec/CropPlotRuntime）：成本与工时**与配方 crop_plot 一致**
+        // （木料 2，60 分）——两处分叉 = "造一个拆一个"的木料永动机。拆了按通用规则还一半（木料 1）。
+        // ⚠️ 拆走菜园 = 未收的作物随它一起没了（消费层 CropPlotRuntime.ClearPlot 清计时器）。
+        // 可重复摆放 ⇒ 实例名带流水号（"菜园#3"），本表按类型索引（见 TypeKeyOf）。键 = CropPlotSpec.FurnitureKey。
+        [CropPlotSpec.FurnitureKey] = new(Cost(("wood", 2)), 60),
+
         // 收音机、废墟、尸体等**刻意不在表内**——它们不是造出来的，拆不动。
     };
 

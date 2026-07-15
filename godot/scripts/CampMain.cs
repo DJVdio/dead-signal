@@ -311,6 +311,11 @@ public sealed partial class CampMain : Node2D
 
     /// <summary>营地里有没有改装台（武器改造的唯一场所；拆了就没了）。</summary>
     private bool HasModBench => _furniture.ContainsKey(WeaponModLogic.BenchFurnitureKey);
+
+    // [T67] 宰杀设施在场判定（单座设施，落 _furniture 时键＝家具名，同烹饪台/改装台的既有做法）。
+    private bool HasButcherPoint => _furniture.ContainsKey(ButcherStation.PointFurnitureKey);
+    private bool HasButcherTable => _furniture.ContainsKey(ButcherStation.TableFurnitureKey);
+    private bool HasButcherStation => HasButcherPoint || HasButcherTable;
     private readonly List<Zombie> _raidZombies = new();  // 当前袭营波次（存活）
     private VisionMask? _campVisionMask;                   // 营地视野遮暗（批次4，夜间启用/白天豁免）
     private PathOverlay? _pathOverlay;                     // 选中角色的移动路径线（RimWorld 式，画导航真实路径；ZIndex 4090 压在遮暗之上）
@@ -3241,6 +3246,9 @@ public sealed partial class CampMain : Node2D
         // 废墟挖掘推进：挖掘者在场时逐游戏分钟推进；挖满→收获+清场显露空地。面板冻结时标时同样不推进。
         TickRubbleDig();
 
+        // [T72] 菜园生长：每帧把 delta 折成游戏小时喂给计时器（昼夜都走、零维护）。一座菜园都没有时整段跳过。正文在 CampMain.Farming.cs。
+        TickCropGrowth(delta);
+
         // 导航图首帧就绪后跑一次门缝连通性自检。
         if (!_navTested)
         {
@@ -3435,6 +3443,22 @@ public sealed partial class CampMain : Node2D
             }
         }
 
+        // [T75] 摆放捕鸟陷阱模式：左键落位、右键作罢（同圈套陷阱；正文在 CampMain.BirdTrap.cs）。
+        if (_placingBirdTrap)
+        {
+            if (mb is { ButtonIndex: MouseButton.Left, Pressed: true })
+            {
+                TryPlaceBirdTrap(Iso.Unproject(GetGlobalMousePosition()));
+                return;
+            }
+            if (mb is { ButtonIndex: MouseButton.Right, Pressed: true })
+            {
+                EndBirdTrapPlacement();
+                _campToast.Show("算了，捕鸟陷阱先收着。", CampToast.Ok);
+                return;
+            }
+        }
+
         // 摆放床模式：左键落位、右键作罢（同沙袋；正文在 CampMain.Bedrest.cs）。
         if (_placingBed)
         {
@@ -3463,6 +3487,22 @@ public sealed partial class CampMain : Node2D
             {
                 EndTablePlacement();
                 _campToast.Show("算了，桌子先搁着。", CampToast.Ok);
+                return;
+            }
+        }
+
+        // [T72] 摆放菜园模式：左键落位、右键作罢（同沙袋/陷阱/桌子；正文在 CampMain.Farming.cs）。
+        if (_placingCropPlot)
+        {
+            if (mb is { ButtonIndex: MouseButton.Left, Pressed: true })
+            {
+                TryPlaceCropPlot(Iso.Unproject(GetGlobalMousePosition()));
+                return;
+            }
+            if (mb is { ButtonIndex: MouseButton.Right, Pressed: true })
+            {
+                EndCropPlotPlacement();
+                _campToast.Show("算了，菜园先搁着。", CampToast.Ok);
                 return;
             }
         }
@@ -4230,6 +4270,10 @@ public sealed partial class CampMain : Node2D
             // [批次21·T26] 陷阱：几率按"场上第几个"递减 ⇒ 提示里**把这一个的当前几率报出来**。
             // 玩家看不见这条递减曲线的话，第 7 个陷阱和第 1 个在他眼里长得一模一样（而收益差了六倍）。
             "trap" => TrapHoverText(c),
+            // [T75] 捕鸟陷阱：同圈套，几率按"场上第几个"递减 ⇒ 把当前几率报出来（曲线在地上没痕迹）。
+            "bird_trap" => BirdTrapHoverText(c),
+            // [T72] 菜园：进度在地上没痕迹 ⇒ 把"熟了几颗/种了几颗/最快几天熟"直接摊在提示里。
+            "cropplot" => CropPlotHoverText(c),
             // [批次21·T25] 桌子：室内的半身掩体（用户拍板）。把"紧贴才算"和"敌人也能用"说清楚——同沙袋，
             // 这 25% 若是隐形的，玩家会以为它没生效。顺带说清它不挡路（跨得过去，只是慢 25%）。
             "table" => "桌子 · 贴着它挨远程有 25% 无效（绕到你背后就白摆了，敌人也能蹲它后面）· 跨得过去但会慢 25% · Shift+右键拆走",
@@ -4974,10 +5018,17 @@ public sealed partial class CampMain : Node2D
         // ⇒ 必经 Recycled → DeregisterCorpseContainer（可搜刮点 + 藏物登记一并注销，不泄漏）。
         // 🔴 祖母的尸体是 camp.json 的 role=corpse prop，从不进 CorpseYard ⇒ 永远不会被这条清理带走。
         _corpseYard?.AdvancePhase();
-        // [批次21·T26] 圈套陷阱：**每个相位**各掷一次点（用户原话「每个相位都有 30% 的几率」），
-        // 抓到的老鼠/兔子直接入共享库存。一天 8 相位 ⇒ 一个陷阱每天期望 0.3×8 = 2.4 只。
+        // [批次21·T26 修复] 圈套陷阱：跟着**昼夜段**掷点——白天 1 次 + 夜晚 1 次 = **2 次/天**（用户拍板，
+        // 与吃饭/饥饿同频）。用户原话「每个相位都有 30% 的几率」里的"相位"指的是昼夜段，不是 DayPhase 那 8 个值。
+        // 早期误按 8 个 DayPhase 逐个掷点 ⇒ 产出翻 4 倍（"捕鸟陷阱太强"的根因），已改回 2 次/天。
+        // 哪两个相位掷由 TrapLogic.RollsOnPhase 唯一裁定（与每日期望换算焊死同一规则，见 TrapLogic.RollsPerDay）。
+        // 抓到的老鼠/兔子直接入共享库存；一天期望 = 0.3 × 2 = 0.6 只/单陷阱。
         // 场上一个陷阱都没有时彻底静默（不掷点、不弹提示）。正文在 CampMain.Traps.cs。
-        ResolveTrapsForPhase();
+        if (TrapLogic.RollsOnPhase(phase))
+        {
+            ResolveTrapsForPhase();
+            ResolveBirdTrapsForPhase();   // [T75] 捕鸟陷阱同频掷点（此前整条未接，鸟从来出不来），正文在 CampMain.BirdTrap.cs
+        }
         // 视野遮暗（批次4）：营地夜间（NightPrep/NightAct）启用；白天/暮光/探索相位全可见豁免。
         _campVisionMask?.SetEnabled(phase is DayPhase.NightPrep or DayPhase.NightAct);
         _expeditionPanel.Visible = false;
@@ -5425,6 +5476,30 @@ public sealed partial class CampMain : Node2D
             if (!s.Repeatable && !string.IsNullOrEmpty(s.StoryFlag))
                 _storyFlags.Set(s.StoryFlag, "true"); // 持久去重（可重读点空旗标不置）
             ShowNarrativeSpot(s.Title, s.Pages);
+            return;
+        }
+
+        // [T67] 野外采集点：**弯腰在地上薅一把就走**（不进逐件搜刮会话——它是"这片地自己长出来的"，不是谁柜子里的）。
+        //   与搜刮点的区别见 ForageLogic 类注：搜刮＝翻别人的东西（逐件计时），采集＝薅一把即走（即时）。
+        //   读过《野外生存指南》的采集者产量 ×1.5（乘算，向下取整）。一次性：薅过就没了（持久去重）。
+        if (ForageLogic.IsForageSpot(discoveryId))
+        {
+            string forageFlag = "foraged:" + discoveryId;
+            if (_storyFlags.Has(forageFlag))
+            {
+                _campToast.Show("这儿已经薅干净了。", CampToast.Bad);
+                return;
+            }
+            bool guided = finder?.HasReadBook(ForageLogic.GuideBookId) ?? false;
+            (string matKey, int qty) = ForageLogic.Resolve(discoveryId, guided);
+            if (qty <= 0 || string.IsNullOrEmpty(matKey))
+                return;
+            _storyFlags.Set(forageFlag, "true");   // 薅过就没了
+            int took = _bag?.AddAsManyAsFit(LootItem.Material(matKey, qty)) ?? 0;
+            string matName = Materials.Find(matKey)?.DisplayName ?? matKey;
+            _campToast.Show(
+                took >= qty ? $"采到 {matName} ×{took}" : $"采到 {matName} ×{took}（背包满了，剩下的留在地里）",
+                took > 0 ? CampToast.Ok : CampToast.Bad);
             return;
         }
 
@@ -7292,6 +7367,13 @@ public sealed partial class CampMain : Node2D
             return;
         }
 
+        // [T72] 菜园：熟了就收、没熟就下种（走 CraftingJob 工时队列）。正文在 CampMain.Farming.cs。
+        if (hit.Role == "cropplot")
+        {
+            ExecuteCropPlotInteract(arriver, hit);
+            return;
+        }
+
         if (hit.Role == "workbench")
         {
             OpenCrafting();
@@ -8392,6 +8474,25 @@ public sealed partial class CampMain : Node2D
             return HasCookStation ? "营地已经有一座烹饪台了" : null;
         }
 
+        // [T67] 烹饪台「在场」：茶要在灶上煮（用户拍板）。方向与上一条相反——这里要求**已有**烹饪台。
+        if (gateKey == RecipeBook.CookStationPresentGate)
+        {
+            return HasCookStation ? null : "得先有一座烹饪台，茶要在灶上煮";
+        }
+
+        // [T67] 宰杀设施「一座就够」：营地已有任一档宰杀设施时，灰掉"简易宰杀点"配方。
+        if (gateKey == ButcherStation.AbsentGate)
+        {
+            return HasButcherStation ? "营地已经有一处宰杀设施了" : null;
+        }
+
+        // [T67] 宰杀台升级：要求营地**已有简易宰杀点、且还没升级成宰杀台**（升级不新开引擎轴，用 gate 表达）。
+        if (gateKey == ButcherStation.UpgradeGate)
+        {
+            if (HasButcherTable) return "营地已经有一张宰杀台了";
+            return HasButcherPoint ? null : "得先造一个简易宰杀点才能升级";
+        }
+
         if (gateKey != RecipeBook.DogGearCrafterGate)
             return "未知制作门槛";
         if (crafter != _doug)
@@ -8677,10 +8778,24 @@ public sealed partial class CampMain : Node2D
             return;
         }
 
+        // [T75] 捕鸟陷阱：非实心贴地矮物（可跨越），正文在 CampMain.BirdTrap.cs。此前整条未接 ⇒ 玩家摆不出来，这次接通。
+        if (key == BirdTrapSpec.ItemKey)
+        {
+            BeginBirdTrapPlacement();
+            return;
+        }
+
         // 桌子：非实心矮物（跨得过去，跨过慢 25%），正文在 CampMain.Table.cs。
         if (key == TableSpec.ItemKey)
         {
             BeginTablePlacement();
+            return;
+        }
+
+        // [T72] 菜园：非实心持久种植区（可跨越），正文在 CampMain.Farming.cs。
+        if (key == CropPlotSpec.ItemKey)
+        {
+            BeginCropPlotPlacement();
             return;
         }
 
@@ -8783,6 +8898,13 @@ public sealed partial class CampMain : Node2D
             return;
         }
 
+        // [T72] 玩家主动拆掉菜园 ⇒ 清干净它名下所有格的生长计时器（未收的作物随菜园一起没了，同"拆家具东西不退"）。
+        // 只在这条**玩家拆除**路清，不在 RemoveFurniture 里清（那条也被读档前清场调用，会误删刚读回的存档计时器）。
+        if (CropPlotSpec.IsCropPlotFurniture(furnitureName))
+        {
+            CropPlotRuntime.ClearPlot(_storyFlags, furnitureName);
+        }
+
         RemoveFurniture(furnitureName);
         AnnounceSalvage(furnitureName, done);
     }
@@ -8799,6 +8921,15 @@ public sealed partial class CampMain : Node2D
         // [批次21·impl-bedrest] 拆的要是一张床：从床位册注销，**把躺在上面的人赶下来**（他改打地铺——
         // 仍在休养，只是不再吃睡床加成）。不注销的话，床位册会留着一张已经不存在的床的占用记录。
         RemoveBedIfAny(furnitureName);
+
+        // [T72] 拆的要是一座菜园：维护数目闸（每帧生长的开销闸）。
+        // ⚠️ **生长计时器不在这儿清**：RemoveFurniture 也被读档前的 ClearPlayerPlacedFurniture 调用，
+        //    而那一步跑在 RestoreStoryFlags **之后** ⇒ 在这清会把刚读回来的存档计时器误删。
+        //    真正的"玩家拆掉菜园 ⇒ 清计时器"落在 CompleteFurnitureSalvage（玩家主动拆除那一条路）。
+        if (CropPlotSpec.IsCropPlotFurniture(furnitureName))
+        {
+            _cropPlotCount = Math.Max(0, _cropPlotCount - 1);
+        }
 
         if (f.Body != null && IsInstanceValid(f.Body))
         {
@@ -8969,6 +9100,15 @@ public sealed partial class CampMain : Node2D
         if (CookingLogic.PortionsOf(job.RecipeId) is { } cookedPortions)
         {
             CompleteCookJob(cookedPortions);
+            if (_craftingOpen) RefreshCrafting();
+            return;
+        }
+
+        // [T72] 种植分流：任务 id 带 "plant:" 前缀的不是配方，是"往某座菜园下一颗种薯"。
+        // 种薯开工时已扣，这里只把下一个空格的 84h 计时器点亮（正文在 CampMain.Farming.cs）。
+        if (job.RecipeId.StartsWith(CropPlotLogic.PlantJobPrefix, StringComparison.Ordinal))
+        {
+            CompletePlantJob(job.RecipeId[CropPlotLogic.PlantJobPrefix.Length..]);
             if (_craftingOpen) RefreshCrafting();
             return;
         }

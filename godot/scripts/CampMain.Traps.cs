@@ -11,7 +11,7 @@ namespace DeadSignal.Godot;
 ///
 /// <para>
 /// 规则与数值在 <see cref="TrapLogic"/> / <see cref="TrapSpec"/>（纯逻辑、零 Godot 依赖、单测覆盖）；
-/// <b>本文件只做空间执行</b>：把陷阱立到场上、每相位掷一次点、把猎物塞进库存。
+/// <b>本文件只做空间执行</b>：把陷阱立到场上、<b>每个昼夜段掷一次点（白天/夜晚各一次，共 2/天）</b>、把猎物塞进库存。
 /// </para>
 ///
 /// <para>
@@ -104,7 +104,7 @@ public sealed partial class CampMain
             ? "——这片地已经没多少东西可抓了"
             : "";
         _campToast.Show(
-            $"{name} 支好了。营地里第 {count} 个，每相位 {chance:P0} 的机会{hint}。", CampToast.Ok);
+            $"{name} 支好了。营地里第 {count} 个，白天/夜里各掷一次、每次 {chance:P0} 的机会{hint}。", CampToast.Ok);
     }
 
     /// <summary>读档：把陷阱原地立回来（位置与名字由存档给定，不重新分配序号）。</summary>
@@ -154,42 +154,31 @@ public sealed partial class CampMain
         // 玩家最关心的是"我再摆一个值不值"，而下一个就是第 count+1 名。
         double mine = TrapLogic.ChanceOf(System.Math.Min(ordinal, count));
         double next = TrapLogic.ChanceOf(count + 1);
-        return $"陷阱（营地共 {count} 个）· 每相位约 {mine:P0} 抓到老鼠或兔子 · 再多摆一个只有 {next:P0} · Shift+右键拆走";
+        return $"陷阱（营地共 {count} 个）· 白天/夜里各掷一次、每次约 {mine:P0} 抓到老鼠或兔子 · 再多摆一个只有 {next:P0} · Shift+右键拆走";
     }
 
-    // ──────────────────────────────── 每相位捕猎结算 ────────────────────────────────
+    // ──────────────────────────────── 每昼夜段捕猎结算（2/天）────────────────────────────────
 
-    /// <summary>场上陷阱数（几率按"第 n 个"递减 ⇒ 每相位都要数一遍）。</summary>
+    /// <summary>场上陷阱数（几率按"第 n 个"递减 ⇒ 每次掷点都要数一遍）。</summary>
     private int TrapCount() => _furniture.Keys.Count(TrapSpec.IsTrapFurniture);
 
     /// <summary>
-    /// <b>一个相位的陷阱结算</b>：场上每个陷阱各掷一次点，抓到的老鼠/兔子<b>直接入共享库存</b>（可下锅，见 <see cref="FoodCalories"/>）。
-    /// <para>由 <c>CampMain.cs</c> 的 <see cref="OnGamePhaseChanged"/> 一行调用 —— 8 个相位各判一次（用户原话「每个相位」）。</para>
+    /// <b>一个昼夜段的陷阱结算</b>：场上每个陷阱各掷一次点，抓到的老鼠/兔子<b>直接入共享库存</b>（可下锅，见 <see cref="FoodCalories"/>）。
+    /// <para>由 <c>CampMain.cs</c> 的 <see cref="OnGamePhaseChanged"/> 一行调用，且<b>只在 <see cref="TrapLogic.RollsOnPhase"/> 为真的两个昼夜段边界</b>
+    /// （白天 <see cref="DayPhase.DawnMeal"/> + 夜晚 <see cref="DayPhase.DuskMeal"/>）触发 ⇒ <b>一天 2 次</b>（用户拍板：白天 1 次 + 夜晚 1 次）。
+    /// 频率的唯一事实源在 <see cref="TrapLogic.RollsOnPhase"/>；这里不自己判相位，避免"一个写 2、一个按 8 触发"的两处漂移。</para>
     /// <para>
     /// <b>一个陷阱都没有就彻底静默</b>：不掷点、不入库、不弹提示（<see cref="TrapLogic.RollPhase"/> 在 count≤0 时一次点都不掷）。
     /// </para>
     /// </summary>
     private void ResolveTrapsForPhase()
     {
-        int count = TrapCount();
-        if (count <= 0)
-        {
-            return;
-        }
-
-        IReadOnlyList<string> caught = TrapLogic.RollPhase(count, _trapRng);
+        // 掷点 + 逐只入库都走纯编排 TrapRuntime.ResolveCatch（消费层与单测同一段代码，见其类注）。
+        // 没陷阱 / 本段全空手 ⇒ caught 为空 ⇒ 静默（空陷阱是常态，天天播报只会变成噪音）。
+        IReadOnlyList<string> caught = TrapRuntime.ResolveCatch(TrapCount(), _inventory, _trapRng);
         if (caught.Count == 0)
         {
-            return;   // 本相位全空手：不吵玩家（空陷阱是常态，天天播报只会变成噪音）
-        }
-
-        // 逐只入库（老鼠/兔子都是 Materials 目录里的可堆叠食材）。
-        foreach (IGrouping<string, string> g in caught.GroupBy(k => k))
-        {
-            if (Materials.Find(g.Key) is { } def)
-            {
-                _inventory.Add(def.ToItem(g.Count()));
-            }
+            return;
         }
 
         _campToast.Show($"陷阱里有东西：{DescribeCatch(caught)}。", CampToast.Ok);
