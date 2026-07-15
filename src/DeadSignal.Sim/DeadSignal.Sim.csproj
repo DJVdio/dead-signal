@@ -7,6 +7,8 @@
   <!-- 视野/警戒/日程纯逻辑（无 Godot 依赖）以 Link 编入，供解析校准 harness 用真实常量与函数（保真，防公式漂移）。 -->
   <ItemGroup>
     <Compile Include="..\..\godot\scripts\DayPhase.cs" Link="Consumed\DayPhase.cs" />
+    <!-- 昼夜段分类唯一事实源（VisionLogic.AmbientLight / ShiftSchedule.BlockOf 皆从此派生，须随附编译）。 -->
+    <Compile Include="..\..\godot\scripts\DayPhaseSegments.cs" Link="Consumed\DayPhaseSegments.cs" />
     <Compile Include="..\..\godot\scripts\VisionLogic.cs" Link="Consumed\VisionLogic.cs" />
     <Compile Include="..\..\godot\scripts\GuardPost.cs" Link="Consumed\GuardPost.cs" />
     <Compile Include="..\..\godot\scripts\NightWatchContest.cs" Link="Consumed\NightWatchContest.cs" />

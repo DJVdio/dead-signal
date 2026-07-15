@@ -84,15 +84,12 @@ public static class VisionLogic
         if (indoorsDark)
             return IndoorsDarkAmbient;
 
-        return phase switch
+        // 🔴 昼夜段分类走唯一事实源 DayPhaseSegments，不再 inline 抄相位集合（白天=满档 / 聚餐=暮光 / 夜晚=微月）。
+        return DayPhaseSegments.SegmentOf(phase) switch
         {
-            DayPhase.DayPrep or DayPhase.DayTravel or DayPhase.DayExplore or DayPhase.DayReturn
-                => DaylightAmbient,
-            DayPhase.DawnMeal or DayPhase.DuskMeal
-                => TwilightAmbient,
-            DayPhase.NightPrep or DayPhase.NightAct
-                => NightAmbient,
-            _ => DaylightAmbient,
+            PhaseBlock.Meal => TwilightAmbient,
+            PhaseBlock.Night => NightAmbient,
+            _ => DaylightAmbient, // PhaseBlock.Day
         };
     }
 

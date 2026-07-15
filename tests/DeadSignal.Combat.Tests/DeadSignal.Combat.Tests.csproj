@@ -29,6 +29,8 @@
     <Compile Include="..\..\godot\scripts\Factions.cs" Link="Consumed\Factions.cs" />
     <!-- 开局起始相位决策纯逻辑（无 Godot 依赖）：startAtNight → 起始相位 + 是否显式置首日 Day=1。DayPhase 枚举随附。 -->
     <Compile Include="..\..\godot\scripts\DayPhase.cs" Link="Consumed\DayPhase.cs" />
+    <!-- 🔴 昼夜段分类的唯一事实源（SegmentOf/IsNight/IsMeal/IsDay/IsFrozen）：9+ 处 inline 相位集合收口于此，跨消费方焊死。 -->
+    <Compile Include="..\..\godot\scripts\DayPhaseSegments.cs" Link="Consumed\DayPhaseSegments.cs" />
     <Compile Include="..\..\godot\scripts\StartupPhaseLogic.cs" Link="Consumed\StartupPhaseLogic.cs" />
     <!-- 面向玩家的枚举中文名总表 + HUD 状态行纯拼装：钉死「英文枚举名不许显示给玩家」（EnumDisplayNameTests）。 -->
     <Compile Include="..\..\godot\scripts\DisplayNames.cs" Link="Consumed\DisplayNames.cs" />

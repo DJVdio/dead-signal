@@ -72,5 +72,5 @@ public static class SaveRotation
     /// </para>
     /// </summary>
     public static bool ShouldAutosaveAt(DayPhase phase)
-        => phase is DayPhase.DawnMeal or DayPhase.DuskMeal;
+        => DayPhaseSegments.IsMeal(phase);
 }

@@ -27,7 +27,7 @@ public sealed partial class GameClock : Node
     private bool _userPaused;
 
     public int Day { get; private set; } = 0;
-    public bool IsNight => CurrentPhase is DayPhase.NightPrep or DayPhase.NightAct;
+    public bool IsNight => DayPhaseSegments.IsNight(CurrentPhase);
 
     /// <summary>数据驱动的开局配置：true 时首日直接进夜晚推进（NightAct）。由 StartFirstDay 消费。</summary>
     public bool StartAtNight => _cfg.StartAtNight;
@@ -184,8 +184,7 @@ public sealed partial class GameClock : Node
 
     public void TogglePause()
     {
-        if (CurrentPhase is DayPhase.DayPrep or DayPhase.DayReturn or DayPhase.NightPrep
-            or DayPhase.DawnMeal or DayPhase.DuskMeal)
+        if (DayPhaseSegments.IsFrozen(CurrentPhase))
             return;
         _userPaused = !_userPaused;
         ApplyPhaseTimeScale();
@@ -208,8 +207,7 @@ public sealed partial class GameClock : Node
     public void SetSpeedIndex(int index)
     {
         SpeedIndex = Mathf.Clamp(index, 0, Speeds.Length - 1);
-        if (CurrentPhase is DayPhase.DayPrep or DayPhase.DayReturn or DayPhase.NightPrep
-            or DayPhase.DawnMeal or DayPhase.DuskMeal)
+        if (DayPhaseSegments.IsFrozen(CurrentPhase))
             return;
         _userPaused = false;
         ApplyPhaseTimeScale();
@@ -218,8 +216,8 @@ public sealed partial class GameClock : Node
     private void ApplyPhaseTimeScale()
     {
         // DawnMeal / DuskMeal 与三个编排/过渡相位同属强制暂停模态（聚餐气泡交流期间冻结世界）。
-        if (CurrentPhase is DayPhase.DayPrep or DayPhase.DayReturn or DayPhase.NightPrep
-            or DayPhase.DawnMeal or DayPhase.DuskMeal)
+        // 冻结集合走唯一事实源 DayPhaseSegments.IsFrozen（原三处 inline 集合已收口）。
+        if (DayPhaseSegments.IsFrozen(CurrentPhase))
         {
             Engine.TimeScale = 0;
             return;

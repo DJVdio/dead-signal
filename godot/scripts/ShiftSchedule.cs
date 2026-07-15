@@ -104,13 +104,9 @@ public static class ShiftSchedule
         IsActive = true,
     };
 
-    /// <summary>相位归块：聚餐块（黎明·黄昏聚餐）/ 夜里块（NightPrep·NightAct）/ 白天块（其余 4 相）。</summary>
-    public static PhaseBlock BlockOf(DayPhase phase) => phase switch
-    {
-        DayPhase.DawnMeal or DayPhase.DuskMeal => PhaseBlock.Meal,
-        DayPhase.NightPrep or DayPhase.NightAct => PhaseBlock.Night,
-        _ => PhaseBlock.Day, // DayPrep/DayTravel/DayExplore/DayReturn
-    };
+    /// <summary>相位归块：聚餐块（黎明·黄昏聚餐）/ 夜里块（NightPrep·NightAct）/ 白天块（其余 4 相）。
+    /// 🔴 分类逻辑已收口到唯一事实源 <see cref="DayPhaseSegments.SegmentOf"/>，本方法只做转发别名（保留既有调用点/测试名）。</summary>
+    public static PhaseBlock BlockOf(DayPhase phase) => DayPhaseSegments.SegmentOf(phase);
 
     /// <summary>班别派生：在当日探险名单内 → <see cref="Shift.DayCrew"/>；否则 <see cref="Shift.NightCrew"/>（站岗/生产）。</summary>
     public static Shift ShiftFor(int pawnId, IReadOnlyCollection<int> expeditionIds)

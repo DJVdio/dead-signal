@@ -144,7 +144,7 @@ public static class TrapLogic
     /// 但用户口中的"相位"指的是<b>昼夜段</b>（一天 2 次，同两顿聚餐）。早期误按 8 个 <see cref="DayPhase"/> 逐个掷点，
     /// 让陷阱产出<b>翻了 4 倍</b>（这正是"捕鸟陷阱太强"的根因）——已改回 2 次/天。</para>
     /// </summary>
-    public static bool RollsOnPhase(DayPhase phase) => phase is DayPhase.DawnMeal or DayPhase.DuskMeal;
+    public static bool RollsOnPhase(DayPhase phase) => DayPhaseSegments.IsMeal(phase);
 
     /// <summary>陷阱一天掷几次点 = 满足 <see cref="RollsOnPhase"/> 的相位数 = <b>2</b>（白天 1 + 夜晚 1）。
     /// <b>每日期望</b>的换算系数（<c>ExpectedCatchesPerPhase(n) × RollsPerDay</c>）。<b>从谓词数出而非写死</b> ⇒ 与触发点焊死。</summary>
