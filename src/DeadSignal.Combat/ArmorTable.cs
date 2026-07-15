@@ -30,7 +30,7 @@ public static class ArmorTable
     /// <summary>躯干：胸 + 腹。</summary>
     private static HashSet<string> Torso() => new() { HumanBody.Chest, HumanBody.Abdomen };
 
-    /// <summary>躯干 + 双臂（表写「胸、腹、左臂、右臂」；左右臂 = 上臂，手另有手套覆盖）。</summary>
+    /// <summary>躯干 + 双臂（表写「胸、腹、左手臂、右手臂」；左右臂 = 整条胳膊，不含手；手另有手套覆盖）。</summary>
     private static HashSet<string> TorsoAndArms() => new()
     {
         HumanBody.Chest, HumanBody.Abdomen, HumanBody.LeftArm, HumanBody.RightArm,
@@ -95,7 +95,7 @@ public static class ArmorTable
     public static ArmorLayer ChestPlate() => new()
     {
         Name = "皮革胸甲", Description = "保护你的心。",
-        Slot = ArmorSlot.Plate, SharpDefense = 18, BluntDefense = 9, Weight = 4,
+        Slot = ArmorSlot.Plate, SharpDefense = 25, BluntDefense = 12.5, Weight = 4,
         CoversParts = new HashSet<string> { HumanBody.Chest },
     };
 
@@ -119,7 +119,7 @@ public static class ArmorTable
     public static ArmorLayer ClothJacket() => new()
     {
         Name = "布夹克", Description = "上班穿它，开会穿它，被咬那天也穿着它。",
-        Slot = ArmorSlot.Outer, SharpDefense = 8, BluntDefense = 4, Weight = 0.3,
+        Slot = ArmorSlot.Outer, SharpDefense = 7.5, BluntDefense = 4, Weight = 0.3,
         CoversParts = TorsoAndArms(),
     };
 
@@ -127,7 +127,7 @@ public static class ArmorTable
     public static ArmorLayer DenimJacket() => new()
     {
         Name = "牛仔外套", Description = "耐磨、耐脏、耐撕咬——前两样是真的。",
-        Slot = ArmorSlot.Outer, SharpDefense = 10, BluntDefense = 5, Weight = 0.6,
+        Slot = ArmorSlot.Outer, SharpDefense = 10, BluntDefense = 4, Weight = 0.6,
         CoversParts = TorsoAndArms(),
     };
 
@@ -135,7 +135,7 @@ public static class ArmorTable
     public static ArmorLayer LeatherJacket() => new()
     {
         Name = "皮夹克", Description = "骑上摩托，倍有范儿。",
-        Slot = ArmorSlot.Outer, SharpDefense = 12, BluntDefense = 6, Weight = 0.5,
+        Slot = ArmorSlot.Outer, SharpDefense = 18, BluntDefense = 9, Weight = 0.5,
         CoversParts = TorsoAndArms(),
     };
 
@@ -143,7 +143,7 @@ public static class ArmorTable
     public static ArmorLayer Leather() => new()
     {
         Name = "皮甲", Description = "结实的鞣皮甲。",
-        Slot = ArmorSlot.Plate, SharpDefense = 18, BluntDefense = 9, Weight = 6,
+        Slot = ArmorSlot.Plate, SharpDefense = 25, BluntDefense = 12.5, Weight = 6,
         CoversParts = TorsoAndArms(),
     };
 
@@ -155,7 +155,7 @@ public static class ArmorTable
         return new ArmorLayer
         {
             Name = "板甲", Description = "重吗？他能保护你脆弱的肉体。",
-            Slot = ArmorSlot.Plate, SharpDefense = 50, BluntDefense = 25, Weight = 15,
+            Slot = ArmorSlot.Plate, SharpDefense = 70, BluntDefense = 35, Weight = 15,
             CoversParts = covers,
         };
     }
@@ -164,18 +164,24 @@ public static class ArmorTable
     // 为什么头盔是重物：`头` 是 Vital、MaxHp 仅 16、命中权重 6（全身 ≈103.4 ⇒ **5.8% 的命中落在头上，且头归零致死**）。
     // 在此之前人形件里一顶头盔都没有，"爆头"是所有护甲齐全的敌人（含精英丧尸）唯一的软肋。
     //
-    // **两顶盔的防护完全相同（28/14，用户定表）——唯一的差别是「重量」与「护不护脸」。**
-    // 军用 2.5kg，只护颅顶；防暴 4.5kg（几乎两倍），多护双眼/鼻/下巴。
-    // ⇒ 玩家不是在挑"更好的头盔"，是在挑 **"要脸，还是要那 2kg 负重"**（负重有硬上限，见 CarryWeight）。
-    // 面罩换来的到底是什么：`左/右眼` 命中权重合计仅 0.77%、且归零只致盲不致死——**它不是"防瞎"**，
+    // 🔴 **[T68] 两顶盔不再是"防护相同、只差重量与护脸"了**（旧口径作废，用户拍板改）。用户原话：
+    //    「防暴头盔应当更重防御更强，还有一些 debuff。军用头盔应当更泛用一些。」现在是**两条不同的路线**：
+    //    · **军用头盔** = **泛用款**：28 / **14**、**2.5kg**、只护颅顶、**无 debuff**。轻、没有副作用，
+    //      眼/面还空着（能再扣防毒面具）⇒ 什么场合都能戴，代价是脸完全裸露（挖眼、戳脸放血照旧成立）。
+    //    · **防暴头盔** = **重装款**：35 / **22**（防御全面更高）、**4.5kg**（军用的近两倍）、护整张脸，
+    //      外加 **debuff：视野距离与范围 −10% / 听力 −10%**（钢壳闷在头上的代价）。
+    //      ⚠️ 那两条 debuff 是**引擎新轴**（视野/听觉系数目前不吃穿戴品）⇒ **未落地、已挂起统一立项**；
+    //         用户写的字保留在数值表的备注里，别当它已经生效。
+    // ⇒ 取舍从"要脸还是要 2kg"升级成 **"要泛用的轻盔，还是要更硬但更笨重、还会削感知的重盔"**。
+    // 面罩护脸换来的到底是什么：`左/右眼` 命中权重合计仅 0.77%、且归零只致盲不致死——**它不是"防瞎"**，
     // 而是**堵掉"戳脸放血"**：脸上那几处（眼/鼻/下巴）低 HP 又无甲，是低伤武器在重甲敌人身上唯一能反复扎出
     // 流血伤口的地方（Sim：匕首打重甲精英的胜利 100% 来自失血）。
     // 二者同占**头槽**（EquipSlot.Head，互斥），而头槽**不是装甲层槽** ⇒ 戴着头盔照样能穿板甲（见 ApparelCatalog）。
 
     /// <summary>
-    /// 军用头盔（头槽，<b>只护颅顶</b>）：防护与防暴头盔完全相同（28/14），但**轻得多**（2.5kg vs 4.5kg），
+    /// 军用头盔（头槽，<b>只护颅顶</b>）：**泛用款**（28 / 14、2.5kg、无 debuff）。比防暴盔防御低一档，
+    /// 但**轻得多**（2.5kg vs 4.5kg）、**没有任何副作用**，且眼/面还空着 ⇒ 能再扣一张防毒面具。
     /// 代价是**脸完全裸露**——眼/鼻/下巴照旧挨打（挖眼致盲、戳脸放血都仍然成立）。
-    /// 只占头槽 ⇒ 眼/面还空着，能再扣一张防毒面具。
     /// </summary>
     public static ArmorLayer MilitaryHelmet() => new()
     {
@@ -185,14 +191,15 @@ public static class ArmorTable
     };
 
     /// <summary>
-    /// 防暴头盔（头+眼镜+面部三槽，护<b>头 + 双眼 + 鼻 + 下巴</b>）：面罩把整张脸罩住（不含耳——面罩不包耳，
-    /// 且耳归零无系统后果）。防护值与军用头盔完全相同（28/14），<b>贵在覆盖，不在数值</b>：
-    /// 代价是 <b>4.5kg</b>（军用的近两倍，吃负重上限）+ 占眼/面槽 ⇒ 与防毒面具互斥。
+    /// 防暴头盔（头+眼镜+面部三槽，护<b>头 + 双眼 + 鼻 + 下巴</b>）：**重装款**——面罩把整张脸罩住
+    /// （不含耳——面罩不包耳，且耳归零无系统后果）。[T68] 防护**全面强于军用**（35 / 22 vs 28 / 14），
+    /// 代价是 <b>4.5kg</b>（军用的近两倍，吃负重上限）+ 占眼/面槽（与防毒面具互斥）+ <b>debuff：视野 −10% / 听力 −10%</b>
+    /// （⚠️ 引擎新轴，未落地、已挂起——见上方头部护甲区块的说明）。
     /// </summary>
     public static ArmorLayer RiotHelmet() => new()
     {
         Name = "防暴头盔", Description = "面罩挡得下砖头、棍棒和唾沫星子——上一任主人遇上的，不在这三样里。",
-        Slot = ArmorSlot.Plate, SharpDefense = 28, BluntDefense = 14, Weight = 4.5,
+        Slot = ArmorSlot.Plate, SharpDefense = 35, BluntDefense = 22, Weight = 4.5,
         CoversParts = new HashSet<string>
         {
             HumanBody.Head, HumanBody.LeftEye, HumanBody.RightEye, HumanBody.Nose, HumanBody.Chin,
@@ -236,7 +243,7 @@ public static class ArmorTable
     public static ArmorLayer WarMask() => new()
     {
         Name = "战争面具", Description = "骨片与木头缝成的脸。戴上它你不会更有勇气——但扑上来的东西第一口咬到的是骨头，不是你的鼻子。",
-        Slot = ArmorSlot.Plate, SharpDefense = 8, BluntDefense = 4, Weight = 0.3,
+        Slot = ArmorSlot.Plate, SharpDefense = 12, BluntDefense = 6, Weight = 0.3,
         CoversParts = new HashSet<string>
         {
             HumanBody.Nose, HumanBody.Chin, HumanBody.LeftEye, HumanBody.RightEye,
@@ -282,6 +289,85 @@ public static class ArmorTable
         Name = "粗布长裤", Description = "多缝了一截，小腿就有了着落。末日里的奢侈就是这么算的。",
         Slot = ArmorSlot.Skin, SharpDefense = 6, BluntDefense = 3, Weight = 0.15,
         CoversParts = Legs(),
+    };
+
+    // ---- [T68] 用户在 wiki 上新加的三件（追加在末尾、不插队）----
+    //
+    // ⚠️ **对 Sim 结构性零漂移**：Sim 的护甲套是 `Program.cs` 里逐条点名的具名组合（长袖布衣 / 皮夹克+长袖布衣 / 板甲…），
+    // 它**按名点菜、不遍历本表** ⇒ 新增的工厂方法进不了 `Duel` 的结算路径，既有基线一个字节都不会动。
+
+    /// <summary>
+    /// <b>恐怖装甲</b>（装甲层，护胸 + 腹）—— 20 / 10、3kg。
+    /// <para>
+    /// 数值取用户填的。它**卡在皮革胸甲（25/12.5、4kg）之下、皮夹克（18/9、0.5kg）之上**，
+    /// 定位是<b>「装甲层的廉价档」</b>：比皮革胸甲弱一档，但<b>轻 1kg、且不吃皮革产能</b>
+    /// （皮革是鞣制链的瓶颈——生皮→鞣制药水→皮革，每一步都要工时）。
+    /// </para>
+    /// <para>
+    /// 与皮革胸甲/皮甲/板甲同占<b>装甲层</b>（互斥）：它不是"再加一层"，是"这一层你先穿得起什么"。
+    /// </para>
+    /// </summary>
+    public static ArmorLayer HorrorArmor() => new()
+    {
+        Name = "恐怖装甲", Description = "每一片防护都来自于没做够防护的人",   // ← 用户在 wiki 上写的原话（表赢代码，不许替他润色）
+        Slot = ArmorSlot.Plate, SharpDefense = 20, BluntDefense = 10, Weight = 3,
+        CoversParts = new HashSet<string> { HumanBody.Chest, HumanBody.Abdomen },
+    };
+
+    /// <summary>
+    /// <b>墨镜</b>（眼镜槽，护双眼）—— 1 / 1、0.1kg。
+    /// <para>
+    /// 🔴 <b>它的价值不在那 1 点防御，在它占的槽</b>：眼镜槽上还坐着<b>防暴头盔 / 战争面具 / 防毒面具</b>三件
+    /// （它们都要连着占面部槽）⇒ <b>戴墨镜 = 放弃这三件里的任何一件</b>。这是个真取舍，且是本表第一次出现
+    /// 「只占眼镜槽、不占面部槽」的东西 —— 在它之前，眼镜槽从来没有过独立的候选人。
+    /// </para>
+    /// <para>
+    /// ⚠️ 用户写的效果「<b>白天 +5% 视野范围</b>」是<b>引擎新轴</b>（视野系数目前不吃穿戴品）⇒ <b>效果未做</b>，
+    /// 已列入挂起的新轴清单统一立项。**在效果落地之前，它就是一件"用一个宝贵槽位换 1 点防御"的负收益装备** ——
+    /// 这是<b>已知的、临时的</b>状态，不是数值失衡，别去"修"它。
+    /// </para>
+    /// </summary>
+    public static ArmorLayer Sunglasses() => new()
+    {
+        Name = "墨镜", Description = "直面太阳吧！",   // ← 用户原话
+        Slot = ArmorSlot.Skin, SharpDefense = 1, BluntDefense = 1, Weight = 0.1,
+        CoversParts = new HashSet<string> { HumanBody.LeftEye, HumanBody.RightEye },
+    };
+
+    /// <summary>
+    /// <b>平光眼镜</b>（眼镜槽，护双眼）—— 1 / 1、0.1kg。与<see cref="Sunglasses"/> 同槽互斥、同数值。
+    /// <para>
+    /// ⚠️ 用户写的效果「<b>+5% 阅读速度</b>」<b>同样未做</b>（挂起）。
+    /// 📌 但记一句：<b>这条是全部挂起新轴里最容易接的一条</b> —— `ReadingSpeed` 已经有 `CampWideReadingSpeedBonus`
+    /// 这个现成的乘算入口，接它几乎不需要新轴，只需要"穿戴品能给营地系数供数"这一根线。
+    /// <b>新轴统一立项时，优先做它。</b>
+    /// </para>
+    /// </summary>
+    public static ArmorLayer PlainGlasses() => new()
+    {
+        Name = "平光眼镜", Description = "至少看起来很像知识分子。",   // ← 用户原话
+        Slot = ArmorSlot.Skin, SharpDefense = 1, BluntDefense = 1, Weight = 0.1,
+        CoversParts = new HashSet<string> { HumanBody.LeftEye, HumanBody.RightEye },
+    };
+
+    /// <summary>
+    /// [T71] <b>自制简易墨镜</b>（眼镜槽，护双眼）—— 锐 12 / 钝 6、0.1kg。用户 authored（数值表『护甲表』new_armor_2）。
+    /// <para>
+    /// 🔴 <b>它是<see cref="Sunglasses"/>「墨镜」的可制作对应物，不与之冲突</b>：墨镜要磨一片光学镜片（工业活）⇒
+    /// **故意不可造、只能搜刮**；而这件是<b>木制眼罩，只在木片上留两条缝进光</b>（因纽特式雪镜）——一个拿骨头缝甲的人
+    /// 削得出来 ⇒ 它<b>有配方</b>（读《尖峰时刻》解锁，见 <c>RecipeBook</c> 的 <c>snow_goggles</c>）。两者同占眼镜槽、互斥。
+    /// </para>
+    /// <para>
+    /// ⚠️ 用户写的效果「<b>白天 +5% 视野范围</b>」是<b>引擎新轴</b>（视野系数目前不吃穿戴品）⇒ <b>效果未做</b>，
+    /// 与墨镜/平光眼镜的两条挂起效果同批统一立项（同 <see cref="Sunglasses"/> 注释口径）。在它落地前，这件的<b>实打实</b>
+    /// 价值就是那 12/6 的护眼——比 1/1 的墨镜硬得多，代价是同样要放弃眼镜槽上的头盔/面具。
+    /// </para>
+    /// </summary>
+    public static ArmorLayer SelfMadeSnowGoggles() => new()
+    {
+        Name = "自制简易墨镜", Description = "木制眼罩，只留有两条缝进光，可以有效避免雪盲。",   // ← 用户 authored
+        Slot = ArmorSlot.Skin, SharpDefense = 12, BluntDefense = 6, Weight = 0.1,
+        CoversParts = new HashSet<string> { HumanBody.LeftEye, HumanBody.RightEye },
     };
 
     // ---- 生物·天生（不可穿戴）----
@@ -346,7 +432,7 @@ public static class ArmorTable
     /// <summary>铁丝头甲（狗·头槽，仅护头）：铁丝编笼，轻便，锐防弱于铁皮、钝防持平。</summary>
     public static ArmorLayer DogWireHelmet() => new()
     {
-        Name = "铁丝头甲", Description = "曾经他是不让狗咬你的，现在他是用来保护狗咬你的。",
+        Name = "铁丝头甲", Description = "曾经保护你的，现在保护狗。",
         Slot = ArmorSlot.Plate, SharpDefense = 12, BluntDefense = 12, Weight = 1.5,
         CoversParts = new HashSet<string> { HumanBody.Head },
     };

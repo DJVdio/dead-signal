@@ -394,6 +394,21 @@ public static class ApparelCatalog
         // [T59] 棉帽（用户在 wiki 上新加）→ **头槽**，与两顶头盔互斥。
         // 头槽此前只有 4.5kg 级的重甲头盔 ⇒ 前期头部完全裸着；这顶 0.15kg 的布帽子把那个洞堵上。
         Add(ArmorTable.CottonHat(), EquipSlot.Head);
+
+        // [T68] 用户在 wiki 上新加的三件（**不造新槽**，全落既有槽）：
+        //   恐怖装甲 → **装甲层**（与皮革胸甲/皮甲/板甲互斥）。装甲层的廉价档：比皮革胸甲弱一档，但轻、且不吃皮革产能。
+        Add(ArmorTable.HorrorArmor(), EquipSlot.PlateLayer);
+        //   墨镜 / 平光眼镜 → **只占眼镜槽**（彼此互斥）。
+        //   🔴 这是本表**第一次**出现"只占眼镜槽、不连着占面部槽"的东西：在它们之前，眼镜槽上的三位住客
+        //   （防暴头盔 / 战争面具 / 防毒面具）**全都要连着占面部槽** ⇒ 眼镜槽从来没有过独立的候选人。
+        //   ⇒ 戴一副眼镜 = **放弃那三件里的任何一件**（头盔的面罩、面具的骨片、防毒面具的滤毒罐）。
+        //   这个取舍是这两件东西的**全部价值**——那 1 点防御是凑数的，真正的效果（白天视野 / 阅读速度）
+        //   是引擎新轴，尚未落地（见 ArmorTable.Sunglasses / PlainGlasses 的注释）。
+        Add(ArmorTable.Sunglasses(), EquipSlot.Eyes);
+        Add(ArmorTable.PlainGlasses(), EquipSlot.Eyes);
+        //   [T71] 自制简易墨镜（木缝雪镜）→ 同占眼镜槽，与墨镜/平光眼镜/防暴盔/战争面具/防毒面具互斥。
+        //   它是墨镜的**可制作对应物**（读《尖峰时刻》解锁），护双眼 12/6——见 ArmorTable.SelfMadeSnowGoggles 注释。
+        Add(ArmorTable.SelfMadeSnowGoggles(), EquipSlot.Eyes);
         return d;
     }
 

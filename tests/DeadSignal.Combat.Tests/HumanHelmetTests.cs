@@ -13,8 +13,10 @@ namespace DeadSignal.Combat.Tests;
 /// <b>为什么头盔是重物</b>：`头` 是 <see cref="BodyPartCategory.Vital"/>、MaxHp 仅 16、VolumeWeight 6
 /// （全身权重和 ≈103.4 ⇒ **5.8% 的命中落在头上，且头归零直接致死**）。
 /// <para>
-/// <b>两顶盔的防护完全相同（28/14，用户定表）——差别只在「重量」与「护不护脸」</b>：
-/// 军用 2.5kg 只护颅顶；防暴 4.5kg（近两倍）多护双眼/鼻/下巴。玩家挑的不是"更好的头盔"，是"**要脸还是要负重**"。
+/// 🔴 <b>[T68] 两顶盔不再"防护相同"了</b>（旧不变量作废，用户拍板：「防暴头盔应当更重防御更强，还有一些 debuff；
+/// 军用头盔应当更泛用一些」）。现在：<b>军用 = 泛用款</b>（28/14、2.5kg、只护颅顶、无 debuff）；
+/// <b>防暴 = 重装款</b>（35/22 防御全面更高、4.5kg、护整张脸、外加 视野−10%/听力−10% 的 debuff——那两条是引擎新轴，未落地）。
+/// 玩家挑的是"**要泛用的轻盔，还是要更硬但更笨重、还削感知的重盔**"。
 /// </para>
 /// </summary>
 public class HumanHelmetTests
@@ -40,35 +42,36 @@ public class HumanHelmetTests
     }
 
     [Fact]
-    public void RiotHelmet_TradesSharpDefenseForFaceCoverage()
+    public void RiotHelmet_IsHeavyVariant_StrongerAndCoversFace()
     {
         ArmorLayer h = ArmorTable.RiotHelmet();
 
         Assert.Equal("防暴头盔", h.Name);
         Assert.Equal(ArmorSlot.Plate, h.Slot);
-        Assert.Equal(28, h.SharpDefense);
-        Assert.Equal(14, h.BluntDefense);
+        Assert.Equal(35, h.SharpDefense);   // [T68] 用户拍板：更强
+        Assert.Equal(22, h.BluntDefense);
         Assert.Equal(4.5, h.Weight);
         Assert.Equal(FaceParts, h.CoversParts);          // 头 + 双眼 + 鼻 + 下巴（面罩）
     }
 
     /// <summary>
-    /// 两顶盔是**取舍**不是梯度，而取舍的轴是「重量 vs 护脸」——**防护值完全相同**（用户定表 28/14）。
-    /// 这条测试锁住的正是这个形态：谁也不是谁的升级版。
+    /// 🔴 [T68] 两顶盔<b>不再是"防护相同"的取舍</b>，而是**两条不同路线**：军用泛用（轻、无副作用），
+    /// 防暴重装（防御全面更强 + 更重 + debuff + 护脸）。用户原话：「防暴更重防御更强，军用更泛用」。
+    /// 这条测试锁住新形态：防暴在两条防御轴上都严格 ≥ 军用，且更重、更护脸。
     /// </summary>
     [Fact]
-    public void TwoHelmets_HaveIdenticalProtection_AndTradeWeightForFaceCoverage()
+    public void RiotHelmet_IsStrictlyBetterDefense_ButHeavierThanMilitary()
     {
         ArmorLayer riot = ArmorTable.RiotHelmet();
         ArmorLayer mil = ArmorTable.MilitaryHelmet();
 
-        // 防护一模一样：挑盔时防护不进入决策
-        Assert.Equal(mil.SharpDefense, riot.SharpDefense);
-        Assert.Equal(mil.BluntDefense, riot.BluntDefense);
+        // [T68] 防暴防御全面更高（不再相同）——挑盔时防护重新进入决策
+        Assert.True(riot.SharpDefense > mil.SharpDefense);
+        Assert.True(riot.BluntDefense > mil.BluntDefense);
 
-        // 差别只有两处，且方向相反 —— 这就是那个取舍
+        // 代价：更沉 + 护脸（军用则轻、脸敞着、但无 debuff——泛用款）
         Assert.True(riot.Weight > mil.Weight);                          // 防暴更沉（吃负重上限）
-        Assert.True(riot.CoversParts!.Count > mil.CoversParts!.Count);  // 但它把脸罩住了
+        Assert.True(riot.CoversParts!.Count > mil.CoversParts!.Count);  // 且把脸罩住了
         Assert.DoesNotContain(HumanBody.LeftEye, mil.CoversParts!);     // 军用盔：脸是敞着的
         Assert.Contains(HumanBody.LeftEye, riot.CoversParts!);
     }

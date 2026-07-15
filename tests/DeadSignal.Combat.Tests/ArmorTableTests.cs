@@ -69,7 +69,7 @@ public class ArmorTableTests
 
     [Fact]
     public void LeatherCuirass_MatchesTable()
-        => Check(ArmorTable.ChestPlate(), "皮革胸甲", ArmorSlot.Plate, 18, 9, 4,
+        => Check(ArmorTable.ChestPlate(), "皮革胸甲", ArmorSlot.Plate, 25, 12.5, 4,
             new HashSet<string> { HumanBody.Chest });
 
     [Fact]
@@ -82,26 +82,26 @@ public class ArmorTableTests
 
     [Fact]
     public void ClothJacket_MatchesTable()
-        => Check(ArmorTable.ClothJacket(), "布夹克", ArmorSlot.Outer, 8, 4, 0.3, TorsoArms);
+        => Check(ArmorTable.ClothJacket(), "布夹克", ArmorSlot.Outer, 7.5, 4, 0.3, TorsoArms);
 
     [Fact]
     public void DenimJacket_MatchesTable()
-        => Check(ArmorTable.DenimJacket(), "牛仔外套", ArmorSlot.Outer, 10, 5, 0.6, TorsoArms);
+        => Check(ArmorTable.DenimJacket(), "牛仔外套", ArmorSlot.Outer, 10, 4, 0.6, TorsoArms);
 
     [Fact]
     public void LeatherJacket_MatchesTable()
-        => Check(ArmorTable.LeatherJacket(), "皮夹克", ArmorSlot.Outer, 12, 6, 0.5, TorsoArms);
+        => Check(ArmorTable.LeatherJacket(), "皮夹克", ArmorSlot.Outer, 18, 9, 0.5, TorsoArms);
 
     [Fact]
     public void Leather_MatchesTable()
-        => Check(ArmorTable.Leather(), "皮甲", ArmorSlot.Plate, 18, 9, 6, TorsoArms);
+        => Check(ArmorTable.Leather(), "皮甲", ArmorSlot.Plate, 25, 12.5, 6, TorsoArms);
 
     [Fact]
     public void Plate_MatchesTable()
     {
         var covers = new HashSet<string>(TorsoArms);
         covers.UnionWith(Legs);
-        Check(ArmorTable.Plate(), "板甲", ArmorSlot.Plate, 50, 25, 15, covers);
+        Check(ArmorTable.Plate(), "板甲", ArmorSlot.Plate, 70, 35, 15, covers);
     }
 
     [Fact]
@@ -141,6 +141,15 @@ public class ArmorTableTests
     [Fact]
     public void DogPocketVest_MatchesTable_NowHasArmor()
         => Check(ArmorTable.DogPocketVest(), "口袋狗衣", ArmorSlot.Skin, 2, 1, 0.25, Torso);
+
+    /// <summary>铁丝头甲文案 = 数据表『狗装备』说明列用户新改（两处真源须同文）。</summary>
+    [Fact]
+    public void DogWireHelmet_DescriptionMatchesWikiTable()
+    {
+        const string expected = "曾经保护你的，现在保护狗。";
+        Assert.Equal(expected, ArmorTable.DogWireHelmet().Description);
+        Assert.Equal(expected, DeadSignal.Godot.DogGearCatalog.Get("铁丝头甲")!.Description);
+    }
 
     // ---- 删除件不得复活：布衣 / 贴身布衣 / 左右手套 / 胸甲 已从表中移除 ----
 
