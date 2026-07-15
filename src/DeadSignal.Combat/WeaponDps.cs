@@ -80,7 +80,7 @@ public static class WeaponDps
     /// 所以：**让引擎自己跑，我只负责取平均**。护甲逻辑变了，这个数自动跟着变。</para>
     ///
     /// <para><b>部位覆盖是自动的</b>：<see cref="CombatResolver.Resolve"/> 内部会把"没覆盖到这个部位"的甲层滤掉
-    /// （皮甲只护胸/腹/双上臂 ⇒ 打到头/手/脚就等于打无甲）。而部位由引擎的
+    /// （皮甲只护胸/腹/双手臂 ⇒ 打到头/手/脚就等于打无甲）。而部位由引擎的
     /// <see cref="VolumeWeightedHitSelector"/> 按真实分布抽 —— 所以这个数**天然把"打到裸露部位"算进去了**，
     /// 既不会只算"打中甲上"（低估），也不会按裸伤算（高估）。</para>
     ///
@@ -132,7 +132,7 @@ public static class WeaponDps
     /// <summary>
     /// **「皮甲组」** —— wiki 武器表「对皮甲每秒伤害」那一列打的就是这身装束。
     /// <para>
-    /// = <b>皮甲</b>（<see cref="ArmorTable.Leather"/>，装甲层，护胸/腹/双上臂）
+    /// = <b>皮甲</b>（<see cref="ArmorTable.Leather"/>，装甲层，护胸/腹/双手臂）
     ///   + <b>长袖布衣</b>（贴身层）。
     /// </para>
     /// <para><b>为什么带一件布衣</b>：这是 <c>DeadSignal.Sim</c> 各处标定用的**标准皮甲组**

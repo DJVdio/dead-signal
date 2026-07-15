@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using DeadSignal.Combat;
 
@@ -94,15 +95,17 @@ public class ArcheryTests
     }
 
     [Fact]
-    public void 组合修正_伤害下限恒为1_再好的箭也擦得过去()
+    public void 组合修正_搭箭后保留弓弩各自下限_不再拍回1()
     {
-        // 近战锐器通则（用户口径「刀可以轻划一下」）：箭是"飞出去的刀"，斜面掠射是常态。
-        // 箭的好坏体现在**上限**（能不能扎穿），不在下限。
+        // 🔴 用户拍板（[DECISION] impl-archery-redo, journal 2026-07-15）：xlsx 退役、以 wiki 为准、
+        // **「箭下限恒 1」机制整条退役**。从前 Combine 把任何 弓×箭 的下限拍回 1（"箭是飞出去的刀，擦得过去"）；
+        // 现在弓弩按各自 wiki 值有自己的下限（短弓 2 … 复合弩 12），搭箭只改**上限**（DamageMult 作用于 DamageMax），
+        // 下限原样保留、不被拍回 1。
         foreach (Weapon bow in AllArchery())
         {
             foreach (ArrowDef arrow in ArrowTable.All)
             {
-                Assert.Equal(Archery.DamageFloor, Archery.Combine(bow, arrow).DamageMin);
+                Assert.Equal(bow.DamageMin, Archery.Combine(bow, arrow).DamageMin, 6);
             }
         }
     }
@@ -125,9 +128,10 @@ public class ArcheryTests
 
         对账(ArrowTable.SharpenedStick(), 0.75, 0.75, 0.75, 1.00, 1.10);
         对账(ArrowTable.Handmade(), 1.00, 1.00, 1.00, 1.00, 1.00);
-        // T29 用户手改重头箭：伤害 1.35 → 1.25、破甲 1.45 → 1.50
-        // （"破甲专精就该在破甲轴上兑现，别拿伤害喂它"——净效果是削弱，见 Archery.Heavy 注释）
-        对账(ArrowTable.Heavy(), 1.25, 1.50, 0.75, 1.15, 1.25);
+        // T29 用户手改重头箭：伤害 1.35 → 1.25、破甲 1.45 → 1.50。
+        // 用户又在 wiki 弹药表上继续加码破甲、松一点冷却：破甲 1.50 → **1.75**、冷却 1.15 → **1.1**
+        // （"破甲专精就该在破甲轴上兑现，别拿伤害喂它"的路线走到底——见 Archery.Heavy 注释）。
+        对账(ArrowTable.Heavy(), 1.25, 1.75, 0.75, 1.1, 1.25);
         对账(ArrowTable.Carbon(), 1.25, 1.25, 1.20, 0.90, 0.70);
     }
 
@@ -309,17 +313,22 @@ public class ArcheryTests
     }
 
     /// <summary>
-    /// ⚠️ [T56] <b>狩猎弓排除在外</b>：用户在数值表上给两把弓写了**新一代数值**，伤害下限不再是 1
-    /// （狩猎弓 <b>3</b>~9、竞技复合弓 4~20）——「下限全为 1」这条旧通则正在被用户的重设**逐把推翻**。
-    /// 眼下只有狩猎弓完成了同步，故先把它排除；🔴 待 <c>review-user-mods</c> 把全表同步到新值之后，
-    /// 这条通则要么整条退役、要么改写成新口径（届时 <b>大多数弓的下限都不会是 1</b>）。
+    /// 🔴 [T56 终结] <b>「弓弩下限恒 1 / 近战锐器通则」整条退役</b>——用户拍板（[DECISION] impl-archery-redo,
+    /// journal 2026-07-15）：**xlsx 已退役、以 wiki 为准**。全表 8 把弓弩的下限改为各自的 wiki 值
+    /// （下面逐把对账），不再统一压到 1。<see cref="Archery.Combine"/> 也同步退役「搭箭拍回 1」那条。
     /// </summary>
     [Fact]
-    public void 弓弩_伤害下限全为1_近战锐器通则()
+    public void 弓弩_伤害下限按各自wiki值_下限恒1通则已退役()
     {
-        foreach (Weapon w in AllArchery().Where(w => w.Name != "狩猎弓"))
+        var expected = new Dictionary<string, double>
         {
-            Assert.Equal(1, w.DamageMin);
+            ["短弓"] = 2, ["反曲弓"] = 3, ["长弓"] = 4, ["竞技复合弓"] = 4, ["狩猎弓"] = 3,
+            ["单手轻弩"] = 4, ["双手重弩"] = 6, ["复合弩"] = 12,
+        };
+
+        foreach (Weapon w in AllArchery())
+        {
+            Assert.Equal(expected[w.Name], w.DamageMin, 6);
         }
 
         Assert.True(WeaponTable.ImprovisedHuntingGun().DamageMin > 1, "对照组：枪械下限不压到 1");
@@ -357,12 +366,16 @@ public class ArcheryTests
     }
 
     [Fact]
-    public void 生态位_长弓是射程之王_竞技复合弓是精度之王()
+    public void 生态位_长弓是射程之王_复合弩是精度之王()
     {
+        // 🔴 用户拍板（[DECISION] impl-archery-redo, journal 2026-07-15）：以 wiki 为准。
+        // wiki 新值下**复合弩散布 1.8° 全表最小**，「精度之王」由竞技复合弓（现 2.5°）易主为复合弩
+        // ——复合弩「精度之王 + 最慢」的 authored 生态位以 wiki 新值为新事实源（用户接受重洗）。
+        // 「射程之王」仍是长弓（480px）。
         Weapon[] bows = AllArchery();
 
         Assert.Equal("长弓", bows.OrderByDescending(w => w.MaxRange!.Value).First().Name);
-        Assert.Equal("竞技复合弓", bows.OrderBy(w => w.BaseSpreadDegrees).First().Name);
+        Assert.Equal("复合弩", bows.OrderBy(w => w.BaseSpreadDegrees).First().Name);
     }
 
     /// <summary>
@@ -384,22 +397,16 @@ public class ArcheryTests
     }
 
     [Fact]
-    public void 生态位_短弓是最弱的入门弓_双手重弩是最慢的()
+    public void 生态位_短弓是最弱的入门弓_复合弩是最慢的()
     {
         Weapon[] bows = AllArchery();
 
-        // 短弓与单手轻弩都"弱"，但弱法不同：短弓是伤害最低的弓，轻弩是全表最弱的远程。
-        // 这里钉的是"短弓是全部**弓**里最弱的那把"（入门款，木料2+绳1 就能削出来）。
-        //
-        // ⚠️ [T56] **狩猎弓排除在外**：它已按用户手改切到**新一代数值**（伤害 3~9、冷却 1.6s ——
-        // "最快的弓"，靠出手频率吃饭），而其余弓弩仍是**旧一代**（伤害上限 18~38，靠单发吃饭）。
-        // 拿 DamageMax 跨代比大小是**没有意义**的：狩猎弓的 9 会当场"夺冠"成最弱，而它其实是同级武器。
-        // 🔴 待 `review-user-mods` 把全表同步到数值表的新值之后，这条应改成按 **DPS** 比、并把狩猎弓收回来。
-        Assert.Equal(
-            "短弓",
-            bows.Where(IsBow).Where(w => w.Name != "狩猎弓").OrderBy(w => w.DamageMax).First().Name);
+        // 🔴 [T56 终结] 全表已同步到 wiki 新值（[DECISION] impl-archery-redo, journal 2026-07-15），
+        // 不再有"新旧代"之分——直接按 **DPS** 比全部**弓**（含狩猎弓）：短弓 DPS 最低（入门款，木料2+绳1 就能削出来）。
+        Assert.Equal("短弓", bows.Where(IsBow).OrderBy(Dps).First().Name);
 
-        Assert.Equal("双手重弩", bows.OrderByDescending(w => w.AttackInterval).First().Name);
+        // 🔴 「最慢」由双手重弩（wiki 降到 5.0s）易主为**复合弩（6.2s，全表最慢）**——复合弩「最慢」生态位以 wiki 为新事实源。
+        Assert.Equal("复合弩", bows.OrderByDescending(w => w.AttackInterval).First().Name);
     }
 
     [Fact]
@@ -515,13 +522,14 @@ public class ArcheryTests
 
     // ==================== 《弓与箭之道》的三项被动（用户在数值表『书籍』页写下） ====================
     //
-    // 用户原话：「弓箭射程+10%，锥形角-10%，攻速+2%」。三项都**只作用于弓弩**（"弓箭"），
+    // 用户原话（旧）：「弓箭射程+10%，锥形角-10%，攻速+2%」；[T68] 射程+10% 已换成弹道速度+20%（挂起的引擎新轴）⇒ 现存两项都**只作用于弓弩**（"弓箭"），
     // 且都是**射手本人读过书**才吃到（判据＝其 ReadBookSet，与回收率 25%→50% 同一条口径）。
 
     [Fact]
     public void 书_三项加成的方向与幅度_用户口径()
     {
-        Assert.Equal(1.10, Archery.BookRangeMult);          // 射程 +10%
+        // 🔴 [T68] 用户把「射程 +10%」换成了「弹道速度 +20%」（引擎新轴，未落地）⇒ 射程加成已中和为 ×1.0。
+        Assert.Equal(1.0, Archery.BookRangeMult);           // [T68] 射程加成删除（原 +10%，换成弹道速度+20%＝挂起的新轴）
         Assert.Equal(0.90, Archery.BookSpreadMult);         // 锥形角 −10%（散布收窄＝更准）
         Assert.Equal(1.02, Archery.BookAttackSpeedMult);    // 攻速 +2%
 
@@ -564,19 +572,20 @@ public class ArcheryTests
     }
 
     [Fact]
-    public void 书_射程与散布与冷却三项_对弓与弩都生效()
+    public void 书_散布与冷却两项_对弓与弩都生效()
     {
         // 弩也吃（用户说的"弓箭"＝这套弹药体系，弓与弩共用箭，见 ArrowKeys 注释）。
+        // 🔴 [T68] **射程加成已删除**（用户换成弹道速度+20%＝引擎新轴，挂起）⇒ 读书后射程**不再变化**，只剩散布/攻速两项。
         foreach (Weapon bow in AllArchery())
         {
             Weapon unread = Archery.Combine(bow, ArrowTable.Handmade());
             Weapon read = Archery.Combine(bow, ArrowTable.Handmade(), hasReadArcheryBook: true);
 
-            Assert.True(read.MaxRange > unread.MaxRange, $"{bow.Name}：读过书射程应更远");
+            Assert.Equal(unread.MaxRange!.Value, read.MaxRange!.Value, 12);   // [T68] 射程不再被书改动（加成已中和为 ×1.0）
             Assert.True(read.BaseSpreadDegrees < unread.BaseSpreadDegrees, $"{bow.Name}：读过书应更准");
             Assert.True(read.AttackInterval < unread.AttackInterval, $"{bow.Name}：读过书出手应更快");
 
-            // 伤害/穿透**不在这三项里**——书教的是射得远、射得准、抽箭快，不是把箭头磨利。
+            // 伤害/穿透**不在里面**——书教的是射得准、抽箭快，不是把箭头磨利。
             Assert.Equal(unread.DamageMax, read.DamageMax, 12);
             Assert.Equal(unread.Penetration, read.Penetration, 12);
         }
@@ -586,7 +595,7 @@ public class ArcheryTests
     public void 书_与箭的同轴系数一律连乘_不是加算()
     {
         // CLAUDE.md 铁律：百分比一律乘算。射程 = 弓基础 × 箭系数 × 1.10，
-        // **不是** 弓基础 × (箭系数 + 0.10)。用重头箭（射程 ×0.75、冷却 ×1.15、散布 ×1.25）验三条轴。
+        // **不是** 弓基础 × (箭系数 + 0.10)。用重头箭（射程 ×0.75、冷却 ×1.10、散布 ×1.25）验三条轴。
         Weapon bow = WeaponTable.Longbow();
         ArrowDef heavy = ArrowTable.Heavy();
         Weapon read = Archery.Combine(bow, heavy, hasReadArcheryBook: true);

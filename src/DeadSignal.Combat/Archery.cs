@@ -38,7 +38,7 @@ public static class ArrowKeys
 /// <param name="Name">中文显示名。</param>
 /// <param name="Description">黑色幽默风味文案（玩家可见，不参与结算）。</param>
 /// <param name="Craftable">是否可制作。<c>false</c> = 只能搜刮（碳纤维箭）。</param>
-/// <param name="DamageMult">伤害**上限**乘数（下限恒为 1，见 <see cref="Archery.Combine"/>）。</param>
+/// <param name="DamageMult">伤害**上限**乘数（只改上限；下限由弓/弩各自的 wiki 值决定，箭不碰——「下限恒 1」已退役，见 <see cref="Archery.Combine"/>）。</param>
 /// <param name="PenetrationMult">穿透乘数（结果 clamp 到 ≤ <see cref="Archery.MaxPenetration"/>）。</param>
 /// <param name="RangeMult">射程乘数（同时作用于 <see cref="Weapon.MaxRange"/> 与 <see cref="Weapon.FalloffStart"/>，等比缩放整条衰减曲线）。</param>
 /// <param name="CooldownMult">冷却乘数（&gt;1 = 出手更慢；重箭要多花力气搭上弦、拉满）。</param>
@@ -63,8 +63,8 @@ public sealed record ArrowDef(
 ///       代价集中在**射程 ×0.75**（全表最短）。它**极便宜**（木料 1 → 4 支，无工具槽无书门槛，开局即可做），
 ///       是新营地唯一撑得起弓手的箭。<b>它曾经是"没箭了的应急货"（破甲 ×0.55 遇甲即废），用户把它扶正了。</b></item>
 /// <item><b>自制箭</b>——基线，系数全 1。看表时以它为原点。</item>
-/// <item><b>重头箭</b>——**用户唯一明确的一条**：破甲↑、射程↓、攻速↓。本表照办（穿透 ×1.45、射程 ×0.75、冷却 ×1.15），
-///       并额外给伤害 ×1.35（重箭动能更高）与散布 ×1.25（初速低、弹道更弯）。**专打披甲目标**。</item>
+/// <item><b>重头箭</b>——**用户唯一明确的一条**：破甲↑、射程↓、攻速↓。本表照办（穿透 ×1.75、射程 ×0.75、冷却 ×1.10），
+///       并给伤害 ×1.25（重箭动能更高）与散布 ×1.25（初速低、弹道更弯）。**专打披甲目标**。</item>
 /// <item><b>碳纤维箭</b>——四项全优（伤害/穿透/射程/攻速）且更准。它**不该有配方**：
 ///       工厂停工了，用一支少一支。稀缺是它唯一的代价，也是唯一需要的代价。</item>
 /// </list>
@@ -97,7 +97,7 @@ public static class ArrowTable
     public static ArrowDef Handmade() => new(
         ArrowKeys.Handmade,
         "自制箭",
-        "木杆、铁头、布尾羽，手工出品。称不上精良，但每一支都长得一样——对一个弓手来说，这比精良更要紧。",
+        "木杆、铁头、羽毛尾翎，手工出品。称不上精良，但每一支都长得一样——对一个弓手来说，这比精良更要紧。",
         Craftable: true,
         DamageMult: 1.00,
         PenetrationMult: 1.00,
@@ -120,9 +120,11 @@ public static class ArrowTable
     /// <para>
     /// ⚠ <b>用户随后把伤害红利收回了一部分</b>（数值表手改：伤害 ×1.35 → <b>×1.25</b>、破甲 ×1.45 → <b>×1.50</b>）——
     /// 即"别拿伤害喂它，破甲专精就该在破甲轴上兑现"。上面那条"穿透是低杠杆轴"的观察依然成立，
-    /// 所以这轮改动的净效果是<b>削弱重头箭</b>（伤害 −7.4%，换来几乎买不到胜率的 +3.4% 破甲）。
-    /// 这是用户明知代价的取向，别当平衡问题"修"回去。它真正的代价仍落在 Sim <b>量不到</b>的两处：
-    /// <b>射程 −25%</b>（空间层才兑现）与<b>造价</b>（吃铁 2，比自制箭的铁 1 贵一档）。
+    /// 所以那轮改动的净效果是<b>削弱重头箭</b>（伤害 −7.4%，换来几乎买不到胜率的 +3.4% 破甲）。
+    /// <b>之后用户在 wiki 弹药表上又把这条路线走到底</b>：破甲 ×1.50 → <b>×1.75</b>、冷却惩罚 ×1.15 → <b>×1.10</b>
+    /// （破甲再加码、攻速再松一档）。穿透仍是低杠杆轴、且过 <see cref="MaxPenetration"/>=0.95 封顶，
+    /// 所以 ×1.75 在多数弓上买到的胜率依旧有限——这是用户明知代价的取向，别当平衡问题"修"回去。
+    /// 它真正的代价仍落在 Sim <b>量不到</b>的两处：<b>射程 −25%</b>（空间层才兑现）与<b>造价</b>（吃铁 2，比自制箭的铁 1 贵一档）。
     /// </para>
     /// </summary>
     public static ArrowDef Heavy() => new(
@@ -131,9 +133,9 @@ public static class ArrowTable
         "箭头灌了铅，沉得手腕发酸。飞不远，抬手也慢，但扎上去的时候，护甲的意见就不太重要了。",
         Craftable: true,
         DamageMult: 1.25,       // 用户手改（1.35 → 1.25）：Sim 重标定给的伤害红利被收回一部分
-        PenetrationMult: 1.50,  // 用户手改（1.45 → 1.50）：用户口径「破甲更高」，这轮直接加在破甲轴上
+        PenetrationMult: 1.75,  // 用户手改（1.45 → 1.50 → 1.75）：破甲专精一路往破甲轴上加码
         RangeMult: 0.75,        // 用户口径：射程削弱（代价主要落在这里，Sim 量不到）
-        CooldownMult: 1.15,     // 用户口径：攻速削弱（Sim 重标定：1.25 → 1.15，见上）
+        CooldownMult: 1.10,     // 用户手改（1.25 → 1.15 → 1.10）：攻速惩罚再松一档，但仍比自制箭慢
         SpreadMult: 1.25);      // 用户手改（1.15 → 1.25）：初速低、弹道更弯，罚得比原先更狠
 
     /// <summary>碳纤维箭：**不可制作**（无配方，只能搜刮）。四项全优 + 更准——稀缺是它唯一的代价。</summary>
@@ -180,7 +182,7 @@ public static class ArrowTable
 /// 乘法则自动按弓的量级缩放：重头箭永远是"这把弓的破甲版"，不管这把弓多强。
 /// </para>
 /// <para>
-/// <b>怎么防止叠乘失控</b>：唯一会失控的是穿透（复合弩 68% × 重头箭 1.45 = 98.6%，等于无视一切护甲）。
+/// <b>怎么防止叠乘失控</b>：唯一会失控的是穿透（复合弩 68% × 重头箭 1.75 = 119%，等于无视一切护甲）。
 /// 故穿透 clamp 到 <see cref="MaxPenetration"/>；散布 clamp 到 <see cref="MinSpreadDegrees"/>（不许出现绝对精准）。
 /// 伤害/射程/冷却不设上限——它们的代价已经写在箭的其他系数里（重头箭拿伤害换射程与攻速），叠乘本身就是设计。
 /// </para>
@@ -191,18 +193,21 @@ public static class ArrowTable
 /// </summary>
 public static class Archery
 {
-    /// <summary>穿透 clamp 上限。挡住「复合弩 × 重头箭 = 98.6% 穿透」这种叠乘失控（那等于护甲系统对它不存在）。</summary>
+    /// <summary>穿透 clamp 上限。挡住「复合弩 0.68 × 重头箭 1.75 = 1.19 穿透」这种叠乘失控（那等于护甲系统对它不存在）。</summary>
     public const double MaxPenetration = 0.95;
 
     /// <summary>散布角 clamp 下限（度）。不许任何 弓×箭 组合变成"绝对精准"——弓总有手抖。</summary>
     public const double MinSpreadDegrees = 0.5;
 
-    /// <summary>
-    /// 伤害**下限**恒为此值，不吃箭的修正。理由：这是全仓的**近战锐器通则**（用户口径「刀可以轻划一下」）——
-    /// 箭是"飞出去的刀"，斜面掠射、擦过划开一道口子是常态，再好的箭也擦得过去，再烂的箭也能划破皮。
-    /// 箭的好坏体现在**上限**（能不能扎穿）而非下限。
-    /// </summary>
-    public const double DamageFloor = 1.0;
+    // 🔴 ==================== 「箭下限恒 1」机制已退役（用户拍板） ====================
+    //
+    // [DECISION] impl-archery-redo, journal 2026-07-15：**xlsx 已退役、以 wiki 为准**，
+    // 且「弓弩伤害下限恒 1 / 近战锐器通则」这条**规则形态整条退役**。
+    //
+    // 从前这里有个 `DamageFloor = 1.0` 常量，理由是"箭是飞出去的刀，斜面掠射擦得过去，再烂的箭也能划破皮"，
+    // 于是 Combine 把任何 弓×箭 的 DamageMin 一律拍回 1。现在弓弩按各自 wiki 下限（短弓 2 … 复合弩 12）——
+    // 搭箭只改**上限**（DamageMult 作用于 DamageMax），下限**原样保留 weapon.DamageMin**，不再被拍回 1。
+    // 护栏见 ArcheryTests.组合修正_搭箭后保留弓弩各自下限_不再拍回1 / 弓弩_伤害下限按各自wiki值_下限恒1通则已退役。
 
     /// <summary>这把武器吃不吃箭（弓 / 弩）。判据＝弹药类别键，故新增弓弩无需改本函数。</summary>
     public static bool UsesArrows(Weapon weapon) =>
@@ -236,9 +241,14 @@ public static class Archery
     public static double ArrowRecoveryRate(bool hasReadArcheryBook) =>
         hasReadArcheryBook ? SkilledArrowRecoveryRate : BaseArrowRecoveryRate;
 
-    // ==================== 《弓与箭之道》的三项被动加成（用户在数值表『书籍』页写下） ====================
+    // ==================== 《弓与箭之道》的被动加成（用户在数值表『书籍』页写下） ====================
     //
-    // 用户原话：「弓箭射程+10%，锥形角-10%，攻速+2%」。加上上面的回收率 25%→50%，这本书一共给四项。
+    // 🔴 [T68] 用户把「射程 +10%」**换成了「弹道速度 +20%」**（不是加一条，是替换）。
+    //    · 「弹道速度 +20%」是**引擎新轴**：`Projectile.Speed` 目前是全局常量 560f（非逐武器字段）⇒ **未落地、已挂起统一立项**。
+    //    · 「射程 +10%」按用户意图**删除**（见 BookRangeMult 现为 1.0＝无效果）——射手侧的射程加成不再由本书提供。
+    //    ⇒ 现在这本书一共给三项：**锥形角 −10%、攻速 +2%、箭矢回收 25%→50%**（原「射程 +10%」这一项已被弹道速度取代）。
+    //
+    // 用户原话（旧）：「弓箭射程+10%，锥形角-10%，攻速+2%」；(新)：射程+10% → 弹道速度+20%。
     //
     // **归属：射手，不是箭**。这三项是"人的本事"——射得远、射得准、抽箭快，与搭的是哪种箭无关。
     // 故它们不能写进 ArrowDef（那是箭的属性），而是作为 Combine 的一个**射手侧入参**参与连乘。
@@ -246,10 +256,15 @@ public static class Archery
     // 由调用方（Actor.ResolveRangedShot / Projectile）从射手本人的已读书集里取。
     //
     // ⚠ **乘算，不是加算**（CLAUDE.md 铁律）：与箭的同轴系数一律**连乘**。
-    //   长弓 × 重头箭（射程 ×0.75）× 书（×1.10）= ×0.825，**不是** ×0.85。
+    //   [T68] 射程加成已中和为 ×1.0（书不再改射程）；散布/攻速两项仍连乘：如 长弓 × 重头箭 × 书(散布 ×0.90)。
 
-    /// <summary>《弓与箭之道》·射程加成：**+10%**（用户口径）。同时作用于 MaxRange 与 FalloffStart，整条衰减曲线一起外推。</summary>
-    public const double BookRangeMult = 1.10;
+    /// <summary>
+    /// 《弓与箭之道》·射程加成：🔴 [T68] **已中和为 1.0（无效果）**。用户把「射程 +10%」换成了「弹道速度 +20%」——
+    /// 后者是引擎新轴（`Projectile.Speed` 常量），未落地、已挂起。前者按用户意图删除。
+    /// <para>保留常量（值 1.0）而非删掉，是为了不动 <see cref="Combine"/> 的连乘管线 + 让"这条被有意中和"在代码里留痕；
+    /// 弹道速度轴立项后，若用户仍要射程加成再改回即可。</para>
+    /// </summary>
+    public const double BookRangeMult = 1.0;   // [T68] 1.10 → 1.0（射程加成删除，用户换成弹道速度+20%＝引擎新轴挂起）
 
     /// <summary>《弓与箭之道》·锥形角（散布）加成：**−10%**（用户口径）——散布收窄即更准。仍受 <see cref="MinSpreadDegrees"/> 钳制。</summary>
     public const double BookSpreadMult = 0.90;
@@ -276,7 +291,7 @@ public static class Archery
     /// **(弓/弩, 箭, 射手读没读过《弓与箭之道》) → 有效武器**。核心纯函数。
     /// <para>
     /// 修正的 5 个字段：伤害上限 / 穿透 / 射程（MaxRange 与 FalloffStart 等比缩放，整条衰减曲线一起挪）/
-    /// 冷却 / 散布角。**不改**的字段：伤害下限（恒 1，见 <see cref="DamageFloor"/>）、伤害类型、单双手、
+    /// 冷却 / 散布角。**不改**的字段：伤害下限（原样保留弓/弩各自的 wiki 下限——「下限恒 1」机制已退役）、伤害类型、单双手、
     /// 末端衰减系数 <see cref="Weapon.FalloffFloor"/>（那是"箭还剩多少劲"的比例，与箭的种类无关）、
     /// 连发/弹丸数（弓弩恒 1）。
     /// </para>
@@ -308,7 +323,8 @@ public static class Archery
         double cooldownMult = (arrow?.CooldownMult ?? 1.0) * (hasReadArcheryBook ? BookCooldownMult : 1.0);
         double spreadMult = (arrow?.SpreadMult ?? 1.0) * (hasReadArcheryBook ? BookSpreadMult : 1.0);
 
-        double maxDamage = Math.Max(DamageFloor, weapon.DamageMax * damageMult);
+        // 上限＝弓基础上限 × 箭伤系数；兜底不低于弓自己的下限（保证 Max ≥ Min，wiki 值下恒成立）。
+        double maxDamage = Math.Max(weapon.DamageMin, weapon.DamageMax * damageMult);
 
         return new Weapon
         {
@@ -316,7 +332,8 @@ public static class Archery
             Description = weapon.Description,
 
             // —— 被 箭 ⊗ 书 改写的 5 项 ——
-            DamageMin = DamageFloor,
+            // 🔴 下限恒 1 机制退役：搭箭不改下限，原样保留弓/弩各自的 wiki 下限（见本类顶部 [DECISION]）。
+            DamageMin = weapon.DamageMin,
             DamageMax = maxDamage,
             Penetration = Math.Clamp(weapon.Penetration * penetrationMult, 0, MaxPenetration),
             AttackInterval = weapon.AttackInterval * cooldownMult,

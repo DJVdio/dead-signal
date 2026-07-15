@@ -30,13 +30,13 @@ public class WeaponRecalibTests
     ///    从"高方差、掷 1 挠痒 / 掷满爆发"变成"稳定可靠"，方差换成了穿透（见下面的穿透阶梯）。
     /// </summary>
     [Theory]
-    [InlineData("匕首", 1, 7, 0.06)]      // T29 用户手改穿透（0.09 → 0.06）
-    [InlineData("刺剑", 2, 7, 0.25)]      // T29 用户手改（上限 8 → 7；穿透 0.16 → 0.25）
+    [InlineData("匕首", 1, 7, 0.075)]     // wiki 同步：穿透 0.06 → 0.075
+    [InlineData("刺剑", 2.5, 6.5, 0.25)]  // wiki 同步：伤害 2~7 → 2.5~6.5（穿透未动）
     [InlineData("短剑", 3, 8, 0.12)]      // T29 用户手改（2~9 → 3~8；穿透未动）
     [InlineData("长剑", 3, 15, 0.24)]     // T29 用户手改（上限 12 → 15；穿透 0.25 → 0.24）
     [InlineData("草叉", 4, 9, 0.20)]      // T29 用户手改（上限 8 → 9；穿透 0.16 → 0.20）
     [InlineData("重剑", 6, 20, 0.40)]     // T29 用户手改下限（5 → 6）；穿透未动，仍是全近战最高
-    public void MeleeSharpWeapon_MatchesUserTunedTable(string name, int expectedMin, int expectedMax, double expectedPen)
+    public void MeleeSharpWeapon_MatchesUserTunedTable(string name, double expectedMin, double expectedMax, double expectedPen)
     {
         Weapon w = WeaponTable.Arsenal().Single(x => x.Name == name);
         Assert.Equal(DamageType.Sharp, w.DamageType);
@@ -96,7 +96,7 @@ public class WeaponRecalibTests
     ///    故本测试改为钉<b>用户的新区间</b>，不再宣称"保持原始"。
     /// </summary>
     [Theory]
-    [InlineData("手枪", 4, 14)]        // T29 用户手改下限（8 → 4）
+    [InlineData("手枪", 4, 13)]        // wiki 同步：上限 14 → 13（T29 下限 8 → 4）
     [InlineData("冲锋枪", 6, 18)]      // 用户未动
     [InlineData("步枪", 10, 24)]       // 用户未动
     [InlineData("狙击枪", 20, 70)]     // 用户未动：区间已是拉宽后的
@@ -169,8 +169,10 @@ public class WeaponRecalibTests
     ///
     /// ⚠ T29 <b>分界线往下挪了一格</b>：用户把短剑下限提到 3（原 2），而布衣对短剑的门槛只有
     /// 6×(1−0.12)/2 = 2.64 ⇒ <b>短剑的最差一击也已越过布衣门槛</b>，它不再有挡下带，站到了大剑那一侧。
-    /// 现在还留着挡下带的只剩匕首（门槛 2.82 ＞ 下限 1）与刺剑（2.25 ＞ 2）。
-    /// 立意未变（"一件布衫挡得住小刀，挡不住剑"），变的是短剑被用户划到了"剑"那边。
+    /// ⚠ <b>wiki 同步：刺剑也划到了"剑"那边</b>——用户把刺剑下限从 2 提到 <b>2.5</b>，而布衣对它的门槛
+    /// 6×(1−0.25)/2 = 2.25 ＜ 2.5 ⇒ 刺剑的最差一击也越过了门槛，挡下带随之消失。
+    /// 现在还留着挡下带的<b>只剩匕首</b>（门槛 6×(1−0.075)/2 = 2.775 ＞ 下限 1）。
+    /// 立意未变（"一件布衫挡得住小刀，挡不住剑"），变的是刺剑被用户划到了"剑"那边。
     /// </summary>
     [Fact]
     public void ClothArmor_BlocksLightBlades_ButNeverBigSwords()
@@ -179,14 +181,14 @@ public class WeaponRecalibTests
         double Threshold(Weapon w) => shirt.SharpDefense * (1 - w.Penetration) / 2.0;
 
         // 有挡下带：门槛高于下限 ⇒ 低掷点会被布衣完全吃掉
-        foreach (Weapon w in new[] { WeaponTable.Dagger(), WeaponTable.Rapier() })
+        foreach (Weapon w in new[] { WeaponTable.Dagger() })
         {
             Assert.True(Threshold(w) > w.DamageMin,
                 $"{w.Name} 是轻刃，布衣门槛 {Threshold(w):F2} 应高于其下限 {w.DamageMin}（保留挡下带）");
         }
 
         // 无挡下带：最差一击也越过门槛 ⇒ 布衣一下都挡不住
-        foreach (Weapon w in new[] { WeaponTable.Shortsword(), WeaponTable.Longsword(), WeaponTable.Greatsword() })
+        foreach (Weapon w in new[] { WeaponTable.Rapier(), WeaponTable.Shortsword(), WeaponTable.Longsword(), WeaponTable.Greatsword() })
         {
             Assert.True(Threshold(w) <= w.DamageMin,
                 $"{w.Name} 的下限 {w.DamageMin} 已越过布衣门槛 {Threshold(w):F2}，布衣不该拦得住它");
@@ -232,7 +234,7 @@ public class WeaponRecalibTests
     {
         Weapon club = WeaponTable.Club();
         Assert.Equal(4, club.DamageMin);
-        Assert.Equal(7, club.DamageMax);
+        Assert.Equal(8, club.DamageMax);   // wiki 同步：7 → 8
         Assert.Equal(0, club.Penetration, 6);
         Assert.Equal(2.7, club.AttackInterval, 6);
         Assert.True(club.CanDualWield);
@@ -398,8 +400,8 @@ public class ImprovisedHuntingGunTests
         Assert.Equal("自制猎枪", g.Name);
         Assert.Contains(WeaponTable.Arsenal(), w => w.Name == "自制猎枪");
 
-        Assert.Equal(6, g.DamageMin);            // T29 用户手改（4 → 6）
-        Assert.Equal(20, g.DamageMax);           // T29 用户手改（16 → 20）
+        Assert.Equal(7.5, g.DamageMin);          // 用户手改（wiki 同步：4 → 6 → 7.5）
+        Assert.Equal(17.5, g.DamageMax);         // 用户手改（wiki 同步：16 → 20 → 17.5）
         Assert.Equal(0.40, g.Penetration, 6);    // T29 用户手改（0.25 → 0.40）
         Assert.True(g.Penetration < WeaponTable.Rifle().Penetration, "仍低于军用步枪——它不是穿甲专精");
         Assert.Equal(DamageType.Sharp, g.DamageType);
@@ -410,7 +412,7 @@ public class ImprovisedHuntingGunTests
         Assert.Equal(DamageType.Blunt, g.MeleeProfile()!.DamageType);
     }
 
-    /// <summary>枪械通则：下限不为 1（子弹没有"擦破皮"）。自制猎枪下限 4。</summary>
+    /// <summary>枪械通则：下限不为 1（子弹没有"擦破皮"）。自制猎枪下限 7.5。</summary>
     [Fact]
     public void ImprovisedHuntingGun_DamageMinIsNotOne()
     {

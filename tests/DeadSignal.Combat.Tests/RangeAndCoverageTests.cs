@@ -107,7 +107,7 @@ public class RangeAndCoverageTests
         Assert.True(gloves.Covers(LeftFingerPart));             // 连带手指子树
         Assert.True(gloves.Covers(Part(HumanBody.RightIndex)));
         Assert.False(gloves.Covers(TorsoPart));                 // 不防躯干
-        Assert.False(gloves.Covers(Part(HumanBody.LeftArm)));   // 不防上臂
+        Assert.False(gloves.Covers(Part(HumanBody.LeftArm)));   // 不防手臂
     }
 
     [Fact]

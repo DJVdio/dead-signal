@@ -8,13 +8,16 @@ namespace DeadSignal.Combat.Tests;
 
 /// <summary>
 /// [批次25·T44] 消防斧 —— 用户点名新建的一把近战武器，同时是<b>「利爪型」枪械改装的近战锚点</b>
-/// （改装件 <c>claw_stock</c> 的口径是「近战模式等同于 <b>80% 攻速的消防斧</b>」，见 docs/wiki/data/weapon-mods.json）。
+/// （改装件 <c>claw_stock</c> 的口径是「近战模式等同于 <b>85% 攻速的消防斧</b>」，[T68] 三型态由 80%→85%，
+/// 见 <c>WeaponModCatalog.MeleeFormSpeed</c> 与 docs/wiki/data/weapon-mods.json）。
 ///
 /// <para>
-/// <b>它的数值不是自由的</b>：利爪型 = 消防斧 × 0.8 DPS，而利爪型被两条护栏夹住
-/// （必须强过原厂枪托，否则没人改；必须弱于匕首，否则改装取代真近战武器）
-/// ⇒ 反推出<b>消防斧 DPS 的硬区间 [2.36, 2.94]</b>（推导见 docs/research/2026-07-14-user-mod-review.md §2）。
-/// 本文件把这个区间钉成硬护栏：以后谁动消防斧的伤害/攻速，利爪型的强度就跟着动，这里当场红。
+/// <b>它的数值仍绑着利爪型</b>：利爪型 = 消防斧 × 0.85 DPS。<b>[weapon-finalize] 用户拍板把消防斧升到
+/// 6.5~14 / 3.4s ＝ DPS 3.01</b>（原 4~15＝2.79），利爪型随之从 2.24 升到 <b>2.56</b>。
+/// 🔴 <b>这撞碎了旧的「利爪型必须弱于匕首(2.35)」上界 —— 用户原话「接受利爪型超匕首」</b>
+/// （同「创伤型超棍棒」：改装可以强过它所参照的近战武器）。故旧的 DPS 硬区间 [2.36, 2.94] <b>作废</b>，
+/// 只保留下界那条设计约束（利爪型必须强过原厂枪托，否则没人去改），上界不再钉。
+/// 谁动消防斧的伤害/攻速，利爪型跟着动——下界护栏仍会红。
 /// </para>
 ///
 /// <para>
@@ -27,16 +30,11 @@ public class AxeTests
 {
     private static double Dps(Weapon w) => WeaponDps.Single(w);
 
-    // ——— 数值：利爪型反推出来的硬区间 ———
+    // ——— 数值：利爪型的下界仍钉，上界（弱于匕首）已被用户作废 ———
 
-    /// <summary>利爪型必须<b>强于原厂枪托</b>（否则没人去改）⇒ 消防斧 DPS 下界 2.36。</summary>
-    private const double ClawFloorAxeDps = 2.36;
-
-    /// <summary>利爪型必须<b>弱于匕首</b>（改装不该取代一把真刀）⇒ 消防斧 DPS 上界 2.94。</summary>
-    private const double ClawCeilingAxeDps = 2.94;
-
-    /// <summary>利爪型 = 80% 攻速的消防斧（口径写在 weapon-mods.json 的「利爪型」那一行）。</summary>
-    private const double ClawAttackSpeedFactor = 0.8;
+    /// <summary>利爪型 = <b>85% 攻速</b>的消防斧（[T68] 原 80%；口径见 <c>WeaponModCatalog.MeleeFormSpeed</c>
+    /// 与 weapon-mods.json 的「利爪型」那一行）。</summary>
+    private const double ClawAttackSpeedFactor = 0.85;
 
     [Fact]
     public void 消防斧在武器表里_且是全表唯一的斧子()
@@ -60,27 +58,36 @@ public class AxeTests
     }
 
     [Fact]
-    public void 消防斧的DPS落在利爪型反推出来的硬区间内()
+    public void 消防斧按用户拍板升到6点5到14_DPS约3点01()
     {
-        double dps = Dps(WeaponTable.Axe());
-
-        Assert.True(dps >= ClawFloorAxeDps,
-            $"消防斧 DPS {dps:F4} 低于 {ClawFloorAxeDps} ⇒ 利爪型（×0.8 = {dps * ClawAttackSpeedFactor:F2}）会弱于原厂枪托，没人会去改装");
-        Assert.True(dps <= ClawCeilingAxeDps,
-            $"消防斧 DPS {dps:F4} 高于 {ClawCeilingAxeDps} ⇒ 利爪型（×0.8 = {dps * ClawAttackSpeedFactor:F2}）会超过匕首，" +
-            "改装就取代了真近战武器——「我该不该带把刀」也就不成其为选择");
+        // [weapon-finalize] 用户在数值表上把消防斧从 4~15 升到 6.5~14（冷却 3.4s 不动）。
+        // 这是**对账单**：用户手改的格子必须原样躺在代码里。DPS = (6.5+14)/2 / 3.4 = 3.0147。
+        Weapon axe = WeaponTable.Axe();
+        Assert.Equal(6.5, axe.DamageMin, 3);
+        Assert.Equal(14, axe.DamageMax, 3);
+        Assert.Equal(3.01, Dps(axe), 2);
     }
 
     [Fact]
-    public void 利爪型只是消防斧的八折_必须弱于匕首()
+    public void 利爪型是85pct攻速的消防斧_强过原厂枪托_且现已超过匕首_用户拍板接受()
     {
-        // 这条是上一条的"人话版"：直接把利爪型的实际强度算出来跟匕首比，
-        // 免得日后有人只改区间常数、不看它到底意味着什么。
+        // 利爪型的实际强度 = 85% 攻速的消防斧 = 消防斧 DPS × 0.85。
         double claw = Dps(WeaponTable.Axe()) * ClawAttackSpeedFactor;
-        double dagger = Dps(WeaponTable.Dagger());
 
-        Assert.True(claw < dagger,
-            $"利爪型 {claw:F2} 必须弱于匕首 {dagger:F2}——改装能让你「打空了还能打」，不能让你不必带近战武器");
+        // ① 下界仍钉：利爪型必须强过**最猛的原厂枪托**，否则「改成利爪型」这件事毫无意义。
+        double bestStock = WeaponTable.Arsenal()
+            .Where(w => w.HasMeleeProfile)
+            .Max(w => Dps(w.MeleeProfile()!));
+        Assert.True(claw > bestStock,
+            $"利爪型 {claw:F2} 必须强过最猛的原厂枪托 {bestStock:F2}——否则没人会去改利爪型");
+
+        // ② 🔴 上界作废：消防斧升到 6.5~14 后利爪型（{claw≈2.56}）**强于匕首**（≈2.35），这是用户拍板接受的。
+        //    用户原话「接受利爪型超匕首」，与「创伤型超棍棒」同类：改装可以超过它所参照的近战武器
+        //    （改装本就是拿枪的重量/部位换来的）。这条把**新事实**钉死，防止日后有人拿旧口径
+        //    「利爪型 < 匕首」去"修"消防斧的数值。
+        double dagger = Dps(WeaponTable.Dagger());
+        Assert.True(claw > dagger,
+            $"利爪型 {claw:F2} 现在超过匕首 {dagger:F2}——用户拍板接受（改装可以超过参照武器，同创伤型超棍棒）");
     }
 
     [Fact]

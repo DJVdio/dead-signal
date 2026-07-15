@@ -41,7 +41,7 @@ public static class WeaponTable
         Description = "小巧、贴身、安静——很多故事都是从背后一把匕首开始的。",
         DamageMin = 1,           // 拟定待调
         DamageMax = 7,          // 拟定待调
-        Penetration = 0.06,      // 用户手改（0.09 → 0.06）
+        Penetration = 0.075,     // 用户手改（wiki 同步：0.06 → 0.075）
         DamageType = DamageType.Sharp,
         StructureFactor = 0.4,   // 砸墙系数：拿匕首捅墙是徒劳（锐器兜底档）
         NoiseRadius = 90,            // 拟定待调：全近战最静——短促捅刺，几乎不带风声。呼应它自己的 flavor「小巧、贴身、安静」
@@ -61,7 +61,7 @@ public static class WeaponTable
         StructureFactor = 0.3,   // 砸墙系数：刃口是拿来切开血肉的，木头铁皮不吃这套
         NoiseRadius = 105,           // 拟定待调：有挥砍幅度了，风声与金属碰撞都上来
         CanDualWield = true,     // 用户手改（否 → 是）：短剑够轻，可以左右手各一把
-        AttackInterval = 2.2,    // 用户手改（2.4 → 2.2）
+        AttackInterval = 2.1,    // 用户手改（wiki 同步：2.2 → 2.1）
     };
 
     /// <summary>刺剑：单手近战锐器，突刺路线——伤害区间窄、穿透略高于短剑，攻速略快。可双持。（T21 用户手改：1~12 → 2~8、穿透 15% → 16%）</summary>
@@ -69,8 +69,8 @@ public static class WeaponTable
     {
         Name = "刺剑",
         Description = "轻巧的刺剑，优雅而致命。",
-        DamageMin = 2,           // 用户未动
-        DamageMax = 7,           // 用户手改（8 → 7）：全表最窄的区间——突刺就该稳
+        DamageMin = 2.5,         // 用户手改（wiki 同步：2 → 2.5）
+        DamageMax = 6.5,         // 用户手改（wiki 同步：7 → 6.5）：全表最窄的区间——突刺就该稳
         Penetration = 0.25,      // 用户手改（0.16 → 0.25）：突刺吃甲，已与长剑 24% 齐平并略胜
         DamageType = DamageType.Sharp,
         StructureFactor = 0.2,   // 砸墙系数：刺击对结构尤其无用——扎个洞，墙纹丝不动
@@ -127,18 +127,18 @@ public static class WeaponTable
     /// <summary>
     /// 消防斧（[批次25·T44]，用户点名新建）：双手近战锐器 —— <b>劈砍</b>。
     ///
-    /// <para><b>它的数值不是自由的</b>：它同时是「利爪型」枪械改装的<b>近战锚点</b>
-    /// （<c>claw_stock</c> 的口径 = 「近战模式等同于 <b>80% 攻速的消防斧</b>」，用户写在 weapon-mods.json 上）。
-    /// 利爪型被两条护栏夹住（必须强过原厂枪托，否则没人改；必须弱于匕首，否则改装取代真近战武器）
-    /// ⇒ 反推出消防斧 DPS 的硬区间 <b>[2.36, 2.94]</b>。现值 4~15 / 3.4s ＝ <b>DPS 2.79</b>（落在长剑 2.81 同档），
-    /// 利爪型即 <b>2.24</b>。<b>动这里的伤害或攻速 = 动利爪型的强度</b>，<c>AxeTests</c> 会拦住你。</para>
+    /// <para><b>它的数值仍绑着利爪型</b>：它同时是「利爪型」枪械改装的<b>近战锚点</b>
+    /// （<c>claw_stock</c> 的口径 = 「近战模式等同于 <b>85% 攻速的消防斧</b>」，[T68] 三型态由 80%→85%，用户写在 weapon-mods.json 上）。
+    /// <b>[weapon-finalize] 用户拍板把它升到 6.5~14 / 3.4s ＝ DPS 3.01</b>（原 4~15＝2.79），利爪型随之从 2.24 升到 <b>2.56</b>。
+    /// 🔴 这撞碎了旧的「利爪型必须弱于匕首(2.35)」上界 —— <b>用户原话「接受利爪型超匕首」</b>（同「创伤型超棍棒」：改装可以强过参照武器）。
+    /// 故旧的 DPS 硬区间 [2.36, 2.94] <b>作废</b>，只保留下界（利爪型必须强过原厂枪托）。<b>动这里的伤害或攻速 = 动利爪型的强度</b>，<c>AxeTests</c> 会拦住你。</para>
     ///
     /// <para><b>砸墙：它是全表唯一一把「破拆型锐器」</b>（本单拍板，数值层）。劈门本来就是斧子的正经用途，
     /// 故它打破了「锐器砸墙无用」这条通则 —— 砸墙三段梯度在它这里变成<b>四段</b>：
-    /// <c>其余锐器（≤0.98） ＜ 枪托（2.08~2.84） ＜ 【消防斧 3.35】 ＜ 钝器（3.67~12.44）</c>。
+    /// <c>其余锐器（≤0.98） ＜ 枪托 ＜ 【消防斧 ~3.62】 ＜ 钝器（4.0~12.44）</c>。
     /// <b>为什么不让它进钝器档</b>：钝器打人是弱的（棍棒打丧尸 47.8% 全表垫底），破拆是它们<b>唯一</b>的回报；
-    /// 消防斧打人已经有长剑档的 2.79 DPS，再让它砸墙也压过锤子，钝器就彻底没有存在理由了。
-    /// <b>「砍不动金属门」</b>：砸穿金属门 消防斧 68s / 棍棒 62s / 破甲锤 18s —— 要破金属门，还是得带把锤子。
+    /// 消防斧打人升伤后已有 3.01 DPS（超长剑档），再让它砸墙也压过锤子，钝器就彻底没有存在理由了。
+    /// <b>「砍不动金属门」</b>：砸穿金属门 消防斧 ~61s / 破甲锤 18s —— 要破金属门，还是得带把锤子。
     /// 见 <c>AxeTests</c> 与 <c>BluntStructureAdvantageTests</c> 的具名例外。</para>
     ///
     /// <para>穿透 18%：劈砍吃甲，高于草叉 20% 之下、短剑 12% 之上，仍低于长剑 24% / 重剑 40%。数值皆拟定待调。</para>
@@ -147,11 +147,11 @@ public static class WeaponTable
     {
         Name = "消防斧",
         Description = "劈柴、劈门、劈别的——它从不问那是什么。",
-        DamageMin = 4,           // 拟定待调
-        DamageMax = 15,          // 拟定待调（均伤 9.5 ÷ 3.4s ＝ DPS 2.79，落在利爪型反推的硬区间 [2.36, 2.94] 内）
-        Penetration = 0.18,      // 拟定待调：劈砍吃甲，低于长剑 24%
+        DamageMin = 6.5,         // 用户手改（wiki 同步：4 → 6.5）
+        DamageMax = 14,          // 用户手改（wiki 同步：15 → 14）：均伤 10.25 ÷ 3.4s ＝ DPS 3.01，利爪型 ＝ ×0.85 ＝ 2.56（＞匕首 2.35，用户拍板接受）
+        Penetration = 0.175,     // 用户手改（wiki 同步：0.18 → 0.175，表赢代码）：劈砍吃甲，低于长剑 24%
         DamageType = DamageType.Sharp,
-        // 砸墙系数：**全表唯一超过 1 的锐器**。3.35 点/秒 —— 压过最猛的枪托（2.84），但仍够不着最弱的钝器（棍棒 3.67）。
+        // 砸墙系数：**全表唯一超过 1 的锐器**。~3.62 点/秒（升伤后，均伤 10.25 × 1.2 ÷ 3.4）—— 压过最猛的枪托，但仍够不着最弱的钝器（棍棒 4.0）。
         // 这是本单拍板的落点，改它之前先读 AxeTests.消防斧是唯一能破拆的锐器_压过全部枪托_但仍不及最弱的钝器。
         StructureFactor = 1.2,
         NoiseRadius = 125,           // 拟定待调：双手抡圆劈砍，介于长剑 120 与尖头锤 130 之间
@@ -235,7 +235,7 @@ public static class WeaponTable
         Name = "棍棒",
         Description = "一根结实的棍棒，简单、可靠、不讲道理。",
         DamageMin = 4,           // 用户手改（6 → 4）：批次18 的"钝器提伤"被用户持续回调
-        DamageMax = 7,           // 用户手改（8 → 7）
+        DamageMax = 8,           // 用户手改（wiki 同步：7 → 8）
         Penetration = 0,         // 用户手改（0.03 → 0）：一根棍子，破甲为零（同拳脚）
         DamageType = DamageType.Blunt,
         StructureFactor = 1.8,   // 砸墙系数：钝器里最轻的一根木头，故是**钝器的地板**——但地板也要稳稳压住锐器的天花板（3.67 vs 重剑 0.97 = 3.8 倍）
@@ -302,8 +302,8 @@ public static class WeaponTable
     {
         Name = "自制猎枪",
         Description = "用水管和废铁凑出来的猎枪，准头听天由命，后坐力管够——开火之后，你和目标谁更慌还不一定。",
-        DamageMin = 6,           // 用户手改（4 → 6）
-        DamageMax = 20,          // 用户手改（16 → 20）
+        DamageMin = 7.5,         // 用户手改（wiki 同步：6 → 7.5）
+        DamageMax = 17.5,        // 用户手改（wiki 同步：20 → 17.5）
         Penetration = 0.40,      // 用户手改（0.25 → 0.40）：与步枪拉开的不再是穿透，而是射程/精度/连发
         DamageType = DamageType.Sharp,
         StructureFactor = 1.0,   // 砸墙系数：作用于枪托（长枪身有分量），不是子弹——子弹打不穿承重墙
@@ -312,7 +312,7 @@ public static class WeaponTable
         AmmoKey = AmmoKeys.MediumBullet,   // 自制猎枪：中子弹，1 发/次。唯一能自己造的枪——枪能造、弹也能造，但都得先有子弹零件。
         NoiseRadius = 450,           // 拟定待调：土法枪管、粗糙闭锁——装药不多但炸得野，响度低于制式枪
         BaseSpreadDegrees = 5,   // 拟定待调（长枪管比土枪准，但土法工艺仍差：步枪 2 / 栓动猎枪 3 / 本枪 5）
-        AttackInterval = 3.5,    // 拟定待调（单发折膛，无枪机可拉：慢于步枪 2.8，快于栓动猎枪 4.5）
+        AttackInterval = 4.0,    // 用户手改（wiki 同步：3.5 → 4.0）
         MaxRange = 260,          // 拟定待调（长枪管给出真实射程，但远不及民用栓动猎枪 420）
         FalloffStart = 90,       // 拟定待调
         FalloffFloor = 0.45,     // 拟定待调（土法枪管：出满伤段掉得比栓动猎枪 0.55 更狠）
@@ -375,15 +375,15 @@ public static class WeaponTable
         Name = "手枪",
         Description = "一把手枪，几次讲道理的机会，还能换只手接着讲。",
         DamageMin = 4,           // 用户手改（8 → 4）
-        DamageMax = 14,          // 用户未动
-        Penetration = 0.24,      // 用户手改（0.15 → 0.24）
+        DamageMax = 13,          // 用户手改（wiki 同步：14 → 13）
+        Penetration = 0.21,      // 用户手改（wiki 同步：0.24 → 0.21）
         DamageType = DamageType.Sharp,
         StructureFactor = 1.0,   // 砸墙系数：作用于枪柄砸击（轻但快），不是子弹
         CanDualWield = true,
         IsRanged = true,
         AmmoKey = AmmoKeys.ShortBullet,   // 手枪：短子弹，1 发/次。弹药代价最低的枪（1 个零件出 8 发）——杂兵用它，把好弹省给真要命的场面。
         NoiseRadius = 350,           // 拟定待调：全枪械最轻的响——短枪管、小装药。想安静又只有枪时，它是次优解
-        BaseSpreadDegrees = 3,   // 拟定待调
+        BaseSpreadDegrees = 3.75, // 用户手改（wiki 同步：3 → 3.75）
         AttackInterval = 2.2,    // 用户手改（2.0 → 2.2）
         MaxRange = 200,          // 拟定待调（手枪：近而陡）
         FalloffStart = 55,       // 拟定待调
@@ -458,7 +458,7 @@ public static class WeaponTable
         IsRanged = true,
         AmmoKey = AmmoKeys.MediumBullet,   // 步枪：中子弹，二连发 → **2 发/次**。93.5% 命中 + 穿透 40% 之所以可接受，正因为每扣一次扳机烧掉两发中子弹（1 个零件才出 5 发）——强，但打不起。
         NoiseRadius = 600,           // 拟定待调：制式全威力弹，枪声传得极远。它的强大在噪音上同样要还债
-        BaseSpreadDegrees = 2,   // 拟定待调
+        BaseSpreadDegrees = 3,   // 用户手改（wiki 同步：2 → 3）
         BurstCount = 2,          // 用户拍板：二连发（照冲锋枪三连发的既有机制，非另造）
         BurstInterval = 0.08,    // 拟定待调（连发内每弹间隔；略慢于冲锋枪 0.06——步枪点射节奏更沉）
         // ⚠ 用户明令「先直接做成二连发，数值以后再在表格里手调」：伤害 20~35 / 冷却 2.8s / 穿透 40%
@@ -469,8 +469,8 @@ public static class WeaponTable
         FalloffStart = 200,      // 拟定待调
         FalloffFloor = 0.6,      // 拟定待调
         // 枪托近战（4.0kg，制式实木托）：抵肩枪托重砸。DPS 2.83 → **1.83**。
-        StockMeleeDamageMin = 4,        // 用户拍板压低枪托（6 → 4）
-        StockMeleeDamageMax = 7,        // 用户拍板压低枪托（11 → 7）
+        StockMeleeDamageMin = 3.5,      // 用户手改（wiki 同步：4 → 3.5）
+        StockMeleeDamageMax = 7.25,     // 用户手改（wiki 同步：7 → 7.25）
         StockMeleePenetration = 0.03,
         StockMeleeInterval = 3.0,
         StockMeleeNoiseRadius = 115,
@@ -506,10 +506,10 @@ public static class WeaponTable
         FalloffFloor = 0.8,      // 拟定待调
         // 枪托近战（6.0kg，**全表最重最长**）：单击最痛、抡得最慢、砸下去最响。
         // DPS 2.84 → **1.89** —— 六把枪托里最高，也是**全表枪托的天花板**；仍稳稳低于最弱近战武器（棍棒 2.04）。
-        StockMeleeDamageMin = 5,        // 用户拍板压低枪托（8 → 5）
-        StockMeleeDamageMax = 9,        // 用户拍板压低枪托（13 → 9）
+        StockMeleeDamageMin = 3.5,      // 用户手改（wiki 同步：5 → 3.5）
+        StockMeleeDamageMax = 7.25,     // 用户手改（wiki 同步：9 → 7.25）
         StockMeleePenetration = 0.03,
-        StockMeleeInterval = 3.7,       // 介于尖头锤 3.5 与破甲锤 4.5 之间——你抡的是一根 6kg 的铁管
+        StockMeleeInterval = 3.0,       // 用户手改（wiki 同步：3.7 → 3.0）
         StockMeleeNoiseRadius = 125,
     };
 
@@ -541,7 +541,7 @@ public static class WeaponTable
         Name = "自制霰弹枪",
         Description = "钢管、铁钉、一把火药——离得越近，讲的道理越充分。",
         DamageMin = 2,           // 用户未动（单颗弹丸）
-        DamageMax = 12,          // 用户手改（6 → 12；单颗弹丸）
+        DamageMax = 10,          // 用户手改（wiki 同步：12 → 10；单颗弹丸）
         PelletCount = 8,         // 用户拍板：8 颗弹丸，单独计算
         Penetration = 0.15,      // 用户手改（0.10 → 0.15）
         // 弹药：霰弹专用壳。一次扣扳机烧掉**一发霰弹**（不是 8 发）——8 颗弹丸装在同一个壳里。
@@ -606,9 +606,9 @@ public static class WeaponTable
     {
         Name = "短弓",
         Description = "一根木头，一根弦。射程短、力道小，但它安静——安静到你能听清，第二只丧尸是从哪个方向过来的。",
-        DamageMin = 1,           // 拟定待调（锐器通则：箭能"擦过"）
-        DamageMax = 18,          // 拟定待调（全弓最低——它是应急/开局货）
-        Penetration = 0.30,      // 拟定待调
+        DamageMin = 2,           // wiki 同步（1 → 2）：下限恒 1 机制退役，弓弩按各自 wiki 下限
+        DamageMax = 10,          // wiki 同步（18 → 10）：全弓最低——它是应急/开局货
+        Penetration = 0.12,      // wiki 同步（0.30 → 0.12）
         DamageType = DamageType.Sharp,
         StructureFactor = 0.05,  // 砸墙系数：**全表最低档**——射箭砸墙是全游戏最徒劳的行为。⚠ 本档随锐器一起下移（0.1 → 0.05）：钝器优势那轮把锐器砸墙压低后，箭伤 × 0.1 会**反超草叉**（0.46 > 0.43 点/秒）——弓砸墙比草叉还快是荒唐的，故地板同步下压
         TwoHanded = true,
@@ -631,17 +631,17 @@ public static class WeaponTable
     {
         Name = "反曲弓",
         Description = "弓臂末端反着弯回去，同样长度多出几分力道。做弓的人懂物理，用弓的人只需要懂呼吸。",
-        DamageMin = 1,
-        DamageMax = 26,          // 拟定待调
-        Penetration = 0.40,      // 拟定待调
+        DamageMin = 3,           // wiki 同步（1 → 3）：下限恒 1 退役
+        DamageMax = 12,          // wiki 同步（26 → 12）
+        Penetration = 0.24,      // wiki 同步（0.40 → 0.24）
         DamageType = DamageType.Sharp,
         StructureFactor = 0.05,  // 砸墙系数：同全弓弩最低档
         TwoHanded = true,
         IsRanged = true,
         AmmoKey = AmmoKeys.Arrow,
         NoiseRadius = 70,            // 拟定待调：同短弓：弓弦回弹更快更脆，但仍在嗅觉半径内
-        BaseSpreadDegrees = 4,   // 拟定待调
-        AttackInterval = 3.8,    // 拟定待调
+        BaseSpreadDegrees = 4,   // wiki 同步（不变）
+        AttackInterval = 3.4,    // wiki 同步（3.8 → 3.4）
         MaxRange = 300,          // 拟定待调
         FalloffStart = 120,      // 拟定待调
         FalloffFloor = 0.72,     // 拟定待调
@@ -655,20 +655,20 @@ public static class WeaponTable
     {
         Name = "长弓",
         Description = "比人还高的长弓。它能把箭送到很远的地方——远到你射完还有充裕的时间，看清自己是不是射偏了。",
-        DamageMin = 1,
-        DamageMax = 34,          // 拟定待调
-        Penetration = 0.50,      // 拟定待调
+        DamageMin = 4,           // wiki 同步（1 → 4）：下限恒 1 退役
+        DamageMax = 20,          // wiki 同步（34 → 20）
+        Penetration = 0.50,      // wiki 同步（不变）
         DamageType = DamageType.Sharp,
         StructureFactor = 0.05,  // 砸墙系数：同全弓弩最低档
         TwoHanded = true,
         IsRanged = true,
         AmmoKey = AmmoKeys.Arrow,
         NoiseRadius = 70,            // 拟定待调：长弓弦震颤最沉，但仍压在嗅觉半径内——拉得越满，声音越像一声叹息
-        BaseSpreadDegrees = 4.5, // 拟定待调（长弓无瞄具，纯靠手感）
-        AttackInterval = 5.0,    // 拟定待调（拉满一张长弓要力气）
-        MaxRange = 480,          // 拟定待调（**射程之王**）
-        FalloffStart = 200,      // 拟定待调
-        FalloffFloor = 0.78,     // 拟定待调
+        BaseSpreadDegrees = 3,   // wiki 同步（4.5 → 3）
+        AttackInterval = 5.0,    // wiki 同步（不变，拉满一张长弓要力气）
+        MaxRange = 480,          // wiki 同步（不变，**射程之王**）
+        FalloffStart = 200,      // wiki 同步（不变）
+        FalloffFloor = 0.70,     // wiki 同步（0.78 → 0.70）
     };
 
     /// <summary>
@@ -679,23 +679,22 @@ public static class WeaponTable
     {
         Name = "竞技复合弓",
         Description = "滑轮、准星、稳定杆，一整套让人百发百中的精密玩意。它原来的主人拿它拿过奖——奖杯还在，人不在了。",
-        DamageMin = 1,
-        DamageMax = 30,          // 拟定待调
-        Penetration = 0.48,      // 拟定待调
+        DamageMin = 4,           // wiki 同步（1 → 4）：下限恒 1 退役
+        DamageMax = 20,          // wiki 同步（30 → 20）
+        Penetration = 0.60,      // wiki 同步（0.48 → 0.60）
         DamageType = DamageType.Sharp,
         StructureFactor = 0.05,  // 砸墙系数：同全弓弩最低档
         TwoHanded = true,
         IsRanged = true,
         AmmoKey = AmmoKeys.Arrow,
         NoiseRadius = 65,            // 拟定待调：滑轮组吸收了大半弓弦震动，是**最安静的弓**（现代工艺的好处）
-        BaseSpreadDegrees = 1.5, // 拟定待调（**精度之王**：＜步枪 2°）
-        // 拟定待调（Sim 重标定 3.0 → 3.6）：初版 3.0s 让它的裸 DPS（5.17）**反超了「伤害之王」狩猎弓（4.64）**，
-        // 于是它在每一列对决里都压着狩猎弓——"伤害之王"这个生态位就名不副实了。
-        // 竞技弓的卖点是**打得准**，不是打得快。放缓到 3.6s 后 DPS 4.31 ＜ 狩猎弓 4.64，两把各归其位。
-        AttackInterval = 3.6,
-        MaxRange = 380,          // 拟定待调
-        FalloffStart = 170,      // 拟定待调
-        FalloffFloor = 0.75,     // 拟定待调
+        // wiki 同步（1.5 → 2.5）：仍是全表第二准（＜步枪 2°... 实为 2.5，第二于复合弩 1.8°）。
+        // ⚠ 「精度之王」在 wiki 新值下由复合弩（1.8°）夺去——见 ArcheryTests.生态位_长弓是射程之王_复合弩是精度之王。
+        BaseSpreadDegrees = 2.5,
+        AttackInterval = 3.6,    // wiki 同步（不变）
+        MaxRange = 400,          // wiki 同步（380 → 400）
+        FalloffStart = 200,      // wiki 同步（170 → 200）
+        FalloffFloor = 0.75,     // wiki 同步（不变）
     };
 
     /// <summary>
@@ -753,21 +752,21 @@ public static class WeaponTable
     {
         Name = "单手轻弩",
         Description = "单手就能端的小弩，扣下扳机跟开枪一样容易。麻烦的是开完这一发——上弦得用两只手，还得用点时间。",
-        DamageMin = 1,
-        DamageMax = 16,          // 拟定待调（全弓弩最低）
-        Penetration = 0.35,      // 拟定待调（弩机储能，仍高于同档的短弓 30%）
+        DamageMin = 4,           // wiki 同步（1 → 4）：下限恒 1 退役
+        DamageMax = 12,          // wiki 同步（16 → 12，全弓弩最低）
+        Penetration = 0.35,      // wiki 同步（不变，弩机储能，仍高于同档的短弓）
         DamageType = DamageType.Sharp,
         StructureFactor = 0.05,  // 砸墙系数：同全弓弩最低档
         TwoHanded = false,       // **唯一单手**
-        CanDualWield = true,     // 拟定待调（双持＝两发之后全是绝望）
+        CanDualWield = true,     // wiki 同步（不变，双持＝两发之后全是绝望）
         IsRanged = true,
         AmmoKey = AmmoKeys.Arrow,
         NoiseRadius = 55,            // 拟定待调：机括释放比弓弦更闷、行程更短——**弩比弓安静**
-        BaseSpreadDegrees = 3,   // 拟定待调（弩托稳，比同档短弓 5° 准得多）
-        AttackInterval = 4.0,    // 拟定待调（上弦慢——弩的通病）
-        MaxRange = 180,          // 拟定待调（弩臂短，最近）
-        FalloffStart = 70,       // 拟定待调
-        FalloffFloor = 0.65,     // 拟定待调
+        BaseSpreadDegrees = 5,   // wiki 同步（3 → 5）
+        AttackInterval = 4.0,    // wiki 同步（不变，上弦慢——弩的通病）
+        MaxRange = 180,          // wiki 同步（不变，弩臂短，最近）
+        FalloffStart = 70,       // wiki 同步（不变）
+        FalloffFloor = 0.45,     // wiki 同步（0.65 → 0.45）
     };
 
     /// <summary>
@@ -779,20 +778,20 @@ public static class WeaponTable
     {
         Name = "双手重弩",
         Description = "沉得像块砖的重弩，弦硬到要用脚踩着上。它能钉穿铁皮，代价是你每分钟只能得罪一个人。",
-        DamageMin = 1,
-        DamageMax = 36,          // 拟定待调
-        Penetration = 0.65,      // 拟定待调（机械储能：可制作里最高）
+        DamageMin = 6,           // wiki 同步（1 → 6）：下限恒 1 退役
+        DamageMax = 24,          // wiki 同步（36 → 24）
+        Penetration = 0.60,      // wiki 同步（0.65 → 0.60，机械储能：可制作里偏高）
         DamageType = DamageType.Sharp,
         StructureFactor = 0.05,  // 砸墙系数：同全弓弩最低档
         TwoHanded = true,
         IsRanged = true,
         AmmoKey = AmmoKeys.Arrow,
         NoiseRadius = 55,            // 拟定待调：重弩弦粗但行程短，仍闷于长弓
-        BaseSpreadDegrees = 2.5, // 拟定待调
-        AttackInterval = 6.0,    // 拟定待调（**全表最慢**：脚踩上弦）
-        MaxRange = 320,          // 拟定待调
-        FalloffStart = 140,      // 拟定待调
-        FalloffFloor = 0.75,     // 拟定待调
+        BaseSpreadDegrees = 3,   // wiki 同步（2.5 → 3）
+        AttackInterval = 5.0,    // wiki 同步（6.0 → 5.0）：⚠「全表最慢」已让位给复合弩（6.2s）
+        MaxRange = 320,          // wiki 同步（不变）
+        FalloffStart = 140,      // wiki 同步（不变）
+        FalloffFloor = 0.75,     // wiki 同步（不变）
     };
 
     /// <summary>
@@ -808,20 +807,20 @@ public static class WeaponTable
     {
         Name = "复合弩",
         Description = "带滑轮的复合弩，省力、精准、致命——工业文明留给猎人的最后一份好意。",
-        DamageMin = 1,
-        DamageMax = 34,          // 拟定待调
-        Penetration = 0.68,      // 拟定待调（**破甲之王**：＞重弩 65%，＜狙击 70%）
+        DamageMin = 12,          // wiki 同步（1 → 12）：下限恒 1 退役——全弓弩最高下限，破甲之王的底伤也最狠
+        DamageMax = 34,          // wiki 同步（不变）
+        Penetration = 0.65,      // wiki 同步（0.68 → 0.65，**破甲之王**：＝重弩前值、＞现重弩 0.60，＜狙击 70%）
         DamageType = DamageType.Sharp,
         StructureFactor = 0.05,  // 砸墙系数：同全弓弩最低档
         TwoHanded = true,
         IsRanged = true,
         AmmoKey = AmmoKeys.Arrow,
         NoiseRadius = 50,            // 拟定待调：滑轮＋机括双重吸震，**全表最安静的远程武器**——它的代价在冷却与稀缺
-        BaseSpreadDegrees = 1.8, // 拟定待调（＞竞技复合弓 1.5°，仍是全表第二准）
-        AttackInterval = 4.5,    // 拟定待调（滑轮省力，比重弩 6.0 快得多）
-        MaxRange = 400,          // 拟定待调
-        FalloffStart = 180,      // 拟定待调
-        FalloffFloor = 0.80,     // 拟定待调
+        BaseSpreadDegrees = 1.8, // wiki 同步（不变）：**精度之王**——全表最小散布（＜竞技复合弓 2.5°）
+        AttackInterval = 6.2,    // wiki 同步（4.5 → 6.2）：**全表最慢**（精度之王＝最慢，用户 authored 生态位以 wiki 为准）
+        MaxRange = 400,          // wiki 同步（不变）
+        FalloffStart = 180,      // wiki 同步（不变）
+        FalloffFloor = 0.80,     // wiki 同步（不变）
     };
 
     /// <summary>弓弩全集（8 把：5 弓 + 3 弩）。<see cref="Archery"/> 的组合修正与 Sim 生态位校准按此遍历。</summary>
