@@ -612,6 +612,10 @@ public sealed partial class CampMain : Node2D
 
         // [批次21·T14] 烹饪面板（右键前往厨房的烹饪台打开；冻结时标）。接线见 CampMain.Cooking.cs。
         SetupCookingPanel();
+        SetupButcheryPanel();   // [T67] 宰杀设施面板（正文在 CampMain.Butchery.cs）
+
+        // [impl-furniture-registry] 可摆放家具注册表：把散落的 ~5 处平行分派链收成一张表（正文在 CampMain.Placeables.cs）。
+        BuildPlaceables();
 
         // 神秘商人交易面板（右键前往在场商人打开；冻结时标）。买入事件走 MerchantTrade.Buy 实扣白银实产商品。
         _merchantPanel = new MerchantPanel { Layer = 20 };
@@ -3411,102 +3415,31 @@ public sealed partial class CampMain : Node2D
 
     private void HandleMouseButton(InputEventMouseButton mb)
     {
-        // 摆放沙袋模式：左键落位、右键作罢。抢在一切常规点选/前往之前。
-        if (_placingSandbag)
+        // [impl-furniture-registry] 摆放模式：左键落位、右键作罢，抢在一切常规点选/前往之前。
+        // 此前是六块逐类型同形的 if(_placingX){左键TryPlaceX / 右键EndX+提示}——加一种家具就照抄一块，漏了就摆不下去。
+        // 收成遍历注册表：命中正处于放置模式的那一种（同一时刻至多一种为真），把左右键派回它登记的 TryPlace/Cancel。
+        // 正文（校验/扣料/落地）全在各自 partial 文件里，一字未改；沙袋仍走它自己的 SandbagSpec.CanPlace 特殊校验。
+        foreach (PlaceableFurnitureDef def in _placeables)
         {
+            if (def.IsPlacing is null || !def.IsPlacing())
+            {
+                continue;
+            }
             if (mb is { ButtonIndex: MouseButton.Left, Pressed: true })
             {
-                TryPlaceSandbag(Iso.Unproject(GetGlobalMousePosition()));
+                def.TryPlace!(Iso.Unproject(GetGlobalMousePosition()));
                 return;
             }
             if (mb is { ButtonIndex: MouseButton.Right, Pressed: true })
             {
-                _placingSandbag = false;
-                _campToast.Show("算了，沙袋先搁着。", CampToast.Ok);
+                def.Cancel!();
+                if (def.CancelToast is not null)
+                {
+                    _campToast.Show(def.CancelToast, CampToast.Ok);
+                }
                 return;
             }
         }
-
-        // [批次21·T26] 摆放陷阱模式：左键落位、右键作罢（同沙袋/床；正文在 CampMain.Traps.cs）。
-        if (_placingTrap)
-        {
-            if (mb is { ButtonIndex: MouseButton.Left, Pressed: true })
-            {
-                TryPlaceTrap(Iso.Unproject(GetGlobalMousePosition()));
-                return;
-            }
-            if (mb is { ButtonIndex: MouseButton.Right, Pressed: true })
-            {
-                EndTrapPlacement();
-                _campToast.Show("算了，陷阱先收着。", CampToast.Ok);
-                return;
-            }
-        }
-
-        // [T75] 摆放捕鸟陷阱模式：左键落位、右键作罢（同圈套陷阱；正文在 CampMain.BirdTrap.cs）。
-        if (_placingBirdTrap)
-        {
-            if (mb is { ButtonIndex: MouseButton.Left, Pressed: true })
-            {
-                TryPlaceBirdTrap(Iso.Unproject(GetGlobalMousePosition()));
-                return;
-            }
-            if (mb is { ButtonIndex: MouseButton.Right, Pressed: true })
-            {
-                EndBirdTrapPlacement();
-                _campToast.Show("算了，捕鸟陷阱先收着。", CampToast.Ok);
-                return;
-            }
-        }
-
-        // 摆放床模式：左键落位、右键作罢（同沙袋；正文在 CampMain.Bedrest.cs）。
-        if (_placingBed)
-        {
-            if (mb is { ButtonIndex: MouseButton.Left, Pressed: true })
-            {
-                TryPlaceBed(Iso.Unproject(GetGlobalMousePosition()));
-                return;
-            }
-            if (mb is { ButtonIndex: MouseButton.Right, Pressed: true })
-            {
-                EndBedPlacement();
-                _campToast.Show("算了，床先搁着。", CampToast.Ok);
-                return;
-            }
-        }
-
-        // 摆放桌子模式：左键落位、右键作罢（同沙袋/床；正文在 CampMain.Table.cs）。
-        if (_placingTable)
-        {
-            if (mb is { ButtonIndex: MouseButton.Left, Pressed: true })
-            {
-                TryPlaceTable(Iso.Unproject(GetGlobalMousePosition()));
-                return;
-            }
-            if (mb is { ButtonIndex: MouseButton.Right, Pressed: true })
-            {
-                EndTablePlacement();
-                _campToast.Show("算了，桌子先搁着。", CampToast.Ok);
-                return;
-            }
-        }
-
-        // [T72] 摆放菜园模式：左键落位、右键作罢（同沙袋/陷阱/桌子；正文在 CampMain.Farming.cs）。
-        if (_placingCropPlot)
-        {
-            if (mb is { ButtonIndex: MouseButton.Left, Pressed: true })
-            {
-                TryPlaceCropPlot(Iso.Unproject(GetGlobalMousePosition()));
-                return;
-            }
-            if (mb is { ButtonIndex: MouseButton.Right, Pressed: true })
-            {
-                EndCropPlotPlacement();
-                _campToast.Show("算了，菜园先搁着。", CampToast.Ok);
-                return;
-            }
-        }
-
 
         if (mb is { ButtonIndex: MouseButton.Left, Pressed: true })
         {
@@ -4274,6 +4207,8 @@ public sealed partial class CampMain : Node2D
             "bird_trap" => BirdTrapHoverText(c),
             // [T72] 菜园：进度在地上没痕迹 ⇒ 把"熟了几颗/种了几颗/最快几天熟"直接摊在提示里。
             "cropplot" => CropPlotHoverText(c),
+            // [T67] 宰杀设施：把档位 + 刀槽现状报出来（正文在 CampMain.Butchery.cs）。
+            "butcher" => ButcherHoverText(c),
             // [批次21·T25] 桌子：室内的半身掩体（用户拍板）。把"紧贴才算"和"敌人也能用"说清楚——同沙袋，
             // 这 25% 若是隐形的，玩家会以为它没生效。顺带说清它不挡路（跨得过去，只是慢 25%）。
             "table" => "桌子 · 贴着它挨远程有 25% 无效（绕到你背后就白摆了，敌人也能蹲它后面）· 跨得过去但会慢 25% · Shift+右键拆走",
@@ -5030,7 +4965,8 @@ public sealed partial class CampMain : Node2D
             ResolveBirdTrapsForPhase();   // [T75] 捕鸟陷阱同频掷点（此前整条未接，鸟从来出不来），正文在 CampMain.BirdTrap.cs
         }
         // 视野遮暗（批次4）：营地夜间（NightPrep/NightAct）启用；白天/暮光/探索相位全可见豁免。
-        _campVisionMask?.SetEnabled(phase is DayPhase.NightPrep or DayPhase.NightAct);
+        // 夜晚段判据走唯一事实源（原 inline 抄的 IsNight 集合已收口）。
+        _campVisionMask?.SetEnabled(DayPhaseSegments.IsNight(phase));
         _expeditionPanel.Visible = false;
         _worldMapPanel.Visible = false;
         _guardPanel.Visible = false;
@@ -5040,7 +4976,7 @@ public sealed partial class CampMain : Node2D
 
         // 克莉丝汀累计 3 次"暂不"后不立即走：排期到下一次昼夜交替（相位切进聚餐）时自行离开。
         // 置于结算前，使她不再计入本餐用餐者。走"自愿离开"清理（非 Died，不触发全灭判定）。
-        if ((phase == DayPhase.DawnMeal || phase == DayPhase.DuskMeal)
+        if (DayPhaseSegments.IsMeal(phase)
             && ChristineRequestLogic.ConsumeLeaving(_storyFlags))
         {
             ChristineLeaveVoluntary();
@@ -7395,6 +7331,13 @@ public sealed partial class CampMain : Node2D
             return;
         }
 
+        // [T67] 宰杀设施：老鼠/鸟宰成肉 + 副产物（羽毛/碎皮革）；刀槽放匕首/骨刀。正文在 CampMain.Butchery.cs。
+        if (hit.Role == "butcher")
+        {
+            OpenButchery();
+            return;
+        }
+
         if (hit.Role == "radio")
         {
             OpenRadio();
@@ -8764,45 +8707,19 @@ public sealed partial class CampMain : Node2D
     /// <summary>库存面板点了「摆放」：进入放置模式（左键落位、右键取消）。**改装台不在此列**——它是固定位置，玩家摆不了。</summary>
     private void OnStashPlaceRequested(string key)
     {
-        // 床：非实心（人要走上去躺下），正文在 CampMain.Bedrest.cs。
-        if (key == BedSpec.ItemKey)
-        {
-            BeginBedPlacement();
-            return;
-        }
+        // [impl-furniture-registry] 分派收进一张表（正文在 CampMain.Placeables.cs）：库存「摆放」哪一种家具、
+        // 就调它登记的 Begin（= 既有 BeginXPlacement）。此前这里是一串逐类型的平行 if——漏接一条就是"摆不出来"的死按钮
+        // （床/捕鸟陷阱/圈套/宰杀点都曾漏过）。沙袋的 Begin = 下面的 BeginSandbagPlacement。
+        TryBeginPlacementFor(key);
+    }
 
-        // [批次21·T26] 圈套陷阱：非实心贴地矮物（可跨越），正文在 CampMain.Traps.cs。
-        if (key == TrapSpec.ItemKey)
-        {
-            BeginTrapPlacement();
-            return;
-        }
-
-        // [T75] 捕鸟陷阱：非实心贴地矮物（可跨越），正文在 CampMain.BirdTrap.cs。此前整条未接 ⇒ 玩家摆不出来，这次接通。
-        if (key == BirdTrapSpec.ItemKey)
-        {
-            BeginBirdTrapPlacement();
-            return;
-        }
-
-        // 桌子：非实心矮物（跨得过去，跨过慢 25%），正文在 CampMain.Table.cs。
-        if (key == TableSpec.ItemKey)
-        {
-            BeginTablePlacement();
-            return;
-        }
-
-        // [T72] 菜园：非实心持久种植区（可跨越），正文在 CampMain.Farming.cs。
-        if (key == CropPlotSpec.ItemKey)
-        {
-            BeginCropPlotPlacement();
-            return;
-        }
-
-        if (key != SandbagSpec.ItemKey)
-        {
-            return;
-        }
+    /// <summary>
+    /// 进入摆放沙袋模式（由注册表的沙袋 <c>Begin</c> 委托调）。沙袋是最早那件可摆放物、走的是它自己的
+    /// <see cref="SandbagSpec.CanPlace"/>（不查 64px 禁建带 / 室内外——它的本职就是垒在门口防线后）——这条特殊校验路径
+    /// 保持不变，见 <see cref="TryPlaceSandbag"/>。
+    /// </summary>
+    private void BeginSandbagPlacement()
+    {
         if (_inventory.MaterialCount(SandbagSpec.ItemKey) <= 0)
         {
             _campToast.Show("库里一垛沙袋都没有——先做出来。", CampToast.Bad);
@@ -9113,6 +9030,15 @@ public sealed partial class CampMain : Node2D
             return;
         }
 
+        // [T67] 宰杀分流：任务 id 带 "butcher:" 前缀的不是配方，是"把一只猎物宰成肉 + 副产物"。
+        // 猎物在完工那一刻由 ButcheryRuntime.Butcher 原子扣+产（含双倍掷点）。正文在 CampMain.Butchery.cs。
+        if (job.RecipeId.StartsWith(ButcherJobPrefix, StringComparison.Ordinal))
+        {
+            CompleteButcherJob(job.RecipeId[ButcherJobPrefix.Length..]);
+            if (_craftingOpen) RefreshCrafting();
+            return;
+        }
+
         // 改装分流：任务 id 带 "weaponmod:" 前缀的不是配方，是"把一把枪改成另一把枪"。
         // 基础武器与材料开工时已扣，这里只合成变体 → 登记身份（不登记就装不上、存不住）→ 入库。
         if (WeaponModLogic.TargetOf(job.RecipeId) is not null)
@@ -9155,6 +9081,14 @@ public sealed partial class CampMain : Node2D
         if (recipe.Id == CookStation.RecipeId)
         {
             CompleteCookStationBuild();
+            if (_craftingOpen) RefreshCrafting();
+            return;
+        }
+
+        // [T67] 宰杀台分流：它是简易宰杀点的**升级**——不进库存，完工即在简易点原地顶替它（正文在 CampMain.Butchery.cs）。
+        if (recipe.Id == ButcherStation.TableRecipeId)
+        {
+            CompleteButcherTableBuild();
             if (_craftingOpen) RefreshCrafting();
             return;
         }

@@ -294,3 +294,96 @@ public static class ButcheryLogic
     public static double ExpectedByproductPerQuarry(ButcherTier tier)
         => tier == ButcherTier.Table ? (1 * (1 - TableDoubleYieldChance) + 2 * TableDoubleYieldChance) : 1.0;
 }
+
+/// <summary>
+/// 宰杀设施那<b>一个刀槽</b>的装配态（用户："一个槽位，可以放入匕首或者骨刀"）。
+///
+/// <para>═══ <b>与烹饪台炊具槽同一条语义</b>（见 <see cref="CookStationState"/>）═══
+/// 装槽 = <b>把刀从库存里拿走、钉在案板上</b>（消费层 <c>InstallKnife</c> 从 <see cref="InventoryStore"/> 扣一把该武器）；
+/// 卸槽 = 还回库存（消费层 <c>RemoveKnife</c> 加回一把）。<b>只有一个槽</b>，装第二把会顶掉前一把（返还前一把）。
+/// 装了哪把刀本身要进存档（刀已离库，不存就等于读档后既不在库、也不在案板上——凭空蒸发）。</para>
+/// </summary>
+public sealed class ButcherStationState
+{
+    /// <summary>案板上当前那把刀（<see cref="ButcherKnife.None"/> = 空槽）。</summary>
+    public ButcherKnife Slotted { get; private set; } = ButcherKnife.None;
+
+    /// <summary>槽里有没有刀（<b>没刀不许宰</b>，见 <see cref="ButcheryLogic.CanButcher"/>）。</summary>
+    public bool HasKnife => Slotted != ButcherKnife.None;
+
+    /// <summary>把一把刀钉上案板（幂等语义由消费层保证：装前先把旧刀返还库存）。返回被顶下来的旧刀（空槽则 None）。</summary>
+    public ButcherKnife Install(ButcherKnife knife)
+    {
+        ButcherKnife prev = Slotted;
+        Slotted = knife;
+        return prev;
+    }
+
+    /// <summary>把刀从案板上取下来（还回库存由消费层做）。返回取下的那把刀（空槽则 None）。</summary>
+    public ButcherKnife Remove()
+    {
+        ButcherKnife prev = Slotted;
+        Slotted = ButcherKnife.None;
+        return prev;
+    }
+
+    /// <summary>读档：直接置回存档里那把刀（不经库存——刀在存档里就"住在"案板上）。</summary>
+    public void Restore(ButcherKnife knife) => Slotted = knife;
+}
+
+/// <summary>
+/// <b>宰杀的运行时编排</b>（纯函数；随机走可注入的 <see cref="IRandomSource"/>）——镜像
+/// <see cref="BirdTrapRuntime.ResolveCatch"/> / <see cref="CropPlotRuntime.HarvestRipe"/>：
+/// <b>消费层与单测同一段代码</b>，拿真 <see cref="InventoryStore"/> 跑通两层。
+///
+/// <para>🔴 <b>为什么它必须存在</b>：<see cref="ButcheryLogic.Resolve"/> 只算"出什么"，<b>不碰库存</b>。
+/// 消费层若各写各的"扣一只猎物、把肉塞进库存"，就会与单测分叉（"纯逻辑绿≠功能生效"的又一入口）。
+/// 本类把"<b>扣 1 只猎物 → Resolve → 产物入库</b>"焊成一个原子步骤。</para>
+/// </summary>
+public static class ButcheryRuntime
+{
+    /// <summary>
+    /// <b>宰一只</b>：从 <paramref name="inventory"/> 扣 1 只 <paramref name="quarryKey"/>，按设施档 + 刀
+    /// 走 <see cref="ButcheryLogic.Resolve"/> 出肉 + 副产物（<b>宰杀台掷 20% 双倍</b>），产物<b>逐样真入库</b>。
+    /// <list type="bullet">
+    /// <item>没刀 / 不在白名单 / 库里没有这只猎物 ⇒ 返回 null，<b>库存零变化、一次点都不掷</b>（随机流干净）。</item>
+    /// <item>宰成了 ⇒ 返回本刀产出（含是否双倍），库存已同步扣猎物、加肉与副产物。</item>
+    /// </list>
+    /// </summary>
+    public static ButcherYield? Butcher(
+        ButcherTier tier, ButcherKnife knife, string? quarryKey, InventoryStore inventory, IRandomSource rng)
+    {
+        if (inventory is null
+            || !ButcheryLogic.CanButcher(knife, quarryKey)
+            || quarryKey is null
+            || inventory.MaterialCount(quarryKey) <= 0)
+        {
+            return null;   // 开不了工：不扣猎物、不掷点、不产出
+        }
+
+        // 先扣猎物（锁定这一只），扣不动就彻底作罢（并发兜底：MaterialCount 刚放行、TrySpend 却失败）。
+        if (!inventory.TrySpendMaterial(quarryKey, 1))
+        {
+            return null;
+        }
+
+        ButcherYield? y = ButcheryLogic.Resolve(tier, knife, quarryKey, rng);
+        if (y is null)
+        {
+            return null;   // 理论到不了（CanButcher 已放行）；真到了也不半吞——猎物已扣，如实返回空
+        }
+
+        AddMaterial(inventory, y.Value.MeatKey, y.Value.MeatQuantity);
+        AddMaterial(inventory, y.Value.ByproductKey, y.Value.ByproductQuantity);
+        return y;
+    }
+
+    private static void AddMaterial(InventoryStore inventory, string key, int quantity)
+    {
+        if (quantity <= 0 || Materials.Find(key) is not { } def)
+        {
+            return;
+        }
+        inventory.Add(def.ToItem(quantity));
+    }
+}

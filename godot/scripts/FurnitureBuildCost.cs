@@ -90,6 +90,16 @@ public static class FurnitureBuildCost
         // 可重复摆放 ⇒ 实例名带流水号（"菜园#3"），本表按类型索引（见 TypeKeyOf）。键 = CropPlotSpec.FurnitureKey。
         [CropPlotSpec.FurnitureKey] = new(Cost(("wood", 2)), 60),
 
+        // [T67] 简易宰杀点（玩家可造/摆/拆的宰杀设施，见 ButcherStation）：成本与工时**与配方 butcher_point 一致**
+        // （木料 1，30 分）——两处分叉 = "造一个拆一个"的木料永动机。拆了按通用规则还一半（木料 0，向下取整 ⇒ 拆了啥都不剩）。
+        // 键 = camp.json 无预置、由玩家摆放落位的家具名 = ButcherStation.PointFurnitureKey。
+        [ButcherStation.PointFurnitureKey] = new(Cost(("wood", 1)), 30),
+
+        // [T67] 宰杀台（简易宰杀点的升级档，见 ButcherStation）：成本与工时**与配方 butcher_table 一致**
+        // （木料 3 + 钉子 4，60 分）——同上，两处不一致就开了永动机。拆了按通用规则还一半（木料 1 + 钉子 2，向下取整）。
+        // 键 = ButcherStation.TableFurnitureKey。
+        [ButcherStation.TableFurnitureKey] = new(Cost(("wood", 3), ("nails", 4)), 60),
+
         // 收音机、废墟、尸体等**刻意不在表内**——它们不是造出来的，拆不动。
     };
 

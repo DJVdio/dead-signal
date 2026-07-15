@@ -1037,7 +1037,8 @@ public static class RecipeBook
         // ⚠️ **它是本作第一件可制作的「装甲层」护甲**。此前装甲层三件（皮革胸甲 / 皮甲 / 板甲）**全部只能搜刮**
         //    ⇒ armor 层完全靠运气。它把那个洞堵上：**你可以自己造一件，代价是它比搜到的都弱**
         //    （20/10 ＜ 皮革胸甲 25/12.5），而且**只护胸+腹**（皮甲还护双臂）。
-        //    真正的门槛不在书（那本开局就有），在**材料**：皮革**没有配方、只能搜刮**，攒 3 张是实打实的出门。
+        //    真正的门槛不在书（那本开局就有），在**材料**：皮革要么搜刮、要么**自产**（`tan_leather`：碎皮革→生皮→鞣制→皮革，
+        //    一张皮革 = 宰 4 只老鼠 + 1 份鞣制药水）——两条路都得实打实攒，攒 3 张仍是出门的分量。
         new RecipeData(
             Id: "horror_armor",
             DisplayName: "恐怖装甲",
@@ -1138,7 +1139,8 @@ public static class RecipeBook
         // ── 缝合生皮：把宰杀老鼠攒下的「碎皮革」缝成成幅的「生皮」。──
         // 🔴 **它给「生皮」补上了游戏里的第一条生产线**：核实过 `rawhide` 此前**零掉落、零配方产出**，只能找商人买。
         //    碎皮革 4 → 生皮 1（重量账：4 × 0.2 = 0.8kg → 1.0kg，缝完略重，无套利）。无书门槛，工时 30 分。
-        //    这条链的下游已经通了：生皮 →（鞣制药水，化学书）→ 皮革 → 皮甲/恐怖装甲。宰杀于是喂到了护甲线上。
+        //    这条链的下游现在**真的通了**（见紧邻的 `tan_leather`）：生皮 +（鞣制药水，化学书）→ 皮革 → 皮甲/恐怖装甲。
+        //    宰杀于是喂到了护甲线上。
         new RecipeData(
             Id: "leather_stitch",
             DisplayName: "缝合生皮",
@@ -1149,6 +1151,26 @@ public static class RecipeBook
             RequiredTools: Tools(),
             RequiredBookIds: Books(),
             WorkMinutes: 30),
+
+        // ── 鞣制皮革：生皮 + 鞣制药水 → 皮革。这条链**此前压根没实现**（审计确认）──
+        // 🔴 **它接通了两条断链**：① `rawhide`（生皮）此前**无任何消费方**——能产（`leather_stitch`）能买，却没处用；
+        //    ② `tanning_solution`（鞣制药水）此前**无任何消费方**——同样能造能买、却无处消耗。二者都在这条配方里第一次有了去处。
+        //    ⇒ 「碎皮革 →（缝）生皮 →（鞣）皮革」全线打通，"自产皮革"从此可行。
+        // **数值拟定待调**（新数值，报依据）：生皮 1 + 鞣制药水 1 → 皮革 1，工时 60 分。
+        //    · 重量账**无套利**：生皮 1.0kg + 鞣制药水 1.0kg（消耗掉）→ 皮革 0.6kg（越鞣越轻，不凭空增重）。
+        //    · 门槛梯度守住**皮革的稀缺**：一张皮革 = 4 碎皮革（宰 4 只老鼠）+ 1 鞣制药水（燃料 1 + 石 1 + 化学书）。
+        //      恐怖装甲吃 3 张皮革 ⇒ 12 只老鼠 + 3 份药水 —— 攒起来仍是实打实的出门，可制作但不廉价。
+        //    · **不再挂书**：鞣制药水的化学书门槛已在药水那步收过一次；鞣这一步是手工活，同 `leather_stitch` 零书门槛。
+        new RecipeData(
+            Id: "tan_leather",
+            DisplayName: "鞣制皮革",
+            Category: RecipeCategory.Misc,
+            OutputKey: "leather",
+            OutputQuantity: 1,
+            MaterialCosts: Cost(("rawhide", 1), ("tanning_solution", 1)),
+            RequiredTools: Tools(),
+            RequiredBookIds: Books(),
+            WorkMinutes: 60),
     };
 
     private static readonly IReadOnlyDictionary<string, RecipeData> _byId = ToMap(_all);

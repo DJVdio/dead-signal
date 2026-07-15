@@ -125,6 +125,12 @@ public sealed class CampSave
     /// </summary>
     public List<CookwareSlot> CookwareInstalled { get; set; } = new();
 
+    /// <summary>
+    /// [T67] 宰杀设施刀槽里那把刀（匕首 / 骨刀 / 空）。刀装槽即离库 ⇒ **必须存**：不存则读档后既不在库、
+    /// 也不在案板上，凭空蒸发。设施本体是家具（在 <see cref="PlacedFurniture"/> 里），本字段只存"槽里装了哪把刀"。
+    /// </summary>
+    public ButcherKnife ButcherKnife { get; set; } = ButcherKnife.None;
+
     /// <summary>在制品（没有就 null）。</summary>
     public CraftingJobSave? CraftingJob { get; set; }
 

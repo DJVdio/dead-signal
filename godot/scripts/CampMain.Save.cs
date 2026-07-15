@@ -96,6 +96,7 @@ public sealed partial class CampMain
             Inventory = SaveMapper.ToSave(_inventory),   // 白银也在里头（一条 material item）
             WorkbenchTools = SaveMapper.ToSave(_workbench),
             CookwareInstalled = SaveMapper.ToSave(_cookStation),   // [批次21·T14] 烹饪台上装了锅没有、装了烤架没有
+            ButcherKnife = _butcherStation.Slotted,   // [T67] 宰杀设施刀槽里那把刀（刀已离库，不存就凭空蒸发）
             CraftingJob = SaveMapper.ToSave(_craftingJob, _craftingJobWorker?.Id ?? -1),
             SandbagSeq = _sandbagSeq,
             TrapSeq = _trapSeq,   // [批次21·T26] 陷阱命名序号（数量不存——从 PlacedFurniture 数出来，见 SaveData.TrapSeq）
@@ -126,6 +127,9 @@ public sealed partial class CampMain
     /// camp.json 预置的家具（工作台/柜子/开局那两张床/建图时就摆好的那几垛沙袋）**不进这张表**——
     /// 它们每次建图都在原地长出来，不需要记位置。
     /// </summary>
+    // [impl-furniture-registry] ⚠️ 本方法**刻意留在注册表外**（不套 _placeables 遍历）：它的顺序敏感
+    //（锚定实心设施 modbench/烹饪台/宰杀点/宰杀台优先，再单遍 _furniture 收 free 家具），
+    // 套表遍历会按类型分组、改变存档 JSON 的条目顺序——结果一致但非逐字节。加新家具时**这一处仍需手动补一笔**。
     private List<PlacedFurnitureSave> CapturePlacedFurniture()
     {
         var list = new List<PlacedFurnitureSave>();
@@ -152,6 +156,23 @@ public sealed partial class CampMain
                 W = stove.Rect.Size.X,
                 H = stove.Rect.Size.Y,
             });
+        }
+
+        // [T67] 宰杀设施：营地里独一份、按类型名索引（简易宰杀点玩家自己摆的；宰杀台升级后顶替其位）。
+        // 位置由玩家定 ⇒ 不存就找不回来了、HasButcherPoint/Table 读档后恒 false。两个键各存各的（同一时刻只会有其一在场）。
+        foreach (string butcherKey in new[] { ButcherStation.PointFurnitureKey, ButcherStation.TableFurnitureKey })
+        {
+            if (_furniture.TryGetValue(butcherKey, out FurnitureInstance? bf))
+            {
+                list.Add(new PlacedFurnitureSave
+                {
+                    Key = butcherKey,
+                    X = bf.Rect.Position.X,
+                    Y = bf.Rect.Position.Y,
+                    W = bf.Rect.Size.X,
+                    H = bf.Rect.Size.Y,
+                });
+            }
         }
 
         // [批次21·impl-bedrest] 玩家造的床（"床#3" 起）。开局那两张（床#1/床#2）在 camp.json 里，建图自会长出来，
@@ -360,6 +381,7 @@ public sealed partial class CampMain
         SaveMapper.RestoreInventory(_inventory, camp.Inventory);
         SaveMapper.RestoreWorkbench(_workbench, camp.WorkbenchTools);
         SaveMapper.RestoreCookStation(_cookStation, camp.CookwareInstalled);   // [批次21·T14]
+        _butcherStation.Restore(camp.ButcherKnife);   // [T67] 刀槽复位（刀在存档里"住在"案板上，不经库存）
         SaveMapper.RestoreContainerLoot(_containerLoot, camp);
 
         // 玩家自己摆的家具（改装台）：按存档里的位置重新立起来（含碰撞/导航洞/可点击容器）。
@@ -433,64 +455,23 @@ public sealed partial class CampMain
 
             var rect = new Rect2((float)p.X, (float)p.Y, (float)p.W, (float)p.H);
 
-            // [批次21·impl-bedrest] 玩家造的床：**不挡路、不进导航**（非实心，人要走上去躺下）⇒ 不触发重烘焙。
-            if (IsPlayerPlacedBed(key))
+            // [impl-furniture-registry] 分派收进注册表（正文在 CampMain.Placeables.cs）：哪一种家具就调它登记的
+            // Respawn（= 既有 RespawnX/SpawnX，一字未改）。非实心家具（床/沙袋/陷阱/捕鸟/桌子/菜园）立回去不动寻路图；
+            // 实心设施（烹饪台/改装台/宰杀点/宰杀台）挖了导航洞 ⇒ IsSolid 记一笔、末尾统一重烘焙一次。
+            // 此前这里是一串逐类型的平行 if——漏接一条就是"读档后这种家具凭空消失"。
+            foreach (PlaceableFurnitureDef def in _placeables)
             {
-                RespawnPlayerBed(key, rect);
-                continue;
+                if (!def.Match(key))
+                {
+                    continue;
+                }
+                def.Respawn(key, rect);
+                if (def.IsSolid)
+                {
+                    solidPlaced = true;
+                }
+                break;
             }
-
-            // [批次21·impl-modbench] 玩家垒的沙袋：非实心矮物 ⇒ 同样不触发重烘焙。
-            if (SandbagSpec.IsSandbagFurniture(key))
-            {
-                RespawnSandbag(key, rect);
-                continue;
-            }
-
-            // [批次21·T26·impl-traps] 玩家摆的陷阱：非实心矮物（可跨越）⇒ 同样不触发重烘焙。
-            // 摆回 _furniture 的那一刻，减速场与"场上第 n 个"的计数都自动跟着回来（都从 _furniture 重建）。
-            if (TrapSpec.IsTrapFurniture(key))
-            {
-                RespawnTrap(key, rect);
-                continue;
-            }
-
-            // [T75] 玩家摆的捕鸟陷阱：非实心矮物（可跨越）⇒ 同圈套，不触发重烘焙。摆回 _furniture 那一刻计数自动跟着回来。
-            if (BirdTrapSpec.IsBirdTrapFurniture(key))
-            {
-                RespawnBirdTrap(key, rect);
-                continue;
-            }
-
-            // [批次21·T25] 玩家摆的桌子：非实心矮物（可跨越，跨过慢 25%）⇒ 同样不触发重烘焙。
-            // 摆回 _furniture 的那一刻，减速场自动跟着回来（RebuildTraversalField 从 _furniture 唯一真源重建）。
-            if (TableSpec.IsTableFurniture(key))
-            {
-                RespawnTable(key, rect);
-                continue;
-            }
-
-            // [T72] 玩家摆的菜园：非实心持久种植区（可跨越）⇒ 同样不触发重烘焙。生长计时器已由 RestoreStoryFlags 复原（在此之前跑）。
-            if (CropPlotSpec.IsCropPlotFurniture(key))
-            {
-                RespawnCropPlot(key, rect);
-                continue;
-            }
-
-            // [批次21·T14] 烹饪台：**实心**（挖导航洞）⇒ 与改装台同路，摆回去要重烘焙。
-            if (key == CookStation.PropName)
-            {
-                SpawnCookStation(rect);
-                solidPlaced = true;
-                continue;
-            }
-
-            if (key != WeaponModLogic.BenchFurnitureKey)
-            {
-                continue;
-            }
-            SpawnModBench(rect);
-            solidPlaced = true;
         }
         if (solidPlaced)
         {
@@ -511,16 +492,12 @@ public sealed partial class CampMain
     /// </summary>
     private void ClearPlayerPlacedFurniture()
     {
-        // 先拍快照：RemoveFurniture 会改 _furniture，不能边遍历边删。
+        // [impl-furniture-registry] "本局玩家摆下的家具"= 命中注册表任一登记项的 Match（正文在 CampMain.Placeables.cs）。
+        // 此前是一串逐类型 OR 谓词——漏一条就"读档后这种旧家具赖在场上不走"（HasModBench 等状态跟着错）。
+        // 先拍快照：RemoveFurniture 会改 _furniture，不能边遍历边删。camp.json 预置的家具（工作台/柜子/开局那两张床）
+        // 不命中任何 Match（床按序号 >2 才算玩家造），故天然不动。
         var doomed = _furniture.Keys
-            .Where(k => k == WeaponModLogic.BenchFurnitureKey
-                     || k == CookStation.PropName          // [批次21·T14] 烹饪台也是玩家摆的
-                     || IsPlayerPlacedBed(k)
-                     || SandbagSpec.IsSandbagFurniture(k)
-                     || TrapSpec.IsTrapFurniture(k)        // [批次21·T26] 陷阱也是玩家摆的
-                     || BirdTrapSpec.IsBirdTrapFurniture(k) // [T75] 捕鸟陷阱也是玩家摆的
-                     || TableSpec.IsTableFurniture(k)      // [批次21·T25] 桌子也是玩家摆的
-                     || CropPlotSpec.IsCropPlotFurniture(k)) // [T72] 菜园也是玩家摆的
+            .Where(k => _placeables.Any(def => def.Match(k)))
             .ToList();
 
         foreach (string key in doomed)

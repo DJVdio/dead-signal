@@ -219,6 +219,179 @@ public sealed class ForageFarmingButcheryTests
         Assert.Equal(1.2, ButcheryLogic.ExpectedByproductPerQuarry(ButcherTier.Table), 4);
     }
 
+    // ─────────── [T67] 宰杀运行时两层跑通（镜像 BirdTrapRuntime）：真库存扣猎物 + 出肉入库 ───────────
+
+    /// <summary>
+    /// 🔴 <b>宰杀运行时两层跑通</b>：库里放一只老鼠 → 简易宰杀点 + 骨刀 → <see cref="ButcheryRuntime.Butcher"/>
+    /// （消费层与本测试同一段代码）→ 老鼠<b>真的从库里扣掉</b>、老鼠肉 + 碎皮革<b>真的进了库</b>。
+    /// 这是"接线 bug"最容易改了纯逻辑却没跟上的地方——只测 <see cref="ButcheryLogic.Resolve"/> 测不到这一层。
+    /// </summary>
+    [Fact]
+    public void 宰杀运行时_老鼠真的从库里变成老鼠肉加碎皮革()
+    {
+        var inv = new InventoryStore();
+        inv.Add(Materials.Find("rat")!.Value.ToItem(1));
+
+        ButcherYield? y = ButcheryRuntime.Butcher(
+            ButcherTier.SimplePoint, ButcherKnife.BoneKnife, "rat", inv, new SequenceRandomSource(0.99));
+
+        Assert.NotNull(y);
+        Assert.Equal(0, inv.MaterialCount("rat"));                            // 猎物真扣了
+        Assert.Equal(1, inv.MaterialCount(Materials.RatMeatKey));             // 肉真进库
+        Assert.Equal(1, inv.MaterialCount(Materials.LeatherScrapKey));        // 副产物真进库
+    }
+
+    /// <summary>宰杀台掷中 20% 双倍 ⇒ 库里进的是**两份**肉 + 两份副产物（随机走可注入源，可复现）。</summary>
+    [Fact]
+    public void 宰杀运行时_宰杀台双倍掷中_两样一起翻倍进库()
+    {
+        var inv = new InventoryStore();
+        inv.Add(Materials.Find("pigeon")!.Value.ToItem(1));
+
+        ButcherYield? y = ButcheryRuntime.Butcher(
+            ButcherTier.Table, ButcherKnife.Dagger, "pigeon", inv, new SequenceRandomSource(0.10));  // 0.10 < 0.20 ⇒ 中
+
+        Assert.True(y!.Value.Doubled);
+        Assert.Equal(0, inv.MaterialCount("pigeon"));
+        Assert.Equal(2, inv.MaterialCount(Materials.BirdMeatKey));
+        Assert.Equal(2, inv.MaterialCount(Materials.FeatherKey));
+    }
+
+    /// <summary>🔴 <b>没刀不许宰 / 库里没有这只猎物</b> ⇒ 运行时库存<b>零变化、一次点都不掷</b>（不半扣、不白送）。</summary>
+    [Fact]
+    public void 宰杀运行时_没刀或库里没猎物_库存零变化随机流干净()
+    {
+        // ① 没刀。给 rng 一个值，宰不成就不该动它 ⇒ Remaining 仍为 1（一次点都没掷、随机流干净）。
+        var noKnife = new InventoryStore();
+        noKnife.Add(Materials.Find("rat")!.Value.ToItem(1));
+        var rng = new SequenceRandomSource(0.10);
+        Assert.Null(ButcheryRuntime.Butcher(ButcherTier.Table, ButcherKnife.None, "rat", noKnife, rng));
+        Assert.Equal(1, noKnife.MaterialCount("rat"));   // 猎物没被扣
+        Assert.Equal(1, rng.Remaining);                  // 随机值原封未动
+
+        // ② 库里根本没有这只猎物
+        var empty = new InventoryStore();
+        Assert.Null(ButcheryRuntime.Butcher(ButcherTier.SimplePoint, ButcherKnife.Dagger, "rat", empty, new SequenceRandomSource()));
+        Assert.Equal(0, empty.MaterialCount(Materials.RatMeatKey));
+    }
+
+    /// <summary>刀槽状态机：一个槽，装第二把顶掉第一把（返还前一把由消费层做，这里只钉状态）。</summary>
+    [Fact]
+    public void 刀槽只有一个_装第二把顶掉第一把()
+    {
+        var st = new ButcherStationState();
+        Assert.False(st.HasKnife);
+        Assert.Equal(ButcherKnife.None, st.Install(ButcherKnife.BoneKnife));   // 空槽装骨刀，顶下来的是 None
+        Assert.True(st.HasKnife);
+        Assert.Equal(ButcherKnife.BoneKnife, st.Install(ButcherKnife.Dagger)); // 装匕首，顶下来的是骨刀
+        Assert.Equal(ButcherKnife.Dagger, st.Slotted);
+        Assert.Equal(ButcherKnife.Dagger, st.Remove());                        // 取下匕首
+        Assert.False(st.HasKnife);
+    }
+
+    // ─────────── [T67] 🔴 弓线打通：陷阱抓鸟 → 宰杀 → 羽毛 → 三种箭都造得出（本单存在的理由）───────────
+
+    /// <summary>
+    /// 🔴🔴 <b>本单的头号验收</b>：一条端到端断言把整条弓线钉死——
+    /// <b>捕鸟陷阱抓到鸟 → 宰杀 → 羽毛 → 削尖的木箭 / 自制箭 / 重头箭 三种箭全都造得出</b>。
+    /// <para>接线前：宰杀整条未接 ⇒ 羽毛<b>永远进不了库</b> ⇒ 三种箭的材料门槛<b>永远差一根羽毛</b> ⇒ 弓是烧火棍。
+    /// 本测试从"库里一根羽毛都没有、三种箭全卡在羽毛上"起步，走一遍宰杀，再断言三种箭的<b>羽毛门槛全部解除</b>。</para>
+    /// </summary>
+    [Fact]
+    public void 陷阱抓鸟到三种箭_羽毛这条唯一来源真的把弓线接通了()
+    {
+        var inv = new InventoryStore();
+
+        string[] arrowIds = { "ammo_arrow_stick", "ammo_arrow_handmade", "ammo_arrow_heavy" };
+
+        // ① 先证明"缺羽毛就造不出" —— 给足其它一切（木料/铁/工具/书），唯独没有羽毛。
+        inv.Add(Materials.Find("wood")!.Value.ToItem(9));
+        inv.Add(Materials.Find("iron")!.Value.ToItem(9));
+        var allTools = new HashSet<ToolSlot> { ToolSlot.Calipers, ToolSlot.Beaker, ToolSlot.SawBlade };
+        bool AllBooksRead(string _) => true;   // 书全读了
+
+        foreach (string id in arrowIds)
+        {
+            RecipeData r = RecipeBook.Find(id)!;
+            CraftAvailability before = CraftingLogic.CanCraft(r, inv.MaterialCount, AllBooksRead, allTools);
+            Assert.False(before.CanCraft);   // 差的正是羽毛
+            Assert.Contains(before.Blocks, b => b.Detail.Contains(Materials.FeatherKey));
+        }
+
+        // ② 陷阱抓到鸟（捕鸟运行时，必中）→ 宰杀（运行时，出羽毛）——羽毛的唯一来源全程走真代码。
+        BirdTrapRuntime.ResolveCatch(1, inv, new SequenceRandomSource(0.0));           // 网到 1 只鸟
+        Assert.Equal(1, inv.MaterialCount("pigeon"));
+        ButcherYield? y = ButcheryRuntime.Butcher(
+            ButcherTier.SimplePoint, ButcherKnife.Dagger, "pigeon", inv, new SequenceRandomSource(0.99));
+        Assert.NotNull(y);
+        // 一只鸟只出 1 根羽毛；三种箭各吃 1 根 ⇒ 一次只够造一种。为把"三种都造得出"逐一钉死，
+        // 直接把羽毛补到 3（模拟宰了 3 只鸟）——重点是**羽毛这条来源已经接通**，够不够量是玩家攒的事。
+        Assert.True(inv.MaterialCount(Materials.FeatherKey) >= 1);
+        while (inv.MaterialCount(Materials.FeatherKey) < 3)
+        {
+            inv.Add(Materials.Find("pigeon")!.Value.ToItem(1));
+            ButcheryRuntime.Butcher(ButcherTier.SimplePoint, ButcherKnife.Dagger, "pigeon", inv, new SequenceRandomSource(0.99));
+        }
+
+        // ③ 现在三种箭全都造得出（羽毛门槛全解除）。
+        foreach (string id in arrowIds)
+        {
+            RecipeData r = RecipeBook.Find(id)!;
+            CraftAvailability after = CraftingLogic.CanCraft(r, inv.MaterialCount, AllBooksRead, allTools);
+            Assert.True(after.CanCraft, $"宰杀接通后 {r.DisplayName} 仍造不出：{string.Join("；", after.Blocks.Select(b => b.Detail))}");
+        }
+    }
+
+    /// <summary>🔴 <b>"摆得出来"的守栏</b>：简易宰杀点必须在 <see cref="PlaceableItems"/> 里，否则库存里就是个死按钮（HasButcherPoint 恒 false）。</summary>
+    [Fact]
+    public void 简易宰杀点进了可摆放表_否则玩家根本立不起宰杀设施()
+    {
+        Assert.True(PlaceableItems.IsPlaceable(ButcherStation.PointItemKey), "简易宰杀点不在可摆放表 ⇒ 摆放按钮不长出来、HasButcherPoint 恒 false");
+        // 两档设施都要能拆（否则造完拆不了/白拆），且建造成本与配方一致（防"造一个拆一个"永动机）。
+        Assert.NotNull(FurnitureBuildCost.Of(ButcherStation.PointFurnitureKey));
+        Assert.NotNull(FurnitureBuildCost.Of(ButcherStation.TableFurnitureKey));
+    }
+
+    // ─────────── [T67] 鞣制配方补全：生皮 + 药水 → 皮革，"自产皮革"全线打通 ───────────
+
+    /// <summary>
+    /// 🔴 <b>鞣制配方补上前是造不出皮革的</b>（红→绿的红态）：`rawhide` + `tanning_solution` 都齐了，
+    /// 却因为**根本没有一条以 `leather` 为产物的配方**而做不出皮革。本测试钉死这条配方现在存在、且吃对了料、产对了物。
+    /// </summary>
+    [Fact]
+    public void 鞣制配方_生皮加药水做出皮革_这条链此前压根没实现()
+    {
+        RecipeData? tan = RecipeBook.All.FirstOrDefault(r => r.OutputKey == "leather");
+        Assert.NotNull(tan);   // 补全前：全仓无任何产 leather 的配方 ⇒ 这里为 null（红）
+        Assert.Equal("leather", tan!.OutputKey);
+        Assert.Equal(1, tan.MaterialCosts["rawhide"]);
+        Assert.Equal(1, tan.MaterialCosts["tanning_solution"]);
+
+        // 库里备齐生皮 + 药水 ⇒ 造得出皮革（无书无工具门槛，同 leather_stitch）。
+        var inv = new InventoryStore();
+        inv.Add(Materials.Find("rawhide")!.Value.ToItem(1));
+        inv.Add(Materials.Find("tanning_solution")!.Value.ToItem(1));
+        CraftAvailability can = CraftingLogic.CanCraft(
+            tan, inv.MaterialCount, _ => true, new HashSet<ToolSlot>());
+        Assert.True(can.CanCraft, $"生皮+药水齐了仍鞣不出皮革：{string.Join("；", can.Blocks.Select(b => b.Detail))}");
+
+        // 产物工厂真出皮革材料（leather 是材料键 ⇒ 走 Materials 分支）。
+        var produced = CraftOutputFactory.Create("leather", 1).ToList();
+        Assert.Single(produced);
+        Assert.Equal("皮革", produced[0].DisplayName);
+    }
+
+    /// <summary>
+    /// 🔴 <b>断链修复守栏</b>：`rawhide`（生皮）与 `tanning_solution`（鞣制药水）此前**都无消费方**（审计确认）——
+    /// 现在必须各自至少被一条配方吃到，否则又是"能造能买却没处用"的死物品。
+    /// </summary>
+    [Fact]
+    public void 生皮与鞣制药水_现在都有了消费方_不再是死物品()
+    {
+        Assert.Contains(RecipeBook.All, r => r.MaterialCosts.ContainsKey("rawhide"));
+        Assert.Contains(RecipeBook.All, r => r.MaterialCosts.ContainsKey("tanning_solution"));
+    }
+
     // ══════════════════════════════ ⑤ 捕鸟陷阱 ══════════════════════════════
 
     [Theory]

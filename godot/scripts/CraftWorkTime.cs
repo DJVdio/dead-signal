@@ -177,6 +177,7 @@ public static class PlaceableItems
         CropPlotSpec.ItemKey,  // [T72] 菜园：户外持久种植区（造→摆→种→收→拆），非实心可跨越
         TrapSpec.ItemKey,      // [T75] 圈套陷阱：户外贴地矮物（造→摆→每昼夜段掷点→收猎物→拆），非实心可跨越。**此前漏登记 ⇒ 摆放按钮不长出来，机制静默失效**
         BirdTrapSpec.ItemKey,  // [T75] 捕鸟陷阱：同上，纯逻辑早就在、消费层却整条未接 ⇒ 玩家根本摆不出来。这次一并接通
+        ButcherStation.PointItemKey,  // [T67] 简易宰杀点：实心宰杀设施，配方产出一件 → 库存「摆放」→ 室内落位（升级为宰杀台走完工分流顶替，不进本表）。此前整条未接 ⇒ HasButcherPoint 恒 false、宰杀/羽毛/皮革链全断
     };
 
     /// <summary>库存里这件东西能不能「摆放」到地上。</summary>
