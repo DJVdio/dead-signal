@@ -56,8 +56,8 @@
       "armor/horror_armor",
       "armor/sunglasses",
       "armor/plain_glasses",
+      "armor/snow_goggles",
       "armor/horror_armor",
-      "armor/new_armor_2",
       "armor/plain_glasses"
     ],
     "dog-gear": [
@@ -167,11 +167,13 @@
       "armor/coarse_trousers",
       "weapons/axe",
       "armor/horror_armor",
+      "armor/snow_goggles",
       "furniture/bird_trap",
       "furniture/crop_plot",
       "furniture/butcher_point",
       "furniture/butcher_table",
-      "materials/rawhide"
+      "materials/rawhide",
+      "materials/leather"
     ],
     "lights": [
       "lights/flashlight",
@@ -189,7 +191,7 @@
       "books/book_archery",
       "books/book_mechanics",
       "books/book_bowcraft",
-      "books/new_book_1"
+      "books/book_peak_hour"
     ],
     "diaries": [
       "books/book_diary_a",

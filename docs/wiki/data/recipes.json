@@ -985,6 +985,24 @@
       "_icon": "armor/horror_armor"
     },
     {
+      "name": "自制简易墨镜",
+      "category": "杂项",
+      "output": "snow_goggles",
+      "outputQty": 1,
+      "materials": "木料*1、绳子*1",
+      "tools": "",
+      "books": "《尖峰时刻》",
+      "workMinutes": 60,
+      "crafterGate": "",
+      "_id": "snow_goggles",
+      "_crafterGateIds": "",
+      "_anchor": "godot/scripts/Recipe.cs :: RecipeBook（Id = \"snow_goggles\"）",
+      "description": "",
+      "userNote": "",
+      "sync": "",
+      "_icon": "armor/snow_goggles"
+    },
+    {
       "name": "捕鸟陷阱",
       "category": "杂项",
       "output": "bird_trap",
@@ -1073,6 +1091,24 @@
       "userNote": "",
       "sync": "",
       "_icon": "materials/rawhide"
+    },
+    {
+      "name": "鞣制皮革",
+      "category": "杂项",
+      "output": "leather",
+      "outputQty": 1,
+      "materials": "生皮*1、鞣制药水*1",
+      "tools": "",
+      "books": "",
+      "workMinutes": 60,
+      "crafterGate": "",
+      "_id": "tan_leather",
+      "_crafterGateIds": "",
+      "_anchor": "godot/scripts/Recipe.cs :: RecipeBook（Id = \"tan_leather\"）",
+      "description": "",
+      "userNote": "",
+      "sync": "",
+      "_icon": "materials/leather"
     }
   ]
 }

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-15 03:04:04",
+  "generatedAt": "2026-07-15 06:50:34",
   "iconDir": "godot/assets/items",
   "multiselectOptions": {
     "fitsWeapons": [
@@ -82,7 +82,7 @@
       "id": "recipes",
       "label": "配方",
       "file": "recipes.json",
-      "count": 54,
+      "count": 56,
       "source": "godot/scripts/Recipe.cs"
     },
     {
@@ -117,7 +117,7 @@
       "id": "furniture",
       "label": "家具建造",
       "file": "furniture.json",
-      "count": 10,
+      "count": 14,
       "source": "godot/scripts/FurnitureBuildCost.cs"
     },
     {

@@ -1,8 +1,8 @@
-// 自动生成，勿手改（tools/WikiExtract 重跑，或本地服务保存时刷新）。
+// 自动生成，勿手改（`dotnet run --project tools/WikiExtract` 重跑，或本地服务保存时刷新）。
 // 用途：以 file:// 直接打开 index.html 时的降级数据源（浏览器不允许 fetch 本地文件）。
 window.WIKI_BUNDLE = {
   index: {
-  "generatedAt": "2026-07-15 03:04:04",
+  "generatedAt": "2026-07-15 06:50:34",
   "iconDir": "godot/assets/items",
   "multiselectOptions": {
     "fitsWeapons": [
@@ -85,7 +85,7 @@ window.WIKI_BUNDLE = {
       "id": "recipes",
       "label": "配方",
       "file": "recipes.json",
-      "count": 54,
+      "count": 56,
       "source": "godot/scripts/Recipe.cs"
     },
     {
@@ -120,7 +120,7 @@ window.WIKI_BUNDLE = {
       "id": "furniture",
       "label": "家具建造",
       "file": "furniture.json",
-      "count": 10,
+      "count": 14,
       "source": "godot/scripts/FurnitureBuildCost.cs"
     },
     {
@@ -1831,6 +1831,21 @@ window.WIKI_BUNDLE = {
       "_icon": "armor/plain_glasses"
     },
     {
+      "name": "自制简易墨镜",
+      "equipSlot": "眼镜",
+      "covers": "左眼、右眼",
+      "paired": false,
+      "sharpDefense": 12,
+      "bluntDefense": 6,
+      "weight": 0.1,
+      "description": "木制眼罩，只留有两条缝进光，可以有效避免雪盲。",
+      "_id": "SelfMadeSnowGoggles",
+      "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.SelfMadeSnowGoggles()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
+      "userNote": "白天+5%的视野范围（引擎新轴·视野系数不吃穿戴品·暂未实现，同墨镜先例）",
+      "sync": "",
+      "_icon": "armor/snow_goggles"
+    },
+    {
       "name": "恐怖装甲",
       "equipSlot": "装甲层",
       "covers": "胸、腹",
@@ -1844,21 +1859,6 @@ window.WIKI_BUNDLE = {
       "_anchor": "（新增行：代码里还没有，等 agent 建）",
       "sync": "新增·待同步进代码",
       "_icon": "armor/horror_armor"
-    },
-    {
-      "name": "自制简易墨镜",
-      "equipSlot": "眼镜",
-      "covers": "左眼、右眼",
-      "paired": false,
-      "sharpDefense": 12,
-      "bluntDefense": 6,
-      "weight": 0.1,
-      "description": "木制眼罩，只留有两条缝进光，可以有效避免雪盲。",
-      "userNote": "白天+5%的视野范围",
-      "_id": "new_armor_2",
-      "_anchor": "（新增行：代码里还没有，等 agent 建）",
-      "sync": "新增·待同步进代码",
-      "_icon": "armor/new_armor_2"
     },
     {
       "name": "平光眼镜",
@@ -3870,6 +3870,24 @@ window.WIKI_BUNDLE = {
       "_icon": "armor/horror_armor"
     },
     {
+      "name": "自制简易墨镜",
+      "category": "杂项",
+      "output": "snow_goggles",
+      "outputQty": 1,
+      "materials": "木料*1、绳子*1",
+      "tools": "",
+      "books": "《尖峰时刻》",
+      "workMinutes": 60,
+      "crafterGate": "",
+      "_id": "snow_goggles",
+      "_crafterGateIds": "",
+      "_anchor": "godot/scripts/Recipe.cs :: RecipeBook（Id = \"snow_goggles\"）",
+      "description": "",
+      "userNote": "",
+      "sync": "",
+      "_icon": "armor/snow_goggles"
+    },
+    {
       "name": "捕鸟陷阱",
       "category": "杂项",
       "output": "bird_trap",
@@ -3958,6 +3976,24 @@ window.WIKI_BUNDLE = {
       "userNote": "",
       "sync": "",
       "_icon": "materials/rawhide"
+    },
+    {
+      "name": "鞣制皮革",
+      "category": "杂项",
+      "output": "leather",
+      "outputQty": 1,
+      "materials": "生皮*1、鞣制药水*1",
+      "tools": "",
+      "books": "",
+      "workMinutes": 60,
+      "crafterGate": "",
+      "_id": "tan_leather",
+      "_crafterGateIds": "",
+      "_anchor": "godot/scripts/Recipe.cs :: RecipeBook（Id = \"tan_leather\"）",
+      "description": "",
+      "userNote": "",
+      "sync": "",
+      "_icon": "materials/leather"
     }
   ]
 },
@@ -4278,14 +4314,14 @@ window.WIKI_BUNDLE = {
       "title": "尖峰时刻",
       "readHours": 6,
       "unlocks": "解锁自制简易墨镜。",
-      "body": "",
+      "body": "没有人能征服一座山。你只是在它允许的那几秒里，从它身上滑过去。\n\n陡坡教给我的第一课，是恐惧不会害死你——冻住的肌肉才会。雪面在脚下崩塌的时候，你唯一能做的就是滑得比崩塌更快。停下，就是被埋。\n\n我摔断过锁骨、两根肋骨、右手三根指头。每一次躺在雪里等救援，我都发誓再也不来了。可开春我又站在了索道顶端。\n\n后来我才想明白：我不是在跟山较劲。我是在练一件事——当脚下的一切都开始失控，怎么让自己不慌。\n\n那时候我以为这是全世界最没用的本事。",
+      "_id": "peak_hour",
+      "_surgeryPoints": null,
+      "_anchor": "godot/scripts/BookData.cs :: BookLibrary",
       "description": "",
       "userNote": "",
-      "_id": "new_book_1",
-      "_surgeryPoints": null,
-      "_anchor": "（新增行：代码里还没有，等 agent 建）",
-      "sync": "新增·待同步进代码",
-      "_icon": "books/new_book_1"
+      "sync": "",
+      "_icon": "books/book_peak_hour"
     }
   ]
 },
@@ -4374,7 +4410,7 @@ window.WIKI_BUNDLE = {
   "id": "weapon-mods",
   "label": "武器改装",
   "source": "godot/scripts/WeaponModCatalog.cs",
-  "note": "给武器加零件。一个部位只装得下一件，装不下的会被拒绝。「可装于哪些武器」是**引擎真读的装配约束**——勾掉一把枪，它当场就装不上了，不是摆设。⚠️「数值改动」这一列你写的是**人话**，而代码那边是结构化字段（比如你写「攻击速度+5%」，引擎里是「攻击间隔 *0.95」）⇒ 这一列**几乎永远会显示成「待同步」，那只是两种写法的差异，不代表真的没落地**。要确认，看代码注释或问 agent。🔴 **一把枪只能装一种近战改装**（刺刀型 / 利爪型 / 创伤型 **三选一**）——它们各自把这把枪的近战打法整个换掉，同时装两个就等于给同一把枪写了两套互相打架的近战定义。装第二个时会被当场拒绝，并告诉你跟哪一个冲突。⚠️ 弓弩**已经不能装枪械改装了**（它们曾因一个 bug 被引擎当成「枪」）。消防斧已按「和长剑同档」勾进锐器改装（6 条里的 5 条）——**唯独「镂空剑刃」没勾**：斧子靠的就是那颗沉头，镂空把它挖空了，就成了一把很差的剑。",
+  "note": "给武器加零件。一个部位只装得下一件，装不下的会被拒绝。「可装于哪些武器」是**引擎真读的装配约束**——勾掉一把枪，它当场就装不上了，不是摆设。⚠️「数值改动」这一列你写的是**人话**，而代码那边是结构化字段（比如你写「攻击速度+5%」，引擎里是「攻击间隔 *0.95」）⇒ 这一列**几乎永远会显示成「待同步」，那只是两种写法的差异，不代表真的没落地**。要确认，看代码注释或问 agent。\uD83D\uDD34 **一把枪只能装一种近战改装**（刺刀型 / 利爪型 / 创伤型 **三选一**）——它们各自把这把枪的近战打法整个换掉，同时装两个就等于给同一把枪写了两套互相打架的近战定义。装第二个时会被当场拒绝，并告诉你跟哪一个冲突。⚠️ 弓弩**已经不能装枪械改装了**（它们曾因一个 bug 被引擎当成「枪」）。消防斧已按「和长剑同档」勾进锐器改装（6 条里的 5 条）——**唯独「镂空剑刃」没勾**：斧子靠的就是那颗沉头，镂空把它挖空了，就成了一把很差的剑。",
   "columns": [
     {
       "key": "name",
@@ -4988,6 +5024,54 @@ window.WIKI_BUNDLE = {
       "buildMinutes": 40,
       "salvage": "铁丝*1",
       "_id": "陷阱",
+      "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
+      "description": "",
+      "userNote": "",
+      "sync": "",
+      "_icon": ""
+    },
+    {
+      "name": "捕鸟陷阱",
+      "materials": "木料*2、绳子*2",
+      "buildMinutes": 40,
+      "salvage": "绳子*1",
+      "_id": "捕鸟陷阱",
+      "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
+      "description": "",
+      "userNote": "",
+      "sync": "",
+      "_icon": ""
+    },
+    {
+      "name": "菜园",
+      "materials": "木料*2",
+      "buildMinutes": 60,
+      "salvage": "",
+      "_id": "菜园",
+      "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
+      "description": "",
+      "userNote": "",
+      "sync": "",
+      "_icon": ""
+    },
+    {
+      "name": "简易宰杀点",
+      "materials": "木料*1",
+      "buildMinutes": 30,
+      "salvage": "",
+      "_id": "简易宰杀点",
+      "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
+      "description": "",
+      "userNote": "",
+      "sync": "",
+      "_icon": ""
+    },
+    {
+      "name": "宰杀台",
+      "materials": "木料*3、钉子*4",
+      "buildMinutes": 60,
+      "salvage": "钉子*2",
+      "_id": "宰杀台",
       "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
       "description": "",
       "userNote": "",
@@ -6829,7 +6913,7 @@ window.WIKI_BUNDLE = {
   "id": "world-graph",
   "label": "调查点路线",
   "source": "godot/data/world_graph.json",
-  "note": "调查点是**网状**的：要先**去过**前置的点、并且把它**探索到 50% 以上**，才走得到后面的点（两个条件缺一不可——去过但只翻了两成，不算数）。开局只有两个简单的点开着，一个在营地**东边**、一个在**西北**，从这两条路往外铺开，中途多次交汇，最后在**金手指帮根据地**收口（那是全图唯一要求「全部前置」的点——两条路都得走完）。\n\n🔴 **这张表就是那张图**：改「前置调查点」就等于重排路线，改完 agent 同步回 godot/data/world_graph.json 即可，**不用改任何代码**。\n⚠️ 别把一个点的前置排成环（甲要乙、乙要甲），也别让某个点谁都到不了——游戏启动时的自检会当场报出来。",
+  "note": "调查点是**网状**的：要先**去过**前置的点、并且把它**探索到 50% 以上**，才走得到后面的点（两个条件缺一不可——去过但只翻了两成，不算数）。开局只有两个简单的点开着，一个在营地**东边**、一个在**西北**，从这两条路往外铺开，中途多次交汇，最后在**金手指帮根据地**收口（那是全图唯一要求「全部前置」的点——两条路都得走完）。\n\n\uD83D\uDD34 **这张表就是那张图**：改「前置调查点」就等于重排路线，改完 agent 同步回 godot/data/world_graph.json 即可，**不用改任何代码**。\n⚠️ 别把一个点的前置排成环（甲要乙、乙要甲），也别让某个点谁都到不了——游戏启动时的自检会当场报出来。",
   "columns": [
     {
       "key": "place",
@@ -7029,7 +7113,7 @@ window.WIKI_BUNDLE = {
       "size": "小",
       "travelMinutes": 5,
       "description": "镇子底下的排水系统。手电照不了多远，每个拐角后面都可能有东西——但大多数时候什么都没有。水声一直在响。",
-      "userNote": "🔴 汇合点·前中期（用户新增）。小 + 低危 + 几乎没有战斗 —— 恐怖靠黑暗/拐角/视野受限，不靠敌人数量。最深处有可招募的幸存者「耗子」。前置给了超市（西北）和东部新村（东），两条路都能到。关卡本体由 impl-sewer 做。",
+      "userNote": "\uD83D\uDD34 汇合点·前中期（用户新增）。小 + 低危 + 几乎没有战斗 —— 恐怖靠黑暗/拐角/视野受限，不靠敌人数量。最深处有可招募的幸存者「耗子」。前置给了超市（西北）和东部新村（东），两条路都能到。关卡本体由 impl-sewer 做。",
       "_id": "下水道",
       "_anchor": "godot/data/world_graph.json :: nodes[]",
       "sync": "",
@@ -7044,7 +7128,7 @@ window.WIKI_BUNDLE = {
       "size": "小",
       "travelMinutes": 8,
       "description": "城里的高层观景台。天台上那架望远镜还能转 —— 从这儿能看见很远的北边。",
-      "userNote": "🔴 汇合点·中期。望远镜 = 尸潮目击 ⇒ 开启尸潮倒计时，所以它必须排在中段：太早玩家还没立住，太晚就来不及了。",
+      "userNote": "\uD83D\uDD34 汇合点·中期。望远镜 = 尸潮目击 ⇒ 开启尸潮倒计时，所以它必须排在中段：太早玩家还没立住，太晚就来不及了。",
       "_id": "城市之巅瞭望观景台",
       "_anchor": "godot/data/world_graph.json :: nodes[]",
       "sync": "",
@@ -7059,7 +7143,7 @@ window.WIKI_BUNDLE = {
       "size": "大",
       "travelMinutes": 7,
       "description": "南边林带里的一个村子，被丧尸围着。村里有间上锁的屋子，里面传出狗叫。",
-      "userNote": "🔴 汇合点·中期。道格与布鲁斯的正史入队地。村中心的铁匠铺是全游戏铁的主要来源（铸铁大门要 48 铁）⇒ 资源线的关键节点。30 处搜刮点的大点。",
+      "userNote": "\uD83D\uDD34 汇合点·中期。道格与布鲁斯的正史入队地。村中心的铁匠铺是全游戏铁的主要来源（铸铁大门要 48 铁）⇒ 资源线的关键节点。30 处搜刮点的大点。",
       "_id": "南林村庄",
       "_anchor": "godot/data/world_graph.json :: nodes[]",
       "sync": "",
@@ -7074,7 +7158,7 @@ window.WIKI_BUNDLE = {
       "size": "小",
       "travelMinutes": 10,
       "description": "森林深处的一间小屋，远离城镇。屋里没什么东西，后院的树上吊着一个人。",
-      "userNote": "🔴 汇合点·中期（用户拍板后移）。行程最长（10 分钟）。哥顿的上吊尸 + 日记 B —— 【金手指帮那条线索链的起点】，所以它必须排在金手指帮之前。",
+      "userNote": "\uD83D\uDD34 汇合点·中期（用户拍板后移）。行程最长（10 分钟）。哥顿的上吊尸 + 日记 B —— 【金手指帮那条线索链的起点】，所以它必须排在金手指帮之前。",
       "_id": "守望者森林小屋",
       "_anchor": "godot/data/world_graph.json :: nodes[]",
       "sync": "",
@@ -7089,7 +7173,7 @@ window.WIKI_BUNDLE = {
       "size": "大",
       "travelMinutes": 8,
       "description": "城北的废弃医院。全城最多的丧尸都在里面，但它是栋建筑——有门、有分区、有能关上的防火门。药房和手术层在最深处。",
-      "userNote": "🔴 汇合点·中期。全游戏手术与治疗的补给来源 ⇒ 排在中段：太早玩家还用不上，太晚人已经死了。大地图 + 中危（能绕、能关门、能选择不打）。【它是西北链的门户】—— 两个前置（药店/加油站）都只长在西北路上。",
+      "userNote": "\uD83D\uDD34 汇合点·中期。全游戏手术与治疗的补给来源 ⇒ 排在中段：太早玩家还用不上，太晚人已经死了。大地图 + 中危（能绕、能关门、能选择不打）。【它是西北链的门户】—— 两个前置（药店/加油站）都只长在西北路上。",
       "_id": "医院",
       "_anchor": "godot/data/world_graph.json :: nodes[]",
       "sync": "",
@@ -7104,7 +7188,7 @@ window.WIKI_BUNDLE = {
       "size": "中",
       "travelMinutes": 9,
       "description": "他们的据点。八个人守着，个个带伤 —— 像是刚打完一场恶战。",
-      "userNote": "🔴 中期（用户拍板下沉，原为终局）。【单前置＝线索链】：只能从守林人小屋进来 —— 先在后院那棵树上看见哥顿的尸体、读到日记 B，才知道这伙人是谁、在哪。给它加任何 OR 前置都会让玩家绕开那具尸体，线索白挂。网状性由守林人小屋本身承担（它是两路可达的汇合点）。【东链的起点】。用户拍板把守备的手枪全撤了（4 短剑 + 4 匕首）：中期该打得动，但枪一响仍然是死。",
+      "userNote": "\uD83D\uDD34 中期（用户拍板下沉，原为终局）。【单前置＝线索链】：只能从守林人小屋进来 —— 先在后院那棵树上看见哥顿的尸体、读到日记 B，才知道这伙人是谁、在哪。给它加任何 OR 前置都会让玩家绕开那具尸体，线索白挂。网状性由守林人小屋本身承担（它是两路可达的汇合点）。【东链的起点】。用户拍板把守备的手枪全撤了（4 短剑 + 4 匕首）：中期该打得动，但枪一响仍然是死。",
       "_id": "金手指帮根据地",
       "_anchor": "godot/data/world_graph.json :: nodes[]",
       "sync": "",
@@ -7119,7 +7203,7 @@ window.WIKI_BUNDLE = {
       "size": "中",
       "travelMinutes": 8,
       "description": "临时搭起的一片平房，一间挨着一间。过道窄得只容一人，灯早就没了。物资散落在每一个小房间里——门后面也是。",
-      "userNote": "🔴 后期·【西北链】（用户新增）。纯玩法关：视野受限 + 过道狭窄 + 开门跳脸的丧尸。它是【军方做了什么】这条链的中段 —— 人去楼空的平房区，你还不知道他们去哪了。关卡本体由 impl-lategame 做。",
+      "userNote": "\uD83D\uDD34 后期·【西北链】（用户新增）。纯玩法关：视野受限 + 过道狭窄 + 开门跳脸的丧尸。它是【军方做了什么】这条链的中段 —— 人去楼空的平房区，你还不知道他们去哪了。关卡本体由 impl-lategame 做。",
       "_id": "难民营地",
       "_anchor": "godot/data/world_graph.json :: nodes[]",
       "sync": "",
@@ -7134,7 +7218,7 @@ window.WIKI_BUNDLE = {
       "size": "中",
       "travelMinutes": 8,
       "description": "镇西的农庄，如今盘踞着一伙持械的劫掠者，门口还立着岗哨。农庄本身并不富裕。",
-      "userNote": "🔴 后期·【东链】末端，终局的直接前置。全图唯一高危点：7 个健全的持械劫掠者 + 3 个岗哨。高危不换来高回报——点位本身穷，回报只长在劫掠者身上，先打赢才有得扒。authored 剧情（收留流浪者被背刺）= 【人做了什么】。",
+      "userNote": "\uD83D\uDD34 后期·【东链】末端，终局的直接前置。全图唯一高危点：7 个健全的持械劫掠者 + 3 个岗哨。高危不换来高回报——点位本身穷，回报只长在劫掠者身上，先打赢才有得扒。authored 剧情（收留流浪者被背刺）= 【人做了什么】。",
       "_id": "斯图尔特家族庄园",
       "_anchor": "godot/data/world_graph.json :: nodes[]",
       "sync": "",
@@ -7149,7 +7233,7 @@ window.WIKI_BUNDLE = {
       "size": "中",
       "travelMinutes": 9,
       "description": "教堂里空得能听见自己的脚步。穿过中殿的盲区，推开后门——后院的墓地里，站满了丧尸。墙上是用血写的字。",
-      "userNote": "🔴 后期·【西北链】末端，终局的直接前置（用户新增）。剧情核心：军方留下的、烧了一半的忏悔录 + 被军方屠杀的人用血写在墙上的辱骂。【它是广播台的强制前置】—— 在你决定要不要回复军方之前，先让你看到军方干了什么。关卡本体由 impl-lategame 做。",
+      "userNote": "\uD83D\uDD34 后期·【西北链】末端，终局的直接前置（用户新增）。剧情核心：军方留下的、烧了一半的忏悔录 + 被军方屠杀的人用血写在墙上的辱骂。【它是广播台的强制前置】—— 在你决定要不要回复军方之前，先让你看到军方干了什么。关卡本体由 impl-lategame 做。",
       "_id": "破败教堂",
       "_anchor": "godot/data/world_graph.json :: nodes[]",
       "sync": "",
@@ -7164,7 +7248,7 @@ window.WIKI_BUNDLE = {
       "size": "中",
       "travelMinutes": 11,
       "description": "北面山脊上的通讯发射塔。机房里那台发射机也许还能说话。",
-      "userNote": "🔴 终局（用户拍板上升，原为中后期）。全图【唯一】的「全部前置」：破败教堂【且】斯图尔特家族庄园 —— 两条证据链都得走完。取得「发出设备」⇒ 电台解锁抉择：回复军方（结局②：军方来屠杀你的营地）／呼叫南方（结局③：唯一生路）。这是全游戏最重的一次道德抉择，它需要证据：西北链让你看见【军方做了什么】，东链让你看见【人做了什么】。行程最远（11 分钟）。",
+      "userNote": "\uD83D\uDD34 终局（用户拍板上升，原为中后期）。全图【唯一】的「全部前置」：破败教堂【且】斯图尔特家族庄园 —— 两条证据链都得走完。取得「发出设备」⇒ 电台解锁抉择：回复军方（结局②：军方来屠杀你的营地）／呼叫南方（结局③：唯一生路）。这是全游戏最重的一次道德抉择，它需要证据：西北链让你看见【军方做了什么】，东链让你看见【人做了什么】。行程最远（11 分钟）。",
       "_id": "广播台",
       "_anchor": "godot/data/world_graph.json :: nodes[]",
       "sync": "",

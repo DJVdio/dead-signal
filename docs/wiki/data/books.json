@@ -196,11 +196,11 @@
       "readHours": 6,
       "unlocks": "解锁自制简易墨镜。",
       "body": "没有人能征服一座山。你只是在它允许的那几秒里，从它身上滑过去。\n\n陡坡教给我的第一课，是恐惧不会害死你——冻住的肌肉才会。雪面在脚下崩塌的时候，你唯一能做的就是滑得比崩塌更快。停下，就是被埋。\n\n我摔断过锁骨、两根肋骨、右手三根指头。每一次躺在雪里等救援，我都发誓再也不来了。可开春我又站在了索道顶端。\n\n后来我才想明白：我不是在跟山较劲。我是在练一件事——当脚下的一切都开始失控，怎么让自己不慌。\n\n那时候我以为这是全世界最没用的本事。",
-      "description": "",
-      "userNote": "",
       "_id": "peak_hour",
       "_surgeryPoints": null,
       "_anchor": "godot/scripts/BookData.cs :: BookLibrary",
+      "description": "",
+      "userNote": "",
       "sync": "",
       "_icon": "books/book_peak_hour"
     }
