@@ -234,6 +234,9 @@ public sealed class WeaponMod
 
     /// <summary>面板说明（draft）。</summary>
     public string Note { get; init; } = "";
+
+    /// <summary>玩家在游戏里看到的简介（flavor 文案）。单一事实源＝ wiki <c>docs/wiki/data/weapon-mods.json</c> 的 description 列。</summary>
+    public string Description { get; init; } = "";
 }
 
 /// <summary>改装合成失败（部位冲突 / 大类不适用 / 枪托近战型冲突）。</summary>

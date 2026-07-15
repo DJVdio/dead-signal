@@ -129,6 +129,24 @@ public class StuartManorTests
         Assert.Equal(10, total);
     }
 
+    /// <summary>
+    /// 主屋·储藏间是**通用薄材料点**（用户拍板：原「一罐豆子/罐头」点改成不涉具体人物/前史的通用杂物点，
+    /// 保住庄园 10 处下限）：只掉薄材料（破布 + 木料），<b>不掉食物、不掉罐头</b>，且非空。
+    /// </summary>
+    [Fact]
+    public void StuartPantry_IsGenericThinMaterialStoreroom_NoFood()
+    {
+        CacheResult r = Assert.IsType<CacheResult>(
+            ExplorationCache.Resolve(ExplorationCache.StuartPantryId, new StoryFlags())!);
+
+        Assert.NotEmpty(r.Loot);
+        Assert.All(r.Loot, l => Assert.Equal(LootKind.Material, l.Kind));   // 全是材料：不再有食物/罐头
+        Assert.DoesNotContain(r.Loot, l => l.RefId == "canned_food");
+        Assert.DoesNotContain(r.Loot, l => l.RefId == "beans");
+        Assert.Contains(r.Loot, l => l.RefId == "cloth");
+        Assert.Contains(r.Loot, l => l.RefId == "wood");
+    }
+
     // ============ ② 回报长在人身上：先打赢，才有得扒 ============
 
     /// <summary>编制＝7 名劫掠者，其中 3 名<b>岗哨</b>（用户原话「有盘踞的劫掠者<b>和岗哨</b>」）。</summary>

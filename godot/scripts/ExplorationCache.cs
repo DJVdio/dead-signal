@@ -2380,11 +2380,13 @@ public static class ExplorationCache
                 },
                 StuartWardrobeTitle, StuartWardrobeNarrative),
 
+            // [用户拍板] 原「一罐豆子/罐头」点改成**通用薄材料杂物点**（不涉具体人物/前史），保住庄园 10 处下限。
             StuartPantryId when NotYet(flags, StuartPantryFlag) => new CacheResult(
                 StuartPantryFlag,
                 new[]
                 {
-                    LootItem.Material("canned_food", 1),  // 劫掠者早把这儿搬空了；这一听罐头是滚到墙角去的
+                    LootItem.Material("cloth", 1),   // 角落剩下的破布
+                    LootItem.Material("wood", 1),    // 拆散的旧木料
                 },
                 StuartPantryTitle, StuartPantryNarrative),
 
@@ -3143,8 +3145,8 @@ public static class ExplorationCache
 
     private const string StuartPantryTitle = "主屋·储藏间";
     private const string StuartPantryNarrative =
-        "储藏间的架子从上到下空得干干净净，连灰都被袖子蹭过。地上一层踩实的脚印，来来回回，" +
-        "是搬东西的人走出来的。你在最里头的墙角摸到一听罐头，滚进去的，他们没看见。";
+        "储藏间早被翻过了，架子空得差不多，值钱的都不在了。" +
+        "只在墙角剩下些没人要的杂物——几块破布，几截拆散的旧木料。";
 
     private const string StuartHayLoftTitle = "谷仓·草料阁";
     private const string StuartHayLoftNarrative =

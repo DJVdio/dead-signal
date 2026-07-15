@@ -261,6 +261,7 @@ public static class WeaponModCatalog
         FitsWeapons = Guns6(),
         Part = WeaponPart.Stock,
         Note = "掏空枪托：整枪减重 15%，代价是握持变虚、散布变大。",
+        Description = "枪轻了，你举得更久，也晃得更凶。跑起来时它谢你，瞄准时它记恨你。",
         MaterialCosts = Cost(("wood", 1)),
         WorkMinutes = 180,
         WeightMultiplier = 0.85,                                  // 重量 −15%
@@ -282,6 +283,7 @@ public static class WeaponModCatalog
         FitsWeapons = GunsSawnOff(),   // 用户划掉了冲锋枪（它本来就短）
         Part = WeaponPart.Barrel,
         Note = "锯掉半截枪管：单手就能抡，但射程、精度、威力一样不剩。",
+        Description = "锯短枪管，换来一只空出来的手。至于那只手能不能替它补上没打中的那一刀，就看你这锯子下得值不值。",
         MaterialCosts = Cost(),        // 用户清空：锯掉一截不消耗材料
         WorkMinutes = 60,
         WeightMultiplier = 0.80,                                  // 重量 −20%
@@ -305,6 +307,7 @@ public static class WeaponModCatalog
         FitsWeapons = Guns6(),
         Part = WeaponPart.Barrel,
         Note = "接一截长管：打得远、打得准、打得透——代价是它沉，而且抬枪慢半拍。",
+        Description = "多接的这截铁，让你在他看清你之前就够得着他——前提是你先把枪抬起来。",
         MaterialCosts = Cost(("iron", 3)),   // [T46] 铁 3（原：金属锭 1 + 废金属 1 = 2 + 1）。
         WorkMinutes = 240,
         WeightMultiplier = 1.35,                                  // 重量 +35%
@@ -337,6 +340,7 @@ public static class WeaponModCatalog
         Part = WeaponPart.Muzzle,
         Form = MeleeForm.Bayonet,
         Note = "枪口挂一把刺剑：捅得快、捅得透、捅得安静——就是不太痛。",
+        Description = "子弹会引来一整条街，这一下不会。它安静得像一句没说出口的话。",
         MaterialCosts = Cost(("iron", 4), ("rope", 1)),   // [T46] 铁 4（原：金属锭 1 + 废金属 2 = 2 + 2）。
         WorkMinutes = 240,
         WeightMultiplier = 1.10,                                  // 重量 +10%
@@ -357,6 +361,7 @@ public static class WeaponModCatalog
         Part = WeaponPart.Stock,
         Form = MeleeForm.Claw,
         Note = "枪托绑一把斧子：一下砍开的口子，比这把枪打出的洞还大。",
+        Description = "打不响的时候它还能砍。末日里一把枪最该学会的，是别只把自己当枪用。",
         MaterialCosts = Cost(("iron", 3), ("leather", 1), ("nails", 2)),
         WorkMinutes = 240,
         WeightMultiplier = 1.30,                                  // 重量 +30%
@@ -378,6 +383,7 @@ public static class WeaponModCatalog
         Part = WeaponPart.Stock,
         Form = MeleeForm.Trauma,
         Note = "枪托焊成一柄尖头锤：抡起来像铁疙瘩，砸下去也像。压枪倒是更稳了。",
+        Description = "子弹留个洞，这头铁疙瘩留个印子——凹进去的那种。压枪稳了，是顺带的。",
         MaterialCosts = Cost(("iron", 4)),   // [T68·用户手改] 去掉「钉子*4」，只留铁 4（wiki 材料列 = 铁*4）。
         WorkMinutes = 240,
         WeightMultiplier = 1.50,                                  // 重量 +50%（全表最重的代价）
@@ -407,6 +413,7 @@ public static class WeaponModCatalog
         Part = WeaponPart.Stock,
         Form = MeleeForm.Blade,
         Note = "将利刃固定在握把上，在近身时出其不意。",
+        Description = "握手的地方藏了刀，问候语就变了。等他伸手推开你的枪口，才发现推错了地方。",
         MaterialCosts = Cost(("iron", 1), ("rope", 1)),
         WorkMinutes = 90,
         WeightMultiplier = 1.05,                                 // 重量 +5%
@@ -445,6 +452,7 @@ public static class WeaponModCatalog
         FitsWeapons = SerratedFits(),     // 用户划掉刺剑（突刺剑开锯齿没意义）；消防斧按"同档"勾上
         Part = WeaponPart.Blade,
         Note = "刃上开一排锯齿：不好破甲，但它撕开的口子不肯收。打无甲和轻甲的，边打边跑。",
+        Description = "破不开甲，可只要划进肉里，那道口子就再也合不拢。它不杀人，它让人慢慢想通。",
         MaterialCosts = Cost(),           // 用户清空
         WorkMinutes = 240,
         Stats = new[]
@@ -473,6 +481,7 @@ public static class WeaponModCatalog
         FitsWeapons = Blades6WithAxe(),   // 六把锐器 + 消防斧都能磨；棍棒不行（钝器没有"刃"可开）
         Part = WeaponPart.Blade,
         Note = "把刃口磨到能刮胡子。它能透甲——但也就三下的事。",
+        Description = "磨到能刮胡子的刃，能剖开任何甲——三下之内。之后它只记得自己曾经很锋利，仅此而已。",
         MaterialCosts = Cost(),    // 用户清空：一块磨刀石反复用，不算消耗
         WorkMinutes = 60,
         UsesBeforeBreak = 3,       // 🔴 攻击三次后失去该改装（用户拍板）
@@ -490,6 +499,7 @@ public static class WeaponModCatalog
         FitsWeapons = FullerFits(),       // 用户划掉刺剑；**消防斧刻意不勾**（镂空会挖掉消防斧赖以成立的头部质量）
         Part = WeaponPart.Blade,
         Note = "剑身上开一道血槽：轻了四分之一，挥得更快——砍得也更浅。",
+        Description = "剑身掏空四分之一，出手快了一截，砍进去也浅了一截。快是给活人看的，深是留给敌人的。",
         MaterialCosts = Cost(("iron", 1)),
         WorkMinutes = 240,
         WeightMultiplier = 0.75,                                  // 重量 −25%（全表减重最多）
@@ -509,6 +519,7 @@ public static class WeaponModCatalog
         FitsWeapons = Blades6WithAxe(),   // 含消防斧（用户拍板：与长剑同档）
         Part = WeaponPart.Handle,
         Note = "柄里灌铅配重：每一下都更沉。你的胳膊也知道。",
+        Description = "柄里灌了铅，每一下都更实在。你的肩膀替这份实在付账，付一整天。",
         MaterialCosts = Cost(("iron", 1)),
         WorkMinutes = 120,
         WeightMultiplier = 1.18,                                  // 重量 +18%
@@ -527,6 +538,7 @@ public static class WeaponModCatalog
         FitsWeapons = Blades6WithAxe(),   // 含消防斧（用户拍板：与长剑同档）
         Part = WeaponPart.Handle,
         Note = "换一副轻木柄：省下的那点分量，胳膊记得住。",
+        Description = "省下的那点分量攒到傍晚，就是你还举得动、而对面举不动的那点差别。",
         MaterialCosts = Cost(("wood", 1), ("leather", 1)),
         WorkMinutes = 120,
         WeightMultiplier = 0.88,                                  // 重量 −12%
@@ -547,6 +559,7 @@ public static class WeaponModCatalog
         FitsWeapons = BladesAndBlunts(),   // 用户合并：刃类 6 + 钝类 3
         Part = WeaponPart.Grip,
         Note = "缠一圈布和绳：手不打滑，出手就利落。近战必中，所以「更准」在这里只能是「更快」。",
+        Description = "近战一挥必中，所以缠手买不来准头，只买来快。手不打滑的人，收刀总比别人早半拍。",
         MaterialCosts = Cost(("rope", 1)),
         WorkMinutes = 60,
         Stats = new[]
@@ -569,6 +582,7 @@ public static class WeaponModCatalog
         FitsWeapons = ClubOnly(),
         Part = WeaponPart.Shaft,
         Note = "棍身缠满铁丝：还是一根棍子，但它现在咬人。",
+        Description = "还是那根打人的棍子，只是现在它咬回来。",
         MaterialCosts = Cost(("wire", 2)),
         WorkMinutes = 60,
         WeightMultiplier = 1.12,                                  // 重量 +12%（用户在 wiki 上又调过一次）
@@ -612,6 +626,7 @@ public static class WeaponModCatalog
         FitsWeapons = ClubOnly(),   // 用户拍板：钉子强化是棍棒独有的
         Part = WeaponPart.Shaft,
         Note = "棍头砸进一圈钉子：木头砸不穿的，钉尖能——而且它会留下不肯收口的小口子。",
+        Description = "木头砸不穿的地方，钉尖替它记着。砸下去的每一下，都在里面留了个纪念品。",
         MaterialCosts = Cost(("nails", 4)),
         WorkMinutes = 60,
         Stats = new[]
