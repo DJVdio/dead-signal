@@ -232,7 +232,7 @@ public static class ItemIcons
         ["snare_trap"] = new(Furniture, "snare_trap", "lorc/wolf-trap"),   // [批次21·T26] 圈套陷阱
         // —— [T67] 采集/种植/诱捕支柱的三件设施 ——
         ["bird_trap"] = new(Furniture, "bird_trap", "delapouite/bird-cage"),        // 捕鸟陷阱（→ 鸟 → 宰杀 → 羽毛 → 箭）
-        ["crop_plot"] = new(Furniture, "crop_plot", "delapouite/plant-seed"),       // 菜畦（种土豆）
+        ["crop_plot"] = new(Furniture, "crop_plot", "delapouite/plant-seed"),       // 菜园（种土豆）
         ["butcher_point"] = new(Furniture, "butcher_point", "delapouite/meat-hook"),// 简易宰杀点
         ["butcher_table"] = new(Furniture, "butcher_table", "delapouite/meat-cleaver"), // 宰杀台（升级）
 

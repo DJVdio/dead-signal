@@ -122,11 +122,11 @@ public static class BookLibrary
         id: "wilderness_survival_guide",
         title: "野外生存指南",
         body: WildernessSurvivalGuideBody,
-        grantsRecipeStub: "recipe:wilderness_trap", // 桩：配方系统后续接
+        grantsRecipeStub: "recipe:snare_trap", // 桩：配方系统后续接（对齐真配方 id snare_trap；本字段仅叙事标记，门槛真源是 RecipeBook.RequiredBookIds）
         readHours: 4); // [T59] 用户在 wiki 上定的（原 24h）
 
     /// <summary>
-    /// 《农场主的一百个问题》——[T67] <b>桩已换成真的</b>：读完解锁 <b>捕鸟陷阱</b> 与 <b>菜畦</b>
+    /// 《农场主的一百个问题》——[T67] <b>桩已换成真的</b>：读完解锁 <b>捕鸟陷阱</b> 与 <b>菜园</b>
     /// （门槛真源是 <see cref="RecipeBook"/> 里那两条配方的 <c>RequiredBookIds</c>，本字段只是叙事标记）。
     /// <para>
     /// 🔴 <b>它是整条弓箭线的第一块砖</b>：捕鸟陷阱 → 鸟 →【宰杀】→ 鸟肉 + <b>羽毛</b> → <b>三种箭</b>。

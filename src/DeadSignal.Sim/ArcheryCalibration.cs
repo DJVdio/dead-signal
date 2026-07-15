@@ -64,13 +64,13 @@ public static class ArcheryCalibration
 
         (string name, string craft, string niche)[] meta =
         {
-            ("短弓", "✅", "入门/最便宜/出手最快"),
+            ("短弓", "✅", "入门/最便宜/可制作里出手最快"),
             ("反曲弓", "✅", "均衡基准"),
             ("长弓", "✅", "**射程之王**"),
             ("竞技复合弓", "❌搜刮", "**精度之王**"),
-            ("狩猎弓", "❌搜刮", "**伤害之王**"),
+            ("狩猎弓", "❌搜刮", "**全弓弩出手最快**（1.6s）/伤害偏低"),
             ("单手轻弩", "✅", "**唯一单手/可双持**"),
-            ("双手重弩", "✅", "**全表最慢**/可制作里破甲最高"),
+            ("双手重弩", "✅", "**可制作里最慢**/可制作里破甲最高（全表最慢已让位复合弩 6.2s）"),
             ("复合弩", "❌搜刮", "**破甲之王**"),
         };
 
@@ -184,7 +184,7 @@ public static class ArcheryCalibration
     {
         sb.AppendLine("## ④ 与枪的横向对照");
         sb.AppendLine();
-        sb.AppendLine("弓弩的价值在**潜行**（噪音 50~70 vs 枪 350~700）与**后勤**（箭不吃火药、可回收 60%），");
+        sb.AppendLine("弓弩的价值在**潜行**（噪音 50~70 vs 枪 350~700）与**后勤**（箭不吃火药、可回收 25%，读《弓与箭之道》后 50%），");
         sb.AppendLine("**不在输出**。下表证明：连最强的弓弩组合，裸 DPS 也低于步枪。");
         sb.AppendLine();
         sb.AppendLine("| 武器（组合） | 裸DPS | 噪音半径 | vs 丧尸 | vs 中甲 | vs 重甲 |");
@@ -303,16 +303,17 @@ public static class ArcheryCalibration
 
     private static void ArcheryBookTable(StringBuilder sb)
     {
-        sb.AppendLine("## ⑦ 《弓与箭之道》：射程 +10% / 锥形角 −10% / 攻速 +2%");
+        sb.AppendLine("## ⑦ 《弓与箭之道》：弹道速度 +20%（挂起）/ 锥形角 −10% / 攻速 +2% / 箭矢回收 25%→50%");
         sb.AppendLine();
         sb.AppendLine(CultureInfo.InvariantCulture,
-            $"用户口径（数值表『书籍』页）：读过这本书的**射手本人**，其弓弩 **射程 ×{BookRange:0.00}**、" +
-            $"**散布 ×{BookSpread:0.00}**（锥形角收窄＝更准）、**攻速 ×{BookSpeed:0.00}**（＝出手间隔 ×{Archery.BookCooldownMult:0.0000}）。");
-        sb.AppendLine("三项都与**箭的同轴系数连乘**（乘算不加算）：长弓 × 重头箭（射程 ×0.75）× 书 = ×0.825。");
+            $"用户口径（数值表『书籍』页）：读过这本书的**射手本人**，其弓弩 **散布 ×{BookSpread:0.00}**（锥形角收窄＝更准）、" +
+            $"**攻速 ×{BookSpeed:0.00}**（＝出手间隔 ×{Archery.BookCooldownMult:0.0000}）。" +
+            $"[T68] 原「射程 +10%」已被用户换成「弹道速度 +20%」（引擎新轴、挂起未落地），故射程加成已中和为 ×{BookRange:0.00}（无效果）。");
+        sb.AppendLine("散布/攻速两项与**箭的同轴系数连乘**（乘算不加算）；书不再改射程，故长弓 × 重头箭 × 书 的射程仍是 ×0.75（重头箭一项）。");
         sb.AppendLine();
         sb.AppendLine("> ⚠️ **这张表只量得到攻速那一项**，而且它小得几乎读不出来。Duel 是 **1v1 / 无距离 / 无走位** 的模型，");
-        sb.AppendLine("> 既不跑射程也不读散布角（`BaseSpreadDegrees`）——**射程 +10% 与锥形角 −10% 在这里结构性地量不出来**，");
-        sb.AppendLine("> 这是模型的盲区，不是漏改。那两项的价值在 Godot 空间层兑现：多站十步开火、锥形采样更收拢。");
+        sb.AppendLine("> 既不跑射程也不读散布角（`BaseSpreadDegrees`）——**弹道速度 +20%（挂起）与锥形角 −10% 在这里结构性地量不出来**，");
+        sb.AppendLine("> 这是模型的盲区，不是漏改。那两项的价值在 Godot 空间层兑现：弹道更快够得着、锥形采样更收拢。");
         sb.AppendLine("> 换句话说，**这本书的战力有三分之二是这张表照不到的**——别拿下表的 +0.x pp 去判断它值不值得读。");
         sb.AppendLine();
         sb.AppendLine("| 弓弩（搭自制箭） | 出手间隔 未读→读过 | vs 丧尸 | vs 中甲 | vs 重甲 |");
@@ -336,7 +337,7 @@ public static class ArcheryCalibration
         sb.AppendLine();
         sb.AppendLine("**读法**：胜率位移只有 +0.2~+1.7pp（攻速 +2% 本就只值这么多，且逐格还叠着蒙特卡洛噪声）。");
         sb.AppendLine("这本书**不是一本战力书**——它的分量压在 Sim 量不到的三处：**回收率 25%→50%**（每支箭的寿命 +50%，");
-        sb.AppendLine("弓弩流的硬前置）、**射程 +10%**、**精度 +10%**。前者决定你养不养得起弓手，后两者决定你能不能在丧尸够到你之前把它放倒。");
+        sb.AppendLine("弓弩流的硬前置）、**弹道速度 +20%（挂起）**、**精度 +10%**。前者决定你养不养得起弓手，后两者决定你能不能在丧尸够到你之前把它放倒。");
         sb.AppendLine();
     }
 

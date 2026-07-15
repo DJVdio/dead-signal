@@ -111,9 +111,10 @@ public sealed class Body
     /// 每处伤口每秒失血量；多处伤口叠加流速。战斗内实时失血由此驱动。
     /// 默认读 <see cref="BleedModel.DefaultBleedRatePerWound"/> —— **与 Sim 的 `DuelConfig` 同一个事实源**。
     /// <para>
-    /// [T53] 修正：此处**曾经是 0.55**（注释写着"0.8→0.55 下调"），而 `DuelConfig` 是 **1.5** ——
-    /// 于是「流血大幅加强」只加强了 Sim，实机反而被调弱，实机的流血对丧尸致死占比是 **0.0%**。
-    /// 用户拍板：实机对齐到 Sim。
+    /// [T53] 查明：实机默认 0.55 与 `DuelConfig` 的 1.5 是**两套分裂的数**，「流血大幅加强」只加强了 Sim。
+    /// 用户先拍"实机对齐到 Sim"，但**二次拍板否决了对齐**（原话「不对齐了」）——**两边一起回退到 100 / 0.55**
+    /// （＝实机一直在跑的原默认值），并共读 <see cref="BleedModel.DefaultBleedRatePerWound"/> 这一个常量。
+    /// 保留的是"两份事实源焊死"这个结构，回退的只是数值。详见 <see cref="BleedModel"/> 的口径长注。
     /// </para>
     /// </summary>
     public double BleedRatePerWound { get; set; } = BleedModel.DefaultBleedRatePerWound;

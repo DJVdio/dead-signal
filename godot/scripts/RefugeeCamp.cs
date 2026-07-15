@@ -73,8 +73,8 @@ public static class ExplorationLighting
     /// 当前只有<b>难民营地</b>：用户原话「光线昏暗，视野受限」。
     /// <para>
     /// ⚠️ 此前 <c>TestExploration</c> 的三处环境光调用**一律硬编码 <c>indoorsDark: false</c>** ——
-    /// 也就是说 <see cref="VisionLogic.IndoorsDarkAmbient"/> 这条常量写好了却**从来没有任何一关用过**。
-    /// 这里是它第一次真的接上线。
+    /// 也就是说 <see cref="VisionLogic.IndoorsDarkAmbient"/> 这条常量写好了却**曾一度没有任何一关用过**。
+    /// 这里是它第一次真的接上线；此后已支撑<b>难民营地</b>与 [T61]<b>下水道</b>两关（见下）。
     /// </para>
     /// </summary>
     public static bool IsIndoorsDark(string? destinationName)

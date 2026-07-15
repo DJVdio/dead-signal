@@ -102,7 +102,8 @@ public static class TrapSpec
 /// </para>
 ///
 /// <para>═══ <b>陷阱是烹饪的稳定食材来源</b>（这条机制真正的经济位置）═══
-/// 抓到的老鼠（<b>6 热量点</b>）与兔子（<b>11 热量点</b>）直接入库存，是 <see cref="FoodCalories"/> 里的正经食材
+/// 抓到的老鼠（[T67] 已移出 <see cref="FoodCalories"/>，<b>要先宰杀成老鼠肉才下得了锅，肉值 6 热量点</b>）与
+/// 兔子（<b>11 热量点，未被点名，仍可直接下锅</b>）入库存
 /// —— 陷阱因此成了营地<b>唯一不用出门、不担风险</b>的食物来源。它<b>喂不饱</b>一个营地（见 <see cref="ExpectedCatchesPerPhase"/>
 /// 的算式：满地板 6 个陷阱一天掷 2 次点也就约 <b>2.1 只 ≈ 16 热量点 ≈ 约 1 份饭</b>），但它把"今天没搜到吃的"从<b>死局</b>变成了<b>苦日子</b>。
 /// </para>
@@ -118,7 +119,7 @@ public static class TrapLogic
     /// <summary>几率地板（<b>用户给定</b>：最低 5%）。<b>递减撞到它就停</b>，绝不继续往下走成负数。</summary>
     public const double MinChance = 0.05;
 
-    /// <summary>捕获物：老鼠（<see cref="Materials"/> 目录键；<see cref="FoodCalories"/> 里值 6 点热量）。</summary>
+    /// <summary>捕获物：老鼠（<see cref="Materials"/> 目录键；[T67] 已移出 <see cref="FoodCalories"/>，宰杀后出老鼠肉值 6 点热量）。</summary>
     public const string RatKey = "rat";
 
     /// <summary>捕获物：兔子（<see cref="Materials"/> 目录键；<see cref="FoodCalories"/> 里值 11 点热量）。</summary>
