@@ -291,7 +291,7 @@ sb.AppendLine();
 sb.AppendLine(CultureInfo.InvariantCulture,
     $"1. **锐器无甲流血高发**：匕首/长剑/重剑无甲流血率 {Get("匕首", "无甲").BleedRate:P0}/{Get("长剑", "无甲").BleedRate:P0}/{Get("重剑", "无甲").BleedRate:P0}——锐器\"见血\"手感成立；套满甲后长剑流血率降到 {Get("长剑", "板甲+粗布外套+长袖布衣").BleedRate:P0}（甲把伤害压到降解阈值以下）。");
 sb.AppendLine(CultureInfo.InvariantCulture,
-    $"2. **切除偏高，需拍板【存疑】**：无甲切除率 狙击枪 {Get("狙击枪", "无甲").SeverRate:P1}、步枪 {Get("步枪", "无甲").SeverRate:P1}、重剑 {Get("重剑", "无甲").SeverRate:P1}——因规则\"单击≥部位MaxHP即切除\"叠加细部位低血量（眼6/指趾10、手脚16，胸20/腹16/大腿12/小腿11/上臂21/头16；[SPEC-B17] 躯干腿已细分），强武器打中小部位几乎必断。若不想角色被频繁肢解，需上调细部位 HP 或把切除门槛收紧（如仅四肢可断、或 dmg≥MaxHP×系数）。满甲后大幅回落（狙击 {Get("狙击枪", "板甲+粗布外套+长袖布衣").SeverRate:P1}）。");
+    $"2. **切除偏高，需拍板【存疑】**：无甲切除率 狙击枪 {Get("狙击枪", "无甲").SeverRate:P1}、步枪 {Get("步枪", "无甲").SeverRate:P1}、重剑 {Get("重剑", "无甲").SeverRate:P1}——因规则\"单击≥部位MaxHP即切除\"叠加细部位低血量（眼6/指趾10、手脚16，胸20/腹16/大腿12/小腿11/手臂21/头16；[SPEC-B17] 躯干腿已细分），强武器打中小部位几乎必断。若不想角色被频繁肢解，需上调细部位 HP 或把切除门槛收紧（如仅四肢可断、或 dmg≥MaxHP×系数）。满甲后大幅回落（狙击 {Get("狙击枪", "板甲+粗布外套+长袖布衣").SeverRate:P1}）。");
 sb.AppendLine(CultureInfo.InvariantCulture,
     $"3. **钝器震荡隔甲生效**：破甲锤对满甲震荡率 {Get("破甲锤", "板甲+粗布外套+长袖布衣").ConcussionRate:P1} 与无甲 {Get("破甲锤", "无甲").ConcussionRate:P1} 接近——因震荡用初始武器 roll、不吃护甲，验证\"甲没破人被锤懵\"落地正确。");
 sb.AppendLine(CultureInfo.InvariantCulture,

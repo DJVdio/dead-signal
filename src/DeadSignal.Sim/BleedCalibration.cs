@@ -406,7 +406,7 @@ public static class BleedCalibration
         sb.AppendLine("问题：**划两刀然后跑，要跑多久对方才流干？** 这个数决定风筝在实战里可不可能。");
         sb.AppendLine();
         sb.AppendLine($"口径：储血上限 {new DuelConfig().BloodMax:F0}，每处伤口每秒失血 {new DuelConfig().BleedRatePerWound:F2}（`DuelConfig` 对决口径）；");
-        sb.AppendLine("**致命部位**伤口（躯干/头/颈/上臂/大腿，权重 1.0）。放干 = 血量归零。");
+        sb.AppendLine("**致命部位**伤口（躯干/头/颈/手臂/大腿，权重 1.0）。放干 = 血量归零。");
         sb.AppendLine();
         sb.AppendLine("| 目标 | 伤口数 | 原厂放干耗时 | 锯齿(+40%)放干耗时 | **省下** |");
         sb.AppendLine("|---|---|---|---|---|");

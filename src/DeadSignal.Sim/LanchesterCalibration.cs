@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using DeadSignal.Combat;
 using DeadSignal.Godot; // BreachSlots —— 项目里**唯一**一处显式的「攻击位名额」空间约束（用于砸墙，不用于围人）
@@ -240,7 +241,10 @@ public static class LanchesterCalibration
         sb.AppendLine("| 幸存者碰撞半径 | 12 px | `Pawn.cs:476` |");
         sb.AppendLine("| 🔴 丧尸 ↔ 幸存者 | **不碰撞，可完全重叠**（mask 只含 墙/围栏/同阵营） | `Actor.cs:285` |");
         sb.AppendLine("| 丧尸 ↔ 丧尸 | 碰撞（圆心最小间距 26 px） | `Actor.cs:285` |");
-        sb.AppendLine("| 攻击冷却 | **1.2 s**（读表，非硬编码） | `Zombie.cs:69` → `WeaponTable.ZombieClaw()` |");
+        // [T63] 此前这一格把冷却**硬编码**成 "1.2 s"，而表里早已是 1.4（用户在 wiki 上改的）。
+        // 一行标着"读表，非硬编码"的字，自己却是硬编码的 ⇒ 真·读表。
+        sb.AppendLine(string.Create(CultureInfo.InvariantCulture,
+            $"| 攻击冷却 | **{WeaponTable.ZombieClaw().AttackInterval:0.0##} s**（读表，非硬编码） | `Zombie.cs:69` → `WeaponTable.ZombieClaw()` |"));
         sb.AppendLine("| 显式围攻名额 | **不存在**（`BreachSlots` 只管砸结构） | 全仓 grep 零命中 |");
         sb.AppendLine();
         sb.AppendLine("⇒ 因为丧尸**能站进幸存者身体里**，「贴身环」那套公式不适用。真实约束只剩两条：");

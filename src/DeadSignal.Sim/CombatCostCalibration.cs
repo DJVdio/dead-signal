@@ -18,12 +18,19 @@ using DeadSignal.Combat;
 /// 本 harness 量的就是这些：<b>打赢之后，胜者身上还剩什么。</b>两条实测结论足以说明胜率有多误导——
 /// </para>
 /// <list type="bullet">
-/// <item><b>胜率高 ≠ 便宜</b>：持棍棒劫掠者胜率 87.7%，但 **80.7% 的胜场留下骨折**（每处 = 卧床 7 昼夜）；
-///   丧尸胜率 98.5%，惨胜只有 0.3%。按胜率排两者接近；按**成本**排，棍棒劫掠者贵得离谱。
-///   （[T53] 数字随流血口径回退 100/0.55 重算——旧值 96.6%/81.4% 是在一个**游戏并不运行**的热口径下算的。）</item>
-/// <item><b>连场不能用胜率相乘去想</b>：单场 68% 胜率，连打 8 个 ⇒ 就算每场之间满血复原也只有 0.68⁸ ≈ 3.6%；
-///   而真实的"不治疗连打"里，能撑过第 3 个的只剩 3.5%，第 4 个 0.6%。**"打 8 个劫掠者"这个场景根本不存在。**</item>
+/// <item><b>胜率高 ≠ 便宜</b>：持棍棒劫掠者胜率 78.7%，但 **74.3% 的胜场留下骨折**（每处 = 卧床 7 昼夜）；
+///   丧尸胜率 100.0%，惨胜只有 0.2%。按胜率排丧尸<b>还更好打</b>；按**成本**排，棍棒劫掠者贵得离谱。</item>
+/// <item><b>连场不能用胜率相乘去想</b>：单场（打匕首劫掠者）94.8% 胜率，就算每场之间满血复原，
+///   连赢 8 场也只有 0.948⁸ ≈ 65.5%；而真实的"不治疗连打"里，能撑过第 3 个的只剩 18.7%，第 4 个 2.9%、
+///   第 5 个 0.5%、第 6 个起<b>归零</b>。**"打 8 个劫掠者白捡 8 把武器"这个场景根本不存在。**</item>
 /// </list>
+///
+/// <para>
+/// 🔴 <b>[T63] 这些数字现在全部由 harness 插值生成，不再手写。</b>此前正文里的关键行是<b>硬编码</b>的
+/// （87.7% / 80.7% / 98.5% / 单场 68% / 3.5% / 0.6%），与它<b>正上方那张自己生成的表</b>互相矛盾，
+/// 而 <c>CLAUDE.md</c> 又抄了第三套（96.5% / 66% / 81.3% / 3%）。一份标着"机器生成——勿手改"的报告
+/// 不能自己打自己的脸 ⇒ 关键行改成从实测统计里插值。
+/// </para>
 ///
 /// <para><b>⚠️ 本 harness 仍然量不到的成本</b>（用它的数字前必须知道，否则又会低估）：弹药消耗
 /// （<see cref="DuelEngine"/> 不建模弹药，枪械按无限弹算）、战后的感染竞速与手术耗材/失败率、
@@ -98,6 +105,85 @@ public static class CombatCostCalibration
         return new Toll(fx, lost, bled, tier);
     }
 
+    /// <summary>
+    /// [T63] <b>③ 每把武器 × 三种对手：胜率 <u>和</u> 代价并排。</b>
+    /// <para>
+    /// 存在理由：<c>weaponsweep</c> 的「表 7 实战胜率」只有胜率一列 —— 而<b>胜率一个字都没说你付了什么</b>。
+    /// 拿着它排武器，就会得出「棍棒打丧尸 98.9%、随便打」这种结论，可实际上钝器的每一次胜利
+    /// 都可能<b>换来一处要卧床 7 昼夜的骨折</b>。这张表把两者钉在同一行里，让「便宜」和「打得赢」再也不能混为一谈。
+    /// </para>
+    /// <para>三个对手与「表 7」<b>逐列对齐</b>（同样的护甲组、同样的敌方武器），所以两张表可以直接并排读。</para>
+    /// </summary>
+    private static void AppendWeaponCostSweep(StringBuilder sb)
+    {
+        sb.AppendLine("## ③ 每把武器：打得赢 vs 打得起（胜率与代价并排）");
+        sb.AppendLine();
+        sb.AppendLine("我方护甲＝中甲（皮夹克+长袖布衣）。每格 2,000 场。**代价列均为「胜场中的占比」**——");
+        sb.AppendLine("即「赢了之后还是留下了这个伤」的概率，输掉的场次不计（死人不必谈代价）。");
+        sb.AppendLine();
+        sb.AppendLine("> **骨折**＝每处齐装卧床 7 昼夜（占床、不能干活、不能站岗）。**断肢/报废＝永久**。");
+        sb.AppendLine("> **惨胜**＝赢了但留下骨折/断肢/重度失血昏迷之一。");
+        sb.AppendLine();
+
+        var opponents = new (string Name, Func<DuelFighter> Make)[]
+        {
+            ("丧尸", Zombie),
+            ("长剑手·中甲", () => Fighter("长剑手", WeaponTable.Longsword(), MidKit())),
+            ("长剑重装·重甲", () => Fighter("长剑重装", WeaponTable.Longsword(), HeavyKit())),
+        };
+
+        foreach (var (foeName, makeFoe) in opponents)
+        {
+            sb.AppendLine($"### vs {foeName}");
+            sb.AppendLine();
+            sb.AppendLine("| 武器 | 类型 | 胜率 | **惨胜** | 毫发无伤 | 骨折率 | 断肢/报废 |");
+            sb.AppendLine("|---|---|---:|---:|---:|---:|---:|");
+
+            foreach (var w in WeaponTable.Arsenal())
+            {
+                int wins = 0, fx = 0, lost = 0, pyr = 0, clean = 0;
+                for (int seed = 0; seed < Seeds; seed++)
+                {
+                    var me = Fighter("幸存者", w, MidKit());
+                    var r = new DuelEngine(new SystemRandomSource(5550713 + seed * 131)).Run(me, makeFoe());
+                    if (r.Winner != "幸存者") continue;
+
+                    wins++;
+                    var toll = TollOn(r, "幸存者");
+                    if (toll.Fractures > 0) fx++;
+                    if (toll.PartsLost > 0) lost++;
+                    if (toll.Pyrrhic) pyr++;
+                    if (toll.Unscathed) clean++;
+                }
+
+                double w2 = Math.Max(1, wins);
+                string kind = (w.DamageType == DamageType.Blunt ? "钝" : "锐")
+                    + (w.IsRanged ? "·远程" : "·近战");
+                sb.AppendLine(string.Create(CultureInfo.InvariantCulture,
+                    $"| {w.Name} | {kind} | {wins * 100.0 / Seeds:F1} % | **{pyr * 100.0 / w2:F1} %** | {clean * 100.0 / w2:F1} % | {fx * 100.0 / w2:F1} % | {lost * 100.0 / w2:F1} % |"));
+            }
+
+            sb.AppendLine();
+        }
+
+        sb.AppendLine("⚠️ **这张表测不到的**（`DuelEngine` 是 **1v1 / 无距离 / 无走位 / 无多目标**，且**不建模噪音与弹药**）：");
+        sb.AppendLine("远程武器在此**没有射程与先手优势**（那属实时层）⇒ 枪弩的胜率被系统性低估；");
+        sb.AppendLine("反过来，霰弹枪的短射程代价、以及「一发散射同时打中多只」的清群优势，**这里一个都测不出**。");
+    }
+
+    private static DuelFighter Fighter(string name, Weapon w, ArmorLayer[] armor) => new()
+    {
+        Name = name,
+        Weapons = new[] { new WeaponMount { Weapon = w } },
+        Armor = armor,
+        BodyFactory = HumanBody.NewBody,
+    };
+
+    private static ArmorLayer[] MidKit() => new[] { ArmorTable.LeatherJacket(), ArmorTable.LongSleeveShirt() };
+
+    private static ArmorLayer[] HeavyKit() =>
+        new[] { ArmorTable.Plate(), ArmorTable.CoarseClothCoat(), ArmorTable.LongSleeveShirt() };
+
     public static void Run(string outPath)
     {
         var sb = new StringBuilder();
@@ -128,6 +214,13 @@ public static class CombatCostCalibration
             ("丧尸", Zombie),
         };
 
+        // 🔴 关键行的数字必须**从实测里长出来**，不能手写。
+        // 此前 164~166 / 211~212 行是**硬编码**的散文数字（87.7% / 80.7% / 98.5% / 3.5% / 0.6%），
+        // 与它们正上方那张机器生成的表**互相矛盾**（表里是 78.7% / 74.3% / 100.0%），
+        // 而 CLAUDE.md 又抄了第三套（96.5% / 66% / 81.3%）。一份标着"机器生成——勿手改"的报告
+        // 自己打自己的脸，还把错数字喂给项目纪律文档 ⇒ 全部改成插值。
+        var stat = new Dictionary<string, (double Win, double Pyr, double Fx)>();
+
         foreach (var (name, make) in foes)
         {
             int wins = 0, deaths = 0, fx = 0, lost = 0, pyr = 0, clean = 0, dying = 0;
@@ -150,6 +243,7 @@ public static class CombatCostCalibration
             }
 
             double w = Math.Max(1, wins);
+            stat[name] = (wins * 100.0 / Seeds, pyr * 100.0 / w, fx * 100.0 / w);
             sb.AppendLine(string.Create(CultureInfo.InvariantCulture,
                 $"| {name} | {wins * 100.0 / Seeds:F1} % | {deaths * 100.0 / Seeds:F1} % | **{pyr * 100.0 / w:F1} %** | {clean * 100.0 / w:F1} % | {fx * 100.0 / w:F1} % | {lost * 100.0 / w:F1} % | {dying * 100.0 / w:F1} % |"));
         }
@@ -159,11 +253,18 @@ public static class CombatCostCalibration
         sb.AppendLine("- **骨折只来自天然钝器** ⇒ 匕首/手枪劫掠者打不出骨折，棍棒/破甲锤才会。每处骨折 = 齐装卧床 **7 昼夜**（占床、不能干活、不能站岗）。");
         sb.AppendLine("- **断肢 / 报废 = 永久**（断手不能持械；两只手都没了 ⇒ 操作能力归零，这个人再也上不了战场）。");
         sb.AppendLine();
+        var club = stat["持棍棒劫掠者"];
+        var zed = stat["丧尸"];
         sb.AppendLine("### 🔴 这张表最该记住的一行");
         sb.AppendLine();
-        sb.AppendLine("**持棍棒劫掠者胜率 87.7%，但 80.7% 的胜场留下骨折（每处＝卧床 7 昼夜、占床、不能干活、不能站岗）；**");
-        sb.AppendLine("**丧尸胜率 98.5%，惨胜只有 0.3%。按胜率排两者差不多；按成本排，棍棒劫掠者贵得离谱。**");
-        sb.AppendLine("按**胜率**排，棍棒劫掠者好打得多；按**成本**排，它贵得多。**这就是为什么胜率不能当成本用。**");
+        sb.AppendLine(string.Create(CultureInfo.InvariantCulture,
+            $"**持棍棒劫掠者胜率 {club.Win:F1}%，但 {club.Fx:F1}% 的胜场留下骨折（每处＝卧床 7 昼夜、占床、不能干活、不能站岗）；**"));
+        sb.AppendLine(string.Create(CultureInfo.InvariantCulture,
+            $"**丧尸胜率 {zed.Win:F1}%，惨胜只有 {zed.Pyr:F1}%。**"));
+        sb.AppendLine(string.Create(CultureInfo.InvariantCulture,
+            $"按**胜率**排，丧尸({zed.Win:F1}%)比棍棒劫掠者({club.Win:F1}%)还好打；按**成本**排，棍棒劫掠者贵得离谱"));
+        sb.AppendLine(string.Create(CultureInfo.InvariantCulture,
+            $"（惨胜 {club.Pyr:F1}% vs {zed.Pyr:F1}%）。**这就是为什么胜率不能当成本用。**"));
         sb.AppendLine();
 
         // ---- ② 连场：不治疗打到第几个会崩 ----
@@ -207,11 +308,18 @@ public static class CombatCostCalibration
         }
 
         sb.AppendLine();
+        double single = stat["持匕首劫掠者"].Win / 100.0;
+        double naive = Math.Pow(single, GauntletLength) * 100.0;
         sb.AppendLine("**「打赢 8 个持械劫掠者一趟白捡 8 把武器」这个场景根本不存在。**");
-        sb.AppendLine("单场胜率 68%，就算每场之间满血复原，连赢 8 场也只有 0.68⁸ ≈ **3.6%**；");
-        sb.AppendLine("而在不治疗的连打里，能撑过第 3 个的只剩 3.5%、第 4 个 0.6%。");
+        sb.AppendLine(string.Create(CultureInfo.InvariantCulture,
+            $"单场胜率 {single * 100.0:F1}%，就算每场之间**满血复原**，连赢 {GauntletLength} 场也只有 {single:F3}^{GauntletLength} ≈ **{naive:F1}%**；"));
+        sb.AppendLine(string.Create(CultureInfo.InvariantCulture,
+            $"而在不治疗的连打里，能撑过第 3 个的只剩 {alive[3] * 100.0 / GauntletRounds:F1}%、第 4 个 {alive[4] * 100.0 / GauntletRounds:F1}%。"));
         sb.AppendLine();
         sb.AppendLine("⇒ **做掉落/经济分析时，正确的框架是「这场仗要拿多少伤病和人命去换」，而不是「胜率 × 敌人数」。**");
+        sb.AppendLine();
+
+        AppendWeaponCostSweep(sb);
 
         File.WriteAllText(outPath, sb.ToString());
         Console.WriteLine($"已写出 {outPath}");
