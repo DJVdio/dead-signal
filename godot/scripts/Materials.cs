@@ -122,7 +122,7 @@ public static class Materials
         new MaterialDef("needle_thread", "针线", "能缝补你的伤口，却治愈不了你的心", MaterialCategory.Medical),
         new MaterialDef("splint", "夹板", "这会让它看上去直一些", MaterialCategory.Medical),
         new MaterialDef("first_aid_kit", "急救包", "“一包全搞定”——南丁格尔", MaterialCategory.Medical),
-        // [SPEC-B14-补 / 用户改] 草药绷带：老君须敷料裹入绷带，止血手术的上位替代（供点 20，普通绷带 15）。
+        // [SPEC-B14 / T72·A2叠加] 草药绷带：老君须敷料裹入绷带，止血手术的上位替代（供点 20，普通绷带 15）。[T72] **额外**再降该处感染几率 ×0.75（止血+消炎并存，见 SurgeryCatalog）。
         new MaterialDef("herbal_bandage", "草药绷带", "传统医学，据说能消炎杀菌", MaterialCategory.Medical),
         // —— 药品（感染/疾病）——
         new MaterialDef("antibiotics", "抗生素", "现代医学的结晶", MaterialCategory.Medical),
@@ -195,7 +195,6 @@ public static class Materials
         new MaterialDef("ration", "军用单兵口粮", "军方发的单兵口粮，密封、耐放、量足。包装上印着「一日份」——印它的那个人还相信会有下一日。", MaterialCategory.Food),
         new MaterialDef("canned_food", "罐头", "标签早泡烂了，里面是肉是豆全凭运气。铁皮鼓起来的那种别开——它已经替你尝过了。", MaterialCategory.Food),
         new MaterialDef("flour", "面粉", "一袋面粉。它做不成面包（谁还有烤箱），但撒进锅里能让一锅稀汤变得像顿饭。", MaterialCategory.Food),
-        new MaterialDef("beans", "干豆", "一把干豆，硬得能崩掉牙。泡一夜、煮一晌，然后它就成了这个屋子里最像「正经饭」的东西。", MaterialCategory.Food),
         new MaterialDef("potato", "土豆", "从谁家后院刨出来的，发了点芽。削掉芽眼，剩下的部分依然是土豆——这就是土豆了不起的地方。", MaterialCategory.Food),
         new MaterialDef("mushroom", "蘑菇", "林子里采的。你认得这一种，你很确定你认得这一种。", MaterialCategory.Food),
 

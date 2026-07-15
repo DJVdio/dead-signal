@@ -370,6 +370,25 @@ public static class ArmorTable
         CoversParts = new HashSet<string> { HumanBody.LeftEye, HumanBody.RightEye },
     };
 
+    /// <summary>
+    /// [T72] <b>护踝鞋具</b>（成对·脚槽，护小腿+脚含趾）—— 锐 12 / 钝 6、0.75kg。用户 authored（数值表『护甲表』new_armor_2）。
+    /// <para>
+    /// <b>成对品</b>（同运动鞋/劳保手套，[SPEC-B18-补]）：物品定义不分左右，一件<b>只占一只脚槽</b>、护那一侧的
+    /// 小腿+脚（含五趾）——双侧要<b>两件</b>。与运动鞋同占脚槽、互斥（穿了护踝就穿不了运动鞋）。
+    /// </para>
+    /// <para>
+    /// CoversParts 为两侧合计（表口径/UI）：小腿子树天然含脚+趾（脚挂小腿下，见 <see cref="HumanBody"/> 层级），
+    /// 故 <c>SubtreeNames(LeftCalf, RightCalf)</c> 即『左右小腿+左右脚+十趾』。实际生效覆盖按装入那一侧裁剪
+    /// （见 <c>ApparelCatalog.CoversFor</c>）。
+    /// </para>
+    /// </summary>
+    public static ArmorLayer AnkleGuard() => new()
+    {
+        Name = "护踝鞋具", Description = "高帮硬底，裹住脚踝到小腿——踩过碎玻璃也不必皱眉。",
+        Slot = ArmorSlot.Skin, SharpDefense = 12, BluntDefense = 6, Weight = 0.75,
+        CoversParts = HumanBody.SubtreeNames(HumanBody.LeftCalf, HumanBody.RightCalf),
+    };
+
     // ---- 生物·天生（不可穿戴）----
 
     /// <summary>丧尸：一层腐烂硬皮，覆盖全身（表『防护部位』= 全身 → CoversParts=null）。</summary>

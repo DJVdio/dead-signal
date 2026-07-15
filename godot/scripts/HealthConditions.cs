@@ -123,6 +123,13 @@ public sealed class HealthCondition
     /// <summary>是否已成功手术（流血/骨折进入愈合态）。</summary>
     public bool IsOperated => RecoveryEfficiency > 0;
 
+    /// <summary>
+    /// [T72] 该伤口的**感染几率乘子**（默认 1.0＝无影响）：手术时敷了草药绷带一类耗材 → 置 0.75（该处感染几率 −25%）。
+    /// 乘进 <see cref="HealthConditionSet.TickDay"/> 的每昼夜感染几率（与已手术 ×0.5、营地卫生乘子等**连乘**，§2 通则①）。
+    /// 每台手术按本台耗材**重算**（不跨台累乘）；存档持久化，随伤口一起摆回。非草药绷带治疗恒 1.0（零回归）。
+    /// </summary>
+    public double InfectionChanceMultiplier { get; private set; } = 1.0;
+
     /// <summary>本昼夜是否已用药处置（TreatIllness 置真，TickDay 结算后清零）：压制感染/疾病当日自然恶化。</summary>
     public bool Tended { get; private set; }
 
@@ -144,6 +151,7 @@ public sealed class HealthCondition
     internal void SetRecoveryEfficiency(int eff) => RecoveryEfficiency = Math.Max(0, eff); // 不封顶 100：允许过载效率 >100
     internal void AddCureProgress(double d) => CureProgress = Math.Clamp(CureProgress + d, 0.0, 1.0);
     internal void AdvanceDay() => DaysElapsed++;
+    internal void SetInfectionChanceMultiplier(double m) => InfectionChanceMultiplier = Math.Max(0.0, m); // [T72] 草药绷带敷术口置 0.75；负值钳到 0
 
     /// <summary>
     /// 读档：把全部可变进度覆盖回来。不变量（<see cref="Type"/>/<see cref="BodyPart"/>/致命性…）走构造器，
@@ -153,7 +161,8 @@ public sealed class HealthCondition
     /// <b>历史上的某一天</b>（"三天前动过刀" ≠ "刚动过刀"，重做手术冷却会因此算错）。
     /// </para>
     /// </summary>
-    internal void RestoreState(double severity, int recoveryEfficiency, double cureProgress, bool tended, int daysElapsed, int lastSurgeryDay)
+    internal void RestoreState(double severity, int recoveryEfficiency, double cureProgress, bool tended, int daysElapsed, int lastSurgeryDay,
+        double infectionChanceMultiplier = 1.0)
     {
         Severity = Math.Clamp(severity, 0.0, 1.0);
         RecoveryEfficiency = Math.Max(0, recoveryEfficiency);
@@ -161,6 +170,7 @@ public sealed class HealthCondition
         Tended = tended;
         DaysElapsed = Math.Max(0, daysElapsed);
         LastSurgeryDay = lastSurgeryDay;
+        InfectionChanceMultiplier = Math.Max(0.0, infectionChanceMultiplier);   // [T72] 草药绷带的感染减免随伤口一起摆回（旧档缺字段→默认 1.0）
     }
 }
 
@@ -214,7 +224,11 @@ public static class MedicineCatalog
 /// <param name="Points">该耗材贡献的手术点数。</param>
 /// <param name="Exclusive">是否独占：独占耗材（急救包）不可与任何其他耗材同用于一台手术。</param>
 /// <param name="Treats">适用的伤类（可多种，如急救包兼治流血+骨折）。</param>
-public readonly record struct SurgerySupply(string MaterialKey, int Points, bool Exclusive, IReadOnlyList<HealthConditionType> Treats)
+/// <param name="InfectionChanceMultiplier">
+/// [T72] 敷用后给该伤口的**感染几率乘子**（默认 1.0＝不影响；草药绷带 0.75＝该处感染几率 −25%）。
+/// 与手术点数正交：一味耗材可以只降感染、不供止血点（草药绷带 Points 0 + 此项 0.75）。乘算通则（§2 通则①）。
+/// </param>
+public readonly record struct SurgerySupply(string MaterialKey, int Points, bool Exclusive, IReadOnlyList<HealthConditionType> Treats, double InfectionChanceMultiplier = 1.0)
 {
     /// <summary>本耗材是否适用于某伤类。</summary>
     public bool CanTreat(HealthConditionType type) => Treats.Contains(type);
@@ -224,6 +238,7 @@ public readonly record struct SurgerySupply(string MaterialKey, int Points, bool
 /// 手术耗材目录（**draft**）：材料标识名 → 手术点数/适用伤类/是否独占。与 <see cref="Materials"/> 里
 /// <see cref="MaterialCategory.Medical"/> 手术耗材一一对应，供 <see cref="HealthConditionSet.PerformSurgery"/> 消费。
 ///   · 流血：绷带 +15 / 草药绷带 +20（绷带上位替代）/ 针线 +15（非独占可叠加）；或急救包 +60（独占）。
+///     [T72] 草药绷带**额外**再降该处感染几率 ×0.75（止血+消炎两效果并存，非替换）。
 ///   · 骨折：夹板 +25；或急救包 +60（独占）。
 /// </summary>
 public static class SurgeryCatalog
@@ -231,8 +246,11 @@ public static class SurgeryCatalog
     private static readonly IReadOnlyDictionary<string, SurgerySupply> _byKey = new[]
     {
         new SurgerySupply("bandage", 15, false, new[] { HealthConditionType.Bleeding }),
-        // [SPEC-B14-补 / 用户改] 草药绷带：普通绷带的上位替代，止血手术供点 20（用户从 25 下调至 20；15/20 用户原话非拟定）。非独占，按现有加算模型可与针线叠加。
-        new SurgerySupply("herbal_bandage", 20, false, new[] { HealthConditionType.Bleeding }),
+        // [T72·用户定案 A2 叠加] 草药绷带 = 普通绷带的上位替代，**两个效果并存**：
+        //   ① 止血手术供点 20（**保留**，用户从 25 下调至 20；15/20 用户原话非拟定）——仍是止血耗材，非独占可与针线叠加；
+        //   ② 新增「消炎杀菌」——敷在流血术口把**该处伤口的感染几率 ×0.75(-25%)**（乘算，见 SurgerySupply.InfectionChanceMultiplier），
+        //      持续到伤口闭口/愈合，与已手术 ×0.5、营地卫生乘子连乘（§2 通则①）。
+        new SurgerySupply("herbal_bandage", 20, false, new[] { HealthConditionType.Bleeding }, InfectionChanceMultiplier: 0.75),
         new SurgerySupply("needle_thread", 15, false, new[] { HealthConditionType.Bleeding }),
         new SurgerySupply("splint", 25, false, new[] { HealthConditionType.Fracture }),
         new SurgerySupply("first_aid_kit", 60, true, new[] { HealthConditionType.Bleeding, HealthConditionType.Fracture }),
@@ -586,6 +604,10 @@ public sealed class HealthConditionSet
 
         // 记录本次手术昼夜（成功/失败都算一次手术 → 重置重做冷却）。
         condition.MarkSurgeryDay();
+
+        // [T72] 本台耗材里的感染几率乘子 → 敷到该伤口（草药绷带 ×0.75）。成败都置（绷带物理敷上了，止血成没成是另一回事）；
+        // 按本台耗材**重算**（product，默认耗材 ×1.0 无影响）——不跨台累乘（重做手术不叠成 0.75²）。
+        condition.SetInfectionChanceMultiplier(supplies.Aggregate(1.0, (m, s) => m * s.InfectionChanceMultiplier));
 
         if (success)
         {
@@ -965,7 +987,7 @@ public sealed class HealthConditionSet
                     // 窗口过后不再新感染 → 放任小伤不累积到 100% 坏疽，成为有限概率赌局。
                     if (c.DaysElapsed < InfectionWindowDays && c.Severity >= WoundClosedThreshold)
                     {
-                        double chance = InfectionBaseChance * c.Severity * c.InfectionProneness * (c.IsOperated ? OperatedInfectionFactor : 1.0) * Math.Max(0.0, infectionChanceMultiplier);
+                        double chance = InfectionBaseChance * c.Severity * c.InfectionProneness * (c.IsOperated ? OperatedInfectionFactor : 1.0) * c.InfectionChanceMultiplier * Math.Max(0.0, infectionChanceMultiplier);
                         if (TryContractInfection(c, chance, rng, newConditions))
                         {
                             contracted = true;

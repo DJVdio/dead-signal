@@ -805,7 +805,7 @@ public static class RecipeBook
             WorkMinutes: 15,
             RequiredCrafterGates: Books(CookStationPresentGate)),   // [T67] 烹饪台在场
 
-        // [SPEC-B14-补] 草药绷带：老君须 1 + 绷带 1，工时 ~20 分。止血手术供点 25（普通绷带的上位替代，见 SurgeryCatalog）。
+        // [SPEC-B14-补 / T72] 草药绷带：老君须 1 + 绷带 1，工时 ~20 分。止血手术供点 20（普通绷带上位替代）。[T72] **额外**再降该处感染几率 ×0.75（止血+消炎并存，见 SurgeryCatalog）。
         new RecipeData(
             Id: "herbal_bandage",
             DisplayName: "草药绷带",

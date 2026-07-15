@@ -116,8 +116,7 @@
         { "kind": "material", "id": "splint", "qty": 1 },
         { "kind": "material", "id": "antibiotics", "qty": 1 },
         { "_comment": "[批次21·T14] 开局食材：橱柜里还剩的一点吃的。够砌好烹饪台之后试煮一两锅——每种食材值几点热量，得玩家自己试出来。", "kind": "material", "id": "potato", "qty": 3 },
-        { "kind": "material", "id": "canned_food", "qty": 2 },
-        { "kind": "material", "id": "beans", "qty": 2 }
+        { "kind": "material", "id": "canned_food", "qty": 2 }
       ],
       "rect": [440, 470, 72, 44],
       "color": [0.46, 0.36, 0.24],

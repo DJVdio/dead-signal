@@ -374,10 +374,19 @@ public static class SamPerk
 }
 
 /// <summary>
-/// 有效读速合成（纯函数，无状态）：自身与全营加成走**加法**，座位系数在最外层乘。
-/// 公式：<c>有效读速 = 基础 × (1 + 自身level加成 + 全营perk加成汇总) × (有座 1.0 / 无座 0.9)</c>。
-/// 全营加成汇总由上层遍历全体营员的 <see cref="SurvivorPerks.CampWideReadingSpeedBonus"/> 求和得到，
-/// **含 L3 书虫本人**（故诺蒂 L3 有座 = 1+0.50+0.25 = ×1.75；普通人在其营地有座 = 1+0+0.25 = ×1.25）。座位惩罚为 draft。
+/// 有效读速合成（纯函数，无状态）：§2 通则①<b>全乘算</b>——自身 perk / 每个 L3 书虫的全营贡献 / 每件穿戴品读速效果
+/// 各作<b>独立乘子</b>连乘，座位/前置系数亦乘。
+/// 公式：<c>有效读速 = 基础 × (1 + 自身level加成) × ∏(1 + 各L3书虫全营贡献) × ∏(穿戴品读速效果乘子) × (有座 1.0 / 无座 0.9) × 前置系数</c>。
+/// <para>
+/// 全营乘子由上层遍历全体营员对 <see cref="SurvivorPerks.CampWideReadingSpeedBonus"/> 逐个 <c>×(1+贡献)</c> 连乘得到，
+/// <b>含 L3 书虫本人</b>（故诺蒂 L3 有座 = 1.50 × 1.25 = <b>×1.875</b>；普通人在其营地有座 = 1.0 × 1.25 = ×1.25）。
+/// 穿戴品乘子由 <see cref="ApparelCatalog.ApparelEffectMultiplier"/> 对读者穿戴品的 <see cref="EquipEffectKind.ReadingSpeed"/>
+/// 效果连乘得到（无效果 = 1.0，如平光眼镜 = ×1.05）。座位惩罚为 draft。
+/// </para>
+/// <para>
+/// 🔴 [加算残留整改·诺蒂读速] 旧式 <c>(1 + 自身 + 全营)</c> 是加算，违反 §2 通则①（会让"没能力的人"凭空得加成、
+/// 且多个来源线性叠加而非独立作用）。本次改全乘算：诺蒂 L3 由旧 ×1.75 → ×1.875、双书虫由 ×1.5 → ×1.5625。
+/// </para>
 /// </summary>
 public static class ReadingSpeed
 {
@@ -405,17 +414,26 @@ public static class ReadingSpeed
     /// 合成有效读速。
     /// </summary>
     /// <param name="baseSpeed">基础读速（每游戏内小时推进多少书本进度，量纲由上层定，通常 1.0）。</param>
-    /// <param name="selfBonus">读者自身 perk 加成（加法，无 perk = 0，见 <see cref="SurvivorPerks.SelfReadingSpeedBonus"/>）。</param>
+    /// <param name="selfBonus">读者自身 perk 加成（作单因子 <c>1+selfBonus</c>，无 perk = 0，见 <see cref="SurvivorPerks.SelfReadingSpeedBonus"/>）。</param>
     /// <param name="hasSeat">是否有座位（无座施加 <see cref="NoSeatMultiplier"/> 惩罚）。</param>
-    /// <param name="campWideBonusSum">全营 perk 加成汇总（各 L3 书虫 0.25 之和，含持有者本人，无则 0）。</param>
+    /// <param name="campWideMult">
+    /// 全营 perk 加成<b>乘子</b>（各 L3 书虫 <c>(1+0.25)</c> 之<b>积</b>，含持有者本人，无书虫 = 1.0）。
+    /// 🔴 由调用方连乘算好——本参数已是乘子（≥1.0），不是旧的加成之和。
+    /// </param>
+    /// <param name="apparelMult">
+    /// 读者穿戴品读速效果<b>乘子</b>（各件 <see cref="EquipEffectKind.ReadingSpeed"/> 效果之积，无 = 1.0，如平光眼镜 = 1.05）。
+    /// 由 <see cref="ApparelCatalog.ApparelEffectMultiplier"/> 对读者已穿戴品算得。
+    /// </param>
     /// <param name="prerequisiteFactor">
     /// 前置链系数（<see cref="PrerequisiteFactor"/>，无前置/前置已读 = 1.0，未读前置 = <see cref="MissingPrerequisiteMultiplier"/>）。
     /// 作独立乘子并入，故减速只影响耗时、不改 <see cref="ReadingProgress.IsComplete"/> 的读满阈值（仍是 <see cref="BookData.ReadHours"/>）。
     /// </param>
-    public static double Effective(double baseSpeed, double selfBonus, bool hasSeat, double campWideBonusSum,
-        double prerequisiteFactor = 1.0)
+    public static double Effective(double baseSpeed, double selfBonus, bool hasSeat, double campWideMult,
+        double apparelMult = 1.0, double prerequisiteFactor = 1.0)
         => baseSpeed
-           * (1.0 + selfBonus + campWideBonusSum)
+           * (1.0 + selfBonus)   // 自身 perk 单因子（诺蒂 L3 = ×1.50）
+           * campWideMult        // ∏(1 + 各 L3 书虫全营贡献)，调用方已连乘（无 = 1.0）
+           * apparelMult         // ∏(穿戴品读速效果乘子)（无 = 1.0，平光眼镜 = ×1.05）
            * (hasSeat ? 1.0 : NoSeatMultiplier)
            * prerequisiteFactor;
 }

@@ -397,6 +397,9 @@ public sealed class ConditionSave
 
     /// <summary>上次手术是第几天（重做手术冷却靠它；-1 = 没动过刀）。</summary>
     public int LastSurgeryDay { get; set; } = -1;
+
+    /// <summary>[T72] 该伤口的感染几率乘子（草药绷带敷术口 →0.75）。<b>默认 1.0＝旧档缺此字段时不影响</b>（向后兼容）。</summary>
+    public double InfectionChanceMultiplier { get; set; } = 1.0;
 }
 
 /// <summary>一件在身装备：物品名 + 占的槽 + 覆盖的部位。</summary>

@@ -5808,8 +5808,10 @@ public sealed partial class CampMain : Node2D
     /// </summary>
     private void StationReaders()
     {
-        // 全营读速加成汇总：遍历全体存活幸存者的 CampWideReadingSpeedBonus 求和（含读者本人；仅满级书虫非 0）。
-        double campWideSum = _survivors.Where(s => s.Alive).Sum(s => s.Perks.CampWideReadingSpeedBonus);
+        // 全营读速加成汇总：遍历全体存活幸存者，把各 L3 书虫的 CampWideReadingSpeedBonus 逐个 ×(1+贡献) **连乘**成乘子
+        // （含读者本人；仅满级书虫非 0，无书虫 = 1.0）。§2 通则①全乘算——不是旧的求和（那是加算残留，已整改）。
+        double campWideMult = _survivors.Where(s => s.Alive)
+            .Aggregate(1.0, (acc, s) => acc * (1.0 + s.Perks.CampWideReadingSpeedBonus));
 
         // 守卫优先：同人若两处都被指派，让位守卫（与 PawnRoleManager NightAct 分支的优先级一致），不重复站岗。
         var guarded = new HashSet<int>(_roleManager.GuardAssignments.Values);
@@ -5827,7 +5829,7 @@ public sealed partial class CampMain : Node2D
             if (book == null)
                 continue;
 
-            reader.BeginReading(book, campWideSum, _nightLengthSeconds);
+            reader.BeginReading(book, campWideMult, _nightLengthSeconds);
 
             SeatClaim? seat = ClaimNearestFreeSeat(reader.GlobalPosition);
             if (seat is { } s)

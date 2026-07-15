@@ -5,7 +5,7 @@ namespace DeadSignal.Combat.Tests;
 /// <summary>
 /// 专属效果（诺蒂·书虫样板）+ 读书进度 + 读速合成纯逻辑单测。
 /// 锁的是规则形态：书虫按累计阅读时间跨阈值升级、各级读速倍率、L3 全营加成；
-/// 读书进度按 (读者,书) 累计且跨夜不清零；有效读速 = 基础 × 自身倍率 × 座位 × (1+全营加成汇总)。
+/// 读书进度按 (读者,书) 累计且跨夜不清零；有效读速 = 基础 × (1+自身) × 全营乘子 × 穿戴品乘子 × 座位 × 前置（§2 全乘算）。
 /// 具体阈值/座位惩罚/每本书 ReadHours 皆为 draft，测试锁形态不锁绝对数值（用相对断言/常量引用）。
 /// </summary>
 public class SurvivorPerksTests
@@ -130,58 +130,69 @@ public class SurvivorPerksTests
 
     // ---------- 有效读速合成 ----------
 
+    // 🔴 [加算残留整改·诺蒂读速] 读速改 §2 全乘算：campWideMult 现是**乘子**(∏(1+各L3书虫贡献))，非旧加成和。
+    //    单来源不变（自身×1.5、单书虫×1.25、无座×0.9），多来源由加算→乘算：诺蒂L3 1.75→1.875、双书虫 1.5→1.5625。
+
     [Fact]
     public void EffectiveSpeed_NoPerk_Seated_IsBase()
     {
-        double s = ReadingSpeed.Effective(baseSpeed: 1.0, selfBonus: 0.0, hasSeat: true, campWideBonusSum: 0.0);
+        double s = ReadingSpeed.Effective(baseSpeed: 1.0, selfBonus: 0.0, hasSeat: true, campWideMult: 1.0);
         Assert.Equal(1.0, s);
     }
 
     [Fact]
     public void EffectiveSpeed_NoSeat_AppliesPenalty()
     {
-        double s = ReadingSpeed.Effective(1.0, 0.0, hasSeat: false, campWideBonusSum: 0.0);
+        double s = ReadingSpeed.Effective(1.0, 0.0, hasSeat: false, campWideMult: 1.0);
         Assert.Equal(ReadingSpeed.NoSeatMultiplier, s); // 无座 -10%
     }
 
     [Fact]
     public void EffectiveSpeed_Level2_Seated()
     {
-        // L2 自身 +50%（加法）→ ×1.5
-        double s = ReadingSpeed.Effective(1.0, selfBonus: 0.50, hasSeat: true, campWideBonusSum: 0.0);
+        // L2 自身 +50% → 单因子 ×1.5（无全营 = 乘子 1.0）
+        double s = ReadingSpeed.Effective(1.0, selfBonus: 0.50, hasSeat: true, campWideMult: 1.0);
         Assert.Equal(1.50, s);
     }
 
     [Fact]
     public void EffectiveSpeed_CampWideBonus_AppliesToReader()
     {
-        // 某普通读者(自身无 perk=0)受营内某 L3 书虫的全营 +25% 加成 → ×1.25
-        double s = ReadingSpeed.Effective(1.0, selfBonus: 0.0, hasSeat: true, campWideBonusSum: 0.25);
+        // 某普通读者(自身无 perk=0)受营内某 L3 书虫的全营 +25% → 乘子 1.25 → ×1.25
+        double s = ReadingSpeed.Effective(1.0, selfBonus: 0.0, hasSeat: true, campWideMult: 1.25);
         Assert.Equal(1.25, s);
     }
 
     [Fact]
     public void EffectiveSpeed_TinoL3_Seated_IsSeventyFivePercent()
     {
-        // 诺蒂 L3 有座：基础 ×(1 + 自身 0.50 + 含自己的全营 0.25) = ×1.75（加起来对自己就是 75%）
-        double s = ReadingSpeed.Effective(1.0, selfBonus: 0.50, hasSeat: true, campWideBonusSum: 0.25);
-        Assert.Equal(1.75, s, precision: 10);
+        // 诺蒂 L3 有座：基础 × 自身(1+0.50) × 全营乘子(1.25) = 1.50 × 1.25 = ×1.875（§2 全乘算，替代旧加算 ×1.75）
+        double s = ReadingSpeed.Effective(1.0, selfBonus: 0.50, hasSeat: true, campWideMult: 1.25);
+        Assert.Equal(1.875, s, precision: 10);
     }
 
     [Fact]
-    public void EffectiveSpeed_MultipleCampHolders_BonusesSum()
+    public void EffectiveSpeed_MultipleCampHolders_BonusesMultiply()
     {
-        // 两个 L3 书虫在营 → 全营加成汇总 0.25+0.25=0.5；普通读者 → ×1.5
-        double s = ReadingSpeed.Effective(1.0, selfBonus: 0.0, hasSeat: true, campWideBonusSum: 0.50);
-        Assert.Equal(1.50, s);
+        // 两个 L3 书虫在营 → 全营乘子 (1+0.25)×(1+0.25)=1.5625；普通读者 → ×1.5625（§2 全乘算，替代旧加算 ×1.5）
+        double s = ReadingSpeed.Effective(1.0, selfBonus: 0.0, hasSeat: true, campWideMult: 1.25 * 1.25);
+        Assert.Equal(1.5625, s, precision: 10);
     }
 
     [Fact]
     public void EffectiveSpeed_NoSeat_And_Perk_And_Camp_AllStack()
     {
-        // 基础 ×(1 + 自身 0.50 + 全营 0.25) × 无座 0.9
-        double s = ReadingSpeed.Effective(2.0, selfBonus: 0.50, hasSeat: false, campWideBonusSum: 0.25);
-        Assert.Equal(2.0 * (1.0 + 0.50 + 0.25) * ReadingSpeed.NoSeatMultiplier, s, precision: 10);
+        // 基础 × 自身(1+0.50) × 全营乘子(1.25) × 无座 0.9（§2 全乘算，替代旧加算 (1+0.50+0.25)）
+        double s = ReadingSpeed.Effective(2.0, selfBonus: 0.50, hasSeat: false, campWideMult: 1.25);
+        Assert.Equal(2.0 * 1.50 * 1.25 * ReadingSpeed.NoSeatMultiplier, s, precision: 10);
+    }
+
+    [Fact]
+    public void EffectiveSpeed_ApparelMult_MultipliesIn()
+    {
+        // [装备→能力加成] 平光眼镜 ×1.05 作独立乘子并入：诺蒂 L3 + 平光眼镜 = 1.50 × 1.25 × 1.05 = ×1.96875。
+        double s = ReadingSpeed.Effective(1.0, selfBonus: 0.50, hasSeat: true, campWideMult: 1.25, apparelMult: 1.05);
+        Assert.Equal(1.96875, s, precision: 10);
     }
 
     // ---------- BookData.ReadHours（每本书读完所需游戏内小时，draft） ----------

@@ -164,6 +164,21 @@ public class SaveRoundTripTests
     }
 
     [Fact]
+    public void 草药绷带敷过的伤口的感染减免要读得回来()
+    {
+        // [T72] 敷了草药绷带 → 该伤口感染几率 ×0.75。若读档漏摆回，读档等于把消炎效果偷偷抹掉。
+        var set = new HealthConditionSet();
+        var c = new HealthCondition(HealthConditionType.Bleeding, 0.5, HumanBody.Chest);
+        c.RestoreState(0.5, 40, 0.0, false, daysElapsed: 1, lastSurgeryDay: 0, infectionChanceMultiplier: 0.75);
+        set.Add(c);
+
+        HealthConditionSet restored = RoundTripHealth(set, isDead: false);
+
+        HealthCondition r = Assert.Single(restored.Conditions);
+        Assert.Equal(0.75, r.InfectionChanceMultiplier, 6);
+    }
+
+    [Fact]
     public void 病死的终态读得回来()
     {
         var set = new HealthConditionSet();

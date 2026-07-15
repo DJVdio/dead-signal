@@ -65,8 +65,8 @@ public class SeatReadingRuleTests
         Assert.Equal(0.0, 普通人.SelfReadingSpeedBonus); // 无任何 perk
         Assert.Null(普通人.Bookworm);
 
-        double 无座 = ReadingSpeed.Effective(1.0, 普通人.SelfReadingSpeedBonus, hasSeat: false, campWideBonusSum: 0.0);
-        double 有座 = ReadingSpeed.Effective(1.0, 普通人.SelfReadingSpeedBonus, hasSeat: true, campWideBonusSum: 0.0);
+        double 无座 = ReadingSpeed.Effective(1.0, 普通人.SelfReadingSpeedBonus, hasSeat: false, campWideMult: 1.0);
+        double 有座 = ReadingSpeed.Effective(1.0, 普通人.SelfReadingSpeedBonus, hasSeat: true, campWideMult: 1.0);
 
         Assert.Equal(0.90, 无座, precision: 10);
         Assert.Equal(1.00, 有座, precision: 10);
@@ -79,8 +79,8 @@ public class SeatReadingRuleTests
     [InlineData(0.50)]  // 诺蒂 L3 书虫
     public void 无座九折对任何perk等级都成立(double selfBonus)
     {
-        double 无座 = ReadingSpeed.Effective(1.0, selfBonus, hasSeat: false, campWideBonusSum: 0.0);
-        double 有座 = ReadingSpeed.Effective(1.0, selfBonus, hasSeat: true, campWideBonusSum: 0.0);
+        double 无座 = ReadingSpeed.Effective(1.0, selfBonus, hasSeat: false, campWideMult: 1.0);
+        double 有座 = ReadingSpeed.Effective(1.0, selfBonus, hasSeat: true, campWideMult: 1.0);
 
         Assert.Equal(ReadingSpeed.NoSeatMultiplier, 无座 / 有座, precision: 10);
         Assert.Equal(0.90, 无座 / 有座, precision: 10);
@@ -96,8 +96,8 @@ public class SeatReadingRuleTests
         Assert.Equal(3, 诺蒂.Bookworm.Level);
 
         double campWide = 诺蒂.CampWideReadingSpeedBonus; // L3 满级全营 +0.25（含她自己）
-        double 有座 = ReadingSpeed.Effective(1.0, 诺蒂.SelfReadingSpeedBonus, hasSeat: true, campWideBonusSum: campWide);
-        double 无座 = ReadingSpeed.Effective(1.0, 诺蒂.SelfReadingSpeedBonus, hasSeat: false, campWideBonusSum: campWide);
+        double 有座 = ReadingSpeed.Effective(1.0, 诺蒂.SelfReadingSpeedBonus, hasSeat: true, campWideMult: 1.0 + campWide);
+        double 无座 = ReadingSpeed.Effective(1.0, 诺蒂.SelfReadingSpeedBonus, hasSeat: false, campWideMult: 1.0 + campWide);
 
         Assert.Equal(有座 * 0.90, 无座, precision: 10);
     }

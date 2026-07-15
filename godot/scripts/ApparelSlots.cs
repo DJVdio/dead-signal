@@ -295,6 +295,32 @@ public sealed class ApparelSlots
 public static class ApparelCatalog
 {
     /// <summary>
+    /// 穿戴品效果类型（[装备→能力加成通路]）。<b>通用可扩展</b>：新增一类装备效果只加一个枚举值 + 一处消费层接线。
+    /// <para>
+    /// 🔴 这是本引擎<b>唯一</b>的"穿戴品给能力供数"通路——此前能力只由 authored perk + 读过的书承载。
+    /// 效果<b>只挂消费层</b>（本文件的 <see cref="ApparelDef"/>），<b>绝不进零依赖战斗引擎 <c>ArmorLayer</c></b>
+    /// （读速/视野不是战斗概念）⇒ 战斗结算/Sim 结构性读不到，既有基线零漂移。
+    /// </para>
+    /// </summary>
+    public enum EquipEffectKind
+    {
+        /// <summary>阅读速度乘子（平光眼镜 ×1.05）。汇总入 <see cref="ReadingSpeed.Effective"/> 的 apparelMult。</summary>
+        ReadingSpeed,
+
+        // 扩展位（后续，"通路第二消费者"）：DaylightVision——墨镜/雪镜白天视野 ×1.05，接 VisionLogic 链、且仅白天。
+        // 本轮（范围A）只做 ReadingSpeed；视野是另一条链、更难测，待单独立项。
+    }
+
+    /// <summary>
+    /// 一条穿戴品效果：效果类型 + <b>乘子</b>（直接存乘子，如 +5% = 1.05；§2 通则①全乘算，避免"+5%"歧义与加算诱惑）。
+    /// </summary>
+    public readonly record struct EquipEffect(EquipEffectKind Kind, double Multiplier)
+    {
+        /// <summary>读速效果工厂：<paramref name="pct"/>=0.05 → ×1.05。</summary>
+        public static EquipEffect ReadingSpeed(double pct) => new(EquipEffectKind.ReadingSpeed, 1.0 + pct);
+    }
+
+    /// <summary>
     /// 一件穿戴品的静态定义：占用槽 + 覆盖部位（null=全覆盖，向后兼容旧护甲）+ 所属护甲层。
     /// <para>
     /// <b>成对品</b>（<paramref name="Paired"/>=true，如劳保手套/运动鞋，[SPEC-B18-补]）：物品定义<b>不分左右</b>，
@@ -309,7 +335,8 @@ public static class ApparelCatalog
         IReadOnlySet<string>? CoversParts,
         ArmorSlot? Layer,
         bool Paired = false,
-        IReadOnlyDictionary<EquipSlot, IReadOnlySet<string>>? CoversBySlot = null)
+        IReadOnlyDictionary<EquipSlot, IReadOnlySet<string>>? CoversBySlot = null,
+        IReadOnlyList<EquipEffect>? Effects = null)   // [装备→能力加成] 穿戴效果（null=无，默认；13 件旧甲全不受影响）
     {
         /// <summary>这件装进 <paramref name="slot"/> 时实际占用的槽集（成对品=只占那一个；其余=全部声明槽）。</summary>
         public IReadOnlySet<EquipSlot> SlotsFor(EquipSlot slot)
@@ -337,6 +364,10 @@ public static class ApparelCatalog
         void Add(ArmorLayer l, params EquipSlot[] slots)
             => d[l.Name] = new ApparelDef(l.Name, S(slots), l.CoversParts, l.Slot);
 
+        // [装备→能力加成] 带穿戴效果的登记（单槽）：如平光眼镜挂读速 ×1.05。
+        void AddFx(ArmorLayer l, EquipSlot slot, params EquipEffect[] effects)
+            => d[l.Name] = new ApparelDef(l.Name, S(slot), l.CoversParts, l.Slot, Effects: effects);
+
         // 成对品（[SPEC-B18-补]）：一个 def 不分左右，一件占一只手/脚槽——两件才护全。
         void AddPaired(ArmorLayer l, EquipSlot left, EquipSlot right, string leftPart, string rightPart)
             => d[l.Name] = new ApparelDef(
@@ -353,6 +384,9 @@ public static class ApparelCatalog
         Add(ArmorTable.FloralShirt(), EquipSlot.SkinLayer);
         Add(ArmorTable.Trousers(), EquipSlot.Pants);
         AddPaired(ArmorTable.Sneakers(), EquipSlot.LeftFoot, EquipSlot.RightFoot, HumanBody.LeftFoot, HumanBody.RightFoot);
+        // [T72] 护踝鞋具：成对·脚槽，一件占一只脚、护那侧小腿+脚(含趾)——与运动鞋同槽互斥，双侧要两件。
+        // 每侧取小腿子树(SubtreeNames(LeftCalf) = 左小腿+左脚+左五趾)，比运动鞋多护一截小腿。
+        AddPaired(ArmorTable.AnkleGuard(), EquipSlot.LeftFoot, EquipSlot.RightFoot, HumanBody.LeftCalf, HumanBody.RightCalf);
         // 短裤：与长裤同占裤装槽（互斥），仅护大腿=不防小腿（覆盖取舍，[SPEC-B17-补]）。
         Add(ArmorTable.Shorts(), EquipSlot.Pants);
         // 外套层五件（互斥）：粗布背心(无袖不护臂) / 粗布外套 / 布夹克 / 牛仔外套 / 皮夹克——后四件同覆盖，防护递增。
@@ -405,7 +439,9 @@ public static class ApparelCatalog
         //   这个取舍是这两件东西的**全部价值**——那 1 点防御是凑数的，真正的效果（白天视野 / 阅读速度）
         //   是引擎新轴，尚未落地（见 ArmorTable.Sunglasses / PlainGlasses 的注释）。
         Add(ArmorTable.Sunglasses(), EquipSlot.Eyes);
-        Add(ArmorTable.PlainGlasses(), EquipSlot.Eyes);
+        //   平光眼镜：[装备→能力加成] 挂 **+5% 阅读速度**（用户 authored，wiki 护甲表）。这是本引擎第一件"穿戴给能力供数"的装备。
+        //   效果经 ApparelEffectMultiplier 汇总入 ReadingSpeed.Effective 的 apparelMult（§2 乘算 ×1.05）。墨镜的"白天视野"是另一条链、后续。
+        AddFx(ArmorTable.PlainGlasses(), EquipSlot.Eyes, EquipEffect.ReadingSpeed(0.05));
         //   [T71] 自制简易墨镜（木缝雪镜）→ 同占眼镜槽，与墨镜/平光眼镜/防暴盔/战争面具/防毒面具互斥。
         //   它是墨镜的**可制作对应物**（读《尖峰时刻》解锁），护双眼 12/6——见 ArmorTable.SelfMadeSnowGoggles 注释。
         Add(ArmorTable.SelfMadeSnowGoggles(), EquipSlot.Eyes);
@@ -417,6 +453,27 @@ public static class ApparelCatalog
 
     /// <summary>取穿戴品定义（未登记返回 null）。</summary>
     public static ApparelDef? Get(string name) => Defs.TryGetValue(name, out var d) ? d : null;
+
+    /// <summary>
+    /// [装备→能力加成] 汇总读者<b>已穿戴品</b>某类效果的<b>乘子</b>（§2 连乘）：遍历 <paramref name="equippedItems"/>，
+    /// 查各件 <see cref="ApparelDef.Effects"/> 中 <paramref name="kind"/> 的乘子相乘；无任何该类效果 = 1.0。
+    /// <para>
+    /// 🔴 这是"穿戴 → 能力"生效的<b>唯一入口</b>：消费方（如 <see cref="ReadingSpeed.Effective"/> 的 apparelMult）
+    /// 必须经本函数从<b>真实穿戴品名</b>取数，不得手写常数——那样 <see cref="ApparelDef.Effects"/> 登记就成了摆设（静默失效）。
+    /// </para>
+    /// </summary>
+    public static double ApparelEffectMultiplier(IEnumerable<string> equippedItems, EquipEffectKind kind)
+    {
+        double m = 1.0;
+        foreach (string name in equippedItems)
+        {
+            if (Get(name) is { Effects: { } effects })
+                foreach (EquipEffect e in effects)
+                    if (e.Kind == kind)
+                        m *= e.Multiplier;
+        }
+        return m;
+    }
 
     /// <summary>
     /// 便捷：按目录定义把某件穿到 <paramref name="slots"/> 上（未登记则不动，返回 BlockedNoSlots）。

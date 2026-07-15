@@ -1214,7 +1214,6 @@ public static class ExplorationCache
                     LootItem.Food(2),                       // 守林人独居的过冬存粮
                     LootItem.Material("bandage", 1),        // 应急急救小物
                     LootItem.Material("canned_food", 2),    // [批次21·T14] 食材：碗柜深处的罐头
-                    LootItem.Material("beans", 2),          // [批次21·T14] 食材：一袋干豆
                     LootItem.Material("potato", 3),         // [批次21·T14] 食材：菜窖里的土豆
                 },
                 RangersCabinPantryTitle, RangersCabinPantryNarrative),
@@ -2001,7 +2000,6 @@ public static class ExplorationCache
                     LootItem.Material("canned_food", 4),
                     LootItem.Material("ration", 2),
                     LootItem.Material("flour", 2),
-                    LootItem.Material("beans", 3),
                 },
                 SupermarketHoardFoodTitle, SupermarketHoardFoodNarrative),
 
@@ -2386,7 +2384,7 @@ public static class ExplorationCache
                 StuartPantryFlag,
                 new[]
                 {
-                    LootItem.Material("beans", 1),  // 劫掠者早把这儿搬空了；这一罐是滚到墙角去的
+                    LootItem.Material("canned_food", 1),  // 劫掠者早把这儿搬空了；这一听罐头是滚到墙角去的
                 },
                 StuartPantryTitle, StuartPantryNarrative),
 
@@ -2418,7 +2416,6 @@ public static class ExplorationCache
                     // 最深的一处。翻到底：一窖发芽的土豆、一卷绷带、井边采的两把野果。
                     // **这就是"高风险不是永远高回报"长的样子。**
                     LootItem.Material("potato", 2),
-                    LootItem.Material("beans", 1),
                     LootItem.Material("bandage", 1),
                     LootItem.Material("rosehip", 2),
                 },
@@ -3147,7 +3144,7 @@ public static class ExplorationCache
     private const string StuartPantryTitle = "主屋·储藏间";
     private const string StuartPantryNarrative =
         "储藏间的架子从上到下空得干干净净，连灰都被袖子蹭过。地上一层踩实的脚印，来来回回，" +
-        "是搬东西的人走出来的。你在最里头的墙角摸到一罐豆子，滚进去的，他们没看见。";
+        "是搬东西的人走出来的。你在最里头的墙角摸到一听罐头，滚进去的，他们没看见。";
 
     private const string StuartHayLoftTitle = "谷仓·草料阁";
     private const string StuartHayLoftNarrative =

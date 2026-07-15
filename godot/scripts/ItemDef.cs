@@ -170,7 +170,6 @@ public static class ItemRegistry
         ["fish"] = 1.0,          // 一条河鱼
         ["flour"] = 1.0,         // 一袋面粉
         ["canned_food"] = 0.6,   // 铁皮罐头，小而沉
-        ["beans"] = 0.6,         // 一把干豆
         ["rat"] = 0.3,           // 老鼠：轻，也确实不顶饱（[T67] 它已下不了锅，要先宰杀——但整只的重量没变）
         ["pigeon"] = 0.3,        // 鸟（[T67] 原「鸽子」，只改显示名不改键）：肉少骨头多
         ["potato"] = 0.3,        // 土豆
@@ -222,6 +221,7 @@ public static class ItemRegistry
         ArmorTable.HorrorArmor(), ArmorTable.Sunglasses(), ArmorTable.PlainGlasses(),
         // [T71] 自制简易墨镜（木缝雪镜，0.1kg）——显式登记，别落 DefaultArmorKg=1.0（0.1kg 木镜算 1kg 是 10 倍）。
         ArmorTable.SelfMadeSnowGoggles(),
+        ArmorTable.AnkleGuard(),   // [T72] 护踝鞋具（成对·脚槽，0.75kg）——追加末尾，重量真源在 ArmorLayer.Weight
         ArmorTable.DogClothVest(), ArmorTable.DogLeatherVest(), ArmorTable.DogPocketVest(),
         ArmorTable.DogIronHelmet(), ArmorTable.DogWireHelmet(),
     };

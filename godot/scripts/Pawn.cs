@@ -77,7 +77,7 @@ public sealed partial class Pawn : Actor
     private BookData? _assignedBook;
 
     /// <summary>本夜有效的全营读速加成汇总（由 CampMain 遍历全体求和喂入，含读者自身贡献）。</summary>
-    private double _campWideReadingBonus;
+    private double _campWideReadingMult = 1.0;   // [整改] 全营读速乘子(∏(1+各L3书虫贡献))，非旧加成和；无书虫=1.0
 
     /// <summary>一夜的实时长度（游戏内秒，受时标缩放同口径）：把每帧 delta 换算成游戏内小时（一整夜=12 小时）。</summary>
     private double _nightLengthSeconds;
@@ -86,11 +86,11 @@ public sealed partial class Pawn : Actor
     /// 开始一次读书指派：记下要读的书、全营加成汇总、夜长（换算时间用）。座位由 CampMain 另行认领并置
     /// <see cref="ReadingSeat"/>。之后每帧 <see cref="Think"/> Reading 分支累进阅读进度。
     /// </summary>
-    public void BeginReading(BookData book, double campWideBonusSum, double nightLengthSeconds)
+    public void BeginReading(BookData book, double campWideMult, double nightLengthSeconds)
     {
         _assignedBook = book;
         AssignedBookId = book.Id;
-        _campWideReadingBonus = campWideBonusSum;
+        _campWideReadingMult = campWideMult;
         _nightLengthSeconds = nightLengthSeconds;
     }
 
@@ -116,7 +116,9 @@ public sealed partial class Pawn : Actor
         bool hasSeat = ReadingSeat.HasValue;
         // 书籍前置链：没读完前置书读得极慢（×0.2），但不禁止（读满阈值不变，只是更耗时）。
         double prereqFactor = ReadingSpeed.PrerequisiteFactor(book, HasReadBook);
-        double speed = ReadingSpeed.Effective(1.0, Perks.SelfReadingSpeedBonus, hasSeat, _campWideReadingBonus, prereqFactor);
+        // [装备→能力加成] 读者穿戴品读速乘子（平光眼镜 ×1.05）：经 ApparelEffectMultiplier 从真实穿戴品名取数，勿手写常数。
+        double apparelMult = ApparelCatalog.ApparelEffectMultiplier(EquippedApparel, ApparelCatalog.EquipEffectKind.ReadingSpeed);
+        double speed = ReadingSpeed.Effective(1.0, Perks.SelfReadingSpeedBonus, hasSeat, _campWideReadingMult, apparelMult, prereqFactor);
         double hours = gameHours * speed;
         if (hours <= 0)
             return;

@@ -41,8 +41,8 @@ public class ReadingPrerequisiteTests
     public void Penalty_ScalesEffectiveSpeed_ByFactor()
     {
         // 同样条件下，未读前置的有效读速正好是已读的 0.2 倍（其余项相同）。
-        double full = ReadingSpeed.Effective(1.0, selfBonus: 0.0, hasSeat: true, campWideBonusSum: 0.0, prerequisiteFactor: 1.0);
-        double slowed = ReadingSpeed.Effective(1.0, selfBonus: 0.0, hasSeat: true, campWideBonusSum: 0.0, prerequisiteFactor: 0.2);
+        double full = ReadingSpeed.Effective(1.0, selfBonus: 0.0, hasSeat: true, campWideMult: 1.0, prerequisiteFactor: 1.0);
+        double slowed = ReadingSpeed.Effective(1.0, selfBonus: 0.0, hasSeat: true, campWideMult: 1.0, prerequisiteFactor: 0.2);
         Assert.Equal(full * 0.2, slowed, 6);
     }
 
@@ -50,8 +50,8 @@ public class ReadingPrerequisiteTests
     public void Effective_PrerequisiteFactorDefaultsToOne_BackwardCompatible()
     {
         // 旧调用（不传前置系数）行为不变：与显式传 1.0 相同。
-        double legacy = ReadingSpeed.Effective(1.0, 0.5, hasSeat: false, campWideBonusSum: 0.25);
-        double explicitOne = ReadingSpeed.Effective(1.0, 0.5, hasSeat: false, campWideBonusSum: 0.25, prerequisiteFactor: 1.0);
+        double legacy = ReadingSpeed.Effective(1.0, 0.5, hasSeat: false, campWideMult: 1.25);
+        double explicitOne = ReadingSpeed.Effective(1.0, 0.5, hasSeat: false, campWideMult: 1.25, prerequisiteFactor: 1.0);
         Assert.Equal(legacy, explicitOne, 6);
     }
 

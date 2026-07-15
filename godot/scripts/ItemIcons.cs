@@ -245,7 +245,6 @@ public static class ItemIcons
         ["ration"] = new(Food, "ration_military", "delapouite/meal"),
         ["canned_food"] = new(Food, "canned_food", "delapouite/opened-food-can"),
         ["flour"] = new(Food, "flour", "delapouite/flour"),
-        ["beans"] = new(Food, "beans", "delapouite/jelly-beans"),
         ["potato"] = new(Food, "potato", "delapouite/potato"),
         ["mushroom"] = new(Food, "mushroom", "delapouite/mushrooms"),
 

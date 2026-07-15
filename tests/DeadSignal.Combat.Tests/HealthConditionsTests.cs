@@ -1454,19 +1454,54 @@ public class HealthConditionsTests
         Assert.Single(tea.MaterialCosts); // 最简：仅蒲公英
     }
 
-    // ---- [SPEC-B14-补 / T? 用户改] 草药绷带：止血手术供点 20（普通绷带上位替代；用户从 25 下调至 20）----
+    // ---- [T72·用户定案 A2 叠加] 草药绷带 = **两个效果并存**（新增，不是替换）：
+    //      ① 保留原「止血手术供点 20」（普通绷带上位替代）；② 新增「敷术口把该处感染几率 ×0.75(-25%)」。
+    //      两效果都焊死：止血供点仍是 20 + 手术真置伤口感染乘子 0.75 + 感染公式真读该乘子(持续到闭口) + 与已手术 ×0.5 连乘。----
 
     [Fact]
-    public void Herbal_bandage_gives_20_surgery_points_for_bleeding()
+    public void Herbal_bandage_keeps_20_stop_bleed_points_AND_adds_infection_reduction()
     {
         SurgerySupply hb = SurgeryCatalog.For("herbal_bandage")!.Value;
-        Assert.Equal(20, hb.Points);                     // 用户改：草药绷带 25→20（普通绷带 15）
-        Assert.True(hb.CanTreat(HealthConditionType.Bleeding));
+        Assert.Equal(20, hb.Points);                             // ① 止血供点保留 20（普通绷带 15 的上位替代，别删）
+        Assert.Equal(0.75, hb.InfectionChanceMultiplier, 6);     // ② 新增：该处感染几率 ×0.75（-25%，乘算）
+        Assert.True(hb.CanTreat(HealthConditionType.Bleeding));  // 仍是流血止血耗材
         Assert.False(hb.CanTreat(HealthConditionType.Fracture));
-        Assert.False(hb.Exclusive);                       // 非独占（散件）
-        Assert.Equal(15, SurgeryCatalog.For("bandage")!.Value.Points); // 普通绷带 15 不变
+        Assert.False(hb.Exclusive);
+        // 普通绷带不变：15 点止血、不降感染（草药绷带是它的上位替代）。
+        Assert.Equal(15, SurgeryCatalog.For("bandage")!.Value.Points);
+        Assert.Equal(1.0, SurgeryCatalog.For("bandage")!.Value.InfectionChanceMultiplier, 6);
         Assert.True(Materials.Has("herbal_bandage"));
         Assert.Equal(MaterialCategory.Medical, Materials.Find("herbal_bandage")!.Value.Category);
+    }
+
+    [Fact]
+    public void Herbal_bandage_in_surgery_delivers_BOTH_20_points_and_0_75_infection_multiplier()
+    {
+        // 一台手术里两效果并存：草药绷带单用 → 点池含它的 20 止血点(base15+20=35)，且该伤口感染乘子被置 0.75。
+        var (set, c) = SetWith(Bleed(0.5));
+        SurgeryResult r = set.PerformSurgery(c, new[] { "herbal_bandage" }, onBed: false, Roll(12)); // roll 对 pool15(先红)/pool35(后绿) 都合法
+        Assert.Equal(35, r.PointPool);                  // ① 止血：base 15 + 草药绷带 20（比普通绷带用例的 30 多 5）
+        Assert.Equal(0.75, c.InfectionChanceMultiplier, 6);  // ② 感染减免同一台手术里一并挂上
+
+        // 不敷草药绷带 → 感染乘子恒 1.0（零回归）。
+        var (noHb, cN) = SetWith(Bleed(0.5));
+        noHb.PerformSurgery(cN, new[] { "bandage" }, onBed: false, Roll(20));
+        Assert.Equal(1.0, cN.InfectionChanceMultiplier, 6);
+    }
+
+    [Fact]
+    public void Wound_infection_multiplier_is_actually_read_by_daily_infection_roll()
+    {
+        // 全链焊死：感染公式真乘了该伤口乘子（不是摆设字段）。
+        // mult=0 → chance 归 0 → 即便 roll 0.0（必感染档）也不感染；mult=1（默认）→ roll 0.0 感染。
+        var (setZero, cz) = SetWith(Bleed(0.5));
+        cz.SetInfectionChanceMultiplier(0.0);   // 内部 setter 可及（源 Link 编入本测试程序集）
+        HealthTickResult tZero = setZero.TickDay(Roll(0.0), resting: false);
+        Assert.DoesNotContain(tZero.Events, e => e.ContractedInfection);
+
+        var (setOne, _) = SetWith(Bleed(0.5));  // 默认乘子 1.0
+        HealthTickResult tOne = setOne.TickDay(Roll(0.0), resting: false);
+        Assert.Contains(tOne.Events, e => e.ContractedInfection);
     }
 
     [Fact]

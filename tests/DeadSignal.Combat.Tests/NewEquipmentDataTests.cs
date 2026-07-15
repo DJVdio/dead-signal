@@ -1,5 +1,7 @@
+using System.Collections.Generic;
 using System.Linq;
 using DeadSignal.Combat;
+using DeadSignal.Godot;
 using Xunit;
 
 namespace DeadSignal.Combat.Tests;
@@ -116,5 +118,158 @@ public class NewEquipmentDataTests
         // 全身最轻的一件（覆盖面最小）。
         Assert.True(gloves.Weight < ArmorTable.CoarseClothCoat().Weight, "手套应比粗布外套轻");
         Assert.True(gloves.SharpDefense > 0 && gloves.BluntDefense > 0);
+    }
+
+    // ---- [T68] 恐怖装甲 / 平光眼镜：焊死登记与数值形态 ----
+    //
+    // 两件是用户 wiki 手写、由同步单回写进代码的（护甲部分早在 fdfacf6，当时漏焊死）。本组焊死：数值/护甲层/
+    // 覆盖部位 + **消费层 ApparelCatalog 真登记落对槽**（ItemDef/ArmorTable 写了数值 ≠ 装备目录能穿——两层都要焊）。
+
+    [Fact]
+    public void HorrorArmor_装甲层护胸腹_数值与登记焊死()
+    {
+        ArmorLayer a = ArmorTable.HorrorArmor();
+        Assert.Equal("恐怖装甲", a.Name);
+        Assert.Equal(ArmorSlot.Plate, a.Slot);
+        Assert.Equal(20, a.SharpDefense);
+        Assert.Equal(10, a.BluntDefense);
+        Assert.Equal(3, a.Weight);
+        Assert.NotNull(a.CoversParts);
+        Assert.Equal(new HashSet<string> { HumanBody.Chest, HumanBody.Abdomen }, a.CoversParts!);
+        Assert.Equal("每一片防护都来自于没做够防护的人", a.Description);   // 用户原话
+
+        Assert.True(ApparelCatalog.IsApparel("恐怖装甲"), "恐怖装甲必须在 ApparelCatalog 里，否则造得出穿不上");
+        ApparelCatalog.ApparelDef? def = ApparelCatalog.Get("恐怖装甲");
+        Assert.NotNull(def);
+        Assert.Contains(EquipSlot.PlateLayer, def!.Slots);
+    }
+
+    [Fact]
+    public void PlainGlasses_眼镜槽护双眼_数值与登记焊死()
+    {
+        ArmorLayer g = ArmorTable.PlainGlasses();
+        Assert.Equal("平光眼镜", g.Name);
+        Assert.Equal(ArmorSlot.Skin, g.Slot);
+        Assert.Equal(1, g.SharpDefense);
+        Assert.Equal(1, g.BluntDefense);
+        Assert.Equal(0.1, g.Weight);
+        Assert.NotNull(g.CoversParts);
+        Assert.Equal(new HashSet<string> { HumanBody.LeftEye, HumanBody.RightEye }, g.CoversParts!);
+        Assert.Equal("至少看起来很像知识分子。", g.Description);   // 用户原话
+
+        Assert.True(ApparelCatalog.IsApparel("平光眼镜"), "平光眼镜必须在 ApparelCatalog 里");
+        ApparelCatalog.ApparelDef? def = ApparelCatalog.Get("平光眼镜");
+        Assert.NotNull(def);
+        Assert.Equal(new HashSet<EquipSlot> { EquipSlot.Eyes }, def!.Slots);
+    }
+
+    // ---- [装备→能力加成] 平光眼镜「+5% 阅读速度」：登记 + 真生效两层焊死 ----
+    //
+    // 🔴 教训「登记效果 ≠ 生效」：ApparelDef.Effects 里挂了效果，若消费方不经 ApparelEffectMultiplier 从穿戴品取数
+    //    （手写常数），效果就是摆设。故两层各焊一条，真生效那条**走 name→查表→乘子→Effective 全链，绝不手传 1.05**。
+
+    [Fact]
+    public void PlainGlasses_读速效果已登记_焊死()
+    {
+        ApparelCatalog.ApparelDef? def = ApparelCatalog.Get("平光眼镜");
+        Assert.NotNull(def);
+        Assert.NotNull(def!.Effects);
+        Assert.Contains(def.Effects!, e => e.Kind == ApparelCatalog.EquipEffectKind.ReadingSpeed && e.Multiplier == 1.05);
+    }
+
+    [Fact]
+    public void PlainGlasses_读速效果真生效_全链焊死()
+    {
+        // 走真聚合函数（穿戴品名 → 查 Defs → 取 Effects → 连乘），不手写 1.05。
+        double wornMult = ApparelCatalog.ApparelEffectMultiplier(
+            new[] { "平光眼镜" }, ApparelCatalog.EquipEffectKind.ReadingSpeed);
+        Assert.Equal(1.05, wornMult, precision: 10);
+
+        // 无穿戴 / 戴无读速效果的墨镜 → 1.0（不误伤）。
+        Assert.Equal(1.0, ApparelCatalog.ApparelEffectMultiplier(
+            System.Array.Empty<string>(), ApparelCatalog.EquipEffectKind.ReadingSpeed), precision: 10);
+        Assert.Equal(1.0, ApparelCatalog.ApparelEffectMultiplier(
+            new[] { "墨镜" }, ApparelCatalog.EquipEffectKind.ReadingSpeed), precision: 10);
+
+        // 把真乘子喂进真读速合成：戴平光眼镜比不戴恰好快 5%（全链贯通，非摆设）。
+        double worn = ReadingSpeed.Effective(1.0, selfBonus: 0.0, hasSeat: true, campWideMult: 1.0, apparelMult: wornMult);
+        double bare = ReadingSpeed.Effective(1.0, selfBonus: 0.0, hasSeat: true, campWideMult: 1.0, apparelMult: 1.0);
+        Assert.Equal(bare * 1.05, worn, precision: 10);
+    }
+
+    // ---- 隔离/零漂移护栏 ----
+    //
+    // 效果只挂消费层 ApparelDef，**没**污染零依赖战斗引擎 ArmorLayer 的战斗数值：平光眼镜的 ArmorLayer 与墨镜仍全等
+    // （效果不在引擎类型上）⇒ CombatResolver/Duel 读不到读速效果 ⇒ Sim 结构性零漂移。
+
+    [Fact]
+    public void PlainGlasses_读速效果只在消费层_未污染引擎护甲数值()
+    {
+        ArmorLayer glasses = ArmorTable.PlainGlasses();
+        ArmorLayer sunglasses = ArmorTable.Sunglasses();
+        Assert.Equal(sunglasses.Slot, glasses.Slot);
+        Assert.Equal(sunglasses.SharpDefense, glasses.SharpDefense);
+        Assert.Equal(sunglasses.BluntDefense, glasses.BluntDefense);
+        Assert.Equal(sunglasses.Weight, glasses.Weight);
+        Assert.Equal(sunglasses.CoversParts, glasses.CoversParts);
+    }
+
+    [Fact]
+    public void 新增两件不进任何生成套_保Sim基线零漂移()
+    {
+        var survivorSetNames = ArmorTable.SurvivorArmor().Select(a => a.Name).ToList();
+        Assert.DoesNotContain("恐怖装甲", survivorSetNames);
+        Assert.DoesNotContain("平光眼镜", survivorSetNames);
+    }
+
+    // ---- [T72] 护踝鞋具：成对·脚槽，护小腿+脚(含趾)。数值/护甲层/覆盖 + ApparelCatalog 真登记(成对、落脚槽) 三层焊死 ----
+    //
+    // 用户 wiki 手写(数值表『护甲表』new_armor_2)，本单回写进代码三层：ArmorTable 工厂 / ApparelSlots 成对脚槽 /
+    // ItemDef 花名册(称重)。写了数值 ≠ 穿得上 ≠ 称得准——三层都要焊(同恐怖装甲/平光眼镜的教训)。
+
+    [Fact]
+    public void AnkleGuard_成对脚槽护小腿和脚_数值与覆盖焊死()
+    {
+        ArmorLayer a = ArmorTable.AnkleGuard();
+        Assert.Equal("护踝鞋具", a.Name);
+        Assert.Equal(ArmorSlot.Skin, a.Slot);
+        Assert.Equal(12, a.SharpDefense);
+        Assert.Equal(6, a.BluntDefense);
+        Assert.Equal(0.75, a.Weight);
+
+        // 表口径覆盖：两侧小腿+脚+十趾（小腿子树含脚，脚挂小腿下）；不碰躯干/大腿。
+        Assert.NotNull(a.CoversParts);
+        Assert.Contains(HumanBody.LeftCalf, a.CoversParts!);
+        Assert.Contains(HumanBody.RightCalf, a.CoversParts!);
+        Assert.Contains(HumanBody.LeftFoot, a.CoversParts!);
+        Assert.Contains(HumanBody.RightFoot, a.CoversParts!);
+        Assert.Contains(HumanBody.LeftBigToe, a.CoversParts!);   // 连带五趾子树
+        Assert.Contains(HumanBody.RightToe5, a.CoversParts!);
+        Assert.DoesNotContain(HumanBody.Chest, a.CoversParts!);
+        Assert.DoesNotContain(HumanBody.LeftLeg, a.CoversParts!); // 大腿不护
+    }
+
+    [Fact]
+    public void AnkleGuard_ApparelCatalog成对登记_一件占一只脚槽护那侧()
+    {
+        Assert.True(ApparelCatalog.IsApparel("护踝鞋具"), "护踝鞋具必须在 ApparelCatalog 里，否则造得出穿不上");
+        ApparelCatalog.ApparelDef? def = ApparelCatalog.Get("护踝鞋具");
+        Assert.NotNull(def);
+        Assert.True(def!.Paired, "护踝鞋具是成对品(一件占一只脚槽)");
+        // 候选槽 = 左右脚；一件只占其一。
+        Assert.Equal(new HashSet<EquipSlot> { EquipSlot.LeftFoot, EquipSlot.RightFoot }, def.Slots);
+        Assert.Equal(new HashSet<EquipSlot> { EquipSlot.LeftFoot }, def.SlotsFor(EquipSlot.LeftFoot));
+        // 装左脚 → 只护左侧小腿+脚+趾，不碰右侧。
+        IReadOnlySet<string>? leftCovers = def.CoversFor(EquipSlot.LeftFoot);
+        Assert.NotNull(leftCovers);
+        Assert.Contains(HumanBody.LeftCalf, leftCovers!);
+        Assert.Contains(HumanBody.LeftFoot, leftCovers!);
+        Assert.DoesNotContain(HumanBody.RightFoot, leftCovers!);
+    }
+
+    [Fact]
+    public void AnkleGuard_不进任何生成套_保Sim基线零漂移()
+    {
+        Assert.DoesNotContain("护踝鞋具", ArmorTable.SurvivorArmor().Select(a => a.Name).ToList());
     }
 }

@@ -243,6 +243,7 @@ public static class SaveMapper
         Tended = c.Tended,
         DaysElapsed = c.DaysElapsed,
         LastSurgeryDay = c.LastSurgeryDay,
+        InfectionChanceMultiplier = c.InfectionChanceMultiplier,   // [T72] 草药绷带的感染减免随伤口存档
     };
 
     public static List<ConditionSave> ToSave(HealthConditionSet set)
@@ -256,7 +257,7 @@ public static class SaveMapper
     public static HealthCondition FromSave(ConditionSave s)
     {
         var c = new HealthCondition(s.Type, s.Severity, s.BodyPart, s.OnLimb, s.LethalBleed, s.InfectionProneness, s.SelfHealing);
-        c.RestoreState(s.Severity, s.RecoveryEfficiency, s.CureProgress, s.Tended, s.DaysElapsed, s.LastSurgeryDay);
+        c.RestoreState(s.Severity, s.RecoveryEfficiency, s.CureProgress, s.Tended, s.DaysElapsed, s.LastSurgeryDay, s.InfectionChanceMultiplier);
         return c;
     }
 
