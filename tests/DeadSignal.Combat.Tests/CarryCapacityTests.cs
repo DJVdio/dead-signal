@@ -165,6 +165,39 @@ public class CarryCapacityTests
         Assert.Equal(ItemWeights.AmmoPerRoundKg, ItemWeights.MaterialKg("ammo_long"), 6);
     }
 
+    /// <summary>
+    /// 🔴 焊死测试：<c>WeaponTable.Arsenal()</c> 里**每一把**武器都必须在 <c>ItemWeights._weaponKg</c> 显式登记重量，
+    /// 禁止落 <see cref="ItemWeights.DefaultWeaponKg"/>（=2.0）兜底。
+    /// <para>
+    /// 武器重量的**唯一真源**是 <c>_weaponKg</c>（中文名字典）——<c>Weapon</c> record 里**没有 Weight 字段**。
+    /// 加/改武器漏登记就会静默落到 2.0kg（骨刀曾差点算成 2.0 比棍棒 1.5 还沉、消防斧同隐患），负重系统当场失真。
+    /// 护甲侧早有对应焊死（<see cref="ItemWeight_Armor_ReadsArmorTableWeight"/> 一类），武器侧本测补齐。
+    /// </para>
+    /// <para>
+    /// ⚠ 用**私有字典的键是否存在**判定（反射直读 <c>_weaponKg</c>），不能用「重量 != 2.0」代替——
+    /// 「单手轻弩」正好合法登记为 2.0kg，值判会把它误判成兜底。天生武器（爪击/撕咬/拳脚）不入 Arsenal，不在此列。
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void ItemWeight_EveryArsenalWeapon_HasExplicitWeightRegistered()
+    {
+        var field = typeof(ItemWeights).GetField(
+            "_weaponKg",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+        Assert.NotNull(field);
+        var registered = (IDictionary<string, double>)field!.GetValue(null)!;
+
+        var missing = WeaponTable.Arsenal()
+            .Select(w => w.Name)
+            .Where(name => !registered.ContainsKey(name))
+            .ToList();
+
+        Assert.True(
+            missing.Count == 0,
+            $"以下武器未在 ItemWeights._weaponKg 显式登记重量（会静默落 {ItemWeights.DefaultWeaponKg}kg 兜底）：" +
+            string.Join("、", missing));
+    }
+
     [Fact]
     public void ItemWeight_UnknownKeysFallBackToDefault_NeverThrows()
     {
