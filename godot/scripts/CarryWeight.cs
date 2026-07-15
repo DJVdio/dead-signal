@@ -47,7 +47,7 @@ public static class ItemWeights
     public const double DefaultArmorKg = 1.0;
 
     /// <summary>
-    /// 弹药按发计重的**兜底**值（未单独登记的口径走它：长子弹、四种箭）。
+    /// 弹药按发计重的**兜底**值（未单独登记的口径走它：长子弹、削尖木箭/自制箭/碳纤维箭）。
     /// <para>⚠ 「各口径统一」已被用户在数值表上推翻：短/中/鹿弹现各有自己的重量
     /// （见 <see cref="_materialKg"/> 里的 ammo_* 三行）——口径越大越沉，短子弹最轻。</para>
     /// </summary>
@@ -59,7 +59,9 @@ public static class ItemWeights
         // —— 笨重物资：负重的大头，搬运本身就是代价 ——
         ["stone"] = 3.0,
         ["fuel"] = 3.0,
-        ["wood"] = 2.0,
+        // [T68·用户手改] 木料 2.0 → **1.0**（**减半**）。这是本轮减重里影响最大的一格：
+        // 家具/围栏配方动辄 8~16 木料 ⇒ 一趟能扛回来的建材**几乎翻倍**。用户是有意松绑建造节奏，不是手滑。
+        ["wood"] = 1.0,
         // [T46] 铁（废金属 + 金属锭合并）：取 **1.5**，即原废金属的重量，**不取金属锭的 2.0**。
         // 理由：合并后铁的**实际供给 ≈ 原废金属的供给**——金属锭合并前**零获取途径**（是个拿不到的死物品，
         // 这正是本单在修的 bug），它那 2.0 从来没有人真的背过。取 2.0 等于借合并之名给全世界的金属**悄悄加重 33%**，
@@ -70,13 +72,17 @@ public static class ItemWeights
         ["tanning_solution"] = 1.0,
 
         // —— 中等 ——
-        ["rawhide"] = 0.8,
-        ["leather"] = 0.5,
-        ["rope"] = 0.5,
+        // [T68·用户手改] 生皮 0.8 → **1.0**、皮革 0.5 → **0.6**：本轮**唯二加重**的两格
+        // （其余全在减重）。方向是一致的：**皮线整体变沉** ⇒ 出门剥皮扛回来这件事本身要算账。
+        ["rawhide"] = 1.0,
+        ["leather"] = 0.6,
+        // [T68·用户手改] 绳子 0.5 → **0.15**（**降到不足 1/3**）。绳子是弓/陷阱/家具的通用配料，
+        // 原先 0.5 与皮革同档明显偏重（一捆麻绳不该跟一张鞣好的皮一样沉）。
+        ["rope"] = 0.15,
         ["components"] = 0.5,
         // [批次21·T26] 武器零件：弩机与扳机组是**淬过火的钢件**，比通用机括件（components 0.5）沉一档。
-        // 造一把重弩要 3 个 ⇒ 1.8kg，光零件就顶得上一件皮夹克。数值拟定待调。
-        [Materials.WeaponPartsKey] = 0.6,
+        // [T68·用户手改] 0.6 → **0.5**：与通用机括件拉平（那"沉一档"的设定用户没要）。
+        [Materials.WeaponPartsKey] = 0.5,
         ["first_aid_kit"] = 0.5,
         // [批次20·拆除回收] 胶水：一罐骨胶。它不重——重的是它稀缺。
         ["glue"] = 0.5,
@@ -84,10 +90,11 @@ public static class ItemWeights
         // —— 零碎：几乎白送 ——
         ["cloth"] = 0.3,
         ["bone"] = 0.3,
-        ["wire"] = 0.3,
+        // [T68·用户手改] 铁丝 0.3 → **0.25**、钉子 0.2 → **0.05**（钉子降到 1/4——一把钉子本就该几乎不占分量）。
+        ["wire"] = 0.25,
         ["gunpowder"] = 0.3,
         ["splint"] = 0.3,
-        ["nails"] = 0.2,
+        ["nails"] = 0.05,
         ["bandage"] = 0.1,
         ["herbal_bandage"] = 0.1,
         ["herbal_salve"] = 0.1,
@@ -110,17 +117,29 @@ public static class ItemWeights
         ["flour"] = 1.0,         // 一袋面粉
         ["canned_food"] = 0.6,   // 铁皮罐头，小而沉
         ["beans"] = 0.6,         // 一把干豆
-        ["rat"] = 0.3,           // 老鼠：轻，也确实不顶饱
-        ["pigeon"] = 0.3,        // 鸽子：肉少骨头多
+        ["rat"] = 0.3,           // 老鼠：轻，也确实不顶饱（[T67] 它已下不了锅，要先宰杀——但整只的重量没变）
+        ["pigeon"] = 0.3,        // 鸟（[T67] 原「鸽子」，只改显示名不改键）：肉少骨头多
         ["potato"] = 0.3,        // 土豆
         ["mushroom"] = 0.05,     // 蘑菇：几乎白送（玫瑰果/蒲公英同档，见上方医疗原料那几行——它们同时也是食材）
 
+        // —— [T67] 宰杀链的四样新材料：**必须显式登记**，落到 DefaultMaterialKg = 0.5 的兜底上就是把设计交给了 bug ——
+        //    （前车之鉴：wiki 上「铁」的 0.5kg 其实是兜底冒充设计决策，被 impl-iron 抓出来过。）
+        ["rat_meat"] = 0.15,     // 老鼠肉：一只老鼠身上剔得出的肉，只有整只的一半——**宰杀是减重的**（骨头和皮留在案板上）
+        ["bird_meat"] = 0.15,    // 鸟肉：同上
+        ["feather"] = 0.02,      // 羽毛：一支箭的尾羽（三片飞羽）。**全表最轻的东西**——比蘑菇还轻一档，背一百根也不到 2kg。
+                                 //       它本来就该是这样：真正贵的是**那只鸟**，不是它身上的毛。
+        ["leather_scrap"] = 0.2, // 碎皮革：零碎皮子。攒四块（4 × 0.2 = 0.8kg）缝成一张生皮（1.0kg）——
+                                 // 缝完**略重一点**（针脚+紧实），账是对的，也没给玩家开"缝皮减重"的套利口子
+
         // —— 弹药：按口径分重（用户手改，原先三种共用 AmmoPerRoundKg 0.03）——
         // 口径越大越沉：短子弹（手枪/冲锋枪）最轻，鹿弹（霰弹壳）最沉。
-        // 长子弹与四种箭未单独登记 ⇒ 仍走 AmmoPerRoundKg 兜底。
+        // 长子弹与其余三种箭未单独登记 ⇒ 仍走 AmmoPerRoundKg 兜底（=0.03，与 wiki 弹药表一致）。
         ["ammo_short"] = 0.01,
         ["ammo_medium"] = 0.02,
         ["ammo_buck"] = 0.05,
+        // 重头箭：用户在 wiki 弹药表上把它单独加重（箭头灌铅 ⇒ 0.03 → 0.05），不再走兜底。
+        // 其余三种箭（削尖木箭/自制箭/碳纤维箭）表上仍是 0.03，正好等于兜底，无须登记。
+        ["ammo_arrow_heavy"] = 0.05,
 
         // 货币：带钱出门不该挤占背包
         ["silver"] = 0.01,
@@ -130,15 +149,18 @@ public static class ItemWeights
     private static readonly Dictionary<string, double> _weaponKg = new()
     {
         // 近战
+        // [wiki 同步·用户重量手改一轮]：短剑/长剑/尖头锤/破甲锤加重（更贴近真实配重）、刺剑略降。
+        // git 证实这些新值代码从没有过（＝用户新写，非陈旧格）。重剑/枪械/弩见下方 ⚠ 待同步（吃碰撞校准，已上抛）。
         ["匕首"] = 0.5,
-        ["短剑"] = 1.2,
-        ["刺剑"] = 1.3,
-        ["长剑"] = 1.8,
-        ["重剑"] = 3.0,
+        ["短剑"] = 1.6,          // wiki 同步（1.2 → 1.6）
+        ["刺剑"] = 1.2,          // wiki 同步（1.3 → 1.2）
+        ["长剑"] = 2.4,          // wiki 同步（1.8 → 2.4）
+        // [wiki 同步·carryweight2] 重剑 3.0 → **3.2**（用户手改，与枪械/弩翻倍同批落地）。
+        ["重剑"] = 3.2,
         ["草叉"] = 2.5,
         ["棍棒"] = 1.5,
-        ["尖头锤"] = 2.5,
-        ["破甲锤"] = 4.0,
+        ["尖头锤"] = 4.0,        // wiki 同步（2.5 → 4.0）
+        ["破甲锤"] = 4.5,        // wiki 同步（4.0 → 4.5）
         // [批次25·T44] 消防斧：头重杆轻的一件东西——与重剑同重，比尖头锤沉。拟定待调。
         ["消防斧"] = 3.0,
         // [T56] 骨刀：一片削出来的骨头——全表最轻的武器（比匕首 0.5kg 还轻）。拟定待调。
@@ -147,13 +169,18 @@ public static class ItemWeights
         ["骨刀"] = 0.4,
 
         // 枪械
+        // [wiki 同步·carryweight2] 用户在 wiki 上把长枪重量整体加重（**翻倍**）：自制猎枪 3→7.5 / 霰弹 3.2→6 /
+        //   步枪 4→7.5 / 狙击 6→9。这批曾因 impl-carryweight 免罚线(30/50/80)校准而暂缓，现随负重余量表
+        //   重推一起落地：三条线 30/50/80 **不动**，代价通过"装备吃掉搜刮余量"体现（重武器出门余量更小）。
+        //   核实：普通中期(步枪7.5+皮甲+军盔)出门 17.30kg **仍在 30kg 免罚线下**，"普通配置出门不罚"不变量成立。
+        //   余量表见 Loadout.cs 顶部 + CarryLoadWiringTests / CarryCapacityTests。
         ["手枪"] = 1.0,
         ["冲锋枪"] = 3.0,
-        ["自制猎枪"] = 3.0,
-        ["自制霰弹枪"] = 3.2,
+        ["自制猎枪"] = 7.5,
+        ["自制霰弹枪"] = 6.0,
         // 「栓动猎枪」已按用户在数值表上的删除撤下（原 3.5kg）。
-        ["步枪"] = 4.0,
-        ["狙击枪"] = 6.0,
+        ["步枪"] = 7.5,
+        ["狙击枪"] = 9.0,
 
         // 弓弩
         ["短弓"] = 0.8,
@@ -162,8 +189,9 @@ public static class ItemWeights
         ["竞技复合弓"] = 1.8,
         ["长弓"] = 1.5,
         ["单手轻弩"] = 2.0,
-        ["复合弩"] = 3.0,
-        ["双手重弩"] = 4.5,
+        // [wiki 同步·carryweight2] 复合弩 3→4.5 / 双手重弩 4.5→9（用户手改，与枪械翻倍同批落地）。
+        ["复合弩"] = 4.5,
+        ["双手重弩"] = 9.0,
     };
 
     /// <summary>护甲重量（按护甲名，取自引擎 <see cref="ArmorTable"/> 的 <c>Weight</c>——单一事实源，不在本层复制数值）。</summary>
@@ -179,6 +207,17 @@ public static class ItemWeights
             ArmorTable.ClothJacket(), ArmorTable.DenimJacket(), ArmorTable.LeatherJacket(), ArmorTable.Leather(),
             ArmorTable.Plate(), ArmorTable.WorkGloves(),
             ArmorTable.MilitaryHelmet(), ArmorTable.RiotHelmet(),
+            // [T68] 🔴 **补登记 5 件漏网的**（战争面具 / 棉帽 / 粗布衬衫 / 粗布短裤 / 粗布长裤）：
+            // 它们从落地那天起就没进过这张表 ⇒ 一律落到 DefaultArmorKg = **1.0kg**。
+            // 后果不是"差一点"：一顶 0.15kg 的棉帽被算成 1kg（**6.7 倍**），一张 0.3kg 的战争面具算成 1kg（3.3 倍）。
+            // 负重刚接线（装备计入负重账）⇒ 这个兜底值正在**凭空吃掉玩家的背包**。
+            // 📌 纪律：**兜底值不是设计决策**——它冒充设计决策，就是 bug。
+            ArmorTable.WarMask(), ArmorTable.CottonHat(),
+            ArmorTable.CoarseClothShirt(), ArmorTable.CoarseShorts(), ArmorTable.CoarseTrousers(),
+            // [T68] 用户新加的三件。
+            ArmorTable.HorrorArmor(), ArmorTable.Sunglasses(), ArmorTable.PlainGlasses(),
+            // [T71] 自制简易墨镜（木缝雪镜，0.1kg）——显式登记，别落 DefaultArmorKg=1.0（0.1kg 木镜算 1kg 是 10 倍）。
+            ArmorTable.SelfMadeSnowGoggles(),
             ArmorTable.DogClothVest(), ArmorTable.DogLeatherVest(), ArmorTable.DogPocketVest(),
             ArmorTable.DogIronHelmet(), ArmorTable.DogWireHelmet(),
         })
@@ -219,13 +258,15 @@ public static class ItemWeights
     /// <list type="bullet">
     /// <item>基础重 × 各改装件重量乘子（<see cref="ModdedWeaponRegistry.WeightMultiplierOf"/>，
     ///       多条改装**连乘**——百分比一律乘算，CLAUDE.md 铁律）。</item>
-    /// <item>满改装步枪 4.0 → <b>8.1kg</b>（创伤型 +50% × 加长枪管 +35%）；满改装狙击 6.0 → <b>12.15kg</b>。</item>
+    /// <item>[carryweight2·枪重翻倍后] 满改装步枪 7.5 → <b>15.1875kg</b>（创伤型 +50% × 加长枪管 +35%）；
+    ///       满改装狙击 9.0 → <b>18.225kg</b>。</item>
     /// <item>轻质化那一档是**减重**（−15% / −25%）：减重本身就是它唯一的收益，所以它必须真的减。</item>
     /// </list>
     /// ⚠️ <b>但代价的【形态】被用户后来澄清过，别照着上面那句原话去宣传</b>：三条线就是 <b>30/50/80，不改</b>
-    /// ⇒ 满改装步枪出门（中期配置 17.9kg）**仍在 30kg 免罚线下、一分不罚**。
-    /// 改装的代价是「<b>它吃掉你的搜刮余量</b>」：免罚余量 16.2 → 12.1kg、硬余量 66.2 → 62.1kg
-    /// ⇒ <b>原厂刚好搬得空最大点位（66kg），满改装就搬不空了</b>。
+    /// ⇒ 满改装步枪出门（中期配置 24.99kg）**仍在 30kg 免罚线下、一分不罚**（余量只剩 5kg）。
+    /// 改装的代价是「<b>它吃掉你的搜刮余量</b>」：免罚余量 12.7 → 5.0kg、硬余量 62.7 → 55.0kg。
+    /// [carryweight2] 枪重翻倍后，**原厂中期步枪也搬不空最大点位（66kg，硬余量 62.7）了**——重武器出门余量更小
+    /// 正是本轮翻倍的用户意图；满改装只是把这个差距再拉大（多留 7.69kg 货在原地）。
     /// 「要么带甲带枪、要么带货」这个取舍是通过**余量**实现的，不是"出门即减速"——它把选择权留给玩家。
     /// </para>
     /// <para>
@@ -449,7 +490,7 @@ public static class ExpeditionLoad
 /// 硬上限才逼出《这是我的战争》式的当场决定："这桶燃料和这把步枪，只能带一样。"
 /// 软惩罚（<see cref="Loadout.SpeedMultiplier"/>）依然在上限**之内**生效：背得越满走得越慢，所以"背满"本身也有代价。
 /// </para>
-/// 容量由 <see cref="PartyCapacity"/> 汇总（队里每个人的 <see cref="CarryCapacity"/> + 布鲁斯口袋狗衣的 6kg）。
+/// 容量由 <see cref="PartyCapacity"/> 汇总（队里每个人的 <see cref="CarryCapacity"/> + 布鲁斯口袋狗衣的 8kg）。
 /// </summary>
 public sealed class ExpeditionBag
 {
@@ -577,7 +618,7 @@ public sealed class ExpeditionBag
 
     /// <summary>
     /// 一支探索队这一趟的总运力：每个队员的上限之和 + 布鲁斯口袋狗衣的驮运容量。
-    /// 狗的负重就此**统一进同一套账**——口袋狗衣不再是独立口径，就是给队伍背包 +6kg。
+    /// 狗的负重就此**统一进同一套账**——口袋狗衣不再是独立口径，就是给队伍背包 +8kg（<see cref="DogGearCatalog.PocketVestCapacity"/>，T29 用户手改 6→8）。
     /// </summary>
     /// <param name="memberCapacitiesKg">每个人的上限（各自走 <see cref="CarryCapacity.For"/>）。</param>
     /// <param name="dogCapacityKg">随队狗的驮运容量（<c>DogApparelSlots.TotalCarryCapacity()</c>；没带狗＝0）。</param>

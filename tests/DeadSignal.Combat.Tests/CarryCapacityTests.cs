@@ -147,6 +147,25 @@ public class CarryCapacityTests
     }
 
     [Fact]
+    public void ItemWeight_Ammo_PerCaliberWeightsMatchUserTable()
+    {
+        // 用户在 wiki 弹药表上逐口径改了重量：短 0.01 / 中 0.02 / 鹿 0.05。
+        Assert.Equal(0.01, ItemWeights.MaterialKg("ammo_short"), 6);
+        Assert.Equal(0.02, ItemWeights.MaterialKg("ammo_medium"), 6);
+        Assert.Equal(0.05, ItemWeights.MaterialKg("ammo_buck"), 6);
+
+        // 重头箭：用户把它单独加重到 0.05（箭头灌铅），不再走 0.03 兜底。
+        Assert.Equal(0.05, ItemWeights.MaterialKg("ammo_arrow_heavy"), 6);
+        Assert.NotEqual(ItemWeights.AmmoPerRoundKg, ItemWeights.MaterialKg("ammo_arrow_heavy"));
+
+        // 其余三种箭仍无单独登记 ⇒ 走 AmmoPerRoundKg(=0.03) 兜底（与 wiki 的 0.03 一致）。
+        Assert.Equal(ItemWeights.AmmoPerRoundKg, ItemWeights.MaterialKg("ammo_arrow_stick"), 6);
+        Assert.Equal(ItemWeights.AmmoPerRoundKg, ItemWeights.MaterialKg("ammo_arrow_handmade"), 6);
+        Assert.Equal(ItemWeights.AmmoPerRoundKg, ItemWeights.MaterialKg("ammo_arrow_carbon"), 6);
+        Assert.Equal(ItemWeights.AmmoPerRoundKg, ItemWeights.MaterialKg("ammo_long"), 6);
+    }
+
+    [Fact]
     public void ItemWeight_UnknownKeysFallBackToDefault_NeverThrows()
     {
         Assert.Equal(ItemWeights.DefaultMaterialKg, ItemWeights.MaterialKg("不存在的材料"), 6);
@@ -195,8 +214,8 @@ public class CarryCapacityTests
     public void Bag_TryAdd_AcceptsWhatFits()
     {
         var bag = new ExpeditionBag(10.0);
-        Assert.True(bag.TryAdd(LootItem.Material("wood", 2)));  // 2 × 2kg = 4kg
-        Assert.Equal(4.0, bag.CarriedKg, 6);
+        Assert.True(bag.TryAdd(LootItem.Material("wood", 2)));  // [T68] 2 × 1kg = 2kg（木料减半）
+        Assert.Equal(2.0, bag.CarriedKg, 6);
         Assert.Single(bag.Contents);
     }
 
@@ -205,7 +224,7 @@ public class CarryCapacityTests
     {
         // **硬上限**：装不下就是装不下（不是"超重减速"），这才制造取舍
         var bag = new ExpeditionBag(5.0);
-        Assert.False(bag.TryAdd(LootItem.Material("wood", 4))); // 8kg > 5kg
+        Assert.False(bag.TryAdd(LootItem.Material("wood", 6))); // [T68] 6 × 1kg = 6kg > 5kg（木料减半后要 6 根才超）
         Assert.Equal(0.0, bag.CarriedKg, 6);                     // 一点没进
         Assert.Empty(bag.Contents);
     }
@@ -217,7 +236,7 @@ public class CarryCapacityTests
         var bag = new ExpeditionBag(CarryCapacity.For(1.0)); // 80kg
         for (int i = 0; i < 100; i++)
         {
-            bag.AddAsManyAsFit(LootItem.Material("wood", 5)); // 每次 10kg
+            bag.AddAsManyAsFit(LootItem.Material("wood", 5)); // [T68] 每次 5kg（木料 1kg/根）
         }
 
         Assert.True(bag.CarriedKg <= 80.0 + 1e-9, $"背了 {bag.CarriedKg}kg，超过 80kg 硬上限");
@@ -229,10 +248,10 @@ public class CarryCapacityTests
     public void Bag_TryAdd_PartialStack_TakesOnlyWhatFits()
     {
         // 成堆材料可拆：背得下几件拿几件（"这堆木头只拿得走两根"）
-        var bag = new ExpeditionBag(5.0);
-        int taken = bag.AddAsManyAsFit(LootItem.Material("wood", 4)); // 每根 2kg，5kg 只装得下 2 根
+        var bag = new ExpeditionBag(2.0);
+        int taken = bag.AddAsManyAsFit(LootItem.Material("wood", 4)); // [T68] 每根 1kg，2kg 只装得下 2 根
         Assert.Equal(2, taken);
-        Assert.Equal(4.0, bag.CarriedKg, 6);
+        Assert.Equal(2.0, bag.CarriedKg, 6);
     }
 
     [Fact]
@@ -240,7 +259,7 @@ public class CarryCapacityTests
     {
         var bag = new ExpeditionBag(5.0);
         Assert.True(bag.CanFit(LootItem.Material("cloth", 1)));
-        Assert.False(bag.CanFit(LootItem.Material("wood", 4)));
+        Assert.False(bag.CanFit(LootItem.Material("wood", 6)));   // [T68] 6kg > 5kg（木料减半）
         Assert.Equal(0.0, bag.CarriedKg, 6); // 预判不改状态
     }
 
@@ -248,14 +267,14 @@ public class CarryCapacityTests
     public void Bag_Drop_FreesCapacity()
     {
         // 取舍的另一半：扔掉旧的换新的
-        var bag = new ExpeditionBag(5.0);
-        LootItem wood = LootItem.Material("wood", 2);
+        var bag = new ExpeditionBag(3.0);
+        LootItem wood = LootItem.Material("wood", 2);            // [T68] 2 × 1kg = 2kg
         Assert.True(bag.TryAdd(wood));
-        Assert.False(bag.CanFit(LootItem.Material("wood", 1))); // 只剩 1kg，塞不下 2kg 的木头
+        Assert.False(bag.CanFit(LootItem.Material("wood", 2))); // 只剩 1kg，塞不下再来 2kg 的木头
 
         Assert.True(bag.Drop(wood));
         Assert.Equal(0.0, bag.CarriedKg, 6);
-        Assert.True(bag.CanFit(LootItem.Material("wood", 1)));
+        Assert.True(bag.CanFit(LootItem.Material("wood", 2)));
     }
 
     // ---------- 背包的三档（玩家的决策依据）----------
@@ -265,19 +284,19 @@ public class CarryCapacityTests
     {
         var bag = new ExpeditionBag(80.0); // 基准人：30 / 50 / 80
 
-        bag.AddAsManyAsFit(LootItem.Material("wood", 10)); // 20kg
+        bag.AddAsManyAsFit(LootItem.Material("wood", 20)); // [T68] 20kg（木料 1kg/根）
         Assert.Equal(LoadoutTier.Unencumbered, bag.Tier);
         Assert.Equal(1.0, bag.SpeedMultiplier, 6);
         Assert.Equal(1.0, bag.AttackSpeedMultiplier, 6);
 
-        bag.AddAsManyAsFit(LootItem.Material("wood", 10)); // 40kg
+        bag.AddAsManyAsFit(LootItem.Material("wood", 20)); // 40kg
         Assert.Equal(LoadoutTier.Encumbered, bag.Tier);
         Assert.True(bag.SpeedMultiplier < 1.0);
         // 🔴 [T45·用户新曲线] 轻度档**也罚攻速了**——旧口径「背 30kg 挥剑没什么影响」已被用户推翻
         // （「50kg 减少 20% 移动速度**和攻击速度**」）。此处原本断言 == 1.0。
         Assert.True(bag.AttackSpeedMultiplier < 1.0);
 
-        bag.AddAsManyAsFit(LootItem.Material("wood", 12)); // 64kg
+        bag.AddAsManyAsFit(LootItem.Material("wood", 24)); // 64kg
         Assert.Equal(LoadoutTier.Strained, bag.Tier);
         Assert.True(bag.SpeedMultiplier < Loadout.SpeedAtStrain);
         Assert.True(bag.AttackSpeedMultiplier < Loadout.AttackSpeedAtStrain); // 重度档接着掉
@@ -288,7 +307,7 @@ public class CarryCapacityTests
     {
         // 关内断了手：上限从 80 掉到 40，已背的 60kg 不会凭空消失，但你几乎走不动了
         var bag = new ExpeditionBag(80.0);
-        bag.AddAsManyAsFit(LootItem.Material("wood", 30)); // 60kg
+        bag.AddAsManyAsFit(LootItem.Material("wood", 60)); // [T68] 60kg（木料 1kg/根）
         Assert.Equal(LoadoutTier.Strained, bag.Tier);
 
         bag.SetCapacity(CarryCapacity.For(HungerState.CombineCapability(0.5, 0.0))); // 40kg
@@ -330,17 +349,17 @@ public class CarryCapacityTests
     // ---------- 校准：一趟能搬回多少 ----------
 
     /// <summary>
-    /// 🔴 [T45] <b>「能搜的空间会很小」——用户原话，这条把它钉成数字。</b>
+    /// 🔴 [T45 / carryweight2·枪械翻倍后重推] <b>「能搜的空间会很小」——用户原话，这条把它钉成数字。</b>
     /// <para>
     /// 装备进账之后，<b>硬上限 80kg 第一次真的咬人了</b>：它不再只限制"你搜了多少"，
-    /// 而是限制"<b>装备之外</b>你还能搜多少"。同样是一个人去最大的点位（住宅区 ≈66kg 货）：
+    /// 而是限制"<b>装备之外</b>你还能搜多少"。枪械重量翻倍(步枪 4→7.5 / 狙击 6→9)后，同一个人去最大点位（住宅区 ≈66kg 货）：
     /// </para>
     /// <list type="bullet">
     /// <item><b>轻装出门</b>（1.3kg）⇒ 硬余量 78.7kg ⇒ <b>搬得空</b>，到家 67.3kg（移速仅剩 45%）。</item>
-    /// <item><b>中期装备</b>（13.8kg）⇒ 硬余量 66.2kg ⇒ <b>刚好搬得空</b>（只多 0.2kg 富余！），到家 79.8kg——<b>几乎钉在地上（移速 20%）</b>。</item>
-    /// <item><b>板甲重装</b>（26.9kg）⇒ 硬余量 53.1kg ⇒ <b>搬不空，得留 12.9kg 在原地</b>。</item>
+    /// <item><b>中期装备</b>（步枪7.5，17.3kg）⇒ 硬余量 62.7kg ⇒ <b>搬不空了</b>（枪翻倍前 13.8kg 时刚好搬得空，现在留 3.3kg）。</item>
+    /// <item><b>板甲重装</b>（狙击9，29.9kg）⇒ 硬余量 50.1kg ⇒ <b>搬不空，得留 15.9kg 在原地</b>；出门就差不多 30（余量 0.1kg）。</item>
     /// </list>
-    /// <b>⇒ 「要么带甲，要么带货」——这正是用户要的取舍，而且它是通过"余量"实现的，不是"出门即罚"。</b>
+    /// <b>⇒ 「要么带甲带枪，要么带货」——这正是用户要的取舍，重武器把余量吃得更狠正是本轮翻倍的意图。</b>
     /// <para>日后若调重物品重量或改上限，此测试会红，提示重新校准。</para>
     /// </summary>
     [Fact]
@@ -350,22 +369,25 @@ public class CarryCapacityTests
         const double biggestSiteKg = 66.0;
         double solo = CarryCapacity.For(1.0); // 80kg
 
-        const double lightGear = 1.3;   // 开局：匕首 + 布衣 + 长裤 + 鞋
-        const double midGear = 13.8;    // 中期：步枪 + 皮甲 + 军用头盔
-        const double heavyGear = 26.9;  // 重装：狙击 + 板甲 + 防暴头盔
+        const double lightGear = 1.3;    // 开局：匕首 + 布衣 + 长裤 + 鞋
+        const double midGear = 17.3;     // 中期：步枪7.5 + 皮甲 + 军用头盔
+        const double heavyGear = 29.9;   // 重装：狙击9 + 板甲 + 防暴头盔
 
-        // 轻装：搬得空，还富余一大截
+        // 轻装：搬得空——但若真背满 66kg 货，到家几乎走不动
         Assert.True(solo - lightGear >= biggestSiteKg, "轻装单人搬得空最大点位");
+        double lightHome = lightGear + biggestSiteKg; // 67.3kg
+        Assert.Equal(LoadoutTier.Strained, Loadout.TierOf(lightHome, solo));
+        Assert.True(Loadout.SpeedMultiplier(lightHome, solo) < 0.5, "背满 66kg 货到家，移速掉到一半以下");
 
-        // 中期：刚好搬得空（富余不到 1kg）——但到家时几乎走不动了
-        Assert.True(solo - midGear >= biggestSiteKg, "中期装备单人**刚好**搬得空");
-        Assert.True(solo - midGear - biggestSiteKg < 1.0, "而且只是刚好——富余不到 1kg");
-        double midHome = midGear + biggestSiteKg; // 79.8kg，逼近 80kg 硬顶
-        Assert.Equal(LoadoutTier.Strained, Loadout.TierOf(midHome, solo));
-        Assert.True(Loadout.SpeedMultiplier(midHome, solo) < 0.25, "背成这样，移速只剩两成——被丧尸追上就完了");
+        // 🔴 中期：枪械翻倍后，连原厂中期步枪都搬不空最大点位了（旧 4.0kg 时刚好搬得空）——留 3.3kg 在原地
+        Assert.True(solo - midGear < biggestSiteKg, "枪械翻倍后，中期原厂步枪单人也搬不空最大点位");
+        Assert.Equal(3.3, biggestSiteKg - (solo - midGear), 6); // 留在原地的那 3.3kg
 
-        // 🔴 板甲重装：**搬不空**。装备吃掉了 26.9kg 的余量 ⇒ 有 12.9kg 货只能留在原地。
-        Assert.True(solo - heavyGear < biggestSiteKg, "穿板甲的人搬不空最大点位——「能搜的空间会很小」");
-        Assert.Equal(12.9, biggestSiteKg - (solo - heavyGear), 6); // 留在原地的那 12.9kg
+        // 🔴 板甲重装：搬不空得更多。装备吃掉了 29.9kg 余量 ⇒ 有 15.9kg 货只能留在原地。
+        Assert.True(solo - heavyGear < biggestSiteKg, "穿板甲带重枪的人搬不空最大点位——「能搜的空间会很小」");
+        Assert.Equal(15.9, biggestSiteKg - (solo - heavyGear), 6); // 留在原地的那 15.9kg
+
+        // 出门那一刻：重装 29.9kg ≈ 30，仍在免罚线下不罚（用户"那出门就差不多 30 了"）
+        Assert.Equal(LoadoutTier.Unencumbered, Loadout.TierOf(heavyGear, solo));
     }
 }
