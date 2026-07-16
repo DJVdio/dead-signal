@@ -56,7 +56,7 @@ public sealed partial class CampMain
         // 门外男孩：Survivor 阵营的普通 Pawn，但**不入 _survivors**（PawnRoleManager 不排他的角色 ⇒ Role 默认、
         // Pawn.Think 不择敌不出手 ⇒ 天然"抱头蹲地不还手"）。仅 Inject + 订阅 Died + 挂 _actorLayer（不走 AddActor，
         // 避免弹药源/改装脱落等玩家幸存者接线；获救时再造一个正式皮特 Pawn 走 AddActor 漏斗）。
-        _peteBoy = Pawn.Create(PeteBoyName, usePistol: false, new Color(0.70f, 0.75f, 0.85f));
+        _peteBoy = Pawn.Create(PeteBoyName, StartingWeapon.None, new Color(0.70f, 0.75f, 0.85f)); // 门外男孩·空手
         _peteBoy.Position = new Vector2(1200f, 1560f); // 南门外（同克莉丝汀起手位）
         _peteBoy.Inject(_combat, _clock);
         _peteBoy.Died += OnPeteBoyDied;
@@ -247,7 +247,7 @@ public sealed partial class CampMain
             _peteBoy.QueueFree();
         _peteBoy = null;
 
-        var pawn = Pawn.Create(PetePerk.PeteName, usePistol: false, new Color(0.62f, 0.72f, 0.86f));
+        var pawn = Pawn.Create(PetePerk.PeteName, StartingWeapon.None, new Color(0.62f, 0.72f, 0.86f)); // authored：皮特空手入队
         pawn.Position = pos; // cartesian，原地入营
         AddActor(pawn);
         _survivors.Add(pawn);

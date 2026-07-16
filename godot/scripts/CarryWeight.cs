@@ -233,6 +233,43 @@ public static class GearWeight
 }
 
 /// <summary>
+/// 开局主手武器规格（取代旧的 <c>usePistol</c> 布尔——它只能表达"手枪 or 匕首"，撑不起 authored 的"空手/棍棒"）。
+/// </summary>
+public enum StartingWeapon
+{
+    /// <summary>空手入队（无主手武器）。authored：多数幸存者 + 皮特。</summary>
+    None,
+    /// <summary>手枪（远程）。克莉丝汀。</summary>
+    Pistol,
+    /// <summary>匕首（近战锐器）。</summary>
+    Dagger,
+    /// <summary>棍棒（近战钝器·骨折工厂）。道格。</summary>
+    Club,
+}
+
+/// <summary>起始武器 → 武器显示名 / camp.json 键解析（纯逻辑，供重量核算与 spawn 读取共用）。</summary>
+public static class StartingWeaponInfo
+{
+    /// <summary>该起始武器对应的**武器显示名**（喂 <see cref="ItemWeights.WeaponKg"/> 称重 / 建 Pawn）；无武器返回 <c>null</c>。</summary>
+    public static string? WeaponName(StartingWeapon w) => w switch
+    {
+        StartingWeapon.Pistol => WeaponTable.Pistol().Name,
+        StartingWeapon.Dagger => WeaponTable.Dagger().Name,
+        StartingWeapon.Club => WeaponTable.Club().Name,
+        _ => null,
+    };
+
+    /// <summary>camp.json 的 <c>weapon</c> 字段解析（大小写不敏感；空/未知一律 <see cref="StartingWeapon.None"/>）。</summary>
+    public static StartingWeapon FromKey(string? key) => (key ?? string.Empty).Trim().ToLowerInvariant() switch
+    {
+        "pistol" => StartingWeapon.Pistol,
+        "dagger" => StartingWeapon.Dagger,
+        "club" => StartingWeapon.Club,
+        _ => StartingWeapon.None,
+    };
+}
+
+/// <summary>
 /// 开局幸存者的初始装备清单（<c>Pawn.Create</c> 的**单一事实源**）。
 /// <para>
 /// 存在理由：覆盖自检要能**在不起 Godot 的情况下算出"一个新幸存者出门有多重"**。若这份清单只写在
@@ -255,9 +292,20 @@ public static class SurvivorStartingKit
     public static double ApparelKg
         => Apparel.Sum(a => ItemWeights.ArmorKg(a.Item));
 
-    /// <summary>一个开局幸存者出门时身上的总重（kg）：衣物 + 初始武器（手枪 or 匕首）。</summary>
-    public static double GearKg(bool usePistol)
-        => ApparelKg + ItemWeights.WeaponKg(usePistol ? "手枪" : "匕首");
+    /// <summary>
+    /// 一个开局幸存者出门时身上的总重（kg）：衣物 + 初始武器（无/手枪/匕首/棍棒）+ 可选额外穿戴品（如道格的墨镜）。
+    /// 无武器（<see cref="StartingWeapon.None"/>）时只算衣物。
+    /// </summary>
+    public static double GearKg(StartingWeapon weapon, IReadOnlyList<string>? extraApparel = null)
+    {
+        double kg = ApparelKg;
+        if (StartingWeaponInfo.WeaponName(weapon) is { } wname)
+            kg += ItemWeights.WeaponKg(wname);
+        if (extraApparel is not null)
+            foreach (string a in extraApparel)
+                kg += ItemWeights.ArmorKg(a);
+        return kg;
+    }
 }
 
 /// <summary>

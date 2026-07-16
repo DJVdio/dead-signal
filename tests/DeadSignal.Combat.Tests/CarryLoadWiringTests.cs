@@ -72,8 +72,8 @@ public class CarryLoadWiringTests
     [Fact]
     public void AStartingSurvivor_LeavesCampWithRealWeightOnHim_NotZero()
     {
-        double dagger = SurvivorStartingKit.GearKg(usePistol: false);
-        double pistol = SurvivorStartingKit.GearKg(usePistol: true);
+        double dagger = SurvivorStartingKit.GearKg(StartingWeapon.Dagger);
+        double pistol = SurvivorStartingKit.GearKg(StartingWeapon.Pistol);
 
         Assert.True(dagger > 0, "刚建好的幸存者出门时身上必须有重量——修复前这里是 0kg");
 

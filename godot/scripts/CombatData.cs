@@ -22,6 +22,9 @@ public static class CombatData
     /// <summary>匕首：近战锐器，穿透 9%（文档：匕首 9%）。</summary>
     public static Weapon Dagger() => WeaponTable.Dagger();
 
+    /// <summary>棍棒：近战钝器（骨折工厂），穿透 0%。道格开局武器。</summary>
+    public static Weapon Club() => WeaponTable.Club();
+
     /// <summary>丧尸爪击：近战钝器，穿透 3%（文档：棍棒级 3%）。天然钝器逐层保留自身穿透。</summary>
     public static Weapon ZombieClaw() => WeaponTable.ZombieClaw();
 

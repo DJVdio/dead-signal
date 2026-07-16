@@ -518,7 +518,7 @@ public sealed partial class Pawn : Actor
         }
     }
 
-    public static Pawn Create(string name, bool usePistol, Color color)
+    public static Pawn Create(string name, StartingWeapon weapon, Color color, IReadOnlyList<string>? extraApparel = null)
     {
         var p = new Pawn
         {
@@ -548,8 +548,17 @@ public sealed partial class Pawn : Actor
         else if (name == PetePerk.PeteName)
             p.Perks.GrantPete(); // 皮特：Day7 敲门救援入队（等级**不存在 Pawn 上**，由"连续五天≥3"latch + "饥饿≤5出行三次"累计从 StoryFlags 派生，见 PetePerk）
 
-        // 初始武器进【持械模型】主手（右手）：手枪→远程、匕首→近战。EquipToHand 自动按 TwoHanded 分流。
-        p._loadout.EquipToHand(usePistol ? CombatData.Pistol() : CombatData.Dagger(), Hand.Right);
+        // 初始主手武器（authored「自带装备」，逐角色）：无=空手入队 / 手枪→远程 / 匕首·棍棒→近战。
+        // EquipToHand 自动按 TwoHanded 分流；StartingWeapon.None 不发主手武器（多数幸存者 + 皮特空手入队）。
+        Weapon? primary = weapon switch
+        {
+            StartingWeapon.Pistol => CombatData.Pistol(),
+            StartingWeapon.Dagger => CombatData.Dagger(),
+            StartingWeapon.Club => CombatData.Club(),
+            _ => null,
+        };
+        if (primary is not null)
+            p._loadout.EquipToHand(primary, Hand.Right);
         // 开局发三件基础衣物：长袖布衣（贴身层护上身）+ 长裤（裤子槽护腿）+ 一双运动鞋（左右脚各一只，[SPEC-B18-补]：
         // 鞋不分左右但一只占一只脚槽，故发两只才护住双脚——开局防护等价性不变）。
         // 不带皮夹克等特殊护甲——特殊装备/护甲只能靠搜刮/制作获得（[SPEC-B16-补·护甲纠错]）。走 EquipApparel 统一路径（目录占槽+登记防御层）。
@@ -561,6 +570,15 @@ public sealed partial class Pawn : Actor
         foreach ((string item, EquipSlot? slot) in SurvivorStartingKit.Apparel)
         {
             p.EquipApparel(item, slot: slot);
+        }
+        // authored 逐角色额外穿戴品（默认空）：走同一条 EquipApparel 统一路径（目录占槽 + 登记防御层）。
+        // 现阶段唯一来源＝道格的墨镜（占眼镜槽，slot 由目录自解析）——保持接线单一，不另开旁路。
+        if (extraApparel is not null)
+        {
+            foreach (string item in extraApparel)
+            {
+                p.EquipApparel(item);
+            }
         }
         // 由两模型投影出生效战斗数据：AttackWeapon=PrimaryWeapon(+手感/IsRanged)、DefenderArmor=已穿护甲层。
         p.SyncCombatFromEquipment();

@@ -348,9 +348,10 @@
     }
   ],
 
+  "_spawnsComment": "weapon = 起始武器：缺省/none=空手 | pistol | dagger | club（旧 pistol 布尔已退役，见 StartingWeaponInfo.FromKey）。authored「自带装备」：山姆/诺蒂开局无武器（仅三件套），武器靠搜刮/制作。",
   "spawns": [
-    { "name": "山姆", "pos": [700, 900], "pistol": true, "color": [0.40, 0.65, 0.95] },
-    { "name": "诺蒂", "pos": [790, 950], "pistol": false, "color": [0.55, 0.82, 0.60] }
+    { "name": "山姆", "pos": [700, 900], "weapon": "none", "color": [0.40, 0.65, 0.95] },
+    { "name": "诺蒂", "pos": [790, 950], "weapon": "none", "color": [0.55, 0.82, 0.60] }
   ],
 
   "_guardPostsComment": "预置守卫岗位（D 守卫防御战）。kind=watchtower(哨塔/+射程)/roofPlatform(屋顶平台/+视野)/hidden(暗哨/首发)。stand=守卫驻守站位[x,y]，须在空地可寻路。实心岗位会在站位南侧自动生成结构块。坐标全为拟定待调占位。",

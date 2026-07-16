@@ -2293,7 +2293,8 @@ public sealed partial class CampMain : Node2D
         foreach (SpawnSpec s in _cfg.spawns ?? System.Array.Empty<SpawnSpec>())
         {
             Color color = ToColor(s.color, new Color(0.5f, 0.7f, 0.9f));
-            var p = Pawn.Create(s.name ?? "幸存者", s.pistol, color);
+            // 起始武器由 camp.json 的 weapon 字段（无/pistol/dagger/club）解析（旧的 pistol 布尔撑不起 authored 的"空手/棍棒"）。
+            var p = Pawn.Create(s.name ?? "幸存者", StartingWeaponInfo.FromKey(s.weapon), color);
             if (ToVec(s.pos) is { } pos)
             {
                 p.Position = pos; // cartesian
@@ -2680,7 +2681,8 @@ public sealed partial class CampMain : Node2D
             return; // 幂等：已在场不重复注入
 
         // 道格：普通 Pawn（持手枪，拟定待调；性格/台词/入队剧情=用户手写，不代写）。
-        var doug = Pawn.Create("道格", usePistol: true, new Color(0.62f, 0.56f, 0.42f));
+        // 道格 authored「自带装备」：棍棒（主手·骨折工厂）+ 墨镜（眼镜槽）+ 开局三件套。走 extraApparel 统一穿墨镜。
+        var doug = Pawn.Create("道格", StartingWeapon.Club, new Color(0.62f, 0.56f, 0.42f), extraApparel: new[] { "墨镜" });
         doug.Position = _cameraCenter + new Vector2(-40f, 0f);
         AddActor(doug);
         _survivors.Add(doug);
@@ -2857,7 +2859,7 @@ public sealed partial class CampMain : Node2D
         if (_survivors.Any(s => s.Alive && s.DisplayName == RatPerk.RatName))
             return; // 幂等：已在场不重复
 
-        var rat = Pawn.Create(RatPerk.RatName, usePistol: false, new Color(0.46f, 0.44f, 0.40f)); // 泥灰色
+        var rat = Pawn.Create(RatPerk.RatName, StartingWeapon.None, new Color(0.46f, 0.44f, 0.40f)); // 泥灰色·空手入队（wiki 占位）
         rat.Position = _cameraCenter + new Vector2(-40f, 0f);
         AddActor(rat);
         _survivors.Add(rat);
@@ -2876,7 +2878,7 @@ public sealed partial class CampMain : Node2D
         if (_survivors.Any(s => s.Alive && s.DisplayName == NurseRecruit.NurseName))
             return; // 幂等：已在场不重复
 
-        var nurse = Pawn.Create(NurseRecruit.NurseName, usePistol: false, new Color(0.78f, 0.74f, 0.70f));
+        var nurse = Pawn.Create(NurseRecruit.NurseName, StartingWeapon.None, new Color(0.78f, 0.74f, 0.70f)); // 空手入队
         nurse.Position = _cameraCenter + new Vector2(40f, 0f);
         AddActor(nurse);
         _survivors.Add(nurse);
@@ -7300,7 +7302,7 @@ public sealed partial class CampMain : Node2D
         _christine.QueueFree();
         _christine = null;
 
-        var pawn = Pawn.Create(ChristineName, usePistol: true, new Color(0.85f, 0.55f, 0.75f));
+        var pawn = Pawn.Create(ChristineName, StartingWeapon.Pistol, new Color(0.85f, 0.55f, 0.75f)); // 克莉丝汀保留手枪（gear 未改）
         pawn.Position = pos; // cartesian，原地入营
         AddActor(pawn);
         _survivors.Add(pawn);
@@ -10002,7 +10004,7 @@ public sealed partial class CampMain : Node2D
     {
         public string? name { get; set; }
         public double[]? pos { get; set; }
-        public bool pistol { get; set; }
+        public string? weapon { get; set; }   // 起始武器：无/pistol/dagger/club（旧 pistol 布尔已退役，见 StartingWeaponInfo.FromKey）
         public double[]? color { get; set; }
     }
 
