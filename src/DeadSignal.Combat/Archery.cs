@@ -82,28 +82,10 @@ public static class ArrowTable
     /// 用射程而不是"废"来定价。
     /// </para>
     /// </summary>
-    public static ArrowDef SharpenedStick() => new(
-        ArrowKeys.SharpenedStick,
-        "削尖的木箭",
-        "一根削尖的木棍，勉强算箭。它会飞，也会中，就是别指望它飞直，或者中得深。",
-        Craftable: true,
-        DamageMult: 0.75,       // 用户手改（0.70 → 0.75）
-        PenetrationMult: 0.75,  // 用户手改（0.55 → 0.75）：不再"遇甲即废"
-        RangeMult: 0.75,        // 用户手改（0.85 → 0.75）：代价集中在射程，全表最短
-        CooldownMult: 1.00,     // 拟定待调（轻，不拖慢）
-        SpreadMult: 1.10);      // 用户手改（1.30 → 1.10）：不直、无尾羽仍最散，但没那么离谱
+    public static ArrowDef SharpenedStick() => CombatCatalog.Section<ArcheryConfig>().Arrow(ArrowKeys.SharpenedStick);
 
     /// <summary>自制箭：标准自制箭，**全表基线**（系数全 1，读表以它为原点）。</summary>
-    public static ArrowDef Handmade() => new(
-        ArrowKeys.Handmade,
-        "自制箭",
-        "木杆、铁头、羽毛尾翎，手工出品。称不上精良，但每一支都长得一样——对一个弓手来说，这比精良更要紧。",
-        Craftable: true,
-        DamageMult: 1.00,
-        PenetrationMult: 1.00,
-        RangeMult: 1.00,
-        CooldownMult: 1.00,
-        SpreadMult: 1.00);
+    public static ArrowDef Handmade() => CombatCatalog.Section<ArcheryConfig>().Arrow(ArrowKeys.Handmade);
 
     /// <summary>
     /// 重头箭：**破甲专精**。用户原话「破甲能力更高，但射程和攻速有所削弱」——三个方向一条不少。
@@ -127,43 +109,27 @@ public static class ArrowTable
     /// 它真正的代价仍落在 Sim <b>量不到</b>的两处：<b>射程 −25%</b>（空间层才兑现）与<b>造价</b>（吃铁 2，比自制箭的铁 1 贵一档）。
     /// </para>
     /// </summary>
-    public static ArrowDef Heavy() => new(
-        ArrowKeys.Heavy,
-        "重头箭",
-        "箭头灌了铅，沉得手腕发酸。飞不远，抬手也慢，但扎上去的时候，护甲的意见就不太重要了。",
-        Craftable: true,
-        DamageMult: 1.25,       // 用户手改（1.35 → 1.25）：Sim 重标定给的伤害红利被收回一部分
-        PenetrationMult: 1.75,  // 用户手改（1.45 → 1.50 → 1.75）：破甲专精一路往破甲轴上加码
-        RangeMult: 0.75,        // 用户口径：射程削弱（代价主要落在这里，Sim 量不到）
-        CooldownMult: 1.10,     // 用户手改（1.25 → 1.15 → 1.10）：攻速惩罚再松一档，但仍比自制箭慢
-        SpreadMult: 1.25);      // 用户手改（1.15 → 1.25）：初速低、弹道更弯，罚得比原先更狠
+    public static ArrowDef Heavy() => CombatCatalog.Section<ArcheryConfig>().Arrow(ArrowKeys.Heavy);
 
     /// <summary>碳纤维箭：**不可制作**（无配方，只能搜刮）。四项全优 + 更准——稀缺是它唯一的代价。</summary>
-    public static ArrowDef Carbon() => new(
-        ArrowKeys.Carbon,
-        "碳纤维箭",
-        "碳纤维箭杆，笔直、轻盈、贵得离谱。工厂早就停工了，用一支少一支——所以射出去之后，你一定会回去把它捡起来。",
-        Craftable: false,
-        DamageMult: 1.25,       // 拟定待调
-        PenetrationMult: 1.25,  // 拟定待调
-        RangeMult: 1.20,        // 拟定待调
-        CooldownMult: 0.90,     // 拟定待调（轻、直、好搭弦 → 出手更快）
-        SpreadMult: 0.70);      // 拟定待调（工业级直度 → 最准）
+    public static ArrowDef Carbon() => CombatCatalog.Section<ArcheryConfig>().Arrow(ArrowKeys.Carbon);
 
-    private static readonly IReadOnlyList<ArrowDef> _all = new[]
+    /// <summary>
+    /// 全部 4 种箭（按低端→高端顺序：削尖的木箭 → 自制箭 → 重头箭 → 碳纤维箭）。
+    /// <para>顺序由这里<b>显式钉死</b>（各工厂调用的排列），不依赖 archery.json 里 <c>Arrows</c> 字典的书写序——
+    /// <c>PickCheapestAvailable</c> 的「优先用最差」语义靠这个顺序，不能被数据文件的排版改动破坏。</para>
+    /// </summary>
+    public static IReadOnlyList<ArrowDef> All => new[]
     {
         SharpenedStick(), Handmade(), Heavy(), Carbon(),
     };
 
-    /// <summary>全部 4 种箭（按低端→高端顺序）。</summary>
-    public static IReadOnlyList<ArrowDef> All => _all;
-
     /// <summary>可制作的箭（3 种；碳纤维箭不在其中）。</summary>
-    public static IEnumerable<ArrowDef> Craftable() => _all.Where(a => a.Craftable);
+    public static IEnumerable<ArrowDef> Craftable() => All.Where(a => a.Craftable);
 
     /// <summary>按材料键查一种箭；查不到返回 <c>null</c>。</summary>
     public static ArrowDef? Find(string key)
-        => key is null ? null : _all.FirstOrDefault(a => a.Key == key);
+        => key is null ? null : All.FirstOrDefault(a => a.Key == key);
 
     /// <summary>该材料键是不是一种箭。</summary>
     public static bool IsArrow(string key) => Find(key) is not null;
@@ -193,11 +159,11 @@ public static class ArrowTable
 /// </summary>
 public static class Archery
 {
-    /// <summary>穿透 clamp 上限。挡住「复合弩 0.68 × 重头箭 1.75 = 1.19 穿透」这种叠乘失控（那等于护甲系统对它不存在）。</summary>
-    public const double MaxPenetration = 0.95;
+    /// <summary>穿透 clamp 上限。挡住「复合弩 0.68 × 重头箭 1.75 = 1.19 穿透」这种叠乘失控（那等于护甲系统对它不存在）。<b>数值外置 archery.json</b>。</summary>
+    public static double MaxPenetration => CombatCatalog.Section<ArcheryConfig>().MaxPenetration;
 
-    /// <summary>散布角 clamp 下限（度）。不许任何 弓×箭 组合变成"绝对精准"——弓总有手抖。</summary>
-    public const double MinSpreadDegrees = 0.5;
+    /// <summary>散布角 clamp 下限（度）。不许任何 弓×箭 组合变成"绝对精准"——弓总有手抖。<b>数值外置 archery.json</b>。</summary>
+    public static double MinSpreadDegrees => CombatCatalog.Section<ArcheryConfig>().MinSpreadDegrees;
 
     // 🔴 ==================== 「箭下限恒 1」机制已退役（用户拍板） ====================
     //
@@ -224,11 +190,11 @@ public static class Archery
     // **单一真源在这里**。`AmmoLogic.RollArrowRecovery(n, rate, rng)` 只是个通用掷点器（rate 是入参），
     // 具体用什么 rate 由本类说了算 —— 因为"读没读过书"是弓弩的规则，不是弹药系统的规则。
 
-    /// <summary>箭矢回收率·基础：**25%**（用户拍板）。射出四支，捡回一支。</summary>
-    public const double BaseArrowRecoveryRate = 0.25;
+    /// <summary>箭矢回收率·基础：**25%**（用户拍板）。射出四支，捡回一支。<b>数值外置 archery.json</b>。</summary>
+    public static double BaseArrowRecoveryRate => CombatCatalog.Section<ArcheryConfig>().BaseArrowRecoveryRate;
 
-    /// <summary>箭矢回收率·读过《弓与箭之道》后：**50%**（用户拍板）。正好翻倍。</summary>
-    public const double SkilledArrowRecoveryRate = 0.50;
+    /// <summary>箭矢回收率·读过《弓与箭之道》后：**50%**（用户拍板）。正好翻倍。<b>数值外置 archery.json</b>。</summary>
+    public static double SkilledArrowRecoveryRate => CombatCatalog.Section<ArcheryConfig>().SkilledArrowRecoveryRate;
 
     /// <summary>
     /// 这个射手的箭矢回收率。<paramref name="hasReadArcheryBook"/> ＝ 射手**本人**读完了《弓与箭之道》没有。
@@ -265,7 +231,7 @@ public static class Archery
     /// <para>保留常量（值 1.0）而非删掉，是为了不动 <see cref="Combine"/> 的连乘管线 + 让"这条被有意中和"在代码里留痕；
     /// 弹道速度轴立项后，若用户仍要射程加成再改回即可。</para>
     /// </summary>
-    public const double BookRangeMult = 1.0;   // [T68] 1.10 → 1.0（射程加成删除，用户换成弹道速度+20%）
+    public static double BookRangeMult => CombatCatalog.Section<ArcheryConfig>().BookRangeMult;   // [T68] 1.10 → 1.0（射程加成删除，用户换成弹道速度+20%）·数值外置 archery.json
 
     /// <summary>
     /// 《弓与箭之道》·弹道速度加成：🔴 [T68] **+20%（×1.2）**——用户把原「射程 +10%」换成的那一条。
@@ -273,20 +239,21 @@ public static class Archery
     /// 出膛到命中的滞空更短。它是**射手的本事**（属于人，不属于箭），故与射程/散布/冷却三项一样作为 <see cref="Combine"/>
     /// 的射手侧入参连乘进有效武器的飞速。飞速是空间层弹道飞行属性，Sim 不建模弹道 ⇒ 本加成对 Sim 结算零影响。</para>
     /// </summary>
-    public const double BookFlightSpeedMult = 1.2;
+    public static double BookFlightSpeedMult => CombatCatalog.Section<ArcheryConfig>().BookFlightSpeedMult;
 
-    /// <summary>《弓与箭之道》·锥形角（散布）加成：**−10%**（用户口径）——散布收窄即更准。仍受 <see cref="MinSpreadDegrees"/> 钳制。</summary>
-    public const double BookSpreadMult = 0.90;
+    /// <summary>《弓与箭之道》·锥形角（散布）加成：**−10%**（用户口径）——散布收窄即更准。仍受 <see cref="MinSpreadDegrees"/> 钳制。<b>数值外置 archery.json</b>。</summary>
+    public static double BookSpreadMult => CombatCatalog.Section<ArcheryConfig>().BookSpreadMult;
 
-    /// <summary>《弓与箭之道》·攻速加成：**+2%**（用户口径）。攻速＝每秒出手数，故它是**冷却的倒数**，见 <see cref="BookCooldownMult"/>。</summary>
-    public const double BookAttackSpeedMult = 1.02;
+    /// <summary>《弓与箭之道》·攻速加成：**+2%**（用户口径）。攻速＝每秒出手数，故它是**冷却的倒数**，见 <see cref="BookCooldownMult"/>。<b>数值外置 archery.json</b>。</summary>
+    public static double BookAttackSpeedMult => CombatCatalog.Section<ArcheryConfig>().BookAttackSpeedMult;
 
     /// <summary>
     /// 攻速 +2% 折算到出手间隔上的乘数 ＝ 1 / 1.02 ≈ 0.9804（间隔变短）。
     /// **别把 0.98 直接写死**：攻速 +2% 与间隔 −2% 不是同一件事（1/1.02 = 0.98039…），
     /// 加成轴一律以"攻速"为准，间隔由它派生。
+    /// <para><b>派生量，不入 archery.json</b>：由 <see cref="BookAttackSpeedMult"/>（外置）现算，避免两处真源打架。</para>
     /// </summary>
-    public const double BookCooldownMult = 1.0 / BookAttackSpeedMult;
+    public static double BookCooldownMult => 1.0 / BookAttackSpeedMult;
 
     /// <summary>
     /// 掷一次箭矢回收：<paramref name="arrowsFired"/> 支箭**各自独立** roll，返回捡回的支数。

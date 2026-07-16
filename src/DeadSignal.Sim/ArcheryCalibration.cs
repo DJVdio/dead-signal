@@ -341,9 +341,10 @@ public static class ArcheryCalibration
         sb.AppendLine();
     }
 
-    private const double BookRange = Archery.BookRangeMult;
-    private const double BookSpread = Archery.BookSpreadMult;
-    private const double BookSpeed = Archery.BookAttackSpeedMult;
+    // 数值外置 archery.json 后，Archery.Book* 由 const 变为读 config 的静态属性 ⇒ 此处不能再用 const（编译期常量只能引用 const）。
+    private static readonly double BookRange = Archery.BookRangeMult;
+    private static readonly double BookSpread = Archery.BookSpreadMult;
+    private static readonly double BookSpeed = Archery.BookAttackSpeedMult;
 
     // ---- harness ----
 

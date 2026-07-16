@@ -1,0 +1,22 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://dead-signal/config/ammo.schema.json",
+  "title": "Dead Signal 弹药数值表 (ammo.json)",
+  "description": "战斗数值外置：弹药键 → 弹药 POCO。当前唯一数值＝「1 个子弹零件造几发」的制作比。字段对应 src/DeadSignal.Combat/Ammo.cs 的 AmmoDef。只收四种可造子弹（短/中/长/鹿弹）；箭(ammo_arrow)是类别键、不吃子弹零件、不进本表。缺 combat 配置游戏 fail-fast。",
+  "type": "object",
+  "additionalProperties": { "$ref": "#/definitions/ammo" },
+  "definitions": {
+    "ammo": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["YieldPerBulletPart"],
+      "properties": {
+        "YieldPerBulletPart": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "1 个子弹零件能造出多少发该弹药（短 8 / 中 5 / 鹿 4 / 长 2）。"
+        }
+      }
+    }
+  }
+}

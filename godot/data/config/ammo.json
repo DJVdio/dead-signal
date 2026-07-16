@@ -1,0 +1,14 @@
+{
+  "ammo_short": {
+    "YieldPerBulletPart": 8
+  },
+  "ammo_medium": {
+    "YieldPerBulletPart": 5
+  },
+  "ammo_buck": {
+    "YieldPerBulletPart": 4
+  },
+  "ammo_long": {
+    "YieldPerBulletPart": 2
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://dead-signal/config/body.schema.json",
+  "title": "Dead Signal 身体部位数值表 (body.json)",
+  "description": "身体部位可调数值外置。⚠️只含数值：部位体积权重(命中倾向)+最大HP(也是切除阈值)与残疾惩罚系数。部位名/分类(Region/Category)/父子拓扑是结构、仍在 src/DeadSignal.Combat/HumanBody.cs 代码里。缺 combat 配置游戏 fail-fast。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["Parts", "Disability"],
+  "properties": {
+    "Parts": {
+      "type": "object",
+      "description": "部位名(中文，对应 HumanBody 的部位 const) → 该部位可调数字。",
+      "additionalProperties": { "$ref": "#/definitions/partStats" }
+    },
+    "Disability": { "$ref": "#/definitions/disability" }
+  },
+  "definitions": {
+    "partStats": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["VolumeWeight", "MaxHp"],
+      "properties": {
+        "VolumeWeight": { "type": "number", "minimum": 0, "description": "体积权重：命中按此加权随机分配。" },
+        "MaxHp": { "type": "number", "minimum": 0, "description": "最大 HP，同时是切除阈值(单次伤害≥此值→切除)。" }
+      }
+    },
+    "disability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["SingleLimbPenalty", "FingerPenalty", "ToePenalty"],
+      "properties": {
+        "SingleLimbPenalty": { "type": "number", "minimum": 0, "maximum": 1, "description": "单手/单腿失去 = 全局能力 −50%(两侧累加 −100%)。" },
+        "FingerPenalty": { "type": "number", "minimum": 0, "maximum": 1, "description": "未失去的手每失去一指 −7%(该手上限 −50%)。" },
+        "ToePenalty": { "type": "number", "minimum": 0, "maximum": 1, "description": "未失去的脚每失去一趾 −2%(该脚上限 −50%)。" }
+      }
+    }
+  }
+}

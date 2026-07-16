@@ -1,0 +1,22 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://dead-signal/config/nightwatch.schema.json",
+  "title": "Dead Signal 夜防对抗数值表 (nightwatch.json)",
+  "description": "消费层数值外置：袭击者潜行力权重（裸载荷 POCO）。字段名/类型对应 godot/scripts/NightWatchConfig.cs。ApparelStealth 服饰潜行表是 authored 内容，留在 NightWatchContest.cs 不外置。缺配置游戏 fail-fast。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "StealthDarknessWeight",
+    "StealthApparelWeight",
+    "StealthDistanceWeight",
+    "StealthDistanceReference",
+    "StealthCoverWeight"
+  ],
+  "properties": {
+    "StealthDarknessWeight": { "type": "number", "minimum": 0, "description": "黑暗项权重：局部光照越低越隐蔽（贡献 = 权重×(1-L)）。" },
+    "StealthApparelWeight": { "type": "number", "minimum": 0, "description": "服饰项权重：服饰潜行值合计的放大系数。" },
+    "StealthDistanceWeight": { "type": "number", "minimum": 0, "description": "距离项权重：越远越难被察觉。" },
+    "StealthDistanceReference": { "type": "number", "exclusiveMinimum": 0, "description": "距离项归一参考（世界像素）：距离≥此值时距离项达满档。" },
+    "StealthCoverWeight": { "type": "number", "minimum": 0, "description": "遮蔽项权重：视野遮蔽物权重 [0,1] 的放大系数。" }
+  }
+}

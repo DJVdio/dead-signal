@@ -1,0 +1,52 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://dead-signal/config/archery.schema.json",
+  "title": "Dead Signal 弓弩数值表 (archery.json)",
+  "description": "战斗数值外置：弓弩子系统的数据。①4 种箭（materialKey → ArrowDef）——箭是一组作用在弓/弩上的乘法修正系数，见 src/DeadSignal.Combat/Archery.cs 的 ArrowDef；②射手/弓弩全局可调标量（穿透封顶、散布下限、箭矢回收率、《弓与箭之道》被动加成）。弓/弩本身是武器，在 weapons.json。Archery.Combine 的纯函数逻辑不外置。缺 combat 配置游戏 fail-fast。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "MaxPenetration",
+    "MinSpreadDegrees",
+    "BaseArrowRecoveryRate",
+    "SkilledArrowRecoveryRate",
+    "BookRangeMult",
+    "BookFlightSpeedMult",
+    "BookSpreadMult",
+    "BookAttackSpeedMult",
+    "Arrows"
+  ],
+  "properties": {
+    "MaxPenetration": { "type": "number", "minimum": 0, "maximum": 1, "description": "穿透 clamp 上限（弓×箭叠乘后封顶，全游戏破甲绝对上限）。" },
+    "MinSpreadDegrees": { "type": "number", "minimum": 0, "description": "散布角 clamp 下限（度）——不许任何弓×箭组合变绝对精准。" },
+    "BaseArrowRecoveryRate": { "type": "number", "minimum": 0, "maximum": 1, "description": "箭矢回收率·基础（射四支捡回一支＝0.25）。" },
+    "SkilledArrowRecoveryRate": { "type": "number", "minimum": 0, "maximum": 1, "description": "箭矢回收率·读过《弓与箭之道》后（0.50）。" },
+    "BookRangeMult": { "type": "number", "description": "《弓与箭之道》·射程加成乘子（[T68] 已中和为 1.0）。" },
+    "BookFlightSpeedMult": { "type": "number", "description": "《弓与箭之道》·弹道速度加成乘子（[T68] ×1.2）。" },
+    "BookSpreadMult": { "type": "number", "description": "《弓与箭之道》·散布（锥形角）加成乘子（−10% ⇒ 0.90）。" },
+    "BookAttackSpeedMult": { "type": "number", "description": "《弓与箭之道》·攻速加成乘子（+2% ⇒ 1.02；出手间隔的倒数由代码现算，不入表）。" },
+    "Arrows": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/definitions/arrow" },
+      "description": "materialKey → 箭定义。声明 4 种：ammo_arrow_stick / ammo_arrow_handmade / ammo_arrow_heavy / ammo_arrow_carbon。"
+    }
+  },
+  "definitions": {
+    "arrow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["Key", "Name", "Craftable", "DamageMult", "PenetrationMult", "RangeMult", "CooldownMult", "SpreadMult"],
+      "properties": {
+        "Key": { "type": "string", "description": "库存材料键（ammo_arrow_*）——须与 Arrows 字典键一致。" },
+        "Name": { "type": "string", "description": "玩家可见名（中文）。" },
+        "Description": { "type": "string", "description": "一行风味描述（UI 展示，不参与结算）。" },
+        "Craftable": { "type": "boolean", "description": "是否可制作（false=只能搜刮，如碳纤维箭）。" },
+        "DamageMult": { "type": "number", "description": "伤害上限乘数（>1 更好；只改上限，下限由弓/弩各自 wiki 值决定）。" },
+        "PenetrationMult": { "type": "number", "description": "穿透乘数（结果 clamp 到 ≤ MaxPenetration）。" },
+        "RangeMult": { "type": "number", "description": "射程乘数（同时缩放 MaxRange 与 FalloffStart）。" },
+        "CooldownMult": { "type": "number", "description": "冷却乘数（>1 出手更慢）。" },
+        "SpreadMult": { "type": "number", "description": "散布角乘数（>1 更不准；结果 clamp 到 ≥ MinSpreadDegrees）。" }
+      }
+    }
+  }
+}

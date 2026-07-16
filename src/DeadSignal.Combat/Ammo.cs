@@ -40,23 +40,34 @@ public static class AmmoKeys
 }
 
 /// <summary>
+/// 一种弹药的数值（当前<b>唯一</b>字段＝"1 个子弹零件造几发"的制作比）。
+/// <para>
+/// 🔴 <b>数值真源在 <c>ammo.json</c></b>（见 <see cref="AmmoConfig"/>）——短 8 / 中 5 / 鹿 4 / 长 2 已从
+/// C# 常量搬到配置。箭（<see cref="AmmoKeys.Arrow"/>）<b>不吃子弹零件、不在 ammo.json 里</b>，
+/// 查它走 <see cref="AmmoConfig.YieldPerBulletPart"/> 的缺省 0（保留旧 <c>_ =&gt; 0</c> 语义）。
+/// </para>
+/// </summary>
+public sealed class AmmoDef
+{
+    /// <summary>1 个子弹零件能造出多少发该弹药（短 8 / 中 5 / 鹿 4 / 长 2）。</summary>
+    public int YieldPerBulletPart { get; init; }
+}
+
+/// <summary>
 /// 「子弹零件」——四种子弹的<b>唯一</b>共同原料（弹壳 / 底火 / 弹头坯这些没法用土办法糊弄的精密件）。
-/// 用户拍板的制作比（1 个零件 → N 发）全部挂在这里：短 8 / 中 5 / 鹿 4 / 长 2。
+/// 用户拍板的制作比（1 个零件 → N 发）＝短 8 / 中 5 / 鹿 4 / 长 2，数值真源在 <c>ammo.json</c>（<see cref="AmmoConfig"/>）。
 /// </summary>
 public static class BulletParts
 {
     /// <summary>材料标识键（<c>Materials</c> 目录里的一条）。</summary>
     public const string Key = "bullet_parts";
 
-    /// <summary>1 个子弹零件能造出多少发该弹药；不是子弹类弹药（箭）返回 0。</summary>
-    public static int YieldPer(string ammoKey) => ammoKey switch
-    {
-        AmmoKeys.ShortBullet => 8,
-        AmmoKeys.MediumBullet => 5,
-        AmmoKeys.Buckshot => 4,
-        AmmoKeys.LongBullet => 2,
-        _ => 0,
-    };
+    /// <summary>
+    /// 1 个子弹零件能造出多少发该弹药；不是子弹类弹药（箭）或未知键返回 0。
+    /// 数值读自 <c>ammo.json</c>（<see cref="AmmoConfig"/>）——搬家前是硬编码 <c>switch</c>（短 8/中 5/鹿 4/长 2），零漂移。
+    /// </summary>
+    public static int YieldPer(string ammoKey) =>
+        CombatCatalog.Section<AmmoConfig>().YieldPerBulletPart(ammoKey);
 }
 
 /// <summary>

@@ -1,0 +1,455 @@
+{
+  "long_sleeve_shirt": {
+    "Name": "长袖布衣",
+    "Description": "袖子确实是长的。",
+    "SharpDefense": 6,
+    "BluntDefense": 3,
+    "Weight": 0.15,
+    "Slot": "Skin",
+    "CoversParts": [
+      "胸",
+      "腹",
+      "左手臂",
+      "右手臂"
+    ]
+  },
+  "floral_shirt": {
+    "Name": "花衬衫",
+    "Description": "夏威夷风格，足够喜庆。",
+    "SharpDefense": 6,
+    "BluntDefense": 3,
+    "Weight": 0.15,
+    "Slot": "Skin",
+    "CoversParts": [
+      "胸",
+      "腹",
+      "左手臂",
+      "右手臂"
+    ]
+  },
+  "trousers": {
+    "Name": "长裤",
+    "Description": "挡风挡蚊子，挡不住长牙的东西。",
+    "SharpDefense": 6,
+    "BluntDefense": 3,
+    "Weight": 0.15,
+    "Slot": "Skin",
+    "CoversParts": [
+      "左大腿",
+      "右大腿",
+      "左小腿",
+      "右小腿"
+    ]
+  },
+  "sneakers": {
+    "Name": "运动鞋",
+    "Description": "跑快一点点——但愿比丧尸快点。",
+    "SharpDefense": 6,
+    "BluntDefense": 3,
+    "Weight": 0.25,
+    "Slot": "Skin",
+    "CoversParts": [
+      "右脚",
+      "右脚五趾",
+      "右脚四趾",
+      "右脚三趾",
+      "右脚二趾",
+      "右脚拇趾",
+      "左脚",
+      "左脚五趾",
+      "左脚四趾",
+      "左脚三趾",
+      "左脚二趾",
+      "左脚拇趾"
+    ]
+  },
+  "shorts": {
+    "Name": "短裤",
+    "Description": "夏日风格。",
+    "SharpDefense": 6,
+    "BluntDefense": 3,
+    "Weight": 0.1,
+    "Slot": "Skin",
+    "CoversParts": [
+      "左大腿",
+      "右大腿"
+    ]
+  },
+  "chest_plate": {
+    "Name": "皮革胸甲",
+    "Description": "保护你的心。",
+    "SharpDefense": 25,
+    "BluntDefense": 12.5,
+    "Weight": 4,
+    "Slot": "Plate",
+    "CoversParts": [
+      "胸"
+    ]
+  },
+  "coarse_cloth_vest": {
+    "Name": "粗布背心",
+    "Description": "“缝缝补补又三年。”——奶奶",
+    "SharpDefense": 6,
+    "BluntDefense": 3,
+    "Weight": 0.1,
+    "Slot": "Outer",
+    "CoversParts": [
+      "胸",
+      "腹"
+    ]
+  },
+  "coarse_cloth_coat": {
+    "Name": "粗布外套",
+    "Description": "天气转凉了，记得添外套。",
+    "SharpDefense": 6,
+    "BluntDefense": 3,
+    "Weight": 0.25,
+    "Slot": "Outer",
+    "CoversParts": [
+      "胸",
+      "腹",
+      "左手臂",
+      "右手臂"
+    ]
+  },
+  "cloth_jacket": {
+    "Name": "布夹克",
+    "Description": "上班穿它，开会穿它，被咬那天也穿着它。",
+    "SharpDefense": 7.5,
+    "BluntDefense": 4,
+    "Weight": 0.3,
+    "Slot": "Outer",
+    "CoversParts": [
+      "胸",
+      "腹",
+      "左手臂",
+      "右手臂"
+    ]
+  },
+  "denim_jacket": {
+    "Name": "牛仔外套",
+    "Description": "耐磨、耐脏、耐撕咬——前两样是真的。",
+    "SharpDefense": 10,
+    "BluntDefense": 4,
+    "Weight": 0.6,
+    "Slot": "Outer",
+    "CoversParts": [
+      "胸",
+      "腹",
+      "左手臂",
+      "右手臂"
+    ]
+  },
+  "leather_jacket": {
+    "Name": "皮夹克",
+    "Description": "骑上摩托，倍有范儿。",
+    "SharpDefense": 18,
+    "BluntDefense": 9,
+    "Weight": 0.5,
+    "Slot": "Outer",
+    "CoversParts": [
+      "胸",
+      "腹",
+      "左手臂",
+      "右手臂"
+    ]
+  },
+  "leather": {
+    "Name": "皮甲",
+    "Description": "结实的鞣皮甲。",
+    "SharpDefense": 25,
+    "BluntDefense": 12.5,
+    "Weight": 6,
+    "Slot": "Plate",
+    "CoversParts": [
+      "胸",
+      "腹",
+      "左手臂",
+      "右手臂"
+    ]
+  },
+  "plate": {
+    "Name": "板甲",
+    "Description": "重吗？他能保护你脆弱的肉体。",
+    "SharpDefense": 70,
+    "BluntDefense": 35,
+    "Weight": 15,
+    "Slot": "Plate",
+    "CoversParts": [
+      "胸",
+      "腹",
+      "左手臂",
+      "右手臂",
+      "左大腿",
+      "右大腿",
+      "左小腿",
+      "右小腿"
+    ]
+  },
+  "military_helmet": {
+    "Name": "军用头盔",
+    "Description": "钢盔挡得住从天上掉下来的一切。麻烦在于，咬人的东西是从正面扑过来的。",
+    "SharpDefense": 28,
+    "BluntDefense": 14,
+    "Weight": 2.5,
+    "Slot": "Plate",
+    "CoversParts": [
+      "头"
+    ]
+  },
+  "riot_helmet": {
+    "Name": "防暴头盔",
+    "Description": "面罩挡得下砖头、棍棒和唾沫星子——上一任主人遇上的，不在这三样里。",
+    "SharpDefense": 35,
+    "BluntDefense": 22,
+    "Weight": 4.5,
+    "Slot": "Plate",
+    "CoversParts": [
+      "头",
+      "左眼",
+      "右眼",
+      "鼻",
+      "下巴"
+    ]
+  },
+  "work_gloves": {
+    "Name": "劳保手套",
+    "Description": "“劳动人民最光荣。”——奶奶",
+    "SharpDefense": 6,
+    "BluntDefense": 3,
+    "Weight": 0.05,
+    "Slot": "Skin",
+    "CoversParts": [
+      "右手",
+      "右手小指",
+      "右手无名指",
+      "右手中指",
+      "右手食指",
+      "右手拇指",
+      "左手",
+      "左手小指",
+      "左手无名指",
+      "左手中指",
+      "左手食指",
+      "左手拇指"
+    ]
+  },
+  "war_mask": {
+    "Name": "战争面具",
+    "Description": "骨片与木头缝成的脸。戴上它你不会更有勇气——但扑上来的东西第一口咬到的是骨头，不是你的鼻子。",
+    "SharpDefense": 12,
+    "BluntDefense": 6,
+    "Weight": 0.3,
+    "Slot": "Plate",
+    "CoversParts": [
+      "鼻",
+      "下巴",
+      "左眼",
+      "右眼"
+    ]
+  },
+  "cotton_hat": {
+    "Name": "棉帽",
+    "Description": "毛茸茸的，冬季必备。",
+    "SharpDefense": 6,
+    "BluntDefense": 3,
+    "Weight": 0.15,
+    "Slot": "Skin",
+    "CoversParts": [
+      "头",
+      "左耳",
+      "右耳"
+    ]
+  },
+  "coarse_cloth_shirt": {
+    "Name": "粗布衬衫",
+    "Description": "自己缝的衬衫，针脚歪得像条走投无路的路。它挡不住多少东西，但它至少是你的。",
+    "SharpDefense": 6,
+    "BluntDefense": 3,
+    "Weight": 0.15,
+    "Slot": "Skin",
+    "CoversParts": [
+      "胸",
+      "腹",
+      "左手臂",
+      "右手臂"
+    ]
+  },
+  "coarse_shorts": {
+    "Name": "粗布短裤",
+    "Description": "布不够长，就成了短裤。小腿从此归风、蚊子和一切有牙齿的东西共有。",
+    "SharpDefense": 6,
+    "BluntDefense": 3,
+    "Weight": 0.1,
+    "Slot": "Skin",
+    "CoversParts": [
+      "左大腿",
+      "右大腿"
+    ]
+  },
+  "coarse_trousers": {
+    "Name": "粗布长裤",
+    "Description": "多缝了一截，小腿就有了着落。末日里的奢侈就是这么算的。",
+    "SharpDefense": 6,
+    "BluntDefense": 3,
+    "Weight": 0.15,
+    "Slot": "Skin",
+    "CoversParts": [
+      "左大腿",
+      "右大腿",
+      "左小腿",
+      "右小腿"
+    ]
+  },
+  "horror_armor": {
+    "Name": "恐怖装甲",
+    "Description": "每一片防护都来自于没做够防护的人",
+    "SharpDefense": 20,
+    "BluntDefense": 10,
+    "Weight": 3,
+    "Slot": "Plate",
+    "CoversParts": [
+      "胸",
+      "腹"
+    ]
+  },
+  "sunglasses": {
+    "Name": "墨镜",
+    "Description": "直面太阳吧！",
+    "SharpDefense": 1,
+    "BluntDefense": 1,
+    "Weight": 0.1,
+    "Slot": "Skin",
+    "CoversParts": [
+      "左眼",
+      "右眼"
+    ]
+  },
+  "plain_glasses": {
+    "Name": "平光眼镜",
+    "Description": "至少看起来很像知识分子。",
+    "SharpDefense": 1,
+    "BluntDefense": 1,
+    "Weight": 0.1,
+    "Slot": "Skin",
+    "CoversParts": [
+      "左眼",
+      "右眼"
+    ]
+  },
+  "self_made_snow_goggles": {
+    "Name": "自制简易墨镜",
+    "Description": "木制眼罩，只留有两条缝进光，可以有效避免雪盲。",
+    "SharpDefense": 12,
+    "BluntDefense": 6,
+    "Weight": 0.1,
+    "Slot": "Skin",
+    "CoversParts": [
+      "左眼",
+      "右眼"
+    ]
+  },
+  "ankle_guard": {
+    "Name": "护踝鞋具",
+    "Description": "高帮硬底，裹住脚踝到小腿——踩过碎玻璃也不必皱眉。",
+    "SharpDefense": 12,
+    "BluntDefense": 6,
+    "Weight": 0.75,
+    "Slot": "Skin",
+    "CoversParts": [
+      "右小腿",
+      "右脚",
+      "右脚五趾",
+      "右脚四趾",
+      "右脚三趾",
+      "右脚二趾",
+      "右脚拇趾",
+      "左小腿",
+      "左脚",
+      "左脚五趾",
+      "左脚四趾",
+      "左脚三趾",
+      "左脚二趾",
+      "左脚拇趾"
+    ]
+  },
+  "ballistic_vest": {
+    "Name": "防弹背心",
+    "Description": "它挡得下子弹——前提是那颗子弹讲道理，正对着胸口飞来。",
+    "SharpDefense": 20,
+    "BluntDefense": 30,
+    "Weight": 2.5,
+    "Slot": "Skin",
+    "CoversParts": [
+      "胸",
+      "腹"
+    ]
+  },
+  "dog_cloth_vest": {
+    "Name": "布制狗衣",
+    "Description": "给可爱的狗狗穿上可爱的衣服。",
+    "SharpDefense": 6,
+    "BluntDefense": 3,
+    "Weight": 0.15,
+    "Slot": "Skin",
+    "CoversParts": [
+      "胸",
+      "腹"
+    ]
+  },
+  "dog_leather_vest": {
+    "Name": "皮制狗衣",
+    "Description": "狗皮外的另一层皮。",
+    "SharpDefense": 12,
+    "BluntDefense": 6,
+    "Weight": 0.5,
+    "Slot": "Outer",
+    "CoversParts": [
+      "胸",
+      "腹"
+    ]
+  },
+  "dog_pocket_vest": {
+    "Name": "口袋狗衣",
+    "Description": "好狗，好狗。",
+    "SharpDefense": 2,
+    "BluntDefense": 1,
+    "Weight": 0.25,
+    "Slot": "Skin",
+    "CoversParts": [
+      "胸",
+      "腹"
+    ]
+  },
+  "dog_iron_helmet": {
+    "Name": "铁皮头甲",
+    "Description": "狗狗也戴头盔。",
+    "SharpDefense": 18,
+    "BluntDefense": 12,
+    "Weight": 3,
+    "Slot": "Plate",
+    "CoversParts": [
+      "头"
+    ]
+  },
+  "dog_wire_helmet": {
+    "Name": "铁丝头甲",
+    "Description": "曾经保护你的，现在保护狗。",
+    "SharpDefense": 12,
+    "BluntDefense": 12,
+    "Weight": 1.5,
+    "Slot": "Plate",
+    "CoversParts": [
+      "头"
+    ]
+  },
+  "zombie_hide": {
+    "Name": "腐皮",
+    "Description": "丧尸自带的一层烂皮。",
+    "SharpDefense": 3,
+    "BluntDefense": 3,
+    "Weight": 0,
+    "Slot": "Skin",
+    "CoversParts": null
+  }
+}

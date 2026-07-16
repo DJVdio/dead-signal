@@ -15,9 +15,18 @@ public sealed class CombatConfig
     /// <summary>武器段（weapons.json）。</summary>
     public WeaponConfig Weapons { get; init; } = new();
 
+    /// <summary>护甲段（armor.json）。</summary>
+    public ArmorConfig Armor { get; init; } = new();
+
+    /// <summary>弓弩段（archery.json）：4 种箭 + 穿透封顶/散布下限/回收率/《弓与箭之道》三项被动。</summary>
+    public ArcheryConfig Archery { get; init; } = new();
+
+    /// <summary>弹药段（ammo.json）：四种可造子弹的「1 个子弹零件造几发」制作比（短 8/中 5/鹿 4/长 2）。</summary>
+    public AmmoConfig Ammo { get; init; } = new();
+
+    /// <summary>身体段（body.json）：部位体积权重(命中倾向)+最大 HP(切除阈值) 与残疾惩罚(单肢/每指/每趾)。</summary>
+    public BodyConfig Body { get; init; } = new();
+
     // ── 后续 config 迁移单在此加一行（各自独立、互不撞车）──────────────────
-    // public ArmorConfig   Armor   { get; init; } = new();   // armor.json
-    // public AmmoConfig    Ammo    { get; init; } = new();   // ammo.json
-    // public ArcheryConfig Archery { get; init; } = new();   // archery.json
     // …
 }

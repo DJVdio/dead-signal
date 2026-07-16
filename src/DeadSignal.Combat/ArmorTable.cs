@@ -1,7 +1,9 @@
 namespace DeadSignal.Combat;
 
 /// <summary>
-/// 唯一权威护甲数据源，逐格对齐数据表 <c>docs/items-data.xlsx</c>『护甲表』（[SPEC-B18] 整表重做，[SPEC-B19] 补头盔）。
+/// 唯一权威护甲数据源。<b>[数值外置]</b> 数值已从本类 C# 常量搬到 <c>godot/data/config/armor.json</c>（id → <see cref="ArmorLayer"/>），
+/// 工厂方法（<c>ArmorTable.Plate()</c> …）身体改为 <c>=&gt; Cfg("plate")</c>——方法名/文档/组表遍历序全保留、~调用点零改。
+/// 逐格对齐数据表『护甲表』（[SPEC-B18] 整表重做，[SPEC-B19] 补头盔）。
 /// 表 31 件 = 人形 26（长袖布衣/花衬衫/长裤/运动鞋/短裤/皮革胸甲/粗布背心/粗布外套/布夹克/牛仔外套/皮夹克/皮甲/板甲/<b>军用头盔/防暴头盔</b>/劳保手套/腐皮
 /// + [批次21·T26] <b>战争面具/粗布衬衫/粗布短裤/粗布长裤</b> + [T59] <b>棉帽</b> + <b>恐怖装甲/墨镜/平光眼镜/自制简易墨镜(雪镜)</b>）+ 狗 5（布制/皮制/口袋狗衣、铁皮/铁丝头甲）。**护甲不分阵营**（[SPEC-B16-补·护甲纠错]）——
 /// <see cref="ArmorLayer"/> 只有防御值与覆盖部位，谁穿是生成侧的事。
@@ -25,140 +27,56 @@ namespace DeadSignal.Combat;
 /// </summary>
 public static class ArmorTable
 {
-    // ---- 覆盖部位常用集合（对齐表『防护部位』列写法）----
-
-    /// <summary>躯干：胸 + 腹。</summary>
-    private static HashSet<string> Torso() => new() { HumanBody.Chest, HumanBody.Abdomen };
-
-    /// <summary>躯干 + 双臂（表写「胸、腹、左手臂、右手臂」；左右臂 = 整条胳膊，不含手；手另有手套覆盖）。</summary>
-    private static HashSet<string> TorsoAndArms() => new()
-    {
-        HumanBody.Chest, HumanBody.Abdomen, HumanBody.LeftArm, HumanBody.RightArm,
-    };
-
-    /// <summary>双腿：大腿 + 小腿（脚另有鞋覆盖）。</summary>
-    private static HashSet<string> Legs() => new()
-    {
-        HumanBody.LeftLeg, HumanBody.RightLeg, HumanBody.LeftCalf, HumanBody.RightCalf,
-    };
+    /// <summary>护甲数值取用糖：按 id 从 <c>armor.json</c>（<see cref="ArmorConfig"/> 段）取一件护甲层，缺失 fail-fast。</summary>
+    private static ArmorLayer Cfg(string id) => CombatCatalog.Section<ArmorConfig>().Get(id);
 
     // ---- 人形通用（表『类别/用途』= 通用(人形)）----
 
     /// <summary>长袖布衣（贴身层，护胸+腹+双臂）：开局三件套之一。</summary>
-    public static ArmorLayer LongSleeveShirt() => new()
-    {
-        Name = "长袖布衣", Description = "袖子确实是长的。",
-        Slot = ArmorSlot.Skin, SharpDefense = 6, BluntDefense = 3, Weight = 0.15,
-        CoversParts = TorsoAndArms(),
-    };
+    public static ArmorLayer LongSleeveShirt() => Cfg("long_sleeve_shirt");
 
     /// <summary>
     /// 花衬衫（贴身层，护胸+腹+双臂）：数值与长袖布衣同档——它就是一件衬衫，只是花的。
     /// 开局营地里那具尸体身上穿的就是这件（山姆的祖母，见 NarrativeSpotRegistry 祖母调查点）：可以扒下来穿。
     /// </summary>
-    public static ArmorLayer FloralShirt() => new()
-    {
-        Name = "花衬衫", Description = "夏威夷风格，足够喜庆。",
-        Slot = ArmorSlot.Skin, SharpDefense = 6, BluntDefense = 3, Weight = 0.15,
-        CoversParts = TorsoAndArms(),
-    };
+    public static ArmorLayer FloralShirt() => Cfg("floral_shirt");
 
     /// <summary>长裤（裤装槽，护双大腿+双小腿）：开局三件套之一。</summary>
-    public static ArmorLayer Trousers() => new()
-    {
-        Name = "长裤", Description = "挡风挡蚊子，挡不住长牙的东西。",
-        Slot = ArmorSlot.Skin, SharpDefense = 6, BluntDefense = 3, Weight = 0.15,
-        CoversParts = Legs(),
-    };
+    public static ArmorLayer Trousers() => Cfg("trousers");
 
     /// <summary>
     /// 运动鞋（脚槽，表口径护双脚含脚趾）：开局三件套之一。<b>成对品</b>——鞋不分左右，但一只只占一只脚槽、
     /// 只护那一只脚；护住双脚要两只（[SPEC-B18-补]）。此处 CoversParts 是表口径（两侧合计），
     /// 实际生效覆盖按穿戴那一侧裁剪（见 ApparelCatalog.CoversFor）。
     /// </summary>
-    public static ArmorLayer Sneakers() => new()
-    {
-        Name = "运动鞋", Description = "跑快一点点——但愿比丧尸快点。",
-        Slot = ArmorSlot.Skin, SharpDefense = 6, BluntDefense = 3, Weight = 0.25,
-        CoversParts = HumanBody.SubtreeNames(HumanBody.LeftFoot, HumanBody.RightFoot),
-    };
+    public static ArmorLayer Sneakers() => Cfg("sneakers");
 
     /// <summary>短裤（裤装槽，仅护大腿=不防小腿）：与长裤同槽互斥，更轻，代价是小腿裸露。</summary>
-    public static ArmorLayer Shorts() => new()
-    {
-        Name = "短裤", Description = "夏日风格。",
-        Slot = ArmorSlot.Skin, SharpDefense = 6, BluntDefense = 3, Weight = 0.1,
-        CoversParts = new HashSet<string> { HumanBody.LeftLeg, HumanBody.RightLeg },
-    };
+    public static ArmorLayer Shorts() => Cfg("shorts");
 
     /// <summary>皮革胸甲（装甲层，仅护胸=不防腹）：刚性护心甲，与皮甲/板甲同占装甲层、互斥。</summary>
-    public static ArmorLayer ChestPlate() => new()
-    {
-        Name = "皮革胸甲", Description = "保护你的心。",
-        Slot = ArmorSlot.Plate, SharpDefense = 25, BluntDefense = 12.5, Weight = 4,
-        CoversParts = new HashSet<string> { HumanBody.Chest },
-    };
+    public static ArmorLayer ChestPlate() => Cfg("chest_plate");
 
     /// <summary>粗布背心（外套层，仅护胸+腹）：可制作布甲（读《裁缝手记》解锁）。无袖=不护臂。</summary>
-    public static ArmorLayer CoarseClothVest() => new()
-    {
-        Name = "粗布背心", Description = "“缝缝补补又三年。”——奶奶",
-        Slot = ArmorSlot.Outer, SharpDefense = 6, BluntDefense = 3, Weight = 0.1,
-        CoversParts = Torso(),
-    };
+    public static ArmorLayer CoarseClothVest() => Cfg("coarse_cloth_vest");
 
     /// <summary>粗布外套（外套层，护胸+腹+双臂）：夜间潜行加成的那件（见 NightWatchContest）。</summary>
-    public static ArmorLayer CoarseClothCoat() => new()
-    {
-        Name = "粗布外套", Description = "天气转凉了，记得添外套。",
-        Slot = ArmorSlot.Outer, SharpDefense = 6, BluntDefense = 3, Weight = 0.25,
-        CoversParts = TorsoAndArms(),
-    };
+    public static ArmorLayer CoarseClothCoat() => Cfg("coarse_cloth_coat");
 
     /// <summary>布夹克（外套层，护胸+腹+双臂）：灾难当天最常见的日常外套，外套层梯度第二档。</summary>
-    public static ArmorLayer ClothJacket() => new()
-    {
-        Name = "布夹克", Description = "上班穿它，开会穿它，被咬那天也穿着它。",
-        Slot = ArmorSlot.Outer, SharpDefense = 7.5, BluntDefense = 4, Weight = 0.3,
-        CoversParts = TorsoAndArms(),
-    };
+    public static ArmorLayer ClothJacket() => Cfg("cloth_jacket");
 
     /// <summary>牛仔外套（外套层，护胸+腹+双臂）：厚牛仔布，外套层梯度第三档——比布夹克更挡刀，也更沉。</summary>
-    public static ArmorLayer DenimJacket() => new()
-    {
-        Name = "牛仔外套", Description = "耐磨、耐脏、耐撕咬——前两样是真的。",
-        Slot = ArmorSlot.Outer, SharpDefense = 10, BluntDefense = 4, Weight = 0.6,
-        CoversParts = TorsoAndArms(),
-    };
+    public static ArmorLayer DenimJacket() => Cfg("denim_jacket");
 
     /// <summary>皮夹克（外套层，护胸+腹+双臂）：外套层最强，仍很轻。</summary>
-    public static ArmorLayer LeatherJacket() => new()
-    {
-        Name = "皮夹克", Description = "骑上摩托，倍有范儿。",
-        Slot = ArmorSlot.Outer, SharpDefense = 18, BluntDefense = 9, Weight = 0.5,
-        CoversParts = TorsoAndArms(),
-    };
+    public static ArmorLayer LeatherJacket() => Cfg("leather_jacket");
 
     /// <summary>皮甲（装甲层，护胸+腹+双臂）：与皮革胸甲/板甲同占装甲层，可叠在皮夹克等外套之上。</summary>
-    public static ArmorLayer Leather() => new()
-    {
-        Name = "皮甲", Description = "结实的鞣皮甲。",
-        Slot = ArmorSlot.Plate, SharpDefense = 25, BluntDefense = 12.5, Weight = 6,
-        CoversParts = TorsoAndArms(),
-    };
+    public static ArmorLayer Leather() => Cfg("leather");
 
     /// <summary>板甲（装甲层 + 裤装双槽，护躯干+双臂+双腿）：全表最强也最重，占裤装槽=与长裤/短裤互斥。</summary>
-    public static ArmorLayer Plate()
-    {
-        var covers = TorsoAndArms();
-        covers.UnionWith(Legs());
-        return new ArmorLayer
-        {
-            Name = "板甲", Description = "重吗？他能保护你脆弱的肉体。",
-            Slot = ArmorSlot.Plate, SharpDefense = 70, BluntDefense = 35, Weight = 15,
-            CoversParts = covers,
-        };
-    }
+    public static ArmorLayer Plate() => Cfg("plate");
 
     // ---- 头部护甲（[SPEC-B19]）：护甲表第一次给人形件出头盔 ----
     // 为什么头盔是重物：`头` 是 Vital、MaxHp 仅 16、命中权重 6（全身 ≈103.4 ⇒ **5.8% 的命中落在头上，且头归零致死**）。
@@ -183,12 +101,7 @@ public static class ArmorTable
     /// 但**轻得多**（2.5kg vs 4.5kg）、**没有任何副作用**，且眼/面还空着 ⇒ 能再扣一张防毒面具。
     /// 代价是**脸完全裸露**——眼/鼻/下巴照旧挨打（挖眼致盲、戳脸放血都仍然成立）。
     /// </summary>
-    public static ArmorLayer MilitaryHelmet() => new()
-    {
-        Name = "军用头盔", Description = "钢盔挡得住从天上掉下来的一切。麻烦在于，咬人的东西是从正面扑过来的。",
-        Slot = ArmorSlot.Plate, SharpDefense = 28, BluntDefense = 14, Weight = 2.5,
-        CoversParts = new HashSet<string> { HumanBody.Head },
-    };
+    public static ArmorLayer MilitaryHelmet() => Cfg("military_helmet");
 
     /// <summary>
     /// 防暴头盔（头+眼镜+面部三槽，护<b>头 + 双眼 + 鼻 + 下巴</b>）：**重装款**——面罩把整张脸罩住
@@ -196,27 +109,14 @@ public static class ArmorTable
     /// 代价是 <b>4.5kg</b>（军用的近两倍，吃负重上限）+ 占眼/面槽（与防毒面具互斥）+ <b>debuff：视野 −10% / 听力 −10%</b>
     /// （⚠️ 引擎新轴，未落地、已挂起——见上方头部护甲区块的说明）。
     /// </summary>
-    public static ArmorLayer RiotHelmet() => new()
-    {
-        Name = "防暴头盔", Description = "面罩挡得下砖头、棍棒和唾沫星子——上一任主人遇上的，不在这三样里。",
-        Slot = ArmorSlot.Plate, SharpDefense = 35, BluntDefense = 22, Weight = 4.5,
-        CoversParts = new HashSet<string>
-        {
-            HumanBody.Head, HumanBody.LeftEye, HumanBody.RightEye, HumanBody.Nose, HumanBody.Chin,
-        },
-    };
+    public static ArmorLayer RiotHelmet() => Cfg("riot_helmet");
 
     /// <summary>
     /// 劳保手套（手槽，表口径护双手含五指）：<b>成对品</b>——手套不分左右（表里只有这一行，无左/右手套之分），
     /// 但一只只占一只手槽、只护那一只手；护住双手要<b>两件</b>（[SPEC-B18-补]，重量按件计=0.05×2）。
     /// 此处 CoversParts 是表口径（两侧合计），实际生效覆盖按穿戴那一侧裁剪（见 ApparelCatalog.CoversFor）。
     /// </summary>
-    public static ArmorLayer WorkGloves() => new()
-    {
-        Name = "劳保手套", Description = "“劳动人民最光荣。”——奶奶",
-        Slot = ArmorSlot.Skin, SharpDefense = 6, BluntDefense = 3, Weight = 0.05,
-        CoversParts = HumanBody.SubtreeNames(HumanBody.LeftHand, HumanBody.RightHand),
-    };
+    public static ArmorLayer WorkGloves() => Cfg("work_gloves");
 
     // ---- [批次21·T26] 新增可制作穿戴品（《野外生存指南》/《裁缝手记》解锁；见 RecipeBook）----
     //
@@ -240,15 +140,7 @@ public static class ArmorTable
     /// 与<b>防暴头盔</b>也互斥（那顶头盔的面罩已经罩住整张脸）；<b>军用头盔</b>只占头槽，可与本件同戴。
     /// </para>
     /// </summary>
-    public static ArmorLayer WarMask() => new()
-    {
-        Name = "战争面具", Description = "骨片与木头缝成的脸。戴上它你不会更有勇气——但扑上来的东西第一口咬到的是骨头，不是你的鼻子。",
-        Slot = ArmorSlot.Plate, SharpDefense = 12, BluntDefense = 6, Weight = 0.3,
-        CoversParts = new HashSet<string>
-        {
-            HumanBody.Nose, HumanBody.Chin, HumanBody.LeftEye, HumanBody.RightEye,
-        },
-    };
+    public static ArmorLayer WarMask() => Cfg("war_mask");
 
     /// <summary>
     /// <b>棉帽</b>（头槽，护 头 + 双耳）—— [T59] <b>用户在 wiki 上新加的一件</b>。
@@ -260,36 +152,16 @@ public static class ArmorTable
     /// </para>
     /// <para>与两顶头盔同占头槽（互斥）：戴了钢盔就不必再戴帽子，反之亦然。</para>
     /// </summary>
-    public static ArmorLayer CottonHat() => new()
-    {
-        Name = "棉帽", Description = "毛茸茸的，冬季必备。",   // ← 用户在 wiki 上写的原话（表赢代码，不许替他润色）
-        Slot = ArmorSlot.Skin, SharpDefense = 6, BluntDefense = 3, Weight = 0.15,
-        CoversParts = new HashSet<string> { HumanBody.Head, HumanBody.LeftEar, HumanBody.RightEar },
-    };
+    public static ArmorLayer CottonHat() => Cfg("cotton_hat");
 
     /// <summary>粗布衬衫（贴身层，护胸+腹+双臂）：<b>可制作</b>版的长袖布衣，数值同档（同槽互斥）。</summary>
-    public static ArmorLayer CoarseClothShirt() => new()
-    {
-        Name = "粗布衬衫", Description = "自己缝的衬衫，针脚歪得像条走投无路的路。它挡不住多少东西，但它至少是你的。",
-        Slot = ArmorSlot.Skin, SharpDefense = 6, BluntDefense = 3, Weight = 0.15,
-        CoversParts = TorsoAndArms(),
-    };
+    public static ArmorLayer CoarseClothShirt() => Cfg("coarse_cloth_shirt");
 
     /// <summary>粗布短裤（裤装槽，<b>仅护大腿</b>——小腿裸着，同既有短裤的覆盖取舍）。</summary>
-    public static ArmorLayer CoarseShorts() => new()
-    {
-        Name = "粗布短裤", Description = "布不够长，就成了短裤。小腿从此归风、蚊子和一切有牙齿的东西共有。",
-        Slot = ArmorSlot.Skin, SharpDefense = 6, BluntDefense = 3, Weight = 0.1,
-        CoversParts = new HashSet<string> { HumanBody.LeftLeg, HumanBody.RightLeg },
-    };
+    public static ArmorLayer CoarseShorts() => Cfg("coarse_shorts");
 
     /// <summary>粗布长裤（裤装槽，护大腿+小腿）：<b>可制作</b>版的长裤，数值同档（同槽互斥）。</summary>
-    public static ArmorLayer CoarseTrousers() => new()
-    {
-        Name = "粗布长裤", Description = "多缝了一截，小腿就有了着落。末日里的奢侈就是这么算的。",
-        Slot = ArmorSlot.Skin, SharpDefense = 6, BluntDefense = 3, Weight = 0.15,
-        CoversParts = Legs(),
-    };
+    public static ArmorLayer CoarseTrousers() => Cfg("coarse_trousers");
 
     // ---- [T68] 用户在 wiki 上新加的三件（追加在末尾、不插队）----
     //
@@ -307,12 +179,7 @@ public static class ArmorTable
     /// 与皮革胸甲/皮甲/板甲同占<b>装甲层</b>（互斥）：它不是"再加一层"，是"这一层你先穿得起什么"。
     /// </para>
     /// </summary>
-    public static ArmorLayer HorrorArmor() => new()
-    {
-        Name = "恐怖装甲", Description = "每一片防护都来自于没做够防护的人",   // ← 用户在 wiki 上写的原话（表赢代码，不许替他润色）
-        Slot = ArmorSlot.Plate, SharpDefense = 20, BluntDefense = 10, Weight = 3,
-        CoversParts = new HashSet<string> { HumanBody.Chest, HumanBody.Abdomen },
-    };
+    public static ArmorLayer HorrorArmor() => Cfg("horror_armor");
 
     /// <summary>
     /// <b>墨镜</b>（眼镜槽，护双眼）—— 1 / 1、0.1kg。
@@ -327,12 +194,7 @@ public static class ArmorTable
     /// 这是<b>已知的、临时的</b>状态，不是数值失衡，别去"修"它。
     /// </para>
     /// </summary>
-    public static ArmorLayer Sunglasses() => new()
-    {
-        Name = "墨镜", Description = "直面太阳吧！",   // ← 用户原话
-        Slot = ArmorSlot.Skin, SharpDefense = 1, BluntDefense = 1, Weight = 0.1,
-        CoversParts = new HashSet<string> { HumanBody.LeftEye, HumanBody.RightEye },
-    };
+    public static ArmorLayer Sunglasses() => Cfg("sunglasses");
 
     /// <summary>
     /// <b>平光眼镜</b>（眼镜槽，护双眼）—— 1 / 1、0.1kg。与<see cref="Sunglasses"/> 同槽互斥、同数值。
@@ -343,12 +205,7 @@ public static class ArmorTable
     /// <b>新轴统一立项时，优先做它。</b>
     /// </para>
     /// </summary>
-    public static ArmorLayer PlainGlasses() => new()
-    {
-        Name = "平光眼镜", Description = "至少看起来很像知识分子。",   // ← 用户原话
-        Slot = ArmorSlot.Skin, SharpDefense = 1, BluntDefense = 1, Weight = 0.1,
-        CoversParts = new HashSet<string> { HumanBody.LeftEye, HumanBody.RightEye },
-    };
+    public static ArmorLayer PlainGlasses() => Cfg("plain_glasses");
 
     /// <summary>
     /// [T71] <b>自制简易墨镜</b>（眼镜槽，护双眼）—— 锐 12 / 钝 6、0.1kg。用户 authored（数值表『护甲表』new_armor_2）。
@@ -363,12 +220,7 @@ public static class ArmorTable
     /// 价值就是那 12/6 的护眼——比 1/1 的墨镜硬得多，代价是同样要放弃眼镜槽上的头盔/面具。
     /// </para>
     /// </summary>
-    public static ArmorLayer SelfMadeSnowGoggles() => new()
-    {
-        Name = "自制简易墨镜", Description = "木制眼罩，只留有两条缝进光，可以有效避免雪盲。",   // ← 用户 authored
-        Slot = ArmorSlot.Skin, SharpDefense = 12, BluntDefense = 6, Weight = 0.1,
-        CoversParts = new HashSet<string> { HumanBody.LeftEye, HumanBody.RightEye },
-    };
+    public static ArmorLayer SelfMadeSnowGoggles() => Cfg("self_made_snow_goggles");
 
     /// <summary>
     /// [T72] <b>护踝鞋具</b>（成对·脚槽，护小腿+脚含趾）—— 锐 12 / 钝 6、0.75kg。用户 authored（数值表『护甲表』new_armor_2）。
@@ -382,12 +234,7 @@ public static class ArmorTable
     /// （见 <c>ApparelCatalog.CoversFor</c>）。
     /// </para>
     /// </summary>
-    public static ArmorLayer AnkleGuard() => new()
-    {
-        Name = "护踝鞋具", Description = "高帮硬底，裹住脚踝到小腿——踩过碎玻璃也不必皱眉。",
-        Slot = ArmorSlot.Skin, SharpDefense = 12, BluntDefense = 6, Weight = 0.75,
-        CoversParts = HumanBody.SubtreeNames(HumanBody.LeftCalf, HumanBody.RightCalf),
-    };
+    public static ArmorLayer AnkleGuard() => Cfg("ankle_guard");
 
     /// <summary>
     /// [警察局] <b>防弹背心</b>（<b>贴身层</b>·护胸 + 腹）—— 锐 20 / 钝 30、2.5kg。用户 authored（新探索关「警察局」掉落）。
@@ -405,24 +252,12 @@ public static class ArmorTable
     /// ⇒ 本工厂进不了 <c>Duel</c> 结算路径，既有基线一个字节不动（护栏见 <c>NewEquipmentDataTests.BallisticVest_不进任何生成套_保Sim基线零漂移</c>）。
     /// </para>
     /// </summary>
-    public static ArmorLayer BallisticVest() => new()
-    {
-        Name = "防弹背心", Description = "它挡得下子弹——前提是那颗子弹讲道理，正对着胸口飞来。",
-        Slot = ArmorSlot.Skin, SharpDefense = 20, BluntDefense = 30, Weight = 2.5,
-        CoversParts = new HashSet<string> { HumanBody.Chest, HumanBody.Abdomen },
-    };
+    public static ArmorLayer BallisticVest() => Cfg("ballistic_vest");
 
     // ---- 生物·天生（不可穿戴）----
 
     /// <summary>丧尸：一层腐烂硬皮，覆盖全身（表『防护部位』= 全身 → CoversParts=null）。</summary>
-    public static IReadOnlyList<ArmorLayer> ZombieHide() => new[]
-    {
-        new ArmorLayer
-        {
-            Name = "腐皮", Description = "丧尸自带的一层烂皮。",
-            Slot = ArmorSlot.Skin, SharpDefense = 3, BluntDefense = 3, Weight = 0,
-        },
-    };
+    public static IReadOnlyList<ArmorLayer> ZombieHide() => new[] { Cfg("zombie_hide") };
 
     // ---- 套装（生成侧配置）----
 
@@ -437,47 +272,22 @@ public static class ArmorTable
     // 身体三件（布制/皮制/口袋狗衣）同占身体槽互斥；头甲两件同占头槽互斥（DogEquipSlot.Head，不占身体槽）。
 
     /// <summary>布制狗衣（身体·贴身层，护胸+腹）。</summary>
-    public static ArmorLayer DogClothVest() => new()
-    {
-        Name = "布制狗衣", Description = "给可爱的狗狗穿上可爱的衣服。",
-        Slot = ArmorSlot.Skin, SharpDefense = 6, BluntDefense = 3, Weight = 0.15,
-        CoversParts = Torso(),
-    };
+    public static ArmorLayer DogClothVest() => Cfg("dog_cloth_vest");
 
     /// <summary>皮制狗衣（身体·外套层，护胸+腹）。</summary>
-    public static ArmorLayer DogLeatherVest() => new()
-    {
-        Name = "皮制狗衣", Description = "狗皮外的另一层皮。",
-        Slot = ArmorSlot.Outer, SharpDefense = 12, BluntDefense = 6, Weight = 0.5,
-        CoversParts = Torso(),
-    };
+    public static ArmorLayer DogLeatherVest() => Cfg("dog_leather_vest");
 
     /// <summary>
     /// 口袋狗衣（身体·贴身层，护胸+腹）：[SPEC-B18] 起<b>不再是无甲纯容器</b>——表给了 2/1 薄甲，
     /// 同时为狗提供 6kg 负重（容量常量在消费层 DogGearCatalog.PocketVestCapacity）。拿防护换驮运。
     /// </summary>
-    public static ArmorLayer DogPocketVest() => new()
-    {
-        Name = "口袋狗衣", Description = "好狗，好狗。",
-        Slot = ArmorSlot.Skin, SharpDefense = 2, BluntDefense = 1, Weight = 0.25,
-        CoversParts = Torso(),
-    };
+    public static ArmorLayer DogPocketVest() => Cfg("dog_pocket_vest");
 
     /// <summary>铁皮头甲（狗·头槽，仅护头）：刚性铁皮，防护高、较重。</summary>
-    public static ArmorLayer DogIronHelmet() => new()
-    {
-        Name = "铁皮头甲", Description = "狗狗也戴头盔。",
-        Slot = ArmorSlot.Plate, SharpDefense = 18, BluntDefense = 12, Weight = 3,
-        CoversParts = new HashSet<string> { HumanBody.Head },
-    };
+    public static ArmorLayer DogIronHelmet() => Cfg("dog_iron_helmet");
 
     /// <summary>铁丝头甲（狗·头槽，仅护头）：铁丝编笼，轻便，锐防弱于铁皮、钝防持平。</summary>
-    public static ArmorLayer DogWireHelmet() => new()
-    {
-        Name = "铁丝头甲", Description = "曾经保护你的，现在保护狗。",
-        Slot = ArmorSlot.Plate, SharpDefense = 12, BluntDefense = 12, Weight = 1.5,
-        CoversParts = new HashSet<string> { HumanBody.Head },
-    };
+    public static ArmorLayer DogWireHelmet() => Cfg("dog_wire_helmet");
 
     // ---- 玩家可见风味文案（黑色幽默）：护甲名 → 一行描述 ----
     // 由库存物品 UI 经 Item.Armor 自动填充展示，不参与战斗结算。表『说明』列即此文案（含狗装备）。

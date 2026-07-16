@@ -111,17 +111,20 @@ public static class NightWatchContest
     /// <summary>听力基值半径（世界像素，新轴）：袭击者在此半径内可被"听见"，随距离线性衰减到 0。</summary>
     public const float HearingBaseRange = 220f;
 
-    // ── 潜行力权重（拟定待调）─────────────────────────────────────────────────
+    // ── 潜行力权重（拟定待调）──【数值外置】原 5 个 const float 已搬到 nightwatch.json ─────────
+    // 现身体读 GameConfigCatalog（消费层配置范式，见 GameConfig/GameConfigCatalog/NightWatchConfig）。
+    // const → 静态属性：这 5 个权重仅在本类方法体内使用（零外部引用、非默认参数值），故可安全改读配置。
+    // ⚠️ 下方 ApparelStealth 服饰潜行表是 authored 内容（逐件风味注释），**保留在本文件、不外置**。
     /// <summary>黑暗项权重：局部光照越低越隐蔽（贡献 = 权重×(1-L)）。</summary>
-    public const float StealthDarknessWeight = 1.0f;
+    public static float StealthDarknessWeight => GameConfigCatalog.Section<NightWatchConfig>().StealthDarknessWeight;
     /// <summary>服饰项权重：服饰潜行值合计的放大系数。</summary>
-    public const float StealthApparelWeight = 1.0f;
+    public static float StealthApparelWeight => GameConfigCatalog.Section<NightWatchConfig>().StealthApparelWeight;
     /// <summary>距离项权重：越远越难被察觉。</summary>
-    public const float StealthDistanceWeight = 0.6f;
+    public static float StealthDistanceWeight => GameConfigCatalog.Section<NightWatchConfig>().StealthDistanceWeight;
     /// <summary>距离项归一参考（世界像素）：距离≥此值时距离项达满档。</summary>
-    public const float StealthDistanceReference = 300f;
+    public static float StealthDistanceReference => GameConfigCatalog.Section<NightWatchConfig>().StealthDistanceReference;
     /// <summary>遮蔽项权重：视野遮蔽物权重 [0,1] 的放大系数。</summary>
-    public const float StealthCoverWeight = 0.5f;
+    public static float StealthCoverWeight => GameConfigCatalog.Section<NightWatchConfig>().StealthCoverWeight;
 
     // ── 未发现后果（拟定待调）─────────────────────────────────────────────────
     /// <summary>杀戮意图潜行先手伤害乘数（用户口径 1.5x）。</summary>

@@ -542,7 +542,8 @@ public sealed class Body
 
     // ---- 残疾能力惩罚与假肢（切除/损毁部位 → 操作/移动净惩罚；假肢部分恢复）----
 
-    private const double SingleLimbPenalty = 0.5; // 单肢（一手/一腿）= 全局能力的 50%。
+    // 单肢（一手/一腿）= 全局能力的 50%。数值外置 body.json（BodyConfig.Disability）。
+    private static double SingleLimbPenalty => CombatCatalog.Section<BodyConfig>().Disability.SingleLimbPenalty;
 
     private readonly List<Prosthetic> _prosthetics = new();
 
@@ -567,8 +568,9 @@ public sealed class Body
     /// -7%/指（该手上限 -50%，断手 -50% 覆盖手指累加）；手部失去时手指一并消失、不计额外。
     /// 假肢按等级恢复"单肢能力 × RestoreRatio"（即全局 -50% × RestoreRatio），逐个抵扣一只失去的对应肢体。
     /// </summary>
-    private const double FingerPenalty = 0.07; // 每根手指 -7%（该手累加）。
-    private const double ToePenalty = 0.02;     // 每根脚趾 -2%（该脚累加）。
+    // 每根手指 -7% / 每根脚趾 -2%（该手/脚累加）。数值外置 body.json（BodyConfig.Disability）。
+    private static double FingerPenalty => CombatCatalog.Section<BodyConfig>().Disability.FingerPenalty;
+    private static double ToePenalty => CombatCatalog.Section<BodyConfig>().Disability.ToePenalty;
 
     public void RecalculatePenalties()
     {

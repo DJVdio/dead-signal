@@ -283,4 +283,15 @@
     <Compile Include="..\..\src\DeadSignal.Sim\Arena.cs" Link="Consumed\Arena.cs" />
   </ItemGroup>
 
+  <!-- 消费层数值外置·godot 侧配置范式（纯 C#、无 Godot 依赖）：消费层纯逻辑（NightWatchContest 等）以 Link 编入本工程，
+       外置后读 GameConfigCatalog ⇒ 须随附这套容器 + TestGameConfigBootstrap(本工程内)注册 System.IO 加载。 -->
+  <ItemGroup>
+    <Compile Include="..\..\godot\scripts\IGameConfigSection.cs" Link="Consumed\IGameConfigSection.cs" />
+    <Compile Include="..\..\godot\scripts\GameConfig.cs" Link="Consumed\GameConfig.cs" />
+    <Compile Include="..\..\godot\scripts\GameConfigLoader.cs" Link="Consumed\GameConfigLoader.cs" />
+    <Compile Include="..\..\godot\scripts\GameConfigCatalog.cs" Link="Consumed\GameConfigCatalog.cs" />
+    <Compile Include="..\..\godot\scripts\GameConfigFiles.cs" Link="Consumed\GameConfigFiles.cs" />
+    <Compile Include="..\..\godot\scripts\NightWatchConfig.cs" Link="Consumed\NightWatchConfig.cs" />
+  </ItemGroup>
+
 </Project>

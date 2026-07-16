@@ -1,0 +1,28 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://dead-signal/config/armor.schema.json",
+  "title": "Dead Signal 护甲数值表 (armor.json)",
+  "description": "战斗数值外置：id → 护甲层 POCO。代码只写规则，数值全在此。字段名/类型对应 src/DeadSignal.Combat/Model.cs 的 ArmorLayer。缺 combat 配置游戏 fail-fast。",
+  "type": "object",
+  "additionalProperties": { "$ref": "#/definitions/armorLayer" },
+  "definitions": {
+    "armorLayer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["Name", "SharpDefense", "BluntDefense", "Weight", "Slot"],
+      "properties": {
+        "Name": { "type": "string", "description": "玩家可见名（中文）。" },
+        "Description": { "type": "string", "description": "一行风味描述（UI 展示，不参与结算）。" },
+        "SharpDefense": { "type": "number", "minimum": 0, "description": "对锐器的防御值。设计口径：锐防普遍约为钝防两倍，板甲更高。" },
+        "BluntDefense": { "type": "number", "minimum": 0, "description": "对钝器的防御值。" },
+        "Weight": { "type": "number", "minimum": 0, "description": "重量（kg）。" },
+        "Slot": { "type": "string", "enum": ["Plate", "Outer", "Skin"], "description": "护甲层序（装甲层/外套层/贴身层，决定从外到内叠放顺序）。注意：这是伤害逐层结算的层序，不是装备槽。" },
+        "CoversParts": {
+          "type": ["array", "null"],
+          "items": { "type": "string" },
+          "description": "覆盖的具体身体部位名集合（如「胸」「左手臂」）；null=覆盖全部位（腐皮等天生护甲）。成对品/局部护甲给两侧合计的表口径，实际生效按穿戴侧裁剪。"
+        }
+      }
+    }
+  }
+}

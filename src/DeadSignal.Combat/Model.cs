@@ -357,7 +357,12 @@ public sealed class ArmorLayer
     /// <c>null</c> = 覆盖全部位（向后兼容：现有护甲不填即全覆盖，行为不变）。
     /// 局部护甲（如左手套仅覆盖左手及其手指）才显式给出子集；命中部位不在集合内则该层不参与结算。
     /// 手部/脚部护甲应连带该手/脚的手指/脚趾（用 <see cref="HumanBody.SubtreeNames"/> 展开子树）。
+    /// <para>
+    /// 序列化为字符串数组；反序列化materialize为 <see cref="HashSet{T}"/>——STJ 不能实例化 <see cref="IReadOnlySet{T}"/>，
+    /// 数值外置到 armor.json 后须经 <see cref="ReadOnlyStringSetJsonConverter"/> 才能读回（见该类说明）。
+    /// </para>
     /// </summary>
+    [JsonConverter(typeof(ReadOnlyStringSetJsonConverter))]
     public IReadOnlySet<string>? CoversParts { get; init; }
 
     /// <summary>本层是否覆盖该具体部位（<see cref="CoversParts"/> 为 null 时恒真=全覆盖）。</summary>

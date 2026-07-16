@@ -1,0 +1,165 @@
+{
+  "Parts": {
+    "胸": {
+      "VolumeWeight": 20,
+      "MaxHp": 20
+    },
+    "腹": {
+      "VolumeWeight": 16,
+      "MaxHp": 16
+    },
+    "头": {
+      "VolumeWeight": 6,
+      "MaxHp": 16
+    },
+    "左眼": {
+      "VolumeWeight": 0.4,
+      "MaxHp": 6
+    },
+    "右眼": {
+      "VolumeWeight": 0.4,
+      "MaxHp": 6
+    },
+    "鼻": {
+      "VolumeWeight": 1,
+      "MaxHp": 12
+    },
+    "下巴": {
+      "VolumeWeight": 1.5,
+      "MaxHp": 12
+    },
+    "左耳": {
+      "VolumeWeight": 0.5,
+      "MaxHp": 8
+    },
+    "右耳": {
+      "VolumeWeight": 0.5,
+      "MaxHp": 8
+    },
+    "左手臂": {
+      "VolumeWeight": 8,
+      "MaxHp": 21
+    },
+    "左手": {
+      "VolumeWeight": 3,
+      "MaxHp": 16
+    },
+    "左手拇指": {
+      "VolumeWeight": 0.35,
+      "MaxHp": 10
+    },
+    "左手食指": {
+      "VolumeWeight": 0.3,
+      "MaxHp": 10
+    },
+    "左手中指": {
+      "VolumeWeight": 0.3,
+      "MaxHp": 10
+    },
+    "左手无名指": {
+      "VolumeWeight": 0.3,
+      "MaxHp": 10
+    },
+    "左手小指": {
+      "VolumeWeight": 0.25,
+      "MaxHp": 10
+    },
+    "右手臂": {
+      "VolumeWeight": 8,
+      "MaxHp": 21
+    },
+    "右手": {
+      "VolumeWeight": 3,
+      "MaxHp": 16
+    },
+    "右手拇指": {
+      "VolumeWeight": 0.35,
+      "MaxHp": 10
+    },
+    "右手食指": {
+      "VolumeWeight": 0.3,
+      "MaxHp": 10
+    },
+    "右手中指": {
+      "VolumeWeight": 0.3,
+      "MaxHp": 10
+    },
+    "右手无名指": {
+      "VolumeWeight": 0.3,
+      "MaxHp": 10
+    },
+    "右手小指": {
+      "VolumeWeight": 0.25,
+      "MaxHp": 10
+    },
+    "左大腿": {
+      "VolumeWeight": 7,
+      "MaxHp": 12
+    },
+    "左小腿": {
+      "VolumeWeight": 5,
+      "MaxHp": 11
+    },
+    "左脚": {
+      "VolumeWeight": 3,
+      "MaxHp": 16
+    },
+    "左脚拇趾": {
+      "VolumeWeight": 0.3,
+      "MaxHp": 10
+    },
+    "左脚二趾": {
+      "VolumeWeight": 0.2,
+      "MaxHp": 10
+    },
+    "左脚三趾": {
+      "VolumeWeight": 0.2,
+      "MaxHp": 10
+    },
+    "左脚四趾": {
+      "VolumeWeight": 0.2,
+      "MaxHp": 10
+    },
+    "左脚五趾": {
+      "VolumeWeight": 0.15,
+      "MaxHp": 10
+    },
+    "右大腿": {
+      "VolumeWeight": 7,
+      "MaxHp": 12
+    },
+    "右小腿": {
+      "VolumeWeight": 5,
+      "MaxHp": 11
+    },
+    "右脚": {
+      "VolumeWeight": 3,
+      "MaxHp": 16
+    },
+    "右脚拇趾": {
+      "VolumeWeight": 0.3,
+      "MaxHp": 10
+    },
+    "右脚二趾": {
+      "VolumeWeight": 0.2,
+      "MaxHp": 10
+    },
+    "右脚三趾": {
+      "VolumeWeight": 0.2,
+      "MaxHp": 10
+    },
+    "右脚四趾": {
+      "VolumeWeight": 0.2,
+      "MaxHp": 10
+    },
+    "右脚五趾": {
+      "VolumeWeight": 0.15,
+      "MaxHp": 10
+    }
+  },
+  "Disability": {
+    "SingleLimbPenalty": 0.5,
+    "FingerPenalty": 0.07,
+    "ToePenalty": 0.02
+  }
+}
