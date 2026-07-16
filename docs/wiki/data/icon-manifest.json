@@ -57,8 +57,9 @@
       "armor/sunglasses",
       "armor/plain_glasses",
       "armor/snow_goggles",
-      "armor/horror_armor",
-      "armor/plain_glasses"
+      "armor/ankle_guard",
+      "armor/ballistic_vest",
+      "armor/new_armor_2"
     ],
     "dog-gear": [
       "armor/dog_cloth_vest",
@@ -217,8 +218,7 @@
       "weapon-mods/new_weapon_mod_2",
       "weapon-mods/new_weapon_mod_3",
       "weapon-mods/new_weapon_mod_4",
-      "weapon-mods/new_weapon_mod_5",
-      "weapon-mods/new_weapon_mod_6"
+      "weapon-mods/new_weapon_mod_5"
     ],
     "food": [
       "food/rabbit",

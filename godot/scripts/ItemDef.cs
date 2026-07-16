@@ -222,6 +222,7 @@ public static class ItemRegistry
         // [T71] 自制简易墨镜（木缝雪镜，0.1kg）——显式登记，别落 DefaultArmorKg=1.0（0.1kg 木镜算 1kg 是 10 倍）。
         ArmorTable.SelfMadeSnowGoggles(),
         ArmorTable.AnkleGuard(),   // [T72] 护踝鞋具（成对·脚槽，0.75kg）——追加末尾，重量真源在 ArmorLayer.Weight
+        ArmorTable.BallisticVest(),   // [警察局] 防弹背心（贴身层·护胸腹，2.5kg 拟定待Sim校准）——追加末尾，重量真源在 ArmorLayer.Weight
         ArmorTable.DogClothVest(), ArmorTable.DogLeatherVest(), ArmorTable.DogPocketVest(),
         ArmorTable.DogIronHelmet(), ArmorTable.DogWireHelmet(),
     };

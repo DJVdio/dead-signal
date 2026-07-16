@@ -65,10 +65,10 @@
   ],
   "rows": [
     {
-      "name": "兔子",
+      "name": "兔子肉",
       "calories": 11,
       "portions": 2,
-      "description": "一只野兔，够一顿像样的。抓到它的那天，你会想起从前「运气不错」是个多么轻飘飘的词。",
+      "description": "兔兔这么可爱！",
       "_id": "rabbit",
       "_anchor": "godot/scripts/CookingLogic.cs :: FoodCalories（热量点）+ godot/scripts/Materials.cs（名称/说明）",
       "userNote": "",
@@ -120,17 +120,6 @@
       "_icon": "food/flour"
     },
     {
-      "name": "干豆",
-      "calories": 5,
-      "portions": 4,
-      "description": "一把干豆，硬得能崩掉牙。泡一夜、煮一晌，然后它就成了这个屋子里最像「正经饭」的东西。",
-      "_id": "beans",
-      "_anchor": "godot/scripts/CookingLogic.cs :: FoodCalories（热量点）+ godot/scripts/Materials.cs（名称/说明）",
-      "userNote": "",
-      "sync": "删除·待同步进代码",
-      "_icon": "food/beans"
-    },
-    {
       "name": "土豆",
       "calories": 4,
       "portions": 4,
@@ -145,7 +134,7 @@
       "name": "蘑菇",
       "calories": 3,
       "portions": 6,
-      "description": "林子里采的。你认得这一种，你很确定你认得这一种。",
+      "description": "你认得这一种，你最好确定你认得这一种。",
       "_id": "mushroom",
       "_anchor": "godot/scripts/CookingLogic.cs :: FoodCalories（热量点）+ godot/scripts/Materials.cs（名称/说明）",
       "userNote": "",
@@ -156,7 +145,7 @@
       "name": "老鼠肉",
       "calories": 6,
       "portions": 3,
-      "description": "剔下来的那点肉，摊在案板上还没有巴掌大。你已经不记得上一次挑食是什么时候了。",
+      "description": "你已经不记得上一次挑食是什么时候了。",
       "_id": "rat_meat",
       "_anchor": "godot/scripts/CookingLogic.cs :: FoodCalories（热量点）+ godot/scripts/Materials.cs（名称/说明）",
       "userNote": "",
@@ -167,7 +156,7 @@
       "name": "鸟肉",
       "calories": 5,
       "portions": 4,
-      "description": "两条细腿，一小块胸脯。它飞了一辈子，最后落在这块案板上——所有的翅膀都是这么用完的。",
+      "description": "两条细腿，一小块胸脯。",
       "_id": "bird_meat",
       "_anchor": "godot/scripts/CookingLogic.cs :: FoodCalories（热量点）+ godot/scripts/Materials.cs（名称/说明）",
       "userNote": "",

@@ -313,6 +313,41 @@ public class MaterialsTests
         Assert.False(Materials.Has(null!));
     }
 
+    /// <summary>
+    /// [波1·item2] **精密零件自成一类**：机械零件 / 子弹零件 / 武器零件三味"造不出来、只能捡"的精密件
+    /// 从原先散落的 <see cref="MaterialCategory.Misc"/>（机械零件）/ <see cref="MaterialCategory.Metal"/>
+    /// （子弹零件、武器零件）迁入新枚举 <see cref="MaterialCategory.Component"/>。
+    /// <para>
+    /// 这条护栏钉死三点：① 新枚举存在且这三味归它；② 它们**不再**留在旧类里（迁移彻底，不是复制）；
+    /// ③ 精密零件类**只装这三味**（别把别的材料顺手塞进来）。wiki 材料表靠它显示「精密零件」分类。
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void 精密零件三味_归入Component类_且已离开Misc与Metal()
+    {
+        string[] parts = { "components", "bullet_parts", "weapon_parts" };
+        foreach (string key in parts)
+        {
+            MaterialDef def = Materials.Find(key)!.Value;
+            Assert.Equal(MaterialCategory.Component, def.Category);
+        }
+
+        // 迁移必须彻底：旧类里一味都不许再有它们
+        foreach (MaterialDef m in Materials.InCategory(MaterialCategory.Misc))
+        {
+            Assert.DoesNotContain(m.Key, parts);
+        }
+        foreach (MaterialDef m in Materials.InCategory(MaterialCategory.Metal))
+        {
+            Assert.DoesNotContain(m.Key, parts);
+        }
+
+        // 精密零件类恰好只装这三味
+        Assert.Equal(
+            parts.OrderBy(k => k),
+            Materials.InCategory(MaterialCategory.Component).Select(m => m.Key).OrderBy(k => k));
+    }
+
     [Fact]
     public void InCategory_filters_by_category_and_all_categories_represented()
     {

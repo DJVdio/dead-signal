@@ -272,4 +272,56 @@ public class NewEquipmentDataTests
     {
         Assert.DoesNotContain("护踝鞋具", ArmorTable.SurvivorArmor().Select(a => a.Name).ToList());
     }
+
+    // ---- [警察局] 防弹背心：**贴身层**·护胸+腹。数值/护甲层/覆盖 + ApparelCatalog 真登记(落贴身层单槽) 焊死 ----
+    //
+    // 用户 authored（新探索关「警察局」掉落）。四层登记(工厂/贴身层槽/ItemDef花名册/NightWatch潜行)——写了数值 ≠ 穿得上
+    // ≠ 称得准，各层都要焊(同恐怖装甲/护踝鞋具的教训)。🔴 关键焊死：它是**贴身层(Skin)不是装甲层(Plate)** ⇒
+    // 占 SkinLayer 而非 PlateLayer ⇒ 能与皮甲/板甲叠穿。数值皆拟定待 Sim 校准，这里只锁"规则形态"。
+
+    [Fact]
+    public void BallisticVest_贴身层护胸腹_数值与覆盖焊死()
+    {
+        ArmorLayer v = ArmorTable.BallisticVest();
+        Assert.Equal("防弹背心", v.Name);
+        // 🔴 贴身层，不是装甲层——占贴身层槽才能与皮甲/板甲叠穿。
+        Assert.Equal(ArmorSlot.Skin, v.Slot);
+        Assert.Equal(20, v.SharpDefense);
+        Assert.Equal(30, v.BluntDefense);
+        Assert.Equal(2.5, v.Weight);
+        // 覆盖：胸 + 腹（护胸腹），不碰双臂/双腿/头。
+        Assert.NotNull(v.CoversParts);
+        Assert.Equal(new HashSet<string> { HumanBody.Chest, HumanBody.Abdomen }, v.CoversParts!);
+        Assert.DoesNotContain(HumanBody.LeftArm, v.CoversParts!);
+        // 抗弹形态：钝防偏高于锐防（硬板吃冲击、对集中穿刺相对弱）。
+        Assert.True(v.BluntDefense > v.SharpDefense, "防弹背心钝防应高于锐防（抗弹形态）");
+    }
+
+    [Fact]
+    public void BallisticVest_ApparelCatalog登记落贴身层_非装甲层()
+    {
+        Assert.True(ApparelCatalog.IsApparel("防弹背心"), "防弹背心必须在 ApparelCatalog 里，否则造得出穿不上");
+        ApparelCatalog.ApparelDef? def = ApparelCatalog.Get("防弹背心");
+        Assert.NotNull(def);
+        // 🔴 占贴身层槽(SkinLayer)、不占装甲层槽(PlateLayer) ⇒ 与皮甲/板甲不互斥、可叠穿。
+        Assert.Equal(new HashSet<EquipSlot> { EquipSlot.SkinLayer }, def!.Slots);
+        Assert.DoesNotContain(EquipSlot.PlateLayer, def.Slots);
+    }
+
+    [Fact]
+    public void BallisticVest_贴身层打底可与板甲叠穿_装甲层槽不冲突()
+    {
+        // 防弹背心占贴身层、板甲占装甲层(+裤装) ⇒ 两件可同时在身（真"叠穿"，不是互斥）。
+        var slots = new ApparelSlots();
+        Assert.Equal(EquipOutcome.Equipped, ApparelCatalog.Equip(slots, "防弹背心"));
+        Assert.Equal(EquipOutcome.Equipped, ApparelCatalog.Equip(slots, "板甲"));
+        Assert.True(slots.IsEquipped("防弹背心"));
+        Assert.True(slots.IsEquipped("板甲"));
+    }
+
+    [Fact]
+    public void BallisticVest_不进任何生成套_保Sim基线零漂移()
+    {
+        Assert.DoesNotContain("防弹背心", ArmorTable.SurvivorArmor().Select(a => a.Name).ToList());
+    }
 }

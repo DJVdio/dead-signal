@@ -29,6 +29,13 @@ public sealed partial class CameraController : Camera2D
     /// <summary>正在平滑滑向的目标（iso 屏幕坐标，已 clamp 进边界）；无聚焦为 null。玩家任意平移即清除。</summary>
     private Vector2? _focusTarget;
 
+    /// <summary>
+    /// 演出接管：为 true 时 <see cref="_Process"/> 直接早退——不吃 WASD/边缘/拖拽平移、不跑聚焦滑动，
+    /// 由脚本 CG（<c>CampMain.CinematicCg</c>）逐帧直接写 <see cref="Node2D.Position"/> / <see cref="Camera2D.Zoom"/>。
+    /// CG 结束复位 false 交还玩家。默认 false ⇒ 非 CG 路径零副作用。
+    /// </summary>
+    public bool CinematicHold { get; set; }
+
     public void SetBounds(Rect2 bounds) => _bounds = bounds;
 
     /// <summary>
@@ -48,6 +55,13 @@ public sealed partial class CameraController : Camera2D
         if (rdelta > 0.1f)
         {
             rdelta = 0.1f;
+        }
+
+        // 演出接管：CG 逐帧直接写 Position/Zoom，本控制器让位（不吃玩家平移/缩放/聚焦）。
+        // _lastTick 已刷新，交还玩家时不会因累积时差瞬跳。
+        if (CinematicHold)
+        {
+            return;
         }
 
         Vector2 move = Vector2.Zero;

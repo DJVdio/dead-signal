@@ -445,6 +445,11 @@ public static class ApparelCatalog
         //   [T71] 自制简易墨镜（木缝雪镜）→ 同占眼镜槽，与墨镜/平光眼镜/防暴盔/战争面具/防毒面具互斥。
         //   它是墨镜的**可制作对应物**（读《尖峰时刻》解锁），护双眼 12/6——见 ArmorTable.SelfMadeSnowGoggles 注释。
         Add(ArmorTable.SelfMadeSnowGoggles(), EquipSlot.Eyes);
+
+        // [警察局] 防弹背心 → **贴身层**（EquipSlot.SkinLayer，与长袖布衣/花衬衫/粗布衬衫互斥）。
+        // 🔴 它是贴身层、**不是装甲层**：抗弹背心贴身穿 ⇒ **能与皮甲/板甲叠穿**（打底 + 装甲层罩外），
+        // 不与装甲层三件(皮革胸甲/皮甲/板甲)互斥。护胸+腹，数值见 ArmorTable.BallisticVest（拟定待 Sim 校准）。
+        Add(ArmorTable.BallisticVest(), EquipSlot.SkinLayer);
         return d;
     }
 

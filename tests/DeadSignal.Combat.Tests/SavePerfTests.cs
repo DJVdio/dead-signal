@@ -85,7 +85,7 @@ public class SavePerfTests
             {
                 p.Apparel.Add(new WornSave { Item = $"装备{k}", Slots = { EquipSlot.Head }, Covers = { HumanBody.Chest } });
             }
-            p.Conditions.Add(new ConditionSave { Type = HealthConditionType.Infection, Severity = 0.4, CureProgress = 0.2 });
+            p.Conditions.Add(new ConditionSave { Type = HealthConditionType.Infection, Severity = 0.4 });
             d.Survivors.Add(p);
         }
 

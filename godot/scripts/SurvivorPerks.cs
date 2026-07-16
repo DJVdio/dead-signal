@@ -59,6 +59,17 @@ public sealed class SurvivorPerks
 
     /// <summary>把本 pawn 标记为耗子（赋予其三级专属效果身份）。招募入队时调用一次。</summary>
     public void GrantRat() => IsRat = true;
+
+    /// <summary>
+    /// 本 pawn 是否为**皮特**（青春期大男孩，曾校田径队；authored 三级专属效果）。同南丁格尔/耗子/山姆的形态：
+    /// 效果规则/等级/计数皆走静态 <see cref="PetePerk"/> + <c>StoryFlags</c>（升级计数持久化走旗标
+    /// <see cref="PetePerk.HungerStreakFlag"/> / <see cref="PetePerk.Level2ReachedFlag"/> / <see cref="PetePerk.DepartureCountFlag"/>），
+    /// 本处只标"这人是不是皮特"（供 <c>CampMain</c> 判移速加成/操作光环/闪避/饥饿掉 2）。其余角色恒 false。
+    /// </summary>
+    public bool IsPete { get; private set; }
+
+    /// <summary>把本 pawn 标记为皮特（赋予其三级专属效果身份）。建角时对皮特调用一次（<c>Pawn.Create</c> 按名授予）。</summary>
+    public void GrantPete() => IsPete = true;
 }
 
 /// <summary>
@@ -215,10 +226,9 @@ public static class NightingalePerk
     /// 死后/离营仅遗产 = ×0.90；仅 L2 存活 = ×0.85；无 = ×1.0。</para>
     /// 供 <c>CampMain.AdvanceSurvivorsHealthDay</c> 喂各幸存者 <c>TickDay(infectionChanceMultiplier:…)</c>。纯静态、可脱实例。
     ///
-    /// ⚠️ <b>[DECISION] 未决——轴的归属</b>：本乘子作用在<b>预防轴</b>（<c>infectionChanceMultiplier</c>＝"会不会感染"的几率），
-    /// 与山姆 L3 的<b>速率轴</b> <see cref="SamPerk.CampInfectionWorsenMultiplier"/>（"感染条涨多快"）显式正交。
-    /// 用户已在数值表上把她的文案由「感染率降低」改成「感染<b>条速度</b>降低」，字面指向速率轴，
-    /// 但换轴是行为变更（会与山姆的速率乘子叠加）⇒ <b>已上抛用户，未决前代码轴不动</b>。
+    /// ✅ <b>[DECISION·已裁·感染重做] 轴的归属＝预防轴（用户拍板）</b>：本乘子作用在<b>预防轴</b>（<c>infectionChanceMultiplier</c>＝"会不会感染"的几率，
+    /// ×0.765 连乘进 <see cref="HealthConditionSet.TickDay"/> 的每伤口感染几率链），**不是**恶化速率轴。
+    /// 与山姆 L3 的<b>速率轴</b> <see cref="SamPerk.CampInfectionWorsenMultiplier"/>（"感染条涨多快"）显式正交、互不叠加同轴。
     /// 护栏见 <c>NurseRecruitTests.NightingaleInfectionPerk_ActsOnPreventionAxis_NotProgressionAxis</c>。
     /// </summary>
     public static double CampInfectionMultiplier(int nurseLevel, bool nurseAliveInCamp, bool l3LegacyActive)

@@ -598,8 +598,11 @@ internal static class Program
             //    （引擎的 ArmorSlot 是**伤害层序**，与"占哪个槽"无关，代码里也写着"别混"。它不给用户看。）
             new("equipSlot", "装备槽", "chip",
                 Hint: "这件东西穿在哪（引擎真读它：决定能不能穿、和什么冲突）。上身有三个槽：贴身层／外套层／装甲层——它们是槽，不是层级，可以同时各穿一件。多个槽用「、」隔开。"),
-            new("covers", "保护部位",
-                Hint: "这件东西实际护到身上哪些地方（引擎真读它：没护到的部位，命中时一点也不挡）。多个部位用「、」隔开。"),
+            // [波1·item1] 保护部位：**只读的显示折叠**。真源是引擎的 45 个部位常量（HumanBody）+ ArmorTable.CoversParts，
+            // 那套逐指逐趾的模型一点不动（断手/缺指致残全靠它）；这里只把「左X+右X」折成「双X」、把手/脚的
+            // 逐指逐趾折成「手(含指)/脚(含趾)」这类人话。因是纯显示派生、非用户可改字段，故只读（改覆盖去改 ArmorTable/ApparelCatalog）。
+            new("covers", "保护部位", ReadOnly: true,
+                Hint: "这件东西实际护到身上哪些地方（引擎真源，只读）。已折叠显示：「双X」= 左右都护；「手(含指)/脚(含趾)」= 连同该手指/脚趾一起护。没护到的部位命中时一点也不挡。"),
             new("paired", "成对装备", "bool",
                 Hint: "手套/鞋子这种：物品本身不分左右，**一件只占一个槽、只护一只手（脚）——要护全得装两件**。「保护部位」列显示的是装在其中一侧时护的部位。"),
             new("sharpDefense", "锐防", "number"),
@@ -648,7 +651,7 @@ internal static class Program
         {
             ["name"] = a.Name,
             ["equipSlot"] = slots,
-            ["covers"] = covers is null ? "" : string.Join('、', covers),
+            ["covers"] = covers is null ? "" : FoldCovers(covers, def?.Paired ?? false),
             ["paired"] = def?.Paired ?? false,
             ["sharpDefense"] = a.SharpDefense,
             ["bluntDefense"] = a.BluntDefense,
@@ -658,6 +661,77 @@ internal static class Program
             ["_anchor"] = $"src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.{member}()"
                           + "（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
         };
+    }
+
+    /// <summary>
+    /// [波1·item1] **保护部位的显示折叠**（纯抽取器展示层，引擎模型一律不碰）。
+    /// <para>输入是引擎给的一串中文部位名（逐指逐趾、分左右），输出折成人话：</para>
+    /// <list type="bullet">
+    ///   <item>手掌 + 该侧五指 → 「左手(含指)」；脚掌 + 该侧五趾 → 「左脚(含趾)」（指/趾并进掌，不再逐个列）。</item>
+    ///   <item>「左X」与「右X」同时在 → 折成「双X」（双臂 / 双大腿 / 双小腿 / 双眼 / 双耳 / 双脚…）。</item>
+    ///   <item>成对装备（手套/鞋）：covers 只列代表性的一侧 ⇒ 落单的「左X/右X」去掉方位前缀，并加尾注
+    ///         「（穿哪只护哪只，需两件护全）」。</item>
+    /// </list>
+    /// 保持输入的原有顺序（「双X」落在「左X」原位、丢掉「右X」），不重排。
+    /// </summary>
+    private static string FoldCovers(IEnumerable<string> rawParts, bool paired)
+    {
+        var parts = rawParts.Select(p => p.Trim()).Where(p => p.Length > 0).Distinct().ToList();
+
+        // 手指：含「手」且以「指」结尾（左手小指…），但手掌「左手/右手」本身不算；脚趾：以「趾」结尾（左脚五趾…）。
+        bool IsFinger(string p) => p.EndsWith("指", StringComparison.Ordinal) && p.Contains('手') && p != "左手" && p != "右手";
+        bool IsToe(string p) => p.EndsWith("趾", StringComparison.Ordinal);
+
+        // ① 指/趾并进手掌/脚掌那一项；其余原样，保持顺序
+        var tokens = new List<string>();
+        foreach (string p in parts)
+        {
+            if (IsFinger(p) || IsToe(p)) continue;
+            if (p is "左手" or "右手")
+            {
+                string side = p[..1];
+                bool hasFinger = parts.Any(x => IsFinger(x) && x.StartsWith(side, StringComparison.Ordinal));
+                tokens.Add(hasFinger ? $"{side}手(含指)" : p);
+            }
+            else if (p is "左脚" or "右脚")
+            {
+                string side = p[..1];
+                bool hasToe = parts.Any(x => IsToe(x) && x.StartsWith(side, StringComparison.Ordinal));
+                tokens.Add(hasToe ? $"{side}脚(含趾)" : p);
+            }
+            else tokens.Add(p);
+        }
+
+        // ② 左右合并：「左X」若有配对的「右X」（首字换成右）⇒ 合成「双X」，丢掉右项
+        var folded = new List<string>();
+        var dropped = new HashSet<string>();
+        foreach (string t in tokens)
+        {
+            if (dropped.Contains(t)) continue;
+            if (t.StartsWith("左", StringComparison.Ordinal))
+            {
+                string rhs = "右" + t[1..];
+                if (tokens.Contains(rhs))
+                {
+                    folded.Add("双" + t[1..]);
+                    dropped.Add(rhs);
+                    continue;
+                }
+            }
+            folded.Add(t);
+        }
+
+        // ③ 成对装备：covers 只列一侧 ⇒ 落单的「左X/右X」去方位前缀，并加尾注
+        if (paired)
+        {
+            folded = folded
+                .Select(t => (t.StartsWith("左", StringComparison.Ordinal) || t.StartsWith("右", StringComparison.Ordinal)) ? t[1..] : t)
+                .ToList();
+        }
+
+        string joined = string.Join('、', folded);
+        if (paired) joined += "（穿哪只护哪只，需两件护全）";
+        return joined;
     }
 
     // ─────────────────────────── 狗装备 ───────────────────────────
@@ -759,7 +833,11 @@ internal static class Program
         var cols = new List<Col>
         {
             new("name", "名称", Primary: true),
-            new("category", "类别", "chip"),
+            // [波1·item2] 类别只读：它来自代码枚举 MaterialCategory，不是用户手改的字段。
+            // 放开可编辑会让 TableMerge「表赢代码」按住旧值（老的「Food/零件」就是这么显示不掉的）；
+            // 要给某材料换类目，改 godot/scripts/Materials.cs 的 MaterialCategory，重跑即刷新。
+            new("category", "类别", "chip", ReadOnly: true,
+                Hint: "来自代码里的材料类别枚举（只读）。要改归类，改 Materials.cs 的 MaterialCategory。"),
             new("weight", "单位重量(公斤)", "number"),
             new("description", "说明", "longtext"),
             new("_id", "内部 id", Internal: true),
@@ -796,15 +874,26 @@ internal static class Program
             cols, rows);
     }
 
+    /// <summary>
+    /// 材料类别 → **人话中文标签**（候选 10 类，用户拍板）。只在「材料」分区用（<see cref="Materials"/> 里那一处）。
+    /// <para>
+    /// 🔴 [波1·item2] 两处**英文泄漏**在此堵死：<c>Food</c> 此前没有分支 ⇒ 走 <c>_ =&gt; c.ToString()</c> ⇒
+    /// 老鼠 / 鸟的类别在表里直接显示成英文「Food」；<c>Component</c> 是本波新枚举，同样要给中文。
+    /// 材料表的「类别」列已改为**只读**（值来自代码枚举，不由用户手改），故这里改一次标签、重跑即全表刷新，
+    /// 不会被 TableMerge 的「表赢代码」按住旧值（那正是「Food/零件」一直显示不掉的根因）。
+    /// </para>
+    /// </summary>
     private static string MaterialCategoryLabel(MaterialCategory c) => c switch
     {
-        MaterialCategory.Wood => "木",
-        MaterialCategory.Cloth => "布",
+        MaterialCategory.Wood => "木材",
+        MaterialCategory.Cloth => "织物",
         MaterialCategory.Metal => "金属",
-        MaterialCategory.Leather => "皮",
-        MaterialCategory.Chemical => "化学",
-        MaterialCategory.Misc => "杂项",
-        MaterialCategory.Medical => "医疗",
+        MaterialCategory.Leather => "皮革",
+        MaterialCategory.Chemical => "化学品",
+        MaterialCategory.Component => "精密零件",   // [波1·item2] 机械/子弹/武器零件
+        MaterialCategory.Misc => "有机杂料",         // 骨头/石料/绳子/羽毛
+        MaterialCategory.Medical => "药材",          // 材料分区里只出现采集来的草药原料（蒲公英/玫瑰果/老君须）
+        MaterialCategory.Food => "猎物",             // [波1·item2] 老鼠/鸟（原走 c.ToString() 泄漏成「Food」）
         MaterialCategory.Currency => "货币",
         MaterialCategory.Ammo => "弹药",
         _ => c.ToString(),
@@ -882,6 +971,9 @@ internal static class Program
             new("outputQty", "产量", "number"),
             new("materials", "材料", Hint: "格式：木料*2、布*1"),
             new("tools", "工作台工具", "chip", Hint: "空 = 徒手就能做"),
+            // [波1·item7] 制作地点：从「工作台工具」+「制作者门槛」派生的只读汇总列——一眼看出这条配方在哪做。
+            new("craftLocation", "制作地点", "chip", ReadOnly: true,
+                Hint: "自动派生（只读）：装了工具就在工作台、茶在烹饪台、宰杀台升级在宰杀台、陷阱/菜园/沙袋在野外空地徒手搭。要改，改配方的工具/门槛。"),
             new("books", "要读过的书"),
             new("workMinutes", "工时", "hours", Hint: "有人站在工作台前干这么久（游戏内时间）。一天有 8 个相位，夜里那个生产相位大约能推进几小时——超过它就得跨夜接着做。"),
             new("crafterGate", "制作者门槛", Hint: "空 = 谁都能做。人话说明；引擎真正读的门槛 id 在置灰的「勿改」列里。"),
@@ -902,6 +994,7 @@ internal static class Program
                 ["outputQty"] = r.OutputQuantity,
                 ["materials"] = string.Join('、', r.MaterialCosts.Select(kv => $"{MaterialName(kv.Key)}*{kv.Value}")),
                 ["tools"] = string.Join('、', r.RequiredTools.Select(DisplayNames.Of)),
+                ["craftLocation"] = CraftLocation(r),
                 ["books"] = string.Join('、', r.RequiredBookIds.Select(BookTitle)),
                 ["workMinutes"] = r.WorkMinutes,
                 ["crafterGate"] = r.RequiredCrafterGates is null ? "" : string.Join('、', r.RequiredCrafterGates.Select(GateLabel)),
@@ -915,6 +1008,48 @@ internal static class Program
             "做一件东西要过三道门槛：工作台上装着对的工具、制作者读过对的书、库存里有够的材料。"
             + "工时是「人站在工作台前推进多少游戏分钟」，不是点一下就出。",
             cols, rows);
+    }
+
+    /// <summary>
+    /// 「造→摆」的野外设施配方 id —— 无工具、无站点门槛，在营地空地上徒手搭出来的东西
+    /// （陷阱 / 菜园 / 沙袋）。列在这里才把它们和「工作台徒手活」区分开。
+    /// </summary>
+    private static readonly HashSet<string> FieldRecipeIds = new(StringComparer.Ordinal)
+    {
+        "snare_trap",   // 圈套陷阱
+        "bird_trap",    // 捕鸟陷阱
+        "crop_plot",    // 菜园
+        "sandbag",      // 沙袋（防御工事，同属野外空地搭建）
+    };
+
+    /// <summary>
+    /// [波1·item7] **制作地点**——从 <see cref="RecipeData.RequiredTools"/> + <see cref="RecipeData.RequiredCrafterGates"/> 纯派生（不改 Recipe.cs 业务）。
+    /// <para>优先级：</para>
+    /// <list type="number">
+    ///   <item>装了工作台工具（卡尺/锯片/烧杯）⇒ 「工作台（<i>工具名</i>）」——工具优先于门槛
+    ///         （如「改装台」自身要卡尺，虽带 mod_bench_absent 门槛，仍在工作台上做）。</item>
+    ///   <item>门槛 <c>cook_station_present</c>（茶要在灶上煮）⇒ 「烹饪台」；
+    ///         <c>butcher_point_present</c>（升级宰杀点）⇒ 「宰杀台」。</item>
+    ///   <item>门槛以 <c>_absent</c> 结尾 ⇒ 这条配方本身在**造那座设施**（烹饪台 / 简易宰杀点）
+    ///         ⇒ 在营地空地上徒手搭 ⇒ 「野外（徒手）」。</item>
+    ///   <item>无工具、无站点门槛：属 <see cref="FieldRecipeIds"/>（陷阱/菜园/沙袋）⇒ 「野外（徒手）」；否则 ⇒ 「工作台（徒手）」。</item>
+    /// </list>
+    /// <para>⚠️ [DECISION] 任务口径原文是「butcher_* → 宰杀台」，这里细化为：<c>butcher_point_present</c>（升级动作，在宰杀点上做）→ 宰杀台；
+    /// <c>butcher_absent</c>（**建**简易宰杀点这条配方本身）→ 野外（徒手）——不然会读成「在宰杀台上造出宰杀台」的悖论。同理 <c>cook_station_absent</c> → 野外（徒手）。</para>
+    /// </summary>
+    private static string CraftLocation(RecipeData r)
+    {
+        if (r.RequiredTools.Count > 0)
+        {
+            return $"工作台（{string.Join('、', r.RequiredTools.Select(DisplayNames.Of))}）";
+        }
+
+        IReadOnlyList<string> gates = r.RequiredCrafterGates ?? Array.Empty<string>();
+        if (gates.Contains("cook_station_present")) return "烹饪台";
+        if (gates.Contains("butcher_point_present")) return "宰杀台";
+        if (gates.Any(g => g.EndsWith("_absent", StringComparison.Ordinal))) return "野外（徒手）";
+
+        return FieldRecipeIds.Contains(r.Id) ? "野外（徒手）" : "工作台（徒手）";
     }
 
     private static string RecipeCategoryLabel(RecipeCategory c) => c switch
@@ -1031,6 +1166,8 @@ internal static class Program
             // 用户改这句话，agent 照着同步进 MedicalBookPoints。原始值另存进置灰锚点列供精确回写。
             new("unlocks", "效果", Hint: "读完这本书带来什么：解锁的配方、给的被动加成、让手术更有把握……都写这一列，用人话。数字直接写在句子里，agent 会照它同步进代码。"),
             new("body", "正文", "longtext"),
+            // 玩家在游戏里看到的短简介：代码里已有字段（BookData.Description），复用「简介」列。
+            new("description", "简介", "longtext"),
             new("_id", "内部 id", Internal: true),
             // 手术点数不再单独占一列（已并进「效果」），但**原始数值留在这里**：
             // agent 回写代码时要有个精确锚点，不能从散文里猜数字。
@@ -1051,6 +1188,7 @@ internal static class Program
                 ["readHours"] = b.ReadHours,
                 ["unlocks"] = BookEffect(b.Id, pts),
                 ["body"] = b.Body,
+                ["description"] = b.Description,
                 ["_id"] = b.Id,
                 ["_surgeryPoints"] = pts > 0 ? pts : (object?)null,
                 ["_anchor"] = "godot/scripts/BookData.cs :: BookLibrary"

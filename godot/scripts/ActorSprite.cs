@@ -58,8 +58,21 @@ public sealed partial class ActorSprite : Node2D
     private float _fadeTime;            // 剩余淡出时长
     private float _fadeDur;             // 本次淡出总时长
 
+    // ---- 脚本 CG 演出接管（CampMain.CinematicCg）----
+    // 为 true 时 _Process 整段早退：不再 SyncToActor / 重写 Modulate / 跑抖动闪色，
+    // 由 CG 逐帧直接写本节点的 Position/Scale/Modulate/Visible（真实时基，TimeScale=0 下也能动）。
+    // 关键：TimeScale=0 时本类 _Process 仍被调用但 delta=0，若不接管则它每帧把 Modulate 刷回 White、
+    // 把 Position 拉回 SyncToActor，会与 CG 的直接写入打架。默认 false ⇒ 非 CG 路径零副作用。
+    private bool _cinematic;
+
     /// <summary>本 sprite 当前绑定的 Actor（未绑定返回 null）。供 CampMain 放逐时按 actor 反查其 sprite。</summary>
     public Actor? BoundActor => _bound ? _actor : null;
+
+    /// <summary>进入脚本 CG 演出：让 _Process 让位，CG 独占本 sprite 的 Transform/Modulate/Visible。</summary>
+    public void EnterCinematic() => _cinematic = true;
+
+    /// <summary>退出脚本 CG 演出：交还 _Process（下一帧起恢复常规同步/受击表现）。</summary>
+    public void ExitCinematic() => _cinematic = false;
 
     /// <summary>
     /// 放逐淡出：接管 modulate，alpha 在 <paramref name="seconds"/> 内补间到 0 后 QueueFree 自身。
@@ -162,6 +175,12 @@ public sealed partial class ActorSprite : Node2D
     public override void _Process(double delta)
     {
         if (!_bound)
+        {
+            return;
+        }
+
+        // 脚本 CG 演出接管：整段让位，CG 逐帧直接驱动本节点（真实时基）。放最前，优先于淡出/自毁分支。
+        if (_cinematic)
         {
             return;
         }

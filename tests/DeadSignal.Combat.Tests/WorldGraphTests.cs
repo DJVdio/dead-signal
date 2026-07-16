@@ -482,6 +482,7 @@ public class WorldGraphTests
                      ExplorationCache.HarvesterWarehouseName, ExplorationCache.WatchersCabinName,
                      ExplorationCache.CityRooftopLookoutName, ExplorationCache.BroadcastStationName,
                      ExplorationCache.GoldfingerBaseName, ExplorationCache.StuartManorName,
+                     ExplorationCache.PoliceStationName,
                      NurseRecruit.DestinationName, VillageRescue.DestinationName,
                  })
         {
@@ -492,7 +493,7 @@ public class WorldGraphTests
         foreach (string name in PendingLevelContent)
             Assert.True(graph.Contains(name), $"world_graph.json 里没有新点「{name}」");
 
-        Assert.Equal(17, graph.Nodes.Count); // 14 既有 + 下水道 + 难民营地 + 破败教堂
+        Assert.Equal(18, graph.Nodes.Count); // 14 既有 + 下水道 + 难民营地 + 破败教堂 + 警察局
     }
 
     // ═══════════════════════ 消费层覆盖自检（源码守卫）═══════════════════════

@@ -79,6 +79,18 @@ public abstract partial class Actor : CharacterBody2D
     /// </summary>
     protected double CarryLoadAttackSpeedMult = 1.0;
 
+    // ---- authored 移速乘子（皮特·青春期田径队：L1 1.15× / L2 1.25× / L3 1.30×）----
+    /// <summary>
+    /// authored 专属移速乘子（1.0 = 无加成）。<b>乘算</b>进移动能力链（残缺 × 饥饿 × 骨折 × 战斗减速 × 家具 × 负重 × <b>authored</b>），
+    /// 与负重槽同一注入式口径。<b>null（未注入）= 恒 1.0</b> ⇒ 丧尸/劫掠者/狗/商人及非皮特幸存者逐位零回归。
+    /// 皮特由 <c>CampMain.AddActor</c> 注入一个读实时等级的 lambda（<c>PetePerk.MoveSpeedMultiplier</c>），
+    /// 故升级即时生效、无缓存可失效（同山姆减伤 lambda 口径）。
+    /// </summary>
+    private System.Func<double>? _authoredMoveSpeedMult;
+
+    /// <summary>注入 authored 移速乘子 lambda（皮特按等级现算）。null 清除（＝1.0，零回归）。</summary>
+    public void SetAuthoredMoveSpeedMult(System.Func<double>? f) => _authoredMoveSpeedMult = f;
+
     /// <summary>
     /// 当前持握态，供攻速/误差角消费（<see cref="GripCombat"/>）。<see cref="Pawn"/> 走其 <see cref="Pawn.Grip"/>
     /// （左右手持械推导）；其余单位（丧尸/劫掠者等无持械模型）恒 <see cref="GripMode.OneHanded"/>（系数 ×1.0，零回归）。
@@ -528,6 +540,13 @@ public abstract partial class Actor : CharacterBody2D
         // 断腿(×0.7) 的人背着满改装步枪(×0.97) = 0.679，不是加算的 0.67。基类恒 1.0 ⇒ 丧尸/劫掠者零回归。
         // 修复前这一行不存在 ⇒ Loadout.SpeedMultiplier 算出来的数字**没有任何人读它**。
         mobility *= CarryLoadSpeedMult;
+
+        // authored 移速乘子（皮特青春期田径队 1.15/1.25/1.30×）：**乘算**进本链，与残缺/骨折/家具/负重彼此独立叠乘。
+        // 未注入（非皮特）⇒ null ⇒ 不乘 ⇒ 零回归。皮特断腿(×0.7)背包(×0.97)仍照乘：0.7×0.97×1.30，不是加算。
+        if (_authoredMoveSpeedMult is { } authoredMove)
+        {
+            mobility *= authoredMove();
+        }
 
         Vector2 desired = mobility > 0 ? dir * MoveSpeed * (float)mobility : Vector2.Zero;
         // 把期望速度交给避障；OnVelocityComputed 收到安全速度后再 MoveAndSlide。

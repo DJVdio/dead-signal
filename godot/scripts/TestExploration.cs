@@ -73,6 +73,7 @@ public sealed partial class TestExploration : ExplorationLevel
         public string Name = "";
         public Rect2 Rect;
         public DoorState State;
+        public LockTier Lock;   // None＝没上锁（推一下就开）；否则撬开要铁丝，档次决定成功率/耗时
         public StaticBody2D Body = null!;
         public Polygon2D Panel = null!;
     }
@@ -137,6 +138,8 @@ public sealed partial class TestExploration : ExplorationLevel
             SetupRefugeeCamp();
         else if (DestinationName == ExplorationCache.SewerName)
             SetupSewer();
+        else if (DestinationName == ExplorationCache.PoliceStationName)
+            SetupPoliceStation();
 
         // 叙事调查点（极乐迪斯科式，[SPEC-B12]）：按目的地迭代注册表铺 Area2D（与物资/主线点并存，命名空间隔离）。
         // 须在 SetupVisionMask 之前（视觉容器进 _discoveryVisuals，供视野外隐藏）。
@@ -491,6 +494,7 @@ public sealed partial class TestExploration : ExplorationLevel
             Name = spec.Name,
             Rect = rect,
             State = spec.Initial,
+            Lock = spec.Lock,
             Body = body,
             Panel = panel,
         };
@@ -546,9 +550,41 @@ public sealed partial class TestExploration : ExplorationLevel
         return null;
     }
 
+    /// <summary>某扇关内门的锁档（不存在则 <see cref="LockTier.None"/>）。撬锁消费层据此掷成功率/耗时。</summary>
+    public LockTier LevelDoorLockTier(string name)
+    {
+        foreach (LevelDoorInstance d in _levelDoors)
+        {
+            if (d.Name == name)
+                return d.Lock;
+        }
+        return LockTier.None;
+    }
+
+    /// <summary>
+    /// 撬锁成功后**把这扇锁门打开**（Locked → Open：撤墙层 body + 摘导航洞 + 重烘焙）。
+    /// <b>只对锁着的门生效</b>（没锁的门走 <see cref="ToggleLevelDoor"/> 的推/关）。返回是否真的开了。
+    /// </summary>
+    public bool UnlockLevelDoor(string name)
+    {
+        foreach (LevelDoorInstance d in _levelDoors)
+        {
+            if (d.Name != name)
+                continue;
+            if (d.State != DoorState.Locked)
+                return false;
+            d.State = DoorState.Open;
+            SetLevelDoorBlocking(d, false);
+            return true;
+        }
+        return false;
+    }
+
     /// <summary>
     /// <b>开 / 关</b>一扇关内的门（<b>开门只有一种动作</b>，与营地同口径：开着就关上，关着就推开）。
-    /// 关内的门<b>都没上锁</b>（不需要铁丝，玩家绝不会被一扇门永久卡死）。
+    /// 绝大多数关内门<b>没上锁</b>（不需要铁丝，推一下就开）；<b>锁着的门推不开</b>——它走撬锁那条路
+    /// （消费层 <c>CampMain.ExecuteLevelDoorInteract</c> 先看 <see cref="LevelDoorState"/>，Locked 则去撬，撬开后调
+    /// <see cref="UnlockLevelDoor"/>）。故本方法**拒绝推开锁门**（返回 false），否则「推一下就开」会绕过锁。
     /// <para>
     /// 返回是否真的动了门；<paramref name="message"/> 给调用方出提示。关门时若门缝里站着东西则关不上
     /// （否则会把它实心夹进门板里）。
@@ -562,6 +598,13 @@ public sealed partial class TestExploration : ExplorationLevel
             if (d.Name == name) { door = d; break; }
         }
         if (door is null)
+        {
+            message = "";
+            return false;
+        }
+
+        // 锁着的门推不开（撬锁走 UnlockLevelDoor）——防「推一下就开」绕过锁。
+        if (door.State == DoorState.Locked)
         {
             message = "";
             return false;
@@ -625,9 +668,12 @@ public sealed partial class TestExploration : ExplorationLevel
     private void SetupReturnZone()
     {
         // [T61] 下水道：返回区＝那口检修竖井的井底（唯一的出口）。默认那个"地图正下方"的位置在下水道里是**实心墙**。
+        // [警察局] 返回区＝门厅内的入口（默认那个"地图正下方"落点在警察局的门厅之外＝实心墙）。
         Vector2 pos = DestinationName == ExplorationCache.SewerName
             ? new Vector2(ExplorationWalls.SewerEntry.X - 40f, ExplorationWalls.SewerEntry.Y - 40f)
-            : new Vector2(LevelW / 2 - 40, LevelH - 120);
+            : DestinationName == ExplorationCache.PoliceStationName
+                ? new Vector2(ExplorationWalls.PoliceEntry.X - 40f, ExplorationWalls.PoliceEntry.Y - 40f)
+                : new Vector2(LevelW / 2 - 40, LevelH - 120);
 
         var visual = new Polygon2D
         {
@@ -671,9 +717,13 @@ public sealed partial class TestExploration : ExplorationLevel
         // [T61] 下水道的入口是一口**竖井**（通道宽 140）——默认那个横排落点会把人放进墙里。
         // 故这一关**沿竖井纵向排队**下来（x 不动，y 逐个上移），与 ExplorationWalls.SewerEntry 同源。
         bool sewer = DestinationName == ExplorationCache.SewerName;
+        // [警察局] 入口在门厅（x[300,720]）—— 默认 x=200 那个落点在门厅之外＝墙里；改从门厅内横排落队。
+        bool police = DestinationName == ExplorationCache.PoliceStationName;
         Vector2 spawn = sewer
             ? new Vector2(ExplorationWalls.SewerEntry.X - 10f, ExplorationWalls.SewerEntry.Y - 20f)
-            : new Vector2(200, LevelH - 200);
+            : police
+                ? new Vector2(ExplorationWalls.PoliceEntry.X - 60f, ExplorationWalls.PoliceEntry.Y)
+                : new Vector2(200, LevelH - 200);
         float stepX = sewer ? 0f : 40f;
         float stepY = sewer ? -34f : 0f;
         for (int i = 0; i < ExpeditionTeam.Count; i++)
@@ -775,6 +825,18 @@ public sealed partial class TestExploration : ExplorationLevel
             foreach ((float x, float y) in ExplorationWalls.SewerZombieSpots)
                 sewerSpots.Add(new Vector2(x, y));
             SpawnZombiesAt(sewerSpots);
+            return;
+        }
+
+        // [警察局] Medium：**4 只，各藏一间房的深角**（比下水道低危的 3 只多一只）。
+        // 🔴 布点被硬不变量钉死（PoliceStationTests：**任一可行走点最多被 1 只感知**）——「Medium」是总量更多，
+        //    不是同时更多（2 只围攻 16.6%、3 只 0.8%＝断崖）。「室内多拐角」靠房间门洞遮挡，不靠人海。**要挪/要加先跑 PoliceStationTests。**
+        if (DestinationName == ExplorationCache.PoliceStationName)
+        {
+            var policeSpots = new List<Vector2>(ExplorationWalls.PoliceZombieSpots.Count);
+            foreach ((float x, float y) in ExplorationWalls.PoliceZombieSpots)
+                policeSpots.Add(new Vector2(x, y));
+            SpawnZombiesAt(policeSpots);
             return;
         }
 
@@ -1680,6 +1742,48 @@ public sealed partial class TestExploration : ExplorationLevel
             new Vector2(rx, ry),
             markerColor: new Color(0.72f, 0.66f, 0.52f),   // 昏黄：一个活人
             label: RatPerk.RatName);
+    }
+
+    // ================= [警察局] 警察局 =================
+    //
+    // 🔴 用户拍板：前中期 · 规模小 · **室内多拐角** · 危险 Medium，前置挂消防站/河边小屋之后。
+    //   「室内多拐角」＝中央脊廊 + 侧向 loot 房间，靠房间门洞遮挡制造盲区（不是靠黑暗——本关**不**标室内恒暗）。
+    //   几何/丧尸布点/搜刮点坐标全在纯逻辑 <see cref="ExplorationWalls"/>（PoliceRooms/PoliceWalls/PoliceZombieSpots/PoliceCacheSpots），
+    //   并上了单测（<c>PoliceStationTests</c>：任一可行走点感知≤1 / 墙补集不漏 / 路通 / 规模小）。**别在这里另写一份几何。**
+    //   这里只做空间执行：把矩形实体化、把搜刮点铺出来。掉落/叙事在 <see cref="ExplorationCache.Resolve"/> + <see cref="SetupNarrativeSpots"/>。
+
+    /// <summary>
+    /// [警察局] 一座小警局的室内：门厅(入口) → 办公区/证物室/更衣室(三间侧房) → 禁闭区(最深·**防暴头盔+防弹背心**)。
+    /// 丧尸 4 只各藏一房深角（Medium），玩家沿脊廊一间间摸过去，一次只撞见一间房里的东西。
+    /// </summary>
+    private void SetupPoliceStation()
+    {
+        // 地台（纯视觉）：室内水泥灰。禁闭区那一片压一层冷蓝——最深、也是两件甲所在。
+        AddZonePad(new Vector2(280, 160), new Vector2(1180, 1320), new Color(0.24f, 0.25f, 0.27f, 0.55f));
+        AddZonePad(new Vector2(740, 160), new Vector2(460, 260), new Color(0.20f, 0.24f, 0.30f, 0.55f)); // 禁闭区
+
+        // ——墙：由可行走矩形的**补集**自动推出（ExplorationWalls.PoliceWalls）⇒ 房间与墙不可能对不上。
+        //   同一批矩形三用：碰撞（挡人）/ 导航 obstruction（阻断寻路）/ 墙层射线（**挡视线** —— 多拐角的盲区就是靠它成立的）。
+        var wallC = new Color(0.30f, 0.31f, 0.33f, 0.98f);
+        foreach (WallRect w in ExplorationWalls.PoliceWalls())
+            AddSolidWall(w, wallC, zIndex: -5);
+
+        // ——拘留区那道**锁死的铁门**（禁闭区唯一入口·全项目第一扇真锁门）——
+        //   初始 Locked ⇒ 挡人/挡视线/断寻路三件事一起生效（DoorLogic.Blocks(Locked)=true）⇒ 禁闭区够不着。
+        //   撬开（消耗铁丝·按 LockTier 掷成功率）才可达两件甲——撬锁接线在消费层 CampMain.ExecuteLevelDoorInteract。
+        var doorC = new Color(0.36f, 0.38f, 0.42f, 0.98f); // 铁灰：一眼看得出是道正经的锁门
+        foreach (ExplorationDoor d in ExplorationWalls.PoliceDoors())
+            AddLevelDoor(d, doorC);
+
+        // ——5 处搜刮点（近→深）。禁闭室那处用**钢青**标出来：它是这一关最值钱的地方（两件甲）。——
+        var lootC = new Color(0.52f, 0.55f, 0.60f);   // 警局灰蓝
+        var armorC = new Color(0.42f, 0.60f, 0.72f);  // 钢青：防护装备（禁闭室）
+        foreach (PoliceCacheSpot spot in ExplorationWalls.PoliceCacheSpots)
+        {
+            bool isCell = spot.Id == ExplorationCache.PoliceHoldingCellId;
+            AddDiscoveryPoint(spot.Id, new Vector2(spot.X, spot.Y),
+                markerColor: isCell ? armorC : lootC, label: spot.Label);
+        }
     }
 
     // ================= [SPEC-T60] 破败教堂 =================

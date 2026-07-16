@@ -77,10 +77,15 @@ public readonly record struct HospitalBoundary(string Name, IReadOnlyList<Doorwa
 public readonly record struct HospitalEntrance(string Name, string? DoorName);
 
 /// <summary>
-/// 探索关里一扇**可关的门**：门板矩形 + 初始状态。门板恰好填满它所在的那个门洞
+/// 探索关里一扇**可关的门**：门板矩形 + 初始状态 + <b>锁的档次</b>。门板恰好填满它所在的那个门洞
 /// （故"开门"＝把这块矩形从墙层/导航洞里摘掉，"关门"＝装回去，与营地门同一口径）。
+/// <para>
+/// <paramref name="Lock"/> 默认 <see cref="LockTier.None"/>（绝大多数关内门不上锁，玩家推一下就开）——
+/// 仅当 <paramref name="Initial"/> 为 <see cref="DoorState.Locked"/> 时才有意义：撬它要**铁丝**，档次决定成功率/耗时
+/// （见 <see cref="DoorLogic.PickChance"/>/<see cref="DoorLogic.PickSeconds"/>）。警察局禁闭区那道门是全项目**第一扇**真锁门。
+/// </para>
 /// </summary>
-public readonly record struct ExplorationDoor(string Name, WallRect Rect, DoorState Initial);
+public readonly record struct ExplorationDoor(string Name, WallRect Rect, DoorState Initial, LockTier Lock = LockTier.None);
 
 /// <summary>
 /// 探索关墙体几何（纯逻辑）。TestExploration 按这些矩形实体化墙：
@@ -720,6 +725,198 @@ public static class ExplorationWalls
         }
     }
 
+    // ==================================================================================
+    // [警察局] 警察局的几何（纯静态表 —— 与下水道同一范式：可行走房间/走廊的**补集**自动推出墙，可脱 Godot 单测）
+    //
+    // 🔴 用户拍板：警察局＝**前中期 · 规模小 · 室内多拐角 · 危险 Medium**，前置挂消防站/河边小屋之后。
+    //   「室内多拐角」在这里兑现为**中央脊廊 + 侧向 loot 房间**：房间的单一门洞遮挡远比开放拐角强，
+    //   ⇒ 玩家一次只撞见一间房里的东西。危险 Medium ⇒ 丧尸 **4 只**（下水道低危是 3 只），**各藏一房深角**。
+    //   由硬不变量钉死：**任一可行走点，能感知到你的丧尸 ≤ 1 只**（PoliceMaxConcurrentZombies，见 PoliceStationTests）。
+    //   ⚠️ 依据 sim-lanchester：2 只围攻胜率 16.6%、3 只 0.8% ⇒ 围攻是断崖。「Medium」是**总量**更多，不是**同时**更多。
+    // ==================================================================================
+
+    /// <summary>警察局墙厚（px）。</summary>
+    public const float PoliceWallThickness = 40f;
+
+    /// <summary>
+    /// 🔴 <b>硬不变量：任一可行走点，能感知到你的丧尸 ≤ 1 只。</b>（已上单测 <c>PoliceStationTests</c>。）
+    /// 「室内多拐角」的意义是"你不知道下一间房里有什么"，不是"被一群围死"——这条护栏把两者焊开。
+    /// </summary>
+    public const int PoliceMaxConcurrentZombies = 1;
+
+    /// <summary>
+    /// 判"这只丧尸能感知到这个位置"用的**保守**半径（px）＝<b>400</b>。
+    /// <para>
+    /// 校准（警察局<b>不</b>标室内恒暗，与下水道不同）：白昼环境光下丧尸视距 = <see cref="VisionLogic.BaseRange"/>(300)，
+    /// 且白昼里<see cref="VisionLogic.MaxExposureBonus"/>暴露放大几乎归零（越亮越不放大）⇒ 真实全向上界 ≈ <b>300</b>（视距）
+    /// ＋嗅觉 <see cref="NoiseLogic.ZombieSmellRadius"/>(70)/脚步 40 都更短。取 <b>400</b> 留 ~33% 裕度。
+    /// 夜相位视距只会更短（<see cref="VisionLogic.DarkRangeFactor"/>），故 400 对全相位都够保守。
+    /// </para>
+    /// ⚠️ 它管不了枪声（战斗噪音 350~600 不分阵营，能把整层叫醒）——那是玩家自己的选择，几何护栏不替他兜底。
+    /// </summary>
+    public const float PoliceAggroRadius = 400f;
+
+    /// <summary>
+    /// 警察局的**可行走区域**：中央脊廊（门厅 → 连廊 → 主走廊 → 拘留区）+ 三间侧向 loot 房间（办公区/证物室/更衣室）。
+    /// 墙 = 这些矩形的**补集**（<see cref="PoliceWalls"/> 自动推出）⇒ 房间与墙不可能对不上（既不漏洞、也不堵路）。
+    /// 相邻矩形**真重叠**的那一小段就是门洞/junction。近→深：门厅(入口) → 办公区/证物室/更衣室 → 拘留区(禁闭室·最深)。
+    /// </summary>
+    public static readonly IReadOnlyList<PoliceRoom> PoliceRooms = new[]
+    {
+        new PoliceRoom("门厅",   new WallRect(300f, 1180f, 420f, 280f)),  // 入口接待厅（SW）
+        new PoliceRoom("连廊",   new WallRect(600f, 1200f, 440f, 140f)),  // 门厅 → 主走廊
+        new PoliceRoom("主走廊", new WallRect(900f, 300f, 140f, 1040f)),  // 纵贯中央走廊
+        new PoliceRoom("拘留区", new WallRect(760f, 180f, 420f, 220f)),   // 禁闭区（最深·两件甲）
+        new PoliceRoom("办公区", new WallRect(980f, 1080f, 440f, 260f)),  // 侧房·东（近）
+        new PoliceRoom("证物室", new WallRect(500f, 760f, 440f, 260f)),   // 侧房·西（中）
+        new PoliceRoom("更衣室", new WallRect(980f, 560f, 400f, 240f)),   // 侧房·东（深）
+    };
+
+    /// <summary>探索队进关的落点（门厅内），也是回营的返回区。</summary>
+    public static readonly (float X, float Y) PoliceEntry = (420f, 1400f);
+
+    /// <summary>**最深处** —— 禁闭区核心（拘留区）。用于连通性护栏（从入口必须走得到两件甲）。</summary>
+    public static readonly (float X, float Y) PoliceDeepest = (820f, 240f);
+
+    /// <summary>警察局 5 处搜刮点（id 与 <c>ExplorationCache</c> 一一对应）。由近到深：前台 → 办公桌 → 证物柜 → 更衣柜 → 囚室(两件甲)。</summary>
+    public static readonly IReadOnlyList<PoliceCacheSpot> PoliceCacheSpots = new[]
+    {
+        new PoliceCacheSpot(ExplorationCache.PoliceFrontDeskId,    420f, 1250f, "前台"),
+        new PoliceCacheSpot(ExplorationCache.PoliceBullpenId,     1200f, 1150f, "办公桌"),
+        new PoliceCacheSpot(ExplorationCache.PoliceEvidenceId,     700f,  880f, "证物柜"),
+        new PoliceCacheSpot(ExplorationCache.PoliceLockerRoomId,  1150f,  650f, "更衣柜"),
+        new PoliceCacheSpot(ExplorationCache.PoliceHoldingCellId,  850f,  300f, "囚室"),
+    };
+
+    /// <summary>
+    /// 警察局游荡丧尸布点 —— <b>4 只，各藏一间房的深角</b>（Medium）。房间门洞遮挡 ⇒ 从走廊只在门口一小段才看得见它。
+    /// <para>
+    /// 🔴 <b>入口(门厅)看不见任何一只</b>（进门不当场挨打，同消防站/下水道口径）；禁闭区那只<b>守着两件甲</b>（回报有代价）。
+    /// 🔴 <b>挪动/新增任何一只之前，先跑 PoliceStationTests</b> —— 房间遮挡很脆，挪出门口视线就可能让某点同时暴露两只（＝断崖）。
+    /// </para>
+    /// </summary>
+    public static readonly IReadOnlyList<(float X, float Y)> PoliceZombieSpots = new[]
+    {
+        (1380f, 1300f),  // 办公区深处（远 SE 角）
+        (540f,  800f),   // 证物室深处（远 NW 角）
+        (1340f, 760f),   // 更衣室深处（远 SE 角）
+        (1120f, 220f),   // 拘留区深处（远 NE 角·守着两件甲）
+    };
+
+    // ==================================================================================
+    // 🔴 拘留区那道**锁死的门** —— 全项目第一扇真锁门（撬锁首次接进探索关）。
+    //
+    //   几何：主走廊(900,300,140,1040) 与 拘留区(760,180,420,220) 在 x[900,1040] y[300,400] 处**真重叠**（junction），
+    //   而它俩的补集把「拘留区南墙」在 x[900,1040] 处开了个洞（主走廊穿墙上去）——**那个洞就是禁闭区的唯一入口**。
+    //   门板恰好填满这个洞：x[900,1040] y[400,440]（=拘留区南墙缺口，厚度=墙厚）。
+    //   ⇒ 门锁着 ⇒ 禁闭区（囚室两件甲 + 守甲那只丧尸）**够不着**；撬开才可达。无旁路（更衣室 y560-800 不接拘留区 y180-400，
+    //   拘留区只与主走廊相邻）——这条「唯一入口」由 PoliceStationTests 的可达性护栏钉死。
+    //
+    //   LockTier=Standard（普通锁·0.45/次·期望 ~13 秒 / ~1.2 根丝）：数值「拟定待调」。取普通档而非坚固档的理由——
+    //   这是玩家遇到的**第一扇**锁门，坚固锁(0.25·期望 32 秒 / 3 根丝)在禁闭区那只丧尸眼皮底下蹲太久＝劝退；
+    //   普通锁已足够让「安静撬 vs 砸开(180 招整层)」的取舍成立。要调档只改这一处。
+    // ==================================================================================
+
+    /// <summary>禁闭区那道锁死的门的名字（玩家可见 + 容器登记键）。</summary>
+    public const string PoliceHoldingDoorName = "拘留区铁门";
+
+    /// <summary>禁闭区那道门的锁档 —— 普通锁（拟定待调，见上方块注释）。</summary>
+    public const LockTier PoliceHoldingLockTier = LockTier.Standard;
+
+    /// <summary>
+    /// 警察局的关内门 —— 只有一扇：**拘留区南墙缺口上的锁死铁门**（禁闭区唯一入口）。
+    /// 初始 <see cref="DoorState.Locked"/> + <see cref="PoliceHoldingLockTier"/>：撬开(消耗铁丝)才够得着两件甲。
+    /// </summary>
+    public static IReadOnlyList<ExplorationDoor> PoliceDoors()
+    {
+        const float t = PoliceWallThickness; // 40：门板厚度＝墙厚，恰好填满南墙缺口
+        // 拘留区(760,180,420,220) 底边 y=400；主走廊在此开洞 x[900,1040]。门板铺满这个洞。
+        return new[]
+        {
+            new ExplorationDoor(
+                PoliceHoldingDoorName,
+                new WallRect(900f, 400f, 140f, t),
+                DoorState.Locked,
+                PoliceHoldingLockTier),
+        };
+    }
+
+    /// <summary>某点是否在警察局的可行走区域内（＝落在任一房间/走廊矩形里）。</summary>
+    public static bool PoliceContains(float x, float y)
+    {
+        foreach (PoliceRoom c in PoliceRooms)
+        {
+            WallRect r = c.Rect;
+            if (x >= r.X && x <= r.Right && y >= r.Y && y <= r.Bottom)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /// <summary>警察局的全部墙段 —— 由可行走矩形的**补集**自动推出（复用通用 <see cref="ComplementWalls"/>）。三用：碰撞 / 导航 obstruction / **视线遮挡**。</summary>
+    public static IReadOnlyList<WallRect> PoliceWalls()
+        => ComplementWalls(PoliceRooms.Select(c => c.Rect).ToList(), PoliceWallThickness);
+
+    /// <summary>
+    /// 把一组**可行走矩形**的补集推成墙段（通用版）：给每个矩形四条边贴一条朝外的墙条，再把**被别的矩形压住**的区间挖成口子（门洞/junction）。
+    /// ⇒ 矩形与墙天然对得上：既不漏洞（每条边都覆盖），也不堵路（重叠处一定被挖开）。下水道另有等价的 <see cref="SewerWalls"/>（保持原样不动）。
+    /// </summary>
+    private static IReadOnlyList<WallRect> ComplementWalls(IReadOnlyList<WallRect> regions, float t)
+    {
+        var walls = new List<WallRect>(48);
+        foreach (WallRect r in regions)
+        {
+            AddComplementStrip(walls, new WallRect(r.X - t, r.Y - t, r.Width + 2f * t, t), regions, horizontal: true);   // 上
+            AddComplementStrip(walls, new WallRect(r.X - t, r.Bottom, r.Width + 2f * t, t), regions, horizontal: true);  // 下
+            AddComplementStrip(walls, new WallRect(r.X - t, r.Y, t, r.Height), regions, horizontal: false);              // 左
+            AddComplementStrip(walls, new WallRect(r.Right, r.Y, t, r.Height), regions, horizontal: false);              // 右
+        }
+        return walls;
+    }
+
+    /// <summary>贴一条墙条，但把**与任一可行走矩形相交**的区间挖成口子。<paramref name="horizontal"/>=true ⇒ 沿 X 切；否则沿 Y 切。</summary>
+    private static void AddComplementStrip(List<WallRect> walls, WallRect strip, IReadOnlyList<WallRect> regions, bool horizontal)
+    {
+        const float eps = 0.01f;
+        var gaps = new List<(float Lo, float Hi)>();
+        foreach (WallRect c in regions)
+        {
+            bool overlaps = c.X < strip.Right - eps && c.Right > strip.X + eps
+                         && c.Y < strip.Bottom - eps && c.Bottom > strip.Y + eps;
+            if (!overlaps)
+            {
+                continue;
+            }
+            gaps.Add(horizontal
+                ? (Math.Max(strip.X, c.X), Math.Min(strip.Right, c.Right))
+                : (Math.Max(strip.Y, c.Y), Math.Min(strip.Bottom, c.Bottom)));
+        }
+
+        float start = horizontal ? strip.X : strip.Y;
+        float end = horizontal ? strip.Right : strip.Bottom;
+
+        gaps.Sort((a, b) => a.Lo.CompareTo(b.Lo));
+        float cursor = start;
+        foreach ((float lo, float hi) in gaps)
+        {
+            if (lo > cursor + eps)
+            {
+                walls.Add(horizontal
+                    ? new WallRect(cursor, strip.Y, lo - cursor, strip.Height)
+                    : new WallRect(strip.X, cursor, strip.Width, lo - cursor));
+            }
+            cursor = Math.Max(cursor, hi);
+        }
+        if (end > cursor + eps)
+        {
+            walls.Add(horizontal
+                ? new WallRect(cursor, strip.Y, end - cursor, strip.Height)
+                : new WallRect(strip.X, cursor, strip.Width, end - cursor));
+        }
+    }
+
 }
 
 // ======================================================================================
@@ -749,3 +946,9 @@ public readonly record struct SewerCorridor(string Name, WallRect Rect);
 
 /// <summary>下水道的一处搜刮点（id 与 <c>ExplorationCache</c> 一一对应）。</summary>
 public readonly record struct SewerCacheSpot(string Id, float X, float Y, string Label);
+
+/// <summary>[警察局] 一间**可行走**房间/走廊（矩形）。墙由 <see cref="ExplorationWalls.PoliceWalls"/> 从补集推出。</summary>
+public readonly record struct PoliceRoom(string Name, WallRect Rect);
+
+/// <summary>[警察局] 一处搜刮点（id 与 <c>ExplorationCache</c> 一一对应）。</summary>
+public readonly record struct PoliceCacheSpot(string Id, float X, float Y, string Label);

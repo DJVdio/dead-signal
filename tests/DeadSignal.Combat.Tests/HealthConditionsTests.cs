@@ -704,24 +704,63 @@ public class HealthConditionsTests
         Assert.True(set.IsDead, "致命失血伤口终究失血致死，狠度不降");
     }
 
-    // ---- 2 感染按伤口大小博弈：越小越不易感染 + 感染窗口期后闭合 ----
+    // ---- 2 [感染重做] 感染几率按流血【等级】、**与部位无关** + 感染窗口期后闭合 ----
 
+    // 几率基数按流血等级离散查表：大 25% / 中 15% / 小 5%（播种时随伤口摆入 BleedLevel）。
     [Fact]
-    public void Infection_proneness_scales_down_with_wound_size()
+    public void SeedFromBody_carries_bleed_level_for_infection_base_chance()
     {
         Body body = HumanBody.NewBody();
-        body.RegisterBleed("左大腿", BleedModel.BleedSeverity.Medium);     // 大部位
-        body.RegisterBleed("右手", BleedModel.BleedSeverity.Medium);       // 中（手掌）
-        body.RegisterBleed("右手食指", BleedModel.BleedSeverity.Medium);   // 微（指）
+        body.RegisterBleed("左大腿", BleedModel.BleedSeverity.Large);
+        body.RegisterBleed("躯干", BleedModel.BleedSeverity.Medium);
+        body.RegisterBleed("右手臂", BleedModel.BleedSeverity.Small);
         HealthConditionSet set = HealthMapping.SeedFromBody(body);
 
-        double leg = set.Conditions.Single(c => c.BodyPart == "左大腿").InfectionProneness;
-        double hand = set.Conditions.Single(c => c.BodyPart == "右手").InfectionProneness;
-        double finger = set.Conditions.Single(c => c.BodyPart == "右手食指").InfectionProneness;
+        Assert.Equal(BleedModel.BleedSeverity.Large, set.Conditions.Single(c => c.BodyPart == "左大腿").BleedLevel);
+        Assert.Equal(BleedModel.BleedSeverity.Medium, set.Conditions.Single(c => c.BodyPart == "躯干").BleedLevel);
+        Assert.Equal(BleedModel.BleedSeverity.Small, set.Conditions.Single(c => c.BodyPart == "右手臂").BleedLevel);
+    }
 
-        Assert.True(leg > hand, "大伤口比手部更易感染");
-        Assert.True(hand > finger, "手部比指部更易感染（越小越不易）");
-        Assert.True(finger > 0, "微伤仍有非零感染几率（值得赌但会翻车）");
+    // [感染重做] 几率**与受伤部位无关**：同一流血等级、不同部位（大腿 vs 手 vs 手指）→ 感染几率完全相同。
+    // 用统计法验证：给两个"大部位 vs 微部位"的中流血伤口跑同一段 rng 门槛，命中与否只由 chance 决定，两者一致。
+    [Fact]
+    public void Infection_chance_is_part_agnostic_same_bleed_level_same_chance()
+    {
+        // 中流血基数 15% × 未手术1.0 × 无草药绷带1.0 × 无南丁格尔1.0 × 无免疫窗1.0 = 0.15。
+        // 大腿(大部位·致命)与手指(微部位)只要流血等级同为 Medium，感染几率就同为 0.15。
+        // roll 恰在阈值两侧：0.14 < 0.15 → 感染；0.16 > 0.15 → 不感染。两个部位对同一 roll 反应一致。
+        foreach (double roll in new[] { 0.14, 0.16 })
+        {
+            bool BigPart()
+            {
+                var (s, _) = SetWith(new HealthCondition(HealthConditionType.Bleeding, 0.45, "左大腿", onLimb: true,
+                    lethalBleed: true, bleedLevel: BleedModel.BleedSeverity.Medium));
+                return s.TickDay(new SequenceRandomSource(roll), resting: false).Events.Any(e => e.ContractedInfection);
+            }
+            bool TinyPart()
+            {
+                var (s, _) = SetWith(new HealthCondition(HealthConditionType.Bleeding, 0.45, "右手食指", onLimb: true,
+                    lethalBleed: false, bleedLevel: BleedModel.BleedSeverity.Medium));
+                return s.TickDay(new SequenceRandomSource(roll), resting: false).Events.Any(e => e.ContractedInfection);
+            }
+            Assert.Equal(BigPart(), TinyPart());
+        }
+    }
+
+    // [感染重做] 25/15/5 阈值焊死：大流血 roll 0.24→感染 / 0.26→否；中 0.14/0.16；小 0.04/0.06。
+    [Theory]
+    [InlineData(BleedModel.BleedSeverity.Large, 0.24, true)]
+    [InlineData(BleedModel.BleedSeverity.Large, 0.26, false)]
+    [InlineData(BleedModel.BleedSeverity.Medium, 0.14, true)]
+    [InlineData(BleedModel.BleedSeverity.Medium, 0.16, false)]
+    [InlineData(BleedModel.BleedSeverity.Small, 0.04, true)]
+    [InlineData(BleedModel.BleedSeverity.Small, 0.06, false)]
+    public void Infection_base_chance_maps_bleed_level_25_15_5(BleedModel.BleedSeverity level, double roll, bool expectInfect)
+    {
+        var (set, _) = SetWith(new HealthCondition(HealthConditionType.Bleeding, 0.45, "左大腿", onLimb: true,
+            lethalBleed: true, bleedLevel: level));
+        HealthTickResult r = set.TickDay(new SequenceRandomSource(roll), resting: false);
+        Assert.Equal(expectInfect, r.Events.Any(e => e.ContractedInfection));
     }
 
     [Fact]
@@ -1128,7 +1167,7 @@ public class HealthConditionsTests
         var set = new HealthConditionSet(); var inf = FreshInfection(0.30); set.Add(inf);
         set.AdvanceInfectionRace(1.0, medicated: false, medicine: null);
         Assert.Equal(0.30 + ri, inf.Severity, 6); // 满速
-        Assert.Equal(0.0, inf.CureProgress, 6);
+        Assert.Equal(0.0, set.ImmunityProgress, 6); // [感染重做] 免疫条 set 级：未用药不进
     }
 
     // 用药一时间片：感染进度按档减缓、治疗进度按效率累进（抗生素 ×0.50 减缓 + 1.00 效率）。
@@ -1139,7 +1178,7 @@ public class HealthConditionsTests
         var set = new HealthConditionSet(); var inf = FreshInfection(0.30); set.Add(inf);
         set.AdvanceInfectionRace(1.0, medicated: true, MedicineCatalog.For("antibiotics"));
         Assert.Equal(0.30 + ri * 0.50, inf.Severity, 6); // 恶化 ×0.50
-        Assert.Equal(1.00 * rate, inf.CureProgress, 6);  // 治疗 1.00×基准
+        Assert.Equal(1.00 * rate, set.ImmunityProgress, 6);  // [感染重做] 免疫条 set 级：治疗 1.00×基准
     }
 
     // 恶化减缓按档单调：抗生素(×0.50) 比 草药膏(×0.75) 比 蒲公英茶(×0.85) 压得更狠（用药日感染涨得更少）。
@@ -1164,7 +1203,7 @@ public class HealthConditionsTests
         var set = new HealthConditionSet(); var inf = FreshInfection(0.10); set.Add(inf);
         set.AdvanceInfectionRace(1.0, true, MedicineCatalog.For("dandelion_tea"));  // +0.15×rate
         set.AdvanceInfectionRace(1.0, true, MedicineCatalog.For("antibiotics"));    // +1.00×rate，累计
-        Assert.Equal((0.15 + 1.00) * rate, inf.CureProgress, 6);
+        Assert.Equal((0.15 + 1.00) * rate, set.ImmunityProgress, 6); // [感染重做] 免疫条 set 级跨药累计
     }
 
     // 不取整通则：连续 3 时间片茶治疗进度精确累计无截断（0.15×0.67×3）。
@@ -1174,7 +1213,7 @@ public class HealthConditionsTests
         double rate = HealthConditionSet.CureProgressBaseRate;
         var set = new HealthConditionSet(); var inf = FreshInfection(0.05); set.Add(inf);
         for (int i = 0; i < 3; i++) set.AdvanceInfectionRace(1.0, true, MedicineCatalog.For("dandelion_tea"));
-        Assert.Equal(3 * 0.15 * rate, inf.CureProgress, 9); // 9 位精度：不得中途 round/floor
+        Assert.Equal(3 * 0.15 * rate, set.ImmunityProgress, 9); // [感染重做] 免疫条 set 级·9 位精度：不得中途 round/floor
     }
 
     // 相位级=整日等价（不取整）：8 个 dt=1/8 片累计 == 1 个 dt=1 片（进度累积无粒度损失）。
@@ -1188,7 +1227,7 @@ public class HealthConditionsTests
         for (int i = 0; i < 8; i++) phased.AdvanceInfectionRace(1.0 / 8.0, true, MedicineCatalog.For("herbal_salve"));
 
         Assert.Equal(cd.Severity, cp.Severity, 6);
-        Assert.Equal(cd.CureProgress, cp.CureProgress, 6);
+        Assert.Equal(daily.ImmunityProgress, phased.ImmunityProgress, 6); // [感染重做] 免疫条 set 级：相位级=整日等价
     }
 
     // 治疗抢先：治疗进度先到顶 → 清除感染（Cured），条目移除。
@@ -1288,6 +1327,137 @@ public class HealthConditionsTests
         Assert.DoesNotContain(set.Conditions, c => c.Type == HealthConditionType.Infection);
     }
 
+    // ============ [感染重做] 几率连乘链 · 多感染条 · 单全局免疫条 · 免疫满清空+24h窗 ============
+
+    // 一个只出感染 roll 的 rng（TickDay 单条 Bleeding 只掷一次感染 roll）。
+    private static IRandomSource InfectRoll(double v) => new SequenceRandomSource(new[] { v });
+
+    // 处理过（已手术）减半 ×0.5：中流血基数 0.15 × 0.5 = 0.075。roll 0.07→感染 / 0.08→否。
+    [Theory]
+    [InlineData(0.07, true)]
+    [InlineData(0.08, false)]
+    public void Operated_wound_halves_infection_chance(double roll, bool expect)
+    {
+        var (set, c) = SetWith(new HealthCondition(HealthConditionType.Bleeding, 0.5, "左大腿", onLimb: true,
+            lethalBleed: true, bleedLevel: BleedModel.BleedSeverity.Medium));
+        // 敷普通绷带做手术成功 → IsOperated=true（处理过），感染乘子仍 1.0。
+        set.PerformSurgery(c, new[] { "bandage" }, onBed: true, Roll(30));
+        Assert.True(c.IsOperated);
+        Assert.Equal(1.0, c.InfectionChanceMultiplier, 6);
+        HealthTickResult r = set.TickDay(InfectRoll(roll), resting: false);
+        Assert.Equal(expect, r.Events.Any(e => e.ContractedInfection));
+    }
+
+    // 敷草药绷带 = 触发处理×0.5 且 药效×0.75 → 该伤口几率 = base×0.375。中流血 0.15×0.375 = 0.05625。roll 0.055→感染 / 0.057→否。
+    [Theory]
+    [InlineData(0.055, true)]
+    [InlineData(0.057, false)]
+    public void Herbal_bandage_wound_is_base_times_0_375(double roll, bool expect)
+    {
+        var (set, c) = SetWith(new HealthCondition(HealthConditionType.Bleeding, 0.5, "左大腿", onLimb: true,
+            lethalBleed: true, bleedLevel: BleedModel.BleedSeverity.Medium));
+        set.PerformSurgery(c, new[] { "herbal_bandage" }, onBed: true, Roll(30)); // 成功 → 处理过×0.5 且 草药绷带×0.75
+        Assert.True(c.IsOperated);
+        Assert.Equal(0.75, c.InfectionChanceMultiplier, 6);
+        HealthTickResult r = set.TickDay(InfectRoll(roll), resting: false);
+        Assert.Equal(expect, r.Events.Any(e => e.ContractedInfection));
+    }
+
+    // 南丁格尔预防轴 ×0.765 连乘进感染几率（作用于"会不会感染"，非恶化速率）：中流血 0.15×0.765 = 0.11475。roll 0.114→感染 / 0.115→否。
+    [Theory]
+    [InlineData(0.114, true)]
+    [InlineData(0.115, false)]
+    public void Nightingale_prevention_axis_multiplies_infection_chance_0_765(double roll, bool expect)
+    {
+        double nightingale = NightingalePerk.CampInfectionMultiplier(nurseLevel: 3, nurseAliveInCamp: true, l3LegacyActive: true);
+        Assert.Equal(0.765, nightingale, 6); // 存活 L3 = ×(1−0.15)×(1−0.10) = 0.765（乘算）
+        var (set, _) = SetWith(new HealthCondition(HealthConditionType.Bleeding, 0.5, "左大腿", onLimb: true,
+            lethalBleed: true, bleedLevel: BleedModel.BleedSeverity.Medium));
+        HealthTickResult r = set.TickDay(InfectRoll(roll), resting: false, infectionChanceMultiplier: nightingale);
+        Assert.Equal(expect, r.Events.Any(e => e.ContractedInfection));
+    }
+
+    // 多感染条并存：不同部位的开放伤口可各自感染 → 同时持有多条感染条（旧单场护栏已删）。
+    [Fact]
+    public void Multiple_wounds_can_each_infect_into_separate_conditions()
+    {
+        var set = new HealthConditionSet();
+        set.Add(new HealthCondition(HealthConditionType.Bleeding, 0.5, "左大腿", onLimb: true, lethalBleed: true, bleedLevel: BleedModel.BleedSeverity.Large));
+        set.Add(new HealthCondition(HealthConditionType.Bleeding, 0.5, "右手臂", onLimb: true, lethalBleed: true, bleedLevel: BleedModel.BleedSeverity.Large));
+        // 大流血基数 0.25，roll 0.0 必感染两处（各自一条 rng）。
+        set.TickDay(new SequenceRandomSource(new[] { 0.0, 0.0 }), resting: false);
+        var infParts = set.Conditions.Where(c => c.Type == HealthConditionType.Infection).Select(c => c.BodyPart).ToList();
+        Assert.Equal(2, infParts.Count);
+        Assert.Contains("左大腿", infParts);
+        Assert.Contains("右手臂", infParts);
+    }
+
+    // 同一部位不重开第二条感染条（一处伤口只一条）。
+    [Fact]
+    public void Same_part_does_not_open_a_second_infection()
+    {
+        var set = new HealthConditionSet();
+        set.Add(new HealthCondition(HealthConditionType.Infection, 0.3, "左大腿", onLimb: true));
+        set.Add(new HealthCondition(HealthConditionType.Bleeding, 0.5, "左大腿", onLimb: true, lethalBleed: true, bleedLevel: BleedModel.BleedSeverity.Large));
+        set.TickDay(new SequenceRandomSource(new[] { 0.0 }), resting: false); // 同部位已感染 → 不重开
+        Assert.Single(set.Conditions.Where(c => c.Type == HealthConditionType.Infection));
+    }
+
+    // 恶化速率统一：不论伤口大小/部位，感染条每时间片涨幅相同（都 = InfectionWorsenPerDay×dt）。
+    [Fact]
+    public void Infection_worsen_rate_is_uniform_regardless_of_part()
+    {
+        double Gain(string part, bool onLimb)
+        {
+            var set = new HealthConditionSet();
+            var inf = new HealthCondition(HealthConditionType.Infection, 0.20, part, onLimb);
+            set.Add(inf);
+            set.AdvanceInfectionRace(1.0, medicated: false, medicine: null);
+            return inf.Severity - 0.20;
+        }
+        double leg = Gain("左大腿", true), finger = Gain("右手食指", true), torso = Gain("躯干", false);
+        Assert.Equal(1.0 / 6.0, leg, 9);
+        Assert.Equal(leg, finger, 9);
+        Assert.Equal(leg, torso, 9);
+    }
+
+    // 单全局免疫条：多条感染共享一条免疫条 → 免疫满**一并清空全部感染** + 置 24h 免疫窗。
+    [Fact]
+    public void Immunity_full_clears_ALL_infections_and_opens_24h_window()
+    {
+        var set = new HealthConditionSet();
+        set.Add(new HealthCondition(HealthConditionType.Infection, 0.2, "左大腿", onLimb: true));
+        set.Add(new HealthCondition(HealthConditionType.Infection, 0.2, "右手臂", onLimb: true));
+        set.Add(new HealthCondition(HealthConditionType.Infection, 0.2, "躯干", onLimb: false));
+        // 抗生素免疫条 +0.67/日，两日累计 1.34≥1 → 清空全部三条 + 置窗。
+        InfectionRaceResult rr = default;
+        for (int d = 0; d < 3 && !rr.Cured; d++)
+            rr = set.AdvanceInfectionRace(1.0, medicated: true, MedicineCatalog.For("antibiotics"));
+        Assert.True(rr.Cured);
+        Assert.DoesNotContain(set.Conditions, c => c.Type == HealthConditionType.Infection); // 全清
+        Assert.Equal(0.0, set.ImmunityProgress, 6);       // 免疫条归零
+        Assert.True(set.ImmuneWindowActive);              // 24h 窗已置
+        Assert.Equal(1.0, set.ImmuneWindowRemainingDays, 6);
+    }
+
+    // 免疫窗内感染几率 ×0.05：窗激活时中流血基数 0.15×0.05=0.0075。roll 0.007→感染 / 0.008→否；且窗一天后消退。
+    [Fact]
+    public void Immune_window_scales_infection_chance_by_0_05_then_decays()
+    {
+        // 先制造免疫窗：一条感染 + 抗生素两日 → 免疫满、置窗。
+        var set = new HealthConditionSet();
+        set.Add(new HealthCondition(HealthConditionType.Infection, 0.2, "躯干", onLimb: false));
+        for (int d = 0; d < 3 && !set.ImmuneWindowActive; d++)
+            set.AdvanceInfectionRace(1.0, medicated: true, MedicineCatalog.For("antibiotics"));
+        Assert.True(set.ImmuneWindowActive);
+
+        // 窗内新开放伤口：中流血 0.15×0.05=0.0075。roll 0.008 > 0.0075 → 不感染（若无窗则 0.008<0.15 早感染了）。
+        set.Add(new HealthCondition(HealthConditionType.Bleeding, 0.5, "左大腿", onLimb: true, lethalBleed: true, bleedLevel: BleedModel.BleedSeverity.Medium));
+        HealthTickResult r = set.TickDay(InfectRoll(0.008), resting: false);
+        Assert.DoesNotContain(r.Events, e => e.ContractedInfection); // 免疫窗压制
+        Assert.False(set.ImmuneWindowActive);                        // 本日日末窗消退（24h）
+    }
+
     // 截肢失败：耗材照耗、感染保留（未中止竞速），需重来。
     [Fact]
     public void Amputation_failure_keeps_infection_and_consumes_materials()
@@ -1346,15 +1516,19 @@ public class HealthConditionsTests
         Assert.Empty(r.ConsumedMaterials);
     }
 
-    // 感染以人为单位：已有感染时，另一开放伤口本昼夜不再新开感染条（忽略并入）。
+    // [感染重做] 单场护栏已删：已有感染时，**另一部位**的开放伤口仍可各自新开一条感染（多感染条并存）。
     [Fact]
-    public void Only_one_infection_race_per_pawn()
+    public void Different_part_opens_a_second_infection_when_already_infected()
     {
         var set = new HealthConditionSet();
-        set.Add(FreshInfection(0.3, "右手", onLimb: true));            // 既有感染
-        set.Add(new HealthCondition(HealthConditionType.Bleeding, 0.9, "左大腿", onLimb: true)); // 另一开放大伤口
+        set.Add(FreshInfection(0.3, "右手", onLimb: true));            // 既有感染（右手）
+        set.Add(new HealthCondition(HealthConditionType.Bleeding, 0.9, "左大腿", onLimb: true,
+            lethalBleed: true, bleedLevel: BleedModel.BleedSeverity.Large)); // 另一部位开放大伤口
         set.TickDay(new SequenceRandomSource(new[] { 0.0, 0.0, 0.0, 0.0 }), resting: false); // 必中感染 rng
-        Assert.Single(set.Conditions.Where(x => x.Type == HealthConditionType.Infection));
+        var infParts = set.Conditions.Where(x => x.Type == HealthConditionType.Infection).Select(x => x.BodyPart).ToList();
+        Assert.Equal(2, infParts.Count);
+        Assert.Contains("右手", infParts);
+        Assert.Contains("左大腿", infParts);
     }
 
     // ---- 疗程指派（护栏①）每昼夜扣药决策纯逻辑 ----

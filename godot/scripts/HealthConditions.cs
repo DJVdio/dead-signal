@@ -76,16 +76,16 @@ public sealed class HealthCondition
     /// <param name="onLimb">是否位于肢体：感染/骨折封顶时肢体→致残、非肢体→致死/无后果。</param>
     /// <param name="lethalBleed">仅对 <see cref="HealthConditionType.Bleeding"/> 有意义：true=大伤口，拖久失血过多致死；
     /// false=小锐器/咬伤类，只会溃烂感染、**不会失血致死**（severity 封顶在 <see cref="HealthConditionSet.MinorBleedSeverityCap"/> 之下）。</param>
-    /// <param name="infectionProneness">感染倾向系数（乘进每昼夜感染几率）：**越小的伤越低**（大部位 1.0、手/脚 0.4、指/趾/面 0.2，见 <see cref="HealthMapping"/>）；直接构造默认 1.0。</param>
     /// <param name="selfHealing">仅"**很小的伤**"（微小部位 指/趾/眼/面/耳，或擦伤级低严重度）为真：新鲜期结束后**自行闭合**（无需手术）；中等非致命小伤(手/脚)与致命大伤均为 false（必须手术）。默认 false。</param>
-    public HealthCondition(HealthConditionType type, double severity, string? bodyPart = null, bool onLimb = false, bool lethalBleed = true, double infectionProneness = 1.0, bool selfHealing = false)
+    /// <param name="bleedLevel">该出血伤口的**流血等级**（小/中/大，仅 <see cref="HealthConditionType.Bleeding"/> 有意义）：感染几率基数直接按等级离散查表（大 25% / 中 15% / 小 5%，见 <see cref="HealthConditionSet.TickDay"/>），**与受伤部位无关**。null=未知（旧档/直接构造）→ 从宽按小流血。</param>
+    public HealthCondition(HealthConditionType type, double severity, string? bodyPart = null, bool onLimb = false, bool lethalBleed = true, bool selfHealing = false, BleedModel.BleedSeverity? bleedLevel = null)
     {
         Type = type;
         BodyPart = bodyPart;
         OnLimb = onLimb;
         LethalBleed = lethalBleed;
-        InfectionProneness = Math.Max(0.0, infectionProneness);
         SelfHealing = selfHealing;
+        BleedLevel = bleedLevel;
         Severity = Math.Clamp(severity, 0.0, 1.0);
     }
 
@@ -101,24 +101,22 @@ public sealed class HealthCondition
     /// false=小锐器/咬伤类，只溃烂感染、不失血致死（severity 封顶在 <see cref="HealthConditionSet.MinorBleedSeverityCap"/> 之下）。</summary>
     public bool LethalBleed { get; }
 
-    /// <summary>感染倾向系数（乘进每昼夜感染几率）：越小的伤越低（大 1.0 / 手脚 0.4 / 指趾面 0.2，draft）。让玩家"省不省这瓶抗生素"成为赌局。</summary>
-    public double InfectionProneness { get; }
-
     /// <summary>是否为"很小的伤"（微小部位/擦伤级）：新鲜期结束后自行闭合、无需手术（中等小伤与致命大伤为 false，必须手术）。</summary>
     public bool SelfHealing { get; }
+
+    /// <summary>
+    /// 该出血伤口的**流血等级**（小/中/大，仅 <see cref="HealthConditionType.Bleeding"/> 有意义；其余类别恒 null）。
+    /// [感染重做] 每昼夜感染几率的**基数**直接按此等级离散查表（大 25% / 中 15% / 小 5%，见 <see cref="HealthConditionSet.TickDay"/>），
+    /// **与受伤部位无关**（部位倾向系数已整条删除）。播种时由 <see cref="HealthMapping.SeedFromBody"/> 从 <see cref="Body.BleedSeverityOn"/> 摆入、存档持久化；
+    /// null（未知/旧档/直接构造）→ 感染基数从宽按小流血 5%。
+    /// </summary>
+    public BleedModel.BleedSeverity? BleedLevel { get; }
 
     /// <summary>严重度 0..1（1=封顶触发终态）。</summary>
     public double Severity { get; private set; }
 
     /// <summary>手术恢复效率 %（≥0，可 &gt;100）：0=未手术（流血/骨折不愈合、出血继续恶化）；&gt;10=手术成功，逐日按此愈合（100=正常速度，&gt;100=过载/超常发挥、愈合更快更好）。</summary>
     public int RecoveryEfficiency { get; private set; }
-
-    /// <summary>
-    /// [SPEC-B14-补3·感染双进度竞速] **治疗进度** 0..1（仅 <see cref="HealthConditionType.Infection"/> 有意义）：与 <see cref="Severity"/>（此处即"感染/死亡进度"）赛跑。
-    /// 每次用药 <see cref="HealthConditionSet.TreatIllness"/> 按 <c>药物治疗效率(Efficacy) × 基准积累速率</c> 累加、**跨药持续累计**（先茶垫后抗生素接力有意义）；
-    /// 先到 1.0 → 感染清除（双条清零、条目移除）。**治疗不减缓感染进度**（独立竞速，用户拍板）：感染进度照常在 <see cref="HealthConditionSet.TickDay"/> 累积，谁先到顶谁赢。
-    /// </summary>
-    public double CureProgress { get; private set; }
 
     /// <summary>是否已成功手术（流血/骨折进入愈合态）。</summary>
     public bool IsOperated => RecoveryEfficiency > 0;
@@ -149,7 +147,6 @@ public sealed class HealthCondition
     internal void MarkTended() => Tended = true;
     internal void ClearTended() => Tended = false;
     internal void SetRecoveryEfficiency(int eff) => RecoveryEfficiency = Math.Max(0, eff); // 不封顶 100：允许过载效率 >100
-    internal void AddCureProgress(double d) => CureProgress = Math.Clamp(CureProgress + d, 0.0, 1.0);
     internal void AdvanceDay() => DaysElapsed++;
     internal void SetInfectionChanceMultiplier(double m) => InfectionChanceMultiplier = Math.Max(0.0, m); // [T72] 草药绷带敷术口置 0.75；负值钳到 0
 
@@ -161,12 +158,11 @@ public sealed class HealthCondition
     /// <b>历史上的某一天</b>（"三天前动过刀" ≠ "刚动过刀"，重做手术冷却会因此算错）。
     /// </para>
     /// </summary>
-    internal void RestoreState(double severity, int recoveryEfficiency, double cureProgress, bool tended, int daysElapsed, int lastSurgeryDay,
+    internal void RestoreState(double severity, int recoveryEfficiency, bool tended, int daysElapsed, int lastSurgeryDay,
         double infectionChanceMultiplier = 1.0)
     {
         Severity = Math.Clamp(severity, 0.0, 1.0);
         RecoveryEfficiency = Math.Max(0, recoveryEfficiency);
-        CureProgress = Math.Clamp(cureProgress, 0.0, 1.0);
         Tended = tended;
         DaysElapsed = Math.Max(0, daysElapsed);
         LastSurgeryDay = lastSurgeryDay;
@@ -378,8 +374,29 @@ public sealed class HealthConditionSet
 {
     // ---- 恶化速率（每昼夜，draft）----
     private const double BleedWorsenPerDay = 0.10;       // 未手术出血逐日加重；draft：0.15→0.10 放宽操作窗（致命伤死亡线第 5→约第 8 昼夜后移，仍必死）
-    private const double InfectionBaseChance = 0.45;     // 开放伤口感染几率基数（× 出血严重度 × 伤口大小系数）
     private const double InfectionInitialSeverity = 0.0; // 新感染初始"感染进度"（死亡赛道起点，终稿：从 0 起算）
+
+    // ---- [感染重做] 每伤口感染几率基数：按流血【等级】离散查表，**与受伤部位无关**（部位倾向系数已整条删除，draft）----
+    /// <summary>大流血伤口感染几率基数 25%。</summary>
+    private const double InfectionBaseChanceLarge = 0.25;
+    /// <summary>中流血伤口感染几率基数 15%。</summary>
+    private const double InfectionBaseChanceMedium = 0.15;
+    /// <summary>小流血伤口感染几率基数 5%（未知等级/旧档也从宽按此）。</summary>
+    private const double InfectionBaseChanceSmall = 0.05;
+
+    // ---- [感染重做] 全局免疫(治愈)条 + 免疫满后 24h 窗（set 级，draft）----
+    /// <summary>免疫条满后清空所有感染并置一段免疫窗，窗时长（天）：24h＝1.0 天。</summary>
+    private const double ImmuneWindowDays = 1.0;
+    /// <summary>免疫窗激活期间的感染几率乘子：×0.05（−95%），连乘进每昼夜感染几率。</summary>
+    private const double ImmuneWindowInfectionFactor = 0.05;
+
+    /// <summary>[感染重做] 按流血等级取该伤口感染几率基数（大 25% / 中 15% / 小 5%）；null（未知/旧档）→ 从宽按小流血 5%。**与部位无关**。</summary>
+    private static double InfectionBaseChanceFor(BleedModel.BleedSeverity? level) => level switch
+    {
+        BleedModel.BleedSeverity.Large => InfectionBaseChanceLarge,
+        BleedModel.BleedSeverity.Medium => InfectionBaseChanceMedium,
+        _ => InfectionBaseChanceSmall, // Small 及 null（未知/旧档）
+    };
     // [SPEC-B14/终稿·三档双效] 感染双进度竞速：Severity 即"感染/死亡进度"，按 dt 天数累积；用药期间按档 ×WorsenMultiplier 减缓（非"不减速"）。封顶 1.0=坏疽/败血症。
     // draft：r_i = 1/6 天≈0.1667/日 → 未用药约第 6 昼夜封顶（T_i=6 天，与失血 7 天死线错开）。用 Sim 校准。**全程 double 不取整**（[SPEC-B14-补4]）。
     private const double InfectionWorsenPerDay = 1.0 / 6.0;
@@ -429,10 +446,28 @@ public sealed class HealthConditionSet
 
     private readonly List<HealthCondition> _conditions = new();
 
+    /// <summary>
+    /// [感染重做] **全局免疫(治愈)条** 0..1（set 级、所有感染共享一条）：用药期间累进（跨药、跨伤口持续累计）。
+    /// 满 1.0 → 清空全部感染条 + 置 <see cref="ImmuneWindowRemainingDays"/> 免疫窗、并归零本条。取代旧的 per-condition 治疗进度竞速。
+    /// </summary>
+    private double _immunityProgress;
+
+    /// <summary>[感染重做] 免疫满后 24h 免疫窗剩余时长（天）：>0 期间任何新伤口感染几率再 ×0.05。每昼夜 <see cref="TickDay"/> 递减 1 天。</summary>
+    private double _immuneWindowRemainingDays;
+
     public IReadOnlyList<HealthCondition> Conditions => _conditions;
 
     /// <summary>是否已因某病状致死（终态）。</summary>
     public bool IsDead { get; private set; }
+
+    /// <summary>[感染重做] 全局免疫(治愈)条进度 0..1（所有感染共享；满即清空全部感染并置 24h 免疫窗）。存档持久化。</summary>
+    public double ImmunityProgress => _immunityProgress;
+
+    /// <summary>[感染重做] 免疫窗剩余时长（天，0=无窗）。存档持久化。</summary>
+    public double ImmuneWindowRemainingDays => _immuneWindowRemainingDays;
+
+    /// <summary>[感染重做] 免疫窗是否激活（剩余>0）：激活期间新感染几率 ×0.05。</summary>
+    public bool ImmuneWindowActive => _immuneWindowRemainingDays > 0.0;
 
     /// <summary>是否含某类病状。</summary>
     public bool Has(HealthConditionType type) => _conditions.Any(c => c.Type == type);
@@ -447,11 +482,16 @@ public sealed class HealthConditionSet
     /// 但读档必须能还原一个已经死于感染的人，否则读回来他会诈尸。故开这个唯一的恢复入口。
     /// </para>
     /// </summary>
-    internal void Restore(IEnumerable<HealthCondition> conditions, bool isDead)
+    /// <param name="immunityProgress">[感染重做] set 级全局免疫条进度（旧档缺字段→默认 0）。</param>
+    /// <param name="immuneWindowRemainingDays">[感染重做] set 级免疫窗剩余天数（旧档缺字段→默认 0＝无窗）。</param>
+    internal void Restore(IEnumerable<HealthCondition> conditions, bool isDead,
+        double immunityProgress = 0.0, double immuneWindowRemainingDays = 0.0)
     {
         _conditions.Clear();
         _conditions.AddRange(conditions);
         IsDead = isDead;
+        _immunityProgress = Math.Clamp(immunityProgress, 0.0, 1.0);
+        _immuneWindowRemainingDays = Math.Max(0.0, immuneWindowRemainingDays);
     }
 
     /// <summary>单次药效固定基数（draft，仅感染/疾病用药）：通用医疗技能已删，疗效不再随人变，取一个"照护得当"的固定系数，用 Sim 校准。</summary>
@@ -653,11 +693,13 @@ public sealed class HealthConditionSet
     }
 
     /// <summary>
-    /// [SPEC-B14/终稿·三档双效] 推进本人**唯一一场**感染竞速一个时间片 <paramref name="dtDays"/>（天，可 &lt;1=相位级细分；全程 double 不取整）：
-    ///   · 感染进度(Severity) += <c><see cref="InfectionWorsenPerDay"/> × dt × (用药? medicine.WorsenMultiplier : 1)</c>（用药期间按档减缓恶化）；
-    ///   · 用药期间治疗进度(CureProgress) += <c>medicine.Efficacy × <see cref="CureProgressBaseRate"/> × dt</c>（跨药累计）；
-    ///   · **治疗进度先到 1.0** → 清除感染（治疗抢先，双条随条目移除）；否则感染进度到 1.0 → 坏疽截肢(肢体)/败血症死(非肢体)。
-    /// <paramref name="medicated"/>=false 表示本时间片未用药（无疗程/断药）：只累积感染、不减缓、不加治疗。无感染条目 → 返回 <see cref="ConditionOutcome.None"/>。
+    /// [感染重做·三档双效] 推进本人感染竞速一个时间片 <paramref name="dtDays"/>（天，可 &lt;1=相位级细分；全程 double 不取整）。
+    /// **可同时持有多条感染条**（每处感染伤口一条，各自跑独立的死亡进度 Severity），但**只有一条全局免疫(治愈)条**（set 级，所有感染共享）：
+    ///   · **全局免疫条** += <c>medicine.Efficacy × <see cref="CureProgressBaseRate"/> × dt</c>（仅用药时；跨药、跨伤口持续累计）；
+    ///   · 免疫条**先到 1.0** → **清空全部感染条** + 置 <see cref="ImmuneWindowRemainingDays"/> 免疫窗（<see cref="ImmuneWindowDays"/> 天）、归零免疫条（治疗抢先，返回 <see cref="InfectionRaceResult.Cured"/>）；
+    ///   · 否则每条感染各自 Severity += <c><see cref="InfectionWorsenPerDay"/> × dt × (用药? WorsenMultiplier : 1) × campWorsenMultiplier</c>（**恶化速率统一**，不论伤口大小/部位）；
+    ///     **任一条**感染进度到 1.0 → 立刻死亡（无论肢体/非肢体，不再自动坏疽截肢；保命须玩家在到顶前主动 <see cref="PerformAmputation"/>）。
+    /// <paramref name="medicated"/>=false 表示本时间片未用药：只累积各感染、不推进免疫条。无感染条目 → 返回 <see cref="ConditionOutcome.None"/>。
     /// </summary>
     /// <param name="dtDays">本时间片天数（相位级传 1/相位数；整日传 1.0）。</param>
     /// <param name="medicated">本时间片是否在用药（疗程指派且有药）。</param>
@@ -666,38 +708,45 @@ public sealed class HealthConditionSet
     /// 全营**感染条上升速度**乘子（<b>默认 1.0＝无影响</b>，既有调用零回归）：承载 authored 专属效果对恶化**速率**的加成——
     /// 现阶段唯一来源是**山姆 L3 光环 −3%**（×0.97，见 <c>SamPerk.CampInfectionWorsenMultiplier</c>）。
     /// 与用药的 <see cref="Medicine.WorsenMultiplier"/> 是**两个独立乘子**（相乘，互不吞没：药压得多、光环再压一点）。
-    /// 与南丁格尔的 <c>NightingalePerk.CampInfectionMultiplier</c>（喂 <see cref="TickDay"/>）**正交**：
-    /// 那个压"会不会感染"(新生几率)，本条压"已感染的条涨多快"(恶化速率)。只缩放恶化，不动治疗进度。
+    /// 与南丁格尔的 <c>NightingalePerk.CampInfectionMultiplier</c>（喂 <see cref="TickDay"/> 的感染几率）**正交**：
+    /// 那个压"会不会感染"(新生几率·预防轴)，本条压"已感染的条涨多快"(恶化速率轴)。只缩放恶化，不动免疫条。
     /// </param>
     public InfectionRaceResult AdvanceInfectionRace(double dtDays, bool medicated, Medicine? medicine,
         double campWorsenMultiplier = 1.0)
     {
-        HealthCondition? inf = _conditions.FirstOrDefault(c => c.Type == HealthConditionType.Infection);
-        if (inf is null || dtDays <= 0.0)
+        var infections = _conditions.Where(c => c.Type == HealthConditionType.Infection).ToList();
+        if (infections.Count == 0 || dtDays <= 0.0)
         {
             return new InfectionRaceResult { Outcome = ConditionOutcome.None };
         }
 
         bool useMed = medicated && medicine is { } m0 && m0.Treats == HealthConditionType.Infection;
-        double worsenMult = (useMed ? medicine!.Value.WorsenMultiplier : 1.0) * Math.Max(0.0, campWorsenMultiplier);
-        inf.AddSeverity(InfectionWorsenPerDay * dtDays * worsenMult);
+
+        // 全局免疫(治愈)条：所有感染共享一条，仅用药时累进（跨药、跨伤口）。
         if (useMed)
         {
-            inf.AddCureProgress(medicine!.Value.Efficacy * CureProgressBaseRate * dtDays);
+            _immunityProgress = Math.Clamp(_immunityProgress + medicine!.Value.Efficacy * CureProgressBaseRate * dtDays, 0.0, 1.0);
         }
 
-        // 治疗抢先：治疗进度先到顶 → 清除感染（≥ 比较，不取整）。
-        if (inf.CureProgress >= 1.0)
+        // 治疗抢先：免疫条先到顶 → 清空**全部**感染条 + 置 24h 免疫窗、归零免疫条（≥ 比较，不取整）。
+        if (_immunityProgress >= 1.0)
         {
-            _conditions.Remove(inf);
+            _conditions.RemoveAll(c => c.Type == HealthConditionType.Infection);
+            _immunityProgress = 0.0;
+            _immuneWindowRemainingDays = ImmuneWindowDays;
             return new InfectionRaceResult { Outcome = ConditionOutcome.None, Cured = true };
         }
-        // [SPEC-B14-补7] 感染进度到顶(≥100%) → **当相位立刻死亡**（无论肢体/非肢体，不再自动坏疽截肢）。
-        // 想保命只能在到顶前由玩家主动选做 <see cref="PerformAmputation"/> 截肢（可选手术、需抉择），系统不自动截肢、不弹建议。
-        if (inf.Severity >= 1.0)
+
+        // 每条感染各自推进死亡进度（恶化速率统一）；任一到顶(≥100%) → 当相位立刻死亡（不再自动坏疽截肢）。
+        double worsenMult = (useMed ? medicine!.Value.WorsenMultiplier : 1.0) * Math.Max(0.0, campWorsenMultiplier);
+        foreach (HealthCondition inf in infections)
         {
-            IsDead = true;
-            return new InfectionRaceResult { Outcome = ConditionOutcome.Death };
+            inf.AddSeverity(InfectionWorsenPerDay * dtDays * worsenMult);
+            if (inf.Severity >= 1.0)
+            {
+                IsDead = true;
+                return new InfectionRaceResult { Outcome = ConditionOutcome.Death };
+            }
         }
         return new InfectionRaceResult { Outcome = ConditionOutcome.None };
     }
@@ -864,7 +913,8 @@ public sealed class HealthConditionSet
     }
 
     /// <summary>
-    /// 开放/未闭口伤口按几率感染（同部位已有感染则不重复）：命中则向 <paramref name="newConditions"/> 追加一条感染并返回 true。
+    /// 开放/未闭口伤口按几率感染：命中则向 <paramref name="newConditions"/> 追加一条感染并返回 true。
+    /// [感染重做] **允许多条感染并存**（每处感染伤口一条，各自跑独立死亡进度，共享一条全局免疫条）——只对**同一部位**去重（一处伤口不重开两条）。
     /// 短路：chance≤0 或该部位已感染 → 不消耗 rng、返回 false（供测试稳定断言 rng 消耗）。
     /// </summary>
     private bool TryContractInfection(HealthCondition wound, double chance, IRandomSource rng, List<HealthCondition> newConditions)
@@ -873,10 +923,10 @@ public sealed class HealthConditionSet
         {
             return false;
         }
-        // [SPEC-B14-补3·护栏] 感染以人为单位：一名幸存者同时只跑**一场**感染竞速。已有任何感染 → 新伤口不再重开条（忽略并入，最简）。
-        bool alreadyInfected = _conditions.Concat(newConditions)
-            .Any(x => x.Type == HealthConditionType.Infection);
-        if (alreadyInfected)
+        // [感染重做] 只对同一部位去重（该处已在感染 → 不重开），不同部位可各自感染成多条。
+        bool samePartInfected = _conditions.Concat(newConditions)
+            .Any(x => x.Type == HealthConditionType.Infection && x.BodyPart == wound.BodyPart);
+        if (samePartInfected)
         {
             return false;
         }
@@ -982,12 +1032,16 @@ public sealed class HealthConditionSet
                         }
                     }
 
-                    // 统一感染窗：伤口在**新鲜期内(DaysElapsed<窗口)** 且尚未愈合闭口时按几率感染；
-                    // 几率随 出血严重度 × 伤口大小系数(越小越低) 缩放，已止血再折减（止血≠无菌）。
-                    // 窗口过后不再新感染 → 放任小伤不累积到 100% 坏疽，成为有限概率赌局。
+                    // 统一感染窗：伤口在**新鲜期内(DaysElapsed<窗口)** 且尚未愈合闭口时按几率感染；窗口过后不再新感染。
+                    // [感染重做] 每伤口感染几率连乘链（**与受伤部位无关**，§2 通则①乘算）：
+                    //   流血等级基数(大25%/中15%/小5%) × 处理过(已手术含敷草药绷带 ×0.5) × 该伤口敷过草药绷带(×0.75) × 南丁格尔预防(×0.765) × 免疫窗激活(×0.05)。
                     if (c.DaysElapsed < InfectionWindowDays && c.Severity >= WoundClosedThreshold)
                     {
-                        double chance = InfectionBaseChance * c.Severity * c.InfectionProneness * (c.IsOperated ? OperatedInfectionFactor : 1.0) * c.InfectionChanceMultiplier * Math.Max(0.0, infectionChanceMultiplier);
+                        double chance = InfectionBaseChanceFor(c.BleedLevel)
+                            * (c.IsOperated ? OperatedInfectionFactor : 1.0)      // 处理过（已手术，含敷草药绷带成功）减半
+                            * c.InfectionChanceMultiplier                          // 该伤口敷过草药绷带 ×0.75
+                            * Math.Max(0.0, infectionChanceMultiplier)            // 南丁格尔预防轴 ×0.765
+                            * (ImmuneWindowActive ? ImmuneWindowInfectionFactor : 1.0); // 免疫满后 24h 窗 ×0.05
                         if (TryContractInfection(c, chance, rng, newConditions))
                         {
                             contracted = true;
@@ -1115,6 +1169,12 @@ public sealed class HealthConditionSet
             IsDead = true;
         }
 
+        // [感染重做] 免疫窗每昼夜递减 1 天：本日的感染几率已按窗口激活态折算过（见上），日末再消耗 1 天。
+        if (_immuneWindowRemainingDays > 0.0)
+        {
+            _immuneWindowRemainingDays = Math.Max(0.0, _immuneWindowRemainingDays - 1.0);
+        }
+
         return new HealthTickResult
         {
             Events = events,
@@ -1185,16 +1245,18 @@ public static class HealthMapping
         foreach (string part in body.BleedingWounds)
         {
             // [T58] 严重度 = 该部位那处出血的【等级】（合并后的结果）。
-            double severity = body.BleedSeverityOn(part) is BleedModel.BleedSeverity lvl
+            BleedModel.BleedSeverity? level = body.BleedSeverityOn(part);
+            double severity = level is BleedModel.BleedSeverity lvl
                 ? BleedModel.ConditionSeverityOf(lvl)
                 : bleedingSeverity;
 
             // 三层梯度：很小的伤(微小部位/擦伤级)→自愈；中等非致命小伤(手/脚)→需手术不自愈；大部位→致命失血。
             bool selfHealing = IsMicroBleedPart(body, part) || severity <= HealthConditionSet.AbrasionSeverityThreshold;
             bool lethal = !selfHealing && IsLethalBleedPart(body, part); // 自愈伤绝不致命失血
+            // [感染重做] 流血【等级】随伤口摆入 → 感染几率基数按等级查表（大25%/中15%/小5%），与部位无关。
             set.Add(new HealthCondition(
                 HealthConditionType.Bleeding, severity, part, IsLimb(body, part),
-                lethal, InfectionPronenessOf(body, part), selfHealing));
+                lethal, selfHealing, level));
         }
         foreach (string part in body.FracturedParts)
         {
@@ -1216,24 +1278,6 @@ public static class HealthMapping
     /// </para>
     /// </summary>
     private static bool IsLethalBleedPart(Body body, string part) => BleedModel.IsLethalPart(body, part);
-
-    /// <summary>
-    /// 该部位出血伤口的**感染倾向系数**（越小的伤越低，draft）：大部位(躯干/头/颈/手臂/大腿) 1.0、
-    /// 手/脚 0.4、指/趾/眼/面/耳 0.2。喂进每昼夜感染几率，使小伤"值得赌要不要省抗生素"。部位表查不到按 1.0（从狠）。
-    /// </summary>
-    private static double InfectionPronenessOf(Body body, string part)
-    {
-        if (!body.Parts.TryGetValue(part, out BodyPart? p))
-        {
-            return 1.0;
-        }
-        return p.Region switch
-        {
-            BodyRegion.Hand or BodyRegion.Foot => 0.4,
-            BodyRegion.Finger or BodyRegion.Toe or BodyRegion.Eye or BodyRegion.Face or BodyRegion.Ear => 0.2,
-            _ => 1.0, // 躯干/头/颈/手臂/大腿 等大部位
-        };
-    }
 
     /// <summary>是否为"微小部位"（指/趾/眼/面/耳）：其出血伤口属"很小的伤"，可自行闭合。
     /// 同样读引擎 <see cref="BleedModel"/> 的分级，与战斗内失血口径一致。</summary>

@@ -631,9 +631,9 @@ public sealed partial class MedicalPanel : CanvasLayer
 
     private void BuildInfectionSection(VBoxContainer card, HealthCondition c)
     {
-        // 两条精确进度：感染进度（死亡赛道，按分档着色）/ 治疗进度（治愈赛道）。玩家核心决策信息，精确显示。
+        // 两条精确进度：感染进度（死亡赛道，按分档着色，per-伤口）/ 免疫进度（治愈赛道，set 级全局免疫条，所有感染共享）。玩家核心决策信息，精确显示。
         int infPct = (int)Math.Round(c.Severity * 100.0);
-        int curePct = (int)Math.Round(c.CureProgress * 100.0);
+        int curePct = (int)Math.Round((_patient?.Health.ImmunityProgress ?? 0.0) * 100.0);
         Color infColor = c.Severity >= 0.67 ? UiStyle.Danger : c.Severity >= 0.34 ? UiStyle.Warning : TextColor;
 
         var infBar = new Label();
@@ -643,7 +643,7 @@ public sealed partial class MedicalPanel : CanvasLayer
         card.AddChild(infBar);
 
         var cureBar = new Label();
-        cureBar.Text = $"    治疗进度 {curePct}% · 到 100% 清除感染（用药同时减缓感染恶化，两条赛跑先到顶者胜）";
+        cureBar.Text = $"    免疫进度 {curePct}% · 到 100% 清除**全部**感染并获 24h 免疫（全营共享一条免疫条，用药累进；用药同时减缓感染恶化）";
         cureBar.AddThemeFontSizeOverride("font_size", 12);
         cureBar.AddThemeColorOverride("font_color", curePct > 0 ? OkColor : DimColor);
         card.AddChild(cureBar);

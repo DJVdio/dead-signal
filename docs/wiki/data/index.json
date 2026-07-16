@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-15 06:50:34",
+  "generatedAt": "2026-07-16 02:58:30",
   "iconDir": "godot/assets/items",
   "multiselectOptions": {
     "fitsWeapons": [
@@ -47,7 +47,7 @@
       "id": "armor",
       "label": "护甲服装",
       "file": "armor.json",
-      "count": 27,
+      "count": 28,
       "source": "src/DeadSignal.Combat/ArmorTable.cs（防护数值）+ godot/scripts/ApparelSlots.cs（穿在哪、护到哪）"
     },
     {
@@ -110,7 +110,7 @@
       "id": "weapon-mods",
       "label": "武器改装",
       "file": "weapon-mods.json",
-      "count": 21,
+      "count": 20,
       "source": "godot/scripts/WeaponModCatalog.cs"
     },
     {
@@ -124,7 +124,7 @@
       "id": "food",
       "label": "食物与食材",
       "file": "food.json",
-      "count": 11,
+      "count": 10,
       "source": "godot/scripts/CookingLogic.cs + godot/scripts/Materials.cs"
     },
     {
@@ -159,7 +159,7 @@
       "id": "world-graph",
       "label": "调查点路线",
       "file": "world-graph.json",
-      "count": 17,
+      "count": 18,
       "source": "godot/data/world_graph.json"
     }
   ]

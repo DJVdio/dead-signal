@@ -660,6 +660,28 @@ public static class NarrativeSpotRegistry
             },
         },
 
+        // ===== [警察局] 警察局（小点·Medium，ExplorationCache.PoliceStationName）：1 处 =====
+        // ⚠️ 用户**没有**给警察局任何剧情梗概 ⇒ 只做**环境叙事**：写这地方留下的样子，
+        //    **不编造角色、不编造前史、不引入新人物**（authored 内容归用户）。克制、简短。
+        new NarrativeSpot
+        {
+            Id = "narrative_police_duty_board",
+            Destination = ExplorationCache.PoliceStationName,
+            X = 640f, Y = 1420f,           // 门厅东墙的值班公告栏（避开门厅搜刮点 前台 420,1250）
+            Trigger = NarrativeTrigger.Proximity,
+            Label = "值班公告栏",
+            Title = "门厅墙上的值班公告栏",
+            Pages = new[]
+            {
+                "门厅东墙钉着一块软木公告栏，玻璃罩早碎了。上层是排班表，一格一格印着姓名和班次，" +
+                "有人用记号笔在几行上打了叉，旁边注着「调休」「支援」。再往下，叉越打越多，注的字也从「支援」变成了同一个词，" +
+                "反复出现：疏散。",
+
+                "公告栏最下面钉着一张打印的通知，抬头是市局的红章，正文只有短短几行，要求各岗「原地待命，等候统一部署」，" +
+                "落款日期之后，就再没有新的纸压上去。图钉还剩一整盒，摆在栏底的托槽里，没人再用得上了。",
+            },
+        },
+
         // ===== [SPEC-T60] 破败教堂（中点·高危，RuinedChurch.DestinationName）：2 处 —— 用户给的两样，一样一处 =====
         //
         // 🔴 用户原话（authored 唯一事实源，一字不改）：「在这里可以找到一些军方留下的被烧了一半的忏悔录

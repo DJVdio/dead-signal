@@ -235,10 +235,9 @@ public static class SaveMapper
         BodyPart = c.BodyPart,
         OnLimb = c.OnLimb,
         LethalBleed = c.LethalBleed,
-        InfectionProneness = c.InfectionProneness,
         SelfHealing = c.SelfHealing,
+        BleedLevel = c.BleedLevel,                                 // [感染重做] 流血等级随伤口存档（感染基数按等级查表）
         Severity = c.Severity,
-        CureProgress = c.CureProgress,
         RecoveryEfficiency = c.RecoveryEfficiency,
         Tended = c.Tended,
         DaysElapsed = c.DaysElapsed,
@@ -251,18 +250,20 @@ public static class SaveMapper
 
     /// <summary>
     /// 读档：重建一条伤病。不变量走构造器，进度走 <see cref="HealthCondition.RestoreState"/>。
-    /// <b>治疗进度（CureProgress）和感染进度（Severity）两条赛道都要摆回去</b>——
-    /// 这是双进度条竞速，漏掉任何一条，读档就等于偷偷改了赛况。
+    /// [感染重做] 治愈进度已从 per-condition 上移为 set 级**全局免疫条**（<see cref="HealthConditionSet.ImmunityProgress"/>），
+    /// 故这里只摆回感染/死亡进度(Severity)与流血等级；免疫条/免疫窗走 <see cref="RestoreHealth"/> 的 set 级参数。
     /// </summary>
     public static HealthCondition FromSave(ConditionSave s)
     {
-        var c = new HealthCondition(s.Type, s.Severity, s.BodyPart, s.OnLimb, s.LethalBleed, s.InfectionProneness, s.SelfHealing);
-        c.RestoreState(s.Severity, s.RecoveryEfficiency, s.CureProgress, s.Tended, s.DaysElapsed, s.LastSurgeryDay, s.InfectionChanceMultiplier);
+        var c = new HealthCondition(s.Type, s.Severity, s.BodyPart, s.OnLimb, s.LethalBleed, s.SelfHealing, s.BleedLevel);
+        c.RestoreState(s.Severity, s.RecoveryEfficiency, s.Tended, s.DaysElapsed, s.LastSurgeryDay, s.InfectionChanceMultiplier);
         return c;
     }
 
-    public static void RestoreHealth(HealthConditionSet set, IEnumerable<ConditionSave> conditions, bool isDead)
-        => set.Restore(conditions.Select(FromSave), isDead);
+    /// <summary>[感染重做] 读档：灌回全套伤病 + set 级全局免疫条进度 + 免疫窗剩余（旧档缺 set 级字段→默认 0/无窗，向后兼容）。</summary>
+    public static void RestoreHealth(HealthConditionSet set, IEnumerable<ConditionSave> conditions, bool isDead,
+        double immunityProgress = 0.0, double immuneWindowRemainingDays = 0.0)
+        => set.Restore(conditions.Select(FromSave), isDead, immunityProgress, immuneWindowRemainingDays);
 
     // ---- ContainerLoot ----
 

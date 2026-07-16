@@ -20,7 +20,8 @@
       "key": "covers",
       "label": "保护部位",
       "type": "text",
-      "hint": "这件东西实际护到身上哪些地方（引擎真读它：没护到的部位，命中时一点也不挡）。多个部位用「、」隔开。"
+      "readonly": true,
+      "hint": "这件东西实际护到身上哪些地方（引擎真源，只读）。已折叠显示：「双X」= 左右都护；「手(含指)/脚(含趾)」= 连同该手指/脚趾一起护。没护到的部位命中时一点也不挡。"
     },
     {
       "key": "paired",
@@ -87,7 +88,7 @@
     {
       "name": "长袖布衣",
       "equipSlot": "贴身层",
-      "covers": "胸、腹、左手臂、右手臂",
+      "covers": "胸、腹、双手臂",
       "paired": false,
       "sharpDefense": 6,
       "bluntDefense": 3,
@@ -102,7 +103,7 @@
     {
       "name": "花衬衫",
       "equipSlot": "贴身层",
-      "covers": "胸、腹、左手臂、右手臂",
+      "covers": "胸、腹、双手臂",
       "paired": false,
       "sharpDefense": 6,
       "bluntDefense": 3,
@@ -117,7 +118,7 @@
     {
       "name": "长裤",
       "equipSlot": "裤子",
-      "covers": "左大腿、右大腿、左小腿、右小腿",
+      "covers": "双大腿、双小腿",
       "paired": false,
       "sharpDefense": 6,
       "bluntDefense": 3,
@@ -132,7 +133,7 @@
     {
       "name": "运动鞋",
       "equipSlot": "左脚、右脚",
-      "covers": "左脚、左脚五趾、左脚四趾、左脚三趾、左脚二趾、左脚拇趾",
+      "covers": "脚(含趾)（穿哪只护哪只，需两件护全）",
       "paired": true,
       "sharpDefense": 6,
       "bluntDefense": 3,
@@ -147,7 +148,7 @@
     {
       "name": "短裤",
       "equipSlot": "裤子",
-      "covers": "左大腿、右大腿",
+      "covers": "双大腿",
       "paired": false,
       "sharpDefense": 6,
       "bluntDefense": 3,
@@ -170,7 +171,7 @@
       "description": "保护你的心。",
       "_id": "ChestPlate",
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.ChestPlate()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
-      "userNote": "",
+      "userNote": "移动速度-1%",
       "sync": "",
       "_icon": "armor/leather_cuirass"
     },
@@ -181,7 +182,7 @@
       "paired": false,
       "sharpDefense": 6,
       "bluntDefense": 3,
-      "weight": 0.1,
+      "weight": 0.2,
       "description": "“缝缝补补又三年。”——奶奶",
       "_id": "CoarseClothVest",
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.CoarseClothVest()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
@@ -192,11 +193,11 @@
     {
       "name": "粗布外套",
       "equipSlot": "外套层",
-      "covers": "胸、腹、左手臂、右手臂",
+      "covers": "胸、腹、双手臂",
       "paired": false,
       "sharpDefense": 6,
       "bluntDefense": 3,
-      "weight": 0.25,
+      "weight": 0.5,
       "description": "天气转凉了，记得添外套。",
       "_id": "CoarseClothCoat",
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.CoarseClothCoat()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
@@ -207,11 +208,11 @@
     {
       "name": "布夹克",
       "equipSlot": "外套层",
-      "covers": "胸、腹、左手臂、右手臂",
+      "covers": "胸、腹、双手臂",
       "paired": false,
       "sharpDefense": 7.5,
       "bluntDefense": 4,
-      "weight": 0.3,
+      "weight": 0.4,
       "description": "经典永不过时。",
       "_id": "ClothJacket",
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.ClothJacket()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
@@ -222,7 +223,7 @@
     {
       "name": "牛仔外套",
       "equipSlot": "外套层",
-      "covers": "胸、腹、左手臂、右手臂",
+      "covers": "胸、腹、双手臂",
       "paired": false,
       "sharpDefense": 10,
       "bluntDefense": 4,
@@ -237,11 +238,11 @@
     {
       "name": "皮夹克",
       "equipSlot": "外套层",
-      "covers": "胸、腹、左手臂、右手臂",
+      "covers": "胸、腹、双手臂",
       "paired": false,
       "sharpDefense": 18,
       "bluntDefense": 9,
-      "weight": 0.5,
+      "weight": 1,
       "description": "骑上摩托，倍有范儿。",
       "_id": "LeatherJacket",
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.LeatherJacket()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
@@ -252,7 +253,7 @@
     {
       "name": "皮甲",
       "equipSlot": "装甲层",
-      "covers": "胸、腹、左手臂、右手臂",
+      "covers": "胸、腹、双手臂",
       "paired": false,
       "sharpDefense": 25,
       "bluntDefense": 12.5,
@@ -260,14 +261,14 @@
       "description": "结实的鞣皮甲。",
       "_id": "Leather",
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.Leather()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
-      "userNote": "",
+      "userNote": "移动速度-3%",
       "sync": "",
       "_icon": "armor/leather_armor"
     },
     {
       "name": "板甲",
       "equipSlot": "装甲层、裤子",
-      "covers": "胸、腹、左手臂、右手臂、左大腿、右大腿、左小腿、右小腿",
+      "covers": "胸、腹、双手臂、双大腿、双小腿",
       "paired": false,
       "sharpDefense": 70,
       "bluntDefense": 35,
@@ -275,7 +276,7 @@
       "description": "重吗？他能保护你脆弱的肉体。",
       "_id": "Plate",
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.Plate()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
-      "userNote": "",
+      "userNote": "移动速度-10%",
       "sync": "",
       "_icon": "armor/plate_armor"
     },
@@ -297,7 +298,7 @@
     {
       "name": "防暴头盔",
       "equipSlot": "头部、眼镜、面部",
-      "covers": "头、左眼、右眼、鼻、下巴",
+      "covers": "头、双眼、鼻、下巴",
       "paired": false,
       "sharpDefense": 35,
       "bluntDefense": 22,
@@ -312,7 +313,7 @@
     {
       "name": "劳保手套",
       "equipSlot": "左手、右手",
-      "covers": "左手、左手小指、左手无名指、左手中指、左手食指、左手拇指",
+      "covers": "手(含指)（穿哪只护哪只，需两件护全）",
       "paired": true,
       "sharpDefense": 6,
       "bluntDefense": 3,
@@ -327,7 +328,7 @@
     {
       "name": "战争面具",
       "equipSlot": "面部、眼镜",
-      "covers": "鼻、下巴、左眼、右眼",
+      "covers": "鼻、下巴、双眼",
       "paired": false,
       "sharpDefense": 12,
       "bluntDefense": 6,
@@ -342,7 +343,7 @@
     {
       "name": "棉帽",
       "equipSlot": "头部",
-      "covers": "头、左耳、右耳",
+      "covers": "头、双耳",
       "paired": false,
       "sharpDefense": 6,
       "bluntDefense": 3,
@@ -357,7 +358,7 @@
     {
       "name": "粗布衬衫",
       "equipSlot": "贴身层",
-      "covers": "胸、腹、左手臂、右手臂",
+      "covers": "胸、腹、双手臂",
       "paired": false,
       "sharpDefense": 6,
       "bluntDefense": 3,
@@ -372,7 +373,7 @@
     {
       "name": "粗布短裤",
       "equipSlot": "裤子",
-      "covers": "左大腿、右大腿",
+      "covers": "双大腿",
       "paired": false,
       "sharpDefense": 6,
       "bluntDefense": 3,
@@ -387,7 +388,7 @@
     {
       "name": "粗布长裤",
       "equipSlot": "裤子",
-      "covers": "左大腿、右大腿、左小腿、右小腿",
+      "covers": "双大腿、双小腿",
       "paired": false,
       "sharpDefense": 6,
       "bluntDefense": 3,
@@ -417,7 +418,7 @@
     {
       "name": "墨镜",
       "equipSlot": "眼镜",
-      "covers": "左眼、右眼",
+      "covers": "双眼",
       "paired": false,
       "sharpDefense": 1,
       "bluntDefense": 1,
@@ -425,14 +426,14 @@
       "description": "直面太阳吧！",
       "_id": "Sunglasses",
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.Sunglasses()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
-      "userNote": "",
+      "userNote": "白天+5%的视野范围",
       "sync": "",
       "_icon": "armor/sunglasses"
     },
     {
       "name": "平光眼镜",
       "equipSlot": "眼镜",
-      "covers": "左眼、右眼",
+      "covers": "双眼",
       "paired": false,
       "sharpDefense": 1,
       "bluntDefense": 1,
@@ -447,11 +448,11 @@
     {
       "name": "自制简易墨镜",
       "equipSlot": "眼镜",
-      "covers": "左眼、右眼",
+      "covers": "双眼",
       "paired": false,
       "sharpDefense": 12,
       "bluntDefense": 6,
-      "weight": 0.1,
+      "weight": 0.25,
       "description": "木制眼罩，只留有两条缝进光，可以有效避免雪盲。",
       "_id": "SelfMadeSnowGoggles",
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.SelfMadeSnowGoggles()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
@@ -460,34 +461,49 @@
       "_icon": "armor/snow_goggles"
     },
     {
-      "name": "恐怖装甲",
-      "equipSlot": "装甲层",
+      "name": "护踝鞋具",
+      "equipSlot": "左脚、右脚",
+      "covers": "小腿、脚(含趾)（穿哪只护哪只，需两件护全）",
+      "paired": true,
+      "sharpDefense": 12,
+      "bluntDefense": 6,
+      "weight": 0.75,
+      "description": "高帮硬底，裹住脚踝到小腿——踩过碎玻璃也不必皱眉。",
+      "_id": "AnkleGuard",
+      "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.AnkleGuard()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
+      "userNote": "",
+      "sync": "",
+      "_icon": "armor/ankle_guard"
+    },
+    {
+      "name": "防弹背心",
+      "equipSlot": "贴身层",
       "covers": "胸、腹",
       "paired": false,
       "sharpDefense": 20,
-      "bluntDefense": 10,
-      "weight": 3,
-      "description": "每一片防护都来自于没做够防护的人",
+      "bluntDefense": 30,
+      "weight": 2.5,
+      "description": "它挡得下子弹——前提是那颗子弹讲道理，正对着胸口飞来。",
+      "_id": "BallisticVest",
+      "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.BallisticVest()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
       "userNote": "",
-      "_id": "new_armor_1",
-      "_anchor": "（新增行：代码里还没有，等 agent 建）",
-      "sync": "新增·待同步进代码",
-      "_icon": "armor/horror_armor"
+      "sync": "",
+      "_icon": "armor/ballistic_vest"
     },
     {
-      "name": "平光眼镜",
-      "equipSlot": "眼镜",
-      "covers": "左眼、右眼",
-      "paired": false,
-      "sharpDefense": 1,
-      "bluntDefense": 1,
-      "weight": 0.1,
-      "description": "至少看起来很像知识分子。",
-      "userNote": "+5%阅读速度",
-      "_id": "new_armor_3",
+      "name": "护踝鞋具",
+      "equipSlot": "左脚、右脚",
+      "covers": "左脚、右脚 、左小腿、右小腿",
+      "paired": true,
+      "sharpDefense": 12,
+      "bluntDefense": 6,
+      "weight": 0.75,
+      "description": "没人愿意听到来自脚踝的咔嚓声，除非是别人的。",
+      "userNote": "",
+      "_id": "new_armor_2",
       "_anchor": "（新增行：代码里还没有，等 agent 建）",
       "sync": "新增·待同步进代码",
-      "_icon": "armor/plain_glasses"
+      "_icon": "armor/new_armor_2"
     }
   ]
 }

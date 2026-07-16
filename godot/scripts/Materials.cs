@@ -18,8 +18,19 @@ public enum MaterialCategory
     /// <summary>布：纺织物（破布与整幅布料已合并为单一材料「布」）。</summary>
     Cloth,
 
-    /// <summary>金属：铁 / 钉子 / 铁丝 / 武器零件等（废金属与金属锭已合并为单一材料「铁」）。</summary>
+    /// <summary>金属：铁 / 钉子 / 铁丝等（废金属与金属锭已合并为单一材料「铁」）。</summary>
     Metal,
+
+    /// <summary>
+    /// [波1·item2] 精密零件：机械零件 / 子弹零件 / 武器零件——三味"枪匠时代留下、造不出来、只能捡"的精密件。
+    /// <para>
+    /// 从 <see cref="Metal"/>（子弹零件 / 武器零件）与 <see cref="Misc"/>（机械零件）里拆出来单列一类：
+    /// 它们不是普通铁料，也不是骨石绳那类有机杂料，而是同一种脾气的东西——
+    /// <b>火药你能自己熬，这些你只能捡；捡完了，枪就真的只是根铁棍。</b>
+    /// 迁移由 <c>MaterialsTests.精密零件三味_归入Component类_且已离开Misc与Metal</c> 钉死（迁彻底、只装这三味）。
+    /// </para>
+    /// </summary>
+    Component,
 
     /// <summary>皮：生皮 / 皮革等。</summary>
     Leather,
@@ -115,7 +126,7 @@ public static class Materials
         new MaterialDef("glue", "胶水", "一罐熬出来的骨胶，黏、稠、气味上不了台面。它粘得住断掉的木头，粘不回断掉的日子。", MaterialCategory.Chemical),
         new MaterialDef("stone", "石料", "凿下来的石块，砌墙够沉，砸头也够。", MaterialCategory.Misc),
         new MaterialDef("rope", "绳子", "结实的绳子，捆绑、攀爬、拖拽，用途多到不必细说。", MaterialCategory.Misc),
-        new MaterialDef("components", "机械零件", "拆东西拆出来的各式零件，越精密的装置，越离不开这堆不起眼的小玩意。", MaterialCategory.Misc),
+        new MaterialDef("components", "机械零件", "拆东西拆出来的各式零件，越精密的装置，越离不开这堆不起眼的小玩意。", MaterialCategory.Component),
         // 医疗耗材（draft）：手术耗材据 Key 查 SurgeryCatalog 得点数/适用伤类；药品据 Key 查 MedicineCatalog。
         // —— 手术耗材（流血/骨折靠手术，不吃药）——
         new MaterialDef("bandage", "绷带", "一块破布有时也能救命", MaterialCategory.Medical),
@@ -140,8 +151,9 @@ public static class Materials
         // —— 货币（draft）：末日流通的硬通货，神秘商人交易媒介。量级/掉落来源待用户设计。——
         new MaterialDef(CurrencyKey, "白银", "末世前铸的白银，如今废土上唯一还认的硬通货——文明没了，人对闪光东西的贪心还在。可堆叠、散落世界可搜刮。", MaterialCategory.Currency),
         // —— [批次18] 子弹零件：四种子弹的**唯一**共同原料（用户拍板新增的材料）。——
-        // 归「金属」而非「弹药」类：它不是弹药，是造弹药的料（弹药分区只列真能打出去的东西）。
-        new MaterialDef(BulletPartsKey, "子弹零件", "弹壳、底火、弹头坯——枪匠时代留下的精密小玩意。火药你能自己熬，这些你只能捡；捡完了，枪就真的只是根铁棍。", MaterialCategory.Metal),
+        // 归「精密零件」而非「弹药」类：它不是弹药，是造弹药的料（弹药分区只列真能打出去的东西）。
+        // [波1·item2] 与武器零件一同从「金属」迁入 Component——它们是精密件，不是普通铁料。
+        new MaterialDef(BulletPartsKey, "子弹零件", "弹壳、底火、弹头坯——枪匠时代留下的精密小玩意。火药你能自己熬，这些你只能捡；捡完了，枪就真的只是根铁棍。", MaterialCategory.Component),
 
         // —— [批次21·T26] 武器零件：两把**弩**的 defining 材料（用户拍板新增的材料）。——
         //
@@ -150,10 +162,11 @@ public static class Materials
         //   · 「武器零件」(weapon_parts) —— 弩机、扳机组、簧片这类**武器专用**的精密件，只喂弩。
         // 两者**互不争抢**：想造改装台又想造弩，不必在同一堆零件上做取舍。**别把它们又并回去。**
         //
-        // 归「金属」类，同「子弹零件」——它们是同一种东西的两个方向：那个"只能捡、造不出来"的精密件。
+        // 归「精密零件」类，同「子弹零件」——它们是同一种东西的两个方向：那个"只能捡、造不出来"的精密件。
+        // [波1·item2] 与子弹零件一同从「金属」迁入 Component。
         // **只能搜刮**（军械/机修点位，见 ExplorationCache）。**未来可考虑「拆枪回收零件」**——
         // 那是一套全新机制（拆武器回收），本单没做，要做另开一单。
-        new MaterialDef(WeaponPartsKey, "武器零件", "弩机、扳机组、几片淬过火的簧——造枪的人早死绝了，留下的这些小东西还硬邦邦地不肯锈。你造不出它们，只能指望别人也没找到。", MaterialCategory.Metal),
+        new MaterialDef(WeaponPartsKey, "武器零件", "弩机、扳机组、几片淬过火的簧——造枪的人早死绝了，留下的这些小东西还硬邦邦地不肯锈。你造不出它们，只能指望别人也没找到。", MaterialCategory.Component),
         // —— [批次18] 弹药四种（用户拍板：短/中/长子弹 + 鹿弹；键对齐引擎 AmmoKeys）——
         // **稀缺梯度写在制作比里**（用户拍板）：1 个子弹零件 → 短 8 / 中 5 / 鹿 4 / 长 2 发。
         // 越强的枪，同一份原料能喂它的次数越少。枪的强度现在完全由这四行的供给量决定。

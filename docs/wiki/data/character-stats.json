@@ -193,7 +193,7 @@
     {
       "label": "升 2 级所需累计阅读",
       "who": "诺蒂",
-      "value": 48,
+      "value": 24,
       "unit": "小时",
       "settled": false,
       "_id": "nordi_l2_hours",
@@ -206,7 +206,7 @@
     {
       "label": "升 3 级所需累计阅读",
       "who": "诺蒂",
-      "value": 120,
+      "value": 72,
       "unit": "小时",
       "settled": false,
       "_id": "nordi_l3_hours",
@@ -271,7 +271,7 @@
     {
       "label": "升 2 级所需共同存活",
       "who": "道格",
-      "value": 5,
+      "value": 7,
       "unit": "天",
       "settled": false,
       "_id": "doug_l2_days",
@@ -284,7 +284,7 @@
     {
       "label": "升 3 级所需共同存活",
       "who": "道格",
-      "value": 12,
+      "value": 14,
       "unit": "天",
       "settled": false,
       "_id": "doug_l3_days",
@@ -466,7 +466,7 @@
     {
       "label": "升 2 级所需手术台数",
       "who": "南丁格尔",
-      "value": 3,
+      "value": 8,
       "unit": "台",
       "settled": false,
       "_id": "nurse_l2_surgeries",
@@ -479,7 +479,7 @@
     {
       "label": "升 3 级所需手术台数",
       "who": "南丁格尔",
-      "value": 8,
+      "value": 21,
       "unit": "台",
       "settled": false,
       "_id": "nurse_l3_surgeries",

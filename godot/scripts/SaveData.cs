@@ -339,6 +339,12 @@ public sealed class PawnSave
     /// <summary>是否已病死（<see cref="HealthConditionSet.IsDead"/> 的终态）。</summary>
     public bool HealthDead { get; set; }
 
+    /// <summary>[感染重做] 全局免疫(治愈)条进度 0..1（set 级，所有感染共享）。<b>旧档缺此字段→默认 0</b>（向后兼容）。</summary>
+    public double ImmunityProgress { get; set; }
+
+    /// <summary>[感染重做] 免疫满后 24h 免疫窗剩余时长（天）。<b>旧档缺此字段→默认 0＝无窗</b>（向后兼容）。</summary>
+    public double ImmuneWindowRemainingDays { get; set; }
+
     /// <summary>穿戴：逐件存 (物品, 占哪些槽)——成对手套/鞋靠它区分左右。</summary>
     public List<WornSave> Apparel { get; set; } = new();
 
@@ -382,14 +388,13 @@ public sealed class ConditionSave
     public string? BodyPart { get; set; }
     public bool OnLimb { get; set; }
     public bool LethalBleed { get; set; }
-    public double InfectionProneness { get; set; }
     public bool SelfHealing { get; set; }
+
+    /// <summary>[感染重做] 出血伤口的流血等级（感染几率基数按此查表；仅 Bleeding 有意义）。<b>旧档缺此字段→null，感染基数从宽按小流血</b>。</summary>
+    public BleedModel.BleedSeverity? BleedLevel { get; set; }
 
     /// <summary>感染进度（死亡赛道）。</summary>
     public double Severity { get; set; }
-
-    /// <summary>治疗进度（清除赛道）。<b>双进度条竞速的另一半，漏了它读档就等于把病治好了一半。</b></summary>
-    public double CureProgress { get; set; }
 
     public int RecoveryEfficiency { get; set; }
     public bool Tended { get; set; }

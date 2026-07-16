@@ -73,6 +73,17 @@ public static class ExplorationCache
     public const string SewerName = RatRecruit.DestinationName;   // "下水道"（单一真源在 RatRecruit）
 
     /// <summary>
+    /// [警察局] 警察局目的地名（<b>前中期 · 规模小 · 室内多拐角 · 危险 Medium</b>，用户拍板）。
+    /// 前置＝消防站 <b>或</b> 河边小屋之后（任一即可，见 <c>world_graph.json</c>）。须与 <c>WorldMapPanel</c> / <see cref="ExplorationWalls"/> 一致。
+    /// <para>
+    /// 身份＝<b>防护装备</b>：整关最值钱的是<b>禁闭室里那套防暴头盔 + 防弹背心</b>（authored 新甲）；
+    /// 其余搜刮点＝少量手枪弹 + 杂项材料 + 一两只死老鼠。<b>室内多拐角</b>由 <see cref="ExplorationWalls.PoliceWalls"/> 的房间遮挡兑现
+    /// （硬不变量：任一可行走点被感知的丧尸 ≤ 1，见 <c>PoliceStationTests</c>）。关内内容归本文件 + 几何 + <see cref="NarrativeSpotRegistry"/>。
+    /// </para>
+    /// </summary>
+    public const string PoliceStationName = "警察局";
+
+    /// <summary>
     /// [SPEC-T51] 斯图尔特家族庄园目的地名（＝内部路由键，须与 <c>WorldMapPanel</c> / <see cref="StuartManor.DestinationName"/> 一致）。
     /// <para>🔴 <b>这一关是"高风险不是永远高回报"的正面兑现，别把它平衡掉</b>。用户原话：
     /// 「农庄，<b>并不是很富裕</b>，中地图，有盘踞的劫掠者和岗哨，高危，<b>高风险不是永远高回报</b>，
@@ -318,6 +329,16 @@ public static class ExplorationCache
     public const string SewerPumpRoomId = "cache_sewer_pump_room";              // 泵房检修箱（中·拐角四那只丧尸守着）
     public const string SewerRatNestId = "cache_sewer_rat_nest";                // 老鼠窝（深）
 
+    // ==== [警察局] 警察局（Small，5 处·**Medium**）——用户拍板：前中期·小·室内多拐角·危险 Medium。====
+    //   身份＝**防护装备**：整关最值钱的东西是**禁闭室里那套防暴头盔 + 防弹背心**（authored 新甲，police-armor 落地）。
+    //   其余搜刮点＝**少量手枪弹（ammo_short）+ 一些杂项材料 + 一两只死老鼠（rat）**。整体前中期·**中等偏紧**。
+    //   近→深：前台(门厅·近) → 办公区(中) → 证物室(中) → 更衣室(深) → 禁闭室/囚室(最深·两件甲，Medium 的丧尸就守在这儿)。
+    public const string PoliceFrontDeskId = "cache_police_front_desk";          // 门厅·前台（近·少量手枪弹+杂项）
+    public const string PoliceBullpenId = "cache_police_bullpen";               // 办公区·办公桌（中·杂项+死老鼠）
+    public const string PoliceEvidenceId = "cache_police_evidence";             // 证物室·储物柜（中·手枪弹+死老鼠）
+    public const string PoliceLockerRoomId = "cache_police_locker_room";        // 更衣室·储物柜（深·杂项+少量手枪弹）
+    public const string PoliceHoldingCellId = "cache_police_holding_cell";      // 禁闭室·囚室（最深·**防暴头盔+防弹背心**）
+
     // ==== [SPEC-T51] 斯图尔特家族庄园（Medium 下限，10 处）——**一座穷农庄**。====
     //   用户口径「农庄，**并不是很富裕**」「**高风险不是永远高回报**」⇒ 点位数量按中图下限合规（同加油站先例），
     //   但**每一处都薄**：布、木头、绳子、钉子、几个土豆、一卷绷带。**无枪/无书/无白银/无弹药/无高阶医疗。**
@@ -550,6 +571,12 @@ public static class ExplorationCache
     public const string SewerDeadEndLockerFlag = "searched_sewer_deadend_locker";
     public const string SewerPumpRoomFlag = "searched_sewer_pump_room";
     public const string SewerRatNestFlag = "searched_sewer_rat_nest";
+    // [警察局] 警察局 5 处一次性 flag（与上方 id 一一对应）：
+    public const string PoliceFrontDeskFlag = "searched_police_front_desk";
+    public const string PoliceBullpenFlag = "searched_police_bullpen";
+    public const string PoliceEvidenceFlag = "searched_police_evidence";
+    public const string PoliceLockerRoomFlag = "searched_police_locker_room";
+    public const string PoliceHoldingCellFlag = "searched_police_holding_cell";
     // [SPEC-T51] 斯图尔特家族庄园 10 处一次性 flag（与上方 id 一一对应）：
     public const string StuartGateCartFlag = "searched_stuart_gate_cart";
     public const string StuartThreshingYardFlag = "searched_stuart_threshing_yard";
@@ -821,6 +848,11 @@ public static class ExplorationCache
         {
             SewerEntryDebrisId, SewerDriftPileId, SewerDeadEndLockerId, SewerPumpRoomId, SewerRatNestId,
         },
+        // [警察局] 警察局（小点，5 处·Medium）：前台(门厅·近)→办公区(中)→证物室(中)→更衣室(深)→禁闭室/囚室(最深·两件甲)。
+        PoliceStationName => new[]
+        {
+            PoliceFrontDeskId, PoliceBullpenId, PoliceEvidenceId, PoliceLockerRoomId, PoliceHoldingCellId,
+        },
         // [SPEC-T51] 斯图尔特家族庄园（中点下限，10 处·**穷**）：前院/晒场(近, 3) → 主屋(中, 4) → 谷仓/农具(中, 2) → 后院菜窖(最深, 1)。
         // 叙事调查点（门口吊尸/收留痕迹/里屋/枯井）不在此列——那是第三类点，不计物资完成度（同既有口径）。
         StuartManorName => new[]
@@ -1039,6 +1071,12 @@ public static class ExplorationCache
         SewerDeadEndLockerId => SewerDeadEndLockerFlag,
         SewerPumpRoomId => SewerPumpRoomFlag,
         SewerRatNestId => SewerRatNestFlag,
+        // [警察局] 警察局 5：
+        PoliceFrontDeskId => PoliceFrontDeskFlag,
+        PoliceBullpenId => PoliceBullpenFlag,
+        PoliceEvidenceId => PoliceEvidenceFlag,
+        PoliceLockerRoomId => PoliceLockerRoomFlag,
+        PoliceHoldingCellId => PoliceHoldingCellFlag,
         // [SPEC-T51] 斯图尔特家族庄园 10：
         StuartGateCartId => StuartGateCartFlag,
         StuartThreshingYardId => StuartThreshingYardFlag,
@@ -2318,6 +2356,61 @@ public static class ExplorationCache
                 },
                 SewerRatNestTitle, SewerRatNestNarrative),
 
+            // ==== [警察局] 警察局（5 处·Medium）：防护装备场。====
+            //   身份＝**防暴头盔 + 防弹背心**（authored 新甲，只出在禁闭室）；其余＝少量手枪弹 + 杂项材料 + 一两只死老鼠。
+            //   量级：全 5 处合计 15 堆/23 件 —— 前中期·中等偏紧，甲是回报的大头，弹与材料是配着甲用的边角。
+            //   🔴 **别往这儿加枪**：这一关给的是甲不是枪（枪械另有门槛、别处产，见 PoliceStationCacheTests）。
+            PoliceFrontDeskId when NotYet(flags, PoliceFrontDeskFlag) => new CacheResult(
+                PoliceFrontDeskFlag,
+                new[]
+                {
+                    LootItem.Material("ammo_short", 3),  // 前台抽屉里没登记完的几发手枪弹
+                    LootItem.Material("components", 1),  // 拆下来的对讲机/门禁零件
+                    LootItem.Material("cloth", 1),
+                },
+                PoliceFrontDeskTitle, PoliceFrontDeskNarrative),
+
+            PoliceBullpenId when NotYet(flags, PoliceBullpenFlag) => new CacheResult(
+                PoliceBullpenFlag,
+                new[]
+                {
+                    LootItem.Material("cloth", 2),       // 椅背上搭着的外套、抽屉里的旧制服
+                    LootItem.Material("components", 1),
+                    LootItem.Material("rat", 1),         // 办公桌底下窜过去的那只
+                },
+                PoliceBullpenTitle, PoliceBullpenNarrative),
+
+            PoliceEvidenceId when NotYet(flags, PoliceEvidenceFlag) => new CacheResult(
+                PoliceEvidenceFlag,
+                new[]
+                {
+                    LootItem.Material("ammo_short", 4),  // 证物袋里没被登记走的手枪弹
+                    LootItem.Material("iron", 1),        // 撬开证物柜锁扣的铁件
+                    LootItem.Material("rat", 1),         // 潮湿的证物室，耗子做了窝
+                },
+                PoliceEvidenceTitle, PoliceEvidenceNarrative),
+
+            PoliceLockerRoomId when NotYet(flags, PoliceLockerRoomFlag) => new CacheResult(
+                PoliceLockerRoomFlag,
+                new[]
+                {
+                    LootItem.Material("cloth", 2),       // 更衣柜里的换洗衣物
+                    LootItem.Material("ammo_short", 2),  // 有人把备弹锁在自己柜子里
+                    LootItem.Material("bandage", 1),     // 更衣室常备的那卷绷带
+                },
+                PoliceLockerRoomTitle, PoliceLockerRoomNarrative),
+
+            PoliceHoldingCellId when NotYet(flags, PoliceHoldingCellFlag) => new CacheResult(
+                PoliceHoldingCellFlag,
+                new[]
+                {
+                    // 🔴 这一关最值钱的一处：防暴装备柜就锁在禁闭室走廊尽头（authored 新甲）。
+                    LootItem.Armor("防暴头盔"),
+                    LootItem.Armor("防弹背心"),
+                    LootItem.Material("cloth", 1),
+                },
+                PoliceHoldingCellTitle, PoliceHoldingCellNarrative),
+
             // ==== [SPEC-T51] 斯图尔特家族庄园（10 处·**穷**）====
             // 🔴 别往这儿加东西。用户明写「农庄，**并不是很富裕**」「**高风险不是永远高回报**」——
             //    这一关的高危是<b>真的</b>（7 个健全的劫掠者 + 3 个岗哨），而它的搜刮回报就该是**寒酸的**。
@@ -3105,6 +3198,39 @@ public static class ExplorationCache
         "一个用碎布和纸絮垫起来的窝，就在管道的凹槽里。老鼠们没跑——它们已经很久没见过需要怕的东西了。" +
         "窝边上有几朵蘑菇，还有一小截啃干净的骨头。" +
         "有人在这附近住着。这个念头是在你转身之后才出现的。";
+
+    // —— [警察局] 警察局（环境叙事）——
+    // ⚠️ 用户**没有**给警察局任何剧情梗概 ⇒ 只写**环境叙事**：写物件、写这地方最后的样子，
+    //    **不编造角色、不编造前史、不引入新人物**（authored 内容归用户）。克制、简短。
+    private const string PoliceFrontDeskTitle = "门厅·前台";
+    private const string PoliceFrontDeskNarrative =
+        "推门进去是接待厅，一张高台前台横在中间，防弹玻璃裂了一道缝，从这头一直爬到那头。台面上摊着登记簿，" +
+        "最后几页按着日期往下记：报案、失踪、又是失踪，字迹越到后面越急。抽屉半开着，里头翻乱了，" +
+        "底下压着几发没登记完的手枪弹和一台拆了半边的对讲机。";
+
+    private const string PoliceBullpenTitle = "办公区";
+    private const string PoliceBullpenNarrative =
+        "一整片开放式的办公区，隔断矮墙把它切成一格一格，每格一张桌、一把转椅。椅背上还搭着没来得及穿走的外套，" +
+        "桌上的马克杯干了底。墙上的通缉栏钉着照片，边角卷了起来。你伸手去够抽屉的时候，" +
+        "有个什么东西从桌子底下窜了出去——不大，四条腿，比你先一步逃出了这栋楼。";
+
+    private const string PoliceEvidenceTitle = "证物室";
+    private const string PoliceEvidenceNarrative =
+        "证物室在走廊尽头，铁架子一排排码到顶，每个证物袋都挂着标签、编着号。多数袋子空了，" +
+        "该在里头的东西早被人取走。潮气很重，最底层几个纸箱泡烂了塌下来，一窝耗子从塌处钻进钻出。" +
+        "翻了半天，架子深处还剩几发没被领走的手枪弹，和一把撬柜子留下的铁件。";
+
+    private const string PoliceLockerRoomTitle = "更衣室";
+    private const string PoliceLockerRoomNarrative =
+        "更衣室两排铁皮柜，多数没锁，门大敞着，里头掏空了。有几个锁得死死的，你用铁件撬开——" +
+        "换洗的衣物、一卷备用绷带，还有几发锁进自己柜子里的备弹。柜门内侧贴着家人的照片，" +
+        "有的还压着一张排班表，最后一栏的班，没人去上。";
+
+    private const string PoliceHoldingCellTitle = "禁闭室·囚室";
+    private const string PoliceHoldingCellNarrative =
+        "走廊最深处是禁闭区，几间囚室的铁栅门半开着，里头空无一人——是从里头出去的，还是根本没关住，看不出来。" +
+        "走廊尽头立着一排防暴装备柜，锁扣被人撬过，柜门歪着。里头那套防暴头盔和防弹背心还在原位，" +
+        "落了灰，但完好。它们本该护着穿它们的人——最后一次没能。";
 
     // —— [SPEC-T51] 斯图尔特家族庄园（环境叙事 draft·**克制、不渲染**；全文待用户 authored 验收/优化）——
     // 🔴 文字纪律：本 agent **不编造**斯图尔特家的人名、性格、对话、日记正文、流浪者是谁、背刺的经过。

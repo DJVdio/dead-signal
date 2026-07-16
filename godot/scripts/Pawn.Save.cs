@@ -33,6 +33,8 @@ public sealed partial class Pawn
 
         Conditions = SaveMapper.ToSave(Health),
         HealthDead = Health.IsDead,
+        ImmunityProgress = Health.ImmunityProgress,                       // [感染重做] set 级全局免疫条
+        ImmuneWindowRemainingDays = Health.ImmuneWindowRemainingDays,     // [感染重做] set 级免疫窗剩余
 
         Apparel = SaveMapper.ToSave(_apparel),
         Loadout = SaveMapper.ToSave(_loadout),
@@ -68,7 +70,7 @@ public sealed partial class Pawn
         // 用 Restore 而非 DrainTo——后者**只饿不喂**，会静默丢掉"吃撑"这类高于默认值的刻度。
         Hunger.Restore(s.Hunger);
 
-        SaveMapper.RestoreHealth(Health, s.Conditions, s.HealthDead);
+        SaveMapper.RestoreHealth(Health, s.Conditions, s.HealthDead, s.ImmunityProgress, s.ImmuneWindowRemainingDays);
 
         SaveMapper.RestoreApparel(_apparel, s.Apparel);
         RestoreLoadoutFrom(s.Loadout);

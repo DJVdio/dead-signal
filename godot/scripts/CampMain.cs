@@ -2310,6 +2310,13 @@ public sealed partial class CampMain : Node2D
         {
             sam.SetIncomingDamageReduction(() => SamPerk.IncomingDamageReduction(SamLevelNow(), isSam: true));
         }
+        // 皮特·青春期田径队：移速 authored 乘子（L1 1.15/L2 1.25/L3 1.30×）+ 闪避等级提供者（L3 负重<30kg 15% 掷免）。
+        // 都注入读实时等级的 lambda（同山姆减伤口径）：升级即时生效、无缓存可失效；非皮特不注入 → 移速槽 null=1.0、闪避恒 false，逐位零回归。
+        if (actor is Pawn { Perks.IsPete: true } pete)
+        {
+            pete.SetAuthoredMoveSpeedMult(() => PetePerk.MoveSpeedMultiplier(PeteLevelNow(), isPete: true));
+            pete.SetPeteLevelProvider(PeteLevelNow);
+        }
         // [T47] 消耗型改装脱落（锋刃研磨砍满三下 ⇒ 刃磨没了）：**玩家必须看得见**，不能静默失效。
         // 挂在 AddActor 这一个漏斗上 —— 幸存者不管从哪条路入营（开局/道格/克莉丝汀/护士/村庄救援）都走它。
         if (actor is Pawn moddedUser)
@@ -2428,13 +2435,25 @@ public sealed partial class CampMain : Node2D
     /// 待其建立后同样乘本函数即可。
     /// </summary>
     private double WorkEfficiencyOf(Pawn worker)
-        => SamPerk.OperationCapabilityWithAura(worker.OperationCapability, SamLevelNow());
+        // 皮特 L2 操作 +5%（[通则·乘算]，见 <see cref="PetePerk.OperationCapabilityWithBonus"/>）：**乘在山姆光环折算后的实际操作能力上**，
+        // 不 clamp 截断（满状态者 1.0×1.05 应能 >1，否则白给；断双手者 0×1.05 仍 0）。挂在**唯一的干活效率漏斗** WorkEfficiencyOf
+        // ⇒ 及于制作/砌墙/挖废墟/搜刮全部走操作能力的消费点（＝山姆消费点集合，主 agent 拍板"仿山姆"）。非皮特/L1 恒 ×1.0 零回归。
+        => PetePerk.OperationCapabilityWithBonus(
+            SamPerk.OperationCapabilityWithAura(worker.OperationCapability, SamLevelNow()),
+            PeteLevelNow(), worker.Perks.IsPete);
 
     /// <summary>
     /// [T61] 耗子当前等级（1/2/3）——**每次查询实时派生**：读 <c>StoryFlags</c> 里她累计搜出的件数
     /// （<see cref="RatPerk.ScavengeCountFlag"/>）⇒ 无缓存可失效，**存档天然覆盖**（该旗标本就在 SaveData.StoryFlags 里）。
     /// </summary>
     private int RatLevelNow() => RatPerk.LevelOf(_storyFlags);
+
+    /// <summary>
+    /// 皮特当前等级（1/2/3）——**每次查询实时派生**：读 <c>StoryFlags</c> 里的 L2 latch（<see cref="PetePerk.Level2ReachedFlag"/>）
+    /// + 饥饿≤5 出行累计（<see cref="PetePerk.DepartureCountFlag"/>）⇒ 无缓存可失效、**存档天然覆盖**（旗标本就在 SaveData.StoryFlags 里）。
+    /// 供移速 lambda / 操作消费点 / 闪避 override 现算，故升级即时生效。
+    /// </summary>
+    private int PeteLevelNow() => PetePerk.LevelOf(_storyFlags);
 
     /// <summary>
     /// [T61] 某工人的**搜刮**效率 ＝ 通用干活效率 <see cref="WorkEfficiencyOf"/> × 耗子的搜刮专属乘子。
@@ -3011,13 +3030,20 @@ public sealed partial class CampMain : Node2D
     }
 
     /// <summary>
-    /// 玩家走到关内门前：开着就关上、关着就推开（<b>开门只有一种动作</b>，与营地同口径）。
-    /// 推/关都发 100 半径的门声——门后的东西听得见，但那也远比开一枪（350~600）便宜。
+    /// 玩家走到关内门前：<b>锁着的门</b>去撬（见 <see cref="ExecuteLevelDoorPick"/>）；没锁的门开着就关上、关着就推开
+    /// （<b>开门只有一种动作</b>，与营地同口径）。推/关都发 100 半径的门声——门后的东西听得见，但那也远比开一枪（350~600）便宜。
     /// </summary>
     private void ExecuteLevelDoorInteract(Pawn arriver, ContainerRef hit)
     {
         if (_currentLevel is not TestExploration level)
         {
+            return;
+        }
+
+        // 锁着的门推不开——走撬锁（消耗铁丝·按 LockTier 掷成功率·失败断丝）。全项目首次把撬锁接进探索关。
+        if (level.LevelDoorState(hit.Name) == DoorState.Locked)
+        {
+            ExecuteLevelDoorPick(arriver, level, hit.Name);
             return;
         }
 
@@ -3032,6 +3058,46 @@ public sealed partial class CampMain : Node2D
 
         arriver.EmitDoorNoise(); // 100 —— 与营地开门/劫掠者开门同一个数，单一真源 NoiseLogic.DoorNoiseRadius
         _campToast.Show($"{arriver.DisplayName} {message}", CampToast.Ok);
+    }
+
+    /// <summary>
+    /// 撬一扇关内的锁门（复用纯逻辑 <see cref="DoorLogic"/>，与营地门 <see cref="BeginPickLock"/> 同一套规则）。
+    /// <b>一次交互 = 一次尝试</b>：撬锁很安静（30 噪音，惊动不了东西）——这正是它相对「砸开(180 招整层)」的价值。
+    /// <list type="bullet">
+    /// <item>身上<b>没铁丝</b>：撬不动（只剩砸这一条路，而砸很响）。</item>
+    /// <item><b>撬开</b>：门开（<see cref="TestExploration.UnlockLevelDoor"/> 撤墙层 + 摘导航洞 + 重烘焙），禁闭区从此可达。</item>
+    /// <item><b>失败</b>：铁丝断在锁里（扣 1 根）；还有铁丝就再走一趟接着撬——门外那群东西不会停下来等你。</item>
+    /// </list>
+    /// 撬锁 roll 走可注入的 <see cref="_pickRng"/>（项目铁律：随机可复现）。
+    /// </summary>
+    private void ExecuteLevelDoorPick(Pawn arriver, TestExploration level, string doorName)
+    {
+        LockTier tier = level.LevelDoorLockTier(doorName);
+        int wire = _inventory.MaterialCount(DoorLogic.LockpickMaterialKey);
+        if (!DoorLogic.CanPick(DoorState.Locked, arriver.Faction, isAnimal: false, wire))
+        {
+            _campToast.Show($"{doorName}锁着，而你没有铁丝——只能砸开了（很响）。", CampToast.Bad);
+            return;
+        }
+
+        arriver.EmitLockpickNoise(); // 30 —— 撬锁本身惊动不了任何东西
+        DoorPickAttempt r = DoorLogic.TryPick(tier, _pickRng);
+        if (r.Success)
+        {
+            level.UnlockLevelDoor(doorName);
+            _campToast.Show($"咔哒——{arriver.DisplayName} 撬开了{doorName}。", CampToast.Ok);
+            GD.Print($"[关内门] {arriver.DisplayName} 撬开 {doorName}（{LockLabel(tier)}）。");
+            return;
+        }
+
+        // 失败：铁丝断在锁里（扣 1 根）。
+        _inventory.TrySpendMaterial(DoorLogic.LockpickMaterialKey, 1);
+        int left = _inventory.MaterialCount(DoorLogic.LockpickMaterialKey);
+        _campToast.Show(
+            left > 0
+                ? $"铁丝断在了锁里。（还剩 {left} 根，走回去再撬……）"
+                : $"最后一根铁丝也断了。{doorName}还锁着——要么找铁丝，要么砸。",
+            CampToast.Bad);
     }
 
     /// <summary>关内已落的尸体容器名（回营时统一注销登记——尸体随关卡消失，不该把登记漏进营地/存档）。</summary>
@@ -3225,6 +3291,9 @@ public sealed partial class CampMain : Node2D
 
         if (_tutorialActive)
             UpdateChristineTutorial(delta);
+
+        if (_peteEventActive)
+            UpdatePeteRescue(delta); // 皮特开门救援逐帧战（守卫锁三尸 + 胜负→招募/失败），正文在 CampMain.PeteEvent.cs
 
         UpdatePendingInteract(delta);   // 右键前往：轮询到达 → 开面板/开搜（自带暂停）
         UpdateLootJobs(delta);          // 逐件搜刮：**后台**推进（可多人并发各搜各的；玩家的控制权始终自由）
@@ -4187,6 +4256,13 @@ public sealed partial class CampMain : Node2D
         // 玩家不会自己想到"关门可以把丧尸挡在门后"，除非你告诉他。
         if (c.Role == LevelDoorRole && _currentLevel is TestExploration lvl && lvl.LevelDoorState(c.Name) is { } ls)
         {
+            // 锁着的门：撬（安静但要铁丝）——把当前铁丝数直接报出来，让玩家在点之前就知道够不够撬。
+            if (ls == DoorState.Locked)
+            {
+                int wire = _inventory.MaterialCount(DoorLogic.LockpickMaterialKey);
+                return $"{c.Name}（{LockLabel(lvl.LevelDoorLockTier(c.Name))}）· 选中角色后右键前往撬锁 —— 安静但要铁丝（×{wire}），失败断一根" +
+                       $"{(hasSelection ? "" : "（先选中角色）")}";
+            }
             string act = DoorLogic.Blocks(ls) ? "推开" : "关上（把门后的东西挡住）";
             return $"{c.Name} · 选中角色后右键前往{(hasSelection ? "" : "（先选中角色）")} · {act} · 有动静（{NoiseLogic.DoorNoiseRadius:0} 半径）";
         }
@@ -4489,9 +4565,19 @@ public sealed partial class CampMain : Node2D
         _resources.Consume(phase.TotalConsumed);
 
         // 净结算：份数≥1（Fed）→ ResolvePhase(true) 净零维持；份数=0 → ResolvePhase(false) 净 −1 前进一级。
+        // 皮特（青春期大男孩代谢快）走 PetePerk.ResolveHungerPhase 变体：在普通 -1 基础上 25% 概率再掉 1（合计掉 2）；
+        // 随机走生产 _mealRng（SystemRandomSource），非皮特不触 rng（PetePerk 内部 isPete 门控）、行为与旧 ResolveHungerPhase 逐位一致。
         for (int i = 0; i < living.Count; i++)
         {
-            living[i].ResolveHungerPhase(ration.Fed[i]);
+            Pawn diner = living[i];
+            if (diner.Perks.IsPete)
+            {
+                PetePerk.ResolveHungerPhase(diner.Hunger, ration.Fed[i], _mealRng, isPete: true);
+            }
+            else
+            {
+                diner.ResolveHungerPhase(ration.Fed[i]);
+            }
         }
         // 补餐回升：份数≥2（SecondFed）→ +1（clamp 到各自上限；饿死终态由 Feed 内部守卫）。
         for (int i = 0; i < living.Count; i++)
@@ -4500,6 +4586,12 @@ public sealed partial class CampMain : Node2D
             {
                 living[i].ServeSecondMeal();
             }
+        }
+        // 皮特升级轴 L1→L2「连续五天饥饿≥3」：**相位级**每聚餐相位喂本相位最终饥饿值给 PetePerk.RecordPhaseHunger
+        // （≥3 续连续、<3 清零、达 10 相位 latch L2 永久旗标）。放在补餐回升之后 ⇒ 记的是本相位结算完的最终刻度。
+        foreach (Pawn diner in living.Where(d => d.Perks.IsPete))
+        {
+            PetePerk.RecordPhaseHunger(_storyFlags, diner.Hunger.Value);
         }
 
         // 饿死：刻度归 0 者走统一死亡路径（Died 事件会改 _survivors，先收集再逐个处理）。
@@ -5040,6 +5132,10 @@ public sealed partial class CampMain : Node2D
                 // 不叠加丧尸袭营（TriggerRaid 会因 _tutorialActive 早退）。
                 if (_clock.Day == 2 && !_storyFlags.Has("tutorial_raider_started"))
                     BeginChristineTutorial();
+                // 皮特事件：第 7 夜一开局脚本触发（男孩敲门求救 + 三选一）。同教学关口径独占本夜（进 else 链 ⇒
+                // 抑制围攻/夜袭，脚本夜不叠加常规威胁）；正文在 CampMain.PeteEvent.cs。
+                else if (_clock.Day == 7 && !_storyFlags.Has(PeteEventDoneFlag))
+                    BeginPeteRescueEvent();
                 // 尸潮时限到期(day>=DeadlineDay)：本夜起无限围攻直至全灭（无生还，有意为之的黑暗终局）。
                 // 时限与教学关(第 2 夜)天数相去甚远，不冲突；发现与否不影响触发（Evaluate 到期一律 Arrived）。
                 // 终局冻结门控：主线推进到终局抉择点后置 EndgameFreezeFlag → 结局流程接管，围攻不再触发（置位方留待主线系统）。
@@ -5229,6 +5325,17 @@ public sealed partial class CampMain : Node2D
         _todaysExpeditionIds.Clear();
         foreach (int id in ids)
             _todaysExpeditionIds.Add(id);
+
+        // 皮特升级轴 L2→L3「饥饿≤5 出行三次」：出发瞬间若皮特在本队且饥饿≤5 → RecordDeparture 单调累计一次。
+        // **gate 在 L2**（主 agent 拍板）：仅已达 L2 后才累计——L3 以 L2 为前提，未达 L2 的出行不进 L3 计数。
+        if (PeteLevelNow() >= 2)
+        {
+            foreach (Pawn m in _survivors.Where(s => s.Alive && s.Perks.IsPete && ids.Contains(s.Id)))
+            {
+                PetePerk.RecordDeparture(_storyFlags, m.Hunger.Value);
+            }
+        }
+
         _clock.TransitionTo(DayPhase.DayTravel);
     }
 
@@ -6722,18 +6829,36 @@ public sealed partial class CampMain : Node2D
                 RecruitChristine();
                 break;
             case ChristineChoice.Exile:
-                // 放逐：让她走向门外后消失（活着离开，不留尸不流血）。
-                WalkOutAndDespawn(_christine);
+            {
+                // 放逐：冻结-脚本CG-恢复——相机推近→她转身走向门外、淡出消失（活着离开，不留尸不流血）。
+                // 与皮特共用 PlayDeathCinematic 通路（Exiled 走出门淡出复用 WalkOutAndDespawn 的"背离营心走出"运动，
+                // 但改走 CG 真实时基）。语义不变：放逐＝离营。CG 结束回调 QueueFree 逻辑节点。
+                Actor leaving = _christine;
                 _christine = null;
-                GD.Print("[教学关] 放逐克莉丝汀：她走向门外，消失在营地外。");
+                PlayDeathCinematic(leaving, withThreeZombies: false, CinematicDeathKind.Exiled,
+                    onComplete: () =>
+                    {
+                        if (IsInstanceValid(leaving))
+                            leaving.QueueFree();
+                        GD.Print("[教学关] 放逐克莉丝汀：她走向门外，消失在营地外。");
+                    });
                 break;
+            }
             case ChristineChoice.Execute:
-                // 处决：脚下留一摊浓血后当场消失（不做倒地尸体视觉）。
-                SpawnDeathBlood(_christine);
-                _christine.QueueFree();
+            {
+                // 处决：冻结-脚本CG-恢复——相机推近→她抱头蹲地→被了结→脚下留血（复用 SpawnDeathBlood）→缩回。
+                // 与皮特处决共用通路（Killed，无追兵）。语义不变：处决＝死。CG 结束回调 QueueFree 逻辑节点。
+                Actor executed = _christine;
                 _christine = null;
-                GD.Print("[教学关] 处决克莉丝汀：地上留下一摊血。");
+                PlayDeathCinematic(executed, withThreeZombies: false, CinematicDeathKind.Killed,
+                    onComplete: () =>
+                    {
+                        if (IsInstanceValid(executed))
+                            executed.QueueFree();
+                        GD.Print("[教学关] 处决克莉丝汀：地上留下一摊血。");
+                    });
                 break;
+            }
         }
     }
 
@@ -8567,11 +8692,11 @@ public sealed partial class CampMain : Node2D
             return false;
         }
 
-        // 关内的门拆不了：拆除是**营地经济**（把自家造的东西拆回料），而医院的防火门不是你造的，
-        // 你也不可能扛着一扇防火门走回家。它只有两个用途：推开、关上。
+        // 关内的门拆不了：拆除是**营地经济**（把自家造的东西拆回料），而关卡里的门不是你造的，
+        // 你也不可能扛着一扇门走回家。它只有推开/关上（锁着的还能撬）。
         if (c.Role == LevelDoorRole)
         {
-            why = "医院的门拆不走——它只能推开或者关上。";
+            why = "关卡里的门拆不走——它只能推开、关上，或者撬开。";
             return false;
         }
 

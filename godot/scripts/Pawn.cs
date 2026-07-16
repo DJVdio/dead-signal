@@ -191,6 +191,29 @@ public sealed partial class Pawn : Actor
     /// <summary>回营/离队：清账，恢复无罚（营地里没有背包，也就没有负重档）。</summary>
     public void ClearCarryLoad() => SetCarryLoad(MemberLoad.None);
 
+    // ———————————— 皮特·闪避（L3 且当前负重 <30kg 时 15% 掷免整次攻击）————————————
+
+    /// <summary>皮特当前等级提供者（由 <c>CampMain.AddActor</c> 注入 <c>() => PeteLevelNow()</c>，读实时 StoryFlags 派生）。
+    /// null（非皮特/未注入）⇒ <see cref="EvadeIncoming"/> 恒 false 零回归。</summary>
+    private System.Func<int>? _peteLevelProvider;
+
+    /// <summary>注入皮特等级提供者 lambda。null 清除（＝无闪避，零回归）。</summary>
+    public void SetPeteLevelProvider(System.Func<int>? f) => _peteLevelProvider = f;
+
+    /// <summary>
+    /// 皮特受击闪避：仅皮特 L3 且当前负重 &lt;30kg → 15% 概率整次躲开（<see cref="PetePerk.DodgeChance"/>）。
+    /// 非皮特/未注入等级提供者 ⇒ 恒 false（基类零回归）。随机走引擎注入的 <see cref="IRandomSource"/>（可复现）。
+    /// </summary>
+    protected override bool EvadeIncoming(IRandomSource rng)
+    {
+        if (!Perks.IsPete || _peteLevelProvider is not { } level)
+        {
+            return false;
+        }
+        double chance = PetePerk.DodgeChance(level(), CarryLoad.CarriedKg);
+        return chance > 0.0 && rng.Range(0.0, 1.0) < chance;
+    }
+
     /// <summary>当前主攻武器（= <see cref="WeaponLoadout.PrimaryWeapon"/>，与 <see cref="Actor.AttackWeapon"/> 同源）。</summary>
     public Weapon? PrimaryWeapon => _loadout.PrimaryWeapon;
 
@@ -521,6 +544,8 @@ public sealed partial class Pawn : Actor
             p.Perks.GrantSam();
         else if (name == RatPerk.RatName)
             p.Perks.GrantRat(); // [T61] 耗子：下水道招募（等级同样**不存在 Pawn 上**，由累计搜出件数从 StoryFlags 派生，见 RatPerk）
+        else if (name == PetePerk.PeteName)
+            p.Perks.GrantPete(); // 皮特：Day7 敲门救援入队（等级**不存在 Pawn 上**，由"连续五天≥3"latch + "饥饿≤5出行三次"累计从 StoryFlags 派生，见 PetePerk）
 
         // 初始武器进【持械模型】主手（右手）：手枪→远程、匕首→近战。EquipToHand 自动按 TwoHanded 分流。
         p._loadout.EquipToHand(usePistol ? CombatData.Pistol() : CombatData.Dagger(), Hand.Right);

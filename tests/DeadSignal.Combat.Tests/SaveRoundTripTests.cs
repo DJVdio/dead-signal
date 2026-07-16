@@ -124,26 +124,41 @@ public class SaveRoundTripTests
         Assert.True(restored.IsDead);
     }
 
-    // ---- 感染：双进度条竞速 ----
+    // ---- 感染：多条感染(死亡赛道 per-伤口) + 单条全局免疫条(治愈赛道 set 级) + 免疫窗 ----
 
     [Fact]
-    public void 感染的恶化进度与治疗进度两条赛道都读得回来()
+    public void 感染的恶化进度与全局免疫条及免疫窗都读得回来()
     {
-        // 双进度条竞速：恶化(Severity) 与 治疗(CureProgress) 各跑各的。
-        // 漏掉任何一条，读档就等于偷偷改了赛况。
+        // [感染重做] 每条感染各自的死亡进度(Severity, per-伤口) + set 级全局免疫条进度 + 免疫窗剩余，一条都不能漏。
         var set = new HealthConditionSet();
         var inf = new HealthCondition(HealthConditionType.Infection, 0.42, HumanBody.LeftHand);
-        inf.RestoreState(severity: 0.42, recoveryEfficiency: 30, cureProgress: 0.31,
-                         tended: true, daysElapsed: 3, lastSurgeryDay: 1);
+        inf.RestoreState(severity: 0.42, recoveryEfficiency: 30, tended: true, daysElapsed: 3, lastSurgeryDay: 1);
         set.Add(inf);
+        // set 级免疫条/免疫窗：借读档入口摆一个非零值进去（Restore 的 set 级参数）。
+        set.Restore(set.Conditions.ToList(), isDead: false, immunityProgress: 0.31, immuneWindowRemainingDays: 0.4);
 
         HealthConditionSet restored = RoundTripHealth(set, isDead: false);
 
         HealthCondition r = Assert.Single(restored.Conditions);
-        Assert.Equal(0.42, r.Severity, 6);       // 死亡赛道
-        Assert.Equal(0.31, r.CureProgress, 6);   // 清除赛道 —— 就是这条最容易被漏掉
+        Assert.Equal(0.42, r.Severity, 6);              // 死亡赛道 per-伤口
         Assert.Equal(30, r.RecoveryEfficiency);
         Assert.True(r.Tended);
+        Assert.Equal(0.31, restored.ImmunityProgress, 6);            // 全局免疫条 —— set 级，最容易被漏
+        Assert.Equal(0.4, restored.ImmuneWindowRemainingDays, 6);    // 免疫窗剩余
+    }
+
+    // 旧档缺 set 级字段 → 免疫条 0、无免疫窗（向后兼容）。
+    [Fact]
+    public void 旧档缺免疫条与免疫窗字段读回默认零()
+    {
+        var set = new HealthConditionSet();
+        set.Add(new HealthCondition(HealthConditionType.Infection, 0.5, HumanBody.LeftHand));
+        var restored = new HealthConditionSet();
+        // 不传 set 级参数 = 旧档没这两个字段。
+        SaveMapper.RestoreHealth(restored, SaveMapper.ToSave(set), isDead: false);
+        Assert.Equal(0.0, restored.ImmunityProgress, 6);
+        Assert.Equal(0.0, restored.ImmuneWindowRemainingDays, 6);
+        Assert.False(restored.ImmuneWindowActive);
     }
 
     [Fact]
@@ -152,7 +167,7 @@ public class SaveRoundTripTests
         // 重做手术有冷却。若读档把"三天前动过刀"记成"此刻动过刀"，冷却就会凭空重置。
         var set = new HealthConditionSet();
         var c = new HealthCondition(HealthConditionType.Bleeding, 0.5, HumanBody.Chest);
-        c.RestoreState(0.5, 40, 0.0, true, daysElapsed: 5, lastSurgeryDay: 2);
+        c.RestoreState(0.5, 40, true, daysElapsed: 5, lastSurgeryDay: 2);
         set.Add(c);
 
         HealthConditionSet restored = RoundTripHealth(set, isDead: false);
@@ -169,7 +184,7 @@ public class SaveRoundTripTests
         // [T72] 敷了草药绷带 → 该伤口感染几率 ×0.75。若读档漏摆回，读档等于把消炎效果偷偷抹掉。
         var set = new HealthConditionSet();
         var c = new HealthCondition(HealthConditionType.Bleeding, 0.5, HumanBody.Chest);
-        c.RestoreState(0.5, 40, 0.0, false, daysElapsed: 1, lastSurgeryDay: 0, infectionChanceMultiplier: 0.75);
+        c.RestoreState(0.5, 40, false, daysElapsed: 1, lastSurgeryDay: 0, infectionChanceMultiplier: 0.75);
         set.Add(c);
 
         HealthConditionSet restored = RoundTripHealth(set, isDead: false);
@@ -602,7 +617,8 @@ public class SaveRoundTripTests
     {
         List<ConditionSave> saved = SaveMapper.ToSave(original);
         var restored = new HealthConditionSet();
-        SaveMapper.RestoreHealth(restored, saved, isDead);
+        // [感染重做] set 级全局免疫条 + 免疫窗也要往返（模拟 Pawn.Save 捕获→恢复的 set 级参数）。
+        SaveMapper.RestoreHealth(restored, saved, isDead, original.ImmunityProgress, original.ImmuneWindowRemainingDays);
         return restored;
     }
 }
