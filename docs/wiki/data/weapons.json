@@ -3,6 +3,7 @@
   "label": "武器",
   "source": "src/DeadSignal.Combat/WeaponTable.cs",
   "note": "全表武器。伤害为一次攻击的随机区间；穿透削减护甲；噪音半径决定开火后多远的敌人会被引来。⚠️ **「每秒伤害」是杀伤力天花板，不是真实战力**：它按无甲、贴脸、无限弹药、单挑算出来，**不含**护甲、距离衰减、开枪招来的怪、子弹够不够打、以及一枪撂倒几只。枪的真实战力其实由弹药供给决定，而供给不在这个数字里——拿它调平衡时请记着这一点。「天生武器」（爪击/撕咬/拳脚）是丧尸、狗和空手的攻击，不是可拾取物品。",
+  "configFile": "weapons.json",
   "columns": [
     {
       "key": "name",
@@ -24,39 +25,46 @@
     {
       "key": "damageMin",
       "label": "伤害下限",
-      "type": "number"
+      "type": "number",
+      "configKey": "DamageMin"
     },
     {
       "key": "damageMax",
       "label": "伤害上限",
-      "type": "number"
+      "type": "number",
+      "configKey": "DamageMax"
     },
     {
       "key": "penetration",
       "label": "穿透力",
       "type": "percent",
+      "configKey": "Penetration",
       "hint": "无视多少护甲。25% = 这一击当对方的甲只有 75%。"
     },
     {
       "key": "attackInterval",
       "label": "攻击间隔(秒)",
       "type": "number",
+      "configKey": "AttackInterval",
       "hint": "越小出手越快"
     },
     {
       "key": "burstCount",
       "label": "连发数",
-      "type": "number"
+      "type": "number",
+      "configKey": "BurstCount"
     },
     {
       "key": "burstInterval",
       "label": "连发间隔(秒)",
-      "type": "number"
+      "type": "number",
+      "configKey": "BurstInterval"
     },
     {
       "key": "pelletCount",
       "label": "弹丸数",
       "type": "number",
+      "configKey": "PelletCount",
       "hint": "霰弹枪一发几颗；每颗独立选部位、独立判定"
     },
     {
@@ -76,39 +84,46 @@
       "key": "twoHanded",
       "label": "强制双手",
       "type": "bool",
+      "configKey": "TwoHanded",
       "hint": "武器本身是否必须双手持（Weapon.TwoHanded）；单手武器也可以双手握，那是运行时的握法，不是这一列"
     },
     {
       "key": "canDualWield",
       "label": "可双持",
-      "type": "bool"
+      "type": "bool",
+      "configKey": "CanDualWield"
     },
     {
       "key": "maxRange",
       "label": "最大射程(像素)",
-      "type": "number"
+      "type": "number",
+      "configKey": "MaxRange"
     },
     {
       "key": "falloffStart",
       "label": "距离衰减起点(像素)",
-      "type": "number"
+      "type": "number",
+      "configKey": "FalloffStart"
     },
     {
       "key": "falloffFloor",
       "label": "最远处伤害",
       "type": "percent",
+      "configKey": "FalloffFloor",
       "hint": "打到最大射程时还剩几成伤害。"
     },
     {
       "key": "spread",
       "label": "基础散布(度)",
       "type": "number",
+      "configKey": "BaseSpreadDegrees",
       "hint": "越大越不准"
     },
     {
       "key": "noiseRadius",
       "label": "噪音半径(像素)",
       "type": "number",
+      "configKey": "NoiseRadius",
       "hint": "多远内的丧尸/劫掠者会被引来"
     },
     {
@@ -140,27 +155,32 @@
     {
       "key": "stockMin",
       "label": "枪托近战 伤害下限",
-      "type": "number"
+      "type": "number",
+      "configKey": "StockMeleeDamageMin"
     },
     {
       "key": "stockMax",
       "label": "枪托近战 伤害上限",
-      "type": "number"
+      "type": "number",
+      "configKey": "StockMeleeDamageMax"
     },
     {
       "key": "stockInterval",
       "label": "枪托近战 间隔(秒)",
-      "type": "number"
+      "type": "number",
+      "configKey": "StockMeleeInterval"
     },
     {
       "key": "stockPenetration",
       "label": "枪托近战 穿透力",
-      "type": "percent"
+      "type": "percent",
+      "configKey": "StockMeleePenetration"
     },
     {
       "key": "structureFactor",
       "label": "砸墙倍率",
       "type": "mult",
+      "configKey": "StructureFactor",
       "hint": "拿它砸围栏/门时，伤害要乘的倍数。可以大于 1。"
     },
     {
@@ -179,6 +199,12 @@
     {
       "key": "_id",
       "label": "内部 id",
+      "type": "text",
+      "internal": true
+    },
+    {
+      "key": "_configId",
+      "label": "config 键",
       "type": "text",
       "internal": true
     },
@@ -235,6 +261,7 @@
       "structureFactor": 0.4,
       "description": "小巧、贴身、安静——很多故事都是从背后一把匕首开始的。",
       "_id": "Dagger",
+      "_configId": "dagger",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.Dagger()",
       "userNote": "",
       "sync": "",
@@ -271,6 +298,7 @@
       "structureFactor": 0.3,
       "description": "一把趁手的短剑，比匕首多一寸，也多一分底气。",
       "_id": "Shortsword",
+      "_configId": "shortsword",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.Shortsword()",
       "userNote": "",
       "sync": "",
@@ -280,8 +308,8 @@
       "name": "刺剑",
       "kind": "近战锐器",
       "damageType": "锐",
-      "damageMin": 2.625,
-      "damageMax": 6.875,
+      "damageMin": 2.5,
+      "damageMax": 6.5,
       "penetration": 0.25,
       "attackInterval": 1.9,
       "burstCount": 1,
@@ -307,6 +335,7 @@
       "structureFactor": 0.2,
       "description": "轻巧的刺剑，优雅而致命。",
       "_id": "Rapier",
+      "_configId": "rapier",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.Rapier()",
       "userNote": "",
       "sync": "",
@@ -343,6 +372,7 @@
       "structureFactor": 0.3,
       "description": "双手长剑，一寸长一寸强。",
       "_id": "Longsword",
+      "_configId": "longsword",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.Longsword()",
       "userNote": "",
       "sync": "",
@@ -379,6 +409,7 @@
       "structureFactor": 0.3,
       "description": "沉重的大剑，挥一下费半条命，中一下要一条命。",
       "_id": "Greatsword",
+      "_configId": "greatsword",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.Greatsword()",
       "userNote": "",
       "sync": "",
@@ -415,6 +446,7 @@
       "structureFactor": 0.2,
       "description": "本来是叉草的，现在叉什么全看你。",
       "_id": "Pitchfork",
+      "_configId": "pitchfork",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.Pitchfork()",
       "userNote": "",
       "sync": "",
@@ -451,6 +483,7 @@
       "structureFactor": 1.2,
       "description": "劈柴、劈门、劈别的——它从不问那是什么。",
       "_id": "Axe",
+      "_configId": "axe",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.Axe()",
       "userNote": "",
       "sync": "",
@@ -461,7 +494,7 @@
       "kind": "近战锐器",
       "damageType": "锐",
       "damageMin": 1,
-      "damageMax": 5.25,
+      "damageMax": 5,
       "penetration": 0.045,
       "attackInterval": 2,
       "burstCount": 1,
@@ -487,6 +520,7 @@
       "structureFactor": 0.4,
       "description": "不是铁的，不过够锋利。",
       "_id": "BoneKnife",
+      "_configId": "bone_knife",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.BoneKnife()",
       "userNote": "",
       "sync": "",
@@ -523,6 +557,7 @@
       "structureFactor": 1.8,
       "description": "一根结实的棍棒，简单、可靠、不讲道理。",
       "_id": "Club",
+      "_configId": "club",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.Club()",
       "userNote": "",
       "sync": "",
@@ -559,6 +594,7 @@
       "structureFactor": 2.6,
       "description": "带尖的锤子，砸不服的，就使劲儿砸。",
       "_id": "SpikeHammer",
+      "_configId": "spike_hammer",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.SpikeHammer()",
       "userNote": "",
       "sync": "",
@@ -595,6 +631,7 @@
       "structureFactor": 4,
       "description": "专治各种不服。",
       "_id": "Warhammer",
+      "_configId": "warhammer",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.Warhammer()",
       "userNote": "",
       "sync": "",
@@ -631,6 +668,7 @@
       "structureFactor": 1,
       "description": "用水管和废铁凑出来的猎枪，准头听天由命，后坐力管够——开火之后，你和目标谁更慌还不一定。",
       "_id": "ImprovisedHuntingGun",
+      "_configId": "improvised_hunting_gun",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.ImprovisedHuntingGun()",
       "userNote": "",
       "sync": "",
@@ -667,6 +705,7 @@
       "structureFactor": 1,
       "description": "一把手枪，几次讲道理的机会，还能换只手接着讲。",
       "_id": "Pistol",
+      "_configId": "pistol",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.Pistol()",
       "userNote": "",
       "sync": "",
@@ -703,6 +742,7 @@
       "structureFactor": 1,
       "description": "三连发的冲锋枪，子弹管够的时候，谁跟你讲道理。",
       "_id": "Smg",
+      "_configId": "smg",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.Smg()",
       "userNote": "",
       "sync": "",
@@ -739,6 +779,7 @@
       "structureFactor": 1,
       "description": "军用步枪，站得远、打得准，让对话在安全距离进行。",
       "_id": "Rifle",
+      "_configId": "rifle",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.Rifle()",
       "userNote": "",
       "sync": "",
@@ -775,6 +816,7 @@
       "structureFactor": 1,
       "description": "你还没听见响，事情就已经结束了。",
       "_id": "SniperRifle",
+      "_configId": "sniper_rifle",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.SniperRifle()",
       "userNote": "",
       "sync": "",
@@ -811,6 +853,7 @@
       "structureFactor": 1,
       "description": "钢管、铁钉、一把火药——离得越近，讲的道理越充分。",
       "_id": "ImprovisedShotgun",
+      "_configId": "improvised_shotgun",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.ImprovisedShotgun()",
       "userNote": "",
       "sync": "",
@@ -847,6 +890,7 @@
       "structureFactor": 0.05,
       "description": "一根木头，一根弦。射程短、力道小，但至少不用靠近他们。",
       "_id": "ShortBow",
+      "_configId": "short_bow",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.ShortBow()",
       "userNote": "",
       "sync": "",
@@ -883,6 +927,7 @@
       "structureFactor": 0.05,
       "description": "弓臂末端反着弯回去，同样长度多出几分力道。做弓的人懂物理，用弓的人只需要懂呼吸。",
       "_id": "RecurveBow",
+      "_configId": "recurve_bow",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.RecurveBow()",
       "userNote": "",
       "sync": "",
@@ -919,6 +964,7 @@
       "structureFactor": 0.05,
       "description": "比人还高的长弓。它能把箭送到很远的地方——远到你射完还有充裕的时间，看清自己是不是射偏了。",
       "_id": "Longbow",
+      "_configId": "longbow",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.Longbow()",
       "userNote": "",
       "sync": "",
@@ -955,6 +1001,7 @@
       "structureFactor": 0.05,
       "description": "滑轮、准星、稳定杆，一整套让人百发百中的精密玩意。它原来的主人拿它拿过奖——奖杯还在，人不在了。",
       "_id": "CompetitionCompoundBow",
+      "_configId": "competition_compound_bow",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.CompetitionCompoundBow()",
       "userNote": "",
       "sync": "",
@@ -991,6 +1038,7 @@
       "structureFactor": 0.05,
       "description": "货真价实的猎弓，专为放倒大型动物设计。设计它的时候没人想过，有一天最大的猎物会是邻居。",
       "_id": "HuntingBow",
+      "_configId": "hunting_bow",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.HuntingBow()",
       "userNote": "",
       "sync": "",
@@ -1027,6 +1075,7 @@
       "structureFactor": 0.05,
       "description": "单手就能端的小弩，扣下扳机跟开枪一样容易。麻烦的是开完这一发——上弦得用两只手，还得用点时间。",
       "_id": "LightCrossbow",
+      "_configId": "light_crossbow",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.LightCrossbow()",
       "userNote": "",
       "sync": "",
@@ -1063,6 +1112,7 @@
       "structureFactor": 0.05,
       "description": "沉得像块砖的重弩，弦硬到要用脚踩着上。它能钉穿铁皮，代价是你每分钟只能得罪一个人。",
       "_id": "HeavyCrossbow",
+      "_configId": "heavy_crossbow",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.HeavyCrossbow()",
       "userNote": "",
       "sync": "",
@@ -1099,6 +1149,7 @@
       "structureFactor": 0.05,
       "description": "带滑轮的复合弩，省力、精准、致命——工业文明留给猎人的最后一份好意。",
       "_id": "CompoundCrossbow",
+      "_configId": "compound_crossbow",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.CompoundCrossbow()",
       "userNote": "",
       "sync": "",
@@ -1109,7 +1160,7 @@
       "kind": "天生武器",
       "damageType": "锐",
       "damageMin": 1,
-      "damageMax": 3.25,
+      "damageMax": 3,
       "penetration": 0.03,
       "attackInterval": 1.4,
       "burstCount": 1,
@@ -1135,6 +1186,7 @@
       "structureFactor": 2.5,
       "description": "腐烂的指甲，钝、脏、带菌，被挠一下够你担惊受怕好几天。",
       "_id": "ZombieClaw",
+      "_configId": "zombie_claw",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.ZombieClaw()",
       "userNote": "",
       "sync": "",
@@ -1171,6 +1223,7 @@
       "structureFactor": 0.2,
       "description": "一口尖牙，咬住了就不松口——布鲁斯拖住敌人，剩下的交给道格。",
       "_id": "DogBite",
+      "_configId": "dog_bite",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.DogBite()",
       "userNote": "",
       "sync": "",
@@ -1207,10 +1260,12 @@
       "structureFactor": 0.2,
       "description": "你还有一双手。它们打不穿任何东西，但至少能让扑上来的那位知道你还没打算躺下。",
       "_id": "Fists",
+      "_configId": "fists",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.Fists()",
       "userNote": "",
       "sync": "",
       "_icon": "weapons/fists"
     }
-  ]
+  ],
+  "_configVersion": "3042583bde66"
 }

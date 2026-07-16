@@ -1,0 +1,16 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://dead-signal/config/merchant.schema.json",
+  "title": "Dead Signal 神秘商人经济数值表 (merchant.json)",
+  "description": "消费层数值外置：神秘商人买卖价率（裸载荷 POCO）。字段名/类型对应 godot/scripts/MerchantConfig.cs。到访调度间隔与断商/接班是结构，留在 MerchantSchedule/MerchantLineage 不外置。缺配置游戏 fail-fast。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "BuyRatePercent",
+    "SellRatePercent"
+  ],
+  "properties": {
+    "BuyRatePercent": { "type": "integer", "minimum": 0, "description": "玩家从商人买入的价率（基准价的百分比；用户拍板 100%）。" },
+    "SellRatePercent": { "type": "integer", "minimum": 0, "description": "玩家卖给商人的价率（基准价的百分比；用户拍板 60%）。" }
+  }
+}

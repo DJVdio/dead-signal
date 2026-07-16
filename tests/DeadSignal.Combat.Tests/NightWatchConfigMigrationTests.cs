@@ -43,6 +43,13 @@ public sealed class NightWatchConfigMigrationTests
     private const float GoldenDistanceWeight = 0.6f;
     private const float GoldenDistanceReference = 300f;
     private const float GoldenCover = 0.5f;
+    // 第二批外置（警戒力权重 + 未发现后果）的原始常量（golden）。改 nightwatch.json 里这些值会让本表变红。
+    private const float GoldenVisionWeight = 1.0f;
+    private const float GoldenHearingWeight = 0.6f;
+    private const float GoldenHearingBaseRange = 220f;
+    private const float GoldenPreemptive = 1.5f;
+    private const int GoldenSilentTheftMin = 1;
+    private const int GoldenSilentTheftMax = 4;
 
     [Fact]
     public void Catalog_is_wired_and_lazy_loaded()
@@ -75,6 +82,30 @@ public sealed class NightWatchConfigMigrationTests
         BitEqual(section.StealthCoverWeight, NightWatchContest.StealthCoverWeight);
     }
 
+    // ── 第二批：警戒力权重 + 未发现后果 × 位级/直等 == 迁移前原始常量 ─────────────────
+    [Fact]
+    public void Alertness_and_outcome_values_match_original_literals()
+    {
+        BitEqual(GoldenVisionWeight, NightWatchContest.VisionWeight);
+        BitEqual(GoldenHearingWeight, NightWatchContest.HearingWeight);
+        BitEqual(GoldenHearingBaseRange, NightWatchContest.HearingBaseRange);
+        BitEqual(GoldenPreemptive, NightWatchContest.PreemptiveStrikeMultiplier);
+        Assert.Equal(GoldenSilentTheftMin, NightWatchContest.SilentTheftMinUnits);
+        Assert.Equal(GoldenSilentTheftMax, NightWatchContest.SilentTheftMaxUnits);
+    }
+
+    [Fact]
+    public void NightWatchContest_reads_alertness_and_outcomes_from_catalog()
+    {
+        var section = GameConfigCatalog.Section<NightWatchConfig>();
+        BitEqual(section.VisionWeight, NightWatchContest.VisionWeight);
+        BitEqual(section.HearingWeight, NightWatchContest.HearingWeight);
+        BitEqual(section.HearingBaseRange, NightWatchContest.HearingBaseRange);
+        BitEqual(section.PreemptiveStrikeMultiplier, NightWatchContest.PreemptiveStrikeMultiplier);
+        Assert.Equal(section.SilentTheftMinUnits, NightWatchContest.SilentTheftMinUnits);
+        Assert.Equal(section.SilentTheftMaxUnits, NightWatchContest.SilentTheftMaxUnits);
+    }
+
     // ── 往返保真：加载器不丢精度（值无关，永久护栏）────────────────────────────────
     [Fact]
     public void Section_survives_json_round_trip_bit_for_bit()
@@ -86,6 +117,12 @@ public sealed class NightWatchConfigMigrationTests
             StealthDistanceWeight = GoldenDistanceWeight,
             StealthDistanceReference = GoldenDistanceReference,
             StealthCoverWeight = GoldenCover,
+            VisionWeight = GoldenVisionWeight,
+            HearingWeight = GoldenHearingWeight,
+            HearingBaseRange = GoldenHearingBaseRange,
+            PreemptiveStrikeMultiplier = GoldenPreemptive,
+            SilentTheftMinUnits = GoldenSilentTheftMin,
+            SilentTheftMaxUnits = GoldenSilentTheftMax,
         };
         string json = JsonSerializer.Serialize(golden, GameConfigLoader.Options);
         var back = JsonSerializer.Deserialize<NightWatchConfig>(json, GameConfigLoader.Options)!;
@@ -106,6 +143,12 @@ public sealed class NightWatchConfigMigrationTests
         BitEqual(GoldenDistanceWeight, loaded.StealthDistanceWeight);
         BitEqual(GoldenDistanceReference, loaded.StealthDistanceReference);
         BitEqual(GoldenCover, loaded.StealthCoverWeight);
+        BitEqual(GoldenVisionWeight, loaded.VisionWeight);
+        BitEqual(GoldenHearingWeight, loaded.HearingWeight);
+        BitEqual(GoldenHearingBaseRange, loaded.HearingBaseRange);
+        BitEqual(GoldenPreemptive, loaded.PreemptiveStrikeMultiplier);
+        Assert.Equal(GoldenSilentTheftMin, loaded.SilentTheftMinUnits);
+        Assert.Equal(GoldenSilentTheftMax, loaded.SilentTheftMaxUnits);
     }
 
     // ── 反射驱动加载：GameConfigLoader.Parse 自动发现 NightWatch 段 ────────────────────
@@ -137,6 +180,41 @@ public sealed class NightWatchConfigMigrationTests
         BitEqual(GoldenDarkness + GoldenDistanceWeight * 1f + GoldenCover * 1f, s);
     }
 
+    // ── 功能锚定（第二批）：警戒/后果值确实吃 config ─────────────────────────────────
+    [Fact]
+    public void ComputeAlertness_uses_externalized_vision_and_hearing_weights()
+    {
+        // 满档视力(1)+距离0(听力满档)、无岗哨加成/疲劳/效率折减 ⇒ 合力 = VisionWeight*1 + HearingWeight*1 = 1.0 + 0.6。
+        float a = NightWatchContest.ComputeAlertness(visionAcuity: 1f, distance: 0f, hearingRange: GoldenHearingBaseRange);
+        BitEqual(GoldenVisionWeight * 1f + GoldenHearingWeight * 1f, a);
+    }
+
+    [Fact]
+    public void ComputeAlertness_sentinel_default_resolves_to_configured_hearing_base_range()
+    {
+        // 省略 hearingRange（走哨兵 -1 → 运行时解析为 HearingBaseRange）与显式传 HearingBaseRange 完全等价（迁移前默认参数语义）。
+        float def = NightWatchContest.ComputeAlertness(visionAcuity: 0.3f, distance: 110f);
+        float exp = NightWatchContest.ComputeAlertness(visionAcuity: 0.3f, distance: 110f, hearingRange: NightWatchContest.HearingBaseRange);
+        BitEqual(exp, def);
+    }
+
+    [Fact]
+    public void PreemptiveDamageMultiplier_reads_configured_multiplier()
+    {
+        BitEqual(GoldenPreemptive, NightWatchContest.PreemptiveDamageMultiplier(RaiderIntent.Killer));
+        BitEqual(1f, NightWatchContest.PreemptiveDamageMultiplier(RaiderIntent.Looter));
+    }
+
+    [Fact]
+    public void SilentTheftAmount_bounds_read_configured_min_max()
+    {
+        // 库存充足时：rng→0 取下界(min=1)，rng→1 端点 clamp 回上界(max=4)。
+        int lo = NightWatchContest.SilentTheftAmount(stealableUnits: 100, new SequenceRandomSource(0.0));
+        int hi = NightWatchContest.SilentTheftAmount(stealableUnits: 100, new SequenceRandomSource(0.999999));
+        Assert.Equal(GoldenSilentTheftMin, lo);
+        Assert.Equal(GoldenSilentTheftMax, hi);
+    }
+
     // ── helpers ──────────────────────────────────────────────────────────────
     /// <summary>float 位级相等（比 == 更严）——证明"往返一位不差"。</summary>
     private static void BitEqual(float expected, float actual)
@@ -151,6 +229,10 @@ public sealed class NightWatchConfigMigrationTests
             {
                 Assert.True(BitConverter.SingleToInt32Bits(fa) == BitConverter.SingleToInt32Bits(fb),
                     $"{p.Name} float 漂移：{fa} vs {fb}");
+            }
+            else if (p.GetValue(a) is int ia && p.GetValue(b) is int ib)
+            {
+                Assert.True(ia == ib, $"{p.Name} int 漂移：{ia} vs {ib}");
             }
         }
     }

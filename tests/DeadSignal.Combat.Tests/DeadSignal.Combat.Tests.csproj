@@ -300,7 +300,9 @@
     <Compile Include="..\..\godot\scripts\FurnitureConfig.cs" Link="Consumed\FurnitureConfig.cs" />
     <Compile Include="..\..\godot\scripts\WeaponModConfig.cs" Link="Consumed\WeaponModConfig.cs" />
     <Compile Include="..\..\godot\scripts\HealthConfig.cs" Link="Consumed\HealthConfig.cs" />
+    <Compile Include="..\..\godot\scripts\SouthTrialConfig.cs" Link="Consumed\SouthTrialConfig.cs" />
     <Compile Include="..\..\godot\scripts\PerkConfig.cs" Link="Consumed\PerkConfig.cs" />
+    <Compile Include="..\..\godot\scripts\MerchantConfig.cs" Link="Consumed\MerchantConfig.cs" />
   </ItemGroup>
 
 </Project>

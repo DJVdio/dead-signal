@@ -51,11 +51,15 @@ public static class MerchantTrade
     // 折算在**分**上做（如基准 3.00 银=300 分，卖出 300×60/100=180 分=1.80 银，不再被截成整银 1）。
     // 末端 /100 只在**分**这一最小刻度上取整（0.01 银缺口归商人=合规消费点），不再吞掉小数银。
 
+    // 【数值外置】原两个 `public const int` 已搬到 merchant.json（消费层配置范式，见 MerchantConfig）。
+    // 二者仅方法体内用（BuyPrice/SellPrice）+ cref + 运行时读，非默认参数值/const-expr 上下文 ⇒ 安全改静态属性。
+    // ⚠️ MerchantSchedule 的到访间隔上下限（minGap=1/maxGap=5）是构造器**默认参数值**（编译期 const），
+    //    且属到访调度状态机结构（用户口径：调度是结构留代码）⇒ 不外置。
     /// <summary>玩家从商人**买入**的价率（基准价的百分比；用户拍板 100%）。</summary>
-    public const int BuyRatePercent = 100;
+    public static int BuyRatePercent => GameConfigCatalog.Section<MerchantConfig>().BuyRatePercent;
 
     /// <summary>玩家**卖给**商人的价率（基准价的百分比；用户拍板 60%）。</summary>
-    public const int SellRatePercent = 60;
+    public static int SellRatePercent => GameConfigCatalog.Section<MerchantConfig>().SellRatePercent;
 
     /// <summary>某基准价（**分**）的**买入价**（分）= 基准价 × <see cref="BuyRatePercent"/>%（≥0）。</summary>
     public static int BuyPrice(int baseCents) => Math.Max(0, baseCents) * BuyRatePercent / 100;

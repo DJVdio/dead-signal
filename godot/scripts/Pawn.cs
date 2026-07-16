@@ -300,8 +300,9 @@ public sealed partial class Pawn : Actor
     /// <summary>撤销感染疗程（治愈/断药/玩家停止/无感染时清空）。</summary>
     public void ClearInfectionTreatment() => InfectionTreatmentMedKey = null;
 
-    /// <summary>[SPEC-B14-补2] 玫瑰果茶恢复加成的恢复效率加算量（**百分点**，加算，用户原话非拟定）：喝下后 24 游戏小时内伤病恢复速度 +此值。</summary>
-    public const double RosehipTeaHealBonusPct = 9.0;
+    /// <summary>[SPEC-B14-补2] 玫瑰果茶恢复加成的恢复效率加算量（**百分点**，加算，用户原话非拟定）：喝下后 24 游戏小时内伤病恢复速度 +此值。
+    /// 数值真源已外置至 <c>health.json</c>（<see cref="HealthConfig.RosehipTeaHealBonusPct"/>）；本属性委托到 catalog 段。</summary>
+    public static double RosehipTeaHealBonusPct => GameConfigCatalog.Section<HealthConfig>().RosehipTeaHealBonusPct;
 
     /// <summary>剩余恢复加成的**昼夜恢复次数**（玫瑰果茶 buff）：≥1 时下次 <see cref="AdvanceHealthDay"/> 加 <see cref="RosehipTeaHealBonusPct"/>pp 后自减。
     /// 24 游戏小时≈一昼夜恢复结算，故 1 次覆盖一整天的恢复（GameClock 无细游戏小时读数，以昼夜恢复次数近似，draft 待确认）。</summary>

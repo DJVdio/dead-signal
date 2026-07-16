@@ -34,6 +34,7 @@
   "SelfSurgeryFactor": 0.6,
   "ImmediateHealOnSuccess": 0.05,
   "BedSleepHealBonusPct": 10,
+  "RosehipTeaHealBonusPct": 9,
   "RedoSurgeryCooldownDays": 1,
   "TreatmentPotencyFactor": 0.8,
 

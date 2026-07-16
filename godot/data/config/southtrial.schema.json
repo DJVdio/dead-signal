@@ -1,0 +1,14 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://dead-signal/config/southtrial.schema.json",
+  "title": "Dead Signal 南方三问考验数值表 (southtrial.json)",
+  "description": "消费层数值外置：南方三问的三题总分通过门槛（裸载荷 POCO）。字段名/类型对应 godot/scripts/SouthTrialConfig.cs。三问题目/答案/分数映射、状态机/flag 键、裁决文案是 authored 内容，留在 SouthTrial.cs 不外置；QuestionCount/MaxScorePerQuestion 是结构常量，不属本表。缺配置游戏 fail-fast。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "PassThreshold"
+  ],
+  "properties": {
+    "PassThreshold": { "type": "integer", "minimum": 0, "maximum": 6, "description": "三题总分通过门槛（满本值才通过；满分 = 3 题 × 每题 2 分 = 6）。" }
+  }
+}

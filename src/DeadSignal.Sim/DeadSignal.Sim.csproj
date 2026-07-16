@@ -49,6 +49,11 @@
     <!-- HealthConfig 是纯 POCO 数值段；Sim Link GameConfig.cs（引用 HealthConfig）须随附本文件才能编译。
          Sim 不 Link HealthConditions.cs ⇒ 感染/医疗结算不进 Sim（设计文档载明）。 -->
     <Compile Include="..\..\godot\scripts\HealthConfig.cs" Link="Consumed\HealthConfig.cs" />
+    <!-- SouthTrialConfig 是纯 POCO 数值段；Sim Link GameConfig.cs（引用 SouthTrialConfig）须随附本文件才能编译。 -->
+    <Compile Include="..\..\godot\scripts\SouthTrialConfig.cs" Link="Consumed\SouthTrialConfig.cs" />
+    <!-- MerchantConfig 是纯 POCO 数值段；Sim Link GameConfig.cs（引用 MerchantConfig）须随附本文件才能编译。
+         Sim 不 Link MerchantTrade.cs ⇒ 商人经济不进 Sim（战斗对决无商人）。 -->
+    <Compile Include="..\..\godot\scripts\MerchantConfig.cs" Link="Consumed\MerchantConfig.cs" />
   </ItemGroup>
 
   <PropertyGroup>

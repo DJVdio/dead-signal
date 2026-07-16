@@ -1,4 +1,4 @@
-// 自动生成，勿手改（`dotnet run --project tools/WikiExtract` 重跑，或本地服务保存时刷新）。
+// 自动生成，勿手改（tools/WikiExtract 重跑，或本地服务保存时刷新）。
 // 用途：以 file:// 直接打开 index.html 时的降级数据源（浏览器不允许 fetch 本地文件）。
 window.WIKI_BUNDLE = {
   index: {
@@ -173,6 +173,7 @@ window.WIKI_BUNDLE = {
   "label": "武器",
   "source": "src/DeadSignal.Combat/WeaponTable.cs",
   "note": "全表武器。伤害为一次攻击的随机区间；穿透削减护甲；噪音半径决定开火后多远的敌人会被引来。⚠️ **「每秒伤害」是杀伤力天花板，不是真实战力**：它按无甲、贴脸、无限弹药、单挑算出来，**不含**护甲、距离衰减、开枪招来的怪、子弹够不够打、以及一枪撂倒几只。枪的真实战力其实由弹药供给决定，而供给不在这个数字里——拿它调平衡时请记着这一点。「天生武器」（爪击/撕咬/拳脚）是丧尸、狗和空手的攻击，不是可拾取物品。",
+  "configFile": "weapons.json",
   "columns": [
     {
       "key": "name",
@@ -194,39 +195,46 @@ window.WIKI_BUNDLE = {
     {
       "key": "damageMin",
       "label": "伤害下限",
-      "type": "number"
+      "type": "number",
+      "configKey": "DamageMin"
     },
     {
       "key": "damageMax",
       "label": "伤害上限",
-      "type": "number"
+      "type": "number",
+      "configKey": "DamageMax"
     },
     {
       "key": "penetration",
       "label": "穿透力",
       "type": "percent",
+      "configKey": "Penetration",
       "hint": "无视多少护甲。25% = 这一击当对方的甲只有 75%。"
     },
     {
       "key": "attackInterval",
       "label": "攻击间隔(秒)",
       "type": "number",
+      "configKey": "AttackInterval",
       "hint": "越小出手越快"
     },
     {
       "key": "burstCount",
       "label": "连发数",
-      "type": "number"
+      "type": "number",
+      "configKey": "BurstCount"
     },
     {
       "key": "burstInterval",
       "label": "连发间隔(秒)",
-      "type": "number"
+      "type": "number",
+      "configKey": "BurstInterval"
     },
     {
       "key": "pelletCount",
       "label": "弹丸数",
       "type": "number",
+      "configKey": "PelletCount",
       "hint": "霰弹枪一发几颗；每颗独立选部位、独立判定"
     },
     {
@@ -246,39 +254,46 @@ window.WIKI_BUNDLE = {
       "key": "twoHanded",
       "label": "强制双手",
       "type": "bool",
+      "configKey": "TwoHanded",
       "hint": "武器本身是否必须双手持（Weapon.TwoHanded）；单手武器也可以双手握，那是运行时的握法，不是这一列"
     },
     {
       "key": "canDualWield",
       "label": "可双持",
-      "type": "bool"
+      "type": "bool",
+      "configKey": "CanDualWield"
     },
     {
       "key": "maxRange",
       "label": "最大射程(像素)",
-      "type": "number"
+      "type": "number",
+      "configKey": "MaxRange"
     },
     {
       "key": "falloffStart",
       "label": "距离衰减起点(像素)",
-      "type": "number"
+      "type": "number",
+      "configKey": "FalloffStart"
     },
     {
       "key": "falloffFloor",
       "label": "最远处伤害",
       "type": "percent",
+      "configKey": "FalloffFloor",
       "hint": "打到最大射程时还剩几成伤害。"
     },
     {
       "key": "spread",
       "label": "基础散布(度)",
       "type": "number",
+      "configKey": "BaseSpreadDegrees",
       "hint": "越大越不准"
     },
     {
       "key": "noiseRadius",
       "label": "噪音半径(像素)",
       "type": "number",
+      "configKey": "NoiseRadius",
       "hint": "多远内的丧尸/劫掠者会被引来"
     },
     {
@@ -310,27 +325,32 @@ window.WIKI_BUNDLE = {
     {
       "key": "stockMin",
       "label": "枪托近战 伤害下限",
-      "type": "number"
+      "type": "number",
+      "configKey": "StockMeleeDamageMin"
     },
     {
       "key": "stockMax",
       "label": "枪托近战 伤害上限",
-      "type": "number"
+      "type": "number",
+      "configKey": "StockMeleeDamageMax"
     },
     {
       "key": "stockInterval",
       "label": "枪托近战 间隔(秒)",
-      "type": "number"
+      "type": "number",
+      "configKey": "StockMeleeInterval"
     },
     {
       "key": "stockPenetration",
       "label": "枪托近战 穿透力",
-      "type": "percent"
+      "type": "percent",
+      "configKey": "StockMeleePenetration"
     },
     {
       "key": "structureFactor",
       "label": "砸墙倍率",
       "type": "mult",
+      "configKey": "StructureFactor",
       "hint": "拿它砸围栏/门时，伤害要乘的倍数。可以大于 1。"
     },
     {
@@ -349,6 +369,12 @@ window.WIKI_BUNDLE = {
     {
       "key": "_id",
       "label": "内部 id",
+      "type": "text",
+      "internal": true
+    },
+    {
+      "key": "_configId",
+      "label": "config 键",
       "type": "text",
       "internal": true
     },
@@ -405,6 +431,7 @@ window.WIKI_BUNDLE = {
       "structureFactor": 0.4,
       "description": "小巧、贴身、安静——很多故事都是从背后一把匕首开始的。",
       "_id": "Dagger",
+      "_configId": "dagger",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.Dagger()",
       "userNote": "",
       "sync": "",
@@ -441,6 +468,7 @@ window.WIKI_BUNDLE = {
       "structureFactor": 0.3,
       "description": "一把趁手的短剑，比匕首多一寸，也多一分底气。",
       "_id": "Shortsword",
+      "_configId": "shortsword",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.Shortsword()",
       "userNote": "",
       "sync": "",
@@ -450,8 +478,8 @@ window.WIKI_BUNDLE = {
       "name": "刺剑",
       "kind": "近战锐器",
       "damageType": "锐",
-      "damageMin": 2.625,
-      "damageMax": 6.875,
+      "damageMin": 2.5,
+      "damageMax": 6.5,
       "penetration": 0.25,
       "attackInterval": 1.9,
       "burstCount": 1,
@@ -477,6 +505,7 @@ window.WIKI_BUNDLE = {
       "structureFactor": 0.2,
       "description": "轻巧的刺剑，优雅而致命。",
       "_id": "Rapier",
+      "_configId": "rapier",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.Rapier()",
       "userNote": "",
       "sync": "",
@@ -513,6 +542,7 @@ window.WIKI_BUNDLE = {
       "structureFactor": 0.3,
       "description": "双手长剑，一寸长一寸强。",
       "_id": "Longsword",
+      "_configId": "longsword",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.Longsword()",
       "userNote": "",
       "sync": "",
@@ -549,6 +579,7 @@ window.WIKI_BUNDLE = {
       "structureFactor": 0.3,
       "description": "沉重的大剑，挥一下费半条命，中一下要一条命。",
       "_id": "Greatsword",
+      "_configId": "greatsword",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.Greatsword()",
       "userNote": "",
       "sync": "",
@@ -585,6 +616,7 @@ window.WIKI_BUNDLE = {
       "structureFactor": 0.2,
       "description": "本来是叉草的，现在叉什么全看你。",
       "_id": "Pitchfork",
+      "_configId": "pitchfork",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.Pitchfork()",
       "userNote": "",
       "sync": "",
@@ -621,6 +653,7 @@ window.WIKI_BUNDLE = {
       "structureFactor": 1.2,
       "description": "劈柴、劈门、劈别的——它从不问那是什么。",
       "_id": "Axe",
+      "_configId": "axe",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.Axe()",
       "userNote": "",
       "sync": "",
@@ -631,7 +664,7 @@ window.WIKI_BUNDLE = {
       "kind": "近战锐器",
       "damageType": "锐",
       "damageMin": 1,
-      "damageMax": 5.25,
+      "damageMax": 5,
       "penetration": 0.045,
       "attackInterval": 2,
       "burstCount": 1,
@@ -657,6 +690,7 @@ window.WIKI_BUNDLE = {
       "structureFactor": 0.4,
       "description": "不是铁的，不过够锋利。",
       "_id": "BoneKnife",
+      "_configId": "bone_knife",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.BoneKnife()",
       "userNote": "",
       "sync": "",
@@ -693,6 +727,7 @@ window.WIKI_BUNDLE = {
       "structureFactor": 1.8,
       "description": "一根结实的棍棒，简单、可靠、不讲道理。",
       "_id": "Club",
+      "_configId": "club",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.Club()",
       "userNote": "",
       "sync": "",
@@ -729,6 +764,7 @@ window.WIKI_BUNDLE = {
       "structureFactor": 2.6,
       "description": "带尖的锤子，砸不服的，就使劲儿砸。",
       "_id": "SpikeHammer",
+      "_configId": "spike_hammer",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.SpikeHammer()",
       "userNote": "",
       "sync": "",
@@ -765,6 +801,7 @@ window.WIKI_BUNDLE = {
       "structureFactor": 4,
       "description": "专治各种不服。",
       "_id": "Warhammer",
+      "_configId": "warhammer",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.Warhammer()",
       "userNote": "",
       "sync": "",
@@ -801,6 +838,7 @@ window.WIKI_BUNDLE = {
       "structureFactor": 1,
       "description": "用水管和废铁凑出来的猎枪，准头听天由命，后坐力管够——开火之后，你和目标谁更慌还不一定。",
       "_id": "ImprovisedHuntingGun",
+      "_configId": "improvised_hunting_gun",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.ImprovisedHuntingGun()",
       "userNote": "",
       "sync": "",
@@ -837,6 +875,7 @@ window.WIKI_BUNDLE = {
       "structureFactor": 1,
       "description": "一把手枪，几次讲道理的机会，还能换只手接着讲。",
       "_id": "Pistol",
+      "_configId": "pistol",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.Pistol()",
       "userNote": "",
       "sync": "",
@@ -873,6 +912,7 @@ window.WIKI_BUNDLE = {
       "structureFactor": 1,
       "description": "三连发的冲锋枪，子弹管够的时候，谁跟你讲道理。",
       "_id": "Smg",
+      "_configId": "smg",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.Smg()",
       "userNote": "",
       "sync": "",
@@ -909,6 +949,7 @@ window.WIKI_BUNDLE = {
       "structureFactor": 1,
       "description": "军用步枪，站得远、打得准，让对话在安全距离进行。",
       "_id": "Rifle",
+      "_configId": "rifle",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.Rifle()",
       "userNote": "",
       "sync": "",
@@ -945,6 +986,7 @@ window.WIKI_BUNDLE = {
       "structureFactor": 1,
       "description": "你还没听见响，事情就已经结束了。",
       "_id": "SniperRifle",
+      "_configId": "sniper_rifle",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.SniperRifle()",
       "userNote": "",
       "sync": "",
@@ -981,6 +1023,7 @@ window.WIKI_BUNDLE = {
       "structureFactor": 1,
       "description": "钢管、铁钉、一把火药——离得越近，讲的道理越充分。",
       "_id": "ImprovisedShotgun",
+      "_configId": "improvised_shotgun",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.ImprovisedShotgun()",
       "userNote": "",
       "sync": "",
@@ -1017,6 +1060,7 @@ window.WIKI_BUNDLE = {
       "structureFactor": 0.05,
       "description": "一根木头，一根弦。射程短、力道小，但至少不用靠近他们。",
       "_id": "ShortBow",
+      "_configId": "short_bow",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.ShortBow()",
       "userNote": "",
       "sync": "",
@@ -1053,6 +1097,7 @@ window.WIKI_BUNDLE = {
       "structureFactor": 0.05,
       "description": "弓臂末端反着弯回去，同样长度多出几分力道。做弓的人懂物理，用弓的人只需要懂呼吸。",
       "_id": "RecurveBow",
+      "_configId": "recurve_bow",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.RecurveBow()",
       "userNote": "",
       "sync": "",
@@ -1089,6 +1134,7 @@ window.WIKI_BUNDLE = {
       "structureFactor": 0.05,
       "description": "比人还高的长弓。它能把箭送到很远的地方——远到你射完还有充裕的时间，看清自己是不是射偏了。",
       "_id": "Longbow",
+      "_configId": "longbow",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.Longbow()",
       "userNote": "",
       "sync": "",
@@ -1125,6 +1171,7 @@ window.WIKI_BUNDLE = {
       "structureFactor": 0.05,
       "description": "滑轮、准星、稳定杆，一整套让人百发百中的精密玩意。它原来的主人拿它拿过奖——奖杯还在，人不在了。",
       "_id": "CompetitionCompoundBow",
+      "_configId": "competition_compound_bow",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.CompetitionCompoundBow()",
       "userNote": "",
       "sync": "",
@@ -1161,6 +1208,7 @@ window.WIKI_BUNDLE = {
       "structureFactor": 0.05,
       "description": "货真价实的猎弓，专为放倒大型动物设计。设计它的时候没人想过，有一天最大的猎物会是邻居。",
       "_id": "HuntingBow",
+      "_configId": "hunting_bow",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.HuntingBow()",
       "userNote": "",
       "sync": "",
@@ -1197,6 +1245,7 @@ window.WIKI_BUNDLE = {
       "structureFactor": 0.05,
       "description": "单手就能端的小弩，扣下扳机跟开枪一样容易。麻烦的是开完这一发——上弦得用两只手，还得用点时间。",
       "_id": "LightCrossbow",
+      "_configId": "light_crossbow",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.LightCrossbow()",
       "userNote": "",
       "sync": "",
@@ -1233,6 +1282,7 @@ window.WIKI_BUNDLE = {
       "structureFactor": 0.05,
       "description": "沉得像块砖的重弩，弦硬到要用脚踩着上。它能钉穿铁皮，代价是你每分钟只能得罪一个人。",
       "_id": "HeavyCrossbow",
+      "_configId": "heavy_crossbow",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.HeavyCrossbow()",
       "userNote": "",
       "sync": "",
@@ -1269,6 +1319,7 @@ window.WIKI_BUNDLE = {
       "structureFactor": 0.05,
       "description": "带滑轮的复合弩，省力、精准、致命——工业文明留给猎人的最后一份好意。",
       "_id": "CompoundCrossbow",
+      "_configId": "compound_crossbow",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.CompoundCrossbow()",
       "userNote": "",
       "sync": "",
@@ -1279,7 +1330,7 @@ window.WIKI_BUNDLE = {
       "kind": "天生武器",
       "damageType": "锐",
       "damageMin": 1,
-      "damageMax": 3.25,
+      "damageMax": 3,
       "penetration": 0.03,
       "attackInterval": 1.4,
       "burstCount": 1,
@@ -1305,6 +1356,7 @@ window.WIKI_BUNDLE = {
       "structureFactor": 2.5,
       "description": "腐烂的指甲，钝、脏、带菌，被挠一下够你担惊受怕好几天。",
       "_id": "ZombieClaw",
+      "_configId": "zombie_claw",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.ZombieClaw()",
       "userNote": "",
       "sync": "",
@@ -1341,6 +1393,7 @@ window.WIKI_BUNDLE = {
       "structureFactor": 0.2,
       "description": "一口尖牙，咬住了就不松口——布鲁斯拖住敌人，剩下的交给道格。",
       "_id": "DogBite",
+      "_configId": "dog_bite",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.DogBite()",
       "userNote": "",
       "sync": "",
@@ -1377,18 +1430,21 @@ window.WIKI_BUNDLE = {
       "structureFactor": 0.2,
       "description": "你还有一双手。它们打不穿任何东西，但至少能让扑上来的那位知道你还没打算躺下。",
       "_id": "Fists",
+      "_configId": "fists",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.Fists()",
       "userNote": "",
       "sync": "",
       "_icon": "weapons/fists"
     }
-  ]
+  ],
+  "_configVersion": "3042583bde66"
 },
     "armor": {
   "id": "armor",
   "label": "护甲服装",
   "source": "src/DeadSignal.Combat/ArmorTable.cs（防护数值）+ godot/scripts/ApparelSlots.cs（穿在哪、护到哪）",
   "note": "人穿的衣服与护甲。**「穿在哪」和「护到哪」是两回事**：板甲占「装甲层 + 裤子」两个槽，护的是胸腹双臂双腿。没被护到的部位，命中时一点也不挡。手套和鞋子是**成对装备**——一件只护一只手（脚），要护全得做两件。「腐皮」是丧尸天生的，不是能穿的衣服。",
+  "configFile": "armor.json",
   "columns": [
     {
       "key": "name",
@@ -1418,17 +1474,20 @@ window.WIKI_BUNDLE = {
     {
       "key": "sharpDefense",
       "label": "锐防",
-      "type": "number"
+      "type": "number",
+      "configKey": "SharpDefense"
     },
     {
       "key": "bluntDefense",
       "label": "钝防",
-      "type": "number"
+      "type": "number",
+      "configKey": "BluntDefense"
     },
     {
       "key": "weight",
       "label": "重量(公斤)",
-      "type": "number"
+      "type": "number",
+      "configKey": "Weight"
     },
     {
       "key": "description",
@@ -1446,6 +1505,12 @@ window.WIKI_BUNDLE = {
     {
       "key": "_id",
       "label": "内部 id",
+      "type": "text",
+      "internal": true
+    },
+    {
+      "key": "_configId",
+      "label": "config 键",
       "type": "text",
       "internal": true
     },
@@ -1481,6 +1546,7 @@ window.WIKI_BUNDLE = {
       "weight": 0.15,
       "description": "袖子确实是长的。",
       "_id": "LongSleeveShirt",
+      "_configId": "long_sleeve_shirt",
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.LongSleeveShirt()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
       "userNote": "",
       "sync": "",
@@ -1496,6 +1562,7 @@ window.WIKI_BUNDLE = {
       "weight": 0.15,
       "description": "夏威夷风格，足够喜庆。",
       "_id": "FloralShirt",
+      "_configId": "floral_shirt",
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.FloralShirt()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
       "userNote": "",
       "sync": "",
@@ -1511,6 +1578,7 @@ window.WIKI_BUNDLE = {
       "weight": 0.15,
       "description": "挡风挡蚊子，挡不住长牙的东西。",
       "_id": "Trousers",
+      "_configId": "trousers",
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.Trousers()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
       "userNote": "",
       "sync": "",
@@ -1526,6 +1594,7 @@ window.WIKI_BUNDLE = {
       "weight": 0.25,
       "description": "跑快一点点——但愿比丧尸快点。",
       "_id": "Sneakers",
+      "_configId": "sneakers",
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.Sneakers()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
       "userNote": "",
       "sync": "",
@@ -1541,6 +1610,7 @@ window.WIKI_BUNDLE = {
       "weight": 0.1,
       "description": "夏日风格。",
       "_id": "Shorts",
+      "_configId": "shorts",
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.Shorts()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
       "userNote": "",
       "sync": "",
@@ -1556,6 +1626,7 @@ window.WIKI_BUNDLE = {
       "weight": 4,
       "description": "保护你的心。",
       "_id": "ChestPlate",
+      "_configId": "chest_plate",
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.ChestPlate()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
       "userNote": "移动速度-1%",
       "sync": "",
@@ -1568,9 +1639,10 @@ window.WIKI_BUNDLE = {
       "paired": false,
       "sharpDefense": 6,
       "bluntDefense": 3,
-      "weight": 0.2,
+      "weight": 0.1,
       "description": "“缝缝补补又三年。”——奶奶",
       "_id": "CoarseClothVest",
+      "_configId": "coarse_cloth_vest",
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.CoarseClothVest()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
       "userNote": "",
       "sync": "",
@@ -1583,9 +1655,10 @@ window.WIKI_BUNDLE = {
       "paired": false,
       "sharpDefense": 6,
       "bluntDefense": 3,
-      "weight": 0.5,
+      "weight": 0.25,
       "description": "天气转凉了，记得添外套。",
       "_id": "CoarseClothCoat",
+      "_configId": "coarse_cloth_coat",
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.CoarseClothCoat()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
       "userNote": "",
       "sync": "",
@@ -1598,9 +1671,10 @@ window.WIKI_BUNDLE = {
       "paired": false,
       "sharpDefense": 7.5,
       "bluntDefense": 4,
-      "weight": 0.4,
+      "weight": 0.3,
       "description": "经典永不过时。",
       "_id": "ClothJacket",
+      "_configId": "cloth_jacket",
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.ClothJacket()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
       "userNote": "",
       "sync": "",
@@ -1616,6 +1690,7 @@ window.WIKI_BUNDLE = {
       "weight": 0.6,
       "description": "耐磨、耐脏、牛仔范儿。",
       "_id": "DenimJacket",
+      "_configId": "denim_jacket",
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.DenimJacket()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
       "userNote": "",
       "sync": "",
@@ -1628,9 +1703,10 @@ window.WIKI_BUNDLE = {
       "paired": false,
       "sharpDefense": 18,
       "bluntDefense": 9,
-      "weight": 1,
+      "weight": 0.5,
       "description": "骑上摩托，倍有范儿。",
       "_id": "LeatherJacket",
+      "_configId": "leather_jacket",
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.LeatherJacket()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
       "userNote": "",
       "sync": "",
@@ -1646,6 +1722,7 @@ window.WIKI_BUNDLE = {
       "weight": 6,
       "description": "结实的鞣皮甲。",
       "_id": "Leather",
+      "_configId": "leather",
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.Leather()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
       "userNote": "移动速度-3%",
       "sync": "",
@@ -1661,6 +1738,7 @@ window.WIKI_BUNDLE = {
       "weight": 15,
       "description": "重吗？他能保护你脆弱的肉体。",
       "_id": "Plate",
+      "_configId": "plate",
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.Plate()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
       "userNote": "移动速度-10%",
       "sync": "",
@@ -1672,10 +1750,11 @@ window.WIKI_BUNDLE = {
       "covers": "头",
       "paired": false,
       "sharpDefense": 28,
-      "bluntDefense": 12,
+      "bluntDefense": 14,
       "weight": 2.5,
       "description": "钢盔挡得住从天上掉下来的一切。麻烦在于，它是从正面扑过来的。",
       "_id": "MilitaryHelmet",
+      "_configId": "military_helmet",
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.MilitaryHelmet()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
       "userNote": "",
       "sync": "",
@@ -1691,6 +1770,7 @@ window.WIKI_BUNDLE = {
       "weight": 4.5,
       "description": "面罩挡得下砖头、棍棒和唾沫星子——上一任主人遇上的，不在这三样里。",
       "_id": "RiotHelmet",
+      "_configId": "riot_helmet",
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.RiotHelmet()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
       "userNote": "-10%视野距离和范围\n-10%听力",
       "sync": "",
@@ -1706,6 +1786,7 @@ window.WIKI_BUNDLE = {
       "weight": 0.05,
       "description": "“劳动人民最光荣。”——奶奶",
       "_id": "WorkGloves",
+      "_configId": "work_gloves",
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.WorkGloves()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
       "userNote": "",
       "sync": "",
@@ -1721,6 +1802,7 @@ window.WIKI_BUNDLE = {
       "weight": 0.3,
       "description": "骨片与木头缝成的脸。戴上它你不会更有勇气——但扑上来的东西第一口咬到的是骨头，不是你的鼻子。",
       "_id": "WarMask",
+      "_configId": "war_mask",
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.WarMask()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
       "userNote": "",
       "sync": "",
@@ -1736,6 +1818,7 @@ window.WIKI_BUNDLE = {
       "weight": 0.15,
       "description": "毛茸茸的，冬季必备。",
       "_id": "CottonHat",
+      "_configId": "cotton_hat",
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.CottonHat()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
       "userNote": "",
       "sync": "",
@@ -1751,6 +1834,7 @@ window.WIKI_BUNDLE = {
       "weight": 0.15,
       "description": "自己缝的衬衫，针脚歪得像条走投无路的路。它挡不住多少东西，但它至少是你的。",
       "_id": "CoarseClothShirt",
+      "_configId": "coarse_cloth_shirt",
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.CoarseClothShirt()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
       "userNote": "",
       "sync": "",
@@ -1766,6 +1850,7 @@ window.WIKI_BUNDLE = {
       "weight": 0.1,
       "description": "布不够长，就成了短裤。小腿从此归风、蚊子和一切有牙齿的东西共有。",
       "_id": "CoarseShorts",
+      "_configId": "coarse_shorts",
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.CoarseShorts()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
       "userNote": "",
       "sync": "",
@@ -1781,6 +1866,7 @@ window.WIKI_BUNDLE = {
       "weight": 0.15,
       "description": "多缝了一截，小腿就有了着落。末日里的奢侈就是这么算的。",
       "_id": "CoarseTrousers",
+      "_configId": "coarse_trousers",
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.CoarseTrousers()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
       "userNote": "",
       "sync": "",
@@ -1796,6 +1882,7 @@ window.WIKI_BUNDLE = {
       "weight": 3,
       "description": "每一片防护都来自于没做够防护的人",
       "_id": "HorrorArmor",
+      "_configId": "horror_armor",
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.HorrorArmor()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
       "userNote": "",
       "sync": "",
@@ -1811,6 +1898,7 @@ window.WIKI_BUNDLE = {
       "weight": 0.1,
       "description": "直面太阳吧！",
       "_id": "Sunglasses",
+      "_configId": "sunglasses",
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.Sunglasses()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
       "userNote": "白天+5%的视野范围",
       "sync": "",
@@ -1826,6 +1914,7 @@ window.WIKI_BUNDLE = {
       "weight": 0.1,
       "description": "至少看起来很像知识分子。",
       "_id": "PlainGlasses",
+      "_configId": "plain_glasses",
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.PlainGlasses()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
       "userNote": "",
       "sync": "",
@@ -1838,9 +1927,10 @@ window.WIKI_BUNDLE = {
       "paired": false,
       "sharpDefense": 12,
       "bluntDefense": 6,
-      "weight": 0.25,
+      "weight": 0.1,
       "description": "木制眼罩，只留有两条缝进光，可以有效避免雪盲。",
       "_id": "SelfMadeSnowGoggles",
+      "_configId": "self_made_snow_goggles",
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.SelfMadeSnowGoggles()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
       "userNote": "白天+5%的视野范围（引擎新轴·视野系数不吃穿戴品·暂未实现，同墨镜先例）",
       "sync": "",
@@ -1856,6 +1946,7 @@ window.WIKI_BUNDLE = {
       "weight": 0.75,
       "description": "高帮硬底，裹住脚踝到小腿——踩过碎玻璃也不必皱眉。",
       "_id": "AnkleGuard",
+      "_configId": "ankle_guard",
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.AnkleGuard()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
       "userNote": "",
       "sync": "",
@@ -1871,6 +1962,7 @@ window.WIKI_BUNDLE = {
       "weight": 2.5,
       "description": "它挡得下子弹——前提是那颗子弹讲道理，正对着胸口飞来。",
       "_id": "BallisticVest",
+      "_configId": "ballistic_vest",
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.BallisticVest()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
       "userNote": "",
       "sync": "",
@@ -1887,11 +1979,13 @@ window.WIKI_BUNDLE = {
       "description": "没人愿意听到来自脚踝的咔嚓声，除非是别人的。",
       "userNote": "",
       "_id": "new_armor_2",
+      "_configId": null,
       "_anchor": "（新增行：代码里还没有，等 agent 建）",
       "sync": "新增·待同步进代码",
       "_icon": "armor/new_armor_2"
     }
-  ]
+  ],
+  "_configVersion": "f46b6301923d"
 },
     "dog-gear": {
   "id": "dog-gear",
@@ -4491,7 +4585,7 @@ window.WIKI_BUNDLE = {
   "id": "weapon-mods",
   "label": "武器改装",
   "source": "godot/scripts/WeaponModCatalog.cs",
-  "note": "给武器加零件。一个部位只装得下一件，装不下的会被拒绝。「可装于哪些武器」是**引擎真读的装配约束**——勾掉一把枪，它当场就装不上了，不是摆设。⚠️「数值改动」这一列你写的是**人话**，而代码那边是结构化字段（比如你写「攻击速度+5%」，引擎里是「攻击间隔 *0.95」）⇒ 这一列**几乎永远会显示成「待同步」，那只是两种写法的差异，不代表真的没落地**。要确认，看代码注释或问 agent。\uD83D\uDD34 **一把枪只能装一种近战改装**（刺刀型 / 利爪型 / 创伤型 **三选一**）——它们各自把这把枪的近战打法整个换掉，同时装两个就等于给同一把枪写了两套互相打架的近战定义。装第二个时会被当场拒绝，并告诉你跟哪一个冲突。⚠️ 弓弩**已经不能装枪械改装了**（它们曾因一个 bug 被引擎当成「枪」）。消防斧已按「和长剑同档」勾进锐器改装（6 条里的 5 条）——**唯独「镂空剑刃」没勾**：斧子靠的就是那颗沉头，镂空把它挖空了，就成了一把很差的剑。",
+  "note": "给武器加零件。一个部位只装得下一件，装不下的会被拒绝。「可装于哪些武器」是**引擎真读的装配约束**——勾掉一把枪，它当场就装不上了，不是摆设。⚠️「数值改动」这一列你写的是**人话**，而代码那边是结构化字段（比如你写「攻击速度+5%」，引擎里是「攻击间隔 *0.95」）⇒ 这一列**几乎永远会显示成「待同步」，那只是两种写法的差异，不代表真的没落地**。要确认，看代码注释或问 agent。🔴 **一把枪只能装一种近战改装**（刺刀型 / 利爪型 / 创伤型 **三选一**）——它们各自把这把枪的近战打法整个换掉，同时装两个就等于给同一把枪写了两套互相打架的近战定义。装第二个时会被当场拒绝，并告诉你跟哪一个冲突。⚠️ 弓弩**已经不能装枪械改装了**（它们曾因一个 bug 被引擎当成「枪」）。消防斧已按「和长剑同档」勾进锐器改装（6 条里的 5 条）——**唯独「镂空剑刃」没勾**：斧子靠的就是那颗沉头，镂空把它挖空了，就成了一把很差的剑。",
   "columns": [
     {
       "key": "name",
@@ -6967,7 +7061,7 @@ window.WIKI_BUNDLE = {
   "id": "world-graph",
   "label": "调查点路线",
   "source": "godot/data/world_graph.json",
-  "note": "调查点是**网状**的：要先**去过**前置的点、并且把它**探索到 50% 以上**，才走得到后面的点（两个条件缺一不可——去过但只翻了两成，不算数）。开局只有两个简单的点开着，一个在营地**东边**、一个在**西北**，从这两条路往外铺开，中途多次交汇，最后在**金手指帮根据地**收口（那是全图唯一要求「全部前置」的点——两条路都得走完）。\n\n\uD83D\uDD34 **这张表就是那张图**：改「前置调查点」就等于重排路线，改完 agent 同步回 godot/data/world_graph.json 即可，**不用改任何代码**。\n⚠️ 别把一个点的前置排成环（甲要乙、乙要甲），也别让某个点谁都到不了——游戏启动时的自检会当场报出来。",
+  "note": "调查点是**网状**的：要先**去过**前置的点、并且把它**探索到 50% 以上**，才走得到后面的点（两个条件缺一不可——去过但只翻了两成，不算数）。开局只有两个简单的点开着，一个在营地**东边**、一个在**西北**，从这两条路往外铺开，中途多次交汇，最后在**金手指帮根据地**收口（那是全图唯一要求「全部前置」的点——两条路都得走完）。\n\n🔴 **这张表就是那张图**：改「前置调查点」就等于重排路线，改完 agent 同步回 godot/data/world_graph.json 即可，**不用改任何代码**。\n⚠️ 别把一个点的前置排成环（甲要乙、乙要甲），也别让某个点谁都到不了——游戏启动时的自检会当场报出来。",
   "columns": [
     {
       "key": "place",
@@ -7167,7 +7261,7 @@ window.WIKI_BUNDLE = {
       "size": "小",
       "travelMinutes": 5,
       "description": "镇子底下的排水系统。手电照不了多远，每个拐角后面都可能有东西——但大多数时候什么都没有。水声一直在响。",
-      "userNote": "\uD83D\uDD34 汇合点·前中期（用户新增）。小 + 低危 + 几乎没有战斗 —— 恐怖靠黑暗/拐角/视野受限，不靠敌人数量。最深处有可招募的幸存者「耗子」。前置给了超市（西北）和东部新村（东），两条路都能到。关卡本体由 impl-sewer 做。",
+      "userNote": "🔴 汇合点·前中期（用户新增）。小 + 低危 + 几乎没有战斗 —— 恐怖靠黑暗/拐角/视野受限，不靠敌人数量。最深处有可招募的幸存者「耗子」。前置给了超市（西北）和东部新村（东），两条路都能到。关卡本体由 impl-sewer 做。",
       "_id": "下水道",
       "_anchor": "godot/data/world_graph.json :: nodes[]",
       "sync": "",
@@ -7182,7 +7276,7 @@ window.WIKI_BUNDLE = {
       "size": "小",
       "travelMinutes": 6,
       "description": "镇里的一座小警局。防弹玻璃碎了，登记簿停在某个再没人翻的日期。室内一间套一间，每道门后头都看不清里面有什么。",
-      "userNote": "\uD83D\uDD34 前中期·汇合点（用户拍板）。小 + 危险 Medium + 室内多拐角 —— 靠房间门洞的盲区吓人，不靠人海（4 只丧尸各藏一间房，同时最多撞见一只）。最值钱的东西是禁闭室里那套防暴头盔 + 防弹背心；其余是少量手枪弹 + 杂项 + 一两只死老鼠。前置给了消防站（西北）和河边小屋（东）两个开局起点，任一走过即解锁。关卡本体由 police-level 做，真锁门（禁闭室撬开才可达）留 police-doorlock。",
+      "userNote": "🔴 前中期·汇合点（用户拍板）。小 + 危险 Medium + 室内多拐角 —— 靠房间门洞的盲区吓人，不靠人海（4 只丧尸各藏一间房，同时最多撞见一只）。最值钱的东西是禁闭室里那套防暴头盔 + 防弹背心；其余是少量手枪弹 + 杂项 + 一两只死老鼠。前置给了消防站（西北）和河边小屋（东）两个开局起点，任一走过即解锁。关卡本体由 police-level 做，真锁门（禁闭室撬开才可达）留 police-doorlock。",
       "_id": "警察局",
       "_anchor": "godot/data/world_graph.json :: nodes[]",
       "sync": "",
@@ -7197,7 +7291,7 @@ window.WIKI_BUNDLE = {
       "size": "小",
       "travelMinutes": 8,
       "description": "城里的高层观景台。天台上那架望远镜还能转 —— 从这儿能看见很远的北边。",
-      "userNote": "\uD83D\uDD34 汇合点·中期。望远镜 = 尸潮目击 ⇒ 开启尸潮倒计时，所以它必须排在中段：太早玩家还没立住，太晚就来不及了。",
+      "userNote": "🔴 汇合点·中期。望远镜 = 尸潮目击 ⇒ 开启尸潮倒计时，所以它必须排在中段：太早玩家还没立住，太晚就来不及了。",
       "_id": "城市之巅瞭望观景台",
       "_anchor": "godot/data/world_graph.json :: nodes[]",
       "sync": "",
@@ -7212,7 +7306,7 @@ window.WIKI_BUNDLE = {
       "size": "大",
       "travelMinutes": 7,
       "description": "南边林带里的一个村子，被丧尸围着。村里有间上锁的屋子，里面传出狗叫。",
-      "userNote": "\uD83D\uDD34 汇合点·中期。道格与布鲁斯的正史入队地。村中心的铁匠铺是全游戏铁的主要来源（铸铁大门要 48 铁）⇒ 资源线的关键节点。30 处搜刮点的大点。",
+      "userNote": "🔴 汇合点·中期。道格与布鲁斯的正史入队地。村中心的铁匠铺是全游戏铁的主要来源（铸铁大门要 48 铁）⇒ 资源线的关键节点。30 处搜刮点的大点。",
       "_id": "南林村庄",
       "_anchor": "godot/data/world_graph.json :: nodes[]",
       "sync": "",
@@ -7227,7 +7321,7 @@ window.WIKI_BUNDLE = {
       "size": "小",
       "travelMinutes": 10,
       "description": "森林深处的一间小屋，远离城镇。屋里没什么东西，后院的树上吊着一个人。",
-      "userNote": "\uD83D\uDD34 汇合点·中期（用户拍板后移）。行程最长（10 分钟）。哥顿的上吊尸 + 日记 B —— 【金手指帮那条线索链的起点】，所以它必须排在金手指帮之前。",
+      "userNote": "🔴 汇合点·中期（用户拍板后移）。行程最长（10 分钟）。哥顿的上吊尸 + 日记 B —— 【金手指帮那条线索链的起点】，所以它必须排在金手指帮之前。",
       "_id": "守望者森林小屋",
       "_anchor": "godot/data/world_graph.json :: nodes[]",
       "sync": "",
@@ -7242,7 +7336,7 @@ window.WIKI_BUNDLE = {
       "size": "大",
       "travelMinutes": 8,
       "description": "城北的废弃医院。全城最多的丧尸都在里面，但它是栋建筑——有门、有分区、有能关上的防火门。药房和手术层在最深处。",
-      "userNote": "\uD83D\uDD34 汇合点·中期。全游戏手术与治疗的补给来源 ⇒ 排在中段：太早玩家还用不上，太晚人已经死了。大地图 + 中危（能绕、能关门、能选择不打）。【它是西北链的门户】—— 两个前置（药店/加油站）都只长在西北路上。",
+      "userNote": "🔴 汇合点·中期。全游戏手术与治疗的补给来源 ⇒ 排在中段：太早玩家还用不上，太晚人已经死了。大地图 + 中危（能绕、能关门、能选择不打）。【它是西北链的门户】—— 两个前置（药店/加油站）都只长在西北路上。",
       "_id": "医院",
       "_anchor": "godot/data/world_graph.json :: nodes[]",
       "sync": "",
@@ -7257,7 +7351,7 @@ window.WIKI_BUNDLE = {
       "size": "中",
       "travelMinutes": 9,
       "description": "他们的据点。八个人守着，个个带伤 —— 像是刚打完一场恶战。",
-      "userNote": "\uD83D\uDD34 中期（用户拍板下沉，原为终局）。【单前置＝线索链】：只能从守林人小屋进来 —— 先在后院那棵树上看见哥顿的尸体、读到日记 B，才知道这伙人是谁、在哪。给它加任何 OR 前置都会让玩家绕开那具尸体，线索白挂。网状性由守林人小屋本身承担（它是两路可达的汇合点）。【东链的起点】。用户拍板把守备的手枪全撤了（4 短剑 + 4 匕首）：中期该打得动，但枪一响仍然是死。",
+      "userNote": "🔴 中期（用户拍板下沉，原为终局）。【单前置＝线索链】：只能从守林人小屋进来 —— 先在后院那棵树上看见哥顿的尸体、读到日记 B，才知道这伙人是谁、在哪。给它加任何 OR 前置都会让玩家绕开那具尸体，线索白挂。网状性由守林人小屋本身承担（它是两路可达的汇合点）。【东链的起点】。用户拍板把守备的手枪全撤了（4 短剑 + 4 匕首）：中期该打得动，但枪一响仍然是死。",
       "_id": "金手指帮根据地",
       "_anchor": "godot/data/world_graph.json :: nodes[]",
       "sync": "",
@@ -7272,7 +7366,7 @@ window.WIKI_BUNDLE = {
       "size": "中",
       "travelMinutes": 8,
       "description": "临时搭起的一片平房，一间挨着一间。过道窄得只容一人，灯早就没了。物资散落在每一个小房间里——门后面也是。",
-      "userNote": "\uD83D\uDD34 后期·【西北链】（用户新增）。纯玩法关：视野受限 + 过道狭窄 + 开门跳脸的丧尸。它是【军方做了什么】这条链的中段 —— 人去楼空的平房区，你还不知道他们去哪了。关卡本体由 impl-lategame 做。",
+      "userNote": "🔴 后期·【西北链】（用户新增）。纯玩法关：视野受限 + 过道狭窄 + 开门跳脸的丧尸。它是【军方做了什么】这条链的中段 —— 人去楼空的平房区，你还不知道他们去哪了。关卡本体由 impl-lategame 做。",
       "_id": "难民营地",
       "_anchor": "godot/data/world_graph.json :: nodes[]",
       "sync": "",
@@ -7287,7 +7381,7 @@ window.WIKI_BUNDLE = {
       "size": "中",
       "travelMinutes": 8,
       "description": "镇西的农庄，如今盘踞着一伙持械的劫掠者，门口还立着岗哨。农庄本身并不富裕。",
-      "userNote": "\uD83D\uDD34 后期·【东链】末端，终局的直接前置。全图唯一高危点：7 个健全的持械劫掠者 + 3 个岗哨。高危不换来高回报——点位本身穷，回报只长在劫掠者身上，先打赢才有得扒。authored 剧情（收留流浪者被背刺）= 【人做了什么】。",
+      "userNote": "🔴 后期·【东链】末端，终局的直接前置。全图唯一高危点：7 个健全的持械劫掠者 + 3 个岗哨。高危不换来高回报——点位本身穷，回报只长在劫掠者身上，先打赢才有得扒。authored 剧情（收留流浪者被背刺）= 【人做了什么】。",
       "_id": "斯图尔特家族庄园",
       "_anchor": "godot/data/world_graph.json :: nodes[]",
       "sync": "",
@@ -7302,7 +7396,7 @@ window.WIKI_BUNDLE = {
       "size": "中",
       "travelMinutes": 9,
       "description": "教堂里空得能听见自己的脚步。穿过中殿的盲区，推开后门——后院的墓地里，站满了丧尸。墙上是用血写的字。",
-      "userNote": "\uD83D\uDD34 后期·【西北链】末端，终局的直接前置（用户新增）。剧情核心：军方留下的、烧了一半的忏悔录 + 被军方屠杀的人用血写在墙上的辱骂。【它是广播台的强制前置】—— 在你决定要不要回复军方之前，先让你看到军方干了什么。关卡本体由 impl-lategame 做。",
+      "userNote": "🔴 后期·【西北链】末端，终局的直接前置（用户新增）。剧情核心：军方留下的、烧了一半的忏悔录 + 被军方屠杀的人用血写在墙上的辱骂。【它是广播台的强制前置】—— 在你决定要不要回复军方之前，先让你看到军方干了什么。关卡本体由 impl-lategame 做。",
       "_id": "破败教堂",
       "_anchor": "godot/data/world_graph.json :: nodes[]",
       "sync": "",
@@ -7317,7 +7411,7 @@ window.WIKI_BUNDLE = {
       "size": "中",
       "travelMinutes": 11,
       "description": "北面山脊上的通讯发射塔。机房里那台发射机也许还能说话。",
-      "userNote": "\uD83D\uDD34 终局（用户拍板上升，原为中后期）。全图【唯一】的「全部前置」：破败教堂【且】斯图尔特家族庄园 —— 两条证据链都得走完。取得「发出设备」⇒ 电台解锁抉择：回复军方（结局②：军方来屠杀你的营地）／呼叫南方（结局③：唯一生路）。这是全游戏最重的一次道德抉择，它需要证据：西北链让你看见【军方做了什么】，东链让你看见【人做了什么】。行程最远（11 分钟）。",
+      "userNote": "🔴 终局（用户拍板上升，原为中后期）。全图【唯一】的「全部前置」：破败教堂【且】斯图尔特家族庄园 —— 两条证据链都得走完。取得「发出设备」⇒ 电台解锁抉择：回复军方（结局②：军方来屠杀你的营地）／呼叫南方（结局③：唯一生路）。这是全游戏最重的一次道德抉择，它需要证据：西北链让你看见【军方做了什么】，东链让你看见【人做了什么】。行程最远（11 分钟）。",
       "_id": "广播台",
       "_anchor": "godot/data/world_graph.json :: nodes[]",
       "sync": "",

@@ -46,8 +46,11 @@ public static class SouthTrial
     /// <summary>单题满分（每题三答记 0/1/2 分）。满分 = <see cref="QuestionCount"/> × 本值 = 6。</summary>
     public const int MaxScorePerQuestion = 2;
 
-    /// <summary>通过门槛：三题总分满本值（5，满分 6）才通过；不满即失败。占位阈值，待 author 校准。</summary>
-    public const int PassThreshold = 5;
+    /// <summary>
+    /// 通过门槛：三题总分满本值（5，满分 6）才通过；不满即失败。占位阈值，待 author 校准。
+    /// 数值真源已外置至 <c>southtrial.json</c>（<see cref="SouthTrialConfig.PassThreshold"/>）；本属性委托到 catalog 段。
+    /// </summary>
+    public static int PassThreshold => GameConfigCatalog.Section<SouthTrialConfig>().PassThreshold;
 
     /// <summary>一个回答选项：措辞 + 其得分（0/1/2，占位待 author）。</summary>
     public readonly struct TrialAnswer

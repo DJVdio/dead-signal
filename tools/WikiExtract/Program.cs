@@ -49,7 +49,20 @@ internal sealed record Col(
     /// 但会进抽取器结尾那节 <b>📝 用户备注（待处理）</b>——见 <see cref="Program.ReportNotes"/>。
     /// </para>
     /// </summary>
-    bool UserNote = false);
+    bool UserNote = false,
+
+    /// <summary>
+    /// **这一列是 config json 的镜像——wiki↔config 双向联动的字段级 join。**
+    /// <para>
+    /// 非空 ⇒ 这一列的值就是 <c>godot/data/config/&lt;表&gt;.json</c> 里对应条目的
+    /// <c>ConfigKey</c> 字段（如 wiki 列 <c>damageMin</c> ⇒ config 字段 <c>DamageMin</c>）。
+    /// 网页改了它 → wiki-serve 的 PUT 处理器按 <c>_configId</c>+这个键把值投影写回 config json；
+    /// Python/别处改了 config → wiki-serve 的 GET/启动重算把值拉回 wiki 展示 json。
+    /// 只标**数值/gameplay 字段**（数字、bool 等值枚举）；简介/flavor/备注**不标**（那些仍 agent 手动落回代码）。
+    /// 值必须与 config **恒等可复制**（无显示变换）——带中文显示变换的枚举（如伤害类型 锐/钝 ↔ Sharp/Blunt）暂不标，见 journal 后续清单。
+    /// </para>
+    /// </summary>
+    string? ConfigKey = null);
 
 internal sealed record Category(
     string Id,
@@ -57,7 +70,12 @@ internal sealed record Category(
     string Source,
     string Note,
     IReadOnlyList<Col> Columns,
-    IReadOnlyList<Dictionary<string, object?>> Rows);
+    IReadOnlyList<Dictionary<string, object?>> Rows,
+    /// <summary>
+    /// 非空 ⇒ 本表的行是 <c>godot/data/config/&lt;这个文件名&gt;</c> 里条目的镜像（wiki↔config 双向联动）。
+    /// 与列的 <see cref="Col.ConfigKey"/> + 行的 <c>_configId</c> 一起，让 wiki-serve 无需硬编码即可自描述地双向同步。
+    /// </summary>
+    string? ConfigFile = null);
 
 internal static class Program
 {
@@ -384,18 +402,21 @@ internal static class Program
             ["label"] = c.Label,
             ["source"] = c.Source,
             ["note"] = c.Note,
-            ["columns"] = new JsonArray(c.Columns.Select(col =>
+        };
+        // config 联动锚点（wiki↔config 双向）：表级指明镜像哪个 config json；wiki-serve 读它做投影/重算。
+        if (c.ConfigFile is not null) o["configFile"] = c.ConfigFile;
+        o["columns"] = new JsonArray(c.Columns.Select(col =>
             {
                 var jo = new JsonObject { ["key"] = col.Key, ["label"] = col.Label, ["type"] = col.Type };
                 if (col.Primary) jo["primary"] = true;
                 if (col.Internal) jo["internal"] = true;
                 if (col.ReadOnly) jo["readonly"] = true;
                 if (col.UserNote) jo["usernote"] = true;
+                if (col.ConfigKey is not null) jo["configKey"] = col.ConfigKey;
                 if (col.Hint is not null) jo["hint"] = col.Hint;
                 return (JsonNode)jo;
-            }).ToArray()),
-            ["rows"] = new JsonArray(c.Rows.Select(r => (JsonNode)ToNode(r)).ToArray()),
-        };
+            }).ToArray());
+        o["rows"] = new JsonArray(c.Rows.Select(r => (JsonNode)ToNode(r)).ToArray());
         return o.ToJsonString(JsonOpts);
     }
 
@@ -456,23 +477,23 @@ internal static class Program
             new("kind", "种类", "chip",
                 Hint: "默认按武器属性推导（远程/弹药/伤害类型）。⚠️ 引擎里没有「弓 vs 弩」这个区分，是按名字里有没有「弩」字猜的——猜错了就在这里改，以你填的为准。"),
             new("damageType", "伤害类型", "chip"),
-            new("damageMin", "伤害下限", "number"),
-            new("damageMax", "伤害上限", "number"),
-            new("penetration", "穿透力", "percent", Hint: "无视多少护甲。25% = 这一击当对方的甲只有 75%。"),
-            new("attackInterval", "攻击间隔(秒)", "number", Hint: "越小出手越快"),
-            new("burstCount", "连发数", "number"),
-            new("burstInterval", "连发间隔(秒)", "number"),
-            new("pelletCount", "弹丸数", "number", Hint: "霰弹枪一发几颗；每颗独立选部位、独立判定"),
+            new("damageMin", "伤害下限", "number", ConfigKey: "DamageMin"),
+            new("damageMax", "伤害上限", "number", ConfigKey: "DamageMax"),
+            new("penetration", "穿透力", "percent", Hint: "无视多少护甲。25% = 这一击当对方的甲只有 75%。", ConfigKey: "Penetration"),
+            new("attackInterval", "攻击间隔(秒)", "number", Hint: "越小出手越快", ConfigKey: "AttackInterval"),
+            new("burstCount", "连发数", "number", ConfigKey: "BurstCount"),
+            new("burstInterval", "连发间隔(秒)", "number", ConfigKey: "BurstInterval"),
+            new("pelletCount", "弹丸数", "number", Hint: "霰弹枪一发几颗；每颗独立选部位、独立判定", ConfigKey: "PelletCount"),
             new("ammo", "吃什么弹药", "chip", Hint: "空 = 不吃弹药"),
             new("ammoPerAttack", "每次攻击耗弹", "number", ReadOnly: true,
                 Hint: "自动算的：完全由「连发数」决定（打几发就吃几发；不吃弹药的武器恒为 0）。要改它 ⇒ 改「连发数」。"),
-            new("twoHanded", "强制双手", "bool", Hint: "武器本身是否必须双手持（Weapon.TwoHanded）；单手武器也可以双手握，那是运行时的握法，不是这一列"),
-            new("canDualWield", "可双持", "bool"),
-            new("maxRange", "最大射程(像素)", "number"),
-            new("falloffStart", "距离衰减起点(像素)", "number"),
-            new("falloffFloor", "最远处伤害", "percent", Hint: "打到最大射程时还剩几成伤害。"),
-            new("spread", "基础散布(度)", "number", Hint: "越大越不准"),
-            new("noiseRadius", "噪音半径(像素)", "number", Hint: "多远内的丧尸/劫掠者会被引来"),
+            new("twoHanded", "强制双手", "bool", Hint: "武器本身是否必须双手持（Weapon.TwoHanded）；单手武器也可以双手握，那是运行时的握法，不是这一列", ConfigKey: "TwoHanded"),
+            new("canDualWield", "可双持", "bool", ConfigKey: "CanDualWield"),
+            new("maxRange", "最大射程(像素)", "number", ConfigKey: "MaxRange"),
+            new("falloffStart", "距离衰减起点(像素)", "number", ConfigKey: "FalloffStart"),
+            new("falloffFloor", "最远处伤害", "percent", Hint: "打到最大射程时还剩几成伤害。", ConfigKey: "FalloffFloor"),
+            new("spread", "基础散布(度)", "number", Hint: "越大越不准", ConfigKey: "BaseSpreadDegrees"),
+            new("noiseRadius", "噪音半径(像素)", "number", Hint: "多远内的丧尸/劫掠者会被引来", ConfigKey: "NoiseRadius"),
             // DPS 两列：**引擎算的**（WeaponDps），网页只显示、绝不自己写一遍公式。
             new("dps", "每秒伤害", "number", ReadOnly: true,
                 Hint: "自动算的（引擎公式，手填会算错）：无甲/贴脸/无限弹药/单挑下的杀伤力天花板。改「伤害」「攻击间隔」「连发数」，它会立刻跟着变。"),
@@ -481,13 +502,14 @@ internal static class Program
             new("dualDps", "双持每秒伤害", "number", ReadOnly: true,
                 Hint: "自动算的。两把同款一起打；不可双持的武器这里是「—」（要改 ⇒ 改「可双持」）。注意它不是「每秒伤害 *1.4」——双持的惩罚只落在冷却上，连发那一段不受罚。"),
             new("weight", "重量(公斤)", "number"),
-            new("stockMin", "枪托近战 伤害下限", "number"),
-            new("stockMax", "枪托近战 伤害上限", "number"),
-            new("stockInterval", "枪托近战 间隔(秒)", "number"),
-            new("stockPenetration", "枪托近战 穿透力", "percent"),
-            new("structureFactor", "砸墙倍率", "mult", Hint: "拿它砸围栏/门时，伤害要乘的倍数。可以大于 1。"),
+            new("stockMin", "枪托近战 伤害下限", "number", ConfigKey: "StockMeleeDamageMin"),
+            new("stockMax", "枪托近战 伤害上限", "number", ConfigKey: "StockMeleeDamageMax"),
+            new("stockInterval", "枪托近战 间隔(秒)", "number", ConfigKey: "StockMeleeInterval"),
+            new("stockPenetration", "枪托近战 穿透力", "percent", ConfigKey: "StockMeleePenetration"),
+            new("structureFactor", "砸墙倍率", "mult", Hint: "拿它砸围栏/门时，伤害要乘的倍数。可以大于 1。", ConfigKey: "StructureFactor"),
             new("description", "说明", "longtext"),
             new("_id", "内部 id", Internal: true),
+            new("_configId", "config 键", Internal: true),
             new("_anchor", "代码位置", Internal: true),
         };
 
@@ -528,6 +550,8 @@ internal static class Program
                 ["structureFactor"] = w.StructureFactor,
                 ["description"] = w.Description,
                 ["_id"] = member,
+                // config 联动 join 键：PascalCase 成员名 → snake_case（= godot/data/config/weapons.json 的条目键）。
+                ["_configId"] = SnakeCase(member),
                 ["_anchor"] = $"src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.{member}()",
             });
         }
@@ -538,7 +562,7 @@ internal static class Program
             + "**不含**护甲、距离衰减、开枪招来的怪、子弹够不够打、以及一枪撂倒几只。"
             + "枪的真实战力其实由弹药供给决定，而供给不在这个数字里——拿它调平衡时请记着这一点。"
             + "「天生武器」（爪击/撕咬/拳脚）是丧尸、狗和空手的攻击，不是可拾取物品。",
-            cols, rows);
+            cols, rows, ConfigFile: "weapons.json");
     }
 
     /// <summary>
@@ -605,11 +629,12 @@ internal static class Program
                 Hint: "这件东西实际护到身上哪些地方（引擎真源，只读）。已折叠显示：「双X」= 左右都护；「手(含指)/脚(含趾)」= 连同该手指/脚趾一起护。没护到的部位命中时一点也不挡。"),
             new("paired", "成对装备", "bool",
                 Hint: "手套/鞋子这种：物品本身不分左右，**一件只占一个槽、只护一只手（脚）——要护全得装两件**。「保护部位」列显示的是装在其中一侧时护的部位。"),
-            new("sharpDefense", "锐防", "number"),
-            new("bluntDefense", "钝防", "number"),
-            new("weight", "重量(公斤)", "number"),
+            new("sharpDefense", "锐防", "number", ConfigKey: "SharpDefense"),
+            new("bluntDefense", "钝防", "number", ConfigKey: "BluntDefense"),
+            new("weight", "重量(公斤)", "number", ConfigKey: "Weight"),
             new("description", "说明", "longtext"),
             new("_id", "内部 id", Internal: true),
+            new("_configId", "config 键", Internal: true),
             new("_anchor", "代码位置", Internal: true),
         };
 
@@ -625,7 +650,7 @@ internal static class Program
             + "没被护到的部位，命中时一点也不挡。"
             + "手套和鞋子是**成对装备**——一件只护一只手（脚），要护全得做两件。"
             + "「腐皮」是丧尸天生的，不是能穿的衣服。",
-            cols, rows);
+            cols, rows, ConfigFile: "armor.json");
     }
 
     /// <summary>
@@ -658,6 +683,8 @@ internal static class Program
             ["weight"] = a.Weight,
             ["description"] = a.Description,
             ["_id"] = member,
+            // config 联动 join 键：PascalCase 成员名 → snake_case（= godot/data/config/armor.json 的条目键）。
+            ["_configId"] = SnakeCase(member),
             ["_anchor"] = $"src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.{member}()"
                           + "（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
         };

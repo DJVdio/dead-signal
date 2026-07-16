@@ -15,6 +15,7 @@
     "AbrasionSeverityThreshold",
     "SurgeryBasePoints", "BedBonusPoints", "SurgeryFailThreshold", "SurgeryMinPoints",
     "SelfSurgeryFactor", "ImmediateHealOnSuccess", "BedSleepHealBonusPct",
+    "RosehipTeaHealBonusPct",
     "RedoSurgeryCooldownDays", "TreatmentPotencyFactor",
     "Medicines", "SurgerySupplies", "MedicalBooks"
   ],
@@ -46,6 +47,7 @@
     "SelfSurgeryFactor": { "type": "number", "minimum": 0, "description": "自体手术能力系数。" },
     "ImmediateHealOnSuccess": { "type": "number", "minimum": 0, "description": "手术成功即刻恢复量。" },
     "BedSleepHealBonusPct": { "type": "number", "minimum": 0, "description": "睡床加算恢复速度（百分点）。" },
+    "RosehipTeaHealBonusPct": { "type": "number", "minimum": 0, "description": "玫瑰果茶恢复加成（百分点，24 小时内本昼夜恢复效率 +本值 pp）。" },
     "RedoSurgeryCooldownDays": { "type": "integer", "minimum": 0, "description": "重做手术冷却（昼夜）。" },
     "TreatmentPotencyFactor": { "type": "number", "minimum": 0, "description": "单次药效固定照护基数。" },
     "Medicines": {

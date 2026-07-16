@@ -58,6 +58,7 @@ public sealed class HealthConfigMigrationTests
     private const double GSelfSurgeryFactor = 0.60;
     private const double GImmediateHealOnSuccess = 0.05;
     private const double GBedSleepHealBonusPct = 10.0;
+    private const double GRosehipTeaHealBonusPct = 9.0;   // 原 Pawn.RosehipTeaHealBonusPct const（config-cleanup 外置）
     private const int GRedoSurgeryCooldownDays = 1;
     private const double GTreatmentPotencyFactor = 0.8;
 
@@ -103,6 +104,7 @@ public sealed class HealthConfigMigrationTests
         BitEqual(GSelfSurgeryFactor, s.SelfSurgeryFactor);
         BitEqual(GImmediateHealOnSuccess, s.ImmediateHealOnSuccess);
         BitEqual(GBedSleepHealBonusPct, s.BedSleepHealBonusPct);
+        BitEqual(GRosehipTeaHealBonusPct, s.RosehipTeaHealBonusPct);
         Assert.Equal(GRedoSurgeryCooldownDays, s.RedoSurgeryCooldownDays);
         BitEqual(GTreatmentPotencyFactor, s.TreatmentPotencyFactor);
     }
@@ -203,6 +205,7 @@ public sealed class HealthConfigMigrationTests
         BitEqual(golden.InfectionWorsenPerDay, back.InfectionWorsenPerDay);
         BitEqual(golden.CureProgressBaseRate, back.CureProgressBaseRate);
         BitEqual(golden.BedSleepHealBonusPct, back.BedSleepHealBonusPct);
+        BitEqual(golden.RosehipTeaHealBonusPct, back.RosehipTeaHealBonusPct);
         Assert.Equal(golden.SurgeryBasePoints, back.SurgeryBasePoints);
         Assert.Equal(golden.InfectionWindowDays, back.InfectionWindowDays);
 
@@ -236,6 +239,7 @@ public sealed class HealthConfigMigrationTests
         BitEqual(GInfectionWorsenPerDay, loaded.InfectionWorsenPerDay);
         BitEqual(GCureProgressBaseRate, loaded.CureProgressBaseRate);
         Assert.Equal(GSurgeryBasePoints, loaded.SurgeryBasePoints);
+        BitEqual(GRosehipTeaHealBonusPct, loaded.RosehipTeaHealBonusPct);
         BitEqual(0.75, loaded.SurgerySupplies["herbal_bandage"].InfectionChanceMultiplier);
         Assert.Equal(20, loaded.SurgerySupplies["herbal_bandage"].Points);
         Assert.Equal(3, loaded.MedicalBooks["wilderness_survival_guide"]);

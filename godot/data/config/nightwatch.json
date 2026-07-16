@@ -1,9 +1,17 @@
 {
-  // 夜防对抗——袭击者潜行力权重（数值真源，原 NightWatchContest.cs 的 5 个 const float）。
-  // 数值皆「拟定待调」，由 Sim(watchcal/watchsweep) 与目视校准。改这里即改夜防潜行公式。
+  // 夜防对抗——袭击者潜行力权重 + 站岗方警戒力权重 + 未发现后果（数值真源，原 NightWatchContest.cs 的 const）。
+  // 数值皆「拟定待调」，由 Sim(watchcal/watchsweep) 与目视校准。改这里即改夜防对抗公式。
+  // ── 潜行力权重（第一批） ──
   "StealthDarknessWeight": 1,
   "StealthApparelWeight": 1,
   "StealthDistanceWeight": 0.6,
   "StealthDistanceReference": 300,
-  "StealthCoverWeight": 0.5
+  "StealthCoverWeight": 0.5,
+  // ── 警戒力权重 + 未发现后果（第二批） ──
+  "VisionWeight": 1,
+  "HearingWeight": 0.6,
+  "HearingBaseRange": 220,
+  "PreemptiveStrikeMultiplier": 1.5,
+  "SilentTheftMinUnits": 1,
+  "SilentTheftMaxUnits": 4
 }

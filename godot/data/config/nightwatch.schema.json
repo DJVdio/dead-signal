@@ -10,13 +10,25 @@
     "StealthApparelWeight",
     "StealthDistanceWeight",
     "StealthDistanceReference",
-    "StealthCoverWeight"
+    "StealthCoverWeight",
+    "VisionWeight",
+    "HearingWeight",
+    "HearingBaseRange",
+    "PreemptiveStrikeMultiplier",
+    "SilentTheftMinUnits",
+    "SilentTheftMaxUnits"
   ],
   "properties": {
     "StealthDarknessWeight": { "type": "number", "minimum": 0, "description": "黑暗项权重：局部光照越低越隐蔽（贡献 = 权重×(1-L)）。" },
     "StealthApparelWeight": { "type": "number", "minimum": 0, "description": "服饰项权重：服饰潜行值合计的放大系数。" },
     "StealthDistanceWeight": { "type": "number", "minimum": 0, "description": "距离项权重：越远越难被察觉。" },
     "StealthDistanceReference": { "type": "number", "exclusiveMinimum": 0, "description": "距离项归一参考（世界像素）：距离≥此值时距离项达满档。" },
-    "StealthCoverWeight": { "type": "number", "minimum": 0, "description": "遮蔽项权重：视野遮蔽物权重 [0,1] 的放大系数。" }
+    "StealthCoverWeight": { "type": "number", "minimum": 0, "description": "遮蔽项权重：视野遮蔽物权重 [0,1] 的放大系数。" },
+    "VisionWeight": { "type": "number", "minimum": 0, "description": "视力项权重：满档清晰目击贡献的警戒量。" },
+    "HearingWeight": { "type": "number", "minimum": 0, "description": "听力项权重：满档（贴身）听觉贡献的警戒量。" },
+    "HearingBaseRange": { "type": "number", "exclusiveMinimum": 0, "description": "听力基值半径（世界像素）：袭击者在此半径内可被听见，随距离线性衰减到 0。" },
+    "PreemptiveStrikeMultiplier": { "type": "number", "minimum": 0, "description": "杀戮意图潜行先手伤害乘数（用户口径 1.5x）。" },
+    "SilentTheftMinUnits": { "type": "integer", "minimum": 0, "description": "静默偷窃单位数下限（量级拟定）。" },
+    "SilentTheftMaxUnits": { "type": "integer", "minimum": 0, "description": "静默偷窃单位数上限（量级拟定）。" }
   }
 }

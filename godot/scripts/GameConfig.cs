@@ -50,6 +50,12 @@ public sealed class GameConfig
     /// <summary>感染+医疗数值段（health.json）——感染几率/免疫窗/恶化愈合速率/手术点数阈值 + 药品/手术耗材/医疗书逐条数字。</summary>
     public HealthConfig Health { get; init; } = new();
 
+    /// <summary>南方三问考验段（southtrial.json）——三题总分的通过门槛（南逃 WIN 入口）。</summary>
+    public SouthTrialConfig SouthTrial { get; init; } = new();
+
+    /// <summary>神秘商人经济段（merchant.json）——买卖价率（买 100%/卖 60%）。</summary>
+    public MerchantConfig Merchant { get; init; } = new();
+
     // ── 后续消费层 config 迁移单在此加一行（各自独立、互不撞车）──────────────────
     // public HungerConfig    Hunger    { get; init; } = new();   // hunger.json
     // public RecipeConfig    Recipes   { get; init; } = new();   // recipes.json

@@ -94,6 +94,8 @@ public sealed class HealthConfig : IGameConfigSection
     public double ImmediateHealOnSuccess { get; init; } = 0.05;
     /// <summary>睡床加算恢复速度（百分点，加算非乘算）。</summary>
     public double BedSleepHealBonusPct { get; init; } = 10.0;
+    /// <summary>[SPEC-B14-补2] 玫瑰果茶恢复加成（百分点，加算非乘算）：喝下后 24 小时内本昼夜恢复效率 +本值 pp（数值真源，原 Pawn.RosehipTeaHealBonusPct const）。</summary>
+    public double RosehipTeaHealBonusPct { get; init; } = 9.0;
     /// <summary>重做手术冷却（昼夜）：距上次手术 &gt; 此值才可重做。</summary>
     public int RedoSurgeryCooldownDays { get; init; } = 1;
     /// <summary>单次药效固定照护基数（仅感染/疾病用药）。</summary>

@@ -103,13 +103,16 @@ public readonly struct ContestResult
 /// </summary>
 public static class NightWatchContest
 {
-    // ── 警戒力权重（拟定待调）─────────────────────────────────────────────────
+    // ── 警戒力权重（拟定待调）──【数值外置·第二批】已搬到 nightwatch.json ─────────────────
+    // VisionWeight/HearingWeight 仅方法体内用（零外部引用、非默认参数值）⇒安全改静态属性读配置。
+    // ⚠️ HearingBaseRange 见下方 ComputeAlertness：它原是该方法**默认参数值**（编译期 const 上下文），
+    //    不能裸改属性（会编译失败），故用「哨兵默认 -1f + 体内解析」把默认落到运行时配置（同 HungerState.DefaultCap 陷阱）。
     /// <summary>视力项权重：满档清晰目击贡献的警戒量。</summary>
-    public const float VisionWeight = 1.0f;
+    public static float VisionWeight => GameConfigCatalog.Section<NightWatchConfig>().VisionWeight;
     /// <summary>听力项权重：满档（贴身）听觉贡献的警戒量（弱于直接目视）。</summary>
-    public const float HearingWeight = 0.6f;
+    public static float HearingWeight => GameConfigCatalog.Section<NightWatchConfig>().HearingWeight;
     /// <summary>听力基值半径（世界像素，新轴）：袭击者在此半径内可被"听见"，随距离线性衰减到 0。</summary>
-    public const float HearingBaseRange = 220f;
+    public static float HearingBaseRange => GameConfigCatalog.Section<NightWatchConfig>().HearingBaseRange;
 
     // ── 潜行力权重（拟定待调）──【数值外置】原 5 个 const float 已搬到 nightwatch.json ─────────
     // 现身体读 GameConfigCatalog（消费层配置范式，见 GameConfig/GameConfigCatalog/NightWatchConfig）。
@@ -126,13 +129,14 @@ public static class NightWatchContest
     /// <summary>遮蔽项权重：视野遮蔽物权重 [0,1] 的放大系数。</summary>
     public static float StealthCoverWeight => GameConfigCatalog.Section<NightWatchConfig>().StealthCoverWeight;
 
-    // ── 未发现后果（拟定待调）─────────────────────────────────────────────────
+    // ── 未发现后果（拟定待调）──【数值外置·第二批】已搬到 nightwatch.json ────────────────────
+    // 三者仅方法体内用 + 运行时读（cref/字符串插值/测试 Assert），非默认参数值/const-expr 上下文 ⇒ 安全改静态属性。
     /// <summary>杀戮意图潜行先手伤害乘数（用户口径 1.5x）。</summary>
-    public const float PreemptiveStrikeMultiplier = 1.5f;
+    public static float PreemptiveStrikeMultiplier => GameConfigCatalog.Section<NightWatchConfig>().PreemptiveStrikeMultiplier;
     /// <summary>静默偷窃单位数下限（量级拟定）。</summary>
-    public const int SilentTheftMinUnits = 1;
+    public static int SilentTheftMinUnits => GameConfigCatalog.Section<NightWatchConfig>().SilentTheftMinUnits;
     /// <summary>静默偷窃单位数上限（量级拟定）。</summary>
-    public const int SilentTheftMaxUnits = 4;
+    public static int SilentTheftMaxUnits => GameConfigCatalog.Section<NightWatchConfig>().SilentTheftMaxUnits;
 
     private const float Epsilon = 1e-4f;
 
@@ -254,15 +258,19 @@ public static class NightWatchContest
     /// <param name="structureBonus">岗哨建筑加成（加法项，≥0，由 <see cref="GuardPostStats"/> 映射，如哨塔更高更远）。</param>
     /// <param name="fatigueMultiplier">疲劳系数 (0,1]，1=无疲劳，被唤醒者次相位 &lt;1（shift-sleep 供给）。</param>
     /// <param name="watchEfficiency">站岗效率系数，人类=1，布鲁斯=0.75（consumer 传入 <c>DougBruceBond.BruceGuardEfficiency</c>，本类不硬编狗）。</param>
-    /// <param name="hearingRange">听力基值半径（默认 <see cref="HearingBaseRange"/>）。</param>
+    /// <param name="hearingRange">听力基值半径。<b>负值（默认 -1）＝哨兵</b>：解析为运行时配置的 <see cref="HearingBaseRange"/>
+    /// （<see cref="HearingBaseRange"/> 数值已外置到 nightwatch.json，不再是编译期 const，故默认参数改用哨兵而非直接引用它）。</param>
     public static float ComputeAlertness(
         float visionAcuity,
         float distance,
         float structureBonus = 0f,
         float fatigueMultiplier = 1f,
         float watchEfficiency = 1f,
-        float hearingRange = HearingBaseRange)
+        float hearingRange = -1f)
     {
+        // 哨兵解析：负半径＝未指定，落到运行时配置基值（与迁移前默认参数 = HearingBaseRange 等价）。
+        if (hearingRange < 0f)
+            hearingRange = HearingBaseRange;
         float vision = VisionWeight * Math.Clamp(visionAcuity, 0f, 1f);
         float hearing = HearingWeight * HearingFalloff(distance, hearingRange);
         float perception = (vision + hearing) * Math.Max(0f, watchEfficiency);

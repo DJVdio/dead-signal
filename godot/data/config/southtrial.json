@@ -1,0 +1,7 @@
+{
+  // 南方三问考验——三题总分的通过门槛（数值真源，原 SouthTrial.cs 的 PassThreshold const int）。
+  // 数值「占位待 author 校准」：满本值才通过、不满即失败（满分 = 3 题 × 每题 2 分 = 6）。改这里即改南逃 WIN 门槛。
+  // 只搬数值：三问题目/答案/分数映射、状态机/flag 键、裁决/回绝文案草稿是 authored 内容，留在 SouthTrial.cs 不外置。
+  // QuestionCount(3)/MaxScorePerQuestion(2) 是与 authored 题面绑定的结构常量，非平衡旋钮，亦留 const。
+  "PassThreshold": 5
+}
