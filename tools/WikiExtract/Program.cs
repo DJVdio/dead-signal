@@ -1185,6 +1185,12 @@ internal static class Program
         {
             new("name", "名称", Primary: true),
             new("category", "类别", "chip"),
+            // [item9] 产物类型：**按做出来的东西属于哪一大类**（武器/护甲/弹药/医疗/材料/家具…）派生的只读列。
+            // 与左边「类别」（RecipeCategory：按什么**工艺**做——木工/化学/缝纫…）是两条正交轴，用户拍板"并存"。
+            // 判据 = CraftOutputFactory 的产物分派真源（反射它的私有集合 + Materials 目录 + 狗装备键 + 野外设施集）——
+            // 与游戏"这条配方造出来的到底是把武器还是件护甲"完全同口径，新配方自动归类。行的 group 也取它 ⇒ 前端按产物类型分块。
+            new("productType", "产物类型", "chip", ReadOnly: true,
+                Hint: "做出来的东西属于哪一大类（武器/护甲/弹药/医疗/材料/家具…），按产物自动判定（只读）。它跟左边的「类别」是两回事——「类别」说的是**用什么工艺做**（木工/化学/缝纫…），这一列说的是**做出来的是什么**。"),
             new("output", "产物", Hint: "做出来的是什么（内部 key，引擎真读它）。⚠️ 改它等于把这条配方换成做另一件东西——慎改。"),
             new("outputQty", "产量", "number", ConfigKey: "OutputQuantity"),
             // 「材料」是 dict{料→量}（recipes.json 的 MaterialCosts 嵌套字典）——恒等投影不支持嵌套，暂留 agent 手动（见 journal 待扩清单）。
@@ -1206,10 +1212,14 @@ internal static class Program
         var rows = new List<Dictionary<string, object?>>();
         foreach (RecipeData r in RecipeBook.All)
         {
+            string productType = RecipeProductType(r);
             rows.Add(new Dictionary<string, object?>
             {
                 ["name"] = r.DisplayName,
                 ["category"] = RecipeCategoryLabel(r.Category),
+                ["productType"] = productType,
+                // 行的 group = 产物类型 ⇒ 前端（波2 renderTable）按产物类型分块渲染（同 farming/character-stats 的 row.group 契约）。
+                ["group"] = productType,
                 ["output"] = r.OutputKey,
                 ["outputQty"] = r.OutputQuantity,
                 ["materials"] = string.Join('、', r.MaterialCosts.Select(kv => $"{MaterialName(kv.Key)}*{kv.Value}")),
@@ -1282,6 +1292,51 @@ internal static class Program
         RecipeCategory.Misc => "杂项",
         _ => c.ToString(),
     };
+
+    // [item9] 产物类型分类 —— **完全照 CraftOutputFactory.Create 的分派顺序**（那是游戏"这条配方造出来是什么"的唯一真源）：
+    //   材料目录命中 → 再按 MaterialCategory 细分（弹药/医疗/材料）；否则查武器集/护甲集（护甲集里狗装备键单拎"狗装备"）/光源集；
+    //   都不是 ⇒ 落 Furniture 那条兜底分支（Item.Material + FurnitureFlavor）——再按野外设施集拆"陷阱与工事"vs"家具与设施"。
+    // 三个 *Outputs 集是 CraftOutputFactory 的私有 static 字段，反射取（同 LightCatalog 反射 LightSource._byKey 的先例）：
+    // 游戏那边增补一个产物 key，这里自动跟着归类，不必手抄。
+    private static readonly Lazy<IReadOnlySet<string>> _weaponOutputs = new(() => CraftOutputSet("WeaponOutputs"));
+    private static readonly Lazy<IReadOnlySet<string>> _armorOutputs = new(() => CraftOutputSet("ArmorOutputs"));
+    private static readonly Lazy<IReadOnlySet<string>> _lightOutputs = new(() => CraftOutputSet("LightOutputs"));
+    private static readonly HashSet<string> _dogGearKeys = new(DogGearCatalog.AllKeys, StringComparer.Ordinal);
+
+    private static IReadOnlySet<string> CraftOutputSet(string fieldName)
+    {
+        FieldInfo f = typeof(CraftOutputFactory).GetField(fieldName, BindingFlags.NonPublic | BindingFlags.Static)
+            ?? throw new InvalidOperationException($"CraftOutputFactory.{fieldName} 不见了——产物分类字段换实现了，改这里。");
+        return (IReadOnlySet<string>)f.GetValue(null)!;
+    }
+
+    private static string RecipeProductType(RecipeData r)
+    {
+        string key = r.OutputKey;
+
+        // ① 材料目录命中（弹药/医疗都归在 Materials 里，走 MaterialCategory 细分）
+        if (DeadSignal.Godot.Materials.Find(key) is { } mat)
+        {
+            return mat.Category switch
+            {
+                MaterialCategory.Ammo => "弹药",
+                MaterialCategory.Medical => "医疗",
+                _ => "材料",   // 木/布/金属/皮/化学/杂项/精密零件（含子弹零件）等
+            };
+        }
+
+        // ② 武器
+        if (_weaponOutputs.Value.Contains(key)) return "武器";
+
+        // ③ 护甲（狗装备键单拎出来）
+        if (_armorOutputs.Value.Contains(key)) return _dogGearKeys.Contains(key) ? "狗装备" : "护甲/服装";
+
+        // ④ 光源
+        if (_lightOutputs.Value.Contains(key)) return "光源";
+
+        // ⑤ 兜底（家具/设施）：野外徒手搭的设施（陷阱/菜园/沙袋）单拎"陷阱与工事"，其余为"家具与设施"
+        return FieldRecipeIds.Contains(r.Id) ? "陷阱与工事" : "家具与设施";
+    }
 
     /// <summary>材料 key → 中文名（查不到就原样回退：产物 key 可能是武器/护甲名而非材料）。</summary>
     private static string MaterialName(string key)

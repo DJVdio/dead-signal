@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-16 10:51:23",
+  "generatedAt": "2026-07-16 11:21:29",
   "iconDir": "godot/assets/items",
   "multiselectOptions": {
     "fitsWeapons": [
@@ -138,14 +138,14 @@
       "id": "characters",
       "label": "角色",
       "file": "characters.json",
-      "count": 16,
+      "count": 18,
       "source": "godot/scripts/SurvivorPerks.cs · SurvivorBackstory.cs · DougBruceBond.cs · NurseRecruit.cs · MerchantLineage.cs · src/DeadSignal.Combat/ZombieOutfit.cs"
     },
     {
       "id": "character-stats",
       "label": "角色数值",
       "file": "character-stats.json",
-      "count": 50,
+      "count": 68,
       "source": "godot/scripts/SurvivorPerks.cs 等（每行的「代码位置」列写明了各自的出处）"
     },
     {

@@ -157,6 +157,7 @@
     <Compile Include="..\..\godot\scripts\ReadBookSet.cs" Link="Consumed\ReadBookSet.cs" />
     <!-- 每角色 authored 专属效果 + 读书进度纯逻辑（无 Godot 依赖）：书虫样板(累计阅读时间跨阈值升级/各级读速/L3 全营加成) + 按(读者,书)累计跨夜进度 + 有效读速合成。 -->
     <Compile Include="..\..\godot\scripts\SurvivorPerks.cs" Link="Consumed\SurvivorPerks.cs" />
+    <Compile Include="..\..\godot\scripts\PetePerk.cs" Link="Consumed\PetePerk.cs" />
     <Compile Include="..\..\godot\scripts\ReadingProgress.cs" Link="Consumed\ReadingProgress.cs" />
     <!-- authored 背景在躯体上的开局痕迹（无 Godot 依赖）：山姆开局左手缺小指+无名指（九岁救诺蒂被野狗咬掉）。 -->
     <Compile Include="..\..\godot\scripts\SurvivorBackstory.cs" Link="Consumed\SurvivorBackstory.cs" />

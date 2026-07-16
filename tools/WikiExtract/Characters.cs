@@ -62,6 +62,8 @@ internal static class Characters
         rows.Add(Doug());
         rows.Add(Nightingale());
         rows.Add(Christine());
+        rows.Add(Pete());
+        rows.Add(Rat());
         rows.Add(Bruce());
         rows.AddRange(Merchants());
         rows.AddRange(StoryCorpses());
@@ -198,6 +200,30 @@ internal static class Characters
         Add("克莉丝汀", "生成配置", "christine_declines", "累计几次「暂不」后她离开", ChristineRequestLogic.DeclinesToLeave, "次", "godot/scripts/ChristineRequestLogic.cs :: DeclinesToLeave");
         Add("克莉丝汀", "战斗", "christine_raider_wounded", "劫掠者掉血到多少触发她反水", Pct(TutorialRaidLogic.RaiderWoundedThreshold), "%血量", "godot/scripts/TutorialRaidLogic.cs :: RaiderWoundedThreshold");
         Add("克莉丝汀", "战斗", "christine_self_hurt", "她自己掉血到多少触发反水", Pct(TutorialRaidLogic.ChristineHurtThreshold), "%血量", "godot/scripts/TutorialRaidLogic.cs :: ChristineHurtThreshold");
+
+        // —— 皮特·田径队大男孩（效果值用户拍板·非拟定；升级阈值拟定待调）——
+        const string peteSrc = "godot/scripts/PetePerk.cs :: PetePerk";
+        Add("皮特", "生存", "pete_l1_movespeed", "1 级 移速倍率", PetePerk.Level1MoveSpeedMultiplier, "倍", peteSrc + ".Level1MoveSpeedMultiplier", settled: true, cfgKey: "PeteLevel1MoveSpeedMultiplier");
+        Add("皮特", "生存", "pete_l2_movespeed", "2 级 移速倍率", PetePerk.Level2MoveSpeedMultiplier, "倍", peteSrc + ".Level2MoveSpeedMultiplier", settled: true, cfgKey: "PeteLevel2MoveSpeedMultiplier");
+        Add("皮特", "生存", "pete_l3_movespeed", "3 级 移速倍率", PetePerk.Level3MoveSpeedMultiplier, "倍", peteSrc + ".Level3MoveSpeedMultiplier", settled: true, cfgKey: "PeteLevel3MoveSpeedMultiplier");
+        Add("皮特", "操作与生产", "pete_l2_operation", "2 级 操作能力加成", Pct(PetePerk.OperationCapabilityBonus), "%", peteSrc + ".OperationCapabilityBonus", settled: true, cfgKey: "PeteOperationCapabilityBonus", pct: true);
+        Add("皮特", "战斗", "pete_l3_dodge", "3 级 受击闪避概率", Pct(PetePerk.DodgeChanceValue), "%", peteSrc + ".DodgeChanceValue", settled: true, cfgKey: "PeteDodgeChanceValue", pct: true);
+        Add("皮特", "战斗", "pete_l3_dodge_maxkg", "3 级 闪避的负重上限（严格小于才可闪）", PetePerk.DodgeMaxCarriedKg, "公斤", peteSrc + ".DodgeMaxCarriedKg", settled: true, cfgKey: "PeteDodgeMaxCarriedKg");
+        Add("皮特", "生存", "pete_extra_hunger", "额外掉 2 饥饿的概率（1 级起常驻）", Pct(PetePerk.ExtraHungerDropChance), "%", peteSrc + ".ExtraHungerDropChance", settled: true, cfgKey: "PeteExtraHungerDropChance", pct: true);
+        Add("皮特", "升级门槛", "pete_hunger_streak_floor", "连续计数的饥饿下限（≥它才续连续）", PetePerk.HungerThresholdForStreak, "饥饿值", peteSrc + ".HungerThresholdForStreak", cfgKey: "PeteHungerThresholdForStreak");
+        Add("皮特", "升级门槛", "pete_l2_phases", "升 2 级 所需连续相位（= 5 天·每天 2 相位）", PetePerk.Level2ConsecutivePhases, "相位", peteSrc + ".Level2ConsecutivePhases", cfgKey: "PeteLevel2ConsecutivePhases");
+        Add("皮特", "升级门槛", "pete_l3_departure_ceiling", "升 3 级 出行计数的饥饿上限", PetePerk.DepartureHungerCeiling, "饥饿值", peteSrc + ".DepartureHungerCeiling", cfgKey: "PeteDepartureHungerCeiling");
+        Add("皮特", "升级门槛", "pete_l3_departures", "升 3 级 所需合格出行次数", PetePerk.Level3DepartureCount, "次", peteSrc + ".Level3DepartureCount", cfgKey: "PeteLevel3DepartureCount");
+
+        // —— 耗子·下水道拾荒（数值用户原话·非拟定；L3 两条为未接线的引擎新轴）——
+        const string ratSrc = "godot/scripts/SurvivorPerks.cs :: RatPerk";
+        Add("耗子", "升级门槛", "rat_l2_items", "升 2 级 累计搜出件数", RatPerk.Level2ThresholdItems, "件", ratSrc + ".Level2ThresholdItems", settled: true, cfgKey: "RatLevel2ThresholdItems");
+        Add("耗子", "升级门槛", "rat_l3_items", "升 3 级 累计搜出件数", RatPerk.Level3ThresholdItems, "件", ratSrc + ".Level3ThresholdItems", settled: true, cfgKey: "RatLevel3ThresholdItems");
+        Add("耗子", "感知", "rat_l1_noise", "1 级 动作噪音半径乘子（脚步/开门/撬锁/拆除）", RatPerk.Level1ActionNoiseMultiplier, "倍", ratSrc + ".Level1ActionNoiseMultiplier", settled: true, cfgKey: "RatLevel1ActionNoiseMultiplier");
+        Add("耗子", "操作与生产", "rat_l1_loot", "1 级 翻找搜刮速度加成", Pct(RatPerk.Level1LootSpeedBonus), "%", ratSrc + ".Level1LootSpeedBonus", settled: true, cfgKey: "RatLevel1LootSpeedBonus", pct: true);
+        Add("耗子", "操作与生产", "rat_l2_loot", "2 级 翻找搜刮速度再加成（指定加算例外）", Pct(RatPerk.Level2LootSpeedBonus), "%", ratSrc + ".Level2LootSpeedBonus", settled: true, cfgKey: "RatLevel2LootSpeedBonus", pct: true);
+        Add("耗子", "感知", "rat_l3_darkness", "3 级 黑暗隐匿点加成（未接线）", Pct(RatPerk.Level3DarknessStealthBonus), "%", ratSrc + ".Level3DarknessStealthBonus", settled: true, cfgKey: "RatLevel3DarknessStealthBonus", pct: true);
+        Add("耗子", "战斗", "rat_l3_ambush", "3 级 破隐先手额外伤害（未接线）", Pct(RatPerk.Level3AmbushDamageBonus), "%", ratSrc + ".Level3AmbushDamageBonus", settled: true, cfgKey: "RatLevel3AmbushDamageBonus", pct: true);
 
         // —— 神秘商人（两位商人共用同一套价率与调度）——
         var sched = new MerchantSchedule(new SystemRandomSource(), currentDay: 0);
@@ -390,6 +416,66 @@ internal static class Characters
         ["draft"] = true,
         ["_id"] = "christine",
         ["_anchor"] = "godot/scripts/ChristineRequestLogic.cs + TutorialRaidLogic.cs + GoldfingerDiscovery.cs",
+    };
+
+    private static Dictionary<string, object?> Pete() => new()
+    {
+        ["name"] = PetePerk.PeteName,
+        ["category"] = Survivor,
+        ["faction"] = "幸存者",
+        ["tagline"] = "十来岁的大男孩，曾是学校田径队。深夜连滚带爬扑到大门外求救的那个。",
+        ["perkName"] = "田径队大男孩",
+        ["perkAxis"] = "两条不同形态的轴（升级不倒退）：\n"
+                       + $"· L1→L2「连续饿着」：相位级查——每相位饥饿 ≥{PetePerk.HungerThresholdForStreak} 连续计数 +1，任一相位 小于 {PetePerk.HungerThresholdForStreak} 清零重记；"
+                       + $"连续 {PetePerk.Level2ConsecutivePhases} 相位（= 5 天·每天 2 相位）不断 → 永久升 L2（latch，此后再饿一顿也不掉回去）。\n"
+                       + $"· L2→L3「饿着还出门」：出发瞬间饥饿 ≤{PetePerk.DepartureHungerCeiling} 计一次（单调累计只增不减），累计 {PetePerk.Level3DepartureCount} 次 → L3。",
+        ["perkL1"] = $"入队即得。移速 {PetePerk.Level1MoveSpeedMultiplier:0.##} 倍。\n"
+                     + $"且不论几级都常驻：大男孩代谢快，每相位 {Pct(PetePerk.ExtraHungerDropChance)}% 概率额外掉 1 饥饿（合计一相位掉 2）。",
+        ["perkL2"] = $"连续 5 天饥饿 ≥{PetePerk.HungerThresholdForStreak}。移速升到 {PetePerk.Level2MoveSpeedMultiplier:0.##} 倍；"
+                     + $"操作能力 *{1 + PetePerk.OperationCapabilityBonus:0.##}（+{Pct(PetePerk.OperationCapabilityBonus)}%，乘算不截断——没有手的人 0*1.05 还是 0）。",
+        ["perkL3"] = $"达 L2 后饥饿 ≤{PetePerk.DepartureHungerCeiling} 出发累计 {PetePerk.Level3DepartureCount} 次。移速升到 {PetePerk.Level3MoveSpeedMultiplier:0.##} 倍；"
+                     + $"负重 小于 {PetePerk.DodgeMaxCarriedKg:0}kg 时受击 {Pct(PetePerk.DodgeChanceValue)}% 概率闪避（整次攻击无效，背太重就闪不动）。累进保留下级。",
+        ["join"] = $"第 7 天夜一开局，一个男孩跑到大门外拍门大喊求救，弹三选一：开门救援 / 置之不理 / 攻击他。\n"
+                   + $"· 开门救援 → 追在他身后的三只普通丧尸（非精英）一起涌到门口；三尸全歼且男孩存活 → 他作为「{PetePerk.PeteName}」入营；男孩战死 → 救援失败（不入营）。\n"
+                   + "· 置之不理 / 攻击他 → 男孩死亡、事件结束（整条招募不再触发）。",
+        ["gear"] = "空手入队（获救时是个手无寸铁的男孩，不自带武器）。⚠️ 拟定待定。",
+        ["backstory"] = "青春期大男孩，曾是学校田径队。\n\n（其余前史/性格待你手写——代码只给了「田径队大男孩」这一条 authored 事实，不引申。）",
+        ["relations"] = "（待你手写。）",
+        ["storyline"] = "移速/操作/闪避全按等级自动接通。L3 闪避只在负重 小于 30kg 时生效——背得太重就闪不动。",
+        ["notes"] = "数值口径：效果值（移速/操作/闪避/饥饿）是用户拍板·非拟定；升级阈值（连续相位/出行次数）是拟定待调。"
+                    + "专属效果名「田径队大男孩」取自代码注释的 authored 描述，非正式命名，待你定。数字在隔壁「角色数值」分区。",
+        ["draft"] = true,
+        ["_id"] = "pete",
+        ["_anchor"] = "godot/scripts/PetePerk.cs :: PetePerk + CampMain.PeteEvent.cs（第 7 夜敲门救援招募）",
+    };
+
+    private static Dictionary<string, object?> Rat() => new()
+    {
+        ["name"] = RatPerk.RatName,
+        ["category"] = Survivor,
+        ["faction"] = "幸存者",
+        ["tagline"] = "下水道最深处那个浑身恶臭、穿着潮湿破布夹克的女人。没有名字，叫「耗子」。",
+        ["perkName"] = "下水道拾荒",
+        ["perkAxis"] = "她本人累计搜出的物品件数（一件 = 藏物清单里的一个条目，不按数量/重量/价值——8 发子弹是一堆、一次转出算一件）。只增不减。",
+        ["perkL1"] = $"入队即得。脚步和动作（脚步 / 开门 / 撬锁 / 静默拆除）噪音 *{RatPerk.Level1ActionNoiseMultiplier:0.##}（减 {Pct(1 - RatPerk.Level1ActionNoiseMultiplier)}%）——"
+                     + "战斗、开枪、破坏这些不减；翻找搜刮速度 +" + Pct(RatPerk.Level1LootSpeedBonus) + "%。",
+        ["perkL2"] = $"累计搜出 {RatPerk.Level2ThresholdItems} 件。翻找搜刮速度再 +{Pct(RatPerk.Level2LootSpeedBonus)}%（合计 +{Pct(RatPerk.Level1LootSpeedBonus + RatPerk.Level2LootSpeedBonus)}% ⇒ {1 + RatPerk.Level1LootSpeedBonus + RatPerk.Level2LootSpeedBonus:0.##} 倍）；"
+                     + "并且她翻找东西不会产生任何噪音。",
+        ["perkL3"] = $"累计搜出 {RatPerk.Level3ThresholdItems} 件。黑暗带来的隐匿点 +{Pct(RatPerk.Level3DarknessStealthBonus)}%；破隐先手攻击额外再造成 +{Pct(RatPerk.Level3AmbushDamageBonus)}% 伤害。\n"
+                     + "⚠️ 这两条是引擎里还没有的新轴（玩家探索关没有「隐匿分」、CombatResolver 没有攻方伤害乘子也没有「未被发现」概念）——常量已落但**尚未接线**，目前只展示、不生效，等后续统一立项。",
+        ["join"] = $"探索到「{RatRecruit.DestinationName}」最深处遇到她，弹招募对话。婉拒不关门（可再来谈，直到她答应）；"
+                   + "答应后回营时正式入队（出行队伍名单已定，不在关内临时增员，同护士/村庄救援口径）。",
+        ["gear"] = "（待你手写。）",
+        ["backstory"] = "🔴 用户只给了四条事实：浑身恶臭、穿着潮湿破布夹克、是个女人、没有名字叫「耗子」、可招募。\n\n"
+                        + "她的前史 / 性格 / 为什么在下水道 / 和谁认识——用户一个字都没写，代码不许编造，一律留白等你手写。",
+        ["relations"] = "（待你手写。）",
+        ["storyline"] = "搜刮速度加成、动作噪音减免（L1/L2）已生效；L3 的黑暗隐匿点 +40% 与破隐先手 +35% 伤害是引擎新轴，未接线（护栏测试钉死其「未接线」状态）。",
+        ["notes"] = "数值为用户原话·非拟定（75/250 件、−40% 噪音、+50% 搜刮、再 +100%）。"
+                    + "L2 搜刮速度 2.50 倍 是用户明确指定的**加算例外**（同一 perk 自己的两级台阶按总量口述），不是漏网的加算残留，别顺手改成乘算。"
+                    + "L3 两条效果未接线。数字在隔壁「角色数值」分区。",
+        ["draft"] = true,
+        ["_id"] = "rat",
+        ["_anchor"] = "godot/scripts/SurvivorPerks.cs :: RatPerk + RatRecruit.cs（下水道最深处招募）",
     };
 
     private static Dictionary<string, object?> Bruce() => new()

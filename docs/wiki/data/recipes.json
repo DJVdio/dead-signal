@@ -17,6 +17,13 @@
       "type": "chip"
     },
     {
+      "key": "productType",
+      "label": "产物类型",
+      "type": "chip",
+      "readonly": true,
+      "hint": "做出来的东西属于哪一大类（武器/护甲/弹药/医疗/材料/家具…），按产物自动判定（只读）。它跟左边的「类别」是两回事——「类别」说的是**用什么工艺做**（木工/化学/缝纫…），这一列说的是**做出来的是什么**。"
+    },
+    {
       "key": "output",
       "label": "产物",
       "type": "text",
@@ -121,6 +128,8 @@
     {
       "name": "骨刀",
       "category": "杂项",
+      "productType": "武器",
+      "group": "武器",
       "output": "bone_knife",
       "outputQty": 1,
       "materials": "骨头*1、布*1",
@@ -141,6 +150,8 @@
     {
       "name": "粗布背心",
       "category": "缝纫",
+      "productType": "护甲/服装",
+      "group": "护甲/服装",
       "output": "cloth_vest",
       "outputQty": 1,
       "materials": "布*4",
@@ -161,6 +172,8 @@
     {
       "name": "布夹克",
       "category": "缝纫",
+      "productType": "护甲/服装",
+      "group": "护甲/服装",
       "output": "cloth_jacket",
       "outputQty": 1,
       "materials": "布*6",
@@ -181,6 +194,8 @@
     {
       "name": "板凳",
       "category": "木工",
+      "productType": "家具与设施",
+      "group": "家具与设施",
       "output": "bench",
       "outputQty": 1,
       "materials": "木料*2",
@@ -201,6 +216,8 @@
     {
       "name": "木椅",
       "category": "木工",
+      "productType": "家具与设施",
+      "group": "家具与设施",
       "output": "chair",
       "outputQty": 1,
       "materials": "木料*4、钉子*2",
@@ -221,6 +238,8 @@
     {
       "name": "床",
       "category": "木工",
+      "productType": "家具与设施",
+      "group": "家具与设施",
       "output": "bed",
       "outputQty": 1,
       "materials": "木料*12、布*4、钉子*6",
@@ -241,6 +260,8 @@
     {
       "name": "桌子",
       "category": "木工",
+      "productType": "家具与设施",
+      "group": "家具与设施",
       "output": "table",
       "outputQty": 1,
       "materials": "木料*8、钉子*4",
@@ -261,6 +282,8 @@
     {
       "name": "沙袋",
       "category": "杂项",
+      "productType": "陷阱与工事",
+      "group": "陷阱与工事",
       "output": "sandbag",
       "outputQty": 1,
       "materials": "布*2、石料*4",
@@ -281,6 +304,8 @@
     {
       "name": "回收木料",
       "category": "木工",
+      "productType": "材料",
+      "group": "材料",
       "output": "wood",
       "outputQty": 4,
       "materials": "废木料*4、胶水*1",
@@ -301,6 +326,8 @@
     {
       "name": "胶水",
       "category": "化学",
+      "productType": "材料",
+      "group": "材料",
       "output": "glue",
       "outputQty": 2,
       "materials": "骨头*4、燃料*1",
@@ -321,6 +348,8 @@
     {
       "name": "火药",
       "category": "化学",
+      "productType": "材料",
+      "group": "材料",
       "output": "gunpowder",
       "outputQty": 2,
       "materials": "石料*1、燃料*1",
@@ -341,6 +370,8 @@
     {
       "name": "鞣制药水",
       "category": "化学",
+      "productType": "材料",
+      "group": "材料",
       "output": "tanning_solution",
       "outputQty": 2,
       "materials": "燃料*1、石料*1",
@@ -361,6 +392,8 @@
     {
       "name": "短弓",
       "category": "精工/弓弩",
+      "productType": "武器",
+      "group": "武器",
       "output": "handmade_bow",
       "outputQty": 1,
       "materials": "木料*2、绳子*1",
@@ -381,6 +414,8 @@
     {
       "name": "自制猎枪",
       "category": "精工/弓弩",
+      "productType": "武器",
+      "group": "武器",
       "output": "improvised_hunting_gun",
       "outputQty": 1,
       "materials": "铁*4、木料*2、武器零件*2",
@@ -401,6 +436,8 @@
     {
       "name": "自制霰弹枪",
       "category": "精工/弓弩",
+      "productType": "武器",
+      "group": "武器",
       "output": "improvised_shotgun",
       "outputQty": 1,
       "materials": "铁*4、木料*2、武器零件*2",
@@ -421,6 +458,8 @@
     {
       "name": "改装台",
       "category": "精工/弓弩",
+      "productType": "家具与设施",
+      "group": "家具与设施",
       "output": "mod_bench",
       "outputQty": 1,
       "materials": "木料*8、铁*4、机械零件*2、钉子*6",
@@ -441,6 +480,8 @@
     {
       "name": "子弹零件",
       "category": "精工/弓弩",
+      "productType": "材料",
+      "group": "材料",
       "output": "bullet_parts",
       "outputQty": 1,
       "materials": "铁*2、机械零件*1",
@@ -461,6 +502,8 @@
     {
       "name": "短子弹",
       "category": "化学",
+      "productType": "弹药",
+      "group": "弹药",
       "output": "ammo_short",
       "outputQty": 8,
       "materials": "子弹零件*1、火药*1",
@@ -481,6 +524,8 @@
     {
       "name": "中子弹",
       "category": "化学",
+      "productType": "弹药",
+      "group": "弹药",
       "output": "ammo_medium",
       "outputQty": 5,
       "materials": "子弹零件*1、火药*1",
@@ -501,6 +546,8 @@
     {
       "name": "鹿弹",
       "category": "化学",
+      "productType": "弹药",
+      "group": "弹药",
       "output": "ammo_buck",
       "outputQty": 4,
       "materials": "子弹零件*1、火药*1",
@@ -521,6 +568,8 @@
     {
       "name": "长子弹",
       "category": "化学",
+      "productType": "弹药",
+      "group": "弹药",
       "output": "ammo_long",
       "outputQty": 2,
       "materials": "子弹零件*1、火药*1",
@@ -541,6 +590,8 @@
     {
       "name": "削尖的木箭",
       "category": "精工/弓弩",
+      "productType": "弹药",
+      "group": "弹药",
       "output": "ammo_arrow_stick",
       "outputQty": 4,
       "materials": "木料*1、羽毛*1",
@@ -561,6 +612,8 @@
     {
       "name": "自制箭",
       "category": "精工/弓弩",
+      "productType": "弹药",
+      "group": "弹药",
       "output": "ammo_arrow_handmade",
       "outputQty": 4,
       "materials": "木料*1、铁*1、羽毛*1",
@@ -581,6 +634,8 @@
     {
       "name": "重头箭",
       "category": "精工/弓弩",
+      "productType": "弹药",
+      "group": "弹药",
       "output": "ammo_arrow_heavy",
       "outputQty": 2,
       "materials": "木料*1、铁*1、羽毛*1",
@@ -601,6 +656,8 @@
     {
       "name": "反曲弓",
       "category": "精工/弓弩",
+      "productType": "武器",
+      "group": "武器",
       "output": "recurve_bow",
       "outputQty": 1,
       "materials": "木料*3、绳子*1、皮革*1",
@@ -621,6 +678,8 @@
     {
       "name": "长弓",
       "category": "精工/弓弩",
+      "productType": "武器",
+      "group": "武器",
       "output": "longbow",
       "outputQty": 1,
       "materials": "木料*5、绳子*2",
@@ -641,6 +700,8 @@
     {
       "name": "单手轻弩",
       "category": "精工/弓弩",
+      "productType": "武器",
+      "group": "武器",
       "output": "light_crossbow",
       "outputQty": 1,
       "materials": "木料*2、绳子*1、武器零件*1",
@@ -661,6 +722,8 @@
     {
       "name": "双手重弩",
       "category": "精工/弓弩",
+      "productType": "武器",
+      "group": "武器",
       "output": "heavy_crossbow",
       "outputQty": 1,
       "materials": "木料*4、铁*4、绳子*2、武器零件*2",
@@ -681,6 +744,8 @@
     {
       "name": "烹饪台",
       "category": "杂项",
+      "productType": "家具与设施",
+      "group": "家具与设施",
       "output": "cook_station",
       "outputQty": 1,
       "materials": "石料*8、木料*6、铁*3、钉子*4",
@@ -701,6 +766,8 @@
     {
       "name": "锅",
       "category": "杂项",
+      "productType": "家具与设施",
+      "group": "家具与设施",
       "output": "cooking_pot",
       "outputQty": 1,
       "materials": "铁*4",
@@ -721,6 +788,8 @@
     {
       "name": "烤架",
       "category": "杂项",
+      "productType": "家具与设施",
+      "group": "家具与设施",
       "output": "cooking_grill",
       "outputQty": 1,
       "materials": "铁丝*4、铁*2",
@@ -741,6 +810,8 @@
     {
       "name": "火把",
       "category": "杂项",
+      "productType": "光源",
+      "group": "光源",
       "output": "torch",
       "outputQty": 1,
       "materials": "木料*1、布*1、燃料*1",
@@ -761,6 +832,8 @@
     {
       "name": "草药膏",
       "category": "杂项",
+      "productType": "医疗",
+      "group": "医疗",
       "output": "herbal_salve",
       "outputQty": 1,
       "materials": "蒲公英*1、玫瑰果*1、老君须*1",
@@ -781,6 +854,8 @@
     {
       "name": "蒲公英茶",
       "category": "杂项",
+      "productType": "医疗",
+      "group": "医疗",
       "output": "dandelion_tea",
       "outputQty": 1,
       "materials": "蒲公英*2",
@@ -801,6 +876,8 @@
     {
       "name": "草药绷带",
       "category": "杂项",
+      "productType": "医疗",
+      "group": "医疗",
       "output": "herbal_bandage",
       "outputQty": 1,
       "materials": "老君须*1、绷带*1",
@@ -821,6 +898,8 @@
     {
       "name": "玫瑰果茶",
       "category": "杂项",
+      "productType": "医疗",
+      "group": "医疗",
       "output": "rosehip_tea",
       "outputQty": 1,
       "materials": "玫瑰果*2",
@@ -841,6 +920,8 @@
     {
       "name": "布制狗衣",
       "category": "缝纫",
+      "productType": "狗装备",
+      "group": "狗装备",
       "output": "布制狗衣",
       "outputQty": 1,
       "materials": "布*3",
@@ -861,6 +942,8 @@
     {
       "name": "皮制狗衣",
       "category": "缝纫",
+      "productType": "狗装备",
+      "group": "狗装备",
       "output": "皮制狗衣",
       "outputQty": 1,
       "materials": "皮革*2、绳子*1",
@@ -881,6 +964,8 @@
     {
       "name": "口袋狗衣",
       "category": "缝纫",
+      "productType": "狗装备",
+      "group": "狗装备",
       "output": "口袋狗衣",
       "outputQty": 1,
       "materials": "布*3、绳子*1",
@@ -901,6 +986,8 @@
     {
       "name": "铁皮头甲",
       "category": "杂项",
+      "productType": "狗装备",
+      "group": "狗装备",
       "output": "铁皮头甲",
       "outputQty": 1,
       "materials": "铁*2、皮革*1",
@@ -921,6 +1008,8 @@
     {
       "name": "铁丝头甲",
       "category": "杂项",
+      "productType": "狗装备",
+      "group": "狗装备",
       "output": "铁丝头甲",
       "outputQty": 1,
       "materials": "铁丝*2、布*1",
@@ -941,6 +1030,8 @@
     {
       "name": "圈套陷阱",
       "category": "杂项",
+      "productType": "陷阱与工事",
+      "group": "陷阱与工事",
       "output": "snare_trap",
       "outputQty": 1,
       "materials": "木料*2、绳子*1",
@@ -961,6 +1052,8 @@
     {
       "name": "战争面具",
       "category": "杂项",
+      "productType": "护甲/服装",
+      "group": "护甲/服装",
       "output": "war_mask",
       "outputQty": 1,
       "materials": "骨头*2、皮革*1",
@@ -981,6 +1074,8 @@
     {
       "name": "粗布衬衫",
       "category": "缝纫",
+      "productType": "护甲/服装",
+      "group": "护甲/服装",
       "output": "coarse_shirt",
       "outputQty": 1,
       "materials": "布*3",
@@ -1001,6 +1096,8 @@
     {
       "name": "棉帽",
       "category": "缝纫",
+      "productType": "护甲/服装",
+      "group": "护甲/服装",
       "output": "cotton_hat",
       "outputQty": 1,
       "materials": "布*2",
@@ -1021,6 +1118,8 @@
     {
       "name": "粗布短裤",
       "category": "缝纫",
+      "productType": "护甲/服装",
+      "group": "护甲/服装",
       "output": "coarse_shorts",
       "outputQty": 1,
       "materials": "布*2",
@@ -1041,6 +1140,8 @@
     {
       "name": "粗布长裤",
       "category": "缝纫",
+      "productType": "护甲/服装",
+      "group": "护甲/服装",
       "output": "coarse_trousers",
       "outputQty": 1,
       "materials": "布*3",
@@ -1061,6 +1162,8 @@
     {
       "name": "消防斧",
       "category": "木工",
+      "productType": "武器",
+      "group": "武器",
       "output": "axe",
       "outputQty": 1,
       "materials": "铁*3、木料*2、钉子*1",
@@ -1081,6 +1184,8 @@
     {
       "name": "恐怖装甲",
       "category": "杂项",
+      "productType": "护甲/服装",
+      "group": "护甲/服装",
       "output": "horror_armor",
       "outputQty": 1,
       "materials": "骨头*8、绳子*2",
@@ -1101,6 +1206,8 @@
     {
       "name": "自制简易墨镜",
       "category": "杂项",
+      "productType": "护甲/服装",
+      "group": "护甲/服装",
       "output": "snow_goggles",
       "outputQty": 1,
       "materials": "木料*1、绳子*1",
@@ -1121,6 +1228,8 @@
     {
       "name": "捕鸟陷阱",
       "category": "杂项",
+      "productType": "陷阱与工事",
+      "group": "陷阱与工事",
       "output": "bird_trap",
       "outputQty": 1,
       "materials": "木料*2、绳子*2",
@@ -1141,6 +1250,8 @@
     {
       "name": "菜园",
       "category": "杂项",
+      "productType": "陷阱与工事",
+      "group": "陷阱与工事",
       "output": "crop_plot",
       "outputQty": 1,
       "materials": "木料*2",
@@ -1161,6 +1272,8 @@
     {
       "name": "简易宰杀点",
       "category": "杂项",
+      "productType": "家具与设施",
+      "group": "家具与设施",
       "output": "butcher_point",
       "outputQty": 1,
       "materials": "木料*1",
@@ -1181,6 +1294,8 @@
     {
       "name": "宰杀台",
       "category": "杂项",
+      "productType": "家具与设施",
+      "group": "家具与设施",
       "output": "butcher_table",
       "outputQty": 1,
       "materials": "木料*3、钉子*4",
@@ -1201,6 +1316,8 @@
     {
       "name": "缝合生皮",
       "category": "杂项",
+      "productType": "材料",
+      "group": "材料",
       "output": "rawhide",
       "outputQty": 1,
       "materials": "碎皮革*4",
@@ -1221,6 +1338,8 @@
     {
       "name": "鞣制皮革",
       "category": "杂项",
+      "productType": "材料",
+      "group": "材料",
       "output": "leather",
       "outputQty": 1,
       "materials": "生皮*1、鞣制药水*1",
