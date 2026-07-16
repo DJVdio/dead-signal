@@ -40,6 +40,13 @@ public sealed class BookData
     /// <summary>正文文本（本轮为占位草稿，待用户改）。</summary>
     public string Body { get; }
 
+    /// <summary>
+    /// 玩家在游戏里看到的**短简介**（一句 flavor，区别于 <see cref="Body"/> 的整段正文）。
+    /// 与武器/护甲的 <c>Description</c> 同一角色：抽取器把它同步进 wiki『书籍』表的「简介」列。
+    /// 日记不填（<see cref="Diary"/> 恒空）。
+    /// </summary>
+    public string Description { get; }
+
     /// <summary>读完给的配方 id（**桩**，配方系统后续接；无产出则为 <c>null</c>）。</summary>
     public string? GrantsRecipeStub { get; }
 
@@ -80,7 +87,7 @@ public sealed class BookData
     public bool IsDiary => Kind == BookKind.Diary;
 
     public BookData(string id, string title, string body, string? grantsRecipeStub = null, double readHours = 12,
-        string? prerequisiteBookId = null, BookKind kind = BookKind.Manual)
+        string? prerequisiteBookId = null, BookKind kind = BookKind.Manual, string description = "")
     {
         Id = id;
         Title = title;
@@ -89,6 +96,7 @@ public sealed class BookData
         ReadHours = readHours;
         PrerequisiteBookId = prerequisiteBookId;
         Kind = kind;
+        Description = description;
     }
 
     /// <summary>
@@ -123,7 +131,8 @@ public static class BookLibrary
         title: "野外生存指南",
         body: WildernessSurvivalGuideBody,
         grantsRecipeStub: "recipe:snare_trap", // 桩：配方系统后续接（对齐真配方 id snare_trap；本字段仅叙事标记，门槛真源是 RecipeBook.RequiredBookIds）
-        readHours: 4); // [T59] 用户在 wiki 上定的（原 24h）
+        readHours: 4, // [T59] 用户在 wiki 上定的（原 24h）
+        description: "书里教你分辨哪种蘑菇能吃。至于分辨不出的那些——总有人先替你试过了。");
 
     /// <summary>
     /// 《农场主的一百个问题》——[T67] <b>桩已换成真的</b>：读完解锁 <b>捕鸟陷阱</b> 与 <b>菜园</b>
@@ -140,7 +149,8 @@ public static class BookLibrary
         title: "农场主的一百个问题",
         body: FarmerHundredQuestionsBody,
         grantsRecipeStub: "recipe:" + BirdTrapSpec.RecipeId + "," + CropPlotSpec.RecipeId, // [T67] 桩换成真配方 id
-        readHours: 4); // [T59] 用户在 wiki 上定的（原 24h）
+        readHours: 4, // [T59] 用户在 wiki 上定的（原 24h）
+        description: "一百个问题，现在只剩一个还要紧：这块地，撑不撑得到收成。");
 
     /// <summary>《裁缝手记》（纺织书，draft）——读过它的制作者解锁粗布背心一类缝纫配方。</summary>
     public static BookData TailorsNotes() => new(
@@ -148,7 +158,8 @@ public static class BookLibrary
         title: "裁缝手记",
         body: TailorsNotesBody,
         grantsRecipeStub: "recipe:cloth_vest", // 桩：书门槛已实装（RecipeBook.RequiredBookIds），此仅作叙事标记
-        readHours: 8); // [T59] 用户在 wiki 上定的（原 20h）
+        readHours: 8, // [T59] 用户在 wiki 上定的（原 20h）
+        description: "针脚密一点，能多挡一阵风。挡不挡得住牙，书里没写——写它的时候还不需要写。");
 
     /// <summary>《土法化学笔记》（化学书，draft）——读过它的制作者解锁火药 / 鞣制药水一类化学配方。</summary>
     public static BookData FolkChemistryNotes() => new(
@@ -156,7 +167,8 @@ public static class BookLibrary
         title: "土法化学笔记",
         body: FolkChemistryNotesBody,
         grantsRecipeStub: "recipe:gunpowder", // 桩：书门槛已实装（RecipeBook.RequiredBookIds），此仅作叙事标记
-        readHours: 8); // [T59] 用户在 wiki 上定的（原 20h）
+        readHours: 8, // [T59] 用户在 wiki 上定的（原 20h）
+        description: "配比错一分是废料，错一钱是要命。这本书最实在的一句，是叫你动手前先把窗户打开。");
 
     /// <summary>《木匠入门》（木工书，draft）——读过它的制作者解锁木椅 / 自制弓一类木工配方（一本管两条，同构土法化学笔记）。</summary>
     public static BookData CarpentryBasics() => new(
@@ -164,7 +176,8 @@ public static class BookLibrary
         title: "从零到一学会木匠", // [T59] 用户在 wiki 书籍表把书名从「木匠入门」改成此名（id 不变）
         body: CarpentryBasicsBody,
         grantsRecipeStub: "recipe:chair", // 桩：书门槛已实装（RecipeBook.RequiredBookIds），此仅作叙事标记
-        readHours: 8); // [T59] 用户在 wiki 上定的（原 20h）
+        readHours: 8, // [T59] 用户在 wiki 上定的（原 20h）
+        description: "量两遍，锯一遍。做椅子的耐心和活下去的耐心，原来是同一种。");
 
     /// <summary>
     /// 《进阶木匠技术》（木工进阶书，draft）——**前置**《木匠入门》：没读完前置照样能读，但读速极慢（×0.2）。
@@ -176,7 +189,8 @@ public static class BookLibrary
         body: AdvancedCarpentryBody,
         grantsRecipeStub: null, // 解锁效果待用户指定（占位书）
         readHours: 12, // [T59] 用户在 wiki 上定的（原 28h）
-        prerequisiteBookId: "carpentry_basics"); // 前置链首条数据：没读入门读得极慢
+        prerequisiteBookId: "carpentry_basics", // 前置链首条数据：没读入门读得极慢
+        description: "它先教你把家里的门加固一道，再顺手教你把消防斧抡得更快。没写的是：这两样，迟早要在同一个晚上用上。");
 
     /// <summary>
     /// 日记A（金手指帮根据地，克莉丝汀尸旁）——两个普通帮众视角：灾后互助、参与暴行、"金手指帮"命名由来。
@@ -231,7 +245,8 @@ public static class BookLibrary
         title: "弓与箭之道",
         body: WayOfBowAndArrowBody,
         grantsRecipeStub: null, // 刻意为空：它不解锁配方，给的是被动加成（回收率翻倍）
-        readHours: 12);         // [T59] 用户在 wiki 上定的（原 18h）
+        readHours: 12,          // [T59] 用户在 wiki 上定的（原 18h）
+        description: "新手一天射光一筒箭，老手一筒箭用一个月。差的不是准头——是他射出去之前，就知道那支箭捡不捡得回来。");
 
     /// <summary>《机械之美》书 id（弩的解锁书；用户拍板的书名）。</summary>
     public const string MechanicalBeautyId = "mechanical_beauty";
@@ -261,7 +276,8 @@ public static class BookLibrary
         title: "机械之美",
         body: MechanicalBeautyBody,
         grantsRecipeStub: null, // 书门槛已实装（RecipeBook.RequiredBookIds），此桩仅作叙事标记，无须占位
-        readHours: 8);         // [T59] 用户在 wiki 上定的（原 24h）
+        readHours: 8,          // [T59] 用户在 wiki 上定的（原 24h）
+        description: "一本讲机括与传动的书。文明留下的最后一点巧劲，如今刚好够你用零件扣响一次扳机。");
 
     /// <summary>全部内置书的全新实例（每次调用新建，已读态不共享）。</summary>
     /// <summary>《弓制作指南》书 id（稳定键）。</summary>
@@ -299,7 +315,8 @@ public static class BookLibrary
         title: "弓制作指南",
         body: BowCraftingGuideBody,
         grantsRecipeStub: "recipe:recurve_bow", // 桩：书门槛已实装（RecipeBook.RequiredBookIds），此仅作叙事标记
-        readHours: 8);                          // 拟定：技术工具书，与裁缝/化学/木匠入门同档
+        readHours: 8,                           // 拟定：技术工具书，与裁缝/化学/木匠入门同档
+        description: "选材、开背、上弦、调力——把一根木头变成一张弓。做弓的人从不问你拿它打猎，还是打人。");
 
     // 🔴 **占位正文 —— 待用户 authored，别替他写。**（同 MechanicalBeautyBody 的口径）
     private const string BowCraftingGuideBody =
@@ -333,7 +350,8 @@ public static class BookLibrary
         title: "尖峰时刻",
         body: PeakHourBody,
         grantsRecipeStub: "recipe:snow_goggles", // 桩：书门槛已实装（RecipeBook.RequiredBookIds），此仅作叙事标记
-        readHours: 6);                            // [T71] 用户在 wiki 上定的
+        readHours: 6,                             // [T71] 用户在 wiki 上定的
+        description: "一个滑雪的人，写他怎么在崩塌的雪坡上让自己不慌。他管这叫全世界最没用的本事——直到世界真的开始崩塌。");
 
     // [T71] 用户明确授权代笔的正文（滑雪极限运动·末世基调）。末句「那时候我以为这是全世界最没用的本事」
     // 是刻意的钩子——把极限运动接向末世求生，不点破，保留"发现现场自己体会"的处理。

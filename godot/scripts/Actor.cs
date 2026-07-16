@@ -1355,6 +1355,18 @@ public abstract partial class Actor : CharacterBody2D
     public void SetIncomingDamageReduction(Func<double>? f) => _incomingDamageReduction = f;
 
     /// <summary>
+    /// [T69] 护手挡格保护的"持械手"部位集（手掌 + 五指）。
+    /// <para>🔴 <b>拟定：惯用手＝右手</b>——引擎/装备层当前不区分某把单手武器握在左手还是右手，
+    /// 故按惯用手（右）取一套。日后装备层若落实左右手，此处改读实际持械手即可（纯逻辑
+    /// <see cref="WeaponModDefense.HandGuardNegates"/> 只认"命中是不是持械手"，不关心哪只，故无需改动）。</para>
+    /// </summary>
+    private static readonly System.Collections.Generic.HashSet<string> WeaponHandParts = new()
+    {
+        HumanBody.RightHand,
+        HumanBody.RightThumb, HumanBody.RightIndex, HumanBody.RightMiddle, HumanBody.RightRing, HumanBody.RightPinky,
+    };
+
+    /// <summary>
     /// 作为防御方承受一次攻击：用自身护甲跑逐层结算 + 效果结算，施加到自身躯体。近战与子弹共用。
     /// <paramref name="attacker"/> 为攻击方（用于战斗日志归属），可为 <c>null</c>（环境伤害/无源）。
     /// </summary>
@@ -1392,6 +1404,22 @@ public abstract partial class Actor : CharacterBody2D
                 return;
             }
         }
+        // [T69] 弩盾：举着装了弩盾的弩时，来自**正面 120°**（半角 60°）的**远程**攻击 25% 整发无效。
+        // 与半身掩体同层（整发否决、不结算），方向按"射手在我正面锥内"判（绕到侧后 → 挡不住）。
+        // 零漂移：无弩盾（chance ≤ 0）或近战 ⇒ WeaponModDefense.FrontalRangedNegates 短路、不掷点、不动随机流。
+        if (ranged && attacker is not null && AttackWeapon is not null)
+        {
+            double shieldChance = ModdedWeaponRegistry.FrontalRangedNegateChanceOf(AttackWeapon.Name);
+            double coneHalf = ModdedWeaponRegistry.FrontalNegateHalfAngleDegOf(AttackWeapon.Name);
+            if (WeaponModDefense.FrontalRangedNegates(
+                    ranged: true, shieldChance, coneHalf,
+                    ToNumerics(GlobalPosition), FacingUnit(FacingAngle), ToNumerics(attacker.GlobalPosition), combat.Rng))
+            {
+                // 正面挡下：不结算伤害/效果/减速，只出"掩体挡下"飘字（复用同一表现，语义＝"这块弩盾替你挨了"）。
+                CombatFeed.PublishCoverNegated(attacker, this);
+                return;
+            }
+        }
         // 伤害/流血/切除/致死已在此调用内施加到 Body；下方仅发布到表现总线（飘字②③④各自订阅）。
         // damageFactor：远程距离衰减系数（近战/贴脸枪托传默认 1.0，不衰减）。
         // 光环承伤乘子（批次5 道格&布鲁斯 3 级：相依为命受伤 ×0.90）：折进 damageFactor 一并结算
@@ -1402,7 +1430,12 @@ public abstract partial class Actor : CharacterBody2D
         double concResist = _concussionResistTimer > 0 ? CombatEffectCfg.ConcussionResistFactor : 1.0;
         // 护甲后减伤（山姆 1 级"比常人耐揍"）：不折进 damageFactor（那是护甲前），单独喂进结算，甲吃完才乘。null → 0（零回归）。
         double postArmorReduction = _incomingDamageReduction is { } red ? red() : 0.0;
-        AttackOutcome hit = combat.ResolveHit(weapon, DefenderArmor, Body, damageFactor, concResist, postArmorReduction);
+        // [T69] 护手挡格：持械手（含手指）被选为受击部位时，按几率整发否决。几率来自防御方（this）手里那把改装武器；
+        // 判定必须落在**选部位之后**，故连同"持械手部位集"喂进 ResolveHit（承伤入口这里只知整次攻击、不知打哪个部位）。
+        // 零漂移：无护手挡格 ⇒ chance 0 ⇒ ResolveHit 里短路、不掷点。
+        double handGuardChance = AttackWeapon is null ? 0.0 : ModdedWeaponRegistry.HandGuardNegateChanceOf(AttackWeapon.Name);
+        AttackOutcome hit = combat.ResolveHit(weapon, DefenderArmor, Body, damageFactor, concResist, postArmorReduction,
+            handGuardChance, handGuardChance > 0 ? WeaponHandParts : null);
         if (hit.Concussed)
         {
             ApplyConcussion(hit.ConcussionSeconds);

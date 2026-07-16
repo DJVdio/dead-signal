@@ -132,6 +132,11 @@ public static class DisplayNames
         WeaponPart.Handle => "柄",
         WeaponPart.Grip => "缠手",
         WeaponPart.Shaft => "杆",
+        // [T69] 弓弩专属部位。LimbWrap 与 Grip 同显示名"缠手"——两者从不同现于一把武器，无碍（见 WeaponPart.LimbWrap）。
+        WeaponPart.Bow => "弓",
+        WeaponPart.String => "弦",
+        WeaponPart.CrossbowBody => "弩身",
+        WeaponPart.LimbWrap => "缠手",
         _ => Unknown,
     };
 

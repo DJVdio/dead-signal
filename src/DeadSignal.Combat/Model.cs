@@ -134,6 +134,26 @@ public sealed class Weapon
     /// </summary>
     public int PelletCount { get; init; } = 1;
 
+    // ---- 弹丸飞行速度（[T68] 空间层弹道飞行轴；仅远程武器有意义）----
+
+    /// <summary>
+    /// 这把武器射出的弹丸的**飞行速度**（世界单位/秒）。默认 <b>560</b> ＝ 改造前 <c>Projectile.Speed</c>
+    /// 全局常量的等效值 ⇒ <b>不填此字段的武器飞速与旧行为逐字节一致</b>（既有基线零漂移）。
+    /// <para>
+    /// 🔴 <b>零漂移（结构性证明）</b>：飞速是**空间层弹道飞行**属性——弹丸在 Godot 实时层沿直线匀速飞、
+    /// 每物理步位移 = 飞速 × delta。<see cref="CombatResolver"/> / <c>Duel</c> / <see cref="Ballistics"/> 锥形采样
+    /// **不建模弹丸飞行时间**（CLAUDE.md 明载 Sim 白送贴脸、不建模弹道），故本字段**不被任何 Sim 结算入口读取**，
+    /// 对既有武器×护甲的 Sim 输出零影响。消费点唯一：Godot 侧 <c>Projectile._PhysicsProcess</c>。
+    /// </para>
+    /// <para>
+    /// [T68] 此前飞速是全局常量、非逐武器字段，导致《弓与箭之道》「弹道速度 +20%」与后续弓弩改装「飞速 +12%」
+    /// 都卡在这轴上无法落地。改为逐武器字段后：射手侧的书加成由 <see cref="Archery.Combine"/> 连乘进有效武器的飞速
+    /// （<see cref="Archery.BookFlightSpeedMult"/>）；下游改装的飞速乘子由 <c>WeaponMod</c> 的 <c>WeaponStat.FlightSpeed</c>
+    /// 走同一条乘算通路。同轴一律**乘算**（CLAUDE.md 铁律）。
+    /// </para>
+    /// </summary>
+    public double FlightSpeed { get; init; } = 560.0;
+
     // ---- 弹药（枪必须有后勤代价：强，但打不起）----
 
     /// <summary>

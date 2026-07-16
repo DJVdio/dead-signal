@@ -54,6 +54,20 @@ public sealed partial class StashPanel : CanvasLayer
     /// </summary>
     public event Action<int>? BagDropRequested;
 
+    /// <summary>
+    /// 点某件狗装备的「脱下」按钮（布鲁斯装备区）：emit 其装备键（<see cref="DogGearCatalog"/> 键）。
+    /// CampMain 据此从布鲁斯身上脱下并退回库存。穿戴入口复用 <see cref="EquipRequested"/>（狗装备也是 Item.Armor，
+    /// 由 CampMain 按 <see cref="DogGearCatalog.IsDogGear"/> 分流到布鲁斯而非选中幸存者）。
+    /// </summary>
+    public event Action<string>? DogGearUnequipRequested;
+
+    /// <summary>
+    /// 布鲁斯当前穿戴的狗装备键（<see cref="DogGearCatalog"/> 键，0~2 件）。由 CampMain 在接线时设好
+    /// （返回 <c>_bruce.Apparel.EquippedKeys</c>；布鲁斯不在场返回空/null）。<see cref="ShowStash"/> 据此渲染「布鲁斯装备」区。
+    /// null 或空 = 不显示该区（无狗/未穿戴）。
+    /// </summary>
+    public Func<IReadOnlyCollection<string>?>? DogGearProvider { get; set; }
+
     /// <summary>点「关闭」：CampMain 据此隐藏面板并恢复时标。</summary>
     public event Action? Closed;
 
@@ -230,9 +244,11 @@ public sealed partial class StashPanel : CanvasLayer
         AddSection("武器", inventory.Weapons, isBookRead);
         AddAmmoSection(inventory);
         AddSection("护甲", inventory.Armors, isBookRead);
+        AddBruceGearSection();
         AddSection("光源", inventory.ByCategory(ItemCategory.Light), isBookRead);
         AddSection("书", inventory.Books, isBookRead);
         AddSection("食物", inventory.Foods, isBookRead);
+        AddMaterialsSection(inventory);
 
         if (_listContainer.GetChildCount() == 0)
         {
@@ -272,6 +288,110 @@ public sealed partial class StashPanel : CanvasLayer
         {
             _listContainer.AddChild(BuildRow(def.ToItem(count), _ => false));
         }
+    }
+
+    /// <summary>
+    /// 通用材料总览区（造/宰/搜刮攒下的原料余量）：木/布/金属/精密零件/皮/化学/有机杂料/药材八类
+    /// （<see cref="MaterialCategory"/>），逐类合计成一行（"木料 ×12"）。此前库存面板只列成品（武器/护甲/书/食物）
+    /// 与弹药，背着一堆铁料木料零件却看不见数量——玩家查材料余量的唯一入口是制作面板逐配方"够/缺"行。
+    /// <para>
+    /// 刻意排除的三类：<b>弹药</b>（已由 <see cref="AddAmmoSection"/> 单列，枪的战力与弹药得摆一起看）、
+    /// <b>货币</b>（白银是交易媒介不是原料）、<b>食材</b>（生料另归烹饪那条线）。余量为 0 的不列（不占屏）。
+    /// </para>
+    /// </summary>
+    private void AddMaterialsSection(InventoryStore inventory)
+    {
+        // 通用制作原料的八类（顺序即展示序）；弹药/货币/食材刻意不在此列（见 doc）。
+        MaterialCategory[] overviewCategories =
+        {
+            MaterialCategory.Wood, MaterialCategory.Cloth, MaterialCategory.Metal, MaterialCategory.Component,
+            MaterialCategory.Leather, MaterialCategory.Chemical, MaterialCategory.Misc, MaterialCategory.Medical,
+        };
+
+        var carried = overviewCategories
+            .SelectMany(Materials.InCategory)
+            .Select(def => (Def: def, Count: inventory.MaterialCount(def.Key)))
+            .Where(x => x.Count > 0)
+            .ToList();
+
+        if (carried.Count == 0)
+        {
+            return;
+        }
+
+        var head = new Label();
+        head.Text = "材料";
+        head.AddThemeFontSizeOverride("font_size", 15);
+        head.AddThemeColorOverride("font_color", new Color(0.72f, 0.68f, 0.55f));
+        _listContainer.AddChild(head);
+
+        foreach ((MaterialDef def, int count) in carried)
+        {
+            _listContainer.AddChild(BuildRow(def.ToItem(count), _ => false));
+        }
+    }
+
+    /// <summary>
+    /// 布鲁斯装备区：列出布鲁斯当前穿戴的狗装备（身体 + 头 2 槽），每行一个「脱下」→ 退回库存。
+    /// 穿戴入口是「护甲」区里那些狗装备件的「装备」按钮（走 <see cref="EquipRequested"/>，CampMain 分流到布鲁斯）；
+    /// 本区专管**脱下**——穿上后装备离开库存，不脱下就无处可见、也回收不了。布鲁斯不在场/未穿戴则整区不出现。
+    /// </summary>
+    private void AddBruceGearSection()
+    {
+        IReadOnlyCollection<string>? worn = DogGearProvider?.Invoke();
+        if (worn is null || worn.Count == 0)
+        {
+            return;
+        }
+
+        var head = new Label();
+        head.Text = "布鲁斯装备";
+        head.AddThemeFontSizeOverride("font_size", 15);
+        head.AddThemeColorOverride("font_color", new Color(0.72f, 0.68f, 0.55f));
+        _listContainer.AddChild(head);
+
+        foreach (string key in worn)
+        {
+            _listContainer.AddChild(BuildBruceGearRow(key));
+        }
+    }
+
+    /// <summary>一行布鲁斯已穿装备：图标 + 名 + 「脱下」按钮（emit 装备键 → CampMain 从布鲁斯脱下退库）。</summary>
+    private HBoxContainer BuildBruceGearRow(string gearKey)
+    {
+        DogGearDef? def = DogGearCatalog.Get(gearKey);
+        string displayName = def?.DisplayName ?? gearKey;
+
+        var hbox = new HBoxContainer();
+        hbox.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        hbox.MouseFilter = Control.MouseFilterEnum.Pass;
+        hbox.AddThemeConstantOverride("separation", 8);
+
+        string desc = def?.Description ?? "";
+        hbox.MouseEntered += () => _descLabel.Text = desc;
+
+        hbox.AddChild(ItemIconTextures.MakeIconForRefKey(gearKey, 32));
+
+        var nameLabel = new Label();
+        nameLabel.Text = displayName;
+        nameLabel.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        nameLabel.CustomMinimumSize = new Vector2(320, 30);
+        nameLabel.MouseFilter = Control.MouseFilterEnum.Pass;
+        nameLabel.MouseEntered += () => _descLabel.Text = desc;
+        nameLabel.VerticalAlignment = VerticalAlignment.Center;
+        nameLabel.AddThemeFontSizeOverride("font_size", 14);
+        nameLabel.AddThemeColorOverride("font_color", new Color(0.85f, 0.82f, 0.75f));
+        hbox.AddChild(nameLabel);
+
+        var offBtn = new Button();
+        offBtn.Text = "脱下";
+        offBtn.CustomMinimumSize = new Vector2(120, 30);
+        offBtn.TooltipText = "从布鲁斯身上脱下并放回营地库存";
+        offBtn.Pressed += () => DogGearUnequipRequested?.Invoke(gearKey);
+        UiStyle.StyleButton(offBtn, new Color(0.5f, 0.42f, 0.3f), fontSize: 13);
+        hbox.AddChild(offBtn);
+
+        return hbox;
     }
 
     private void AddSection(string header, IEnumerable<Item> items, Func<string, bool> isBookRead)
@@ -344,10 +464,15 @@ public sealed partial class StashPanel : CanvasLayer
             case ItemCategory.Weapon:
             case ItemCategory.Armor:
                 var equipBtn = new Button();
-                equipBtn.Text = "装备";
-                equipBtn.CustomMinimumSize = new Vector2(120, 30);
-                equipBtn.TooltipText = "装备到当前选中的幸存者";
                 string refKey = item.RefKey ?? "";
+                // 狗装备（Item.Armor，键∈DogGearCatalog）穿到布鲁斯身上；其余护甲/武器穿到选中幸存者。
+                // 两者共用「装备」按钮与 EquipRequested，由 CampMain 按 DogGearCatalog.IsDogGear 分流。
+                bool isDogGear = DogGearCatalog.IsDogGear(refKey);
+                equipBtn.Text = isDogGear ? "给布鲁斯穿" : "装备";
+                equipBtn.CustomMinimumSize = new Vector2(120, 30);
+                equipBtn.TooltipText = isDogGear
+                    ? "给布鲁斯穿上（须道格与布鲁斯在营）"
+                    : "装备到当前选中的幸存者";
                 equipBtn.Pressed += () => EquipRequested?.Invoke(refKey);
                 UiStyle.StyleButton(equipBtn, new Color(0.5f, 0.45f, 0.3f), fontSize: 13);
                 hbox.AddChild(equipBtn);

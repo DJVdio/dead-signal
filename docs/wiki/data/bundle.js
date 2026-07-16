@@ -2,7 +2,7 @@
 // 用途：以 file:// 直接打开 index.html 时的降级数据源（浏览器不允许 fetch 本地文件）。
 window.WIKI_BUNDLE = {
   index: {
-  "generatedAt": "2026-07-16 02:58:30",
+  "generatedAt": "2026-07-16 04:30:12",
   "iconDir": "godot/assets/items",
   "multiselectOptions": {
     "fitsWeapons": [
@@ -4790,6 +4790,22 @@ window.WIKI_BUNDLE = {
       "_icon": "weapon-mods/grip_wrap_blade"
     },
     {
+      "name": "护手挡格",
+      "fitsWeapons": "匕首、短剑、刺剑",
+      "part": "缠手",
+      "stats": "拿着武器的这只手（包括手指）受到攻击时，50%的几率这次攻击无效。重量+10%。",
+      "form": "",
+      "materials": "铁*2，皮革*1",
+      "workMinutes": 90,
+      "note": "不仅是装饰品，更能保护你脆弱的手。",
+      "_id": "handguard",
+      "_anchor": "godot/scripts/WeaponModCatalog.cs :: WeaponModCatalog（Id = \"handguard\"）",
+      "description": "花哨的护手不为好看——是为了让你握枪的那只手，明天还握得住枪。",
+      "userNote": "",
+      "sync": "",
+      "_icon": "weapon-mods/handguard"
+    },
+    {
       "name": "铁丝强化",
       "fitsWeapons": "棍棒",
       "part": "杆",
@@ -4822,36 +4838,20 @@ window.WIKI_BUNDLE = {
       "_icon": "weapon-mods/nail_studs"
     },
     {
-      "name": "护手挡格",
-      "fitsWeapons": "匕首、短剑、刺剑",
+      "name": "弓臂缠手",
+      "fitsWeapons": "短弓、反曲弓、长弓、狩猎弓",
       "part": "缠手",
-      "stats": "拿着武器的这只手（包括手指）受到攻击时，50%的几率这次攻击无效。重量+10%。",
+      "stats": "攻击速度+5%，。",
       "form": "",
-      "materials": "铁*2，皮革*1",
-      "workMinutes": 90,
-      "note": "不仅是装饰品，更能保护你脆弱的手。",
-      "description": "花哨的护手不为好看——是为了让你握枪的那只手，明天还握得住枪。",
+      "materials": "布*2，皮革*1",
+      "workMinutes": 60,
+      "note": "更加柔和的手感，更好把握弓臂。",
+      "_id": "limb_wrap",
+      "_anchor": "godot/scripts/WeaponModCatalog.cs :: WeaponModCatalog（Id = \"limb_wrap\"）",
+      "description": "缠一层布在弓臂上，冰冷的木头就有了点体温。射出去的还是要命的东西，握着的却不那么硌手了。",
       "userNote": "",
-      "_id": "new_weapon_mod_1",
-      "_anchor": "（新增行：代码里还没有，等 agent 建）",
-      "sync": "新增·待同步进代码",
-      "_icon": "weapon-mods/new_weapon_mod_1"
-    },
-    {
-      "name": "弩盾",
-      "fitsWeapons": "双手重弩、复合弩",
-      "part": "弩身",
-      "stats": "当你举着弩，远程攻击来自于正面120度的时候，25%的几率这次攻击无效。重量+50%",
-      "form": "",
-      "materials": "铁*4，皮革*2，钉子*4",
-      "workMinutes": 180,
-      "note": "灵感来自意大利。",
-      "description": "意大利人早想通了：与其射得快，不如活到能再射一发。这块铁挡在弩前，也挡在你和一支飞来的箭之间。",
-      "userNote": "",
-      "_id": "new_weapon_mod_2",
-      "_anchor": "（新增行：代码里还没有，等 agent 建）",
-      "sync": "新增·待同步进代码",
-      "_icon": "weapon-mods/new_weapon_mod_2"
+      "sync": "",
+      "_icon": "weapon-mods/limb_wrap"
     },
     {
       "name": "复合弓臂",
@@ -4862,12 +4862,12 @@ window.WIKI_BUNDLE = {
       "materials": "木材*2，胶水*2",
       "workMinutes": 180,
       "note": "拉开它可需要不小的力气，但相信我，辛苦是值得的。",
+      "_id": "compound_limbs",
+      "_anchor": "godot/scripts/WeaponModCatalog.cs :: WeaponModCatalog（Id = \"compound_limbs\"）",
       "description": "拉开它得用上全身的劲，松手那一刻却安静得可怕。辛苦都堆在拉弦的三秒里，飞出去的那一下替你把话说完。",
       "userNote": "",
-      "_id": "new_weapon_mod_3",
-      "_anchor": "（新增行：代码里还没有，等 agent 建）",
-      "sync": "新增·待同步进代码",
-      "_icon": "weapon-mods/new_weapon_mod_3"
+      "sync": "",
+      "_icon": "weapon-mods/compound_limbs"
     },
     {
       "name": "重磅弓弦",
@@ -4878,28 +4878,28 @@ window.WIKI_BUNDLE = {
       "materials": "绳子*2",
       "workMinutes": 90,
       "note": "当心手指。",
+      "_id": "heavy_bowstring",
+      "_anchor": "godot/scripts/WeaponModCatalog.cs :: WeaponModCatalog（Id = \"heavy_bowstring\"）",
       "description": "弦更硬，射得更远也更狠。当心手指——它不分敌我。",
       "userNote": "",
-      "_id": "new_weapon_mod_4",
-      "_anchor": "（新增行：代码里还没有，等 agent 建）",
-      "sync": "新增·待同步进代码",
-      "_icon": "weapon-mods/new_weapon_mod_4"
+      "sync": "",
+      "_icon": "weapon-mods/heavy_bowstring"
     },
     {
-      "name": "弓臂缠手",
-      "fitsWeapons": "短弓、反曲弓、长弓、狩猎弓",
-      "part": "弓",
-      "stats": "攻击速度+5%，。",
+      "name": "弩盾",
+      "fitsWeapons": "双手重弩、复合弩",
+      "part": "弩身",
+      "stats": "当你举着弩，远程攻击来自于正面120度的时候，25%的几率这次攻击无效。重量+50%",
       "form": "",
-      "materials": "布*2，皮革*1",
-      "workMinutes": 60,
-      "note": "更加柔和的手感，更好把握弓臂。",
-      "description": "缠一层布在弓臂上，冰冷的木头就有了点体温。射出去的还是要命的东西，握着的却不那么硌手了。",
+      "materials": "铁*4，皮革*2，钉子*4",
+      "workMinutes": 180,
+      "note": "灵感来自意大利。",
+      "_id": "crossbow_shield",
+      "_anchor": "godot/scripts/WeaponModCatalog.cs :: WeaponModCatalog（Id = \"crossbow_shield\"）",
+      "description": "意大利人早想通了：与其射得快，不如活到能再射一发。这块铁挡在弩前，也挡在你和一支飞来的箭之间。",
       "userNote": "",
-      "_id": "new_weapon_mod_5",
-      "_anchor": "（新增行：代码里还没有，等 agent 建）",
-      "sync": "新增·待同步进代码",
-      "_icon": "weapon-mods/new_weapon_mod_5"
+      "sync": "",
+      "_icon": "weapon-mods/crossbow_shield"
     }
   ]
 },
@@ -4980,9 +4980,9 @@ window.WIKI_BUNDLE = {
       "materials": "木料*10、钉子*8",
       "buildMinutes": 180,
       "salvage": "木料*4、废木料*4、钉子*4",
+      "description": "营地里所有\"造\"出来的东西，都始于这块厚板——包括你用来骗自己还能重建的那些。",
       "_id": "工作台",
       "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
-      "description": "营地里所有\"造\"出来的东西，都始于这块厚板——包括你用来骗自己还能重建的那些。",
       "userNote": "",
       "sync": "",
       "_icon": ""
@@ -4992,9 +4992,9 @@ window.WIKI_BUNDLE = {
       "materials": "木料*8、铁*4、机械零件*2、钉子*6",
       "buildMinutes": 200,
       "salvage": "木料*2、废木料*2、铁*2、机械零件*1、钉子*3",
+      "description": "专门用来把武器改得更趁手。在这儿，\"改进\"和\"更致命\"是同一个词。",
       "_id": "改装台",
       "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
-      "description": "专门用来把武器改得更趁手。在这儿，\"改进\"和\"更致命\"是同一个词。",
       "userNote": "",
       "sync": "",
       "_icon": ""
@@ -5004,9 +5004,9 @@ window.WIKI_BUNDLE = {
       "materials": "石料*8、木料*4、铁*1、钉子*4",
       "buildMinutes": 180,
       "salvage": "石料*4、木料*1、废木料*1、铁*1、钉子*2",
+      "description": "有了它才谈得上做饭。一顿热的，能让人暂时忘了热汤底下垫着的是什么日子。",
       "_id": "烹饪台",
       "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
-      "description": "有了它才谈得上做饭。一顿热的，能让人暂时忘了热汤底下垫着的是什么日子。",
       "userNote": "",
       "sync": "",
       "_icon": ""
@@ -5016,9 +5016,9 @@ window.WIKI_BUNDLE = {
       "materials": "木料*8、钉子*6",
       "buildMinutes": 120,
       "salvage": "木料*2、废木料*2、钉子*3",
+      "description": "一个放东西的地方。清点存货的时候，你数的其实是还能撑几天。",
       "_id": "住宅-柜子",
       "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
-      "description": "一个放东西的地方。清点存货的时候，你数的其实是还能撑几天。",
       "userNote": "",
       "sync": "",
       "_icon": ""
@@ -5028,9 +5028,9 @@ window.WIKI_BUNDLE = {
       "materials": "木料*8、钉子*6",
       "buildMinutes": 140,
       "salvage": "木料*3、废木料*3、钉子*3",
+      "description": "挂衣服的地方。那些主人不会回来取的外套，如今谁冷谁穿。",
       "_id": "住宅-衣柜",
       "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
-      "description": "挂衣服的地方。那些主人不会回来取的外套，如今谁冷谁穿。",
       "userNote": "",
       "sync": "",
       "_icon": ""
@@ -5040,9 +5040,9 @@ window.WIKI_BUNDLE = {
       "materials": "木料*8、钉子*4",
       "buildMinutes": 100,
       "salvage": "木料*2、废木料*2、钉子*2",
+      "description": "本来是用来炫耀的。柜子还在，值得炫耀的日子没了。",
       "_id": "住宅-展示柜",
       "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
-      "description": "本来是用来炫耀的。柜子还在，值得炫耀的日子没了。",
       "userNote": "",
       "sync": "",
       "_icon": ""
@@ -5052,9 +5052,9 @@ window.WIKI_BUNDLE = {
       "materials": "木料*6、布*6、钉子*6",
       "buildMinutes": 150,
       "salvage": "木料*3、废木料*3、布*2、钉子*3",
+      "description": "睡个整觉，或者把断掉的骨头养上七天。末日里，能平躺下来就是一种特权——那七天，这张床只属于躺着的那个人。",
       "_id": "床",
       "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
-      "description": "睡个整觉，或者把断掉的骨头养上七天。末日里，能平躺下来就是一种特权——那七天，这张床只属于躺着的那个人。",
       "userNote": "",
       "sync": "",
       "_icon": ""
@@ -5064,9 +5064,9 @@ window.WIKI_BUNDLE = {
       "materials": "木料*6、钉子*4",
       "buildMinutes": 120,
       "salvage": "木料*2、废木料*2、钉子*2",
+      "description": "就是一张桌子。不挡丧尸，不长粮食——可围着它坐下的那一刻，像是还有人在过日子。",
       "_id": "桌子",
       "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
-      "description": "就是一张桌子。不挡丧尸，不长粮食——可围着它坐下的那一刻，像是还有人在过日子。",
       "userNote": "",
       "sync": "",
       "_icon": ""
@@ -5076,9 +5076,9 @@ window.WIKI_BUNDLE = {
       "materials": "布*1、石料*4",
       "buildMinutes": 60,
       "salvage": "布*1、石料*2",
+      "description": "堆起来能挡半个身子。剩下那半个，看运气。",
       "_id": "沙袋",
       "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
-      "description": "堆起来能挡半个身子。剩下那半个，看运气。",
       "userNote": "",
       "sync": "",
       "_icon": ""
@@ -5088,9 +5088,9 @@ window.WIKI_BUNDLE = {
       "materials": "绳子*3",
       "buildMinutes": 60,
       "salvage": "铁丝*1",
+      "description": "踩上去就走不了了。它不认丧尸还是活人，只认那一脚。",
       "_id": "陷阱",
       "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
-      "description": "踩上去就走不了了。它不认丧尸还是活人，只认那一脚。",
       "userNote": "",
       "sync": "",
       "_icon": ""
@@ -5100,9 +5100,9 @@ window.WIKI_BUNDLE = {
       "materials": "绳子*3",
       "buildMinutes": 60,
       "salvage": "绳子*1",
+      "description": "支起来，等一只倒霉的鸟。这年头肯为一只麻雀守一整天的人，是真饿了。",
       "_id": "捕鸟陷阱",
       "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
-      "description": "支起来，等一只倒霉的鸟。这年头肯为一只麻雀守一整天的人，是真饿了。",
       "userNote": "",
       "sync": "",
       "_icon": ""
@@ -5112,9 +5112,9 @@ window.WIKI_BUNDLE = {
       "materials": "木料*2",
       "buildMinutes": 60,
       "salvage": "",
+      "description": "翻两下土，种下去，然后学着相信明天。拆了它，没熟的那茬也跟着一起没。",
       "_id": "菜园",
       "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
-      "description": "翻两下土，种下去，然后学着相信明天。拆了它，没熟的那茬也跟着一起没。",
       "userNote": "",
       "sync": "",
       "_icon": ""
@@ -5124,9 +5124,9 @@ window.WIKI_BUNDLE = {
       "materials": "木料*1",
       "buildMinutes": 30,
       "salvage": "",
+      "description": "一块木头，够把猎物开膛。讲究不来——反正它也不介意了。",
       "_id": "简易宰杀点",
       "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
-      "description": "一块木头，够把猎物开膛。讲究不来——反正它也不介意了。",
       "userNote": "",
       "sync": "",
       "_icon": ""
@@ -5136,9 +5136,9 @@ window.WIKI_BUNDLE = {
       "materials": "木料*3、钉子*4",
       "buildMinutes": 60,
       "salvage": "钉子*2",
+      "description": "比那块木头体面些。同样的活，只是溅得少一点、快一点。",
       "_id": "宰杀台",
       "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
-      "description": "比那块木头体面些。同样的活，只是溅得少一点、快一点。",
       "userNote": "",
       "sync": "",
       "_icon": ""

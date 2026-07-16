@@ -648,6 +648,18 @@ public sealed partial class MedicalPanel : CanvasLayer
         cureBar.AddThemeColorOverride("font_color", curePct > 0 ? OkColor : DimColor);
         card.AddChild(cureBar);
 
+        // 免疫窗倒计时：免疫满后的 24h 窗激活期间实时呈现「剩多少小时」——新伤口感染几率 ×0.05 的保护正在生效，
+        // 这段时间是玩家推进感染赛道最安全的窗口，得让他看得见还剩多久（此前只有静态"到 100% 将获 24h 免疫"说明）。
+        if (_patient?.Health is { ImmuneWindowActive: true } h)
+        {
+            int immuneHours = (int)Math.Ceiling(h.ImmuneWindowRemainingDays * 24.0);
+            var immuneBar = new Label();
+            immuneBar.Text = $"    免疫保护中 · 剩 {immuneHours}h（此窗内任何新伤口感染几率 ×0.05）";
+            immuneBar.AddThemeFontSizeOverride("font_size", 12);
+            immuneBar.AddThemeColorOverride("font_color", OkColor);
+            card.AddChild(immuneBar);
+        }
+
         string? course = _patient?.InfectionTreatmentMedKey;
         if (course is not null)
         {

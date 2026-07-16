@@ -301,6 +301,22 @@
       "_icon": "weapon-mods/grip_wrap_blade"
     },
     {
+      "name": "护手挡格",
+      "fitsWeapons": "匕首、短剑、刺剑",
+      "part": "缠手",
+      "stats": "拿着武器的这只手（包括手指）受到攻击时，50%的几率这次攻击无效。重量+10%。",
+      "form": "",
+      "materials": "铁*2，皮革*1",
+      "workMinutes": 90,
+      "note": "不仅是装饰品，更能保护你脆弱的手。",
+      "_id": "handguard",
+      "_anchor": "godot/scripts/WeaponModCatalog.cs :: WeaponModCatalog（Id = \"handguard\"）",
+      "description": "花哨的护手不为好看——是为了让你握枪的那只手，明天还握得住枪。",
+      "userNote": "",
+      "sync": "",
+      "_icon": "weapon-mods/handguard"
+    },
+    {
       "name": "铁丝强化",
       "fitsWeapons": "棍棒",
       "part": "杆",
@@ -333,36 +349,20 @@
       "_icon": "weapon-mods/nail_studs"
     },
     {
-      "name": "护手挡格",
-      "fitsWeapons": "匕首、短剑、刺剑",
+      "name": "弓臂缠手",
+      "fitsWeapons": "短弓、反曲弓、长弓、狩猎弓",
       "part": "缠手",
-      "stats": "拿着武器的这只手（包括手指）受到攻击时，50%的几率这次攻击无效。重量+10%。",
+      "stats": "攻击速度+5%，。",
       "form": "",
-      "materials": "铁*2，皮革*1",
-      "workMinutes": 90,
-      "note": "不仅是装饰品，更能保护你脆弱的手。",
-      "description": "花哨的护手不为好看——是为了让你握枪的那只手，明天还握得住枪。",
+      "materials": "布*2，皮革*1",
+      "workMinutes": 60,
+      "note": "更加柔和的手感，更好把握弓臂。",
+      "_id": "limb_wrap",
+      "_anchor": "godot/scripts/WeaponModCatalog.cs :: WeaponModCatalog（Id = \"limb_wrap\"）",
+      "description": "缠一层布在弓臂上，冰冷的木头就有了点体温。射出去的还是要命的东西，握着的却不那么硌手了。",
       "userNote": "",
-      "_id": "new_weapon_mod_1",
-      "_anchor": "（新增行：代码里还没有，等 agent 建）",
-      "sync": "新增·待同步进代码",
-      "_icon": "weapon-mods/new_weapon_mod_1"
-    },
-    {
-      "name": "弩盾",
-      "fitsWeapons": "双手重弩、复合弩",
-      "part": "弩身",
-      "stats": "当你举着弩，远程攻击来自于正面120度的时候，25%的几率这次攻击无效。重量+50%",
-      "form": "",
-      "materials": "铁*4，皮革*2，钉子*4",
-      "workMinutes": 180,
-      "note": "灵感来自意大利。",
-      "description": "意大利人早想通了：与其射得快，不如活到能再射一发。这块铁挡在弩前，也挡在你和一支飞来的箭之间。",
-      "userNote": "",
-      "_id": "new_weapon_mod_2",
-      "_anchor": "（新增行：代码里还没有，等 agent 建）",
-      "sync": "新增·待同步进代码",
-      "_icon": "weapon-mods/new_weapon_mod_2"
+      "sync": "",
+      "_icon": "weapon-mods/limb_wrap"
     },
     {
       "name": "复合弓臂",
@@ -373,12 +373,12 @@
       "materials": "木材*2，胶水*2",
       "workMinutes": 180,
       "note": "拉开它可需要不小的力气，但相信我，辛苦是值得的。",
+      "_id": "compound_limbs",
+      "_anchor": "godot/scripts/WeaponModCatalog.cs :: WeaponModCatalog（Id = \"compound_limbs\"）",
       "description": "拉开它得用上全身的劲，松手那一刻却安静得可怕。辛苦都堆在拉弦的三秒里，飞出去的那一下替你把话说完。",
       "userNote": "",
-      "_id": "new_weapon_mod_3",
-      "_anchor": "（新增行：代码里还没有，等 agent 建）",
-      "sync": "新增·待同步进代码",
-      "_icon": "weapon-mods/new_weapon_mod_3"
+      "sync": "",
+      "_icon": "weapon-mods/compound_limbs"
     },
     {
       "name": "重磅弓弦",
@@ -389,28 +389,28 @@
       "materials": "绳子*2",
       "workMinutes": 90,
       "note": "当心手指。",
+      "_id": "heavy_bowstring",
+      "_anchor": "godot/scripts/WeaponModCatalog.cs :: WeaponModCatalog（Id = \"heavy_bowstring\"）",
       "description": "弦更硬，射得更远也更狠。当心手指——它不分敌我。",
       "userNote": "",
-      "_id": "new_weapon_mod_4",
-      "_anchor": "（新增行：代码里还没有，等 agent 建）",
-      "sync": "新增·待同步进代码",
-      "_icon": "weapon-mods/new_weapon_mod_4"
+      "sync": "",
+      "_icon": "weapon-mods/heavy_bowstring"
     },
     {
-      "name": "弓臂缠手",
-      "fitsWeapons": "短弓、反曲弓、长弓、狩猎弓",
-      "part": "弓",
-      "stats": "攻击速度+5%，。",
+      "name": "弩盾",
+      "fitsWeapons": "双手重弩、复合弩",
+      "part": "弩身",
+      "stats": "当你举着弩，远程攻击来自于正面120度的时候，25%的几率这次攻击无效。重量+50%",
       "form": "",
-      "materials": "布*2，皮革*1",
-      "workMinutes": 60,
-      "note": "更加柔和的手感，更好把握弓臂。",
-      "description": "缠一层布在弓臂上，冰冷的木头就有了点体温。射出去的还是要命的东西，握着的却不那么硌手了。",
+      "materials": "铁*4，皮革*2，钉子*4",
+      "workMinutes": 180,
+      "note": "灵感来自意大利。",
+      "_id": "crossbow_shield",
+      "_anchor": "godot/scripts/WeaponModCatalog.cs :: WeaponModCatalog（Id = \"crossbow_shield\"）",
+      "description": "意大利人早想通了：与其射得快，不如活到能再射一发。这块铁挡在弩前，也挡在你和一支飞来的箭之间。",
       "userNote": "",
-      "_id": "new_weapon_mod_5",
-      "_anchor": "（新增行：代码里还没有，等 agent 建）",
-      "sync": "新增·待同步进代码",
-      "_icon": "weapon-mods/new_weapon_mod_5"
+      "sync": "",
+      "_icon": "weapon-mods/crossbow_shield"
     }
   ]
 }

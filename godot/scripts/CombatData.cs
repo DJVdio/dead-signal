@@ -194,13 +194,22 @@ public sealed class CombatEngine
     /// （见 <see cref="CombatResolver.Resolve"/>）。现阶段唯一来源＝山姆 1 级"比常人耐揍"−10%
     /// （<c>SamPerk.IncomingDamageReduction</c>，经 <c>Actor.SetIncomingDamageReduction</c> 注入）。
     /// </param>
+    /// <param name="handGuardNegateChance">
+    /// [T69] 防御方**护手挡格**否决几率（<b>默认 0＝无、零回归</b>）：当本次命中选中了持械手（见
+    /// <paramref name="weaponHandParts"/>）时，按此几率把整次攻击判无效。护手挡格 = 0.5，来源＝防御方手里那把
+    /// 改装武器（<c>ModdedWeaponRegistry.HandGuardNegateChanceOf</c>，经 <c>Actor.ReceiveAttack</c> 注入）。
+    /// 判定必须落在**选部位之后**（承伤入口只知"整次攻击"、不知打哪个部位），故落点在此、不在 <c>Actor.ReceiveAttack</c>。
+    /// </param>
+    /// <param name="weaponHandParts">持械手（含手指）的部位名集合；<c>null</c>/空 ⇒ 护手挡格恒不触发。</param>
     public AttackOutcome ResolveHit(
         Weapon weapon,
         IReadOnlyList<ArmorLayer> defenderArmor,
         Body defenderBody,
         double damageFactor = 1.0,
         double concussionResistFactor = 1.0,
-        double incomingDamageReduction = 0.0)
+        double incomingDamageReduction = 0.0,
+        double handGuardNegateChance = 0.0,
+        IReadOnlySet<string>? weaponHandParts = null)
     {
         // 远程距离衰减：只在系数 <1 时建缩放副本，满伤/近战路径沿用原武器、逐字节零改动（零回归）。
         Weapon effective = damageFactor < 1.0 ? ScaleWeaponDamage(weapon, damageFactor) : weapon;
@@ -211,6 +220,18 @@ public sealed class CombatEngine
             .ToList();
 
         BodyPart part = _hitSelector.Select(candidates);
+
+        // [T69] 护手挡格否决：命中选中的是持械手（含手指）时，按几率整发判无效（不结算伤害/效果）。
+        // 零漂移：chance ≤ 0（绝大多数武器）或命中非持械手 ⇒ WeaponModDefense.HandGuardNegates 短路、不掷点。
+        bool hitIsWeaponHand = weaponHandParts is { Count: > 0 } && weaponHandParts.Contains(part.Name);
+        if (WeaponModDefense.HandGuardNegates(handGuardNegateChance, hitIsWeaponHand, _rng))
+        {
+            // 整发无效：伤害 0、无任何效果、防御方不死。表现层按"被挡下"呈现（同护甲完全挡下的口径）。
+            return new AttackOutcome(
+                damage: 0, partName: part.Name, finalType: weapon.DamageType,
+                blocked: true, severed: false, bled: false, concussed: false, fractured: false, died: false);
+        }
+
         IReadOnlyList<ArmorLayer> ordered = CombatResolver.OrderOuterToInner(defenderArmor);
         CombatResult result = _resolver.Resolve(effective, ordered, part, incomingDamageReduction);
         EffectOutcome fx = _effectResolver.Apply(defenderBody, effective, result, concussionResistFactor);

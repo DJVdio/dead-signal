@@ -244,9 +244,10 @@ public static class Archery
     // ==================== 《弓与箭之道》的被动加成（用户在数值表『书籍』页写下） ====================
     //
     // 🔴 [T68] 用户把「射程 +10%」**换成了「弹道速度 +20%」**（不是加一条，是替换）。
-    //    · 「弹道速度 +20%」是**引擎新轴**：`Projectile.Speed` 目前是全局常量 560f（非逐武器字段）⇒ **未落地、已挂起统一立项**。
+    //    · 「弹道速度 +20%」是**引擎新轴**——[T68] 已落地：`Weapon.FlightSpeed`（逐武器飞速，默认 560＝旧全局常量），
+    //      读过本书的射手其射出弹丸飞速 ×1.2（见 BookFlightSpeedMult，由本 Combine 连乘进有效武器的 FlightSpeed）。
     //    · 「射程 +10%」按用户意图**删除**（见 BookRangeMult 现为 1.0＝无效果）——射手侧的射程加成不再由本书提供。
-    //    ⇒ 现在这本书一共给三项：**锥形角 −10%、攻速 +2%、箭矢回收 25%→50%**（原「射程 +10%」这一项已被弹道速度取代）。
+    //    ⇒ 现在这本书一共给四项：**弹道速度 +20%、锥形角 −10%、攻速 +2%、箭矢回收 25%→50%**（原「射程 +10%」被弹道速度取代）。
     //
     // 用户原话（旧）：「弓箭射程+10%，锥形角-10%，攻速+2%」；(新)：射程+10% → 弹道速度+20%。
     //
@@ -264,7 +265,15 @@ public static class Archery
     /// <para>保留常量（值 1.0）而非删掉，是为了不动 <see cref="Combine"/> 的连乘管线 + 让"这条被有意中和"在代码里留痕；
     /// 弹道速度轴立项后，若用户仍要射程加成再改回即可。</para>
     /// </summary>
-    public const double BookRangeMult = 1.0;   // [T68] 1.10 → 1.0（射程加成删除，用户换成弹道速度+20%＝引擎新轴挂起）
+    public const double BookRangeMult = 1.0;   // [T68] 1.10 → 1.0（射程加成删除，用户换成弹道速度+20%）
+
+    /// <summary>
+    /// 《弓与箭之道》·弹道速度加成：🔴 [T68] **+20%（×1.2）**——用户把原「射程 +10%」换成的那一条。
+    /// <para>作用轴＝逐武器 <see cref="Weapon.FlightSpeed"/>（默认 560＝旧全局常量）：读过书的射手射出的弹丸飞得更快、
+    /// 出膛到命中的滞空更短。它是**射手的本事**（属于人，不属于箭），故与射程/散布/冷却三项一样作为 <see cref="Combine"/>
+    /// 的射手侧入参连乘进有效武器的飞速。飞速是空间层弹道飞行属性，Sim 不建模弹道 ⇒ 本加成对 Sim 结算零影响。</para>
+    /// </summary>
+    public const double BookFlightSpeedMult = 1.2;
 
     /// <summary>《弓与箭之道》·锥形角（散布）加成：**−10%**（用户口径）——散布收窄即更准。仍受 <see cref="MinSpreadDegrees"/> 钳制。</summary>
     public const double BookSpreadMult = 0.90;
@@ -290,8 +299,9 @@ public static class Archery
     /// <summary>
     /// **(弓/弩, 箭, 射手读没读过《弓与箭之道》) → 有效武器**。核心纯函数。
     /// <para>
-    /// 修正的 5 个字段：伤害上限 / 穿透 / 射程（MaxRange 与 FalloffStart 等比缩放，整条衰减曲线一起挪）/
-    /// 冷却 / 散布角。**不改**的字段：伤害下限（原样保留弓/弩各自的 wiki 下限——「下限恒 1」机制已退役）、伤害类型、单双手、
+    /// 修正的字段：伤害上限 / 穿透 / 射程（MaxRange 与 FalloffStart 等比缩放，整条衰减曲线一起挪）/
+    /// 冷却 / 散布角 / [T68] 弹道速度（<see cref="Weapon.FlightSpeed"/>，仅读过《弓与箭之道》时 ×1.2，箭不参与）。
+    /// **不改**的字段：伤害下限（原样保留弓/弩各自的 wiki 下限——「下限恒 1」机制已退役）、伤害类型、单双手、
     /// 末端衰减系数 <see cref="Weapon.FalloffFloor"/>（那是"箭还剩多少劲"的比例，与箭的种类无关）、
     /// 连发/弹丸数（弓弩恒 1）。
     /// </para>
@@ -323,6 +333,9 @@ public static class Archery
         double cooldownMult = (arrow?.CooldownMult ?? 1.0) * (hasReadArcheryBook ? BookCooldownMult : 1.0);
         double spreadMult = (arrow?.SpreadMult ?? 1.0) * (hasReadArcheryBook ? BookSpreadMult : 1.0);
 
+        // [T68] 弹道速度：飞速是**射手的本事**（属于人不属于箭），箭不参与——只由书连乘。读过书 ×1.2，否则原样继承弓的飞速。
+        double flightSpeedMult = hasReadArcheryBook ? BookFlightSpeedMult : 1.0;
+
         // 上限＝弓基础上限 × 箭伤系数；兜底不低于弓自己的下限（保证 Max ≥ Min，wiki 值下恒成立）。
         double maxDamage = Math.Max(weapon.DamageMin, weapon.DamageMax * damageMult);
 
@@ -340,6 +353,8 @@ public static class Archery
             BaseSpreadDegrees = Math.Max(MinSpreadDegrees, weapon.BaseSpreadDegrees * spreadMult),
             MaxRange = weapon.MaxRange * rangeMult,
             FalloffStart = weapon.FalloffStart * rangeMult,
+            // [T68] 弹道速度：弓的飞速 × 书(读过 ×1.2)。搭箭不改飞速 ⇒ 换支箭不会让箭飞得更快。
+            FlightSpeed = weapon.FlightSpeed * flightSpeedMult,
 
             // —— 原样继承（箭改不了的）——
             DamageType = weapon.DamageType,

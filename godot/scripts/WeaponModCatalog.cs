@@ -641,6 +641,131 @@ public static class WeaponModCatalog
         },
     };
 
+    // ============ [T69] 近身锐器·防御型改装（1 条：护手挡格）============
+    //
+    // 🔴 它带的不是 StatMod，而是**承伤入口的一次整发否决**（拿武器的手被选为受击部位 → 50% 无效）。
+    //    落成 WeaponMod.HandGuardNegateChance，判定走 WeaponModDefense.HandGuardNegates，
+    //    接线在 CombatEngine.ResolveHit（部位在那里选定、伤害其后施加，故否决必须落在选部位之后）。
+
+    /// <summary>护手挡格：拿武器的手（连同手指）被选为受击部位时 50% 整发无效；重量 +10%。适配匕首/短剑/刺剑。</summary>
+    public static WeaponMod Handguard() => new()
+    {
+        Id = "handguard",
+        Name = "护手挡格",
+        FitsWeapons = Names("匕首", "短剑", "刺剑"),
+        Part = WeaponPart.Grip,
+        Note = "不仅是装饰品，更能保护你脆弱的手。",
+        Description = "花哨的护手不为好看——是为了让你握枪的那只手，明天还握得住枪。",
+        MaterialCosts = Cost(("iron", 2), ("leather", 1)),
+        WorkMinutes = 90,
+        WeightMultiplier = 1.10,                                   // 重量 +10%
+        HandGuardNegateChance = 0.50,                             // 武器手受击时 50% 整发否决（数值拟定待调）
+    };
+
+    // ============ [T69] 弓弩专属改装（4 条：弓臂缠手 / 复合弓臂 / 重磅弓弦 / 弩盾）============
+    //
+    // 归类进新的 Archery 组（见 For(WeaponClass) 之外的 ArcheryMods()）。它们的白名单是**弓/弩**（吃箭的远程）——
+    // 与 [T29]「弓弩不吃枪械改装」不冲突：枪械改装白名单不含弓弩，这四条是弓弩自己的专属改装。
+    // 部位：弓臂缠手=缠手(LimbWrap)、复合弓臂=弓(Bow)、重磅弓弦=弦(String)、弩盾=弩身(CrossbowBody)。
+    // 🔴 用户拍板：弓臂缠手(缠手) 与 复合弓臂(弓) **不互斥、可同装一把弓**（两个不同部位）。
+
+    /// <summary>弓臂缠手：弓臂缠一层布，攻速 +5%（间隔 ×0.95）。适配短弓/反曲弓/长弓/狩猎弓。</summary>
+    public static WeaponMod LimbWrap() => new()
+    {
+        Id = "limb_wrap",
+        Name = "弓臂缠手",
+        FitsWeapons = Names("短弓", "反曲弓", "长弓", "狩猎弓"),
+        Part = WeaponPart.LimbWrap,
+        Note = "更加柔和的手感，更好把握弓臂。",
+        Description = "缠一层布在弓臂上，冰冷的木头就有了点体温。射出去的还是要命的东西，握着的却不那么硌手了。",
+        MaterialCosts = Cost(("cloth", 2), ("leather", 1)),
+        WorkMinutes = 60,
+        // wiki「攻击速度+5%，。」末尾空悬顿号疑似漏填，用户未补 ⇒ 只落攻速 +5%（无重量、无其他）。
+        Stats = new[]
+        {
+            StatMod.Mul(WeaponStat.AttackInterval, 0.95),         // 攻速 +5% ⇒ 间隔 ×0.95
+        },
+    };
+
+    /// <summary>复合弓臂：重量 +15% / 攻速 −6% / 伤害 +8% / 穿透 +8% / 弹丸飞速 +12%。适配短弓/长弓。</summary>
+    public static WeaponMod CompoundLimbs() => new()
+    {
+        Id = "compound_limbs",
+        Name = "复合弓臂",
+        FitsWeapons = Names("短弓", "长弓"),
+        Part = WeaponPart.Bow,
+        Note = "拉开它可需要不小的力气，但相信我，辛苦是值得的。",
+        Description = "拉开它得用上全身的劲，松手那一刻却安静得可怕。辛苦都堆在拉弦的三秒里，飞出去的那一下替你把话说完。",
+        MaterialCosts = Cost(("wood", 2), ("glue", 2)),
+        WorkMinutes = 180,
+        WeightMultiplier = 1.15,                                   // 重量 +15%
+        Stats = new[]
+        {
+            StatMod.Mul(WeaponStat.AttackInterval, 1.06),         // 攻速 −6% ⇒ 间隔 ×1.06
+            StatMod.Mul(WeaponStat.DamageMin, 1.08),              // 伤害 +8%
+            StatMod.Mul(WeaponStat.DamageMax, 1.08),
+            StatMod.Mul(WeaponStat.Penetration, 1.08),            // 穿透 +8%
+            StatMod.Mul(WeaponStat.FlightSpeed, 1.12),            // 弹丸飞速 +12%（与《弓与箭之道》+20% 自动连乘）
+        },
+    };
+
+    /// <summary>
+    /// 重磅弓弦：攻速 −6% / 伤害 +4% / 散布 −8% / 弹丸飞速 +12% / **衰减率 −18%**（映射为末端伤害系数提高）。
+    /// 适配 5 把弓（短弓/反曲弓/长弓/竞技复合弓/狩猎弓）。
+    /// <para>
+    /// 🔴 「衰减率 −18%」的落点（用户拍板：映射为 FalloffFloor 末端保留比例提高）：以单条
+    /// <c>Mul(FalloffFloor, 1.18)</c> 近似——末端保留系数提高即"打远了伤害掉得更少"。
+    /// **数值拟定待 Sim 校准**：精确等价于"衰减率 −18%"需 Sim 拉表核对（末端保留的合适档位由 Build 的
+    /// Clamp(0.01,1) 兜住不越界）。
+    /// </para>
+    /// </summary>
+    public static WeaponMod HeavyBowstring() => new()
+    {
+        Id = "heavy_bowstring",
+        Name = "重磅弓弦",
+        FitsWeapons = Names("短弓", "反曲弓", "长弓", "竞技复合弓", "狩猎弓"),
+        Part = WeaponPart.String,
+        Note = "当心手指。",
+        Description = "弦更硬，射得更远也更狠。当心手指——它不分敌我。",
+        MaterialCosts = Cost(("rope", 2)),
+        WorkMinutes = 90,
+        Stats = new[]
+        {
+            StatMod.Mul(WeaponStat.AttackInterval, 1.06),         // 攻速 −6% ⇒ 间隔 ×1.06
+            StatMod.Mul(WeaponStat.DamageMin, 1.04),              // 伤害 +4%
+            StatMod.Mul(WeaponStat.DamageMax, 1.04),
+            StatMod.Mul(WeaponStat.BaseSpreadDegrees, 0.92),      // 散布 −8%
+            StatMod.Mul(WeaponStat.FlightSpeed, 1.12),            // 弹丸飞速 +12%
+            StatMod.Mul(WeaponStat.FalloffFloor, 1.18),           // 衰减率 −18% ≈ 末端保留提高（拟定待 Sim 校准）
+        },
+    };
+
+    /// <summary>
+    /// 弩盾：重量 +50%；举弩时来自**正面 120°**（半角 60°）的**远程**攻击 25% 整发无效。适配双手重弩/复合弩。
+    /// <para>否决不是 StatMod —— 见 <see cref="WeaponMod.FrontalRangedNegateChance"/>，判定走
+    /// <see cref="WeaponModDefense.FrontalRangedNegates"/>，接线在 <c>Actor.ReceiveAttack</c>（与半身掩体同层）。</para>
+    /// </summary>
+    public static WeaponMod CrossbowShield() => new()
+    {
+        Id = "crossbow_shield",
+        Name = "弩盾",
+        FitsWeapons = Names("双手重弩", "复合弩"),
+        Part = WeaponPart.CrossbowBody,
+        Note = "灵感来自意大利。",
+        Description = "意大利人早想通了：与其射得快，不如活到能再射一发。这块铁挡在弩前，也挡在你和一支飞来的箭之间。",
+        MaterialCosts = Cost(("iron", 4), ("leather", 2), ("nails", 4)),
+        WorkMinutes = 180,
+        WeightMultiplier = 1.50,                                   // 重量 +50%
+        FrontalRangedNegateChance = 0.25,                        // 正面远程 25% 整发否决（数值拟定待调）
+        FrontalNegateHalfAngleDeg = 60.0,                        // 正面 120° ⇒ 半角 60°
+    };
+
+    /// <summary>弓弩专属改装（4 条）。归入 <see cref="All"/>，UI 单独分栏；不进 <see cref="LegacyClassOf"/> 的迁移三组（它们是收窄后新加的）。</summary>
+    public static IReadOnlyList<WeaponMod> Archery() => new[]
+    {
+        LimbWrap(), CompoundLimbs(), HeavyBowstring(), CrossbowShield(),
+    };
+
     /// <summary>
     /// 这条改装**归哪一组** —— 只剩两个用途：给 <see cref="LegacyClassOf"/> 定组、给改装 UI 分栏。
     /// <para>
@@ -664,6 +789,7 @@ public static class WeaponModCatalog
         WeaponClass.Blade => new[]
         {
             SerratedBlade(), HonedEdge(), FullerBlade(), WeightedHandle(), LightenedHandle(), GripWrapBlade(),
+            Handguard(),   // [T69] 护手挡格（匕首/短剑/刺剑）：武器手受击 50% 整发否决
         },
         WeaponClass.Blunt => new[]
         {
@@ -690,6 +816,7 @@ public static class WeaponModCatalog
         all.AddRange(For(WeaponClass.Firearm));
         all.AddRange(For(WeaponClass.Blade));
         all.AddRange(For(WeaponClass.Blunt));
+        all.AddRange(Archery());   // [T69] 弓弩专属 4 条（弓臂缠手/复合弓臂/重磅弓弦/弩盾）
         return all;
     }
 }

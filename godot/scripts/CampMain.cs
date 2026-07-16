@@ -367,8 +367,8 @@ public sealed partial class CampMain : Node2D
     private bool _siegeActive;
     private int _siegeWaveIndex;        // 已投放波次序号（0=首波）
     private double _siegeWaveElapsed;    // 距上一波投放已过秒（逐帧累积，喂 HordeTimeline.NextWave）
-    // 结局②军袭全灭上下文（预留）：军方白天来袭屠杀留守者时，若恰全员在营被屠尽 → 全灭走 CG②（背叛全灭变体）。
-    // 军袭事件本体未实装（TryTriggerMilitaryRaid 目前 no-op），故此位恒 false；实装军袭时在其屠杀分支置位（见 TODO）。
+    // 【遗留】旧结局②"全员在营被军袭屠尽 → 全灭走 CG②"上下文。已推翻：军袭改为**强制终局南逃谢幕序列**
+    // （BeginSouthEscapeEnding，不经全灭判定、序列内先置 _gameOver）。此位恒 false、不再被置位，仅为 EndingCg.ForGameOver 遗留签名保留。
     private bool _militaryRaidWipeContext;
     private GuardPostKind _debugPlaceKind = GuardPostKind.Watchtower; // 调试放置轮换类型
     private const float BreachRadius = 420f;  // 破防线：丧尸摸进营心此半径内 = 破防（随 2400×1800 地图放大调，拟定待调）
@@ -590,6 +590,9 @@ public sealed partial class CampMain : Node2D
         _stashPanel.LightHoldRequested += OnStashLightHoldRequested; // 库存「持起」手持光源（手电/火把）→ Pawn.HeldLight
         _stashPanel.SalvageRequested += OnStashSalvageRequested;     // 库存「拆解」→ 走工时制拆回材料（返还 50%；木材走 25%+25% 例外）
         _stashPanel.PlaceRequested += OnStashPlaceRequested;       // 库存「摆放」→ 沙袋放置模式（左键落位/右键取消）
+        _stashPanel.DogGearUnequipRequested += OnStashDogGearUnequipRequested; // 库存「布鲁斯装备」区「脱下」→ 从布鲁斯脱下退库
+        // 布鲁斯当前穿戴态：给库存面板「布鲁斯装备」区提供实时数据（布鲁斯不在场则空 → 该区不出现）。
+        _stashPanel.DogGearProvider = () => _bruce is { Alive: true } b ? b.Apparel.EquippedKeys : null;
         _stashPanel.Closed += CloseStash;
 
         _readerPanel = new ReaderPanel { Layer = 21 }; // 叠在库存面板之上
@@ -5033,6 +5036,11 @@ public sealed partial class CampMain : Node2D
 
     private void OnGamePhaseChanged(DayPhase phase)
     {
+        // 「南逃谢幕」强制终局序列进行中：营地已被屠、玩家在南逃走廊操作——一切聚餐/相位记账/清尸/陷阱副作用一律停摆
+        // （序列自管画面与时标，末尾走 EndingPanel 谢幕）。放在最前，避免走廊行走途中若发生相位切换再触发营地逻辑。
+        if (_southEscapeActive)
+            return;
+
         _pendingInteract = null; // 相位切换：取消未完成的前往交互
         // [批次21·impl-bedrest] 给**刚过去的那个相位**记一笔休养账。**必须在这儿、必须在最前面**：
         // 此刻 PawnRoleManager 还没重排角色（CampMain 先订阅 OnPhaseChanged），p.Role 仍是离场相位的角色。
@@ -5084,7 +5092,9 @@ public sealed partial class CampMain : Node2D
                 ReleaseReaders(); // 夜晚结束：读者放座、清读书态（阅读进度已跨夜持久）
                 AdvanceSurvivorsHealthDay(); // 又过一昼夜：伤病恶化/愈合、封顶致残/致死（须在聚餐结算前，死亡先反映到名单与全灭判定）
                 AdvanceBondDay(); // 道格&布鲁斯共同存活又一昼夜 → 羁绊升级推进（两者皆活才 +1，任一死即冻结）
-                TryTriggerMilitaryRaid(); // 电台主线：回复军方后第 3 天白天军袭到期（结局②，本批仅钩子+安全 no-op）
+                // 电台主线：回复军方后（回复日+2）白天军袭到期 → 屠营+南逃谢幕强制终局序列接管画面，跳过本次聚餐。
+                if (TryTriggerMilitaryRaid())
+                    break;
                 BeginMeal("黎明聚餐", "dawn");
                 break;
             case DayPhase.DayPrep:
@@ -6984,22 +6994,27 @@ public sealed partial class CampMain : Node2D
     }
 
     /// <summary>
-    /// 电台主线军袭到期钩子（每日黎明调）：回复军方后第 3 天（回复日+3）白天军袭到期。
-    /// ★军袭事件本体不在本批（authored 待用户：军方白天屠杀留守者、外出探险队幸存归来见营地覆灭、
-    ///   游戏不强制结束、续走结局①尸潮或③南逃）。本方法只在到期首次置事件钩子 flag（<see cref="RadioMainline.TryFireMilitaryRaidHook"/> 保证一次性），
-    ///   TODO 挂点处安全 no-op（不改变现状；实装军袭时在此触发白天军袭演出/结算）。
+    /// 电台主线军袭到期钩子（每日黎明调）：回复军方后**回复日 + 2 的白天**军袭到期（<see cref="RadioMainline.MilitaryRaidDelayDays"/>）。
+    /// ★用户 authored 强制终局（已推翻旧"全员在营才全灭"设计）：大量军人带顶级装备屠尽全营、**随机一名幸存者半残南逃**
+    ///   → 进「南逃谢幕」序列（<see cref="BeginSouthEscapeEnding"/>，REUSABLE）。军方动机保持不解释（[SPEC-B11] 留白）。
+    /// 返回是否已启动军袭序列（true → 调用方跳过本次黎明聚餐，序列接管画面）。一次性（<see cref="RadioMainline.TryFireMilitaryRaidHook"/> 保证）。
     /// </summary>
-    private void TryTriggerMilitaryRaid()
+    private bool TryTriggerMilitaryRaid()
     {
         if (!RadioMainline.TryFireMilitaryRaidHook(_storyFlags, _clock.Day))
-            return;
-        // TODO(结局②·军方白天来袭)：此处触发 authored 军袭事件——白天屠杀留守者、外出探险队幸存归来见营地覆灭、
-        //   游戏不强制结束（仅全员在营时才自然全灭）。军方动机保持不解释（[SPEC-B11] 留白）。
-        //   ★军袭全灭 → CG②接线：实装时，若军袭屠尽留守者且此刻全员在营（无人外出）导致全灭，
-        //     在屠杀分支置 _militaryRaidWipeContext = true，再让 Pawn.Died 走 OnSurvivorDied 全灭路由 → EndingCg.ForGameOver 选 CG②。
-        //     CG② 文本已定稿（EndingCg.MilitaryWipe）、结局路由已就位，此处只差军袭事件本体（战斗结算）。
-        // 本批为安全 no-op：仅记录钩子已触发，不改变现状（_militaryRaidWipeContext 保持 false）。
-        GD.Print($"[电台] 第 {_clock.Day} 天：军方白天来袭到期（结局②事件钩子已触发，事件本体待实装，本批 no-op）。");
+            return false;
+
+        // 随机一名存活幸存者半残南逃（掷点走可注入源）；无人存活则兜底不启动（不应发生，全灭另有路由）。
+        var alive = _survivors.Where(s => s.Alive).ToList();
+        Pawn? escapee = SouthEscapeEnding.SelectEscapee(alive, _southEscapeRng);
+        if (escapee == null)
+        {
+            GD.Print($"[电台] 第 {_clock.Day} 天：军袭到期但无存活幸存者，跳过南逃谢幕。");
+            return false;
+        }
+
+        BeginSouthEscapeEnding(escapee, SouthEscapeTrigger.MilitaryRaid);
+        return true;
     }
 
     // ============ 结局③：南逃最小闭环（三问考验 → 启程 → CG③） ============
@@ -8243,6 +8258,13 @@ public sealed partial class CampMain : Node2D
     /// </summary>
     private void OnStashEquipRequested(string refKey)
     {
+        // 狗装备（护甲件，键∈DogGearCatalog）分流到布鲁斯，不装到幸存者身上（正式穿戴入口，取代 debug Key.H）。
+        if (DogGearCatalog.IsDogGear(refKey))
+        {
+            EquipDogGearOnBruce(refKey);
+            return;
+        }
+
         Pawn? target = _selected.FirstOrDefault(p => p.IsControllable);
         if (target == null)
         {
@@ -8287,6 +8309,57 @@ public sealed partial class CampMain : Node2D
             ShowInspect(target); // 面板开着 → 刷新装备态
         }
         OpenStash($"已为 {target.DisplayName} 装备 {item.DisplayName}。");
+    }
+
+    /// <summary>
+    /// 库存里点某件狗装备的「给布鲁斯穿」→ 穿到布鲁斯身上（正式穿戴入口，取代 debug <c>DebugEquipDogGearOnBruce</c>/Key.H）。
+    /// 走 <see cref="Dog.EquipGear"/>：从库存扣该件、同槽旧件顶替回库；成功即刷新 <c>DefenderArmor</c>（护甲进受击结算）。
+    /// 布鲁斯不在场（未入队/身故）则提示。口袋狗衣顺带加探索携带容量（<see cref="Dog.CarryCapacity"/>）。
+    /// </summary>
+    private void EquipDogGearOnBruce(string gearKey)
+    {
+        if (_bruce is not { Alive: true } bruce)
+        {
+            OpenStash("布鲁斯不在场——狗装备得等道格与布鲁斯入队后才能穿。");
+            return;
+        }
+
+        Item? item = _inventory.Armors.FirstOrDefault(i => i.RefKey == gearKey);
+        if (item == null)
+        {
+            return; // 库存里已无此件（并发/重复点），静默
+        }
+
+        if (!bruce.EquipGear(gearKey, out string? displaced))
+        {
+            OpenStash($"{item.DisplayName} 穿不上布鲁斯。");
+            return;
+        }
+
+        _inventory.Remove(item);
+        if (displaced is not null)
+        {
+            _inventory.Add(Item.Armor(displaced)); // 同槽顶替下来的旧件回库存（绝不静默丢）
+        }
+
+        string cap = bruce.CarryCapacity > 0 ? $"，携带容量 +{bruce.CarryCapacity:0}kg" : "";
+        OpenStash($"布鲁斯穿上了 {item.DisplayName}{cap}。");
+    }
+
+    /// <summary>库存「布鲁斯装备」区点「脱下」→ 从布鲁斯脱下该件并退回库存（<see cref="Dog.UnequipGear"/> 刷新护甲）。</summary>
+    private void OnStashDogGearUnequipRequested(string gearKey)
+    {
+        if (_bruce is not { Alive: true } bruce)
+        {
+            OpenStash("布鲁斯不在场。");
+            return;
+        }
+        if (!bruce.UnequipGear(gearKey))
+        {
+            return; // 已不在身（并发/重复点），静默
+        }
+        _inventory.Add(Item.Armor(gearKey));
+        OpenStash($"布鲁斯脱下了 {DogGearCatalog.Get(gearKey)?.DisplayName ?? gearKey}。");
     }
 
     /// <summary>库存「持起」手持光源（手电/火把）→ 选中幸存者 <see cref="Pawn.HeldLight"/>，占一只手；被顶替的旧光源回库存（绝不静默丢）。</summary>

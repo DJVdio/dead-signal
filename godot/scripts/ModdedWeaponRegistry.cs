@@ -253,6 +253,43 @@ public static class ModdedWeaponRegistry
     }
 
     /// <summary>
+    /// [T69] 一把武器（含改装变体）的**护手挡格**否决几率——各改装取最大值。原厂武器 / 未登记 / 无护手挡格 ⇒ 0。
+    /// 供 <c>Actor.ReceiveAttack</c> 把它连同"持械手部位集"喂进 <c>CombatEngine.ResolveHit</c>。
+    /// </summary>
+    public static double HandGuardNegateChanceOf(string? variantName)
+        => ModsOf(variantName).Select(m => m.HandGuardNegateChance).DefaultIfEmpty(0.0).Max();
+
+    /// <summary>
+    /// [T69] 一把武器（含改装变体）的**弩盾**正面远程否决几率——各改装取最大值。原厂武器 / 未登记 / 无弩盾 ⇒ 0。
+    /// 供 <c>Actor.ReceiveAttack</c> 判"正面锥内的远程攻击是否整发否决"。
+    /// </summary>
+    public static double FrontalRangedNegateChanceOf(string? variantName)
+        => ModsOf(variantName).Select(m => m.FrontalRangedNegateChance).DefaultIfEmpty(0.0).Max();
+
+    /// <summary>[T69] 弩盾正面锥半角（度）：取带弩盾那条改装的值；无弩盾则 60。</summary>
+    public static double FrontalNegateHalfAngleDegOf(string? variantName)
+        => ModsOf(variantName).Where(m => m.FrontalRangedNegateChance > 0)
+            .Select(m => m.FrontalNegateHalfAngleDeg).DefaultIfEmpty(60.0).First();
+
+    /// <summary>一把变体名对应的已装改装列表（原厂武器 / 未登记 ⇒ 空）。按 spec.ModNames 从当前 catalog 回查。</summary>
+    private static IReadOnlyList<WeaponMod> ModsOf(string? variantName)
+    {
+        if (variantName is null || !_specs.TryGetValue(variantName, out ModdedWeaponSpec? spec))
+            return System.Array.Empty<WeaponMod>();
+        if (BaseWeaponByName(spec.BaseWeaponName) is not { } baseWeapon)
+            return System.Array.Empty<WeaponMod>();
+
+        IReadOnlyList<WeaponMod> catalog = WeaponModCatalog.For(baseWeapon);
+        var mods = new List<WeaponMod>();
+        foreach (string modName in spec.ModNames)
+        {
+            WeaponMod? mod = catalog.FirstOrDefault(m => m.Name == modName);
+            if (mod is not null) mods.Add(mod);
+        }
+        return mods;
+    }
+
+    /// <summary>
     /// 按名回查一把**改装变体**武器。查得到 ⇒ true。
     /// <b>调用方约定</b>：先查 <c>WeaponTable</c>（原厂武器），落空了再问这里（改装变体）。
     /// </summary>

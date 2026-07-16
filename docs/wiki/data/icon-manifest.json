@@ -212,13 +212,13 @@
       "weapon-mods/weighted_handle",
       "weapon-mods/lightened_handle",
       "weapon-mods/grip_wrap_blade",
+      "weapon-mods/handguard",
       "weapon-mods/wire_wrap",
       "weapon-mods/nail_studs",
-      "weapon-mods/new_weapon_mod_1",
-      "weapon-mods/new_weapon_mod_2",
-      "weapon-mods/new_weapon_mod_3",
-      "weapon-mods/new_weapon_mod_4",
-      "weapon-mods/new_weapon_mod_5"
+      "weapon-mods/limb_wrap",
+      "weapon-mods/compound_limbs",
+      "weapon-mods/heavy_bowstring",
+      "weapon-mods/crossbow_shield"
     ],
     "food": [
       "food/rabbit",

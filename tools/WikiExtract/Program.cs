@@ -1621,6 +1621,8 @@ internal static class Program
             new("buildMinutes", "建造工时", "hours", Hint: "有人在营地里干这么久（游戏内时间）。"),
             new("salvage", "拆了能还回多少", ReadOnly: true,
                 Hint: "自动算的：通用规则是还一半（向下取整），木材例外——一半变木料、一半变废木料。要改 ⇒ 改「建造材料」。（想改返还比例本身，那是引擎规则，跟 agent 说。）"),
+            // 玩家在游戏里看到的短简介：代码里已有字段（FurnitureBuildCost.Description(key)），复用「简介」列（同 Books()）。
+            new("description", "简介", "longtext"),
             new("_id", "内部 id", Internal: true),
             new("_anchor", "代码位置", Internal: true),
         };
@@ -1635,6 +1637,7 @@ internal static class Program
                 ["materials"] = cost is null ? "" : string.Join('、', cost.Select(kv => $"{MaterialName(kv.Key)}*{kv.Value}")),
                 ["buildMinutes"] = FurnitureBuildCost.BuildMinutes(key),
                 ["salvage"] = cost is null ? "" : string.Join('、', SalvageLogic.YieldOfFurniture(key).Select(kv => $"{MaterialName(kv.Key)}*{kv.Value}")),
+                ["description"] = FurnitureBuildCost.Description(key),
                 ["_id"] = key,
                 ["_anchor"] = "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
             });

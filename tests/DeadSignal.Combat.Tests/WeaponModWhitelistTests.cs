@@ -98,7 +98,7 @@ public class WeaponModWhitelistTests
     /// 用户在 wiki 上改了勾选，来同步的人改这张表即可 —— <b>它就是那张表</b>。</para>
     /// </summary>
     [Fact]
-    public void 十五条改装的白名单_逐条等于用户在wiki上勾的那张表()
+    public void 二十条改装的白名单_逐条等于用户在wiki上勾的那张表()
     {
         string[] guns6 = { "自制猎枪", "手枪", "冲锋枪", "步枪", "狙击枪", "自制霰弹枪" };
         string[] gunsSawn = { "自制猎枪", "手枪", "步枪", "狙击枪", "自制霰弹枪" };          // 用户划掉冲锋枪
@@ -111,6 +111,12 @@ public class WeaponModWhitelistTests
         string[] fullerFits = { "匕首", "短剑", "长剑", "草叉", "重剑" };                      // 划掉刺剑，**不含消防斧**
         string[] bladesAndBlunts = { "匕首", "短剑", "刺剑", "长剑", "草叉", "重剑", "消防斧", "棍棒", "尖头锤", "破甲锤" };
         string[] clubOnly = { "棍棒" };
+        // [T69] 近身防御 + 弓弩专属 5 条（用户在 wiki 上新加）
+        string[] handguardFits = { "匕首", "短剑", "刺剑" };                                 // 护手挡格
+        string[] limbWrapBows = { "短弓", "反曲弓", "长弓", "狩猎弓" };                      // 弓臂缠手（无竞技复合弓）
+        string[] compoundBows = { "短弓", "长弓" };                                          // 复合弓臂
+        string[] heavyStringBows = { "短弓", "反曲弓", "长弓", "竞技复合弓", "狩猎弓" };     // 重磅弓弦（全 5 弓）
+        string[] crossbowShields = { "双手重弩", "复合弩" };                                 // 弩盾（不含单手轻弩）
 
         var expected = new Dictionary<string, string[]>
         {
@@ -129,10 +135,15 @@ public class WeaponModWhitelistTests
             ["grip_wrap_blade"] = bladesAndBlunts,   // 用户把原来同名的锐器/钝器两条合并成了一条
             ["wire_wrap"] = clubOnly,
             ["nail_studs"] = clubOnly,
+            ["handguard"] = handguardFits,           // [T69] 护手挡格（近身锐器防御）
+            ["limb_wrap"] = limbWrapBows,            // [T69] 弓臂缠手
+            ["compound_limbs"] = compoundBows,       // [T69] 复合弓臂
+            ["heavy_bowstring"] = heavyStringBows,   // [T69] 重磅弓弦
+            ["crossbow_shield"] = crossbowShields,   // [T69] 弩盾
         };
 
         IReadOnlyList<WeaponMod> actual = WeaponModCatalog.All();
-        Assert.Equal(15, actual.Count);   // [T68] 新增锋刃型（14 → 15）
+        Assert.Equal(20, actual.Count);   // [T69] 新增护手挡格 + 弓弩 4 条（15 → 20）
 
         foreach (WeaponMod mod in actual)
         {
@@ -241,16 +252,37 @@ public class WeaponModWhitelistTests
     }
 
     /// <summary>
-    /// 弓弩现在<b>一条改装都拿不到</b>（枪械改装被划掉、刃类/钝类本就不含它们）——
-    /// 这是收窄的直接后果，写成断言是为了让它**可见**：若用户日后想给弓弩单开一类改装
-    /// （弓弦/箭台/瞄具…），这条会红，提醒来更新口径。
+    /// 🔴 <b>[T69] 弓弩现在有了**专属改装**（用户在 wiki 上新加）</b> —— 但仍**一条枪械改装都拿不到</b>
+    /// （[T29] 收窄的那条界线没变）。这条钉死：弓弩只吃自己那 4 条（弓臂缠手/复合弓臂/重磅弓弦/弩盾），
+    /// 且逐把弓/弩拿到的**正是** wiki 白名单里勾它的那些。
     /// </summary>
     [Fact]
-    public void 弓弩当前拿不到任何改装()
+    public void 弓弩只拿弓弩专属改装_一条枪械改装都拿不到()
     {
+        var expectedByWeapon = new Dictionary<string, string[]>
+        {
+            ["短弓"] = new[] { "弓臂缠手", "复合弓臂", "重磅弓弦" },
+            ["反曲弓"] = new[] { "弓臂缠手", "重磅弓弦" },
+            ["长弓"] = new[] { "弓臂缠手", "复合弓臂", "重磅弓弦" },
+            ["竞技复合弓"] = new[] { "重磅弓弦" },
+            ["狩猎弓"] = new[] { "弓臂缠手", "重磅弓弦" },
+            ["单手轻弩"] = System.Array.Empty<string>(),   // 弩盾只勾了双手重弩/复合弩
+            ["双手重弩"] = new[] { "弩盾" },
+            ["复合弩"] = new[] { "弩盾" },
+        };
+
+        string[] gunMods = { "轻质化枪托", "截短枪管", "加长枪管", "刺刀型", "利爪型", "创伤型", "锋刃型" };
+
         foreach (Weapon bow in WeaponModCatalog.AllModdableWeapons().Where(WeaponModCatalog.IsArchery))
         {
-            Assert.Empty(WeaponModCatalog.For(bow));
+            var got = WeaponModCatalog.For(bow).Select(m => m.Name).ToArray();
+            Assert.True(expectedByWeapon.ContainsKey(bow.Name), $"新弓弩「{bow.Name}」没在期望表里，来更新口径");
+            Assert.Equal(expectedByWeapon[bow.Name].OrderBy(s => s), got.OrderBy(s => s));
+            // 一条枪械改装都没混进来（[T29] 界线没变）
+            foreach (string gm in gunMods)
+            {
+                Assert.DoesNotContain(gm, got);
+            }
         }
     }
 

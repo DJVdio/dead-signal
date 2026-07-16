@@ -32,13 +32,22 @@ public class EndingCgTests
     [Fact]
     public void AllCgs_AreNonEmpty_AndSegmentsNonBlank()
     {
-        foreach (var cg in new[] { EndingCg.HordeSiege, EndingCg.MilitaryWipe, EndingCg.SouthEscape })
+        foreach (var cg in new[]
+                 {
+                     EndingCg.HordeSiege, EndingCg.MilitaryWipe, EndingCg.SouthEscape,
+                     EndingCg.MilitaryRaidMassacre, EndingCg.SouthEscapeFarewell, // 南逃谢幕 CG-A/CG-B
+                 })
         {
             Assert.NotEmpty(cg);
             foreach (var seg in cg)
                 Assert.False(string.IsNullOrWhiteSpace(seg));
         }
     }
+
+    [Fact]
+    public void MilitaryWipe_IsAliasOf_MilitaryRaidMassacre()
+        // 旧名 MilitaryWipe 已重写为 CG-A 屠营文本（军人屠营+半残南逃），与新名同引用。
+        => Assert.Same(EndingCg.MilitaryRaidMassacre, EndingCg.MilitaryWipe);
 
     [Fact]
     public void ForKind_MapsToCorrectCg_NormalIsEmpty()

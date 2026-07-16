@@ -14,7 +14,10 @@ namespace DeadSignal.Godot;
 public sealed partial class Projectile : Node2D
 {
     private Vector2 _dir;
-    private const float Speed = 560f;
+    // [T68] 飞速改为逐武器字段（Weapon.FlightSpeed，默认 560＝旧全局常量的等效值），出膛时从有效武器捕获。
+    // 有效武器＝弓弩的「弓 ⊗ 箭 ⊗ 书」（Archery.Combine 已把《弓与箭之道》的弹道速度 +20% 连乘进 FlightSpeed），
+    // 也含后续弓弩改装的飞速乘子。缓存进本枚弹丸，避免飞行途中再回查武器。
+    private float _speed = 560f;
     private float _maxDist;
     private float _traveled;
     private Weapon _weapon = null!;
@@ -51,6 +54,7 @@ public sealed partial class Projectile : Node2D
         {
             _dir = dir,
             _maxDist = maxDist,
+            _speed = (float)weapon.FlightSpeed,   // [T68] 逐武器飞速（弓弩已含箭/书/改装的连乘）
             _weapon = weapon,
             _combat = combat,
             _shooter = shooter,
@@ -66,7 +70,7 @@ public sealed partial class Projectile : Node2D
     public override void _PhysicsProcess(double delta)
     {
         // 吃已缩放 delta：暂停时冻结，加速档下飞行更快，与全局时间一致。
-        float step = Speed * (float)delta;
+        float step = _speed * (float)delta;
         Vector2 from = GlobalPosition;
         Vector2 to = from + _dir * step;
 

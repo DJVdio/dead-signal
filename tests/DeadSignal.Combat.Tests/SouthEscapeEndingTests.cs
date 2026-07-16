@@ -1,0 +1,109 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using DeadSignal.Combat;
+using DeadSignal.Godot;
+using Xunit;
+
+namespace DeadSignal.Combat.Tests;
+
+/// <summary>
+/// 「南逃谢幕」结局序列纯逻辑内核（<see cref="SouthEscapeEnding"/>）：随机半残南逃者选择（注入 rng 复现）、
+/// 南逃者身份持久化（存档 Snapshot 往返）、触发上下文、序列态 flag。REUSABLE 入口的逻辑侧护栏。
+/// </summary>
+public sealed class SouthEscapeEndingTests
+{
+    // —— 随机南逃者选择 ——
+
+    [Fact]
+    public void SelectEscapee_EmptyList_ReturnsDefault()
+    {
+        var rng = new SequenceRandomSource();
+        Assert.Null(SouthEscapeEnding.SelectEscapee(new List<string>(), rng));
+    }
+
+    [Fact]
+    public void SelectEscapee_SingleSurvivor_ReturnsIt_NoRoll()
+    {
+        var rng = new SequenceRandomSource(); // 单人不 roll，序列可空
+        Assert.Equal("山姆", SouthEscapeEnding.SelectEscapee(new List<string> { "山姆" }, rng));
+    }
+
+    [Theory]
+    [InlineData(0.0, "山姆")]
+    [InlineData(1.5, "诺蒂")]
+    [InlineData(2.9, "克莉丝汀")] // (int)2.9=2，末位
+    public void SelectEscapee_PicksByInjectedRoll(double roll, string expected)
+    {
+        var survivors = new List<string> { "山姆", "诺蒂", "克莉丝汀" };
+        var rng = new SequenceRandomSource(roll);
+        Assert.Equal(expected, SouthEscapeEnding.SelectEscapee(survivors, rng));
+    }
+
+    [Fact]
+    public void SelectEscapee_RollAtUpperBound_ClampsToLast()
+    {
+        var survivors = new List<string> { "A", "B", "C" };
+        // Range(0,3) 上界 3.0 落 (int)=3 越界 → 钳到末位（防 rng 极端返回上界）。
+        var rng = new SequenceRandomSource(3.0);
+        Assert.Equal("C", SouthEscapeEnding.SelectEscapee(survivors, rng));
+    }
+
+    // —— 身份持久化（存档 Snapshot 往返）——
+
+    [Fact]
+    public void RecordEscapee_ThenReadBack()
+    {
+        var flags = new StoryFlags();
+        SouthEscapeEnding.RecordEscapee(flags, "山姆", "pawn_sam", SouthEscapeTrigger.MilitaryRaid);
+
+        Assert.True(SouthEscapeEnding.HasEscapee(flags));
+        Assert.True(SouthEscapeEnding.IsSequenceActive(flags));
+        Assert.Equal("山姆", SouthEscapeEnding.EscapeeName(flags));
+        Assert.Equal("pawn_sam", SouthEscapeEnding.EscapeeId(flags));
+        Assert.Equal(SouthEscapeTrigger.MilitaryRaid, SouthEscapeEnding.TriggerOf(flags));
+    }
+
+    [Fact]
+    public void RecordEscapee_SurvivesSnapshotRestore()
+    {
+        var flags = new StoryFlags();
+        SouthEscapeEnding.RecordEscapee(flags, "诺蒂", "pawn_notty", SouthEscapeTrigger.HordeSiege);
+
+        // 存档往返：Snapshot → new StoryFlags(snapshot)，南逃者身份/触发/序列态全部留存（第二幕桥梁角色接口）。
+        var restored = new StoryFlags(flags.Snapshot());
+        Assert.Equal("诺蒂", SouthEscapeEnding.EscapeeName(restored));
+        Assert.Equal("pawn_notty", SouthEscapeEnding.EscapeeId(restored));
+        Assert.Equal(SouthEscapeTrigger.HordeSiege, SouthEscapeEnding.TriggerOf(restored));
+        Assert.True(SouthEscapeEnding.IsSequenceActive(restored));
+    }
+
+    [Fact]
+    public void RecordEscapee_NullId_LeavesIdUnset()
+    {
+        var flags = new StoryFlags();
+        SouthEscapeEnding.RecordEscapee(flags, "无名者", null, SouthEscapeTrigger.MilitaryRaid);
+        Assert.Equal("无名者", SouthEscapeEnding.EscapeeName(flags));
+        Assert.Null(SouthEscapeEnding.EscapeeId(flags));
+        Assert.True(SouthEscapeEnding.HasEscapee(flags));
+    }
+
+    [Fact]
+    public void FreshFlags_NoEscapee_NoSequence()
+    {
+        var flags = new StoryFlags();
+        Assert.False(SouthEscapeEnding.HasEscapee(flags));
+        Assert.False(SouthEscapeEnding.IsSequenceActive(flags));
+        Assert.Null(SouthEscapeEnding.EscapeeName(flags));
+        Assert.Null(SouthEscapeEnding.TriggerOf(flags));
+    }
+
+    [Fact]
+    public void NullFlags_Tolerated()
+    {
+        SouthEscapeEnding.RecordEscapee(null!, "x", "y", SouthEscapeTrigger.MilitaryRaid); // 不抛
+        Assert.False(SouthEscapeEnding.HasEscapee(null!));
+        Assert.Null(SouthEscapeEnding.EscapeeName(null!));
+        Assert.Null(SouthEscapeEnding.TriggerOf(null!));
+    }
+}

@@ -6,7 +6,7 @@ namespace DeadSignal.Combat.Tests;
 /// <summary>
 /// 电台主线状态机（<see cref="RadioMainline"/>）纯逻辑（用户拍板 [SPEC-B8]）：
 /// 未知情 → 已收听广播 → 持有发出设备 → (终态分岔) 已回复军方 | 已呼叫南方。
-/// 终态互斥不可逆；回复军方记录回复日、回复日 +3 期满触发军袭事件钩子（一次性）。
+/// 终态互斥不可逆；回复军方记录回复日、回复日 +2 期满触发军袭事件钩子（一次性）。
 /// 状态存 <see cref="StoryFlags"/>，判定/推进全走纯函数（幂等、不降级）。
 /// </summary>
 public class RadioMainlineTests
@@ -167,12 +167,12 @@ public class RadioMainlineTests
         Assert.Equal(RadioMainlineStage.RepliedMilitary, RadioMainline.Stage(flags));
     }
 
-    // —— 军方来袭倒计时边界（回复日 +3）——
+    // —— 军方来袭倒计时边界（回复日 +2，用户拍板改自 +3）——
 
     [Theory]
-    [InlineData(5, 7, false)] // 回复日+2：未到期
-    [InlineData(5, 8, true)]  // 回复日+3：正好期满
-    [InlineData(5, 9, true)]  // 回复日+4：已过期仍算到期
+    [InlineData(5, 6, false)] // 回复日+1：未到期
+    [InlineData(5, 7, true)]  // 回复日+2：正好期满
+    [InlineData(5, 8, true)]  // 回复日+3：已过期仍算到期
     [InlineData(5, 5, false)] // 当天：未到期
     public void MilitaryRaidDue_ArithmeticBoundary(int replyDay, int currentDay, bool expected)
     {
@@ -186,8 +186,8 @@ public class RadioMainlineTests
         RadioMainline.GrantTransmitter(flags);
         Assert.False(RadioMainline.IsMilitaryRaidDue(flags, 100)); // 未回复军方永不到期
         RadioMainline.ReplyToMilitary(flags, 5);
-        Assert.False(RadioMainline.IsMilitaryRaidDue(flags, 7)); // 回复日+2
-        Assert.True(RadioMainline.IsMilitaryRaidDue(flags, 8));  // 回复日+3
+        Assert.False(RadioMainline.IsMilitaryRaidDue(flags, 6)); // 回复日+1
+        Assert.True(RadioMainline.IsMilitaryRaidDue(flags, 7));  // 回复日+2
     }
 
     [Fact]
@@ -197,13 +197,13 @@ public class RadioMainlineTests
         RadioMainline.GrantTransmitter(flags);
         RadioMainline.ReplyToMilitary(flags, 5);
 
-        Assert.False(RadioMainline.TryFireMilitaryRaidHook(flags, 7)); // 未到期不触发
+        Assert.False(RadioMainline.TryFireMilitaryRaidHook(flags, 6)); // 未到期不触发
         Assert.False(flags.Has(RadioMainline.MilitaryRaidFiredKey));
 
-        Assert.True(RadioMainline.TryFireMilitaryRaidHook(flags, 8)); // 期满首次触发
+        Assert.True(RadioMainline.TryFireMilitaryRaidHook(flags, 7)); // 期满首次触发
         Assert.True(flags.Has(RadioMainline.MilitaryRaidFiredKey));
 
-        Assert.False(RadioMainline.TryFireMilitaryRaidHook(flags, 9)); // 已触发不重复
+        Assert.False(RadioMainline.TryFireMilitaryRaidHook(flags, 8)); // 已触发不重复
         Assert.False(RadioMainline.TryFireMilitaryRaidHook(flags, 40));
     }
 
@@ -219,7 +219,7 @@ public class RadioMainlineTests
         var restored = new StoryFlags(flags.Snapshot());
         Assert.Equal(RadioMainlineStage.RepliedMilitary, RadioMainline.Stage(restored));
         Assert.Equal(6, RadioMainline.ReplyDay(restored));
-        Assert.True(RadioMainline.IsMilitaryRaidDue(restored, 9));
+        Assert.True(RadioMainline.IsMilitaryRaidDue(restored, 8)); // 回复日 6 + 2
     }
 
     [Fact]
