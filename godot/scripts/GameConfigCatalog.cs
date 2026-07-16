@@ -32,7 +32,13 @@ namespace DeadSignal.Godot;
 /// </summary>
 public static class GameConfigCatalog
 {
-    private static GameConfig? _config;
+    // 🔴 懒加载线程安全门（双检锁）：xUnit 默认并行跑不同 test collection，多线程会同时首访本目录。
+    // 若无同步，Initialize 先写 _config 后写 _sections，快路径读者会在 _config 已非空、_sections 仍 null 的
+    // 半初始化窗口里读到 null → Section<T>() 的 _sections!.TryGetValue 抛 NullReferenceException。
+    // 与纯库 CombatCatalog 同源问题、同修法。
+    private static readonly object _initGate = new();
+    // volatile：发布屏障。写 _config 前的 _sections 写对任何"看到非空 _config"的读者可见（release/acquire）。
+    private static volatile GameConfig? _config;
     // Type → 段实例的缓存索引（一次装配、O(1) 取用，避免每次取值都反射）。
     private static Dictionary<Type, IGameConfigSection>? _sections;
 
@@ -48,29 +54,52 @@ public static class GameConfigCatalog
     /// <summary>直接注入已解析配置（宿主/测试用；覆盖懒加载）。</summary>
     public static void Initialize(GameConfig config)
     {
-        _config = config ?? throw new ArgumentNullException(nameof(config));
-        _sections = IndexSections(config);
+        if (config == null)
+        {
+            throw new ArgumentNullException(nameof(config));
+        }
+        lock (_initGate)
+        {
+            // 🔴 顺序关键：先建索引，最后再 volatile-发布 _config。读者以 _config 非空为"就绪"信号，
+            // 故 _sections 必须在 _config 发布之前完成（release 屏障保证发布前的写对读者可见）。
+            _sections = IndexSections(config);
+            _config = config;
+        }
     }
 
     /// <summary>清空已解析配置（测试隔离用；下次访问重新走 <see cref="Bootstrapper"/>）。</summary>
     public static void Reset()
     {
-        _config = null;
-        _sections = null;
+        lock (_initGate)
+        {
+            // 先撤"就绪"信号（_config），再清索引——与 Initialize 的发布顺序对称。
+            _config = null;
+            _sections = null;
+        }
     }
 
     private static GameConfig Config
     {
         get
         {
-            if (_config == null)
+            // 快路径：已就绪则免锁直返（volatile 读，acquire 语义）。
+            var cfg = _config;
+            if (cfg != null)
             {
-                var boot = Bootstrapper ?? throw new InvalidOperationException(
-                    "GameConfigCatalog 未初始化且未注册 Bootstrapper。宿主须在启动时注册"
-                    + "（Godot=GameConfigDb / Sim·Tests=GameConfigFiles）。");
-                Initialize(boot());
+                return cfg;
             }
-            return _config!;
+            // 慢路径：双检锁，保证并发首访只 boot() 一次、只装配一次。
+            lock (_initGate)
+            {
+                if (_config == null)
+                {
+                    var boot = Bootstrapper ?? throw new InvalidOperationException(
+                        "GameConfigCatalog 未初始化且未注册 Bootstrapper。宿主须在启动时注册"
+                        + "（Godot=GameConfigDb / Sim·Tests=GameConfigFiles）。");
+                    Initialize(boot()); // lock 可重入（Monitor），Initialize 内再取同一 gate 无死锁
+                }
+                return _config!;
+            }
         }
     }
 
@@ -80,8 +109,9 @@ public static class GameConfigCatalog
     /// </summary>
     public static T Section<T>() where T : class, IGameConfigSection
     {
-        _ = Config; // 触发懒加载 + 建索引
-        if (_sections!.TryGetValue(typeof(T), out var s))
+        _ = Config; // 触发懒加载 + 建索引（此后 _config 非空 ⇒ acquire 屏障保证 _sections 也已可见）
+        var sections = _sections!; // 捕获局部：Config 就绪后 _sections 必非空，避免二次读取被并发 Reset 撞空
+        if (sections.TryGetValue(typeof(T), out var s))
         {
             return (T)s;
         }
