@@ -1,0 +1,9 @@
+{
+  "SnareBaseChance": 0.3,
+  "SnareChanceStep": 0.05,
+  "SnareMinChance": 0.05,
+  "SnareRabbitShare": 0.3,
+  "BirdTrapBaseChance": 0.2,
+  "BirdTrapChanceStep": 0.05,
+  "BirdTrapMinChance": 0.05
+}

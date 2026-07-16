@@ -128,14 +128,14 @@ public static class BirdTrapSpec
 /// </summary>
 public static class BirdTrapLogic
 {
-    /// <summary>第 1 个捕鸟陷阱的捕获几率（拟定待调）：20%，低于圈套陷阱的 30%。</summary>
-    public const double BaseChance = 0.20;
+    /// <summary>第 1 个捕鸟陷阱的捕获几率（拟定待调）：20%，低于圈套陷阱的 30%。数值真源＝<c>farming.json</c>（<see cref="FarmingConfig.BirdTrapBaseChance"/>）。</summary>
+    public static double BaseChance => GameConfigCatalog.Section<FarmingConfig>().BirdTrapBaseChance;
 
-    /// <summary>每多放一个，新加的那个比上一个低多少（沿用用户给圈套定的 5 个百分点）。</summary>
-    public const double ChanceStep = 0.05;
+    /// <summary>每多放一个，新加的那个比上一个低多少（沿用用户给圈套定的 5 个百分点）。数值真源＝<c>farming.json</c>。</summary>
+    public static double ChanceStep => GameConfigCatalog.Section<FarmingConfig>().BirdTrapChanceStep;
 
-    /// <summary>几率地板（沿用用户给圈套定的 5%）。递减撞到它就停。</summary>
-    public const double MinChance = 0.05;
+    /// <summary>几率地板（沿用用户给圈套定的 5%）。递减撞到它就停。数值真源＝<c>farming.json</c>。</summary>
+    public static double MinChance => GameConfigCatalog.Section<FarmingConfig>().BirdTrapMinChance;
 
     /// <summary>
     /// 捕获物：<b>鸟</b>（<see cref="Materials"/> 目录键 —— ⚠️ <b>键仍是 <c>pigeon</c></b>，显示名才是「鸟」；

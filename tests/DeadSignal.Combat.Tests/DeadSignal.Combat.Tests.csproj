@@ -296,6 +296,7 @@
     <Compile Include="..\..\godot\scripts\MaterialConfig.cs" Link="Consumed\MaterialConfig.cs" />
     <Compile Include="..\..\godot\scripts\HordeConfig.cs" Link="Consumed\HordeConfig.cs" />
     <Compile Include="..\..\godot\scripts\HungerConfig.cs" Link="Consumed\HungerConfig.cs" />
+    <Compile Include="..\..\godot\scripts\FarmingConfig.cs" Link="Consumed\FarmingConfig.cs" />
     <Compile Include="..\..\godot\scripts\MilitaryConfig.cs" Link="Consumed\MilitaryConfig.cs" />
     <Compile Include="..\..\godot\scripts\FurnitureConfig.cs" Link="Consumed\FurnitureConfig.cs" />
     <Compile Include="..\..\godot\scripts\WeaponModConfig.cs" Link="Consumed\WeaponModConfig.cs" />

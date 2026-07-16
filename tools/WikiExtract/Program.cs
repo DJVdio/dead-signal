@@ -96,6 +96,19 @@ internal sealed record Col(
     bool PercentTransform = false,
 
     /// <summary>
+    /// **嵌套字典条目**（config 字段是 <c>Dict&lt;料key → 数量&gt;</c>，wiki 单元格是「中文名*量、中文名*量」人话串）。
+    /// true ⇒ 这一列 = <c>cfg[_configId][ConfigKey]</c> 那个嵌套字典（如 recipes.json 的 <c>MaterialCosts</c>、furniture.json 的 <c>cost</c>）。
+    /// wiki-serve 用 <see cref="DictNameMap"/> 在「串」与「字典」之间双向转换：config→wiki 按字典渲染成串、wiki→config 解析串成字典。
+    /// </summary>
+    bool ConfigDict = false,
+
+    /// <summary>
+    /// **中文料名 ↔ config key 映射**（<see cref="ConfigDict"/> 列专用）。键=wiki 显示的中文料名，值=config 字典里的英文 key。
+    /// wiki-serve 据此把「木料*2」解析成 <c>{"wood":2}</c>（正向）、把 <c>{"wood":2}</c> 渲染成「木料*2」（反向查）。
+    /// </summary>
+    IReadOnlyDictionary<string, string>? DictNameMap = null,
+
+    /// <summary>
     /// **页内分块的段名**（波2 合页数据契约）。非空 ⇒ 这一列只属于合页里的某个原子表分块
     /// （如「食物与烹饪」页里，热量点列属于「食材」段、工时列属于「烹饪」段）。前端据此把合页拆成分块表头。
     /// <para>两个源表都有的公共列（title/body/_id/简介/备注/同步状态…）留空 = 该列在所有分块通用。</para>
@@ -468,12 +481,19 @@ internal static class Program
                 if (col.ConfigRoot is not null) jo["configRoot"] = col.ConfigRoot;
                 if (col.ConfigScalar) jo["configScalar"] = true;
                 if (col.PercentTransform) jo["percentTransform"] = true;
+                if (col.ConfigDict) jo["configDict"] = true;
                 if (col.Group is not null) jo["group"] = col.Group;
                 if (col.ValueMap is not null)
                 {
                     var vm = new JsonObject();
                     foreach ((string k, string v) in col.ValueMap) vm[k] = v;
                     jo["valueMap"] = vm;
+                }
+                if (col.DictNameMap is not null)
+                {
+                    var dm = new JsonObject();
+                    foreach ((string k, string v) in col.DictNameMap) dm[k] = v;
+                    jo["dictNameMap"] = dm;
                 }
                 if (col.Hint is not null) jo["hint"] = col.Hint;
                 return (JsonNode)jo;
@@ -552,22 +572,32 @@ internal static class Program
         var cols = new List<Col>
         {
             new("label", "规则", Primary: true),
-            new("value", "数值", "number"),
+            // 「数值」列 = farming.json 单例设置对象的某个字段（configScalar：cfg[_configId] 即值）。
+            // 只有真外置进 farming.json 的行带 _configId（7 个陷阱命中率）；种植 4 行仍是编译期 const、无 _configId ⇒ wiki-serve 自动跳过。
+            new("value", "数值", "number", ConfigScalar: true),
             new("unit", "单位", "chip", Hint: "这个数字的单位。只是给人看的标签。"),
             new("note", "说明", "longtext"),
             new("_id", "内部 id", Internal: true),
+            new("_configId", "config 键", Internal: true),
             new("_anchor", "代码位置", Internal: true),
         };
 
         var rows = new List<Dictionary<string, object?>>();
-        void Add(string group, string id, string label, double value, string unit, string note, string anchor)
-            => rows.Add(new Dictionary<string, object?>
+        // cfgKey 非空 ⇒ 这一行外置在 farming.json（configScalar：cfg[cfgKey] 即值）；pct=true ⇒ 显示值是 config 分数 *100（wiki-serve 双向 /100/*100）。
+        void Add(string group, string id, string label, double value, string unit, string note, string anchor,
+                 string? cfgKey = null, bool pct = false)
+        {
+            var row = new Dictionary<string, object?>
             {
                 ["group"] = group, ["label"] = label, ["value"] = Round(value),
                 ["unit"] = unit, ["note"] = note, ["_id"] = id, ["_anchor"] = anchor, ["_icon"] = "",
-            });
+            };
+            if (cfgKey is not null) row["_configId"] = cfgKey;
+            if (pct) row["_configPercent"] = true;
+            rows.Add(row);
+        }
 
-        // —— 种植（菜园）——
+        // —— 种植（菜园）—— 编译期 const，不外置 ⇒ 只读展示（无 _configId）——
         const string cropSrc = "godot/scripts/Farming.cs :: ";
         Add("种植", "crop_max_plants", "一座菜园最多同时种", CropPlotLogic.MaxPlants, "颗",
             "满种要一颗颗下种；每颗收完这一格要重新下种（不自动续种）。",
@@ -582,39 +612,40 @@ internal static class Program
             $"下种是一次人力动作（走既有工时化）。满种 16 颗 = {Round(CropPlotLogic.PlantActionGameHours * 60 * CropPlotLogic.MaxPlants)} 游戏分钟一次性人力。",
             cropSrc + "CropPlotLogic.PlantActionGameHours");
 
-        // —— 陷阱（圈套：抓鼠/兔）——
+        // —— 陷阱（圈套：抓鼠/兔）—— 命中率外置 farming.json，接双向（分数 *100 ⇒ pct）——
         const string trapSrc = "godot/scripts/TrapLogic.cs :: TrapLogic";
         Add("陷阱", "snare_base_chance", "圈套 单个基础命中率", Round(TrapLogic.BaseChance * 100), "%",
             "一天掷两次点（白天 1 + 夜晚 1）。多摆几个会相互递减（见下），避免无限叠。",
-            trapSrc + ".BaseChance");
+            trapSrc + ".BaseChance", cfgKey: "SnareBaseChance", pct: true);
         Add("陷阱", "snare_chance_step", "圈套 每多一个的命中递减", Round(TrapLogic.ChanceStep * 100), "%",
             "第 n 个圈套的命中率 = 基础 − 递减*(n−1)，直到下限。防止密铺陷阱刷肉。",
-            trapSrc + ".ChanceStep");
+            trapSrc + ".ChanceStep", cfgKey: "SnareChanceStep", pct: true);
         Add("陷阱", "snare_min_chance", "圈套 命中率下限", Round(TrapLogic.MinChance * 100), "%",
             "再多的圈套，单个命中率也不会低于这条线。",
-            trapSrc + ".MinChance");
+            trapSrc + ".MinChance", cfgKey: "SnareMinChance", pct: true);
         Add("陷阱", "snare_rabbit_share", "圈套 抓到兔子的比例（其余为鼠）", Round(TrapLogic.RabbitShare * 100), "%",
             "命中后再掷一次「物种点」：这个比例抓到兔子，其余抓到老鼠。⚠️ 拟定待调（用户未指定）。",
-            trapSrc + ".RabbitShare");
+            trapSrc + ".RabbitShare", cfgKey: "SnareRabbitShare", pct: true);
 
-        // —— 陷阱（捕鸟陷阱：抓鸽）——
+        // —— 陷阱（捕鸟陷阱：抓鸽）—— 命中率外置 farming.json，接双向 ——
         const string birdSrc = "godot/scripts/Farming.cs :: BirdTrapLogic";
         Add("陷阱", "birdtrap_base_chance", "捕鸟陷阱 单个基础命中率", Round(BirdTrapLogic.BaseChance * 100), "%",
             "与圈套共用一张尺子、一天两次；抓到的是鸽子。多摆同样相互递减。",
-            birdSrc + ".BaseChance");
+            birdSrc + ".BaseChance", cfgKey: "BirdTrapBaseChance", pct: true);
         Add("陷阱", "birdtrap_chance_step", "捕鸟陷阱 每多一个的命中递减", Round(BirdTrapLogic.ChanceStep * 100), "%",
             "第 n 个捕鸟陷阱的命中率 = 基础 − 递减*(n−1)，直到下限。",
-            birdSrc + ".ChanceStep");
+            birdSrc + ".ChanceStep", cfgKey: "BirdTrapChanceStep", pct: true);
         Add("陷阱", "birdtrap_min_chance", "捕鸟陷阱 命中率下限", Round(BirdTrapLogic.MinChance * 100), "%",
             "再多的捕鸟陷阱，单个命中率也不会低于这条线。",
-            birdSrc + ".MinChance");
+            birdSrc + ".MinChance", cfgKey: "BirdTrapMinChance", pct: true);
 
         return new Category("farming", "种植与陷阱",
             "godot/scripts/Farming.cs · godot/scripts/TrapLogic.cs",
             "自给自足的两条线：**种植**（菜园，种下慢慢长）和**陷阱**（圈套抓鼠兔、捕鸟陷阱抓鸽）。"
             + "陷阱一天掷两次点（白天 1 + 夜晚 1），多摆会相互递减命中率——不能靠密铺无限刷肉。"
-            + "⚠️ 这些命中率数字**游戏里不显示**：玩家得自己试出「几个陷阱够养活一个人」。",
-            cols, rows);
+            + "⚠️ 这些命中率数字**游戏里不显示**：玩家得自己试出「几个陷阱够养活一个人」。"
+            + "（命中率 7 项已外置 farming.json、可在此双向编辑；种植 4 项是编译期常量，只读展示。）",
+            cols, rows, ConfigFile: "farming.json");
     }
 
     private static void WriteBundle(string dataDir, List<Category> categories, JsonObject index)
@@ -1195,8 +1226,10 @@ internal static class Program
                 Hint: "做出来的东西属于哪一大类（武器/护甲/弹药/医疗/材料/家具…），按产物自动判定（只读）。它跟左边的「类别」是两回事——「类别」说的是**用什么工艺做**（木工/化学/缝纫…），这一列说的是**做出来的是什么**。"),
             new("output", "产物", Hint: "做出来的是什么（内部 key，引擎真读它）。⚠️ 改它等于把这条配方换成做另一件东西——慎改。"),
             new("outputQty", "产量", "number", ConfigKey: "OutputQuantity"),
-            // 「材料」是 dict{料→量}（recipes.json 的 MaterialCosts 嵌套字典）——恒等投影不支持嵌套，暂留 agent 手动（见 journal 待扩清单）。
-            new("materials", "材料", Hint: "格式：木料*2、布*1"),
+            // 「材料」是 dict{料→量}（recipes.json 的 MaterialCosts 嵌套字典）——configDict 嵌套投影接双向：
+            // wiki 串「木料*2、布*1」↔ config {"wood":2,"cloth":1}，中文料名↔key 走 DictNameMap（随列下发给 wiki-serve）。
+            new("materials", "材料", Hint: "格式：木料*2、布*1", ConfigKey: "MaterialCosts", ConfigDict: true,
+                DictNameMap: MaterialDictNameMap(RecipeBook.All.SelectMany(r => r.MaterialCosts.Keys))),
             new("tools", "工作台工具", "chip", Hint: "空 = 徒手就能做"),
             // [波1·item7] 制作地点：从「工作台工具」+「制作者门槛」派生的只读汇总列——一眼看出这条配方在哪做。
             new("craftLocation", "制作地点", "chip", ReadOnly: true,
@@ -1343,6 +1376,31 @@ internal static class Program
     /// <summary>材料 key → 中文名（查不到就原样回退：产物 key 可能是武器/护甲名而非材料）。</summary>
     private static string MaterialName(string key)
         => DeadSignal.Godot.Materials.Find(key)?.DisplayName ?? key;
+
+    /// <summary>
+    /// **中文料名 → config key** 映射（<see cref="Col.ConfigDict"/> 材料列专用），从给定料键集派生。
+    /// <para>
+    /// 用来让 wiki-serve 在「木料*2、布*1」人话串与 <c>{"wood":2,"cloth":1}</c> 嵌套字典之间双向转换——
+    /// 它无法调用 C# 的 <see cref="MaterialName"/>，故抽取器把这张表随列一起下发（<see cref="Col.DictNameMap"/>）。
+    /// </para>
+    /// <para>🔴 <b>碰撞即 fail-fast</b>：若两个 key 渲染成同一个中文名，反向解析会二义 ⇒ 这一列本就无法可靠双向，直接抛让人看见。</para>
+    /// </summary>
+    private static IReadOnlyDictionary<string, string> MaterialDictNameMap(IEnumerable<string> keys)
+    {
+        var map = new Dictionary<string, string>();
+        foreach (string key in keys.Distinct())
+        {
+            string name = MaterialName(key);
+            if (map.TryGetValue(name, out string? existing) && existing != key)
+            {
+                throw new InvalidOperationException(
+                    $"材料 dict 双向映射中文名碰撞：「{name}」同时是 key「{existing}」与「{key}」——这一列无法可靠双向解析，"
+                    + "须给其中一个改显示名再标 ConfigDict。");
+            }
+            map[name] = key;
+        }
+        return map;
+    }
 
     private static string BookTitle(string bookId)
         => BookLibrary.All().FirstOrDefault(b => b.Id == bookId)?.Title is { } t ? $"《{t}》" : bookId;
@@ -1564,6 +1622,12 @@ internal static class Program
             new("fitsWeapons", "可装于哪些武器", "multiselect",
                 Hint: "勾上的武器才装得上这个改装。**这就是引擎真读的约束**——不是展示，改了立刻生效。"),
             new("part", "占用部位", "chip", Hint: "一个部位只能装一件；不同部位可以同时装"),
+            // 🔴 [待扩·config-niche 裁定] 「数值改动」列**不接双向**（保持 agent 手动），根因是结构性不可逆，非遗漏：
+            //   ① weaponmods.json 的 Stats 只存 {StatName: value}，**运算符（加/乘/覆盖 +/*/=）不在 json**——它在
+            //      WeaponModCatalog.cs 的 C# 里按 stat 推断。这一列的人话串同时编码了运算符，config 里没有可映射的字段。
+            //   ② 串还混入**非 config 字段**：重量倍率（WeightMultiplier 在 json，但同串渲染）、允许单手持有（bool·纯代码）、
+            //      攻击 N 次后失去（实例状态·纯代码）——串携带的信息严格多于 config，无干净 1:1。
+            //   ③ 枚举名↔中文（DamageMin↔伤害下限）映射也在 C#。要双向须写"结构化 stats 解析器"，本就说明"几乎永远显示待同步"。
             new("stats", "数值改动", Hint: "装上这件改装后，武器的哪些数值怎么变。格式：「伤害下限 +2、穿透 *1.2」。加/乘/覆盖分别写 +、*、=。"),
             new("form", "近战型态", "chip", Hint: "改写枪托近战的打法；一把枪只能装一条带型态的改装"),
             new("materials", "材料", Hint: "格式：铁*2、布*1"),
@@ -1810,9 +1874,10 @@ internal static class Program
         // mod = 当前所在模块（页内分块 group）：每个 —— 段开头设一次，Add 闭包按引用取用。
         string mod = "";
         // cfgKey 非空 ⇒ 这一行外置在 config（默认表级 perks.json；cfgFile 覆盖到别的源，如 health.json/hunger.json…）；
-        // pct=true ⇒ 显示值是 config 分数 *100（wiki-serve 双向 /100/*100）；cfgFile ⇒ 行级 _configFile 覆盖表级。
+        // pct=true ⇒ 显示值是 config 分数 *100（wiki-serve 双向 /100/*100）；cfgFile ⇒ 行级 _configFile 覆盖表级；
+        // cfgRoot ⇒ 行级 _configRoot：条目字典不在 config 顶层，而在 cfg[cfgRoot] 嵌套子对象下（如 body.json 的 Disability 段）。
         void Add(string id, string label, double value, string unit, string note, string anchor,
-                 string? cfgKey = null, bool pct = false, string? cfgFile = null)
+                 string? cfgKey = null, bool pct = false, string? cfgFile = null, string? cfgRoot = null)
         {
             var row = new Dictionary<string, object?>
             {
@@ -1823,6 +1888,7 @@ internal static class Program
             if (cfgKey is not null) row["_configId"] = cfgKey;
             if (pct) row["_configPercent"] = true;
             if (cfgFile is not null) row["_configFile"] = cfgFile;
+            if (cfgRoot is not null) row["_configRoot"] = cfgRoot;
             rows.Add(row);
         }
 
@@ -2001,18 +2067,21 @@ internal static class Program
             "南境审判要凑够这么多票才算过。", "godot/scripts/SouthTrialConfig.cs :: PassThreshold",
             cfgKey: "PassThreshold", cfgFile: "southtrial.json");
 
-        // —— 致残（body.json，嵌套 Disability ⇒ 只读展示，不接双向）——
+        // —— 致残（body.json 的嵌套 Disability 子对象，接双向：行级 _configRoot="Disability" 下钻 + 分数 *100 ⇒ pct）——
         mod = "致残";
         var disability = CombatCatalog.Section<BodyConfig>().Disability;
         Add("body_single_limb_penalty", "断一手/一腿的能力折损", Math.Round(disability.SingleLimbPenalty * 100, 4), "%",
-            "少一整条手臂或腿，相关能力打这么大的折扣（乘算）。⚠️ 只读展示：数值在 body.json 的嵌套 Disability 段，暂不接双向编辑。",
-            "src/DeadSignal.Combat/BodyConfig.cs :: BodyDisability.SingleLimbPenalty（body.json）");
+            "少一整条手臂或腿，相关能力打这么大的折扣（乘算）。",
+            "src/DeadSignal.Combat/BodyConfig.cs :: BodyDisability.SingleLimbPenalty（body.json）",
+            cfgKey: "SingleLimbPenalty", pct: true, cfgFile: "body.json", cfgRoot: "Disability");
         Add("body_finger_penalty", "每断一根手指的能力折损", Math.Round(disability.FingerPenalty * 100, 4), "%",
-            "同一只手每少一根手指累加这么多折扣（缺两指的山姆＝0.86）。⚠️ 只读展示，同上。",
-            "src/DeadSignal.Combat/BodyConfig.cs :: BodyDisability.FingerPenalty（body.json）");
+            "同一只手每少一根手指累加这么多折扣（缺两指的山姆＝0.86）。",
+            "src/DeadSignal.Combat/BodyConfig.cs :: BodyDisability.FingerPenalty（body.json）",
+            cfgKey: "FingerPenalty", pct: true, cfgFile: "body.json", cfgRoot: "Disability");
         Add("body_toe_penalty", "每断一根脚趾的能力折损", Math.Round(disability.ToePenalty * 100, 4), "%",
-            "同一只脚每少一根脚趾累加这么多折扣。⚠️ 只读展示，同上。",
-            "src/DeadSignal.Combat/BodyConfig.cs :: BodyDisability.ToePenalty（body.json）");
+            "同一只脚每少一根脚趾累加这么多折扣。",
+            "src/DeadSignal.Combat/BodyConfig.cs :: BodyDisability.ToePenalty（body.json）",
+            cfgKey: "ToePenalty", pct: true, cfgFile: "body.json", cfgRoot: "Disability");
 
         // —— 感染（health.json，连乘竞速链；扁平顶层字段接双向，嵌套/派生的做只读展示）——
         mod = "感染";
@@ -2145,8 +2214,12 @@ internal static class Program
         var cols = new List<Col>
         {
             new("name", "名称", Primary: true),
-            // 「建造材料」是 dict{料→量}（furniture.json 的 cost 嵌套字典）——恒等投影不支持嵌套，暂留 agent 手动（见 journal 待扩清单）。
-            new("materials", "建造材料", Hint: "格式：木料*16、钉子*8"),
+            // 「建造材料」是 dict{料→量}（furniture.json 的 cost 嵌套字典）——configDict 嵌套投影接双向：
+            // wiki 串「木料*16、钉子*8」↔ config {"wood":16,"nails":8}，中文料名↔key 走 DictNameMap。
+            new("materials", "建造材料", Hint: "格式：木料*16、钉子*8", ConfigKey: "cost", ConfigDict: true,
+                DictNameMap: MaterialDictNameMap(
+                    FurnitureBuildCost.All.Select(FurnitureBuildCost.Of)
+                        .Where(c => c is not null).SelectMany(c => c!.Keys))),
             new("buildMinutes", "建造工时", "hours", Hint: "有人在营地里干这么久（游戏内时间）。", ConfigKey: "buildMinutes"),
             new("salvage", "拆了能还回多少", ReadOnly: true,
                 Hint: "自动算的：通用规则是还一半（向下取整），木材例外——一半变木料、一半变废木料。要改 ⇒ 改「建造材料」。（想改返还比例本身，那是引擎规则，跟 agent 说。）"),

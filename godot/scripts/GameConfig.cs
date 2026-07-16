@@ -56,6 +56,9 @@ public sealed class GameConfig
     /// <summary>神秘商人经济段（merchant.json）——买卖价率（买 100%/卖 60%）。</summary>
     public MerchantConfig Merchant { get; init; } = new();
 
+    /// <summary>诱捕命中率段（farming.json）——圈套/捕鸟陷阱的基础命中率/递减/地板 + 圈套兔鼠分配比例。</summary>
+    public FarmingConfig Farming { get; init; } = new();
+
     // ── 后续消费层 config 迁移单在此加一行（各自独立、互不撞车）──────────────────
     // public HungerConfig    Hunger    { get; init; } = new();   // hunger.json
     // public RecipeConfig    Recipes   { get; init; } = new();   // recipes.json

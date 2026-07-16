@@ -54,6 +54,9 @@
     <!-- MerchantConfig 是纯 POCO 数值段；Sim Link GameConfig.cs（引用 MerchantConfig）须随附本文件才能编译。
          Sim 不 Link MerchantTrade.cs ⇒ 商人经济不进 Sim（战斗对决无商人）。 -->
     <Compile Include="..\..\godot\scripts\MerchantConfig.cs" Link="Consumed\MerchantConfig.cs" />
+    <!-- FarmingConfig 是纯 POCO 数值段；Sim Link GameConfig.cs（引用 FarmingConfig）须随附本文件才能编译。
+         Sim 不 Link TrapLogic/Farming.cs ⇒ 诱捕结算不进 Sim（战斗对决无陷阱）。 -->
+    <Compile Include="..\..\godot\scripts\FarmingConfig.cs" Link="Consumed\FarmingConfig.cs" />
   </ItemGroup>
 
   <PropertyGroup>

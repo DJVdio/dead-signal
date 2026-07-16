@@ -15,6 +15,18 @@
       "key": "materials",
       "label": "建造材料",
       "type": "text",
+      "configKey": "cost",
+      "configDict": true,
+      "dictNameMap": {
+        "木料": "wood",
+        "钉子": "nails",
+        "铁": "iron",
+        "机械零件": "components",
+        "石料": "stone",
+        "布": "cloth",
+        "铁丝": "wire",
+        "绳子": "rope"
+      },
       "hint": "格式：木料*16、钉子*8"
     },
     {

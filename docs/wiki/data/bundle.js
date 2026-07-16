@@ -2,7 +2,7 @@
 // 用途：以 file:// 直接打开 index.html 时的降级数据源（浏览器不允许 fetch 本地文件）。
 window.WIKI_BUNDLE = {
   index: {
-  "generatedAt": "2026-07-16 11:44:24",
+  "generatedAt": "2026-07-16 13:29:25",
   "iconDir": "godot/assets/items",
   "multiselectOptions": {
     "fitsWeapons": [
@@ -3130,6 +3130,34 @@ window.WIKI_BUNDLE = {
       "key": "materials",
       "label": "材料",
       "type": "text",
+      "configKey": "MaterialCosts",
+      "configDict": true,
+      "dictNameMap": {
+        "骨头": "bone",
+        "布": "cloth",
+        "木料": "wood",
+        "钉子": "nails",
+        "石料": "stone",
+        "废木料": "scrap_wood",
+        "胶水": "glue",
+        "燃料": "fuel",
+        "绳子": "rope",
+        "铁": "iron",
+        "机械零件": "components",
+        "子弹零件": "bullet_parts",
+        "火药": "gunpowder",
+        "羽毛": "feather",
+        "皮革": "leather",
+        "武器零件": "weapon_parts",
+        "铁丝": "wire",
+        "蒲公英": "dandelion",
+        "玫瑰果": "rosehip",
+        "老君须": "laojunxu",
+        "绷带": "bandage",
+        "碎皮革": "leather_scrap",
+        "生皮": "rawhide",
+        "鞣制药水": "tanning_solution"
+      },
       "hint": "格式：木料*2、布*1"
     },
     {
@@ -5243,6 +5271,18 @@ window.WIKI_BUNDLE = {
       "key": "materials",
       "label": "建造材料",
       "type": "text",
+      "configKey": "cost",
+      "configDict": true,
+      "dictNameMap": {
+        "木料": "wood",
+        "钉子": "nails",
+        "铁": "iron",
+        "机械零件": "components",
+        "石料": "stone",
+        "布": "cloth",
+        "铁丝": "wire",
+        "绳子": "rope"
+      },
       "hint": "格式：木料*16、钉子*8"
     },
     {
@@ -5759,7 +5799,8 @@ window.WIKI_BUNDLE = {
   "id": "farming",
   "label": "种植与陷阱",
   "source": "godot/scripts/Farming.cs · godot/scripts/TrapLogic.cs",
-  "note": "自给自足的两条线：**种植**（菜园，种下慢慢长）和**陷阱**（圈套抓鼠兔、捕鸟陷阱抓鸽）。陷阱一天掷两次点（白天 1 + 夜晚 1），多摆会相互递减命中率——不能靠密铺无限刷肉。⚠️ 这些命中率数字**游戏里不显示**：玩家得自己试出「几个陷阱够养活一个人」。",
+  "note": "自给自足的两条线：**种植**（菜园，种下慢慢长）和**陷阱**（圈套抓鼠兔、捕鸟陷阱抓鸽）。陷阱一天掷两次点（白天 1 + 夜晚 1），多摆会相互递减命中率——不能靠密铺无限刷肉。⚠️ 这些命中率数字**游戏里不显示**：玩家得自己试出「几个陷阱够养活一个人」。（命中率 7 项已外置 farming.json、可在此双向编辑；种植 4 项是编译期常量，只读展示。）",
+  "configFile": "farming.json",
   "columns": [
     {
       "key": "label",
@@ -5770,7 +5811,8 @@ window.WIKI_BUNDLE = {
     {
       "key": "value",
       "label": "数值",
-      "type": "number"
+      "type": "number",
+      "configScalar": true
     },
     {
       "key": "unit",
@@ -5799,6 +5841,12 @@ window.WIKI_BUNDLE = {
     {
       "key": "_id",
       "label": "内部 id",
+      "type": "text",
+      "internal": true
+    },
+    {
+      "key": "_configId",
+      "label": "config 键",
       "type": "text",
       "internal": true
     },
@@ -5885,6 +5933,8 @@ window.WIKI_BUNDLE = {
       "_id": "snare_base_chance",
       "_anchor": "godot/scripts/TrapLogic.cs :: TrapLogic.BaseChance",
       "_icon": "",
+      "_configId": "SnareBaseChance",
+      "_configPercent": true,
       "description": "",
       "userNote": "",
       "sync": ""
@@ -5898,6 +5948,8 @@ window.WIKI_BUNDLE = {
       "_id": "snare_chance_step",
       "_anchor": "godot/scripts/TrapLogic.cs :: TrapLogic.ChanceStep",
       "_icon": "",
+      "_configId": "SnareChanceStep",
+      "_configPercent": true,
       "description": "",
       "userNote": "",
       "sync": ""
@@ -5911,6 +5963,8 @@ window.WIKI_BUNDLE = {
       "_id": "snare_min_chance",
       "_anchor": "godot/scripts/TrapLogic.cs :: TrapLogic.MinChance",
       "_icon": "",
+      "_configId": "SnareMinChance",
+      "_configPercent": true,
       "description": "",
       "userNote": "",
       "sync": ""
@@ -5924,6 +5978,8 @@ window.WIKI_BUNDLE = {
       "_id": "snare_rabbit_share",
       "_anchor": "godot/scripts/TrapLogic.cs :: TrapLogic.RabbitShare",
       "_icon": "",
+      "_configId": "SnareRabbitShare",
+      "_configPercent": true,
       "description": "",
       "userNote": "",
       "sync": ""
@@ -5937,6 +5993,8 @@ window.WIKI_BUNDLE = {
       "_id": "birdtrap_base_chance",
       "_anchor": "godot/scripts/Farming.cs :: BirdTrapLogic.BaseChance",
       "_icon": "",
+      "_configId": "BirdTrapBaseChance",
+      "_configPercent": true,
       "description": "",
       "userNote": "",
       "sync": ""
@@ -5950,6 +6008,8 @@ window.WIKI_BUNDLE = {
       "_id": "birdtrap_chance_step",
       "_anchor": "godot/scripts/Farming.cs :: BirdTrapLogic.ChanceStep",
       "_icon": "",
+      "_configId": "BirdTrapChanceStep",
+      "_configPercent": true,
       "description": "",
       "userNote": "",
       "sync": ""
@@ -5963,6 +6023,8 @@ window.WIKI_BUNDLE = {
       "_id": "birdtrap_min_chance",
       "_anchor": "godot/scripts/Farming.cs :: BirdTrapLogic.MinChance",
       "_icon": "",
+      "_configId": "BirdTrapMinChance",
+      "_configPercent": true,
       "description": "",
       "userNote": "",
       "sync": ""
@@ -6644,6 +6706,10 @@ window.WIKI_BUNDLE = {
       "_id": "body_single_limb_penalty",
       "_anchor": "src/DeadSignal.Combat/BodyConfig.cs :: BodyDisability.SingleLimbPenalty（body.json）",
       "_icon": "",
+      "_configId": "SingleLimbPenalty",
+      "_configPercent": true,
+      "_configFile": "body.json",
+      "_configRoot": "Disability",
       "description": "",
       "userNote": "",
       "sync": ""
@@ -6657,6 +6723,10 @@ window.WIKI_BUNDLE = {
       "_id": "body_finger_penalty",
       "_anchor": "src/DeadSignal.Combat/BodyConfig.cs :: BodyDisability.FingerPenalty（body.json）",
       "_icon": "",
+      "_configId": "FingerPenalty",
+      "_configPercent": true,
+      "_configFile": "body.json",
+      "_configRoot": "Disability",
       "description": "",
       "userNote": "",
       "sync": ""
@@ -6670,6 +6740,10 @@ window.WIKI_BUNDLE = {
       "_id": "body_toe_penalty",
       "_anchor": "src/DeadSignal.Combat/BodyConfig.cs :: BodyDisability.ToePenalty（body.json）",
       "_icon": "",
+      "_configId": "ToePenalty",
+      "_configPercent": true,
+      "_configFile": "body.json",
+      "_configRoot": "Disability",
       "description": "",
       "userNote": "",
       "sync": ""

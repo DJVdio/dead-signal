@@ -288,6 +288,9 @@ def _column_specs(obj: dict):
       · vmap  —— 枚举显示变换 {wiki值: config值}；None ⇒ 恒等
       · percent—— True ⇒ 数值百分比变换：config 存分数(0.1)、wiki 显示 ×100(10)。列级 `percentTransform`。
                  **可再被行级 `_configPercent` 追加**（单例表里同一 value 列，有的行是比例%、有的是原始计数）。
+      · dict  —— True ⇒ **嵌套字典条目**：config 字段是 Dict<料key→数量>，wiki 单元格是「中文名*量、中文名*量」人话串。
+                 列级 `configDict`；转换用 `dictmap`（中文名↔key）。
+      · dictmap—— {中文名: config key}（configDict 列专用），双向查料名↔key。
     非 config-backed 表 / 无 config-backed 列 ⇒ []。
     """
     if not _is_config_backed(obj):
@@ -300,11 +303,12 @@ def _column_specs(obj: dict):
         key = col.get("key")
         cfgkey = col.get("configKey")
         scalar = bool(col.get("configScalar"))
-        # config-backed 列 = 有 configKey（普通字段）或 configScalar（标量条目）
+        # config-backed 列 = 有 configKey（普通字段/嵌套字典）或 configScalar（标量条目）
         if not key or (not cfgkey and not scalar):
             continue
         file = col.get("configFile") or table_file
         vmap = col.get("valueMap")
+        dictmap = col.get("dictNameMap")
         specs.append({
             "key": key,
             "file": file,
@@ -313,6 +317,8 @@ def _column_specs(obj: dict):
             "scalar": scalar,
             "vmap": vmap if isinstance(vmap, dict) and vmap else None,
             "percent": bool(col.get("percentTransform")),
+            "dict": bool(col.get("configDict")),
+            "dictmap": dictmap if isinstance(dictmap, dict) else {},
         })
     return specs
 
@@ -322,9 +328,59 @@ def _row_file(spec: dict, row: dict) -> str:
     return row.get("_configFile") or spec["file"]
 
 
+def _row_root(spec: dict, row: dict):
+    """这一行这一列的 id-字典嵌套路径：行级 `_configRoot` 覆盖列级 spec['root']。
+
+    让同一列不同行落在 config 的不同嵌套子对象下（如致残 3 行落 body.json 的 Disability 段，
+    而同表其它行落各自顶层单例）。同 `_row_file` 的行级覆盖范式。
+    """
+    return row.get("_configRoot") or spec["root"]
+
+
 def _row_percent(spec: dict, row: dict) -> bool:
     """这一行这一列是否走百分比变换：列级 percentTransform 或行级 `_configPercent` 任一为真即是。"""
     return spec["percent"] or bool(row.get("_configPercent"))
+
+
+def _dict_c2w(dictmap: dict, cfg_dict) -> str:
+    """config 嵌套字典 {key: qty} → wiki 人话串「中文名*量、中文名*量」（按 config 字典顺序，key→名反向查）。"""
+    if not isinstance(cfg_dict, dict):
+        return ""
+    key2name = {k: n for n, k in dictmap.items()}
+    parts = []
+    for k, qty in cfg_dict.items():
+        name = key2name.get(k, k)   # 映射缺失 ⇒ 回退原 key（不静默丢条目）
+        parts.append(f"{name}*{qty}")
+    return "、".join(parts)
+
+
+def _dict_w2c(dictmap: dict, wiki_str):
+    """wiki 人话串「中文名*量、中文名*量」→ config 嵌套字典 {key: qty}。
+
+    解析失败（格式坏 / 中文名不在映射 / 量非整数）⇒ 返回 None（调用方跳过投影，绝不拿半解析的脏字典覆盖 config）。
+    空串 ⇒ {}（空材料）。
+    """
+    if not isinstance(wiki_str, str):
+        return None
+    s = wiki_str.strip()
+    if not s:
+        return {}
+    out = {}
+    for part in s.split("、"):
+        part = part.strip()
+        if not part or "*" not in part:
+            return None
+        name, _, qty_s = part.rpartition("*")
+        name = name.strip()
+        key = dictmap.get(name)
+        if key is None:
+            return None
+        try:
+            qty = int(qty_s.strip())
+        except ValueError:
+            return None
+        out[key] = qty
+    return out
 
 
 def _involved_files(obj: dict):
@@ -438,7 +494,7 @@ def reconcile_from_config(obj: dict, cfgs: dict) -> bool:
         if not cid:
             continue
         for s in specs:
-            idd = _id_dict(cfgs.get(_row_file(s, row)), s["root"])
+            idd = _id_dict(cfgs.get(_row_file(s, row)), _row_root(s, row))
             if idd is None or cid not in idd:
                 continue
             entry = idd[cid]
@@ -448,7 +504,10 @@ def reconcile_from_config(obj: dict, cfgs: dict) -> bool:
                 cval = entry[s["field"]]
             else:
                 continue
-            wval = _c2w(s["vmap"], _row_percent(s, row), cval)
+            if s["dict"]:
+                wval = _dict_c2w(s["dictmap"], cval)
+            else:
+                wval = _c2w(s["vmap"], _row_percent(s, row), cval)
             if row.get(s["key"]) != wval:
                 row[s["key"]] = wval
                 changed = True
@@ -478,17 +537,23 @@ def plan_projection(payload: dict, cfgs: dict):
             continue
         for s in specs:
             file = _row_file(s, row)
-            idd = _id_dict(cfgs.get(file), s["root"])
+            root = _row_root(s, row)
+            idd = _id_dict(cfgs.get(file), root)
             if idd is None or cid not in idd or s["key"] not in row:
                 continue
             entry = idd[cid]
-            desired = _w2c(s["vmap"], _row_percent(s, row), row[s["key"]])
+            if s["dict"]:
+                desired = _dict_w2c(s["dictmap"], row[s["key"]])
+                if desired is None:      # 串解析失败 ⇒ 跳过投影（不拿脏字典覆盖 config）
+                    continue
+            else:
+                desired = _w2c(s["vmap"], _row_percent(s, row), row[s["key"]])
             if s["scalar"]:
                 if idd[cid] != desired:
-                    pending.setdefault(file, []).append((s["root"], cid, None, True, desired))
+                    pending.setdefault(file, []).append((root, cid, None, True, desired))
             elif isinstance(entry, dict) and s["field"] in entry:
                 if entry[s["field"]] != desired:
-                    pending.setdefault(file, []).append((s["root"], cid, s["field"], False, desired))
+                    pending.setdefault(file, []).append((root, cid, s["field"], False, desired))
     conflict = False
     if pending:
         base = payload.get("_configVersion")
@@ -552,7 +617,7 @@ def reconcile_all() -> None:
         def _matched(row):
             cid = row["_configId"]
             for s in specs:
-                idd = _id_dict(cfgs.get(_row_file(s, row)), s["root"])
+                idd = _id_dict(cfgs.get(_row_file(s, row)), _row_root(s, row))
                 if idd is not None and cid in idd:
                     return True
             return False
@@ -799,9 +864,81 @@ def _selftest() -> bool:
     check(pr_obj["rows"][0]["value"] == 15, "percent 往返：0.15 → 15")
     check(plan_projection(pr_obj, pr_cfgs)["pending"] == {}, "percent 往返：15 回写 == 0.15（无浮点漂移伪 pending）")
 
+    # ── 新能力⑤：嵌套字典条目（configDict）——材料成本 dict{key:qty} ↔ 人话串「中文名*量」──
+    dm = {"木料": "wood", "布": "cloth", "钉子": "nails"}
+    dc_obj = {
+        "configFile": "recipes.json",
+        "columns": [
+            {"key": "materials", "type": "text", "configKey": "MaterialCosts",
+             "configDict": True, "dictNameMap": dm},
+            {"key": "_configId", "internal": True},
+        ],
+        "rows": [{"materials": "", "_id": "bone_knife", "_configId": "bone_knife"}],
+    }
+    dc_cfgs = {"recipes.json": {"bone_knife": {"MaterialCosts": {"wood": 2, "cloth": 1}}}}
+    reconcile_from_config(dc_obj, dc_cfgs)
+    check(dc_obj["rows"][0]["materials"] == "木料*2、布*1", "configDict config→wiki：{wood:2,cloth:1} → 木料*2、布*1")
+    check(plan_projection(dc_obj, dc_cfgs)["pending"] == {}, "configDict 对齐后无副作用")
+    dc_obj["rows"][0]["materials"] = "木料*3、钉子*4"   # 用户改材料
+    dc_plan = plan_projection(dc_obj, dc_cfgs)
+    check(dc_plan["pending"] == {"recipes.json": [(None, "bone_knife", "MaterialCosts", False, {"wood": 3, "nails": 4})]},
+          f"configDict wiki→config：串解析回 dict={dc_plan['pending']}")
+    dc_apply = copy.deepcopy(dc_cfgs)
+    apply_inmem(dc_apply, dc_plan["pending"])
+    check(dc_apply["recipes.json"]["bone_knife"]["MaterialCosts"] == {"wood": 3, "nails": 4},
+          "configDict apply：config MaterialCosts 落 {wood:3,nails:4}")
+    # 顺序无关等价：重排串不产生伪 pending（dict == 忽略键序）。
+    dc_obj["rows"][0]["materials"] = "布*1、木料*2"
+    reconcile_from_config(dc_obj, dc_cfgs)   # 先对齐回 config 值
+    dc_obj["rows"][0]["materials"] = "布*1、木料*2"   # 与 config 同内容、不同顺序
+    check(plan_projection(dc_obj, dc_cfgs)["pending"] == {}, "configDict：重排料序不产生伪 pending（dict 忽略键序）")
+    # 解析失败护栏：未知料名 / 坏格式 ⇒ 不投影（不拿脏字典覆盖 config）。
+    bad = copy.deepcopy(dc_obj)
+    bad["rows"][0]["materials"] = "不存在的料*9"
+    check(plan_projection(bad, dc_cfgs)["pending"] == {}, "configDict：未知料名 ⇒ 跳过投影（不覆盖 config）")
+    bad["rows"][0]["materials"] = "木料x2"   # 缺 * 分隔
+    check(plan_projection(bad, dc_cfgs)["pending"] == {}, "configDict：坏格式 ⇒ 跳过投影")
+    # 空串 ⇒ 空字典。
+    empty = {"configFile": "recipes.json",
+             "columns": [{"key": "materials", "type": "text", "configKey": "MaterialCosts",
+                          "configDict": True, "dictNameMap": dm},
+                         {"key": "_configId", "internal": True}],
+             "rows": [{"materials": "", "_id": "x", "_configId": "x"}]}
+    empty_cfgs = {"recipes.json": {"x": {"MaterialCosts": {"wood": 1}}}}
+    empty["rows"][0]["materials"] = ""
+    ep = plan_projection(empty, empty_cfgs)
+    check(ep["pending"] == {"recipes.json": [(None, "x", "MaterialCosts", False, {})]}, "configDict：空串 → 空字典 {}")
+
+    # ── 新能力⑥：行级 _configRoot（同一列不同行落 config 不同嵌套子对象）——致残那类表 ──
+    rr_obj = {
+        "configFile": "body.json",
+        "columns": [
+            {"key": "value", "type": "number", "configScalar": True},
+            {"key": "_configId", "internal": True},
+        ],
+        "rows": [
+            {"value": 0, "_id": "limb", "_configId": "SingleLimbPenalty",
+             "_configRoot": "Disability", "_configPercent": True},           # 落 body.json 的 Disability 子对象，分数×100
+            {"value": 0, "_id": "top", "_configId": "SomeTopLevel"},           # 落 body.json 顶层（无 root）
+        ],
+    }
+    rr_cfgs = {"body.json": {"Disability": {"SingleLimbPenalty": 0.5}, "SomeTopLevel": 3}}
+    reconcile_from_config(rr_obj, rr_cfgs)
+    check(rr_obj["rows"][0]["value"] == 50, "行级 configRoot config→wiki：body.json/Disability.SingleLimbPenalty 0.5→50（percent）")
+    check(rr_obj["rows"][1]["value"] == 3, "行级 configRoot：无 root 的行落顶层（SomeTopLevel←3）")
+    check(plan_projection(rr_obj, rr_cfgs)["pending"] == {}, "行级 configRoot 对齐后无副作用")
+    rr_obj["rows"][0]["value"] = 60      # 改致残惩罚 60% → Disability.SingleLimbPenalty 0.6
+    rr_plan = plan_projection(rr_obj, rr_cfgs)
+    check(rr_plan["pending"] == {"body.json": [("Disability", "SingleLimbPenalty", None, True, 0.6)]},
+          f"行级 configRoot wiki→config：改动带正确嵌套根 Disability={rr_plan['pending']}")
+    rr_apply = copy.deepcopy(rr_cfgs)
+    apply_inmem(rr_apply, rr_plan["pending"])
+    check(rr_apply["body.json"]["Disability"]["SingleLimbPenalty"] == 0.6, "行级 configRoot apply：落进 Disability 嵌套子对象")
+    check(rr_apply["body.json"]["SomeTopLevel"] == 3, "行级 configRoot apply：顶层字段未误动")
+
     # ── 真文件冒烟（抽取器已带 configFile 时才跑，否则跳过）──
     for name in ("weapons", "armor", "materials", "recipes", "furniture", "ammo",
-                 "character-stats", "global-rules", "medical"):
+                 "character-stats", "global-rules", "medical", "farming"):
         path = DATA_DIR / f"{name}.json"
         if not path.exists():
             continue
@@ -818,19 +955,20 @@ def _selftest() -> bool:
         reconcile_from_config(disk, real_cfgs)
         # 抽一行核对：wiki 单元格 == config 值（config→wiki 真的对齐了，含 value-map/嵌套/标量/百分比/行级多源）。
         def _row_matches(r):
-            return any(_id_dict(real_cfgs.get(_row_file(s, r)), s["root"]) is not None
-                       and r.get("_configId") in _id_dict(real_cfgs.get(_row_file(s, r)), s["root"]) for s in specs)
+            return any(_id_dict(real_cfgs.get(_row_file(s, r)), _row_root(s, r)) is not None
+                       and r.get("_configId") in _id_dict(real_cfgs.get(_row_file(s, r)), _row_root(s, r)) for s in specs)
         sample = next((r for r in disk["rows"] if r.get("_configId") and _row_matches(r)), None)
         if sample is not None:
             mism = []
             for s in specs:
-                idd = _id_dict(real_cfgs.get(_row_file(s, sample)), s["root"])
+                idd = _id_dict(real_cfgs.get(_row_file(s, sample)), _row_root(s, sample))
                 if idd is None or sample["_configId"] not in idd:
                     continue
                 entry = idd[sample["_configId"]]
                 cval = entry if s["scalar"] else (entry.get(s["field"]) if isinstance(entry, dict) else None)
                 if s["scalar"] or (isinstance(entry, dict) and s["field"] in entry):
-                    if sample.get(s["key"]) != _c2w(s["vmap"], _row_percent(s, sample), cval):
+                    expect = _dict_c2w(s["dictmap"], cval) if s["dict"] else _c2w(s["vmap"], _row_percent(s, sample), cval)
+                    if sample.get(s["key"]) != expect:
                         mism.append((s["key"], sample.get(s["key"]), cval))
             check(not mism, f"真文件：{name}.json 行 {sample['_id']} 各 config-backed 单元格 == config（{mism if mism else 'ok'}）")
         check(plan_projection(disk, real_cfgs)["pending"] == {},

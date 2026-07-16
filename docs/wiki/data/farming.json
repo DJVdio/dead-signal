@@ -2,7 +2,8 @@
   "id": "farming",
   "label": "种植与陷阱",
   "source": "godot/scripts/Farming.cs · godot/scripts/TrapLogic.cs",
-  "note": "自给自足的两条线：**种植**（菜园，种下慢慢长）和**陷阱**（圈套抓鼠兔、捕鸟陷阱抓鸽）。陷阱一天掷两次点（白天 1 + 夜晚 1），多摆会相互递减命中率——不能靠密铺无限刷肉。⚠️ 这些命中率数字**游戏里不显示**：玩家得自己试出「几个陷阱够养活一个人」。",
+  "note": "自给自足的两条线：**种植**（菜园，种下慢慢长）和**陷阱**（圈套抓鼠兔、捕鸟陷阱抓鸽）。陷阱一天掷两次点（白天 1 + 夜晚 1），多摆会相互递减命中率——不能靠密铺无限刷肉。⚠️ 这些命中率数字**游戏里不显示**：玩家得自己试出「几个陷阱够养活一个人」。（命中率 7 项已外置 farming.json、可在此双向编辑；种植 4 项是编译期常量，只读展示。）",
+  "configFile": "farming.json",
   "columns": [
     {
       "key": "label",
@@ -13,7 +14,8 @@
     {
       "key": "value",
       "label": "数值",
-      "type": "number"
+      "type": "number",
+      "configScalar": true
     },
     {
       "key": "unit",
@@ -42,6 +44,12 @@
     {
       "key": "_id",
       "label": "内部 id",
+      "type": "text",
+      "internal": true
+    },
+    {
+      "key": "_configId",
+      "label": "config 键",
       "type": "text",
       "internal": true
     },
@@ -128,6 +136,8 @@
       "_id": "snare_base_chance",
       "_anchor": "godot/scripts/TrapLogic.cs :: TrapLogic.BaseChance",
       "_icon": "",
+      "_configId": "SnareBaseChance",
+      "_configPercent": true,
       "description": "",
       "userNote": "",
       "sync": ""
@@ -141,6 +151,8 @@
       "_id": "snare_chance_step",
       "_anchor": "godot/scripts/TrapLogic.cs :: TrapLogic.ChanceStep",
       "_icon": "",
+      "_configId": "SnareChanceStep",
+      "_configPercent": true,
       "description": "",
       "userNote": "",
       "sync": ""
@@ -154,6 +166,8 @@
       "_id": "snare_min_chance",
       "_anchor": "godot/scripts/TrapLogic.cs :: TrapLogic.MinChance",
       "_icon": "",
+      "_configId": "SnareMinChance",
+      "_configPercent": true,
       "description": "",
       "userNote": "",
       "sync": ""
@@ -167,6 +181,8 @@
       "_id": "snare_rabbit_share",
       "_anchor": "godot/scripts/TrapLogic.cs :: TrapLogic.RabbitShare",
       "_icon": "",
+      "_configId": "SnareRabbitShare",
+      "_configPercent": true,
       "description": "",
       "userNote": "",
       "sync": ""
@@ -180,6 +196,8 @@
       "_id": "birdtrap_base_chance",
       "_anchor": "godot/scripts/Farming.cs :: BirdTrapLogic.BaseChance",
       "_icon": "",
+      "_configId": "BirdTrapBaseChance",
+      "_configPercent": true,
       "description": "",
       "userNote": "",
       "sync": ""
@@ -193,6 +211,8 @@
       "_id": "birdtrap_chance_step",
       "_anchor": "godot/scripts/Farming.cs :: BirdTrapLogic.ChanceStep",
       "_icon": "",
+      "_configId": "BirdTrapChanceStep",
+      "_configPercent": true,
       "description": "",
       "userNote": "",
       "sync": ""
@@ -206,6 +226,8 @@
       "_id": "birdtrap_min_chance",
       "_anchor": "godot/scripts/Farming.cs :: BirdTrapLogic.MinChance",
       "_icon": "",
+      "_configId": "BirdTrapMinChance",
+      "_configPercent": true,
       "description": "",
       "userNote": "",
       "sync": ""

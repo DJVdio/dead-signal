@@ -110,14 +110,14 @@ public static class TrapSpec
 /// </summary>
 public static class TrapLogic
 {
-    /// <summary>第 1 个陷阱的捕获几率（<b>用户给定</b>：30%）。</summary>
-    public const double BaseChance = 0.30;
+    /// <summary>第 1 个陷阱的捕获几率（<b>用户给定</b>：30%）。数值真源＝<c>farming.json</c>（<see cref="FarmingConfig.SnareBaseChance"/>）。</summary>
+    public static double BaseChance => GameConfigCatalog.Section<FarmingConfig>().SnareBaseChance;
 
-    /// <summary>每多放一个陷阱，新加的那个比上一个低多少（<b>用户给定</b>：5 个百分点）。</summary>
-    public const double ChanceStep = 0.05;
+    /// <summary>每多放一个陷阱，新加的那个比上一个低多少（<b>用户给定</b>：5 个百分点）。数值真源＝<c>farming.json</c>。</summary>
+    public static double ChanceStep => GameConfigCatalog.Section<FarmingConfig>().SnareChanceStep;
 
-    /// <summary>几率地板（<b>用户给定</b>：最低 5%）。<b>递减撞到它就停</b>，绝不继续往下走成负数。</summary>
-    public const double MinChance = 0.05;
+    /// <summary>几率地板（<b>用户给定</b>：最低 5%）。<b>递减撞到它就停</b>，绝不继续往下走成负数。数值真源＝<c>farming.json</c>。</summary>
+    public static double MinChance => GameConfigCatalog.Section<FarmingConfig>().SnareMinChance;
 
     /// <summary>捕获物：老鼠（<see cref="Materials"/> 目录键；[T67] 已移出 <see cref="FoodCalories"/>，宰杀后出老鼠肉值 6 点热量）。</summary>
     public const string RatKey = "rat";
@@ -132,8 +132,9 @@ public static class TrapLogic
     /// 而不是常态。这也贴着材料表里兔子的那句 flavor：「抓到它的那天，你会想起从前『运气不错』是个多么轻飘飘的词」。
     /// </para>
     /// <para>期望热量 = 0.3 × 11 + 0.7 × 6 = <b>7.5 点/只</b>。</para>
+    /// <para>数值真源＝<c>farming.json</c>（<see cref="FarmingConfig.SnareRabbitShare"/>）。</para>
     /// </summary>
-    public const double RabbitShare = 0.30;
+    public static double RabbitShare => GameConfigCatalog.Section<FarmingConfig>().SnareRabbitShare;
 
     /// <summary>
     /// <b>陷阱在这个相位掷不掷点</b>——只在<b>两个昼夜段边界</b>各掷一次：白天段（<see cref="DayPhase.DawnMeal"/>）+

@@ -673,6 +673,10 @@
       "_id": "body_single_limb_penalty",
       "_anchor": "src/DeadSignal.Combat/BodyConfig.cs :: BodyDisability.SingleLimbPenalty（body.json）",
       "_icon": "",
+      "_configId": "SingleLimbPenalty",
+      "_configPercent": true,
+      "_configFile": "body.json",
+      "_configRoot": "Disability",
       "description": "",
       "userNote": "",
       "sync": ""
@@ -686,6 +690,10 @@
       "_id": "body_finger_penalty",
       "_anchor": "src/DeadSignal.Combat/BodyConfig.cs :: BodyDisability.FingerPenalty（body.json）",
       "_icon": "",
+      "_configId": "FingerPenalty",
+      "_configPercent": true,
+      "_configFile": "body.json",
+      "_configRoot": "Disability",
       "description": "",
       "userNote": "",
       "sync": ""
@@ -699,6 +707,10 @@
       "_id": "body_toe_penalty",
       "_anchor": "src/DeadSignal.Combat/BodyConfig.cs :: BodyDisability.ToePenalty（body.json）",
       "_icon": "",
+      "_configId": "ToePenalty",
+      "_configPercent": true,
+      "_configFile": "body.json",
+      "_configRoot": "Disability",
       "description": "",
       "userNote": "",
       "sync": ""
