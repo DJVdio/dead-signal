@@ -2,7 +2,7 @@
 // 用途：以 file:// 直接打开 index.html 时的降级数据源（浏览器不允许 fetch 本地文件）。
 window.WIKI_BUNDLE = {
   index: {
-  "generatedAt": "2026-07-16 07:58:28",
+  "generatedAt": "2026-07-16 09:02:27",
   "iconDir": "godot/assets/items",
   "multiselectOptions": {
     "fitsWeapons": [
@@ -2817,6 +2817,7 @@ window.WIKI_BUNDLE = {
   "label": "医疗与草药",
   "source": "godot/scripts/Materials.cs + godot/scripts/HealthConditions.cs",
   "note": "流血和骨折靠手术（凑手术点数），感染和疾病靠吃药。草药是抗生素用光之后的退路——治得慢，但采得到。",
+  "configFile": "health.json",
   "columns": [
     {
       "key": "name",
@@ -2838,6 +2839,8 @@ window.WIKI_BUNDLE = {
       "key": "surgeryPoints",
       "label": "手术点数",
       "type": "number",
+      "configKey": "Points",
+      "configRoot": "SurgerySupplies",
       "hint": "手术要凑够点数才做得成"
     },
     {
@@ -2850,6 +2853,8 @@ window.WIKI_BUNDLE = {
       "key": "efficacy",
       "label": "治疗效率",
       "type": "percent",
+      "configKey": "Efficacy",
+      "configRoot": "Medicines",
       "hint": "抗生素 100% 是满效；草药是它的零头。"
     },
     {
@@ -2861,7 +2866,9 @@ window.WIKI_BUNDLE = {
     {
       "key": "weight",
       "label": "单位重量(公斤)",
-      "type": "number"
+      "type": "number",
+      "configFile": "materials.json",
+      "configScalar": true
     },
     {
       "key": "description",
@@ -2879,6 +2886,12 @@ window.WIKI_BUNDLE = {
     {
       "key": "_id",
       "label": "内部 id",
+      "type": "text",
+      "internal": true
+    },
+    {
+      "key": "_configId",
+      "label": "config 键",
       "type": "text",
       "internal": true
     },
@@ -2915,6 +2928,7 @@ window.WIKI_BUNDLE = {
       "weight": 0.1,
       "description": "一块破布有时也能救命",
       "_id": "bandage",
+      "_configId": "bandage",
       "_anchor": "godot/scripts/Materials.cs（名称/说明）+ godot/scripts/HealthConditions.cs :: SurgeryCatalog / MedicineCatalog（数值）",
       "userNote": "",
       "sync": "",
@@ -2931,6 +2945,7 @@ window.WIKI_BUNDLE = {
       "weight": 0.05,
       "description": "能缝补你的伤口，却治愈不了你的心",
       "_id": "needle_thread",
+      "_configId": "needle_thread",
       "_anchor": "godot/scripts/Materials.cs（名称/说明）+ godot/scripts/HealthConditions.cs :: SurgeryCatalog / MedicineCatalog（数值）",
       "userNote": "",
       "sync": "",
@@ -2947,6 +2962,7 @@ window.WIKI_BUNDLE = {
       "weight": 0.3,
       "description": "这会让它看上去直一些",
       "_id": "splint",
+      "_configId": "splint",
       "_anchor": "godot/scripts/Materials.cs（名称/说明）+ godot/scripts/HealthConditions.cs :: SurgeryCatalog / MedicineCatalog（数值）",
       "userNote": "",
       "sync": "",
@@ -2963,6 +2979,7 @@ window.WIKI_BUNDLE = {
       "weight": 0.5,
       "description": "“一包全搞定”——南丁格尔",
       "_id": "first_aid_kit",
+      "_configId": "first_aid_kit",
       "_anchor": "godot/scripts/Materials.cs（名称/说明）+ godot/scripts/HealthConditions.cs :: SurgeryCatalog / MedicineCatalog（数值）",
       "userNote": "",
       "sync": "",
@@ -2979,6 +2996,7 @@ window.WIKI_BUNDLE = {
       "weight": 0.1,
       "description": "传统医学，据说能消炎杀菌",
       "_id": "herbal_bandage",
+      "_configId": "herbal_bandage",
       "_anchor": "godot/scripts/Materials.cs（名称/说明）+ godot/scripts/HealthConditions.cs :: SurgeryCatalog / MedicineCatalog（数值）",
       "userNote": "该处伤口发生感染的几率-25%",
       "sync": "",
@@ -2995,6 +3013,7 @@ window.WIKI_BUNDLE = {
       "weight": 0.05,
       "description": "现代医学的结晶",
       "_id": "antibiotics",
+      "_configId": "antibiotics",
       "_anchor": "godot/scripts/Materials.cs（名称/说明）+ godot/scripts/HealthConditions.cs :: SurgeryCatalog / MedicineCatalog（数值）",
       "userNote": "",
       "sync": "",
@@ -3011,6 +3030,7 @@ window.WIKI_BUNDLE = {
       "weight": 0.05,
       "description": "杂七杂八的成药，缓解发热痢疾等病症——治不了大病，但能让你多撑一天。",
       "_id": "medicine",
+      "_configId": "medicine",
       "_anchor": "godot/scripts/Materials.cs（名称/说明）+ godot/scripts/HealthConditions.cs :: SurgeryCatalog / MedicineCatalog（数值）",
       "userNote": "",
       "sync": "",
@@ -3027,6 +3047,7 @@ window.WIKI_BUNDLE = {
       "weight": 0.1,
       "description": "死马当活马医",
       "_id": "herbal_salve",
+      "_configId": "herbal_salve",
       "_anchor": "godot/scripts/Materials.cs（名称/说明）+ godot/scripts/HealthConditions.cs :: SurgeryCatalog / MedicineCatalog（数值）",
       "userNote": "",
       "sync": "",
@@ -3043,6 +3064,7 @@ window.WIKI_BUNDLE = {
       "weight": 0.5,
       "description": "奶奶的最爱",
       "_id": "dandelion_tea",
+      "_configId": "dandelion_tea",
       "_anchor": "godot/scripts/Materials.cs（名称/说明）+ godot/scripts/HealthConditions.cs :: SurgeryCatalog / MedicineCatalog（数值）",
       "userNote": "",
       "sync": "",
@@ -3059,6 +3081,7 @@ window.WIKI_BUNDLE = {
       "weight": 0.5,
       "description": "酸酸甜甜，抚慰你受伤的身体。",
       "_id": "rosehip_tea",
+      "_configId": "rosehip_tea",
       "_anchor": "godot/scripts/Materials.cs（名称/说明）+ godot/scripts/HealthConditions.cs :: SurgeryCatalog / MedicineCatalog（数值）",
       "userNote": "喝下后一整天，恢复速度+9%",
       "sync": "",
@@ -5699,6 +5722,7 @@ window.WIKI_BUNDLE = {
   "label": "全局规则",
   "source": "src/DeadSignal.Combat/DualWield.cs · src/DeadSignal.Combat/BleedModel.cs · godot/scripts/SurvivorPerks.cs · godot/scripts/CoverLogic.cs",
   "note": "**对所有人一体适用**的规则——不属于任何一件武器，也不属于任何一个角色。以前这些数只活在代码里，wiki 上看不到、也改不了。⚠️ 别把这里的东西误当成谁的专属效果：「没座位读书慢 10%」是**每个人**都一样的，不是诺蒂的技能。",
+  "configFile": "perks.json",
   "columns": [
     {
       "key": "label",
@@ -5709,7 +5733,8 @@ window.WIKI_BUNDLE = {
     {
       "key": "value",
       "label": "数值",
-      "type": "number"
+      "type": "number",
+      "configScalar": true
     },
     {
       "key": "unit",
@@ -5738,6 +5763,12 @@ window.WIKI_BUNDLE = {
     {
       "key": "_id",
       "label": "内部 id",
+      "type": "text",
+      "internal": true
+    },
+    {
+      "key": "_configId",
+      "label": "config 键",
       "type": "text",
       "internal": true
     },
@@ -5771,6 +5802,8 @@ window.WIKI_BUNDLE = {
       "_id": "read_no_seat",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: ReadingSpeed.NoSeatMultiplier",
       "_icon": "",
+      "_configId": "ReadingNoSeatMultiplier",
+      "_configPercent": true,
       "description": "",
       "userNote": "",
       "sync": ""
@@ -5783,6 +5816,8 @@ window.WIKI_BUNDLE = {
       "_id": "read_no_prereq",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: ReadingSpeed.MissingPrerequisiteMultiplier",
       "_icon": "",
+      "_configId": "ReadingMissingPrerequisiteMultiplier",
+      "_configPercent": true,
       "description": "",
       "userNote": "",
       "sync": ""
@@ -5819,6 +5854,7 @@ window.WIKI_BUNDLE = {
       "_id": "surgery_base_default",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: NightingalePerk.DefaultSurgeryBasePoints",
       "_icon": "",
+      "_configId": "NightingaleDefaultSurgeryBasePoints",
       "description": "",
       "userNote": "",
       "sync": ""
@@ -6493,6 +6529,7 @@ window.WIKI_BUNDLE = {
   "label": "角色数值",
   "source": "godot/scripts/SurvivorPerks.cs 等（每行的「代码位置」列写明了各自的出处）",
   "note": "角色身上所有能调的数字，一行一个。改完这里，agent 会照「代码位置」把它同步进代码。「已拍板」打勾的是你亲口定过的（比如山姆 3 人升 2 级、护士手术点 15→30），不是可以随手调的草稿值。",
+  "configFile": "perks.json",
   "columns": [
     {
       "key": "label",
@@ -6508,7 +6545,8 @@ window.WIKI_BUNDLE = {
     {
       "key": "value",
       "label": "值",
-      "type": "number"
+      "type": "number",
+      "configScalar": true
     },
     {
       "key": "unit",
@@ -6538,6 +6576,12 @@ window.WIKI_BUNDLE = {
     {
       "key": "_id",
       "label": "内部 id",
+      "type": "text",
+      "internal": true
+    },
+    {
+      "key": "_configId",
+      "label": "config 键",
       "type": "text",
       "internal": true
     },
@@ -6572,6 +6616,7 @@ window.WIKI_BUNDLE = {
       "_id": "sam_l2_pop",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: SamPerk.Level2CampPopulation",
       "_icon": "",
+      "_configId": "SamLevel2CampPopulation",
       "description": "",
       "userNote": "",
       "sync": ""
@@ -6585,6 +6630,7 @@ window.WIKI_BUNDLE = {
       "_id": "sam_l3_pop",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: SamPerk.Level3CampPopulation",
       "_icon": "",
+      "_configId": "SamLevel3CampPopulation",
       "description": "",
       "userNote": "",
       "sync": ""
@@ -6598,6 +6644,8 @@ window.WIKI_BUNDLE = {
       "_id": "sam_l1_damage_reduction",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: SamPerk.Level1DamageReduction",
       "_icon": "",
+      "_configId": "SamLevel1DamageReduction",
+      "_configPercent": true,
       "description": "",
       "userNote": "",
       "sync": ""
@@ -6611,6 +6659,8 @@ window.WIKI_BUNDLE = {
       "_id": "sam_l2_carry",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: SamPerk.Level2CarryBonus",
       "_icon": "",
+      "_configId": "SamLevel2CarryBonus",
+      "_configPercent": true,
       "description": "",
       "userNote": "",
       "sync": ""
@@ -6624,6 +6674,8 @@ window.WIKI_BUNDLE = {
       "_id": "sam_aura_carry",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: SamPerk.AuraCarryBonus",
       "_icon": "",
+      "_configId": "SamAuraCarryBonus",
+      "_configPercent": true,
       "description": "",
       "userNote": "",
       "sync": ""
@@ -6637,6 +6689,8 @@ window.WIKI_BUNDLE = {
       "_id": "sam_aura_work",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: SamPerk.AuraWorkSpeedBonus",
       "_icon": "",
+      "_configId": "SamAuraWorkSpeedBonus",
+      "_configPercent": true,
       "description": "",
       "userNote": "",
       "sync": ""
@@ -6650,6 +6704,8 @@ window.WIKI_BUNDLE = {
       "_id": "sam_aura_heal",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: SamPerk.AuraHealSpeedBonus",
       "_icon": "",
+      "_configId": "SamAuraHealSpeedBonus",
+      "_configPercent": true,
       "description": "",
       "userNote": "",
       "sync": ""
@@ -6663,6 +6719,8 @@ window.WIKI_BUNDLE = {
       "_id": "sam_aura_infection",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: SamPerk.AuraInfectionWorsenReduction",
       "_icon": "",
+      "_configId": "SamAuraInfectionWorsenReduction",
+      "_configPercent": true,
       "description": "",
       "userNote": "",
       "sync": ""
@@ -6689,6 +6747,7 @@ window.WIKI_BUNDLE = {
       "_id": "nordi_l2_hours",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: BookwormPerk.Level2ThresholdHours",
       "_icon": "",
+      "_configId": "BookwormLevel2ThresholdHours",
       "description": "",
       "userNote": "",
       "sync": ""
@@ -6702,6 +6761,7 @@ window.WIKI_BUNDLE = {
       "_id": "nordi_l3_hours",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: BookwormPerk.Level3ThresholdHours",
       "_icon": "",
+      "_configId": "BookwormLevel3ThresholdHours",
       "description": "",
       "userNote": "",
       "sync": ""
@@ -6715,6 +6775,8 @@ window.WIKI_BUNDLE = {
       "_id": "nordi_l1_read",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: BookwormPerk.BonusForLevel",
       "_icon": "",
+      "_configId": "BookwormSelfBonusL1",
+      "_configPercent": true,
       "description": "",
       "userNote": "",
       "sync": ""
@@ -6728,6 +6790,8 @@ window.WIKI_BUNDLE = {
       "_id": "nordi_l2_read",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: BookwormPerk.BonusForLevel",
       "_icon": "",
+      "_configId": "BookwormSelfBonusL2Plus",
+      "_configPercent": true,
       "description": "",
       "userNote": "",
       "sync": ""
@@ -6739,7 +6803,7 @@ window.WIKI_BUNDLE = {
       "unit": "%",
       "settled": false,
       "_id": "nordi_l3_read",
-      "_anchor": "godot/scripts/SurvivorPerks.cs :: BookwormPerk.BonusForLevel",
+      "_anchor": "godot/scripts/SurvivorPerks.cs :: BookwormPerk.BonusForLevel（= L2 同一字段 BookwormSelfBonusL2Plus，改 L2 行即改它）",
       "_icon": "",
       "description": "",
       "userNote": "",
@@ -6754,6 +6818,8 @@ window.WIKI_BUNDLE = {
       "_id": "nordi_l3_campwide",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: BookwormPerk.CampWideBonusAtMax",
       "_icon": "",
+      "_configId": "BookwormCampWideBonusAtMax",
+      "_configPercent": true,
       "description": "",
       "userNote": "",
       "sync": ""
@@ -6962,6 +7028,7 @@ window.WIKI_BUNDLE = {
       "_id": "nurse_l2_surgeries",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: NightingalePerk.Level2ThresholdSurgeries",
       "_icon": "",
+      "_configId": "NightingaleLevel2ThresholdSurgeries",
       "description": "",
       "userNote": "",
       "sync": ""
@@ -6975,6 +7042,7 @@ window.WIKI_BUNDLE = {
       "_id": "nurse_l3_surgeries",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: NightingalePerk.Level3ThresholdSurgeries",
       "_icon": "",
+      "_configId": "NightingaleLevel3ThresholdSurgeries",
       "description": "",
       "userNote": "",
       "sync": ""
@@ -6988,6 +7056,7 @@ window.WIKI_BUNDLE = {
       "_id": "surgery_base_nurse",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: NightingalePerk.NightingaleSurgeryBasePoints",
       "_icon": "",
+      "_configId": "NightingaleSurgeryBasePoints",
       "description": "",
       "userNote": "",
       "sync": ""
@@ -7001,6 +7070,7 @@ window.WIKI_BUNDLE = {
       "_id": "surgery_base_camp_bonus",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: NightingalePerk.CampSurgeryBaseBonus",
       "_icon": "",
+      "_configId": "NightingaleCampSurgeryBaseBonus",
       "description": "",
       "userNote": "",
       "sync": ""
@@ -7014,6 +7084,8 @@ window.WIKI_BUNDLE = {
       "_id": "nurse_l2_infection",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: NightingalePerk.Level2InfectionReduction",
       "_icon": "",
+      "_configId": "NightingaleLevel2InfectionReduction",
+      "_configPercent": true,
       "description": "",
       "userNote": "",
       "sync": ""
@@ -7027,6 +7099,8 @@ window.WIKI_BUNDLE = {
       "_id": "nurse_l3_infection",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: NightingalePerk.Level3InfectionReduction",
       "_icon": "",
+      "_configId": "NightingaleLevel3InfectionReduction",
+      "_configPercent": true,
       "description": "",
       "userNote": "",
       "sync": ""
@@ -7079,6 +7153,8 @@ window.WIKI_BUNDLE = {
       "_id": "merchant_buy_rate",
       "_anchor": "godot/scripts/MerchantTrade.cs :: BuyRatePercent",
       "_icon": "",
+      "_configId": "BuyRatePercent",
+      "_configFile": "merchant.json",
       "description": "",
       "userNote": "",
       "sync": ""
@@ -7092,6 +7168,8 @@ window.WIKI_BUNDLE = {
       "_id": "merchant_sell_rate",
       "_anchor": "godot/scripts/MerchantTrade.cs :: SellRatePercent",
       "_icon": "",
+      "_configId": "SellRatePercent",
+      "_configFile": "merchant.json",
       "description": "",
       "userNote": "",
       "sync": ""

@@ -3,6 +3,7 @@
   "label": "全局规则",
   "source": "src/DeadSignal.Combat/DualWield.cs · src/DeadSignal.Combat/BleedModel.cs · godot/scripts/SurvivorPerks.cs · godot/scripts/CoverLogic.cs",
   "note": "**对所有人一体适用**的规则——不属于任何一件武器，也不属于任何一个角色。以前这些数只活在代码里，wiki 上看不到、也改不了。⚠️ 别把这里的东西误当成谁的专属效果：「没座位读书慢 10%」是**每个人**都一样的，不是诺蒂的技能。",
+  "configFile": "perks.json",
   "columns": [
     {
       "key": "label",
@@ -13,7 +14,8 @@
     {
       "key": "value",
       "label": "数值",
-      "type": "number"
+      "type": "number",
+      "configScalar": true
     },
     {
       "key": "unit",
@@ -42,6 +44,12 @@
     {
       "key": "_id",
       "label": "内部 id",
+      "type": "text",
+      "internal": true
+    },
+    {
+      "key": "_configId",
+      "label": "config 键",
       "type": "text",
       "internal": true
     },
@@ -75,6 +83,8 @@
       "_id": "read_no_seat",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: ReadingSpeed.NoSeatMultiplier",
       "_icon": "",
+      "_configId": "ReadingNoSeatMultiplier",
+      "_configPercent": true,
       "description": "",
       "userNote": "",
       "sync": ""
@@ -87,6 +97,8 @@
       "_id": "read_no_prereq",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: ReadingSpeed.MissingPrerequisiteMultiplier",
       "_icon": "",
+      "_configId": "ReadingMissingPrerequisiteMultiplier",
+      "_configPercent": true,
       "description": "",
       "userNote": "",
       "sync": ""
@@ -123,6 +135,7 @@
       "_id": "surgery_base_default",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: NightingalePerk.DefaultSurgeryBasePoints",
       "_icon": "",
+      "_configId": "NightingaleDefaultSurgeryBasePoints",
       "description": "",
       "userNote": "",
       "sync": ""

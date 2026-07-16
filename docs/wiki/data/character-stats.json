@@ -3,6 +3,7 @@
   "label": "角色数值",
   "source": "godot/scripts/SurvivorPerks.cs 等（每行的「代码位置」列写明了各自的出处）",
   "note": "角色身上所有能调的数字，一行一个。改完这里，agent 会照「代码位置」把它同步进代码。「已拍板」打勾的是你亲口定过的（比如山姆 3 人升 2 级、护士手术点 15→30），不是可以随手调的草稿值。",
+  "configFile": "perks.json",
   "columns": [
     {
       "key": "label",
@@ -18,7 +19,8 @@
     {
       "key": "value",
       "label": "值",
-      "type": "number"
+      "type": "number",
+      "configScalar": true
     },
     {
       "key": "unit",
@@ -48,6 +50,12 @@
     {
       "key": "_id",
       "label": "内部 id",
+      "type": "text",
+      "internal": true
+    },
+    {
+      "key": "_configId",
+      "label": "config 键",
       "type": "text",
       "internal": true
     },
@@ -82,6 +90,7 @@
       "_id": "sam_l2_pop",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: SamPerk.Level2CampPopulation",
       "_icon": "",
+      "_configId": "SamLevel2CampPopulation",
       "description": "",
       "userNote": "",
       "sync": ""
@@ -95,6 +104,7 @@
       "_id": "sam_l3_pop",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: SamPerk.Level3CampPopulation",
       "_icon": "",
+      "_configId": "SamLevel3CampPopulation",
       "description": "",
       "userNote": "",
       "sync": ""
@@ -108,6 +118,8 @@
       "_id": "sam_l1_damage_reduction",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: SamPerk.Level1DamageReduction",
       "_icon": "",
+      "_configId": "SamLevel1DamageReduction",
+      "_configPercent": true,
       "description": "",
       "userNote": "",
       "sync": ""
@@ -121,6 +133,8 @@
       "_id": "sam_l2_carry",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: SamPerk.Level2CarryBonus",
       "_icon": "",
+      "_configId": "SamLevel2CarryBonus",
+      "_configPercent": true,
       "description": "",
       "userNote": "",
       "sync": ""
@@ -134,6 +148,8 @@
       "_id": "sam_aura_carry",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: SamPerk.AuraCarryBonus",
       "_icon": "",
+      "_configId": "SamAuraCarryBonus",
+      "_configPercent": true,
       "description": "",
       "userNote": "",
       "sync": ""
@@ -147,6 +163,8 @@
       "_id": "sam_aura_work",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: SamPerk.AuraWorkSpeedBonus",
       "_icon": "",
+      "_configId": "SamAuraWorkSpeedBonus",
+      "_configPercent": true,
       "description": "",
       "userNote": "",
       "sync": ""
@@ -160,6 +178,8 @@
       "_id": "sam_aura_heal",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: SamPerk.AuraHealSpeedBonus",
       "_icon": "",
+      "_configId": "SamAuraHealSpeedBonus",
+      "_configPercent": true,
       "description": "",
       "userNote": "",
       "sync": ""
@@ -173,6 +193,8 @@
       "_id": "sam_aura_infection",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: SamPerk.AuraInfectionWorsenReduction",
       "_icon": "",
+      "_configId": "SamAuraInfectionWorsenReduction",
+      "_configPercent": true,
       "description": "",
       "userNote": "",
       "sync": ""
@@ -199,6 +221,7 @@
       "_id": "nordi_l2_hours",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: BookwormPerk.Level2ThresholdHours",
       "_icon": "",
+      "_configId": "BookwormLevel2ThresholdHours",
       "description": "",
       "userNote": "",
       "sync": ""
@@ -212,6 +235,7 @@
       "_id": "nordi_l3_hours",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: BookwormPerk.Level3ThresholdHours",
       "_icon": "",
+      "_configId": "BookwormLevel3ThresholdHours",
       "description": "",
       "userNote": "",
       "sync": ""
@@ -225,6 +249,8 @@
       "_id": "nordi_l1_read",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: BookwormPerk.BonusForLevel",
       "_icon": "",
+      "_configId": "BookwormSelfBonusL1",
+      "_configPercent": true,
       "description": "",
       "userNote": "",
       "sync": ""
@@ -238,6 +264,8 @@
       "_id": "nordi_l2_read",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: BookwormPerk.BonusForLevel",
       "_icon": "",
+      "_configId": "BookwormSelfBonusL2Plus",
+      "_configPercent": true,
       "description": "",
       "userNote": "",
       "sync": ""
@@ -249,7 +277,7 @@
       "unit": "%",
       "settled": false,
       "_id": "nordi_l3_read",
-      "_anchor": "godot/scripts/SurvivorPerks.cs :: BookwormPerk.BonusForLevel",
+      "_anchor": "godot/scripts/SurvivorPerks.cs :: BookwormPerk.BonusForLevel（= L2 同一字段 BookwormSelfBonusL2Plus，改 L2 行即改它）",
       "_icon": "",
       "description": "",
       "userNote": "",
@@ -264,6 +292,8 @@
       "_id": "nordi_l3_campwide",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: BookwormPerk.CampWideBonusAtMax",
       "_icon": "",
+      "_configId": "BookwormCampWideBonusAtMax",
+      "_configPercent": true,
       "description": "",
       "userNote": "",
       "sync": ""
@@ -472,6 +502,7 @@
       "_id": "nurse_l2_surgeries",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: NightingalePerk.Level2ThresholdSurgeries",
       "_icon": "",
+      "_configId": "NightingaleLevel2ThresholdSurgeries",
       "description": "",
       "userNote": "",
       "sync": ""
@@ -485,6 +516,7 @@
       "_id": "nurse_l3_surgeries",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: NightingalePerk.Level3ThresholdSurgeries",
       "_icon": "",
+      "_configId": "NightingaleLevel3ThresholdSurgeries",
       "description": "",
       "userNote": "",
       "sync": ""
@@ -498,6 +530,7 @@
       "_id": "surgery_base_nurse",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: NightingalePerk.NightingaleSurgeryBasePoints",
       "_icon": "",
+      "_configId": "NightingaleSurgeryBasePoints",
       "description": "",
       "userNote": "",
       "sync": ""
@@ -511,6 +544,7 @@
       "_id": "surgery_base_camp_bonus",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: NightingalePerk.CampSurgeryBaseBonus",
       "_icon": "",
+      "_configId": "NightingaleCampSurgeryBaseBonus",
       "description": "",
       "userNote": "",
       "sync": ""
@@ -524,6 +558,8 @@
       "_id": "nurse_l2_infection",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: NightingalePerk.Level2InfectionReduction",
       "_icon": "",
+      "_configId": "NightingaleLevel2InfectionReduction",
+      "_configPercent": true,
       "description": "",
       "userNote": "",
       "sync": ""
@@ -537,6 +573,8 @@
       "_id": "nurse_l3_infection",
       "_anchor": "godot/scripts/SurvivorPerks.cs :: NightingalePerk.Level3InfectionReduction",
       "_icon": "",
+      "_configId": "NightingaleLevel3InfectionReduction",
+      "_configPercent": true,
       "description": "",
       "userNote": "",
       "sync": ""
@@ -589,6 +627,8 @@
       "_id": "merchant_buy_rate",
       "_anchor": "godot/scripts/MerchantTrade.cs :: BuyRatePercent",
       "_icon": "",
+      "_configId": "BuyRatePercent",
+      "_configFile": "merchant.json",
       "description": "",
       "userNote": "",
       "sync": ""
@@ -602,6 +642,8 @@
       "_id": "merchant_sell_rate",
       "_anchor": "godot/scripts/MerchantTrade.cs :: SellRatePercent",
       "_icon": "",
+      "_configId": "SellRatePercent",
+      "_configFile": "merchant.json",
       "description": "",
       "userNote": "",
       "sync": ""

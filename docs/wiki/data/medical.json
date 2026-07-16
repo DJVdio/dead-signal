@@ -3,6 +3,7 @@
   "label": "医疗与草药",
   "source": "godot/scripts/Materials.cs + godot/scripts/HealthConditions.cs",
   "note": "流血和骨折靠手术（凑手术点数），感染和疾病靠吃药。草药是抗生素用光之后的退路——治得慢，但采得到。",
+  "configFile": "health.json",
   "columns": [
     {
       "key": "name",
@@ -24,6 +25,8 @@
       "key": "surgeryPoints",
       "label": "手术点数",
       "type": "number",
+      "configKey": "Points",
+      "configRoot": "SurgerySupplies",
       "hint": "手术要凑够点数才做得成"
     },
     {
@@ -36,6 +39,8 @@
       "key": "efficacy",
       "label": "治疗效率",
       "type": "percent",
+      "configKey": "Efficacy",
+      "configRoot": "Medicines",
       "hint": "抗生素 100% 是满效；草药是它的零头。"
     },
     {
@@ -47,7 +52,9 @@
     {
       "key": "weight",
       "label": "单位重量(公斤)",
-      "type": "number"
+      "type": "number",
+      "configFile": "materials.json",
+      "configScalar": true
     },
     {
       "key": "description",
@@ -65,6 +72,12 @@
     {
       "key": "_id",
       "label": "内部 id",
+      "type": "text",
+      "internal": true
+    },
+    {
+      "key": "_configId",
+      "label": "config 键",
       "type": "text",
       "internal": true
     },
@@ -101,6 +114,7 @@
       "weight": 0.1,
       "description": "一块破布有时也能救命",
       "_id": "bandage",
+      "_configId": "bandage",
       "_anchor": "godot/scripts/Materials.cs（名称/说明）+ godot/scripts/HealthConditions.cs :: SurgeryCatalog / MedicineCatalog（数值）",
       "userNote": "",
       "sync": "",
@@ -117,6 +131,7 @@
       "weight": 0.05,
       "description": "能缝补你的伤口，却治愈不了你的心",
       "_id": "needle_thread",
+      "_configId": "needle_thread",
       "_anchor": "godot/scripts/Materials.cs（名称/说明）+ godot/scripts/HealthConditions.cs :: SurgeryCatalog / MedicineCatalog（数值）",
       "userNote": "",
       "sync": "",
@@ -133,6 +148,7 @@
       "weight": 0.3,
       "description": "这会让它看上去直一些",
       "_id": "splint",
+      "_configId": "splint",
       "_anchor": "godot/scripts/Materials.cs（名称/说明）+ godot/scripts/HealthConditions.cs :: SurgeryCatalog / MedicineCatalog（数值）",
       "userNote": "",
       "sync": "",
@@ -149,6 +165,7 @@
       "weight": 0.5,
       "description": "“一包全搞定”——南丁格尔",
       "_id": "first_aid_kit",
+      "_configId": "first_aid_kit",
       "_anchor": "godot/scripts/Materials.cs（名称/说明）+ godot/scripts/HealthConditions.cs :: SurgeryCatalog / MedicineCatalog（数值）",
       "userNote": "",
       "sync": "",
@@ -165,6 +182,7 @@
       "weight": 0.1,
       "description": "传统医学，据说能消炎杀菌",
       "_id": "herbal_bandage",
+      "_configId": "herbal_bandage",
       "_anchor": "godot/scripts/Materials.cs（名称/说明）+ godot/scripts/HealthConditions.cs :: SurgeryCatalog / MedicineCatalog（数值）",
       "userNote": "该处伤口发生感染的几率-25%",
       "sync": "",
@@ -181,6 +199,7 @@
       "weight": 0.05,
       "description": "现代医学的结晶",
       "_id": "antibiotics",
+      "_configId": "antibiotics",
       "_anchor": "godot/scripts/Materials.cs（名称/说明）+ godot/scripts/HealthConditions.cs :: SurgeryCatalog / MedicineCatalog（数值）",
       "userNote": "",
       "sync": "",
@@ -197,6 +216,7 @@
       "weight": 0.05,
       "description": "杂七杂八的成药，缓解发热痢疾等病症——治不了大病，但能让你多撑一天。",
       "_id": "medicine",
+      "_configId": "medicine",
       "_anchor": "godot/scripts/Materials.cs（名称/说明）+ godot/scripts/HealthConditions.cs :: SurgeryCatalog / MedicineCatalog（数值）",
       "userNote": "",
       "sync": "",
@@ -213,6 +233,7 @@
       "weight": 0.1,
       "description": "死马当活马医",
       "_id": "herbal_salve",
+      "_configId": "herbal_salve",
       "_anchor": "godot/scripts/Materials.cs（名称/说明）+ godot/scripts/HealthConditions.cs :: SurgeryCatalog / MedicineCatalog（数值）",
       "userNote": "",
       "sync": "",
@@ -229,6 +250,7 @@
       "weight": 0.5,
       "description": "奶奶的最爱",
       "_id": "dandelion_tea",
+      "_configId": "dandelion_tea",
       "_anchor": "godot/scripts/Materials.cs（名称/说明）+ godot/scripts/HealthConditions.cs :: SurgeryCatalog / MedicineCatalog（数值）",
       "userNote": "",
       "sync": "",
@@ -245,6 +267,7 @@
       "weight": 0.5,
       "description": "酸酸甜甜，抚慰你受伤的身体。",
       "_id": "rosehip_tea",
+      "_configId": "rosehip_tea",
       "_anchor": "godot/scripts/Materials.cs（名称/说明）+ godot/scripts/HealthConditions.cs :: SurgeryCatalog / MedicineCatalog（数值）",
       "userNote": "喝下后一整天，恢复速度+9%",
       "sync": "",

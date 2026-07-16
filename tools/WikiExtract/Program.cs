@@ -86,7 +86,14 @@ internal sealed record Col(
     /// **枚举显示变换**（wiki 中文值 ↔ config 英文枚举）。键=wiki 显示值，值=config 存储值，如 <c>{"锐":"Sharp","钝":"Blunt"}</c>。
     /// wiki→config 正向查、config→wiki 反向查；wiki-serve 据此双向转换，不做恒等复制。
     /// </summary>
-    IReadOnlyDictionary<string, string>? ValueMap = null);
+    IReadOnlyDictionary<string, string>? ValueMap = null,
+
+    /// <summary>
+    /// **百分比数值变换**（wiki 显示 *100、config 存分数）。true ⇒ 这一列 config 存 0.1，wiki 展示成 10（unit=%）。
+    /// wiki-serve config→wiki *100、wiki→config /100（圆整抹浮点尾）。**仅当 wiki 值本身是"数字10"这种放大表示时才标**；
+    /// <para>⚠️ 别跟 <c>type:"percent"</c> 列混淆——那类列 wiki 存的仍是分数(0.35)，*100 只发生在前端渲染，config 恒等，**不标本项**。</para>
+    /// </summary>
+    bool PercentTransform = false);
 
 internal sealed record Category(
     string Id,
@@ -440,6 +447,7 @@ internal static class Program
                 if (col.ConfigFile is not null) jo["configFile"] = col.ConfigFile;
                 if (col.ConfigRoot is not null) jo["configRoot"] = col.ConfigRoot;
                 if (col.ConfigScalar) jo["configScalar"] = true;
+                if (col.PercentTransform) jo["percentTransform"] = true;
                 if (col.ValueMap is not null)
                 {
                     var vm = new JsonObject();
@@ -982,13 +990,21 @@ internal static class Program
             new("name", "名称", Primary: true),
             new("use", "用途", "chip"),
             new("treats", "治什么", "chip"),
-            new("surgeryPoints", "手术点数", "number", Hint: "手术要凑够点数才做得成"),
+            // 手术耗材数值在 health.json 的 SurgerySupplies 子对象里；药品数值在 Medicines 子对象里
+            // （同一行 _configId=物品 key 只会命中其中一个——耗材没 Efficacy、药品没 Points，另一侧 reconcile 自动跳过）。
+            new("surgeryPoints", "手术点数", "number", Hint: "手术要凑够点数才做得成",
+                ConfigKey: "Points", ConfigRoot: "SurgerySupplies"),
             new("exclusive", "手术独占", "bool", Hint: "独占的（急救包）不能和别的耗材一起用"),
-            new("efficacy", "治疗效率", "percent", Hint: "抗生素 100% 是满效；草药是它的零头。"),
+            // 治疗效率：config 存分数(0.35)，wiki 也存分数（type:percent 只让前端渲染成 35%）⇒ **恒等**，不加 PercentTransform。
+            new("efficacy", "治疗效率", "percent", Hint: "抗生素 100% 是满效；草药是它的零头。",
+                ConfigKey: "Efficacy", ConfigRoot: "Medicines"),
+            // 恶化减缓：抽取器对 ≥1.0 的值显示空（"不影响恶化"的约定），与 config 恒等投影冲突 ⇒ 暂不双向，留 agent 手动。
             new("worsenMult", "恶化减缓", "mult", Hint: "当天的恶化速度要乘的倍数——越小越能拖住病情。空 = 不影响恶化。"),
-            new("weight", "单位重量(公斤)", "number"),
+            // 重量在 materials.json（标量条目 {key:数值}），与「材料」表同源；这一列级 configFile 覆盖表级 health.json（一表多源）。
+            new("weight", "单位重量(公斤)", "number", ConfigFile: "materials.json", ConfigScalar: true),
             new("description", "说明", "longtext"),
             new("_id", "内部 id", Internal: true),
+            new("_configId", "config 键", Internal: true),
             new("_anchor", "代码位置", Internal: true),
         };
 
@@ -1015,13 +1031,14 @@ internal static class Program
                 ["weight"] = ItemWeights.MaterialKg(m.Key),
                 ["description"] = m.Description,
                 ["_id"] = m.Key,
+                ["_configId"] = m.Key,   // health.json 的 SurgerySupplies/Medicines 条目键 = 物品 key（materials.json 同键）
                 ["_anchor"] = "godot/scripts/Materials.cs（名称/说明）+ godot/scripts/HealthConditions.cs :: SurgeryCatalog / MedicineCatalog（数值）",
             });
         }
         return new Category("medical", "医疗与草药",
             "godot/scripts/Materials.cs + godot/scripts/HealthConditions.cs",
             "流血和骨折靠手术（凑手术点数），感染和疾病靠吃药。草药是抗生素用光之后的退路——治得慢，但采得到。",
-            cols, rows);
+            cols, rows, ConfigFile: "health.json");
     }
 
     private static string ConditionLabel(HealthConditionType t) => t switch
@@ -1595,28 +1612,39 @@ internal static class Program
         var cols = new List<Col>
         {
             new("label", "规则", Primary: true),
-            new("value", "数值", "number"),
+            // 「数值」列 = perks.json 单例设置对象的某个字段（configScalar：cfg[_configId] 即值）。
+            // 只有真外置进 perks.json 的行带 _configId（读书/护士基线三条）；其余仍是代码常量、无 _configId ⇒ wiki-serve 自动跳过。
+            new("value", "数值", "number", ConfigScalar: true),
             new("unit", "单位", "chip", Hint: "这个数字的单位。只是给人看的标签。"),
             new("note", "说明", "longtext"),
             new("_id", "内部 id", Internal: true),
+            new("_configId", "config 键", Internal: true),
             new("_anchor", "代码位置", Internal: true),
         };
 
         var rows = new List<Dictionary<string, object?>>();
-        void Add(string id, string label, double value, string unit, string note, string anchor)
-            => rows.Add(new Dictionary<string, object?>
+        // cfgKey 非空 ⇒ 这一行外置在 perks.json（_configId=该字段名）；pct=true ⇒ 显示值是 config 分数 *100（wiki-serve 双向 /100/*100）。
+        void Add(string id, string label, double value, string unit, string note, string anchor,
+                 string? cfgKey = null, bool pct = false)
+        {
+            var row = new Dictionary<string, object?>
             {
                 ["label"] = label, ["value"] = Round(value), ["unit"] = unit, ["note"] = note,
                 ["_id"] = id, ["_anchor"] = anchor, ["_icon"] = "",
-            });
+            };
+            if (cfgKey is not null) row["_configId"] = cfgKey;
+            if (pct) row["_configPercent"] = true;
+            rows.Add(row);
+        }
 
-        // —— 读书（全员，不是谁的专属）——
+        // —— 读书（全员，不是谁的专属）—— 外置 perks.json ——
         Add("read_no_seat", "没座位读书的速度", Math.Round(ReadingSpeed.NoSeatMultiplier * 100, 4), "%",
             "站着/蹲着读书比坐着慢。**这是所有人都一样的**——不是哪个角色的专属效果。座位家具（板凳/木椅）就是为它存在的。",
-            "godot/scripts/SurvivorPerks.cs :: ReadingSpeed.NoSeatMultiplier");
+            "godot/scripts/SurvivorPerks.cs :: ReadingSpeed.NoSeatMultiplier", cfgKey: "ReadingNoSeatMultiplier", pct: true);
         Add("read_no_prereq", "没读前置书就读它的速度", Math.Round(ReadingSpeed.MissingPrerequisiteMultiplier * 100, 4), "%",
             "跳级去啃进阶书：读得完，但慢到离谱（耗时 5 倍）。**不禁止，只是让你自己算这笔账。**",
-            "godot/scripts/SurvivorPerks.cs :: ReadingSpeed.MissingPrerequisiteMultiplier");
+            "godot/scripts/SurvivorPerks.cs :: ReadingSpeed.MissingPrerequisiteMultiplier",
+            cfgKey: "ReadingMissingPrerequisiteMultiplier", pct: true);
 
         // —— 持握（全员）——
         Add("dual_wield_speed", "双持时的攻速", Math.Round(DualWield.AttackSpeedFactor * 100, 4), "%",
@@ -1630,7 +1658,8 @@ internal static class Program
         Add("surgery_base_default", "常人的手术基础点数", NightingalePerk.DefaultSurgeryBasePoints, "点",
             "**所有人都能做手术，不看技能**——人人自带这些点。⚠️ 这是**全员基线**，不是南丁格尔的特长；"
             + "她的特长是「她本人的基础点更高」和「3 级给全营加点」，那两条在「角色数值」里。",
-            "godot/scripts/SurvivorPerks.cs :: NightingalePerk.DefaultSurgeryBasePoints");
+            "godot/scripts/SurvivorPerks.cs :: NightingalePerk.DefaultSurgeryBasePoints",
+            cfgKey: "NightingaleDefaultSurgeryBasePoints");   // 原始点数，非比例 ⇒ 不 pct
 
         // —— 掩体（全员，含敌人）——
         Add("cover_chance", "半身掩体挡下整发的概率", Math.Round(CoverLogic.DefaultCoverChance * 100, 4), "%",
@@ -1686,7 +1715,9 @@ internal static class Program
             "**对所有人一体适用**的规则——不属于任何一件武器，也不属于任何一个角色。"
             + "以前这些数只活在代码里，wiki 上看不到、也改不了。"
             + "⚠️ 别把这里的东西误当成谁的专属效果：「没座位读书慢 10%」是**每个人**都一样的，不是诺蒂的技能。",
-            cols, rows);
+            // 表级 perks.json：仅带 _configId 的行（读书两条+护士基线一条，已外置进 perks.json）双向；
+            // 双持/掩体/流血等仍是代码常量、无 _configId ⇒ wiki-serve 只读它们的展示值、不投影。
+            cols, rows, ConfigFile: "perks.json");
     }
 
     private static Category Furniture()
