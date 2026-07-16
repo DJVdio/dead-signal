@@ -83,7 +83,7 @@ public static class DogGearCatalog
         [PocketVestKey] = new(PocketVestKey, "口袋狗衣", DogEquipSlot.Body, ArmorTable.DogPocketVest, CarryCapacityBonus: PocketVestCapacity,
             Description: "好狗，好狗。"),
         [IronHelmetKey] = new(IronHelmetKey, "铁皮头甲", DogEquipSlot.Head, ArmorTable.DogIronHelmet,
-            Description: "狗狗也戴头盔。"),
+            Description: "狗狗也戴头盔吗？"),
         [WireHelmetKey] = new(WireHelmetKey, "铁丝头甲", DogEquipSlot.Head, ArmorTable.DogWireHelmet,
             Description: "曾经保护你的，现在保护狗。"),
     };

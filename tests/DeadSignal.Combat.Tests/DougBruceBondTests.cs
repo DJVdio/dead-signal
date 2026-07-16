@@ -12,10 +12,10 @@ public class DougBruceBondTests
     [Theory]
     [InlineData(-3, 1)]   // 负数按 0，仍 1 级
     [InlineData(0, 1)]    // 入队即 1 级
-    [InlineData(4, 1)]    // 未达 L2 阈值
-    [InlineData(5, 2)]    // 恰达 L2（Level2Days=5）
-    [InlineData(11, 2)]   // 未达 L3 阈值
-    [InlineData(12, 3)]   // 恰达 L3（Level3Days=12）
+    [InlineData(6, 1)]    // 未达 L2 阈值
+    [InlineData(7, 2)]    // 恰达 L2（Level2Days=7）
+    [InlineData(13, 2)]   // 未达 L3 阈值
+    [InlineData(14, 3)]   // 恰达 L3（Level3Days=14）
     [InlineData(365, 3)]  // 远超上限仍 3 级封顶
     public void EvaluateLevel_CrossesThresholds(int daysBothAlive, int expected)
     {

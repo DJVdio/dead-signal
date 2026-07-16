@@ -121,11 +121,11 @@ public class ArmorTableTests
 
     [Fact]
     public void DogClothVest_MatchesTable()
-        => Check(ArmorTable.DogClothVest(), "布制狗衣", ArmorSlot.Skin, 6, 3, 0.15, Torso);
+        => Check(ArmorTable.DogClothVest(), "布制狗衣", ArmorSlot.Skin, 10, 5, 0.15, Torso);
 
     [Fact]
     public void DogLeatherVest_MatchesTable()
-        => Check(ArmorTable.DogLeatherVest(), "皮制狗衣", ArmorSlot.Outer, 12, 6, 0.5, Torso);
+        => Check(ArmorTable.DogLeatherVest(), "皮制狗衣", ArmorSlot.Outer, 25, 12.5, 0.5, Torso);
 
     [Fact]
     public void DogIronHelmet_MatchesTable()

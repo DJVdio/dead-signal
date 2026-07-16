@@ -43,7 +43,7 @@
   },
   "sneakers": {
     "Name": "运动鞋",
-    "Description": "跑快一点点——但愿比丧尸快点。",
+    "Description": "“这是我最喜欢的款式，穿上它跑得更快！”——皮特",
     "SharpDefense": 6,
     "BluntDefense": 3,
     "Weight": 0.25,
@@ -114,7 +114,7 @@
   },
   "cloth_jacket": {
     "Name": "布夹克",
-    "Description": "上班穿它，开会穿它，被咬那天也穿着它。",
+    "Description": "经典永不过时。",
     "SharpDefense": 7.5,
     "BluntDefense": 4,
     "Weight": 0.3,
@@ -128,7 +128,7 @@
   },
   "denim_jacket": {
     "Name": "牛仔外套",
-    "Description": "耐磨、耐脏、耐撕咬——前两样是真的。",
+    "Description": "耐磨、耐脏、牛仔范儿。",
     "SharpDefense": 10,
     "BluntDefense": 4,
     "Weight": 0.6,
@@ -188,7 +188,7 @@
   },
   "military_helmet": {
     "Name": "军用头盔",
-    "Description": "钢盔挡得住从天上掉下来的一切。麻烦在于，咬人的东西是从正面扑过来的。",
+    "Description": "钢盔挡得住从天上掉下来的一切。麻烦在于，它是从正面扑过来的。",
     "SharpDefense": 28,
     "BluntDefense": 14,
     "Weight": 2.5,
@@ -236,7 +236,7 @@
   },
   "war_mask": {
     "Name": "战争面具",
-    "Description": "骨片与木头缝成的脸。戴上它你不会更有勇气——但扑上来的东西第一口咬到的是骨头，不是你的鼻子。",
+    "Description": "骨片与木头缝成的脸。戴上它你不会更有勇气——但会让敌人丧失勇气。",
     "SharpDefense": 12,
     "BluntDefense": 6,
     "Weight": 0.3,
@@ -289,7 +289,7 @@
   },
   "coarse_trousers": {
     "Name": "粗布长裤",
-    "Description": "多缝了一截，小腿就有了着落。末日里的奢侈就是这么算的。",
+    "Description": "“膝盖要注意保暖。”——奶奶",
     "SharpDefense": 6,
     "BluntDefense": 3,
     "Weight": 0.15,
@@ -388,8 +388,8 @@
   "dog_cloth_vest": {
     "Name": "布制狗衣",
     "Description": "给可爱的狗狗穿上可爱的衣服。",
-    "SharpDefense": 6,
-    "BluntDefense": 3,
+    "SharpDefense": 10,
+    "BluntDefense": 5,
     "Weight": 0.15,
     "Slot": "Skin",
     "CoversParts": [
@@ -400,8 +400,8 @@
   "dog_leather_vest": {
     "Name": "皮制狗衣",
     "Description": "狗皮外的另一层皮。",
-    "SharpDefense": 12,
-    "BluntDefense": 6,
+    "SharpDefense": 25,
+    "BluntDefense": 12.5,
     "Weight": 0.5,
     "Slot": "Outer",
     "CoversParts": [
@@ -423,7 +423,7 @@
   },
   "dog_iron_helmet": {
     "Name": "铁皮头甲",
-    "Description": "狗狗也戴头盔。",
+    "Description": "狗狗也戴头盔吗？",
     "SharpDefense": 18,
     "BluntDefense": 12,
     "Weight": 3,

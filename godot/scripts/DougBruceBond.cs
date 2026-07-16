@@ -46,9 +46,9 @@ public static class DougBruceBond
     // ── 升级阈值（共同存活天数，draft）────────────────────────────────────────
     // 入队即 1 级（daysBothAlive=0 → L1）；跨阈值升 2/3 级。
     /// <summary>升到 2 级所需的共同存活天数（draft）。</summary>
-    public const int Level2Days = 5;
+    public const int Level2Days = 7;
     /// <summary>升到 3 级所需的共同存活天数（draft）。</summary>
-    public const int Level3Days = 12;
+    public const int Level3Days = 14;
 
     // ── 技能系数（draft）──────────────────────────────────────────────────────
     /// <summary>1 级：道格**自带**视野角乘子（+10%；不依赖布鲁斯，道格活即在）。</summary>

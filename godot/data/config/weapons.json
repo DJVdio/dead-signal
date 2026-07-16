@@ -528,7 +528,7 @@
   },
   "short_bow": {
     "Name": "短弓",
-    "Description": "一根木头，一根弦。射程短、力道小，但它安静——安静到你能听清，第二只丧尸是从哪个方向过来的。",
+    "Description": "一根木头，一根弦。射程短、力道小，但至少不用靠近他们。",
     "DamageMin": 2,
     "DamageMax": 10,
     "Penetration": 0.12,
@@ -590,7 +590,7 @@
   },
   "longbow": {
     "Name": "长弓",
-    "Description": "比人还高的长弓。它能把箭送到很远的地方——远到你射完还有充裕的时间，看清自己是不是射偏了。",
+    "Description": "比人还高的长弓。它能把箭送到很远的地方。",
     "DamageMin": 4,
     "DamageMax": 20,
     "Penetration": 0.5,
@@ -621,7 +621,7 @@
   },
   "competition_compound_bow": {
     "Name": "竞技复合弓",
-    "Description": "滑轮、准星、稳定杆，一整套让人百发百中的精密玩意。它原来的主人拿它拿过奖——奖杯还在，人不在了。",
+    "Description": "滑轮、准星、稳定杆，一整套让人百发百中的精密玩意，它原来的主人拿它拿过奖。",
     "DamageMin": 4,
     "DamageMax": 20,
     "Penetration": 0.6,
@@ -683,7 +683,7 @@
   },
   "light_crossbow": {
     "Name": "单手轻弩",
-    "Description": "单手就能端的小弩，扣下扳机跟开枪一样容易。麻烦的是开完这一发——上弦得用两只手，还得用点时间。",
+    "Description": "单手就能端的小弩，扣下扳机跟开枪一样容易。",
     "DamageMin": 4,
     "DamageMax": 12,
     "Penetration": 0.35,
@@ -714,7 +714,7 @@
   },
   "heavy_crossbow": {
     "Name": "双手重弩",
-    "Description": "沉得像块砖的重弩，弦硬到要用脚踩着上。它能钉穿铁皮，代价是你每分钟只能得罪一个人。",
+    "Description": "沉重的弩，弦要用脚踩着上。它能钉穿铁皮，代价是你每分钟只能得罪一个人。",
     "DamageMin": 6,
     "DamageMax": 24,
     "Penetration": 0.6,

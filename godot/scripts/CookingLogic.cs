@@ -103,7 +103,7 @@ public static class FoodCalories
         // ——— 存粮 / 罐头 ———
         new FoodDef("ration", 30),           // 军用单兵口粮（用户给定）
         new FoodDef("canned_food", 16),      // 罐头（热量点 T21 用户手改：12 → 16）
-        new FoodDef("flour", 7),             // 面粉
+        new FoodDef("flour", 10),            // 面粉
 
         // ——— 野菜 / 采集（与医疗原料共用同一批材料键，见类注）———
         new FoodDef("potato", 4),            // 土豆（[T67] 菜畦种出来的也是它——同一个键，不新造"自种土豆"）
