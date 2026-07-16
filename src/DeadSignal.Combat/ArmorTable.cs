@@ -291,25 +291,30 @@ public static class ArmorTable
 
     // ---- 玩家可见风味文案（黑色幽默）：护甲名 → 一行描述 ----
     // 由库存物品 UI 经 Item.Armor 自动填充展示，不参与战斗结算。表『说明』列即此文案（含狗装备）。
-    private static readonly System.Collections.Generic.Dictionary<string, string> _flavorByName = BuildFlavor();
 
-    private static System.Collections.Generic.Dictionary<string, string> BuildFlavor()
-    {
-        var d = new System.Collections.Generic.Dictionary<string, string>();
-        foreach (ArmorLayer layer in new[]
-        {
-            LongSleeveShirt(), FloralShirt(), Trousers(), Sneakers(), Shorts(), ChestPlate(), CoarseClothVest(),
-            CoarseClothCoat(), ClothJacket(), DenimJacket(), LeatherJacket(), Leather(), Plate(),
-            MilitaryHelmet(), RiotHelmet(), WorkGloves(), BallisticVest(),
-            DogClothVest(), DogLeatherVest(), DogPocketVest(), DogIronHelmet(), DogWireHelmet(),
-        })
-        {
-            d[layer.Name] = layer.Description;
-        }
-        return d;
-    }
-
-    /// <summary>按护甲显示名取一行风味描述（查不到返回空串）。供消费层 Item.Armor 自动填充库存物品描述。</summary>
+    /// <summary>
+    /// 按护甲显示名取一行风味描述（查不到返回空串）。供消费层 Item.Armor 自动填充库存物品描述。
+    /// <para>
+    /// <b>[根治]</b> 直接从 <c>armor.json</c>（<see cref="ArmorConfig"/> 段）按 <see cref="ArmorLayer.Name"/>
+    /// 取 <see cref="ArmorLayer.Description"/>——config 是护甲文案的<b>唯一权威源</b>。此前走一份手维护的
+    /// <c>_flavorByName</c> 字典（只列了部分件），每加一件新护甲若忘补字典 ⇒ 库存 UI 描述<b>静默空白</b>；
+    /// 现在无第三份会腐烂的源，config 里任何一件都自动可取。防腐护栏见
+    /// <c>ArmorDescriptionCatalogTests.DescriptionOf_NonEmpty_ForEveryArmorInCatalog</c>（遍历 catalog 断言非空）。
+    /// </para>
+    /// </summary>
     public static string DescriptionOf(string name)
-        => name != null && _flavorByName.TryGetValue(name, out var d) ? d : "";
+    {
+        if (string.IsNullOrEmpty(name))
+        {
+            return "";
+        }
+        foreach (ArmorLayer layer in CombatCatalog.Section<ArmorConfig>().ById.Values)
+        {
+            if (layer.Name == name)
+            {
+                return layer.Description;
+            }
+        }
+        return "";
+    }
 }
