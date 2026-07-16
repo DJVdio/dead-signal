@@ -1,12 +1,4 @@
 {
-  // ═══ 材料重量（kg）单一真源 —— 原 godot/scripts/ItemDef.cs 的 ItemRegistry.Materials 字典（47 条 id→double）外置至此。═══
-  // 数值皆「拟定待调」。改这里即改材料称重；ItemRegistry.Materials 启动时从本表拷贝（键=MaterialDef.Key 英文键）。
-  //
-  // 定值原则：**大件压秤、零碎不压秤** —— 木料/石料/燃料这类笨重物资是负重主要开销；布/钉子/铁丝/药品近乎白送；
-  //   白银是货币几乎不占重（否则没法带钱找商人）。宰杀链/弹药/食材必须显式登记，落 DefaultMaterialKg=0.5 兜底＝把设计交给 bug。
-  // 关键 authored 决策（详见 ItemDef.cs 原注释与 journal）：铁 1.5（取原废金属，不取金属锭 2.0）；[T68] 木料减半 2.0→1.0、
-  //   钉子 0.2→0.05、绳子 0.5→0.15、生皮/皮革唯二加重；重头箭箭头灌铅 0.05；羽毛 0.02 全表最轻。
-  // 未登记材料走 ItemWeights.DefaultMaterialKg；ammo_ 开头未登记走 AmmoPerRoundKg（长子弹+其余三种箭正好=兜底 0.03，无须登记）。
   "stone": 3,
   "fuel": 3,
   "wood": 1,

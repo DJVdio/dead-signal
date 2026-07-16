@@ -20,7 +20,12 @@
     {
       "key": "damageType",
       "label": "伤害类型",
-      "type": "chip"
+      "type": "chip",
+      "configKey": "DamageType",
+      "valueMap": {
+        "锐": "Sharp",
+        "钝": "Blunt"
+      }
     },
     {
       "key": "damageMin",
@@ -324,9 +329,9 @@
       "falloffFloor": null,
       "spread": 0,
       "noiseRadius": 95,
-      "dps": 2.5,
-      "dpsVsLeather": 1.5487,
-      "dualDps": 3.5,
+      "dps": 2.3684,
+      "dpsVsLeather": 1.449,
+      "dualDps": 3.3158,
       "weight": 1.2,
       "stockMin": null,
       "stockMax": null,
@@ -509,9 +514,9 @@
       "falloffFloor": null,
       "spread": 0,
       "noiseRadius": 90,
-      "dps": 1.5625,
-      "dpsVsLeather": 0.8842,
-      "dualDps": 2.1875,
+      "dps": 1.5,
+      "dpsVsLeather": 0.8437,
+      "dualDps": 2.1,
       "weight": 0.4,
       "stockMin": null,
       "stockMax": null,
@@ -1175,8 +1180,8 @@
       "falloffFloor": null,
       "spread": 0,
       "noiseRadius": 100,
-      "dps": 1.5179,
-      "dpsVsLeather": 0.8125,
+      "dps": 1.4286,
+      "dpsVsLeather": 0.7601,
       "dualDps": null,
       "weight": null,
       "stockMin": null,
@@ -1266,6 +1271,5 @@
       "sync": "",
       "_icon": "weapons/fists"
     }
-  ],
-  "_configVersion": "3042583bde66"
+  ]
 }

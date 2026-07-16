@@ -2,12 +2,12 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://dead-signal/config/materials.schema.json",
   "title": "Dead Signal 材料重量数值表 (materials.json)",
-  "description": "消费层数值外置：材料重量（kg），裸载荷 —— 顶层对象即 key(材料英文键 MaterialDef.Key)→weight(kg)。数值真源，原 ItemDef.cs 的 ItemRegistry.Materials 字典。只搬数值：材料身份/类别/分类是 authored 结构留 Materials.cs 不外置。缺配置游戏 fail-fast。",
+  "description": "消费层数值外置：材料重量（kg），裸载荷 —— 顶层对象即 key(材料英文键 MaterialDef.Key)→weight(kg)。数值真源，原 ItemDef.cs 的 ItemRegistry.Materials 字典。只搬数值：材料身份/类别/分类是 authored 结构留 Materials.cs 不外置。缺配置游戏 fail-fast。定值原则：大件压秤、零碎不压秤 —— 木料/石料/燃料这类笨重物资是负重主要开销；布/钉子/铁丝/药品近乎白送；白银是货币几乎不占重（否则没法带钱找商人）。宰杀链/弹药/食材必须显式登记，落兜底＝把设计交给 bug。历史 authored 决策：铁 1.5（取原废金属，不取金属锭 2.0）；木料减半 2.0→1.0、钉子 0.2→0.05、绳子 0.5→0.15、生皮/皮革唯二加重；重头箭箭头灌铅 0.05；羽毛 0.02 全表最轻。",
   "type": "object",
   "additionalProperties": {
     "type": "number",
     "minimum": 0,
-    "description": "材料重量 kg（≥0）。"
+    "description": "材料重量 kg（≥0）。未登记材料走 ItemWeights.DefaultMaterialKg；ammo_ 开头未登记走 AmmoPerRoundKg（长子弹+其余三种箭正好=兜底 0.03，无须登记）。"
   },
   "minProperties": 1
 }

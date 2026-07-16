@@ -1,8 +1,4 @@
 {
-  // 家具建造数值（材料数量 + 工时/游戏分钟）。键 = camp.json prop 名 = 各 Spec.FurnitureKey。
-  // 简介文案（authored）不在此，留在 godot/scripts/FurnitureBuildCost.cs（已接线 wiki「简介」列）。
-  // 材料键对齐 Materials 目录：wood 木料 / nails 钉子 / iron 废金属 / components 机械零件 /
-  //   stone 石料 / cloth 布 / wire 铁丝 / rope 绳。成本/工时皆「拟定待调」。
   "工作台": { "cost": { "wood": 16, "nails": 8 }, "buildMinutes": 180 },
   "改装台": { "cost": { "wood": 8, "iron": 4, "components": 2, "nails": 6 }, "buildMinutes": 200 },
   "烹饪台": { "cost": { "stone": 8, "wood": 6, "iron": 3, "nails": 4 }, "buildMinutes": 180 },

@@ -1,8 +1,4 @@
 {
-  // 感染 + 医疗数值真源（数值皆「拟定待调」）。对应 godot/scripts/HealthConfig.cs。
-  // ⚠️ 只搬数值：多感染条/免疫条结构逻辑、目录条目结构/authored 语义留 HealthConditions.cs 代码。
-
-  // ── 感染：每伤口感染几率基数（按流血等级离散查表，与部位无关）+ 免疫窗 + 恶化/治疗速率 ──
   "InfectionBaseChanceLarge": 0.25,
   "InfectionBaseChanceMedium": 0.15,
   "InfectionBaseChanceSmall": 0.05,
@@ -15,7 +11,6 @@
   "WoundClosedThreshold": 0.15,
   "InfectionWindowDays": 4,
 
-  // ── 流血 / 骨折 / 疾病：恶化与愈合速率、休养系数、非致命封顶、擦伤自愈线 ──
   "BleedWorsenPerDay": 0.1,
   "BleedHealPerDay": 0.2,
   "FractureMalunionPerDay": 0.05,
@@ -26,7 +21,6 @@
   "MinorBleedSeverityCap": 0.6,
   "AbrasionSeverityThreshold": 0.2,
 
-  // ── 手术：点数池 / 门槛 / 失败线 / 自体系数 / 即刻恢复 / 睡床加算 / 重做冷却 / 用药照护基数 ──
   "SurgeryBasePoints": 15,
   "BedBonusPoints": 10,
   "SurgeryFailThreshold": 10,
@@ -38,7 +32,6 @@
   "RedoSurgeryCooldownDays": 1,
   "TreatmentPotencyFactor": 0.8,
 
-  // ── 药品可调数字（治哪种病是 authored、留代码）：抗生素 1.00/0.50、草药膏 0.35/0.75、蒲公英茶 0.15/0.85 ──
   "Medicines": {
     "antibiotics":   { "Potency": 0.5, "Efficacy": 1,    "WorsenMultiplier": 0.5 },
     "herbal_salve":  { "Potency": 0.5, "Efficacy": 0.35, "WorsenMultiplier": 0.75 },
@@ -46,7 +39,6 @@
     "medicine":      { "Potency": 0.6, "Efficacy": 1,    "WorsenMultiplier": 1 }
   },
 
-  // ── 手术耗材可调数字（适用伤类/独占是 authored、留代码）：草药绷带 供点20 + 感染乘子0.75 ──
   "SurgerySupplies": {
     "bandage":       { "Points": 15, "InfectionChanceMultiplier": 1 },
     "herbal_bandage":{ "Points": 20, "InfectionChanceMultiplier": 0.75 },
@@ -55,7 +47,6 @@
     "first_aid_kit": { "Points": 60, "InfectionChanceMultiplier": 1 }
   },
 
-  // ── 医疗书手术加点（是否只在无耗材时生效是 authored、留代码）：野外生存指南 +3 ──
   "MedicalBooks": {
     "wilderness_survival_guide": 3
   }

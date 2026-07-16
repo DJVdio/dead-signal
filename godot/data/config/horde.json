@@ -1,7 +1,4 @@
 {
-  // 尸潮时限——到期日 + 到期终局无限围攻的波次调度数值（数值真源，原 HordeTimeline.cs 的 8 个 const）。
-  // 数值皆「拟定待调」，由 Sim(endgame/wallcal) 与试玩校准。改这里即改尸潮时限/围攻节奏。
-  // ⚠ 三个剧情旗标键(horde_sighted/horde_arrived/endgame_freeze)是 authored 常量，留在 HordeTimeline.cs 不外置。
   "DeadlineDay": 40,
   "WaveBase": 8,
   "WaveGrowth": 2,

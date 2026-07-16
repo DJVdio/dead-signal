@@ -1,7 +1,4 @@
 {
-  // 神秘商人经济——买卖价率（数值真源，原 MerchantTrade.cs 的 2 个 const int）。
-  // 用户拍板原话：「玩家卖东西给商人是60%的价格，买东西是100%的价格。」改这里即改经济旋钮。
-  // ⚠️ 到访间隔上下限（MerchantSchedule minGap/maxGap）与断商/接班逻辑是调度/authored 结构，留代码不外置。
   "BuyRatePercent": 100,
   "SellRatePercent": 60
 }

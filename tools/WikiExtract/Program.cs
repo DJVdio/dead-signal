@@ -59,10 +59,34 @@ internal sealed record Col(
     /// 网页改了它 → wiki-serve 的 PUT 处理器按 <c>_configId</c>+这个键把值投影写回 config json；
     /// Python/别处改了 config → wiki-serve 的 GET/启动重算把值拉回 wiki 展示 json。
     /// 只标**数值/gameplay 字段**（数字、bool 等值枚举）；简介/flavor/备注**不标**（那些仍 agent 手动落回代码）。
-    /// 值必须与 config **恒等可复制**（无显示变换）——带中文显示变换的枚举（如伤害类型 锐/钝 ↔ Sharp/Blunt）暂不标，见 journal 后续清单。
+    /// 值默认与 config **恒等可复制**；带中文显示变换的枚举（如伤害类型 锐/钝 ↔ Sharp/Blunt）另配 <see cref="ValueMap"/>。
     /// </para>
     /// </summary>
-    string? ConfigKey = null);
+    string? ConfigKey = null,
+
+    /// <summary>
+    /// **列级 configFile 覆盖**（一表多 config 源用）。非空 ⇒ 这一列写回的是这个 config 文件，而非表级 <see cref="Category.ConfigFile"/>。
+    /// <para>例：弹药表的子弹数值在 <c>ammo.json</c>（表级），箭矢乘子却在 <c>archery.json</c>（这一列级覆盖）。</para>
+    /// </summary>
+    string? ConfigFile = null,
+
+    /// <summary>
+    /// **id-字典在 config 文件里的嵌套路径**（点分）。非空 ⇒ 条目字典不在顶层，而在 <c>cfg[ConfigRoot]</c> 下。
+    /// <para>例：<c>archery.json</c> 的箭在 <c>Arrows</c> 子对象里 ⇒ ConfigRoot="Arrows"；顶层 id-字典（weapons/armor）留空。</para>
+    /// </summary>
+    string? ConfigRoot = null,
+
+    /// <summary>
+    /// **config 条目本身就是标量**（<c>Dict&lt;id → 数值&gt;</c>，没有字段层）。true ⇒ 这一列 = <c>cfg[_configId]</c> 那个数，
+    /// <see cref="ConfigKey"/> 不参与。例：<c>materials.json</c> 是 <c>{ "stone": 3, ... }</c>，重量列即标量条目。
+    /// </summary>
+    bool ConfigScalar = false,
+
+    /// <summary>
+    /// **枚举显示变换**（wiki 中文值 ↔ config 英文枚举）。键=wiki 显示值，值=config 存储值，如 <c>{"锐":"Sharp","钝":"Blunt"}</c>。
+    /// wiki→config 正向查、config→wiki 反向查；wiki-serve 据此双向转换，不做恒等复制。
+    /// </summary>
+    IReadOnlyDictionary<string, string>? ValueMap = null);
 
 internal sealed record Category(
     string Id,
@@ -413,6 +437,15 @@ internal static class Program
                 if (col.ReadOnly) jo["readonly"] = true;
                 if (col.UserNote) jo["usernote"] = true;
                 if (col.ConfigKey is not null) jo["configKey"] = col.ConfigKey;
+                if (col.ConfigFile is not null) jo["configFile"] = col.ConfigFile;
+                if (col.ConfigRoot is not null) jo["configRoot"] = col.ConfigRoot;
+                if (col.ConfigScalar) jo["configScalar"] = true;
+                if (col.ValueMap is not null)
+                {
+                    var vm = new JsonObject();
+                    foreach ((string k, string v) in col.ValueMap) vm[k] = v;
+                    jo["valueMap"] = vm;
+                }
                 if (col.Hint is not null) jo["hint"] = col.Hint;
                 return (JsonNode)jo;
             }).ToArray());
@@ -476,7 +509,8 @@ internal static class Program
             //    与其留着一个脆弱的猜测还不让人改，不如**放开让用户当事实源** —— 他填的一律以表为准。
             new("kind", "种类", "chip",
                 Hint: "默认按武器属性推导（远程/弹药/伤害类型）。⚠️ 引擎里没有「弓 vs 弩」这个区分，是按名字里有没有「弩」字猜的——猜错了就在这里改，以你填的为准。"),
-            new("damageType", "伤害类型", "chip"),
+            new("damageType", "伤害类型", "chip", ConfigKey: "DamageType",
+                ValueMap: new Dictionary<string, string> { ["锐"] = "Sharp", ["钝"] = "Blunt" }),
             new("damageMin", "伤害下限", "number", ConfigKey: "DamageMin"),
             new("damageMax", "伤害上限", "number", ConfigKey: "DamageMax"),
             new("penetration", "穿透力", "percent", Hint: "无视多少护甲。25% = 这一击当对方的甲只有 75%。", ConfigKey: "Penetration"),
@@ -809,16 +843,24 @@ internal static class Program
         {
             new("name", "名称", Primary: true),
             new("kind", "类型", "chip"),
-            new("yieldPerPart", "1 个子弹零件造几发", "number", Hint: "箭不吃子弹零件，故为空"),
-            new("damageMult", "伤害倍率", "mult", Hint: "箭反过来改写弓的属性：最终伤害 = 弓的伤害 * 这个数"),
-            new("penetrationMult", "破甲倍率", "mult", Hint: "最终穿透力 = 弓的穿透力 * 这个数"),
-            new("rangeMult", "射程倍率", "mult", Hint: "最终射程 = 弓的射程 * 这个数"),
-            new("cooldownMult", "冷却倍率", "mult", Hint: "大于 1 = 出手更慢"),
-            new("spreadMult", "散布倍率", "mult", Hint: "大于 1 = 更不准"),
-            new("craftable", "可制作", "bool"),
+            // 子弹的「几发/零件」在 ammo.json（表级源）；箭的五个乘子在 archery.json 的 Arrows 子对象里（列级覆盖 + 嵌套根）。
+            new("yieldPerPart", "1 个子弹零件造几发", "number", Hint: "箭不吃子弹零件，故为空", ConfigKey: "YieldPerBulletPart"),
+            new("damageMult", "伤害倍率", "mult", Hint: "箭反过来改写弓的属性：最终伤害 = 弓的伤害 * 这个数",
+                ConfigKey: "DamageMult", ConfigFile: "archery.json", ConfigRoot: "Arrows"),
+            new("penetrationMult", "破甲倍率", "mult", Hint: "最终穿透力 = 弓的穿透力 * 这个数",
+                ConfigKey: "PenetrationMult", ConfigFile: "archery.json", ConfigRoot: "Arrows"),
+            new("rangeMult", "射程倍率", "mult", Hint: "最终射程 = 弓的射程 * 这个数",
+                ConfigKey: "RangeMult", ConfigFile: "archery.json", ConfigRoot: "Arrows"),
+            new("cooldownMult", "冷却倍率", "mult", Hint: "大于 1 = 出手更慢",
+                ConfigKey: "CooldownMult", ConfigFile: "archery.json", ConfigRoot: "Arrows"),
+            new("spreadMult", "散布倍率", "mult", Hint: "大于 1 = 更不准",
+                ConfigKey: "SpreadMult", ConfigFile: "archery.json", ConfigRoot: "Arrows"),
+            new("craftable", "可制作", "bool",
+                ConfigKey: "Craftable", ConfigFile: "archery.json", ConfigRoot: "Arrows"),
             new("weight", "单位重量(公斤)", "number"),
             new("description", "说明", "longtext"),
             new("_id", "内部 id", Internal: true),
+            new("_configId", "config 键", Internal: true),
             new("_anchor", "代码位置", Internal: true),
         };
 
@@ -841,6 +883,8 @@ internal static class Program
                 ["weight"] = ItemWeights.MaterialKg(m.Key),
                 ["description"] = m.Description,
                 ["_id"] = m.Key,
+                // config 联动 join 键：材料 key 同时是 ammo.json（子弹）与 archery.json Arrows（箭）的条目键。
+                ["_configId"] = m.Key,
                 ["_anchor"] = arrow is not null
                     ? $"src/DeadSignal.Combat/Archery.cs :: ArrowTable（倍率）+ godot/scripts/Materials.cs（名称/说明）"
                     : "godot/scripts/Materials.cs :: Materials（名称/说明）+ src/DeadSignal.Combat/Ammo.cs :: BulletParts.YieldPer（制作比）",
@@ -850,7 +894,7 @@ internal static class Program
             "godot/scripts/Materials.cs + src/DeadSignal.Combat/Ammo.cs + src/DeadSignal.Combat/Archery.cs",
             "四种子弹（短/中/长/鹿弹）全部从「子弹零件」造，1 个零件造几发决定了这把枪贵不贵。"
             + "四种箭是另一回事——**箭反过来改写弓的属性**：最终属性 = 弓的基础属性 * 这里的倍率。箭可回收，子弹不能。",
-            cols, rows);
+            cols, rows, ConfigFile: "ammo.json");
     }
 
     // ─────────────────────────── 材料 ───────────────────────────
@@ -865,9 +909,11 @@ internal static class Program
             // 要给某材料换类目，改 godot/scripts/Materials.cs 的 MaterialCategory，重跑即刷新。
             new("category", "类别", "chip", ReadOnly: true,
                 Hint: "来自代码里的材料类别枚举（只读）。要改归类，改 Materials.cs 的 MaterialCategory。"),
-            new("weight", "单位重量(公斤)", "number"),
+            // materials.json 是 { "stone": 3, ... } 形态（Dict<id→数值>，没有字段层）⇒ 标量条目，重量列即条目本身。
+            new("weight", "单位重量(公斤)", "number", ConfigScalar: true),
             new("description", "说明", "longtext"),
             new("_id", "内部 id", Internal: true),
+            new("_configId", "config 键", Internal: true),
             new("_anchor", "代码位置", Internal: true),
         };
 
@@ -892,13 +938,14 @@ internal static class Program
                 ["weight"] = ItemWeights.MaterialKg(m.Key),
                 ["description"] = m.Description,
                 ["_id"] = m.Key,
+                ["_configId"] = m.Key,   // materials.json 的条目键就是材料 key
                 ["_anchor"] = "godot/scripts/Materials.cs :: Materials（重量在 godot/scripts/CarryWeight.cs :: ItemWeights）",
             });
         }
         return new Category("materials", "材料",
             "godot/scripts/Materials.cs",
             "配方吃的基础材料。弹药与医疗品也是材料，但太重要了，各自单开了一个分区。",
-            cols, rows);
+            cols, rows, ConfigFile: "materials.json");
     }
 
     /// <summary>
@@ -995,16 +1042,18 @@ internal static class Program
             new("name", "名称", Primary: true),
             new("category", "类别", "chip"),
             new("output", "产物", Hint: "做出来的是什么（内部 key，引擎真读它）。⚠️ 改它等于把这条配方换成做另一件东西——慎改。"),
-            new("outputQty", "产量", "number"),
+            new("outputQty", "产量", "number", ConfigKey: "OutputQuantity"),
+            // 「材料」是 dict{料→量}（recipes.json 的 MaterialCosts 嵌套字典）——恒等投影不支持嵌套，暂留 agent 手动（见 journal 待扩清单）。
             new("materials", "材料", Hint: "格式：木料*2、布*1"),
             new("tools", "工作台工具", "chip", Hint: "空 = 徒手就能做"),
             // [波1·item7] 制作地点：从「工作台工具」+「制作者门槛」派生的只读汇总列——一眼看出这条配方在哪做。
             new("craftLocation", "制作地点", "chip", ReadOnly: true,
                 Hint: "自动派生（只读）：装了工具就在工作台、茶在烹饪台、宰杀台升级在宰杀台、陷阱/菜园/沙袋在野外空地徒手搭。要改，改配方的工具/门槛。"),
             new("books", "要读过的书"),
-            new("workMinutes", "工时", "hours", Hint: "有人站在工作台前干这么久（游戏内时间）。一天有 8 个相位，夜里那个生产相位大约能推进几小时——超过它就得跨夜接着做。"),
+            new("workMinutes", "工时", "hours", Hint: "有人站在工作台前干这么久（游戏内时间）。一天有 8 个相位，夜里那个生产相位大约能推进几小时——超过它就得跨夜接着做。", ConfigKey: "WorkMinutes"),
             new("crafterGate", "制作者门槛", Hint: "空 = 谁都能做。人话说明；引擎真正读的门槛 id 在置灰的「勿改」列里。"),
             new("_id", "内部 id", Internal: true),
+            new("_configId", "config 键", Internal: true),
             // 引擎真读的门槛 id（cook_station_absent 之类）——**收进置灰「勿改」列，不许出现在给人看的那一列**。
             new("_crafterGateIds", "门槛 id（勿改）", Internal: true),
             new("_anchor", "代码位置", Internal: true),
@@ -1026,6 +1075,7 @@ internal static class Program
                 ["workMinutes"] = r.WorkMinutes,
                 ["crafterGate"] = r.RequiredCrafterGates is null ? "" : string.Join('、', r.RequiredCrafterGates.Select(GateLabel)),
                 ["_id"] = r.Id,
+                ["_configId"] = r.Id,   // recipes.json 的条目键就是配方 Id
                 ["_crafterGateIds"] = r.RequiredCrafterGates is null ? "" : string.Join('、', r.RequiredCrafterGates),
                 ["_anchor"] = $"godot/scripts/Recipe.cs :: RecipeBook（Id = \"{r.Id}\"）",
             });
@@ -1034,7 +1084,7 @@ internal static class Program
             "godot/scripts/Recipe.cs",
             "做一件东西要过三道门槛：工作台上装着对的工具、制作者读过对的书、库存里有够的材料。"
             + "工时是「人站在工作台前推进多少游戏分钟」，不是点一下就出。",
-            cols, rows);
+            cols, rows, ConfigFile: "recipes.json");
     }
 
     /// <summary>
@@ -1644,13 +1694,15 @@ internal static class Program
         var cols = new List<Col>
         {
             new("name", "名称", Primary: true),
+            // 「建造材料」是 dict{料→量}（furniture.json 的 cost 嵌套字典）——恒等投影不支持嵌套，暂留 agent 手动（见 journal 待扩清单）。
             new("materials", "建造材料", Hint: "格式：木料*16、钉子*8"),
-            new("buildMinutes", "建造工时", "hours", Hint: "有人在营地里干这么久（游戏内时间）。"),
+            new("buildMinutes", "建造工时", "hours", Hint: "有人在营地里干这么久（游戏内时间）。", ConfigKey: "buildMinutes"),
             new("salvage", "拆了能还回多少", ReadOnly: true,
                 Hint: "自动算的：通用规则是还一半（向下取整），木材例外——一半变木料、一半变废木料。要改 ⇒ 改「建造材料」。（想改返还比例本身，那是引擎规则，跟 agent 说。）"),
             // 玩家在游戏里看到的短简介：代码里已有字段（FurnitureBuildCost.Description(key)），复用「简介」列（同 Books()）。
             new("description", "简介", "longtext"),
             new("_id", "内部 id", Internal: true),
+            new("_configId", "config 键", Internal: true),
             new("_anchor", "代码位置", Internal: true),
         };
 
@@ -1666,13 +1718,14 @@ internal static class Program
                 ["salvage"] = cost is null ? "" : string.Join('、', SalvageLogic.YieldOfFurniture(key).Select(kv => $"{MaterialName(kv.Key)}*{kv.Value}")),
                 ["description"] = FurnitureBuildCost.Description(key),
                 ["_id"] = key,
+                ["_configId"] = key,   // furniture.json 的条目键就是家具中文名（工作台/床…），非 SnakeCase
                 ["_anchor"] = "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
             });
         }
         return new Category("furniture", "家具建造",
             "godot/scripts/FurnitureBuildCost.cs",
             "营地里造得出、也拆得掉的东西。拆除返还向下取整——所以拆了再建，永远是亏的。",
-            cols, rows);
+            cols, rows, ConfigFile: "furniture.json");
     }
 
     // ─────────────────────────── 通用：反射遍历一张 catalog ───────────────────────────

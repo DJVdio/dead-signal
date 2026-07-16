@@ -1,14 +1,7 @@
 {
-  // 武器改装可调数值（数值真源，原散在 WeaponModCatalog 各工厂的 StatMod 乘子/加值 + WeightMultiplier + 否决几率）。
-  // 🔴 只装「可调数字」：一条 StatMod 的运算方式(Mul/Add/Set)、作用的 WeaponStat、每条改装的适配武器/部位/id 都是
-  //    结构，留在 WeaponModCatalog.cs。这里 Stats 的键 = WeaponStat 枚举名，值 = 乘子/加值。数值皆「拟定待调」。
-  // MeleeFormSpeed = 近战型态攻速折扣(0.85 ⇒ 间隔÷0.85)，刺刀/利爪/创伤/锋刃四型态共用；型态枪托五段数值从
-  //    WeaponTable 实读(85%攻速的刺剑/消防斧/尖头锤/匕首)，不在本表——本表只留型态附带的散布乘子。
-
   "MeleeFormSpeed": 0.85,
 
   "ById": {
-    // ── 枪械改装（7 条）──
     "lightened_stock": {
       "WeightMultiplier": 0.85,
       "Stats": { "BaseSpreadDegrees": 1.10 }
@@ -50,7 +43,6 @@
       "WeightMultiplier": 1.05
     },
 
-    // ── 近战锐器改装（6 条）──
     "serrated_blade": {
       "Stats": {
         "Penetration": 0.80,
@@ -83,7 +75,6 @@
       "Stats": { "AttackInterval": 0.95 }
     },
 
-    // ── 近战钝器改装（2 条，棍棒独有）──
     "wire_wrap": {
       "WeightMultiplier": 1.12,
       "Stats": {
@@ -92,21 +83,17 @@
       }
     },
     "nail_studs": {
-      // Penetration 是【加算】0.03(棍棒穿透本为0的"零陷阱"例外)、BleedOnHitChance 是【Set】0.25——
-      // 运算方式(Add/Set)留代码,这里只存数值。
       "Stats": {
         "Penetration": 0.03,
         "BleedOnHitChance": 0.25
       }
     },
 
-    // ── 近身锐器·防御型（1 条：护手挡格）──
     "handguard": {
       "WeightMultiplier": 1.10,
       "HandGuardNegateChance": 0.50
     },
 
-    // ── 弓弩专属（4 条：弓臂缠手/复合弓臂/重磅弓弦/弩盾）──
     "limb_wrap": {
       "Stats": { "AttackInterval": 0.95 }
     },

@@ -1,6 +1,3 @@
 {
-  // 电台主线（军方/结局）——回复军方后到军方白天来袭的间隔天数（数值真源，原 RadioMainline.cs 的 MilitaryRaidDelayDays const）。
-  // 数值「拟定待调」。改这里即改军袭倒计时（军袭期满 = 回复日 + 本值）。
-  // 只搬数值：状态机逻辑/flag 键/广播与抉择文案草稿留在 RadioMainline.cs；南方三问门槛在 SouthTrial.cs，不在本表。
   "MilitaryRaidDelayDays": 2
 }

@@ -14,7 +14,7 @@
     },
     "ById": {
       "type": "object",
-      "description": "改装 id → 可调数值。id 与 WeaponModCatalog 各工厂 Id 一致。",
+      "description": "改装 id → 可调数值。id 与 WeaponModCatalog 各工厂 Id 一致（分组：枪械 7 条 / 近战锐器 6 条 / 近战钝器 2 条棍棒独有 / 近身锐器防御型 1 条护手挡格 / 弓弩专属 4 条）。注意 nail_studs（棍棒）的 Stats.Penetration=0.03 是【加算】而非乘算——棍棒穿透本为 0 的「零陷阱」例外，BleedOnHitChance=0.25 是【Set】；运算方式(Add/Set)留代码，本表只存数值。",
       "additionalProperties": { "$ref": "#/definitions/tuning" }
     }
   },
