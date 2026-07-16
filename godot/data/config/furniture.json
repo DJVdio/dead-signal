@@ -1,0 +1,20 @@
+{
+  // 家具建造数值（材料数量 + 工时/游戏分钟）。键 = camp.json prop 名 = 各 Spec.FurnitureKey。
+  // 简介文案（authored）不在此，留在 godot/scripts/FurnitureBuildCost.cs（已接线 wiki「简介」列）。
+  // 材料键对齐 Materials 目录：wood 木料 / nails 钉子 / iron 废金属 / components 机械零件 /
+  //   stone 石料 / cloth 布 / wire 铁丝 / rope 绳。成本/工时皆「拟定待调」。
+  "工作台": { "cost": { "wood": 16, "nails": 8 }, "buildMinutes": 180 },
+  "改装台": { "cost": { "wood": 8, "iron": 4, "components": 2, "nails": 6 }, "buildMinutes": 200 },
+  "烹饪台": { "cost": { "stone": 8, "wood": 6, "iron": 3, "nails": 4 }, "buildMinutes": 180 },
+  "住宅-柜子": { "cost": { "wood": 10, "nails": 6 }, "buildMinutes": 120 },
+  "住宅-衣柜": { "cost": { "wood": 12, "nails": 6 }, "buildMinutes": 140 },
+  "住宅-展示柜": { "cost": { "wood": 8, "nails": 4 }, "buildMinutes": 100 },
+  "床": { "cost": { "wood": 12, "cloth": 4, "nails": 6 }, "buildMinutes": 150 },
+  "桌子": { "cost": { "wood": 8, "nails": 4 }, "buildMinutes": 120 },
+  "沙袋": { "cost": { "cloth": 2, "stone": 4 }, "buildMinutes": 30 },
+  "陷阱": { "cost": { "wood": 2, "wire": 2, "rope": 1 }, "buildMinutes": 40 },
+  "捕鸟陷阱": { "cost": { "wood": 2, "rope": 2 }, "buildMinutes": 40 },
+  "菜园": { "cost": { "wood": 2 }, "buildMinutes": 60 },
+  "简易宰杀点": { "cost": { "wood": 1 }, "buildMinutes": 30 },
+  "宰杀台": { "cost": { "wood": 3, "nails": 4 }, "buildMinutes": 60 }
+}

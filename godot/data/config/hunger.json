@@ -1,0 +1,9 @@
+{
+  // 饥饿能力惩罚——PenaltyFor 三档梯度值（数值真源，原 HungerState.cs 的 switch 字面量）。
+  // 数值皆「拟定待调」。越饿惩罚越重（净值 0~1，1=完全丧失）。
+  // ⚠️ 饿死(1.0=满值兜底)/正常等饱档(0.0=无惩罚)是 switch 两端语义边界，留在 HungerState.cs 不外置。
+  // ⚠️ 上限 DefaultCap(5)/MaxCap(6)/饿死刻度(0) 是编译期 const（被当默认参数值/枚举边界），亦不外置。
+  "MalnourishedPenalty": 0.45,
+  "RavenousPenalty": 0.25,
+  "HungryPenalty": 0.1
+}

@@ -1,0 +1,55 @@
+{
+  // 幸存者 authored 专属效果的可调数值（数值真源）。只搬散落的数字常量；perk 的分级逻辑/升级轴/
+  // 身份名字/旗标 key/噪音真值表等 authored 结构留在 SurvivorPerks.cs / PetePerk.cs，不在此。
+  // 字段名/类型对应 godot/scripts/PerkConfig.cs。改这里即改对应 perk 的数值。缺配置游戏 fail-fast。
+
+  // —— 诺蒂·书虫 / 读速合成（draft）——
+  "BookwormLevel2ThresholdHours": 48,
+  "BookwormLevel3ThresholdHours": 120,
+  "BookwormSelfBonusL1": 0.25,
+  "BookwormSelfBonusL2Plus": 0.5,
+  "BookwormCampWideBonusAtMax": 0.25,
+  "ReadingNoSeatMultiplier": 0.9,
+  "ReadingMissingPrerequisiteMultiplier": 0.2,
+
+  // —— 南丁格尔·护士三级（感染减免/手术点=用户拍板；台数阈值=拟定）——
+  "NightingaleLevel2ThresholdSurgeries": 3,
+  "NightingaleLevel3ThresholdSurgeries": 8,
+  "NightingaleDefaultSurgeryBasePoints": 15,
+  "NightingaleSurgeryBasePoints": 30,
+  "NightingaleCampSurgeryBaseBonus": 5,
+  "NightingaleLevel2InfectionReduction": 0.15,
+  "NightingaleLevel3InfectionReduction": 0.1,
+
+  // —— 山姆·英雄风范（用户拍板）——
+  "SamLevel2CampPopulation": 3,
+  "SamLevel3CampPopulation": 6,
+  "SamLevel1DamageReduction": 0.1,
+  "SamLevel2CarryBonus": 0.15,
+  "SamAuraCarryBonus": 0.03,
+  "SamAuraWorkSpeedBonus": 0.03,
+  "SamAuraHealSpeedBonus": 0.03,
+  "SamAuraInfectionWorsenReduction": 0.03,
+
+  // —— 耗子（用户原话）——
+  "RatLevel2ThresholdItems": 75,
+  "RatLevel3ThresholdItems": 250,
+  "RatLevel1ActionNoiseMultiplier": 0.6,
+  "RatLevel1LootSpeedBonus": 0.5,
+  "RatLevel2LootSpeedBonus": 1,
+  "RatLevel3DarknessStealthBonus": 0.4,
+  "RatLevel3AmbushDamageBonus": 0.35,
+
+  // —— 皮特（用户口径）——
+  "PeteLevel1MoveSpeedMultiplier": 1.15,
+  "PeteLevel2MoveSpeedMultiplier": 1.25,
+  "PeteLevel3MoveSpeedMultiplier": 1.3,
+  "PeteOperationCapabilityBonus": 0.05,
+  "PeteDodgeChanceValue": 0.15,
+  "PeteDodgeMaxCarriedKg": 30,
+  "PeteExtraHungerDropChance": 0.25,
+  "PeteHungerThresholdForStreak": 3,
+  "PeteLevel2ConsecutivePhases": 10,
+  "PeteDepartureHungerCeiling": 5,
+  "PeteLevel3DepartureCount": 3
+}

@@ -231,8 +231,25 @@ public static class WeaponModCatalog
     // ⚠ 砸墙系数不在此列（Weapon.MeleeProfile 不复制它，枪托砸墙恒为默认 1.0）——wiki 表也没写。
     // ═══════════════════════════════════════════════════════════════════════════
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // 【可调数值 = 外置到 godot/data/config/weaponmods.json】（config-weaponmods 单）
+    //
+    // 🔴 只搬「可调数字」：各改装的 StatMod 乘子/加值、WeightMultiplier、防御否决几率、MeleeFormSpeed。
+    //    运算方式(Mul/Add/Set)、作用的 WeaponStat、适配武器白名单/WeaponPart/id 都是**结构**，仍写死在本文件。
+    //    读法：Cfg = catalog 段；S(id,stat)=取某条改装某个 StatMod 的数值；T(id)=取整条 Tuning(重量/否决字段)。
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// <summary>武器改装数值段（weaponmods.json）。首次访问触发懒加载（宿主 Bootstrapper 已注册）。</summary>
+    private static WeaponModConfig Cfg => GameConfigCatalog.Section<WeaponModConfig>();
+
+    /// <summary>取某条改装某个 <see cref="WeaponStat"/> 的**数值**（乘子/加值）；运算方式留调用处。</summary>
+    private static double S(string id, WeaponStat stat) => Cfg.Stat(id, stat.ToString());
+
+    /// <summary>取某条改装的整条可调数值（重量/否决几率/半角等）；缺 id fail-fast。</summary>
+    private static WeaponModTuning T(string id) => Cfg.Get(id);
+
     /// <summary>攻速折扣：型态的枪托近战 = 该武器的 <see cref="MeleeFormSpeed"/> 倍攻速（0.85 ⇒ 间隔 ÷0.85 ≈ ×1.176）。</summary>
-    private const double MeleeFormSpeed = 0.85;   // [T68] 用户手改，原 0.8
+    private static double MeleeFormSpeed => Cfg.MeleeFormSpeed;   // [T68] 用户手改原 0.8；[config] 外置 weaponmods.json
 
     /// <summary>把一把近战武器**覆盖**成枪托近战的五条 Set（伤害下限/上限、穿透、间隔、噪音）。</summary>
     private static StatMod[] StockMeleeLike(Weapon melee) => new[]
@@ -264,10 +281,10 @@ public static class WeaponModCatalog
         Description = "枪轻了，你举得更久，也晃得更凶。跑起来时它谢你，瞄准时它记恨你。",
         MaterialCosts = Cost(("wood", 1)),
         WorkMinutes = 180,
-        WeightMultiplier = 0.85,                                  // 重量 −15%
+        WeightMultiplier = T("lightened_stock").WeightMultiplier,   // 重量 −15%
         Stats = new[]
         {
-            StatMod.Mul(WeaponStat.BaseSpreadDegrees, 1.10),      // 散布 +10%
+            StatMod.Mul(WeaponStat.BaseSpreadDegrees, S("lightened_stock", WeaponStat.BaseSpreadDegrees)),   // 散布 +10%
         },
     };
 
@@ -286,16 +303,16 @@ public static class WeaponModCatalog
         Description = "锯短枪管，换来一只空出来的手。至于那只手能不能替它补上没打中的那一刀，就看你这锯子下得值不值。",
         MaterialCosts = Cost(),        // 用户清空：锯掉一截不消耗材料
         WorkMinutes = 60,
-        WeightMultiplier = 0.80,                                  // 重量 −20%
+        WeightMultiplier = T("sawn_off_barrel").WeightMultiplier,   // 重量 −20%
         AllowsOneHanded = true,                                   // 「允许单手持有」
         Stats = new[]
         {
-            StatMod.Mul(WeaponStat.MaxRange, 0.80),               // 射程 −20%
-            StatMod.Mul(WeaponStat.FalloffStart, 0.80),           // 衰减起点 −20%
-            StatMod.Mul(WeaponStat.Penetration, 0.85),            // 穿透 −15%（乘算：40% → 34%，不是减 15 个点）
-            StatMod.Mul(WeaponStat.BaseSpreadDegrees, 1.25),      // 散布 +25%
-            StatMod.Mul(WeaponStat.DamageMin, 0.90),              // 伤害 −10%
-            StatMod.Mul(WeaponStat.DamageMax, 0.90),
+            StatMod.Mul(WeaponStat.MaxRange, S("sawn_off_barrel", WeaponStat.MaxRange)),               // 射程 −20%
+            StatMod.Mul(WeaponStat.FalloffStart, S("sawn_off_barrel", WeaponStat.FalloffStart)),       // 衰减起点 −20%
+            StatMod.Mul(WeaponStat.Penetration, S("sawn_off_barrel", WeaponStat.Penetration)),         // 穿透 −15%（乘算：40% → 34%，不是减 15 个点）
+            StatMod.Mul(WeaponStat.BaseSpreadDegrees, S("sawn_off_barrel", WeaponStat.BaseSpreadDegrees)), // 散布 +25%
+            StatMod.Mul(WeaponStat.DamageMin, S("sawn_off_barrel", WeaponStat.DamageMin)),             // 伤害 −10%
+            StatMod.Mul(WeaponStat.DamageMax, S("sawn_off_barrel", WeaponStat.DamageMax)),
         },
     };
 
@@ -310,14 +327,14 @@ public static class WeaponModCatalog
         Description = "多接的这截铁，让你在他看清你之前就够得着他——前提是你先把枪抬起来。",
         MaterialCosts = Cost(("iron", 3)),   // [T46] 铁 3（原：金属锭 1 + 废金属 1 = 2 + 1）。
         WorkMinutes = 240,
-        WeightMultiplier = 1.35,                                  // 重量 +35%
+        WeightMultiplier = T("extended_barrel").WeightMultiplier,   // 重量 +35%
         Stats = new[]
         {
-            StatMod.Mul(WeaponStat.MaxRange, 1.20),               // 射程 +20%
-            StatMod.Mul(WeaponStat.FalloffStart, 1.20),           // 衰减起点 +20%
-            StatMod.Mul(WeaponStat.BaseSpreadDegrees, 0.80),      // 散布 −20%
-            StatMod.Mul(WeaponStat.AttackInterval, 1.10),         // 攻速 −10% ⇒ 间隔 ×1.10
-            StatMod.Mul(WeaponStat.Penetration, 1.10),            // 穿透 +10%（乘算）
+            StatMod.Mul(WeaponStat.MaxRange, S("extended_barrel", WeaponStat.MaxRange)),               // 射程 +20%
+            StatMod.Mul(WeaponStat.FalloffStart, S("extended_barrel", WeaponStat.FalloffStart)),       // 衰减起点 +20%
+            StatMod.Mul(WeaponStat.BaseSpreadDegrees, S("extended_barrel", WeaponStat.BaseSpreadDegrees)), // 散布 −20%
+            StatMod.Mul(WeaponStat.AttackInterval, S("extended_barrel", WeaponStat.AttackInterval)),   // 攻速 −10% ⇒ 间隔 ×1.10
+            StatMod.Mul(WeaponStat.Penetration, S("extended_barrel", WeaponStat.Penetration)),         // 穿透 +10%（乘算）
         },
     };
 
@@ -343,9 +360,9 @@ public static class WeaponModCatalog
         Description = "子弹会引来一整条街，这一下不会。它安静得像一句没说出口的话。",
         MaterialCosts = Cost(("iron", 4), ("rope", 1)),   // [T46] 铁 4（原：金属锭 1 + 废金属 2 = 2 + 2）。
         WorkMinutes = 240,
-        WeightMultiplier = 1.10,                                  // 重量 +10%
+        WeightMultiplier = T("bayonet").WeightMultiplier,        // 重量 +10%
         Stats = StockMeleeLike(WeaponTable.Rapier())
-            .Append(StatMod.Mul(WeaponStat.BaseSpreadDegrees, 1.03))   // 散布 +3%
+            .Append(StatMod.Mul(WeaponStat.BaseSpreadDegrees, S("bayonet", WeaponStat.BaseSpreadDegrees)))   // 散布 +3%
             .ToArray(),
     };
 
@@ -364,9 +381,9 @@ public static class WeaponModCatalog
         Description = "打不响的时候它还能砍。末日里一把枪最该学会的，是别只把自己当枪用。",
         MaterialCosts = Cost(("iron", 3), ("leather", 1), ("nails", 2)),
         WorkMinutes = 240,
-        WeightMultiplier = 1.30,                                  // 重量 +30%
+        WeightMultiplier = T("claw_stock").WeightMultiplier,     // 重量 +30%
         Stats = StockMeleeLike(WeaponTable.Axe())
-            .Append(StatMod.Mul(WeaponStat.BaseSpreadDegrees, 1.10))   // 散布 +10%
+            .Append(StatMod.Mul(WeaponStat.BaseSpreadDegrees, S("claw_stock", WeaponStat.BaseSpreadDegrees)))   // 散布 +10%
             .ToArray(),
     };
 
@@ -386,9 +403,9 @@ public static class WeaponModCatalog
         Description = "子弹留个洞，这头铁疙瘩留个印子——凹进去的那种。压枪稳了，是顺带的。",
         MaterialCosts = Cost(("iron", 4)),   // [T68·用户手改] 去掉「钉子*4」，只留铁 4（wiki 材料列 = 铁*4）。
         WorkMinutes = 240,
-        WeightMultiplier = 1.50,                                  // 重量 +50%（全表最重的代价）
+        WeightMultiplier = T("trauma_stock").WeightMultiplier,   // 重量 +50%（全表最重的代价）
         Stats = StockMeleeLike(WeaponTable.SpikeHammer())
-            .Append(StatMod.Mul(WeaponStat.BaseSpreadDegrees, 0.97))   // 散布 −3%（用户手改：配重让枪更稳）
+            .Append(StatMod.Mul(WeaponStat.BaseSpreadDegrees, S("trauma_stock", WeaponStat.BaseSpreadDegrees)))   // 散布 −3%（用户手改：配重让枪更稳）
             .ToArray(),
     };
 
@@ -416,7 +433,7 @@ public static class WeaponModCatalog
         Description = "握手的地方藏了刀，问候语就变了。等他伸手推开你的枪口，才发现推错了地方。",
         MaterialCosts = Cost(("iron", 1), ("rope", 1)),
         WorkMinutes = 90,
-        WeightMultiplier = 1.05,                                 // 重量 +5%
+        WeightMultiplier = T("blade_stock").WeightMultiplier,    // 重量 +5%
         Stats = StockMeleeLike(WeaponTable.Dagger()),            // 无额外散布改动（wiki 只写了重量 +5%）
     };
 
@@ -457,8 +474,8 @@ public static class WeaponModCatalog
         WorkMinutes = 240,
         Stats = new[]
         {
-            StatMod.Mul(WeaponStat.Penetration, 0.80),            // 穿透 −20%（**乘算**）
-            StatMod.Mul(WeaponStat.BleedRateMultiplier, 1.40),    // 造成的流血速度 +40%（[T53] 引擎轴）
+            StatMod.Mul(WeaponStat.Penetration, S("serrated_blade", WeaponStat.Penetration)),            // 穿透 −20%（**乘算**）
+            StatMod.Mul(WeaponStat.BleedRateMultiplier, S("serrated_blade", WeaponStat.BleedRateMultiplier)),    // 造成的流血速度 +40%（[T53] 引擎轴）
         },
     };
 
@@ -487,7 +504,7 @@ public static class WeaponModCatalog
         UsesBeforeBreak = 3,       // 🔴 攻击三次后失去该改装（用户拍板）
         Stats = new[]
         {
-            StatMod.Mul(WeaponStat.Penetration, 1.75),            // 穿透 +75%（乘算；上限 100% 由 Build 的 Clamp 兜住）
+            StatMod.Mul(WeaponStat.Penetration, S("honed_edge", WeaponStat.Penetration)),            // 穿透 +75%（乘算；上限 100% 由 Build 的 Clamp 兜住）
         },
     };
 
@@ -502,12 +519,12 @@ public static class WeaponModCatalog
         Description = "剑身掏空四分之一，出手快了一截，砍进去也浅了一截。快是给活人看的，深是留给敌人的。",
         MaterialCosts = Cost(("iron", 1)),
         WorkMinutes = 240,
-        WeightMultiplier = 0.75,                                  // 重量 −25%（全表减重最多）
+        WeightMultiplier = T("fuller_blade").WeightMultiplier,    // 重量 −25%（全表减重最多）
         Stats = new[]
         {
-            StatMod.Mul(WeaponStat.AttackInterval, 0.85),         // 攻速 +15% ⇒ 间隔 ×0.85
-            StatMod.Mul(WeaponStat.DamageMin, 0.91),              // 伤害 −9%
-            StatMod.Mul(WeaponStat.DamageMax, 0.91),
+            StatMod.Mul(WeaponStat.AttackInterval, S("fuller_blade", WeaponStat.AttackInterval)),         // 攻速 +15% ⇒ 间隔 ×0.85
+            StatMod.Mul(WeaponStat.DamageMin, S("fuller_blade", WeaponStat.DamageMin)),              // 伤害 −9%
+            StatMod.Mul(WeaponStat.DamageMax, S("fuller_blade", WeaponStat.DamageMax)),
         },
     };
 
@@ -522,11 +539,11 @@ public static class WeaponModCatalog
         Description = "柄里灌了铅，每一下都更实在。你的肩膀替这份实在付账，付一整天。",
         MaterialCosts = Cost(("iron", 1)),
         WorkMinutes = 120,
-        WeightMultiplier = 1.18,                                  // 重量 +18%
+        WeightMultiplier = T("weighted_handle").WeightMultiplier,  // 重量 +18%
         Stats = new[]
         {
-            StatMod.Mul(WeaponStat.DamageMin, 1.06),              // 伤害 +6%
-            StatMod.Mul(WeaponStat.DamageMax, 1.06),
+            StatMod.Mul(WeaponStat.DamageMin, S("weighted_handle", WeaponStat.DamageMin)),              // 伤害 +6%
+            StatMod.Mul(WeaponStat.DamageMax, S("weighted_handle", WeaponStat.DamageMax)),
         },
     };
 
@@ -541,10 +558,10 @@ public static class WeaponModCatalog
         Description = "省下的那点分量攒到傍晚，就是你还举得动、而对面举不动的那点差别。",
         MaterialCosts = Cost(("wood", 1), ("leather", 1)),
         WorkMinutes = 120,
-        WeightMultiplier = 0.88,                                  // 重量 −12%
+        WeightMultiplier = T("lightened_handle").WeightMultiplier, // 重量 −12%
         Stats = new[]
         {
-            StatMod.Mul(WeaponStat.AttackInterval, 0.97),         // 攻速 +3% ⇒ 间隔 ×0.97
+            StatMod.Mul(WeaponStat.AttackInterval, S("lightened_handle", WeaponStat.AttackInterval)),         // 攻速 +3% ⇒ 间隔 ×0.97
         },
     };
 
@@ -564,7 +581,7 @@ public static class WeaponModCatalog
         WorkMinutes = 60,
         Stats = new[]
         {
-            StatMod.Mul(WeaponStat.AttackInterval, 0.95),         // 攻速 +5% ⇒ 间隔 ×0.95（用户在表上写的就是这个等式）
+            StatMod.Mul(WeaponStat.AttackInterval, S("grip_wrap_blade", WeaponStat.AttackInterval)),         // 攻速 +5% ⇒ 间隔 ×0.95（用户在表上写的就是这个等式）
         },
     };
 
@@ -585,11 +602,11 @@ public static class WeaponModCatalog
         Description = "还是那根打人的棍子，只是现在它咬回来。",
         MaterialCosts = Cost(("wire", 2)),
         WorkMinutes = 60,
-        WeightMultiplier = 1.12,                                  // 重量 +12%（用户在 wiki 上又调过一次）
+        WeightMultiplier = T("wire_wrap").WeightMultiplier,       // 重量 +12%（用户在 wiki 上又调过一次）
         Stats = new[]
         {
-            StatMod.Mul(WeaponStat.DamageMin, 1.15),              // 伤害 +15%（用户在 wiki 上又调过一次）
-            StatMod.Mul(WeaponStat.DamageMax, 1.15),
+            StatMod.Mul(WeaponStat.DamageMin, S("wire_wrap", WeaponStat.DamageMin)),              // 伤害 +15%（用户在 wiki 上又调过一次）
+            StatMod.Mul(WeaponStat.DamageMax, S("wire_wrap", WeaponStat.DamageMax)),
         },
     };
 
@@ -632,12 +649,13 @@ public static class WeaponModCatalog
         Stats = new[]
         {
             // 🔴 加算，不是乘算 —— 见类注的"零陷阱"。这是 CLAUDE.md 乘算铁律的唯一例外，用户点名的。
-            StatMod.Add(WeaponStat.Penetration, 0.03),
+            //    运算方式 Add 留代码（结构），只有 +0.03 这个数外置。
+            StatMod.Add(WeaponStat.Penetration, S("nail_studs", WeaponStat.Penetration)),
 
             // [T53] 造成伤害时 25% 几率造成小流血。
             // 🔴 这里**也必须是 Set/Add 而非 Mul**：基础武器的 BleedOnHitChance 是 **0** ——
             //    又一个"零陷阱"，乘算在零上永远是零（0 × 0.25 = 0），改装会静默变成废件。
-            StatMod.Set(WeaponStat.BleedOnHitChance, 0.25),
+            StatMod.Set(WeaponStat.BleedOnHitChance, S("nail_studs", WeaponStat.BleedOnHitChance)),
         },
     };
 
@@ -658,8 +676,8 @@ public static class WeaponModCatalog
         Description = "花哨的护手不为好看——是为了让你握枪的那只手，明天还握得住枪。",
         MaterialCosts = Cost(("iron", 2), ("leather", 1)),
         WorkMinutes = 90,
-        WeightMultiplier = 1.10,                                   // 重量 +10%
-        HandGuardNegateChance = 0.50,                             // 武器手受击时 50% 整发否决（数值拟定待调）
+        WeightMultiplier = T("handguard").WeightMultiplier,        // 重量 +10%
+        HandGuardNegateChance = T("handguard").HandGuardNegateChance, // 武器手受击时 50% 整发否决（数值拟定待调）
     };
 
     // ============ [T69] 弓弩专属改装（4 条：弓臂缠手 / 复合弓臂 / 重磅弓弦 / 弩盾）============
@@ -683,7 +701,7 @@ public static class WeaponModCatalog
         // wiki「攻击速度+5%，。」末尾空悬顿号疑似漏填，用户未补 ⇒ 只落攻速 +5%（无重量、无其他）。
         Stats = new[]
         {
-            StatMod.Mul(WeaponStat.AttackInterval, 0.95),         // 攻速 +5% ⇒ 间隔 ×0.95
+            StatMod.Mul(WeaponStat.AttackInterval, S("limb_wrap", WeaponStat.AttackInterval)),         // 攻速 +5% ⇒ 间隔 ×0.95
         },
     };
 
@@ -698,14 +716,14 @@ public static class WeaponModCatalog
         Description = "拉开它得用上全身的劲，松手那一刻却安静得可怕。辛苦都堆在拉弦的三秒里，飞出去的那一下替你把话说完。",
         MaterialCosts = Cost(("wood", 2), ("glue", 2)),
         WorkMinutes = 180,
-        WeightMultiplier = 1.15,                                   // 重量 +15%
+        WeightMultiplier = T("compound_limbs").WeightMultiplier,   // 重量 +15%
         Stats = new[]
         {
-            StatMod.Mul(WeaponStat.AttackInterval, 1.06),         // 攻速 −6% ⇒ 间隔 ×1.06
-            StatMod.Mul(WeaponStat.DamageMin, 1.08),              // 伤害 +8%
-            StatMod.Mul(WeaponStat.DamageMax, 1.08),
-            StatMod.Mul(WeaponStat.Penetration, 1.08),            // 穿透 +8%
-            StatMod.Mul(WeaponStat.FlightSpeed, 1.12),            // 弹丸飞速 +12%（与《弓与箭之道》+20% 自动连乘）
+            StatMod.Mul(WeaponStat.AttackInterval, S("compound_limbs", WeaponStat.AttackInterval)),         // 攻速 −6% ⇒ 间隔 ×1.06
+            StatMod.Mul(WeaponStat.DamageMin, S("compound_limbs", WeaponStat.DamageMin)),              // 伤害 +8%
+            StatMod.Mul(WeaponStat.DamageMax, S("compound_limbs", WeaponStat.DamageMax)),
+            StatMod.Mul(WeaponStat.Penetration, S("compound_limbs", WeaponStat.Penetration)),            // 穿透 +8%
+            StatMod.Mul(WeaponStat.FlightSpeed, S("compound_limbs", WeaponStat.FlightSpeed)),            // 弹丸飞速 +12%（与《弓与箭之道》+20% 自动连乘）
         },
     };
 
@@ -731,12 +749,12 @@ public static class WeaponModCatalog
         WorkMinutes = 90,
         Stats = new[]
         {
-            StatMod.Mul(WeaponStat.AttackInterval, 1.06),         // 攻速 −6% ⇒ 间隔 ×1.06
-            StatMod.Mul(WeaponStat.DamageMin, 1.04),              // 伤害 +4%
-            StatMod.Mul(WeaponStat.DamageMax, 1.04),
-            StatMod.Mul(WeaponStat.BaseSpreadDegrees, 0.92),      // 散布 −8%
-            StatMod.Mul(WeaponStat.FlightSpeed, 1.12),            // 弹丸飞速 +12%
-            StatMod.Mul(WeaponStat.FalloffFloor, 1.18),           // 衰减率 −18% ≈ 末端保留提高（拟定待 Sim 校准）
+            StatMod.Mul(WeaponStat.AttackInterval, S("heavy_bowstring", WeaponStat.AttackInterval)),         // 攻速 −6% ⇒ 间隔 ×1.06
+            StatMod.Mul(WeaponStat.DamageMin, S("heavy_bowstring", WeaponStat.DamageMin)),              // 伤害 +4%
+            StatMod.Mul(WeaponStat.DamageMax, S("heavy_bowstring", WeaponStat.DamageMax)),
+            StatMod.Mul(WeaponStat.BaseSpreadDegrees, S("heavy_bowstring", WeaponStat.BaseSpreadDegrees)),      // 散布 −8%
+            StatMod.Mul(WeaponStat.FlightSpeed, S("heavy_bowstring", WeaponStat.FlightSpeed)),            // 弹丸飞速 +12%
+            StatMod.Mul(WeaponStat.FalloffFloor, S("heavy_bowstring", WeaponStat.FalloffFloor)),           // 衰减率 −18% ≈ 末端保留提高（拟定待 Sim 校准）
         },
     };
 
@@ -755,9 +773,9 @@ public static class WeaponModCatalog
         Description = "意大利人早想通了：与其射得快，不如活到能再射一发。这块铁挡在弩前，也挡在你和一支飞来的箭之间。",
         MaterialCosts = Cost(("iron", 4), ("leather", 2), ("nails", 4)),
         WorkMinutes = 180,
-        WeightMultiplier = 1.50,                                   // 重量 +50%
-        FrontalRangedNegateChance = 0.25,                        // 正面远程 25% 整发否决（数值拟定待调）
-        FrontalNegateHalfAngleDeg = 60.0,                        // 正面 120° ⇒ 半角 60°
+        WeightMultiplier = T("crossbow_shield").WeightMultiplier,  // 重量 +50%
+        FrontalRangedNegateChance = T("crossbow_shield").FrontalRangedNegateChance, // 正面远程 25% 整发否决（数值拟定待调）
+        FrontalNegateHalfAngleDeg = T("crossbow_shield").FrontalNegateHalfAngleDeg, // 正面 120° ⇒ 半角 60°
     };
 
     /// <summary>弓弩专属改装（4 条）。归入 <see cref="All"/>，UI 单独分栏；不进 <see cref="LegacyClassOf"/> 的迁移三组（它们是收窄后新加的）。</summary>

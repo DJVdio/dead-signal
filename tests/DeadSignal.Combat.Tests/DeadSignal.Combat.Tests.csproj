@@ -292,6 +292,15 @@
     <Compile Include="..\..\godot\scripts\GameConfigCatalog.cs" Link="Consumed\GameConfigCatalog.cs" />
     <Compile Include="..\..\godot\scripts\GameConfigFiles.cs" Link="Consumed\GameConfigFiles.cs" />
     <Compile Include="..\..\godot\scripts\NightWatchConfig.cs" Link="Consumed\NightWatchConfig.cs" />
+    <Compile Include="..\..\godot\scripts\RecipeConfig.cs" Link="Consumed\RecipeConfig.cs" />
+    <Compile Include="..\..\godot\scripts\MaterialConfig.cs" Link="Consumed\MaterialConfig.cs" />
+    <Compile Include="..\..\godot\scripts\HordeConfig.cs" Link="Consumed\HordeConfig.cs" />
+    <Compile Include="..\..\godot\scripts\HungerConfig.cs" Link="Consumed\HungerConfig.cs" />
+    <Compile Include="..\..\godot\scripts\MilitaryConfig.cs" Link="Consumed\MilitaryConfig.cs" />
+    <Compile Include="..\..\godot\scripts\FurnitureConfig.cs" Link="Consumed\FurnitureConfig.cs" />
+    <Compile Include="..\..\godot\scripts\WeaponModConfig.cs" Link="Consumed\WeaponModConfig.cs" />
+    <Compile Include="..\..\godot\scripts\HealthConfig.cs" Link="Consumed\HealthConfig.cs" />
+    <Compile Include="..\..\godot\scripts\PerkConfig.cs" Link="Consumed\PerkConfig.cs" />
   </ItemGroup>
 
 </Project>

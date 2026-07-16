@@ -194,25 +194,30 @@ public readonly record struct Medicine(string MaterialKey, HealthConditionType T
 /// </summary>
 public static class MedicineCatalog
 {
-    private static readonly IReadOnlyDictionary<string, Medicine> _byKey = new[]
+    // authored 结构：材料标识名 → 主治病状类别（「治哪种病」是设计语义，留代码不外置）。
+    // [SPEC-B14/终稿·三档双效] 三档数字（Potency/Efficacy=治疗效率/WorsenMultiplier=恶化减缓）→ health.json：
+    //   抗生素 1.00/0.50（通常 1~2 天痊愈）、草药膏 0.35/0.75（须趁早的次选）、蒲公英茶 0.15/0.85（只能延缓）、成药满效。
+    private static readonly IReadOnlyDictionary<string, HealthConditionType> _treats = new Dictionary<string, HealthConditionType>
     {
-        // [SPEC-B14/终稿·三档双效] 感染三档=治疗效率 + 恶化减缓（六值皆用户原话非拟定）：
-        // 抗生素：治疗效率 1.00 + 恶化 ×0.50（通常 1~2 天痊愈）。
-        new Medicine("antibiotics", HealthConditionType.Infection, 0.5, Efficacy: 1.00, WorsenMultiplier: 0.50),
-        // 草药膏（蒲公英+玫瑰果+老君须）：治疗效率 0.35 + 恶化 ×0.75（须趁早的次选）。
-        new Medicine("herbal_salve", HealthConditionType.Infection, 0.5, Efficacy: 0.35, WorsenMultiplier: 0.75),
-        // 蒲公英茶：治疗效率 0.15 + 恶化 ×0.85（只能延缓，单用赢不了）。
-        new Medicine("dandelion_tea", HealthConditionType.Infection, 0.5, Efficacy: 0.15, WorsenMultiplier: 0.85),
-        // 成药：缓解泛化疾病，满效（疾病走 severity 消退模型，不涉恶化减缓）。
-        new Medicine("medicine", HealthConditionType.Disease, 0.6, Efficacy: 1.00),
-    }.ToDictionary(m => m.MaterialKey);
+        ["antibiotics"] = HealthConditionType.Infection,   // 抗生素 → 感染
+        ["herbal_salve"] = HealthConditionType.Infection,  // 草药膏（蒲公英+玫瑰果+老君须）→ 感染
+        ["dandelion_tea"] = HealthConditionType.Infection, // 蒲公英茶 → 感染
+        ["medicine"] = HealthConditionType.Disease,        // 成药 → 疾病（走 severity 消退模型，不涉恶化减缓）
+    };
 
-    /// <summary>按材料标识名查药品治疗语义；非药品返回 null。</summary>
+    /// <summary>按材料标识名查药品治疗语义（结构在代码、数字读 health.json）；非药品返回 null。</summary>
     public static Medicine? For(string materialKey)
-        => materialKey != null && _byKey.TryGetValue(materialKey, out Medicine m) ? m : null;
+    {
+        if (materialKey == null || !_treats.TryGetValue(materialKey, out HealthConditionType treats))
+        {
+            return null;
+        }
+        MedicineNumbers n = GameConfigCatalog.Section<HealthConfig>().MedicineFor(materialKey);
+        return new Medicine(materialKey, treats, n.Potency, n.Efficacy, n.WorsenMultiplier);
+    }
 
-    /// <summary>该材料是否为（感染/疾病）药品。</summary>
-    public static bool IsMedicine(string materialKey) => For(materialKey) != null;
+    /// <summary>该材料是否为（感染/疾病）药品（只查 authored 结构，不触配置）。</summary>
+    public static bool IsMedicine(string materialKey) => materialKey != null && _treats.ContainsKey(materialKey);
 }
 
 /// <summary>一条手术耗材的语义（物品数据在 <see cref="Materials"/>，此处只描述"给多少手术点数 + 适用哪种伤 + 是否独占"）。</summary>
@@ -239,31 +244,33 @@ public readonly record struct SurgerySupply(string MaterialKey, int Points, bool
 /// </summary>
 public static class SurgeryCatalog
 {
-    private static readonly IReadOnlyDictionary<string, SurgerySupply> _byKey = new[]
+    // authored 结构：材料标识名 → (是否独占, 适用伤类)（结构/语义留代码不外置）。数字（Points 供点 / InfectionChanceMultiplier）→ health.json：
+    //   流血：绷带 +15 / 草药绷带 +20（上位替代）/ 针线 +15（非独占可叠加）；骨折：夹板 +25；急救包 +60（独占，兼治流血+骨折）。
+    //   [T72·A2 叠加] 草药绷带 = 普通绷带上位替代，两效并存：① 止血供点 20；② 敷流血术口把该处感染几率 ×0.75(-25%)，与已手术 ×0.5、营地卫生连乘（§2 通则①）。
+    private static readonly IReadOnlyDictionary<string, (bool Exclusive, HealthConditionType[] Treats)> _structure =
+        new Dictionary<string, (bool Exclusive, HealthConditionType[] Treats)>
     {
-        new SurgerySupply("bandage", 15, false, new[] { HealthConditionType.Bleeding }),
-        // [T72·用户定案 A2 叠加] 草药绷带 = 普通绷带的上位替代，**两个效果并存**：
-        //   ① 止血手术供点 20（**保留**，用户从 25 下调至 20；15/20 用户原话非拟定）——仍是止血耗材，非独占可与针线叠加；
-        //   ② 新增「消炎杀菌」——敷在流血术口把**该处伤口的感染几率 ×0.75(-25%)**（乘算，见 SurgerySupply.InfectionChanceMultiplier），
-        //      持续到伤口闭口/愈合，与已手术 ×0.5、营地卫生乘子连乘（§2 通则①）。
-        new SurgerySupply("herbal_bandage", 20, false, new[] { HealthConditionType.Bleeding }, InfectionChanceMultiplier: 0.75),
-        new SurgerySupply("needle_thread", 15, false, new[] { HealthConditionType.Bleeding }),
-        new SurgerySupply("splint", 25, false, new[] { HealthConditionType.Fracture }),
-        new SurgerySupply("first_aid_kit", 60, true, new[] { HealthConditionType.Bleeding, HealthConditionType.Fracture }),
-    }.ToDictionary(s => s.MaterialKey);
+        ["bandage"] = (false, new[] { HealthConditionType.Bleeding }),
+        ["herbal_bandage"] = (false, new[] { HealthConditionType.Bleeding }),   // 非独占，可与针线叠加
+        ["needle_thread"] = (false, new[] { HealthConditionType.Bleeding }),
+        ["splint"] = (false, new[] { HealthConditionType.Fracture }),
+        ["first_aid_kit"] = (true, new[] { HealthConditionType.Bleeding, HealthConditionType.Fracture }), // 独占，兼治流血+骨折
+    };
 
-    /// <summary>按材料标识名查手术耗材语义；非手术耗材返回 null。</summary>
+    /// <summary>按材料标识名查手术耗材语义（结构在代码、数字读 health.json）；非手术耗材返回 null。</summary>
     public static SurgerySupply? For(string materialKey)
-        => materialKey != null && _byKey.TryGetValue(materialKey, out SurgerySupply s) ? s : null;
+    {
+        if (materialKey == null || !_structure.TryGetValue(materialKey, out (bool Exclusive, HealthConditionType[] Treats) st))
+        {
+            return null;
+        }
+        SurgerySupplyNumbers n = GameConfigCatalog.Section<HealthConfig>().SurgerySupplyFor(materialKey);
+        return new SurgerySupply(materialKey, n.Points, st.Exclusive, st.Treats, n.InfectionChanceMultiplier);
+    }
 
-    /// <summary>该材料是否为手术耗材。</summary>
-    public static bool IsSupply(string materialKey) => For(materialKey) != null;
+    /// <summary>该材料是否为手术耗材（只查 authored 结构，不触配置）。</summary>
+    public static bool IsSupply(string materialKey) => materialKey != null && _structure.ContainsKey(materialKey);
 }
-
-/// <summary>一本医疗书给的手术加点（点值 + 生效条件）。</summary>
-/// <param name="Points">手术点数（加算进点数池的原始点，不是百分比乘子）。</param>
-/// <param name="OnlyWithoutSupplies">是否**只在这台手术一件耗材都没投**时才生效（徒手/野路子手术的补偿）。</param>
-public readonly record struct MedicalBookBonus(int Points, bool OnlyWithoutSupplies);
 
 /// <summary>
 /// 医疗书籍 → 手术治疗点注册表（**draft**，点值不对玩家展示）。
@@ -281,23 +288,25 @@ public readonly record struct MedicalBookBonus(int Points, bool OnlyWithoutSuppl
 public static class MedicalBookPoints
 {
     // book id（对齐 BookData.Id）→ 手术加点。UI 只显示"略增医学学识"之类模糊描述，不展示具体点数。
-    private static readonly IReadOnlyDictionary<string, MedicalBookBonus> _byBookId = new Dictionary<string, MedicalBookBonus>
+    // authored 结构：book id → 是否「只在不投任何手术耗材时才生效」（条件语义留代码不外置）。点数 → health.json。
+    // 《野外生存指南》：不使用任何手术材料时 +3（[T68] 用户手改：原 +6，砍半）。徒手手术的补偿，投了耗材即不生效。
+    // 🔴 点数**写死在两处**（health.json + Recipe.cs 的书说明注释）——改一处漏一处，注释就会开始骗人。
+    private static readonly IReadOnlyDictionary<string, bool> _onlyWithoutSupplies = new Dictionary<string, bool>
     {
-        // 《野外生存指南》：**不使用任何手术材料时** +3（[T68] 用户手改：原 +6，砍半）。徒手手术的补偿，投了耗材即不生效。
-        // 🔴 **这个数写死在两处**（本行 + Recipe.cs 的书说明注释）——改一处漏一处，注释就会开始骗人。
-        ["wilderness_survival_guide"] = new MedicalBookBonus(3, OnlyWithoutSupplies: true),
+        ["wilderness_survival_guide"] = true, // 徒手/野路子手术的补偿，投了正规耗材即不加分
     };
 
-    /// <summary>该书的手术治疗点（**不判条件**，只是点值——问条件用 <see cref="RequiresNoSupplies"/>）；非医疗书返回 0。</summary>
+    /// <summary>该书的手术治疗点（**不判条件**，只是点值——问条件用 <see cref="RequiresNoSupplies"/>；点数读 health.json）；非医疗书返回 0。</summary>
     public static int For(string bookId)
-        => bookId != null && _byBookId.TryGetValue(bookId, out MedicalBookBonus b) ? b.Points : 0;
+        => bookId != null && _onlyWithoutSupplies.ContainsKey(bookId)
+           ? GameConfigCatalog.Section<HealthConfig>().MedicalBookPointsFor(bookId) : 0;
 
     /// <summary>该书的加点是否**只在不投任何手术耗材时**才生效；非医疗书返回 false。</summary>
     public static bool RequiresNoSupplies(string bookId)
-        => bookId != null && _byBookId.TryGetValue(bookId, out MedicalBookBonus b) && b.OnlyWithoutSupplies;
+        => bookId != null && _onlyWithoutSupplies.TryGetValue(bookId, out bool only) && only;
 
-    /// <summary>该书是否为医疗书（计入手术治疗点）。</summary>
-    public static bool IsMedicalBook(string bookId) => bookId != null && _byBookId.ContainsKey(bookId);
+    /// <summary>该书是否为医疗书（计入手术治疗点；只查 authored 结构，不触配置）。</summary>
+    public static bool IsMedicalBook(string bookId) => bookId != null && _onlyWithoutSupplies.ContainsKey(bookId);
 
     /// <summary>一组已读书里**无条件生效**的手术加点合计 → 喂 <c>surgeonBookBonus</c>。</summary>
     public static int SumAlways(IEnumerable<string> readBookIds)
@@ -372,25 +381,30 @@ public sealed class SurgeryResult
 /// </summary>
 public sealed class HealthConditionSet
 {
-    // ---- 恶化速率（每昼夜，draft）----
-    private const double BleedWorsenPerDay = 0.10;       // 未手术出血逐日加重；draft：0.15→0.10 放宽操作窗（致命伤死亡线第 5→约第 8 昼夜后移，仍必死）
-    private const double InfectionInitialSeverity = 0.0; // 新感染初始"感染进度"（死亡赛道起点，终稿：从 0 起算）
+    // 🔴 感染/医疗的**可调数值全部外置** godot/data/config/health.json（见 HealthConfig.cs）：以下静态成员由
+    //    const 改成读 catalog 段的静态属性，方法名/语义/取用点全保留。**只搬数字**——多感染条/免疫条的结构逻辑、
+    //    目录条目结构/authored 语义（治哪种病、适用哪种伤/独占、医疗书是否只在无耗材时生效）仍在本文件代码里。
+    private static HealthConfig Cfg => GameConfigCatalog.Section<HealthConfig>();
 
-    // ---- [感染重做] 每伤口感染几率基数：按流血【等级】离散查表，**与受伤部位无关**（部位倾向系数已整条删除，draft）----
-    /// <summary>大流血伤口感染几率基数 25%。</summary>
-    private const double InfectionBaseChanceLarge = 0.25;
-    /// <summary>中流血伤口感染几率基数 15%。</summary>
-    private const double InfectionBaseChanceMedium = 0.15;
-    /// <summary>小流血伤口感染几率基数 5%（未知等级/旧档也从宽按此）。</summary>
-    private const double InfectionBaseChanceSmall = 0.05;
+    // ---- 恶化速率（每昼夜；值→health.json）----
+    private static double BleedWorsenPerDay => Cfg.BleedWorsenPerDay;       // 未手术出血逐日加重（放宽操作窗后仍必死）
+    private static double InfectionInitialSeverity => Cfg.InfectionInitialSeverity; // 新感染初始"感染进度"（死亡赛道起点，从 0 起算）
 
-    // ---- [感染重做] 全局免疫(治愈)条 + 免疫满后 24h 窗（set 级，draft）----
-    /// <summary>免疫条满后清空所有感染并置一段免疫窗，窗时长（天）：24h＝1.0 天。</summary>
-    private const double ImmuneWindowDays = 1.0;
-    /// <summary>免疫窗激活期间的感染几率乘子：×0.05（−95%），连乘进每昼夜感染几率。</summary>
-    private const double ImmuneWindowInfectionFactor = 0.05;
+    // ---- [感染重做] 每伤口感染几率基数：按流血【等级】离散查表，**与受伤部位无关**（部位倾向系数已整条删除）----
+    /// <summary>大流血伤口感染几率基数（值→health.json）。</summary>
+    private static double InfectionBaseChanceLarge => Cfg.InfectionBaseChanceLarge;
+    /// <summary>中流血伤口感染几率基数（值→health.json）。</summary>
+    private static double InfectionBaseChanceMedium => Cfg.InfectionBaseChanceMedium;
+    /// <summary>小流血伤口感染几率基数（未知等级/旧档也从宽按此；值→health.json）。</summary>
+    private static double InfectionBaseChanceSmall => Cfg.InfectionBaseChanceSmall;
 
-    /// <summary>[感染重做] 按流血等级取该伤口感染几率基数（大 25% / 中 15% / 小 5%）；null（未知/旧档）→ 从宽按小流血 5%。**与部位无关**。</summary>
+    // ---- [感染重做] 全局免疫(治愈)条 + 免疫满后 24h 窗（set 级）----
+    /// <summary>免疫条满后清空所有感染并置一段免疫窗，窗时长（天）：24h＝1.0 天（值→health.json）。</summary>
+    private static double ImmuneWindowDays => Cfg.ImmuneWindowDays;
+    /// <summary>免疫窗激活期间的感染几率乘子（−95%；值→health.json），连乘进每昼夜感染几率。</summary>
+    private static double ImmuneWindowInfectionFactor => Cfg.ImmuneWindowInfectionFactor;
+
+    /// <summary>[感染重做] 按流血等级取该伤口感染几率基数（大/中/小）；null（未知/旧档）→ 从宽按小流血。**与部位无关**。</summary>
     private static double InfectionBaseChanceFor(BleedModel.BleedSeverity? level) => level switch
     {
         BleedModel.BleedSeverity.Large => InfectionBaseChanceLarge,
@@ -398,51 +412,51 @@ public sealed class HealthConditionSet
         _ => InfectionBaseChanceSmall, // Small 及 null（未知/旧档）
     };
     // [SPEC-B14/终稿·三档双效] 感染双进度竞速：Severity 即"感染/死亡进度"，按 dt 天数累积；用药期间按档 ×WorsenMultiplier 减缓（非"不减速"）。封顶 1.0=坏疽/败血症。
-    // draft：r_i = 1/6 天≈0.1667/日 → 未用药约第 6 昼夜封顶（T_i=6 天，与失血 7 天死线错开）。用 Sim 校准。**全程 double 不取整**（[SPEC-B14-补4]）。
-    private const double InfectionWorsenPerDay = 1.0 / 6.0;
-    /// <summary>[SPEC-B14/终稿] 治疗进度基准积累速率（每日，效率 1.0 满效值，draft）：用药期间累加治疗进度 = <see cref="Medicine.Efficacy"/> × 本值 × dt天数。
-    /// draft 0.67：锚点=抗生素(1.00)通常 1~2 天痊愈（用户原话）；草药膏(0.35→0.2345/日)须趁早的次选(~4.3 天连续)；蒲公英茶(0.15→0.1005/日)只能延缓、单用赢不了。用 Sim 校准。</summary>
-    public const double CureProgressBaseRate = 0.67;
-    private const double DiseaseWorsenPerDay = 0.12;     // 疾病逐日恶化
-    private const double RestWorsenFactor = 0.5;         // 休养减缓感染/疾病恶化系数（抗生素才是正解、卧床只拖延）
-    private const double FractureMalunionPerDay = 0.05;  // 未手术骨折逐日畸形化（封顶致残）
+    // r_i = 1/6 天≈0.1667/日 → 未用药约第 6 昼夜封顶（与失血 7 天死线错开）。**全程 double 不取整**（[SPEC-B14-补4]；值→health.json）。
+    private static double InfectionWorsenPerDay => Cfg.InfectionWorsenPerDay;
+    /// <summary>[SPEC-B14/终稿] 治疗进度基准积累速率（每日，效率 1.0 满效值）：用药期间累加治疗进度 = <see cref="Medicine.Efficacy"/> × 本值 × dt天数。
+    /// 锚点=抗生素(1.00)通常 1~2 天痊愈；草药膏(0.35)须趁早的次选；蒲公英茶(0.15)只能延缓、单用赢不了（值→health.json）。</summary>
+    public static double CureProgressBaseRate => Cfg.CureProgressBaseRate;
+    private static double DiseaseWorsenPerDay => Cfg.DiseaseWorsenPerDay;     // 疾病逐日恶化
+    private static double RestWorsenFactor => Cfg.RestWorsenFactor;           // 休养减缓感染/疾病恶化系数（抗生素才是正解、卧床只拖延）
+    private static double FractureMalunionPerDay => Cfg.FractureMalunionPerDay; // 未手术骨折逐日畸形化（封顶致残）
 
-    // ---- 感染窗 / 非致命失血（draft）----
-    /// <summary>非致命失血伤口（小锐器/咬伤类）的严重度封顶：只溃烂感染、拖再久也不失血死。draft。</summary>
-    public const double MinorBleedSeverityCap = 0.6;
-    /// <summary>止血≠无菌：已手术伤口 severity ≥ 此闭口阈值前仍有感染窗；降到其下=伤口封闭、不再感染。draft。</summary>
-    private const double WoundClosedThreshold = 0.15;
-    /// <summary>已手术（止血中）伤口的感染几率折减系数（相对未手术开放伤口）：止血降低但不清零感染风险。draft。</summary>
-    private const double OperatedInfectionFactor = 0.5;
+    // ---- 感染窗 / 非致命失血 ----
+    /// <summary>非致命失血伤口（小锐器/咬伤类）的严重度封顶：只溃烂感染、拖再久也不失血死（值→health.json）。</summary>
+    public static double MinorBleedSeverityCap => Cfg.MinorBleedSeverityCap;
+    /// <summary>止血≠无菌：已手术伤口 severity ≥ 此闭口阈值前仍有感染窗；降到其下=伤口封闭、不再感染（值→health.json）。</summary>
+    private static double WoundClosedThreshold => Cfg.WoundClosedThreshold;
+    /// <summary>已手术（止血中）伤口的感染几率折减系数（相对未手术开放伤口）：止血降低但不清零感染风险（值→health.json）。</summary>
+    private static double OperatedInfectionFactor => Cfg.OperatedInfectionFactor;
     /// <summary>伤口"新鲜期"感染窗口（昼夜数）：只有伤口存在的头几昼夜有感染风险；过后即使不闭口/不手术也不再新感染
-    /// （身体已把伤口壁垒化）。这让**放任小伤不再累积到 100% 坏疽**、感染成为"值得赌但会翻车"的有限概率事件。draft。</summary>
-    public const int InfectionWindowDays = 4;
-    /// <summary>擦伤级严重度阈值：初始 severity ≤ 此值的出血视作"很小的伤"，可自行闭合（配合微小部位判定，见 <see cref="HealthMapping"/>）。draft。</summary>
-    public const double AbrasionSeverityThreshold = 0.2;
+    /// （身体已把伤口壁垒化）。这让**放任小伤不再累积到 100% 坏疽**、感染成为"值得赌但会翻车"的有限概率事件（值→health.json）。</summary>
+    public static int InfectionWindowDays => Cfg.InfectionWindowDays;
+    /// <summary>擦伤级严重度阈值：初始 severity ≤ 此值的出血视作"很小的伤"，可自行闭合（配合微小部位判定，见 <see cref="HealthMapping"/>；值→health.json）。</summary>
+    public static double AbrasionSeverityThreshold => Cfg.AbrasionSeverityThreshold;
 
-    // ---- 愈合速率（每昼夜，draft）：手术成功后按 恢复效率% 折算，100%=下述基速 ----
-    private const double BleedHealPerDay = 0.20;         // 已手术出血逐日愈合（× 效率/100）；出血愈合本就够快，不动
-    private const double FractureHealPerDay = 0.24;      // 已手术骨折逐日愈合（× 效率/100）；draft：0.12→0.24 提速（齐装卧床 ~10→~7 昼夜）
-    private const double RestHealBonus = 1.5;            // 休养加速愈合系数
+    // ---- 愈合速率（每昼夜）：手术成功后按 恢复效率% 折算，100%=下述基速 ----
+    private static double BleedHealPerDay => Cfg.BleedHealPerDay;         // 已手术出血逐日愈合（× 效率/100）
+    private static double FractureHealPerDay => Cfg.FractureHealPerDay;   // 已手术骨折逐日愈合（× 效率/100）
+    private static double RestHealBonus => Cfg.RestHealBonus;             // 休养加速愈合系数
 
-    // ---- 手术点数（draft）----
+    // ---- 手术点数（值→health.json）----
     /// <summary>手术基础点数（徒手无床的底池）。</summary>
-    public const int SurgeryBasePoints = 15;
+    public static int SurgeryBasePoints => Cfg.SurgeryBasePoints;
     /// <summary>床位加成点数。</summary>
-    public const int BedBonusPoints = 10;
+    public static int BedBonusPoints => Cfg.BedBonusPoints;
     /// <summary>手术失败阈值：roll ≤ 此值 → 失败，需重做（材料照耗）。</summary>
-    public const int SurgeryFailThreshold = 10;
+    public static int SurgeryFailThreshold => Cfg.SurgeryFailThreshold;
     /// <summary>手术门槛：有效池 P &lt; 此值 → 不允许手术（凑不出可行手术，零消耗零改动）。</summary>
-    public const int SurgeryMinPoints = 15;
+    public static int SurgeryMinPoints => Cfg.SurgeryMinPoints;
     /// <summary>自体手术能力系数：对自己动手，池 ×0.60。</summary>
-    public const double SelfSurgeryFactor = 0.60;
+    public static double SelfSurgeryFactor => Cfg.SelfSurgeryFactor;
 
-    /// <summary>手术成功即刻恢复量：任何成功手术（含擦边低效率成功）当场对该伤 severity 立减此值。draft，防止擦边成功康复过久。</summary>
-    public const double ImmediateHealOnSuccess = 0.05;
-    /// <summary>睡床加算恢复速度（**百分点**，加算非乘算）：术后愈合当昼夜在床上睡觉休息 → 恢复效率 +此值再折愈合速度（如 33%→43%）。draft。</summary>
-    public const double BedSleepHealBonusPct = 10.0;
-    /// <summary>重做手术冷却（昼夜）：距上次手术 &gt; 此值才可重做（当前=1 → "超过一天"）。draft，边界待确认。</summary>
-    public const int RedoSurgeryCooldownDays = 1;
+    /// <summary>手术成功即刻恢复量：任何成功手术（含擦边低效率成功）当场对该伤 severity 立减此值（值→health.json）。</summary>
+    public static double ImmediateHealOnSuccess => Cfg.ImmediateHealOnSuccess;
+    /// <summary>睡床加算恢复速度（**百分点**，加算非乘算）：术后愈合当昼夜在床上睡觉休息 → 恢复效率 +此值再折愈合速度（如 33%→43%；值→health.json）。</summary>
+    public static double BedSleepHealBonusPct => Cfg.BedSleepHealBonusPct;
+    /// <summary>重做手术冷却（昼夜）：距上次手术 &gt; 此值才可重做（当前=1 → "超过一天"；值→health.json）。</summary>
+    public static int RedoSurgeryCooldownDays => Cfg.RedoSurgeryCooldownDays;
 
     private readonly List<HealthCondition> _conditions = new();
 
@@ -494,8 +508,8 @@ public sealed class HealthConditionSet
         _immuneWindowRemainingDays = Math.Max(0.0, immuneWindowRemainingDays);
     }
 
-    /// <summary>单次药效固定基数（draft，仅感染/疾病用药）：通用医疗技能已删，疗效不再随人变，取一个"照护得当"的固定系数，用 Sim 校准。</summary>
-    private const double TreatmentPotencyFactor = 0.8;
+    /// <summary>单次药效固定基数（仅感染/疾病用药）：通用医疗技能已删，疗效不再随人变，取一个"照护得当"的固定系数（值→health.json）。</summary>
+    private static double TreatmentPotencyFactor => Cfg.TreatmentPotencyFactor;
 
     /// <summary>
     /// 一台手术能吃到多少**医疗书加点**（三个手术入口共用一份口径）：无条件那份恒计；"只在不用耗材时"那份

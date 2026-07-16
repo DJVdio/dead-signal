@@ -1,0 +1,18 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://dead-signal/config/hunger.schema.json",
+  "title": "Dead Signal 饥饿能力惩罚数值表 (hunger.json)",
+  "description": "消费层数值外置：HungerState.PenaltyFor 的三档梯度惩罚（裸载荷 POCO）。字段名/类型对应 godot/scripts/HungerConfig.cs。饿死(1.0)/饱档(0.0)是 switch 语义边界、上限 DefaultCap/MaxCap/StarvedValue 是编译期 const，均留在 HungerState.cs 不外置。缺配置游戏 fail-fast。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "MalnourishedPenalty",
+    "RavenousPenalty",
+    "HungryPenalty"
+  ],
+  "properties": {
+    "MalnourishedPenalty": { "type": "number", "minimum": 0, "maximum": 1, "description": "营养不良(1)档能力惩罚净值 [0,1]（1=完全丧失）。" },
+    "RavenousPenalty": { "type": "number", "minimum": 0, "maximum": 1, "description": "极度饥饿(2)档能力惩罚净值 [0,1]。" },
+    "HungryPenalty": { "type": "number", "minimum": 0, "maximum": 1, "description": "饥饿(3)档能力惩罚净值 [0,1]。" }
+  }
+}

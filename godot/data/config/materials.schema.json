@@ -1,0 +1,13 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://dead-signal/config/materials.schema.json",
+  "title": "Dead Signal 材料重量数值表 (materials.json)",
+  "description": "消费层数值外置：材料重量（kg），裸载荷 —— 顶层对象即 key(材料英文键 MaterialDef.Key)→weight(kg)。数值真源，原 ItemDef.cs 的 ItemRegistry.Materials 字典。只搬数值：材料身份/类别/分类是 authored 结构留 Materials.cs 不外置。缺配置游戏 fail-fast。",
+  "type": "object",
+  "additionalProperties": {
+    "type": "number",
+    "minimum": 0,
+    "description": "材料重量 kg（≥0）。"
+  },
+  "minProperties": 1
+}

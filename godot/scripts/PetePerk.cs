@@ -33,37 +33,37 @@ public static class PetePerk
     /// <summary>他的名字（<c>Pawn.Create</c> 按此名授予 <see cref="SurvivorPerks.GrantPete"/>，同山姆/耗子按名授予先例）。</summary>
     public const string PeteName = "皮特";
 
-    // —— 三级移速乘子（用户原话，非拟定）——
+    // —— 三级移速乘子（用户原话，非拟定）。数值外置 perks.json ——
     /// <summary>一级：移速 = 普通 1.15×。</summary>
-    public const double Level1MoveSpeedMultiplier = 1.15;
+    public static double Level1MoveSpeedMultiplier => GameConfigCatalog.Section<PerkConfig>().PeteLevel1MoveSpeedMultiplier;
     /// <summary>二级：移速 1.25×。</summary>
-    public const double Level2MoveSpeedMultiplier = 1.25;
+    public static double Level2MoveSpeedMultiplier => GameConfigCatalog.Section<PerkConfig>().PeteLevel2MoveSpeedMultiplier;
     /// <summary>三级：移速 1.3×。</summary>
-    public const double Level3MoveSpeedMultiplier = 1.30;
+    public static double Level3MoveSpeedMultiplier => GameConfigCatalog.Section<PerkConfig>().PeteLevel3MoveSpeedMultiplier;
 
-    // —— L2 操作能力 +5%（用户原话）——
+    // —— L2 操作能力 +5%（用户原话）。数值外置 perks.json ——
     /// <summary>二级：操作能力 +5%（走消费点乘算×1.05、不 clamp，见 <see cref="OperationCapabilityWithBonus"/>）。</summary>
-    public const double OperationCapabilityBonus = 0.05;
+    public static double OperationCapabilityBonus => GameConfigCatalog.Section<PerkConfig>().PeteOperationCapabilityBonus;
 
-    // —— L3 闪避（用户原话）——
+    // —— L3 闪避（用户原话）。数值外置 perks.json ——
     /// <summary>三级：受击闪避概率 15%（负重 &lt;30kg 时）。</summary>
-    public const double DodgeChanceValue = 0.15;
+    public static double DodgeChanceValue => GameConfigCatalog.Section<PerkConfig>().PeteDodgeChanceValue;
     /// <summary>三级闪避的负重门槛：当前负重 &lt;30kg 才可闪（30kg=负重免罚线；恰 30kg 不闪）。</summary>
-    public const double DodgeMaxCarriedKg = 30.0;
+    public static double DodgeMaxCarriedKg => GameConfigCatalog.Section<PerkConfig>().PeteDodgeMaxCarriedKg;
 
-    // —— 饥饿掉 2（用户原话，L1 起常驻不论等级）——
+    // —— 饥饿掉 2（用户原话，L1 起常驻不论等级）。数值外置 perks.json ——
     /// <summary>一相位额外掉 1 饥饿（叠加普通 -1 ⇒ 合计掉 2）的概率：25%。</summary>
-    public const double ExtraHungerDropChance = 0.25;
+    public static double ExtraHungerDropChance => GameConfigCatalog.Section<PerkConfig>().PeteExtraHungerDropChance;
 
-    // —— 升级阈值（用户口径已拍板）——
+    // —— 升级阈值（用户口径已拍板）。数值外置 perks.json ——
     /// <summary>连续计数的饥饿下限：相位饥饿 ≥3 才续上连续，&lt;3 清零。</summary>
-    public const int HungerThresholdForStreak = 3;
+    public static int HungerThresholdForStreak => GameConfigCatalog.Section<PerkConfig>().PeteHungerThresholdForStreak;
     /// <summary>L1→L2 所需连续相位数：连续 10 相位≥3（＝5 天 ×2 相位/天）。</summary>
-    public const int Level2ConsecutivePhases = 10;
+    public static int Level2ConsecutivePhases => GameConfigCatalog.Section<PerkConfig>().PeteLevel2ConsecutivePhases;
     /// <summary>L2→L3 出行计数的饥饿上限：出发瞬间饥饿 ≤5 才计一次。</summary>
-    public const int DepartureHungerCeiling = 5;
+    public static int DepartureHungerCeiling => GameConfigCatalog.Section<PerkConfig>().PeteDepartureHungerCeiling;
     /// <summary>L2→L3 所需的合格出行次数：饥饿≤5 出发累计 3 次。</summary>
-    public const int Level3DepartureCount = 3;
+    public static int Level3DepartureCount => GameConfigCatalog.Section<PerkConfig>().PeteLevel3DepartureCount;
 
     // —— 升级计数持久化旗标（字符串承载整数/布尔，同南丁格尔/耗子）——
     /// <summary>当前连续≥3 相位计数（工作态：会被 &lt;3 相位清零；**不是**等级源）。</summary>

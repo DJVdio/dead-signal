@@ -1,0 +1,139 @@
+{
+  // 武器改装可调数值（数值真源，原散在 WeaponModCatalog 各工厂的 StatMod 乘子/加值 + WeightMultiplier + 否决几率）。
+  // 🔴 只装「可调数字」：一条 StatMod 的运算方式(Mul/Add/Set)、作用的 WeaponStat、每条改装的适配武器/部位/id 都是
+  //    结构，留在 WeaponModCatalog.cs。这里 Stats 的键 = WeaponStat 枚举名，值 = 乘子/加值。数值皆「拟定待调」。
+  // MeleeFormSpeed = 近战型态攻速折扣(0.85 ⇒ 间隔÷0.85)，刺刀/利爪/创伤/锋刃四型态共用；型态枪托五段数值从
+  //    WeaponTable 实读(85%攻速的刺剑/消防斧/尖头锤/匕首)，不在本表——本表只留型态附带的散布乘子。
+
+  "MeleeFormSpeed": 0.85,
+
+  "ById": {
+    // ── 枪械改装（7 条）──
+    "lightened_stock": {
+      "WeightMultiplier": 0.85,
+      "Stats": { "BaseSpreadDegrees": 1.10 }
+    },
+    "sawn_off_barrel": {
+      "WeightMultiplier": 0.80,
+      "Stats": {
+        "MaxRange": 0.80,
+        "FalloffStart": 0.80,
+        "Penetration": 0.85,
+        "BaseSpreadDegrees": 1.25,
+        "DamageMin": 0.90,
+        "DamageMax": 0.90
+      }
+    },
+    "extended_barrel": {
+      "WeightMultiplier": 1.35,
+      "Stats": {
+        "MaxRange": 1.20,
+        "FalloffStart": 1.20,
+        "BaseSpreadDegrees": 0.80,
+        "AttackInterval": 1.10,
+        "Penetration": 1.10
+      }
+    },
+    "bayonet": {
+      "WeightMultiplier": 1.10,
+      "Stats": { "BaseSpreadDegrees": 1.03 }
+    },
+    "claw_stock": {
+      "WeightMultiplier": 1.30,
+      "Stats": { "BaseSpreadDegrees": 1.10 }
+    },
+    "trauma_stock": {
+      "WeightMultiplier": 1.50,
+      "Stats": { "BaseSpreadDegrees": 0.97 }
+    },
+    "blade_stock": {
+      "WeightMultiplier": 1.05
+    },
+
+    // ── 近战锐器改装（6 条）──
+    "serrated_blade": {
+      "Stats": {
+        "Penetration": 0.80,
+        "BleedRateMultiplier": 1.40
+      }
+    },
+    "honed_edge": {
+      "Stats": { "Penetration": 1.75 }
+    },
+    "fuller_blade": {
+      "WeightMultiplier": 0.75,
+      "Stats": {
+        "AttackInterval": 0.85,
+        "DamageMin": 0.91,
+        "DamageMax": 0.91
+      }
+    },
+    "weighted_handle": {
+      "WeightMultiplier": 1.18,
+      "Stats": {
+        "DamageMin": 1.06,
+        "DamageMax": 1.06
+      }
+    },
+    "lightened_handle": {
+      "WeightMultiplier": 0.88,
+      "Stats": { "AttackInterval": 0.97 }
+    },
+    "grip_wrap_blade": {
+      "Stats": { "AttackInterval": 0.95 }
+    },
+
+    // ── 近战钝器改装（2 条，棍棒独有）──
+    "wire_wrap": {
+      "WeightMultiplier": 1.12,
+      "Stats": {
+        "DamageMin": 1.15,
+        "DamageMax": 1.15
+      }
+    },
+    "nail_studs": {
+      // Penetration 是【加算】0.03(棍棒穿透本为0的"零陷阱"例外)、BleedOnHitChance 是【Set】0.25——
+      // 运算方式(Add/Set)留代码,这里只存数值。
+      "Stats": {
+        "Penetration": 0.03,
+        "BleedOnHitChance": 0.25
+      }
+    },
+
+    // ── 近身锐器·防御型（1 条：护手挡格）──
+    "handguard": {
+      "WeightMultiplier": 1.10,
+      "HandGuardNegateChance": 0.50
+    },
+
+    // ── 弓弩专属（4 条：弓臂缠手/复合弓臂/重磅弓弦/弩盾）──
+    "limb_wrap": {
+      "Stats": { "AttackInterval": 0.95 }
+    },
+    "compound_limbs": {
+      "WeightMultiplier": 1.15,
+      "Stats": {
+        "AttackInterval": 1.06,
+        "DamageMin": 1.08,
+        "DamageMax": 1.08,
+        "Penetration": 1.08,
+        "FlightSpeed": 1.12
+      }
+    },
+    "heavy_bowstring": {
+      "Stats": {
+        "AttackInterval": 1.06,
+        "DamageMin": 1.04,
+        "DamageMax": 1.04,
+        "BaseSpreadDegrees": 0.92,
+        "FlightSpeed": 1.12,
+        "FalloffFloor": 1.18
+      }
+    },
+    "crossbow_shield": {
+      "WeightMultiplier": 1.50,
+      "FrontalRangedNegateChance": 0.25,
+      "FrontalNegateHalfAngleDeg": 60.0
+    }
+  }
+}

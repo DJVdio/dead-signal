@@ -34,7 +34,7 @@ public static class HordeTimeline
     // ---------------- 时限 ----------------
 
     /// <summary>时限天数（拟定待调）：day &gt;= 此值 → 尸潮抵达终局围攻。</summary>
-    public const int DeadlineDay = 40;
+    public static int DeadlineDay => GameConfigCatalog.Section<HordeConfig>().DeadlineDay;
 
     /// <summary>望见尸潮的剧情旗标键（瞭望台望远镜交互置位；ui-countdown/loot-story 等只消费）。</summary>
     public const string SightedFlag = "horde_sighted";
@@ -85,29 +85,29 @@ public static class HordeTimeline
     // 本函数只出「该不该来、来多少」。
 
     /// <summary>首波规模（拟定待调，比常规袭营 RaidWave.Base 大，压迫感）。</summary>
-    public const float WaveBase = 8f;
+    public static float WaveBase => GameConfigCatalog.Section<HordeConfig>().WaveBase;
 
     /// <summary>每波规模递增（拟定待调）。</summary>
-    public const float WaveGrowth = 2f;
+    public static float WaveGrowth => GameConfigCatalog.Section<HordeConfig>().WaveGrowth;
 
     /// <summary>波次随在营人数微增（拟定待调；营地越大越招祸，与 RaidWave 同调性）。</summary>
-    public const float WaveCampFactor = 0.5f;
+    public static float WaveCampFactor => GameConfigCatalog.Section<HordeConfig>().WaveCampFactor;
 
     /// <summary>单波渲染上限（拟定待调，防 Godot 实例爆炸；封顶不封"无限轮次"）。</summary>
-    public const int WaveCap = 60;
+    public static int WaveCap => GameConfigCatalog.Section<HordeConfig>().WaveCap;
 
     /// <summary>强制下一波的最长间隔秒（拟定待调）：即便残敌仍多，超此即补投，不给喘息。</summary>
-    public const double WaveInterval = 12.0;
+    public static double WaveInterval => GameConfigCatalog.Section<HordeConfig>().WaveInterval;
 
     /// <summary>残敌降到此数(含)及以下即补下一波（拟定待调，不必全清就压上来）。</summary>
-    public const int WaveClearThreshold = 4;
+    public static int WaveClearThreshold => GameConfigCatalog.Section<HordeConfig>().WaveClearThreshold;
 
     /// <summary>
     /// 场上丧尸并发硬上限（拟定待调）：围攻波次投放前先按此把本波规模 clamp 到 <c>上限−残敌</c>，
     /// 达上限则本波不投（等玩家清出空间再压上来）。**不软化"无生还终局"语义**——波次仍不停轮询，
     /// 只是清不动时不让 Godot 实体真无界堆积（防 day40 数百节点逐帧 _Process/物理体崩帧，同时封住敌方感知 raycast 的分母）。
     /// </summary>
-    public const int MaxConcurrentSiege = 80;
+    public static int MaxConcurrentSiege => GameConfigCatalog.Section<HordeConfig>().MaxConcurrentSiege;
 
     /// <summary>
     /// 下一波是否该来 + 规模。

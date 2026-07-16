@@ -98,14 +98,20 @@ public sealed class HungerState
     /// </summary>
     public double AbilityPenalty => PenaltyFor(Value);
 
-    /// <summary>某刻度的能力惩罚阶梯（拟定待调）。</summary>
+    /// <summary>饥饿能力惩罚阶梯的数值段（hunger.json）——三档梯度值外置到 <see cref="HungerConfig"/>。</summary>
+    private static HungerConfig Cfg => GameConfigCatalog.Section<HungerConfig>();
+
+    /// <summary>
+    /// 某刻度的能力惩罚阶梯（拟定待调）。三档梯度值外置到 <c>hunger.json</c>（<see cref="HungerConfig"/>）；
+    /// 饿死档 <c>1.0</c>(满值兜底)与饱档 <c>0.0</c>(无惩罚)是两端<b>语义边界</b>，保留字面不外置。
+    /// </summary>
     public static double PenaltyFor(int value) => value switch
     {
-        <= (int)HungerLevel.Starved => 1.0,        // 0 饿死（已亡，取满值兜底）
-        (int)HungerLevel.Malnourished => 0.45,     // 1 营养不良
-        (int)HungerLevel.Ravenous => 0.25,         // 2 极度饥饿
-        (int)HungerLevel.Hungry => 0.10,           // 3 饥饿
-        _ => 0.0,                                  // 4 有点饿 / 5 正常 / 6 吃撑
+        <= (int)HungerLevel.Starved => 1.0,                       // 0 饿死（已亡，取满值兜底）
+        (int)HungerLevel.Malnourished => Cfg.MalnourishedPenalty, // 1 营养不良
+        (int)HungerLevel.Ravenous => Cfg.RavenousPenalty,         // 2 极度饥饿
+        (int)HungerLevel.Hungry => Cfg.HungryPenalty,             // 3 饥饿
+        _ => 0.0,                                                 // 4 有点饿 / 5 正常 / 6 吃撑
     };
 
     /// <summary>

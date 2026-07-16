@@ -1,0 +1,14 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://dead-signal/config/military.schema.json",
+  "title": "Dead Signal 电台主线（军方/结局）数值表 (military.json)",
+  "description": "消费层数值外置：回复军方后军袭倒计时的间隔天数（裸载荷 POCO）。字段名/类型对应 godot/scripts/MilitaryConfig.cs。电台主线的状态机/flag 键/广播文案是 authored 内容，留在 RadioMainline.cs 不外置；南方三问门槛在 SouthTrial.cs，不属本表。缺配置游戏 fail-fast。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "MilitaryRaidDelayDays"
+  ],
+  "properties": {
+    "MilitaryRaidDelayDays": { "type": "integer", "minimum": 0, "description": "回复军方后到军方白天来袭的间隔天数（军袭期满 = 回复日 + 本值）。" }
+  }
+}

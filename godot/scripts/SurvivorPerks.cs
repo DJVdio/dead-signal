@@ -80,11 +80,11 @@ public sealed class SurvivorPerks
 /// </summary>
 public sealed class BookwormPerk
 {
-    // draft：升级阈值（累计阅读小时，游戏内）。参考文档 48h 量级，L2→L3 再翻倍余量。
+    // draft：升级阈值（累计阅读小时，游戏内）。参考文档 48h 量级，L2→L3 再翻倍余量。数值外置 perks.json。
     /// <summary>升到 L2 所需累计阅读小时（draft）。</summary>
-    public const double Level2ThresholdHours = 48;
+    public static double Level2ThresholdHours => GameConfigCatalog.Section<PerkConfig>().BookwormLevel2ThresholdHours;
     /// <summary>升到 L3 所需累计阅读小时（draft）。</summary>
-    public const double Level3ThresholdHours = 120;
+    public static double Level3ThresholdHours => GameConfigCatalog.Section<PerkConfig>().BookwormLevel3ThresholdHours;
 
     /// <summary>当前等级（1..3；持有者天生至少 L1）。</summary>
     public int Level { get; private set; } = 1;
@@ -98,15 +98,15 @@ public sealed class BookwormPerk
     /// <summary>满级(L3)时贡献给全营的读速加成，否则 0（draft）。</summary>
     public double CampWideReadingSpeedBonus => Level >= 3 ? CampWideBonusAtMax : 0.0;
 
-    // draft：L3 满级全营读速加成幅度。
+    // draft：L3 满级全营读速加成幅度。数值外置 perks.json。
     /// <summary>L3 满级贡献给全营的读速加成幅度（draft）。</summary>
-    public const double CampWideBonusAtMax = 0.25;
+    public static double CampWideBonusAtMax => GameConfigCatalog.Section<PerkConfig>().BookwormCampWideBonusAtMax;
 
-    /// <summary>某等级的自身读速加成（加法：L1=+0.25 / L2=+0.50 / L3=+0.50，L3 与 L2 同；越界按最近级钳制）。draft。</summary>
+    /// <summary>某等级的自身读速加成（加法：L1=+0.25 / L2=+0.50 / L3=+0.50，L3 与 L2 同；越界按最近级钳制）。draft，数值外置 perks.json。</summary>
     public static double BonusForLevel(int level) => level switch
     {
-        <= 1 => 0.25,
-        _ => 0.50, // L2、L3 自身加成相同（L3 升级点在全营加成，不在自身）
+        <= 1 => GameConfigCatalog.Section<PerkConfig>().BookwormSelfBonusL1,
+        _ => GameConfigCatalog.Section<PerkConfig>().BookwormSelfBonusL2Plus, // L2、L3 自身加成相同（L3 升级点在全营加成，不在自身）
     };
 
     /// <summary>
@@ -153,31 +153,33 @@ public sealed class BookwormPerk
 /// </summary>
 public static class NightingalePerk
 {
-    // —— 升级阈值（[SPEC-B13-补2]，台数=她本人执行手术数；拟定待调）——
+    // —— 升级阈值（[SPEC-B13-补2]，台数=她本人执行手术数；拟定待调）。数值外置 perks.json ——
     /// <summary>升到 L2 所需她本人累计手术台数（拟定待调）。</summary>
-    public const int Level2ThresholdSurgeries = 3;
+    public static int Level2ThresholdSurgeries => GameConfigCatalog.Section<PerkConfig>().NightingaleLevel2ThresholdSurgeries;
     /// <summary>升到 L3 所需她本人累计手术台数（拟定待调）。</summary>
-    public const int Level3ThresholdSurgeries = 8;
+    public static int Level3ThresholdSurgeries => GameConfigCatalog.Section<PerkConfig>().NightingaleLevel3ThresholdSurgeries;
 
-    // —— 三级效果数值（[SPEC-B13-补] 用户原话，**非拟定，勿标待调**）——
+    // —— 三级效果数值（[SPEC-B13-补] 用户原话，**非拟定，勿标待调**）。数值外置 perks.json ——
     /// <summary>常人手术基础点数（原 <c>HealthConditionSet.SurgeryBasePoints</c>）。</summary>
-    public const int DefaultSurgeryBasePoints = 15;
+    public static int DefaultSurgeryBasePoints => GameConfigCatalog.Section<PerkConfig>().NightingaleDefaultSurgeryBasePoints;
     /// <summary>1级：南丁格尔本人手术基础点数（15→30）。</summary>
-    public const int NightingaleSurgeryBasePoints = 30;
+    public static int NightingaleSurgeryBasePoints => GameConfigCatalog.Section<PerkConfig>().NightingaleSurgeryBasePoints;
     /// <summary>3级：全营手术基础点 +5（永续遗产）。</summary>
-    public const int CampSurgeryBaseBonus = 5;
+    public static int CampSurgeryBaseBonus => GameConfigCatalog.Section<PerkConfig>().NightingaleCampSurgeryBaseBonus;
     /// <summary>
     /// 2级：全营感染率 <b>−15%</b>（她在营存活时生效）。
     /// <para>⚠️ 这个数**来回改过两轮**，别再"顺手改回去"：
     /// 初版 −15% →（T21 用户在数值表上手改<b>下调</b>）−10% →（T59 用户在 wiki 上<b>又调回</b>）−15%。
     /// 以表为准（表赢代码）。</para>
+    /// 数值外置 perks.json（<c>NightingaleLevel2InfectionReduction</c>）。
     /// </summary>
-    public const double Level2InfectionReduction = 0.15;
+    public static double Level2InfectionReduction => GameConfigCatalog.Section<PerkConfig>().NightingaleLevel2InfectionReduction;
     /// <summary>
     /// 3级：全营感染率再 <b>−10%</b>（永续遗产）。
     /// <para>⚠️ 同上，来回两轮：初版 −10% →（T21 下调）−5% →（T59 又调回）−10%。</para>
+    /// 数值外置 perks.json（<c>NightingaleLevel3InfectionReduction</c>）。
     /// </summary>
-    public const double Level3InfectionReduction = 0.10;
+    public static double Level3InfectionReduction => GameConfigCatalog.Section<PerkConfig>().NightingaleLevel3InfectionReduction;
 
     /// <summary>她本人累计手术台数的持久化旗标 key（字符串承载整数，RadioMainline 回复日先例）。</summary>
     public const string SurgeryCountFlag = "nightingale_surgery_count";
@@ -278,25 +280,25 @@ public static class SamPerk
     /// <summary>山姆的姓名（<c>Pawn.Create</c> 按此名授予 <see cref="SurvivorPerks.GrantSam"/>，同诺蒂/南丁格尔按名授予先例）。</summary>
     public const string SamName = "山姆";
 
-    // —— 升级阈值（用户原话："营地 3 人时到达二级，6 人时到达三级"，非拟定）——
+    // —— 升级阈值（用户原话："营地 3 人时到达二级，6 人时到达三级"，非拟定）。数值外置 perks.json ——
     /// <summary>升到 L2 所需的营地人数（活着的在营人类，含山姆）。</summary>
-    public const int Level2CampPopulation = 3;
+    public static int Level2CampPopulation => GameConfigCatalog.Section<PerkConfig>().SamLevel2CampPopulation;
     /// <summary>升到 L3 所需的营地人数（活着的在营人类，含山姆）。</summary>
-    public const int Level3CampPopulation = 6;
+    public static int Level3CampPopulation => GameConfigCatalog.Section<PerkConfig>().SamLevel3CampPopulation;
 
-    // —— 三级效果数值（用户原话，**非拟定，勿标待调**）——
+    // —— 三级效果数值（用户原话，**非拟定，勿标待调**）。数值外置 perks.json ——
     /// <summary>1级：他收到的伤害 −10%（乘算减伤，作用在**护甲结算之后**，见 <c>CombatResolver.Resolve</c> 的 incomingDamageReduction）。</summary>
-    public const double Level1DamageReduction = 0.10;
+    public static double Level1DamageReduction => GameConfigCatalog.Section<PerkConfig>().SamLevel1DamageReduction;
     /// <summary>2级：他的负重 +15%（作用于负重上限，见 <c>Loadout.CapacityFromStrength</c> 的 capacityMultiplier）。</summary>
-    public const double Level2CarryBonus = 0.15;
+    public static double Level2CarryBonus => GameConfigCatalog.Section<PerkConfig>().SamLevel2CarryBonus;
     /// <summary>3级光环：全营负重 +3%。</summary>
-    public const double AuraCarryBonus = 0.03;
+    public static double AuraCarryBonus => GameConfigCatalog.Section<PerkConfig>().SamAuraCarryBonus;
     /// <summary>3级光环：全营干活效率 +3%（＝耗时缩短——制作 / 建造 / 搜刮等一切花时间的行为，见 <c>CraftingJob</c>/<c>RubbleSite</c>）。</summary>
-    public const double AuraWorkSpeedBonus = 0.03;
+    public static double AuraWorkSpeedBonus => GameConfigCatalog.Section<PerkConfig>().SamAuraWorkSpeedBonus;
     /// <summary>3级光环：全营身体恢复速度 +3%（术后流血/骨折的逐日愈合，见 <c>HealthConditionSet.TickDay</c> 的 healSpeedMultiplier）。</summary>
-    public const double AuraHealSpeedBonus = 0.03;
+    public static double AuraHealSpeedBonus => GameConfigCatalog.Section<PerkConfig>().SamAuraHealSpeedBonus;
     /// <summary>3级光环：全营感染条上升速度 −3%（感染恶化速率，见 <c>HealthConditionSet.AdvanceInfectionRace</c> 的 campWorsenMultiplier）。</summary>
-    public const double AuraInfectionWorsenReduction = 0.03;
+    public static double AuraInfectionWorsenReduction => GameConfigCatalog.Section<PerkConfig>().SamAuraInfectionWorsenReduction;
 
     /// <summary>
     /// **可倒退的等级派生**（纯函数，无记忆）：由**当前**营地人数与山姆存活状态当场算出等级。
@@ -400,13 +402,13 @@ public static class SamPerk
 /// </summary>
 public static class ReadingSpeed
 {
-    // draft：无座位阅读惩罚（-10%）。
+    // draft：无座位阅读惩罚（-10%）。数值外置 perks.json。
     /// <summary>无座位时的读速乘子（draft，整体 -10%）。</summary>
-    public const double NoSeatMultiplier = 0.9;
+    public static double NoSeatMultiplier => GameConfigCatalog.Section<PerkConfig>().ReadingNoSeatMultiplier;
 
-    // draft：未读完前置书时的读速乘子（读得极慢、耗时 5 倍，但不禁止）。系数拟定待调。
+    // draft：未读完前置书时的读速乘子（读得极慢、耗时 5 倍，但不禁止）。系数拟定待调，数值外置 perks.json。
     /// <summary>书籍前置链：读者尚未读完某书前置书时，读该书的读速乘子（draft，×0.2＝耗时 5 倍）。</summary>
-    public const double MissingPrerequisiteMultiplier = 0.2;
+    public static double MissingPrerequisiteMultiplier => GameConfigCatalog.Section<PerkConfig>().ReadingMissingPrerequisiteMultiplier;
 
     /// <summary>
     /// 书籍前置链系数：<paramref name="book"/> 无前置、或前置已被读者读完 → 1.0；否则 <see cref="MissingPrerequisiteMultiplier"/>。
@@ -467,11 +469,11 @@ public static class RatPerk
     /// <summary>她的名字（用户原话：「**没有名字，叫"耗子"**」）。</summary>
     public const string RatName = "耗子";
 
-    // —— 升级阈值（用户原话：「搜刮寻找物品，累计转出来 75 件物品升到二级，250 件升到三级」）——
+    // —— 升级阈值（用户原话：「搜刮寻找物品，累计转出来 75 件物品升到二级，250 件升到三级」）。数值外置 perks.json ——
     /// <summary>升到 L2 所需累计搜出件数（**用户原话 75**，非拟定）。</summary>
-    public const int Level2ThresholdItems = 75;
+    public static int Level2ThresholdItems => GameConfigCatalog.Section<PerkConfig>().RatLevel2ThresholdItems;
     /// <summary>升到 L3 所需累计搜出件数（**用户原话 250**，非拟定）。</summary>
-    public const int Level3ThresholdItems = 250;
+    public static int Level3ThresholdItems => GameConfigCatalog.Section<PerkConfig>().RatLevel3ThresholdItems;
 
     /// <summary>她累计搜出件数的持久化旗标 key（字符串承载整数，同南丁格尔的手术台数）。</summary>
     public const string ScavengeCountFlag = "rat_scavenge_count";
@@ -491,16 +493,17 @@ public static class RatPerk
     /// <b>减</b>：脚步 / 开门 / 撬锁 / 静默拆除（＝"脚步和动作"）。<br/>
     /// <b>不减</b>：武器攻击噪音（战斗、开枪）/ 砸门破防（破坏）。
     /// </para>
+    /// 数值外置 perks.json（<c>RatLevel1ActionNoiseMultiplier</c>）。
     /// </summary>
-    public const double Level1ActionNoiseMultiplier = 0.60;
+    public static double Level1ActionNoiseMultiplier => GameConfigCatalog.Section<PerkConfig>().RatLevel1ActionNoiseMultiplier;
 
-    /// <summary>L1：翻找搜刮速度 **+50%**（用户原话）。</summary>
-    public const double Level1LootSpeedBonus = 0.50;
+    /// <summary>L1：翻找搜刮速度 **+50%**（用户原话）。数值外置 perks.json。</summary>
+    public static double Level1LootSpeedBonus => GameConfigCatalog.Section<PerkConfig>().RatLevel1LootSpeedBonus;
 
     // —— L2（用户原话：「在下水道捡垃圾是耗子的生存秘诀，耗子翻找物品的速度**再 +100%**，
     //     并且她翻找东西**不会产生任何噪音**」）——
-    /// <summary>L2：翻找搜刮速度**再** +100%（用户原话「再 +100%」）。</summary>
-    public const double Level2LootSpeedBonus = 1.00;
+    /// <summary>L2：翻找搜刮速度**再** +100%（用户原话「再 +100%」）。数值外置 perks.json。</summary>
+    public static double Level2LootSpeedBonus => GameConfigCatalog.Section<PerkConfig>().RatLevel2LootSpeedBonus;
 
     // —— L3（[T61 挂起] 见下方 TODO：两条都是**引擎新轴**，主 agent 裁决为「与今日其余新轴统一立项」——
     //     常量先落，**不接线**，护栏测试钉死"未接线"）——
@@ -513,8 +516,9 @@ public static class RatPerk
     /// 身上有光 ⇒ 别人看你的视距被放大 <c>Actor.ExposedCone</c>）。**+40% 无处可挂**，
     /// 硬挂到视锥上＝<b>拿别的效果冒充</b> ⇒ 不干。落地它需要新建「玩家 pawn 的探索关隐匿分」这条**引擎新轴**。
     /// </para>
+    /// 数值外置 perks.json（<c>RatLevel3DarknessStealthBonus</c>）。
     /// </summary>
-    public const double Level3DarknessStealthBonus = 0.40;
+    public static double Level3DarknessStealthBonus => GameConfigCatalog.Section<PerkConfig>().RatLevel3DarknessStealthBonus;
 
     /// <summary>
     /// L3：「**破隐先手攻击**额外再造成 **35%** 的伤害」（用户原话）。
@@ -525,8 +529,9 @@ public static class RatPerk
     /// <b>不是同一个东西</b>。落地它需要两样引擎里都没有的东西：①攻方伤害乘子入口 ②"我此刻未被任何敌人发现"的判定，
     /// 且**会进 Sim 结算路径 ⇒ 要受控 A/B**。
     /// </para>
+    /// 数值外置 perks.json（<c>RatLevel3AmbushDamageBonus</c>）。
     /// </summary>
-    public const double Level3AmbushDamageBonus = 0.35;
+    public static double Level3AmbushDamageBonus => GameConfigCatalog.Section<PerkConfig>().RatLevel3AmbushDamageBonus;
 
     /// <summary>读她累计搜出的件数（未设置/不可解析 → 0）。</summary>
     public static int ItemsScavenged(StoryFlags flags)

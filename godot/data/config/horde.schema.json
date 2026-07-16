@@ -1,0 +1,28 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://dead-signal/config/horde.schema.json",
+  "title": "Dead Signal 尸潮时限数值表 (horde.json)",
+  "description": "消费层数值外置：尸潮到期日 + 到期终局围攻波次调度（裸载荷 POCO）。字段名/类型对应 godot/scripts/HordeConfig.cs。三个剧情旗标键(horde_sighted/horde_arrived/endgame_freeze)是 authored 内容，留在 HordeTimeline.cs 不外置。缺配置游戏 fail-fast。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "DeadlineDay",
+    "WaveBase",
+    "WaveGrowth",
+    "WaveCampFactor",
+    "WaveCap",
+    "WaveInterval",
+    "WaveClearThreshold",
+    "MaxConcurrentSiege"
+  ],
+  "properties": {
+    "DeadlineDay": { "type": "integer", "minimum": 1, "description": "时限天数：day ≥ 此值 → 尸潮抵达终局围攻。" },
+    "WaveBase": { "type": "number", "minimum": 0, "description": "首波规模（比常规袭营大，压迫感）。" },
+    "WaveGrowth": { "type": "number", "minimum": 0, "description": "每波规模递增。" },
+    "WaveCampFactor": { "type": "number", "minimum": 0, "description": "波次随在营人数微增（营地越大越招祸）。" },
+    "WaveCap": { "type": "integer", "minimum": 1, "description": "单波渲染上限（防 Godot 实例爆炸；封顶不封无限轮次）。" },
+    "WaveInterval": { "type": "number", "exclusiveMinimum": 0, "description": "强制下一波的最长间隔秒：即便残敌仍多，超此即补投。" },
+    "WaveClearThreshold": { "type": "integer", "minimum": 0, "description": "残敌降到此数(含)及以下即补下一波。" },
+    "MaxConcurrentSiege": { "type": "integer", "minimum": 1, "description": "场上丧尸并发硬上限：投放前把本波规模 clamp 到 上限−残敌。" }
+  }
+}

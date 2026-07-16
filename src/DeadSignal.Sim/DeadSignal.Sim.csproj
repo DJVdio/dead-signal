@@ -36,6 +36,19 @@
     <Compile Include="..\..\godot\scripts\GameConfigCatalog.cs" Link="Consumed\GameConfigCatalog.cs" />
     <Compile Include="..\..\godot\scripts\GameConfigFiles.cs" Link="Consumed\GameConfigFiles.cs" />
     <Compile Include="..\..\godot\scripts\NightWatchConfig.cs" Link="Consumed\NightWatchConfig.cs" />
+    <Compile Include="..\..\godot\scripts\RecipeConfig.cs" Link="Consumed\RecipeConfig.cs" />
+    <Compile Include="..\..\godot\scripts\MaterialConfig.cs" Link="Consumed\MaterialConfig.cs" />
+    <Compile Include="..\..\godot\scripts\HordeConfig.cs" Link="Consumed\HordeConfig.cs" />
+    <Compile Include="..\..\godot\scripts\HungerConfig.cs" Link="Consumed\HungerConfig.cs" />
+    <Compile Include="..\..\godot\scripts\MilitaryConfig.cs" Link="Consumed\MilitaryConfig.cs" />
+    <Compile Include="..\..\godot\scripts\FurnitureConfig.cs" Link="Consumed\FurnitureConfig.cs" />
+    <Compile Include="..\..\godot\scripts\WeaponModConfig.cs" Link="Consumed\WeaponModConfig.cs" />
+    <!-- PerkConfig 是纯 POCO 数值段；Sim Link GameConfig.cs（引用 PerkConfig）须随附本文件才能编译。
+         Sim 不 Link 任何 perk 效果文件（SurvivorPerks/PetePerk）⇒ 结算路径读不到 perk 数值，perk 不进 Sim。 -->
+    <Compile Include="..\..\godot\scripts\PerkConfig.cs" Link="Consumed\PerkConfig.cs" />
+    <!-- HealthConfig 是纯 POCO 数值段；Sim Link GameConfig.cs（引用 HealthConfig）须随附本文件才能编译。
+         Sim 不 Link HealthConditions.cs ⇒ 感染/医疗结算不进 Sim（设计文档载明）。 -->
+    <Compile Include="..\..\godot\scripts\HealthConfig.cs" Link="Consumed\HealthConfig.cs" />
   </ItemGroup>
 
   <PropertyGroup>

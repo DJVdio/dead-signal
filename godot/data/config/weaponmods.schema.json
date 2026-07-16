@@ -1,0 +1,57 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://dead-signal/config/weaponmods.schema.json",
+  "title": "Dead Signal 武器改装可调数值表 (weaponmods.json)",
+  "description": "消费层数值外置：20 条改装的可调乘子/加值/否决几率 + 近战型态攻速折扣。只装可调数字；运算方式(Mul/Add/Set)、作用字段、适配武器白名单/部位/id 是结构，留在 WeaponModCatalog.cs。字段名/类型对应 godot/scripts/WeaponModConfig.cs。缺配置游戏 fail-fast。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["MeleeFormSpeed", "ById"],
+  "properties": {
+    "MeleeFormSpeed": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "description": "近战型态攻速折扣(0.85 ⇒ 间隔÷0.85)，刺刀/利爪/创伤/锋刃四型态共用。"
+    },
+    "ById": {
+      "type": "object",
+      "description": "改装 id → 可调数值。id 与 WeaponModCatalog 各工厂 Id 一致。",
+      "additionalProperties": { "$ref": "#/definitions/tuning" }
+    }
+  },
+  "definitions": {
+    "tuning": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "WeightMultiplier": {
+          "type": "number",
+          "minimum": 0,
+          "description": "整把武器重量倍率(1.0=不改;0.75=减重25%;1.5=增重50%)。不改重量的改装省略此键。"
+        },
+        "Stats": {
+          "type": "object",
+          "description": "StatMod 数值：WeaponStat 枚举名 → 乘子/加值。运算方式与作用字段留代码。",
+          "additionalProperties": { "type": "number" }
+        },
+        "HandGuardNegateChance": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "护手挡格：武器手受击整发否决几率(0=无)。"
+        },
+        "FrontalRangedNegateChance": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "弩盾：正面锥内远程整发否决几率(0=无)。"
+        },
+        "FrontalNegateHalfAngleDeg": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 180,
+          "description": "弩盾正面锥半角(度)，全张角=2×此值。"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,454 @@
+{
+  "bone_knife": {
+    "OutputQuantity": 1,
+    "WorkMinutes": 45,
+    "MaterialCosts": {
+      "bone": 2,
+      "cloth": 1
+    }
+  },
+  "cloth_vest": {
+    "OutputQuantity": 1,
+    "WorkMinutes": 90,
+    "MaterialCosts": {
+      "cloth": 4
+    }
+  },
+  "cloth_jacket": {
+    "OutputQuantity": 1,
+    "WorkMinutes": 150,
+    "MaterialCosts": {
+      "cloth": 6
+    }
+  },
+  "bench": {
+    "OutputQuantity": 1,
+    "WorkMinutes": 60,
+    "MaterialCosts": {
+      "wood": 2
+    }
+  },
+  "chair": {
+    "OutputQuantity": 1,
+    "WorkMinutes": 150,
+    "MaterialCosts": {
+      "wood": 4,
+      "nails": 2
+    }
+  },
+  "bed": {
+    "OutputQuantity": 1,
+    "WorkMinutes": 150,
+    "MaterialCosts": {
+      "wood": 12,
+      "cloth": 4,
+      "nails": 6
+    }
+  },
+  "table": {
+    "OutputQuantity": 1,
+    "WorkMinutes": 120,
+    "MaterialCosts": {
+      "wood": 8,
+      "nails": 4
+    }
+  },
+  "sandbag": {
+    "OutputQuantity": 1,
+    "WorkMinutes": 30,
+    "MaterialCosts": {
+      "cloth": 2,
+      "stone": 4
+    }
+  },
+  "wood_from_scrap": {
+    "OutputQuantity": 4,
+    "WorkMinutes": 40,
+    "MaterialCosts": {
+      "scrap_wood": 4,
+      "glue": 1
+    }
+  },
+  "glue": {
+    "OutputQuantity": 2,
+    "WorkMinutes": 60,
+    "MaterialCosts": {
+      "bone": 4,
+      "fuel": 1
+    }
+  },
+  "gunpowder": {
+    "OutputQuantity": 2,
+    "WorkMinutes": 60,
+    "MaterialCosts": {
+      "stone": 1,
+      "fuel": 1
+    }
+  },
+  "tanning_solution": {
+    "OutputQuantity": 2,
+    "WorkMinutes": 60,
+    "MaterialCosts": {
+      "fuel": 1,
+      "stone": 1
+    }
+  },
+  "handmade_bow": {
+    "OutputQuantity": 1,
+    "WorkMinutes": 120,
+    "MaterialCosts": {
+      "wood": 2,
+      "rope": 1
+    }
+  },
+  "improvised_hunting_gun": {
+    "OutputQuantity": 1,
+    "WorkMinutes": 240,
+    "MaterialCosts": {
+      "iron": 4,
+      "wood": 2,
+      "components": 2
+    }
+  },
+  "improvised_shotgun": {
+    "OutputQuantity": 1,
+    "WorkMinutes": 150,
+    "MaterialCosts": {
+      "iron": 3,
+      "wood": 2,
+      "components": 1
+    }
+  },
+  "mod_bench": {
+    "OutputQuantity": 1,
+    "WorkMinutes": 200,
+    "MaterialCosts": {
+      "wood": 8,
+      "iron": 4,
+      "components": 2,
+      "nails": 6
+    }
+  },
+  "bullet_parts": {
+    "OutputQuantity": 1,
+    "WorkMinutes": 60,
+    "MaterialCosts": {
+      "iron": 2,
+      "components": 1
+    }
+  },
+  "ammo_short": {
+    "OutputQuantity": 8,
+    "WorkMinutes": 45,
+    "MaterialCosts": {
+      "bullet_parts": 1,
+      "gunpowder": 1
+    }
+  },
+  "ammo_medium": {
+    "OutputQuantity": 5,
+    "WorkMinutes": 45,
+    "MaterialCosts": {
+      "bullet_parts": 1,
+      "gunpowder": 1
+    }
+  },
+  "ammo_buck": {
+    "OutputQuantity": 4,
+    "WorkMinutes": 45,
+    "MaterialCosts": {
+      "bullet_parts": 1,
+      "gunpowder": 1
+    }
+  },
+  "ammo_long": {
+    "OutputQuantity": 2,
+    "WorkMinutes": 45,
+    "MaterialCosts": {
+      "bullet_parts": 1,
+      "gunpowder": 1
+    }
+  },
+  "ammo_arrow_stick": {
+    "OutputQuantity": 4,
+    "WorkMinutes": 20,
+    "MaterialCosts": {
+      "wood": 1,
+      "feather": 1
+    }
+  },
+  "ammo_arrow_handmade": {
+    "OutputQuantity": 4,
+    "WorkMinutes": 45,
+    "MaterialCosts": {
+      "wood": 1,
+      "iron": 1,
+      "feather": 1
+    }
+  },
+  "ammo_arrow_heavy": {
+    "OutputQuantity": 2,
+    "WorkMinutes": 60,
+    "MaterialCosts": {
+      "wood": 1,
+      "iron": 1,
+      "feather": 1
+    }
+  },
+  "recurve_bow": {
+    "OutputQuantity": 1,
+    "WorkMinutes": 180,
+    "MaterialCosts": {
+      "wood": 3,
+      "rope": 1,
+      "leather": 1
+    }
+  },
+  "longbow": {
+    "OutputQuantity": 1,
+    "WorkMinutes": 240,
+    "MaterialCosts": {
+      "wood": 5,
+      "rope": 2
+    }
+  },
+  "light_crossbow": {
+    "OutputQuantity": 1,
+    "WorkMinutes": 200,
+    "MaterialCosts": {
+      "wood": 2,
+      "iron": 2,
+      "rope": 1,
+      "weapon_parts": 2
+    }
+  },
+  "heavy_crossbow": {
+    "OutputQuantity": 1,
+    "WorkMinutes": 320,
+    "MaterialCosts": {
+      "wood": 4,
+      "iron": 4,
+      "rope": 2,
+      "weapon_parts": 3
+    }
+  },
+  "cook_station": {
+    "OutputQuantity": 1,
+    "WorkMinutes": 180,
+    "MaterialCosts": {
+      "stone": 8,
+      "wood": 6,
+      "iron": 3,
+      "nails": 4
+    }
+  },
+  "cooking_pot": {
+    "OutputQuantity": 1,
+    "WorkMinutes": 60,
+    "MaterialCosts": {
+      "iron": 4
+    }
+  },
+  "cooking_grill": {
+    "OutputQuantity": 1,
+    "WorkMinutes": 45,
+    "MaterialCosts": {
+      "wire": 4,
+      "iron": 2
+    }
+  },
+  "torch": {
+    "OutputQuantity": 1,
+    "WorkMinutes": 20,
+    "MaterialCosts": {
+      "wood": 1,
+      "cloth": 1,
+      "fuel": 1
+    }
+  },
+  "herbal_salve": {
+    "OutputQuantity": 1,
+    "WorkMinutes": 40,
+    "MaterialCosts": {
+      "dandelion": 1,
+      "rosehip": 1,
+      "laojunxu": 1
+    }
+  },
+  "dandelion_tea": {
+    "OutputQuantity": 1,
+    "WorkMinutes": 15,
+    "MaterialCosts": {
+      "dandelion": 2
+    }
+  },
+  "herbal_bandage": {
+    "OutputQuantity": 1,
+    "WorkMinutes": 20,
+    "MaterialCosts": {
+      "laojunxu": 1,
+      "bandage": 1
+    }
+  },
+  "rosehip_tea": {
+    "OutputQuantity": 1,
+    "WorkMinutes": 15,
+    "MaterialCosts": {
+      "rosehip": 2
+    }
+  },
+  "dog_cloth_vest": {
+    "OutputQuantity": 1,
+    "WorkMinutes": 50,
+    "MaterialCosts": {
+      "cloth": 3
+    }
+  },
+  "dog_leather_vest": {
+    "OutputQuantity": 1,
+    "WorkMinutes": 70,
+    "MaterialCosts": {
+      "leather": 2,
+      "rope": 1
+    }
+  },
+  "dog_pocket_vest": {
+    "OutputQuantity": 1,
+    "WorkMinutes": 60,
+    "MaterialCosts": {
+      "cloth": 3,
+      "rope": 1
+    }
+  },
+  "dog_iron_helmet": {
+    "OutputQuantity": 1,
+    "WorkMinutes": 70,
+    "MaterialCosts": {
+      "iron": 2,
+      "leather": 1
+    }
+  },
+  "dog_wire_helmet": {
+    "OutputQuantity": 1,
+    "WorkMinutes": 55,
+    "MaterialCosts": {
+      "wire": 2,
+      "cloth": 1
+    }
+  },
+  "snare_trap": {
+    "OutputQuantity": 1,
+    "WorkMinutes": 40,
+    "MaterialCosts": {
+      "wood": 2,
+      "wire": 2,
+      "rope": 1
+    }
+  },
+  "war_mask": {
+    "OutputQuantity": 1,
+    "WorkMinutes": 60,
+    "MaterialCosts": {
+      "bone": 2,
+      "leather": 1
+    }
+  },
+  "coarse_shirt": {
+    "OutputQuantity": 1,
+    "WorkMinutes": 60,
+    "MaterialCosts": {
+      "cloth": 3
+    }
+  },
+  "cotton_hat": {
+    "OutputQuantity": 1,
+    "WorkMinutes": 40,
+    "MaterialCosts": {
+      "cloth": 2
+    }
+  },
+  "coarse_shorts": {
+    "OutputQuantity": 1,
+    "WorkMinutes": 40,
+    "MaterialCosts": {
+      "cloth": 2
+    }
+  },
+  "coarse_trousers": {
+    "OutputQuantity": 1,
+    "WorkMinutes": 70,
+    "MaterialCosts": {
+      "cloth": 3
+    }
+  },
+  "axe": {
+    "OutputQuantity": 1,
+    "WorkMinutes": 180,
+    "MaterialCosts": {
+      "iron": 3,
+      "wood": 2
+    }
+  },
+  "horror_armor": {
+    "OutputQuantity": 1,
+    "WorkMinutes": 240,
+    "MaterialCosts": {
+      "bone": 6,
+      "leather": 3,
+      "rope": 2
+    }
+  },
+  "snow_goggles": {
+    "OutputQuantity": 1,
+    "WorkMinutes": 60,
+    "MaterialCosts": {
+      "wood": 1,
+      "rope": 1
+    }
+  },
+  "bird_trap": {
+    "OutputQuantity": 1,
+    "WorkMinutes": 40,
+    "MaterialCosts": {
+      "wood": 2,
+      "rope": 2
+    }
+  },
+  "crop_plot": {
+    "OutputQuantity": 1,
+    "WorkMinutes": 60,
+    "MaterialCosts": {
+      "wood": 2
+    }
+  },
+  "butcher_point": {
+    "OutputQuantity": 1,
+    "WorkMinutes": 30,
+    "MaterialCosts": {
+      "wood": 1
+    }
+  },
+  "butcher_table": {
+    "OutputQuantity": 1,
+    "WorkMinutes": 60,
+    "MaterialCosts": {
+      "wood": 3,
+      "nails": 4
+    }
+  },
+  "leather_stitch": {
+    "OutputQuantity": 1,
+    "WorkMinutes": 30,
+    "MaterialCosts": {
+      "leather_scrap": 4
+    }
+  },
+  "tan_leather": {
+    "OutputQuantity": 1,
+    "WorkMinutes": 60,
+    "MaterialCosts": {
+      "rawhide": 1,
+      "tanning_solution": 1
+    }
+  }
+}

@@ -193,82 +193,55 @@ public static class RecipeBook
     public const string CookStationPresentGate = "cook_station_present";
 
     private static IReadOnlySet<ToolSlot> Tools(params ToolSlot[] slots) => new HashSet<ToolSlot>(slots);
-    private static IReadOnlyDictionary<string, int> Cost(params (string Key, int Qty)[] items)
-    {
-        var d = new Dictionary<string, int>();
-        foreach (var (key, qty) in items)
-        {
-            d[key] = qty;
-        }
-        return d;
-    }
     private static IReadOnlyList<string> Books(params string[] ids) => new List<string>(ids);
 
-    // draft：以下配方的工具/条件/材料/数量/经验均为占位草稿，最终由用户调（对标 6 个例子 + 生存造物常识）。
+    /// <summary>
+    /// 配方工厂：<b>结构写在代码</b>（id/显示名/类别/产物键/工具/书/制作者门槛），<b>数字读 recipes.json</b>
+    /// （产量/工时/材料成本，经 <see cref="RecipeConfig.Get"/> 缺 id fail-fast）。数值真源从此在 json、不在代码。
+    /// </summary>
+    private static RecipeData R(
+        string id,
+        string displayName,
+        RecipeCategory category,
+        string outputKey,
+        IReadOnlySet<ToolSlot> requiredTools,
+        IReadOnlyList<string> requiredBookIds,
+        IReadOnlyList<string>? requiredCrafterGates = null)
+    {
+        RecipeNumbers n = GameConfigCatalog.Section<RecipeConfig>().Get(id);
+        return new RecipeData(
+            Id: id,
+            DisplayName: displayName,
+            Category: category,
+            OutputKey: outputKey,
+            OutputQuantity: n.OutputQuantity,
+            MaterialCosts: n.MaterialCosts,
+            RequiredTools: requiredTools,
+            RequiredBookIds: requiredBookIds,
+            WorkMinutes: n.WorkMinutes,
+            RequiredCrafterGates: requiredCrafterGates);
+    }
+
+    // draft：以下配方的工具/书/制作者门槛写死为结构；产量/工时/材料成本外置 recipes.json（可调数值）。
     private static readonly IReadOnlyList<RecipeData> _all = new[]
     {
         // 骨刀：读完《野外生存指南》解锁；削骨即成，无需工具台工具。
-        new RecipeData(
-            Id: "bone_knife",
-            DisplayName: "骨刀",
-            Category: RecipeCategory.Misc,
-            OutputKey: "bone_knife",
-            OutputQuantity: 1,
-            MaterialCosts: Cost(("bone", 2), ("cloth", 1)),
-            RequiredTools: Tools(),
-            RequiredBookIds: Books(WildernessSurvivalGuideBookId),
-            WorkMinutes: 45),
+        R("bone_knife", "骨刀", RecipeCategory.Misc, "bone_knife", Tools(), Books(WildernessSurvivalGuideBookId)),
 
         // 粗布背心：读过《裁缝手记》解锁；缝制布甲。
-        new RecipeData(
-            Id: "cloth_vest",
-            DisplayName: "粗布背心",
-            Category: RecipeCategory.Tailoring,
-            OutputKey: "cloth_vest",
-            OutputQuantity: 1,
-            MaterialCosts: Cost(("cloth", 4)),
-            RequiredTools: Tools(),
-            RequiredBookIds: Books(TailorsNotesBookId),
-            WorkMinutes: 90),
+        R("cloth_vest", "粗布背心", RecipeCategory.Tailoring, "cloth_vest", Tools(), Books(TailorsNotesBookId)),
 
         // 布夹克：同读《裁缝手记》解锁；比粗布背心多两条袖子（覆盖双臂）、料更足，故材料/工时都翻一档（拟定待调）。
         // 牛仔外套不可制作——厚牛仔布不在材料表，只能靠搜刮（见 camp.json 住宅-衣柜）。
-        new RecipeData(
-            Id: "cloth_jacket",
-            DisplayName: "布夹克",
-            Category: RecipeCategory.Tailoring,
-            OutputKey: "cloth_jacket",
-            OutputQuantity: 1,
-            MaterialCosts: Cost(("cloth", 6)),
-            RequiredTools: Tools(),
-            RequiredBookIds: Books(TailorsNotesBookId),
-            WorkMinutes: 150),
+        R("cloth_jacket", "布夹克", RecipeCategory.Tailoring, "cloth_jacket", Tools(), Books(TailorsNotesBookId)),
 
         // 板凳（低级椅）：家具梯度最低档——无书门槛、无工具槽，**人人可造、开局即可做**（用户拍板：开局可做板凳，不必做中级木椅）。
         // 材料是木椅的打折版（仅 wood 2、去 nails，拟定待调）。产物 key 不在武器/护甲/材料集 → 走 CraftOutputFactory 家具/杂项分支落地。
         // 座位功能**暂同木椅**（低配版，读书座位无差异）；板凳/木椅/沙发的档次差异（耐久/舒适/加成）待设计。
-        new RecipeData(
-            Id: "bench",
-            DisplayName: "板凳",
-            Category: RecipeCategory.Woodwork,
-            OutputKey: "bench",
-            OutputQuantity: 1,
-            MaterialCosts: Cost(("wood", 2)),
-            RequiredTools: Tools(),
-            RequiredBookIds: Books(),
-            WorkMinutes: 60),
+        R("bench", "板凳", RecipeCategory.Woodwork, "bench", Tools(), Books()),
 
         // 椅子：锯片类木工 + 读过《木匠入门》解锁（用户拍板：木椅/自制弓也要读木工书）。
-        new RecipeData(
-            Id: "chair",
-            DisplayName: "木椅",
-            Category: RecipeCategory.Woodwork,
-            OutputKey: "chair",
-            OutputQuantity: 1,
-            MaterialCosts: Cost(("wood", 4), ("nails", 2)),
-            RequiredTools: Tools(ToolSlot.SawBlade),
-            RequiredBookIds: Books(CarpentryBasicsBookId),
-            WorkMinutes: 150),
+        R("chair", "木椅", RecipeCategory.Woodwork, "chair", Tools(ToolSlot.SawBlade), Books(CarpentryBasicsBookId)),
 
         // ── [批次21·impl-bedrest] 床：养病的物质基础 ──
         // 开局只有 2 张（camp.json 的 床#1/床#2），**第三张起要自己造**。床位稀缺是有意的：
@@ -277,16 +250,7 @@ public static class RecipeBook
         // 材料：木料 12（床架）+ 布 4（褥子）+ 钉子 6。比木椅重得多——它是个能让人躺平的大件。
         // 门槛同木椅：锯片 + 读过《木匠入门》（用户拍板"木椅/自制弓也要读木工书"，床是更大的木工活，同理）。
         // 工时 150 分。数值全部拟定待调。拆除走通用规则（SalvageLogic 50% 向下取整 ⇒ 木料 6 + 布 2 + 钉子 3）。
-        new RecipeData(
-            Id: "bed",
-            DisplayName: "床",
-            Category: RecipeCategory.Woodwork,
-            OutputKey: "bed",
-            OutputQuantity: 1,
-            MaterialCosts: Cost(("wood", 12), ("cloth", 4), ("nails", 6)),
-            RequiredTools: Tools(ToolSlot.SawBlade),
-            RequiredBookIds: Books(CarpentryBasicsBookId),
-            WorkMinutes: 150),
+        R("bed", "床", RecipeCategory.Woodwork, "bed", Tools(ToolSlot.SawBlade), Books(CarpentryBasicsBookId)),
 
         // ── [批次21·T25] 桌子：用户在书籍表里点名的那张配方（《木匠入门》解锁"木椅、床、桌子、废木料回收"）──
         // ⚠️ **桌子目前没有任何玩法作用**：营地里没有"桌子"这个概念（聚餐是模态相位，不需要一张桌子；
@@ -295,16 +259,7 @@ public static class RecipeBook
         // 材料：木 8（一块面 + 四条腿）+ 钉 4。工时 120 分——比木椅（150）省事：一张平板不用弯靠背。
         // 门槛同木椅/床：锯片 + 读过《木匠入门》。数值全部拟定待调。
         // 读过《木匠入门》的人做它只要 ⌊120 × 0.95⌋ = 114 分（CraftWorkTime 的家具工时轴）。
-        new RecipeData(
-            Id: TableSpec.RecipeId,
-            DisplayName: "桌子",
-            Category: RecipeCategory.Woodwork,
-            OutputKey: TableSpec.ItemKey,
-            OutputQuantity: 1,
-            MaterialCosts: Cost(("wood", 8), ("nails", 4)),
-            RequiredTools: Tools(ToolSlot.SawBlade),
-            RequiredBookIds: Books(CarpentryBasicsBookId),
-            WorkMinutes: 120),
+        R(TableSpec.RecipeId, "桌子", RecipeCategory.Woodwork, TableSpec.ItemKey, Tools(ToolSlot.SawBlade), Books(CarpentryBasicsBookId)),
 
         // ── [批次20·掩体] 沙袋：**用户拍板"可自由建造摆放"**——项目里第一件玩家能自己往地上摆的防御工事 ──
         // 为什么沙袋能建而**墙不能建**（"墙不能建"是用户为防 kill box 拍的板，别以为规则不一致而"统一"掉）：
@@ -314,32 +269,14 @@ public static class RecipeBook
         // 材料：布 2（袋子）+ 石料 4（往里装的东西）。**无书无工具门槛**——往麻袋里铲土不是手艺活，
         // 开局第一夜就该能垒起来。工时 30 分：一个人铲一垛的量。全部数值拟定待调。
         // 拆除走通用规则（SalvageLogic：50% 向下取整 ⇒ 布 1 + 石料 2），不设特例。
-        new RecipeData(
-            Id: "sandbag",
-            DisplayName: "沙袋",
-            Category: RecipeCategory.Misc,
-            OutputKey: "sandbag",
-            OutputQuantity: 1,
-            MaterialCosts: Cost(("cloth", 2), ("stone", 4)),
-            RequiredTools: Tools(),
-            RequiredBookIds: Books(),
-            WorkMinutes: 30),
+        R("sandbag", "沙袋", RecipeCategory.Misc, "sandbag", Tools(), Books()),
 
         // ── [批次20·拆除回收] 回收木料：**用户拍板的第三条规则**（4 废木料 + 1 胶水 → 4 木料，需锯片工作台）──
         // 拆一件吃 16 木料的东西，只直接掉回 4 木料 + 4 废木料；这条配方就是那"另外 25%"的赎回券——
         // 走一趟它，木材的总回收率才追平别的材料的 50%，**代价是一份胶水**（见 Materials 的 glue：它吃燃料，稀缺是刻意的）。
         // **不设书门槛**（拆除是"建错了地方"的退出机制，不该被一本还没搜到的书卡死；粘木板是苦力活，不是手艺活）。
         // 工时 40 分：比造把椅子快，但也不是白得——你得站在锯台前把一堆碎料拼齐、刨平、压住。数值拟定待调。
-        new RecipeData(
-            Id: "wood_from_scrap",
-            DisplayName: "回收木料",
-            Category: RecipeCategory.Woodwork,
-            OutputKey: "wood",
-            OutputQuantity: 4,
-            MaterialCosts: Cost(("scrap_wood", 4), ("glue", 1)),
-            RequiredTools: Tools(ToolSlot.SawBlade),
-            RequiredBookIds: Books(),
-            WorkMinutes: 40),
+        R("wood_from_scrap", "回收木料", RecipeCategory.Woodwork, "wood", Tools(ToolSlot.SawBlade), Books()),
 
         // ── [批次20·拆除回收] 胶水：**唯一**的产出途径（守门测试盯着这一点）──
         // 三重稀缺是设计而非疏漏：① 吃**燃料**——火把/发电机/火药/全部枪弹都在抢同一桶油；
@@ -349,40 +286,13 @@ public static class RecipeBook
         // 🔴 [批次22] **配方名必须与产物同名**。它从前叫「熬骨胶」——那是做法，不是东西；
         //    于是制作菜单里挂着一个玩家在库存里从没见过的名字，看着像是和搜刮来的「胶水」两回事。
         //    其实两者从第一天起就是同一个材料键（glue）。名字归一后，造的和搜的才真是一样东西。
-        new RecipeData(
-            Id: "glue",
-            DisplayName: "胶水",
-            Category: RecipeCategory.Chemistry,
-            OutputKey: "glue",
-            OutputQuantity: 2,
-            MaterialCosts: Cost(("bone", 4), ("fuel", 1)),
-            RequiredTools: Tools(ToolSlot.Beaker),
-            RequiredBookIds: Books(FolkChemistryNotesBookId),
-            WorkMinutes: 60),
+        R("glue", "胶水", RecipeCategory.Chemistry, "glue", Tools(ToolSlot.Beaker), Books(FolkChemistryNotesBookId)),
 
         // 火药：烧杯类化学 + 读过《土法化学笔记》解锁。
-        new RecipeData(
-            Id: "gunpowder",
-            DisplayName: "火药",
-            Category: RecipeCategory.Chemistry,
-            OutputKey: "gunpowder",
-            OutputQuantity: 2,
-            MaterialCosts: Cost(("stone", 1), ("fuel", 1)),
-            RequiredTools: Tools(ToolSlot.Beaker),
-            RequiredBookIds: Books(FolkChemistryNotesBookId),
-            WorkMinutes: 60),
+        R("gunpowder", "火药", RecipeCategory.Chemistry, "gunpowder", Tools(ToolSlot.Beaker), Books(FolkChemistryNotesBookId)),
 
         // 鞣制药水：烧杯类化学 + 读过《土法化学笔记》解锁。
-        new RecipeData(
-            Id: "tanning_solution",
-            DisplayName: "鞣制药水",
-            Category: RecipeCategory.Chemistry,
-            OutputKey: "tanning_solution",
-            OutputQuantity: 2,
-            MaterialCosts: Cost(("fuel", 1), ("stone", 1)),
-            RequiredTools: Tools(ToolSlot.Beaker),
-            RequiredBookIds: Books(FolkChemistryNotesBookId),
-            WorkMinutes: 60),
+        R("tanning_solution", "鞣制药水", RecipeCategory.Chemistry, "tanning_solution", Tools(ToolSlot.Beaker), Books(FolkChemistryNotesBookId)),
 
         // ── 短弓（原名「自制弓」）：卡尺类精工 + 读过《**野外生存指南**》解锁 ──
         // ⚠️ [SPEC-B21·T26] **书门槛从《木匠入门》挪到了《野外生存指南》**（用户在 wiki 书籍表里重排了解锁归属，
@@ -406,33 +316,14 @@ public static class RecipeBook
         // 留着它就是凭空多出第 6 把弓。而「木料 2 + 绳 1」＝一根木头 + 一根弦，本来就是最朴素的短弓，
         // 故这条配方由「短弓」承接（它此前是**悬空引用**：有配方，WeaponTable 却查不到武器数值）。
         // Id / OutputKey 仍是 handmade_bow（内部键，改它会无谓地波及 CraftOutputFactory 与一批既有测试）。
-        new RecipeData(
-            Id: "handmade_bow",
-            DisplayName: "短弓",
-            Category: RecipeCategory.Precision,
-            OutputKey: "handmade_bow",
-            OutputQuantity: 1,
-            MaterialCosts: Cost(("wood", 2), ("rope", 1)),
-            RequiredTools: Tools(ToolSlot.Calipers),
-            RequiredBookIds: Books(WildernessSurvivalGuideBookId),
-            WorkMinutes: 120),
+        R("handmade_bow", "短弓", RecipeCategory.Precision, "handmade_bow", Tools(ToolSlot.Calipers), Books(WildernessSurvivalGuideBookId)),
 
         // 自制猎枪（批次18b，用户拍板新增；旧「土制枪」已删）：唯一**能自己造**的枪。
         // 工具槽取卡尺类精工（同自制弓——枪管/击发机构是精工活）；书门槛取《土法化学笔记》而非木工书：
         // 该书本就解锁"火药"，"懂土法化学 → 能自己攒枪"这条链最自然，且不必新造一本枪匠书（会带出新的投放/掉落缺口）。
         // 材料全部取自现有 Materials 目录（未新造材料）：金属锭 2（枪管）+ 木料 2（枪托）+ 机械零件 2（击发机构）。
         // 工时 240 分＝全表最长（自制弓 120 / 木椅 150），造一把枪本就该比削张弓费事。数值皆拟定待调。
-        new RecipeData(
-            Id: "improvised_hunting_gun",
-            DisplayName: "自制猎枪",
-            Category: RecipeCategory.Precision,
-            OutputKey: "improvised_hunting_gun",
-            OutputQuantity: 1,
-            // [T46] 铁 4（原：金属锭 2 —— 锭按 1:2 折铁）。
-            MaterialCosts: Cost(("iron", 4), ("wood", 2), ("components", 2)),
-            RequiredTools: Tools(ToolSlot.Calipers),
-            RequiredBookIds: Books(FolkChemistryNotesBookId),
-            WorkMinutes: 240),
+        R("improvised_hunting_gun", "自制猎枪", RecipeCategory.Precision, "improvised_hunting_gun", Tools(ToolSlot.Calipers), Books(FolkChemistryNotesBookId)),
 
         // 自制霰弹枪（多弹丸武器）：**全表最好造的枪**——它就是一根钢管 + 击针，没有线膛、没有精密瞄具。
         // 故比自制猎枪更便宜也更快：**铁只要 3**（猎枪要 4：线膛与精密件费料）、机械零件只要 1 个（简单击发）、
@@ -442,16 +333,7 @@ public static class RecipeBook
         //    这也是"1 锭 = 2 铁"这个换算率的由来：若按 1:1 直接相加，猎枪只要铁 2，**反而比霰弹枪还便宜**，档位当场倒挂。
         // 同样需卡尺精工 + 读过《土法化学笔记》（懂火药的人才造得了枪）。材料全取自现有 Materials 目录，未新造。
         // 枪本身不吃火药——火药是**弹药**（鹿弹 ammo_buck）的成本，见下方弹药配方。数值皆拟定待调。
-        new RecipeData(
-            Id: "improvised_shotgun",
-            DisplayName: "自制霰弹枪",
-            Category: RecipeCategory.Precision,
-            OutputKey: "improvised_shotgun",
-            OutputQuantity: 1,
-            MaterialCosts: Cost(("iron", 3), ("wood", 2), ("components", 1)),
-            RequiredTools: Tools(ToolSlot.Calipers),
-            RequiredBookIds: Books(FolkChemistryNotesBookId),
-            WorkMinutes: 150),
+        R("improvised_shotgun", "自制霰弹枪", RecipeCategory.Precision, "improvised_shotgun", Tools(ToolSlot.Calipers), Books(FolkChemistryNotesBookId)),
 
         // ── [批次21·T7/T10] 改装台：**武器改造的唯一场所**（用户拍板「在工作台可以制作改装台，在改装台落地武器改造」）──
         // 在**工作台**上造出来 → 进库存 → 由玩家**自己摆到营地里**（同沙袋的"造→摆"两段式）。
@@ -466,17 +348,7 @@ public static class RecipeBook
         // 拆除走通用规则（FurnitureBuildCost["改装台"] 折半返还）。数值皆拟定待调。
         // ⚠ **位置有讲究**：本条**追加在既有卡尺类配方之后**，不插到表头——`CraftingPanelFormat.GroupByTool`
         // 按"工具需求的首次出现顺序"分桶（无工具 → 锯片 → 烧杯 → 卡尺），把一条卡尺配方插到最前面会把整个桶序搅乱。
-        new RecipeData(
-            Id: "mod_bench",
-            DisplayName: "改装台",
-            Category: RecipeCategory.Precision,
-            OutputKey: "mod_bench",
-            OutputQuantity: 1,
-            MaterialCosts: Cost(("wood", 8), ("iron", 4), ("components", 2), ("nails", 6)),
-            RequiredTools: Tools(ToolSlot.Calipers),
-            RequiredBookIds: Books(),
-            WorkMinutes: 200,
-            RequiredCrafterGates: Books(ModBenchAbsentGate)),
+        R("mod_bench", "改装台", RecipeCategory.Precision, "mod_bench", Tools(ToolSlot.Calipers), Books(), Books(ModBenchAbsentGate)),
 
         // ══════════════ [批次18] 子弹零件 + 四种子弹（用户拍板）══════════════
         // 产物 key 同时是 Materials 目录项 → CraftOutputFactory 走材料分支落地为可堆叠材料堆。
@@ -497,66 +369,21 @@ public static class RecipeBook
 
         // 子弹零件：**唯一允许新增的材料**（用户点名）。能造，但刻意贵——机械零件是拆精密装置才有的东西。
         // 定位：搜刮为主、制作兜底。搜刮断供时你还能造，但每造一个都在啃别的系统的料。
-        new RecipeData(
-            Id: "bullet_parts",
-            DisplayName: "子弹零件",
-            Category: RecipeCategory.Precision,
-            OutputKey: "bullet_parts",
-            OutputQuantity: 1,
-            MaterialCosts: Cost(("iron", 2), ("components", 1)),
-            RequiredTools: Tools(ToolSlot.Calipers),
-            RequiredBookIds: Books(FolkChemistryNotesBookId),
-            WorkMinutes: 60),
+        R("bullet_parts", "子弹零件", RecipeCategory.Precision, "bullet_parts", Tools(ToolSlot.Calipers), Books(FolkChemistryNotesBookId)),
 
         // 短子弹（手枪/冲锋枪）：1 零件 + 1 火药 → **8 发**。最便宜的枪弹。
-        new RecipeData(
-            Id: "ammo_short",
-            DisplayName: "短子弹",
-            Category: RecipeCategory.Chemistry,
-            OutputKey: "ammo_short",
-            OutputQuantity: 8,
-            MaterialCosts: Cost(("bullet_parts", 1), ("gunpowder", 1)),
-            RequiredTools: Tools(ToolSlot.Beaker),
-            RequiredBookIds: Books(FolkChemistryNotesBookId),
-            WorkMinutes: 45),
+        R("ammo_short", "短子弹", RecipeCategory.Chemistry, "ammo_short", Tools(ToolSlot.Beaker), Books(FolkChemistryNotesBookId)),
 
         // 中子弹（自制猎枪/步枪）：1 零件 + 1 火药 → **5 发**。
         // 步枪二连发 → 一炉只够它扣 2 次半扳机。它 93.5% 的命中，代价就在这行。
-        new RecipeData(
-            Id: "ammo_medium",
-            DisplayName: "中子弹",
-            Category: RecipeCategory.Chemistry,
-            OutputKey: "ammo_medium",
-            OutputQuantity: 5,
-            MaterialCosts: Cost(("bullet_parts", 1), ("gunpowder", 1)),
-            RequiredTools: Tools(ToolSlot.Beaker),
-            RequiredBookIds: Books(FolkChemistryNotesBookId),
-            WorkMinutes: 45),
+        R("ammo_medium", "中子弹", RecipeCategory.Chemistry, "ammo_medium", Tools(ToolSlot.Beaker), Books(FolkChemistryNotesBookId)),
 
         // 鹿弹（自制霰弹枪）：1 零件 + 1 火药 → **4 发**。一发塞 8 颗铅丸，用料本就比中子弹重。
-        new RecipeData(
-            Id: "ammo_buck",
-            DisplayName: "鹿弹",
-            Category: RecipeCategory.Chemistry,
-            OutputKey: "ammo_buck",
-            OutputQuantity: 4,
-            MaterialCosts: Cost(("bullet_parts", 1), ("gunpowder", 1)),
-            RequiredTools: Tools(ToolSlot.Beaker),
-            RequiredBookIds: Books(FolkChemistryNotesBookId),
-            WorkMinutes: 45),
+        R("ammo_buck", "鹿弹", RecipeCategory.Chemistry, "ammo_buck", Tools(ToolSlot.Beaker), Books(FolkChemistryNotesBookId)),
 
         // 长子弹（狙击枪）：1 零件 + 1 火药 → **只有 2 发**。全表最贵的一发子弹。
         // 拿它打丧尸＝用金子砸苍蝇；它存在的意义是"这一枪必须命中一个人"。
-        new RecipeData(
-            Id: "ammo_long",
-            DisplayName: "长子弹",
-            Category: RecipeCategory.Chemistry,
-            OutputKey: "ammo_long",
-            OutputQuantity: 2,
-            MaterialCosts: Cost(("bullet_parts", 1), ("gunpowder", 1)),
-            RequiredTools: Tools(ToolSlot.Beaker),
-            RequiredBookIds: Books(FolkChemistryNotesBookId),
-            WorkMinutes: 45),
+        R("ammo_long", "长子弹", RecipeCategory.Chemistry, "ammo_long", Tools(ToolSlot.Beaker), Books(FolkChemistryNotesBookId)),
 
         // ==================== 箭（3 种可制作；碳纤维箭无配方，只能搜刮） ====================
         //
@@ -589,44 +416,17 @@ public static class RecipeBook
         // ⚠️ [T67] **三种箭全部改成吃羽毛**（用户在 wiki 上亲手改的），值按【当前 wiki JSON】逐行核对落地。
         //    🔴 羽毛的唯一来源是【宰杀鸟】（<see cref="ButcheryLogic"/>）⇒ **没有捕鸟陷阱就没有箭**。
         //    这就是本单"先做羽毛来源，再同步箭配方"的全部理由：先前羽毛在代码里不存在，直接同步会让三种箭全造不出来。
-        new RecipeData(
-            Id: "ammo_arrow_stick",
-            DisplayName: "削尖的木箭",
-            Category: RecipeCategory.Precision,
-            OutputKey: "ammo_arrow_stick",
-            OutputQuantity: 4,                                     // [T67] 3 → 4（用户手改）
-            MaterialCosts: Cost(("wood", 1), (Materials.FeatherKey, 1)),   // [T67] 木料 1 + 羽毛 1
-            RequiredTools: Tools(),
-            RequiredBookIds: Books(WildernessSurvivalGuideBookId),
-            WorkMinutes: 20),
+        R("ammo_arrow_stick", "削尖的木箭", RecipeCategory.Precision, "ammo_arrow_stick", Tools(), Books(WildernessSurvivalGuideBookId)),
 
         // 自制箭：**基线**（修正系数全 1.00）。木杆 + 铁头 + 羽毛尾羽，要卡尺找平直度。
         // ⚠️ [T67] **尾羽从"布"改成了"羽毛"**（配料 木料1+铁1+布1 → 木料1+铁1+羽毛1，用户手改）——
         //    连带把旧 flavor 里的「布尾羽」也改了（下方那句"木杆 + 铁头"）。真羽毛比撕块布当尾羽像样多了。
         // ⚠️ [SPEC-B21·T26] 《弓与箭之道》书门槛（用户拍板）——本书此前只有四项被动，这是它解锁的唯一配方。
-        new RecipeData(
-            Id: "ammo_arrow_handmade",
-            DisplayName: "自制箭",
-            Category: RecipeCategory.Precision,
-            OutputKey: "ammo_arrow_handmade",
-            OutputQuantity: 4,
-            MaterialCosts: Cost(("wood", 1), ("iron", 1), (Materials.FeatherKey, 1)),   // [T67] 木料 1（原 2）+ 铁 1 + 羽毛 1（原 布 1）
-            RequiredTools: Tools(ToolSlot.Calipers),
-            RequiredBookIds: Books(WayOfBowBookId),
-            WorkMinutes: 45),
+        R("ammo_arrow_handmade", "自制箭", RecipeCategory.Precision, "ammo_arrow_handmade", Tools(ToolSlot.Calipers), Books(WayOfBowBookId)),
 
         // 重头箭：**破甲专精**（用户原话「破甲能力更高，但射程和攻速有所削弱」）。箭头灌实心金属，箭尾一样要羽毛稳向。
         // ⚠️ [T67] 配料 木料2+铁2 → 木料1+铁1+羽毛1，产出 3 → **2**（用户手改：一批只出两支，破甲箭本就该金贵）。
-        new RecipeData(
-            Id: "ammo_arrow_heavy",
-            DisplayName: "重头箭",
-            Category: RecipeCategory.Precision,
-            OutputKey: "ammo_arrow_heavy",
-            OutputQuantity: 2,                                     // [T67] 3 → 2（用户手改）
-            MaterialCosts: Cost(("wood", 1), ("iron", 1), (Materials.FeatherKey, 1)),   // [T67] 木料 1 + 铁 1 + 羽毛 1
-            RequiredTools: Tools(ToolSlot.Calipers),
-            RequiredBookIds: Books(),
-            WorkMinutes: 60),
+        R("ammo_arrow_heavy", "重头箭", RecipeCategory.Precision, "ammo_arrow_heavy", Tools(ToolSlot.Calipers), Books()),
 
         // 碳纤维箭：**没有配方，这是有意的**。工厂早就停工了——它只能搜刮（超市/守林人小屋/金手指帮/河边小屋）。
         // 稀缺是它唯一的、也是足够的代价：四项全优还更准，谁也不该造得出来。
@@ -650,28 +450,10 @@ public static class RecipeBook
         // 梯度仍体现在**材料贵贱与工时**上（本轮只重排书，材料/工具一个字没动）。
 
         // 反曲弓：标准均衡款。比短弓多一根木料 + 一块皮革（贴片/握把）。
-        new RecipeData(
-            Id: "recurve_bow",
-            DisplayName: "反曲弓",
-            Category: RecipeCategory.Precision,
-            OutputKey: "recurve_bow",
-            OutputQuantity: 1,
-            MaterialCosts: Cost(("wood", 3), ("rope", 1), ("leather", 1)),
-            RequiredTools: Tools(),                                  // [T68·用户手改] 卡尺门槛已解除（见下方三把弓的统一说明）
-            RequiredBookIds: Books(BowCraftingGuideBookId),
-            WorkMinutes: 180),
+        R("recurve_bow", "反曲弓", RecipeCategory.Precision, "recurve_bow", Tools(), Books(BowCraftingGuideBookId)),
 
         // 长弓：射程之王。一张比人还高的弓 → 料最多的**纯木**配方（木料 5 + 绳 2），工时 240。
-        new RecipeData(
-            Id: "longbow",
-            DisplayName: "长弓",
-            Category: RecipeCategory.Precision,
-            OutputKey: "longbow",
-            OutputQuantity: 1,
-            MaterialCosts: Cost(("wood", 5), ("rope", 2)),
-            RequiredTools: Tools(),                                  // [T68·用户手改] 卡尺门槛已解除（见下方三把弓的统一说明）
-            RequiredBookIds: Books(BowCraftingGuideBookId),
-            WorkMinutes: 240),
+        R("longbow", "长弓", RecipeCategory.Precision, "longbow", Tools(), Books(BowCraftingGuideBookId)),
 
         // ── 两把弩：[SPEC-B21·T26 追加] 书门槛 → 《**机械之美**》（用户拍板的新书；书名是他给的）──
         //
@@ -686,29 +468,11 @@ public static class RecipeBook
         //
         // 材料改动（拟定待调）：**机械零件 → 武器零件，且提量成主料**（轻弩 1→**2**、重弩 2→**3**）——
         // "用武器零件造"要名副其实，零件就不能只是配角。其余材料（木/废铁/绳/锭）与工时**一个字没动**。
-        new RecipeData(
-            Id: "light_crossbow",
-            DisplayName: "单手轻弩",
-            Category: RecipeCategory.Precision,
-            OutputKey: "light_crossbow",
-            OutputQuantity: 1,
-            MaterialCosts: Cost(("wood", 2), ("iron", 2), ("rope", 1), (Materials.WeaponPartsKey, 2)),
-            RequiredTools: Tools(ToolSlot.Calipers),
-            RequiredBookIds: Books(MechanicalBeautyBookId),
-            WorkMinutes: 200),
+        R("light_crossbow", "单手轻弩", RecipeCategory.Precision, "light_crossbow", Tools(ToolSlot.Calipers), Books(MechanicalBeautyBookId)),
 
         // 双手重弩：**全表最贵、最费时的配方**（320 分 ＞ 自制猎枪 240）。钢制弩臂 → 吃金属锭。
         // 它的回报是 65% 穿透（可制作里最高）—— 想打穿板甲，就得先付出这个代价。
-        new RecipeData(
-            Id: "heavy_crossbow",
-            DisplayName: "双手重弩",
-            Category: RecipeCategory.Precision,
-            OutputKey: "heavy_crossbow",
-            OutputQuantity: 1,
-            MaterialCosts: Cost(("wood", 4), ("iron", 4), ("rope", 2), (Materials.WeaponPartsKey, 3)),   // [T46] 铁 4（原：金属锭 2）。仍严格贵于轻弩（铁 2）。
-            RequiredTools: Tools(ToolSlot.Calipers),
-            RequiredBookIds: Books(MechanicalBeautyBookId),
-            WorkMinutes: 320),
+        R("heavy_crossbow", "双手重弩", RecipeCategory.Precision, "heavy_crossbow", Tools(ToolSlot.Calipers), Books(MechanicalBeautyBookId)),
 
         // ══════════════ [批次21·T14] 烹饪台 + 两件炊具（用户拍板的新设施）══════════════
         //
@@ -722,114 +486,39 @@ public static class RecipeBook
         // 它实心、挖导航洞、不可跨越 ⇒ 锚点由 FixedFacilityAnchorTests 做**设计期**自检（玩家没有"放置"这个动作）。
         // RequiredCrafterGates：一座就够 —— 已有烹饪台时本配方灰掉（判定委托营地层，同改装台）。
         // 拆除走通用规则（SalvageLogic：50% 向下取整；木料那份再分半走废木料）。数值皆拟定待调。
-        new RecipeData(
-            Id: CookStation.RecipeId,
-            DisplayName: CookStation.PropName,
-            Category: RecipeCategory.Misc,
-            OutputKey: CookStation.ItemKey,
-            OutputQuantity: 1,
-            MaterialCosts: Cost(("stone", 8), ("wood", 6), ("iron", 3), ("nails", 4)),
-            RequiredTools: Tools(),
-            RequiredBookIds: Books(),
-            WorkMinutes: 180,
-            RequiredCrafterGates: Books(CookStation.AbsentGate)),
+        R(CookStation.RecipeId, CookStation.PropName, RecipeCategory.Misc, CookStation.ItemKey, Tools(), Books(), Books(CookStation.AbsentGate)),
 
         // 锅：装进烹饪台的槽位 ⇒ 每份饭省 2 点热量（用户拍板）。一口砸扁再敲圆的铁锅。
         // 无书无工具（敲锅不是手艺活），但吃**金属锭**——它是"省料"的投资，本身就得先付一笔料。
-        new RecipeData(
-            Id: "cooking_pot",
-            DisplayName: "锅",
-            Category: RecipeCategory.Misc,
-            OutputKey: CookStation.PotItemKey,
-            OutputQuantity: 1,
-            MaterialCosts: Cost(("iron", 4)),   // [T46] 铁 4（原：金属锭 1 + 废金属 2 = 2 + 2）。
-            RequiredTools: Tools(),
-            RequiredBookIds: Books(),
-            WorkMinutes: 60),
+        R("cooking_pot", "锅", RecipeCategory.Misc, CookStation.PotItemKey, Tools(), Books()),
 
         // 烤架：同样 -2 点。比锅便宜（几根铁丝架在火上就是烤架），但一样占掉一个槽 ⇒
         // 两个槽都装满 = 每份饭只要 12 点，这是玩家能拿到的**唯一**一档"省料"，且要付两份材料 + 两份工时。
-        new RecipeData(
-            Id: "cooking_grill",
-            DisplayName: "烤架",
-            Category: RecipeCategory.Misc,
-            OutputKey: CookStation.GrillItemKey,
-            OutputQuantity: 1,
-            MaterialCosts: Cost(("wire", 4), ("iron", 2)),
-            RequiredTools: Tools(),
-            RequiredBookIds: Books(),
-            WorkMinutes: 45),
+        R("cooking_grill", "烤架", RecipeCategory.Misc, CookStation.GrillItemKey, Tools(), Books()),
 
         // 火把（手持光源，批次4 光照）：木棒裹布蘸燃油即成——基础求生造物，无书门槛、无工具槽、开局可做。
         // 产物 key="torch"（对齐 LightSource.TorchKey），经 CraftOutputFactory 落地为 Item.Light（非武器/护甲/材料）。
         // 材料拟定待调：木料 1 + 布 1 + 燃料 1。手电不可制作（拾取/投放获得）。
-        new RecipeData(
-            Id: "torch",
-            DisplayName: "火把",
-            Category: RecipeCategory.Misc,
-            OutputKey: "torch",
-            OutputQuantity: 1,
-            MaterialCosts: Cost(("wood", 1), ("cloth", 1), ("fuel", 1)),
-            RequiredTools: Tools(),
-            RequiredBookIds: Books(),
-            WorkMinutes: 20),
+        R("torch", "火把", RecipeCategory.Misc, "torch", Tools(), Books()),
 
         // ── [SPEC-B14] 草药医疗自制药（无书门槛：民间方子人人会；无工具槽；工时制）──────────────
         // 产物 key=herbal_salve / dandelion_tea，同时是 Materials 目录项 → CraftOutputFactory 走材料分支落地为 Item.Material，
         // 据 Key 查 MedicineCatalog 治感染（草药膏 0.45 / 蒲公英茶 0.10 治疗效率）。材料/工时皆拟定待调。
 
         // 草药膏：蒲公英 1 + 玫瑰果 1 + 老君须 1 捣制，工时 ~40 分。
-        new RecipeData(
-            Id: "herbal_salve",
-            DisplayName: "草药膏",
-            Category: RecipeCategory.Misc,
-            OutputKey: "herbal_salve",
-            OutputQuantity: 1,
-            MaterialCosts: Cost(("dandelion", 1), ("rosehip", 1), ("laojunxu", 1)),
-            RequiredTools: Tools(),
-            RequiredBookIds: Books(),
-            WorkMinutes: 40),
+        R("herbal_salve", "草药膏", RecipeCategory.Misc, "herbal_salve", Tools(), Books()),
 
         // 蒲公英茶：蒲公英 2 煮制（最简，不引入"水"新资源），工时 ~15 分。
         // ⚠️ [T67] **加"烹饪台在场"门槛**（用户："蒲公英茶和玫瑰果茶应该在烹饪台制作"）——茶要在灶上煮。
         //    它仍是**配方**（不吃 CookingLogic 的热量点），烹饪台在这里只是道门槛，见 <see cref="CookStationPresentGate"/>。
-        new RecipeData(
-            Id: "dandelion_tea",
-            DisplayName: "蒲公英茶",
-            Category: RecipeCategory.Misc,
-            OutputKey: "dandelion_tea",
-            OutputQuantity: 1,
-            MaterialCosts: Cost(("dandelion", 2)),
-            RequiredTools: Tools(),
-            RequiredBookIds: Books(),
-            WorkMinutes: 15,
-            RequiredCrafterGates: Books(CookStationPresentGate)),   // [T67] 烹饪台在场
+        R("dandelion_tea", "蒲公英茶", RecipeCategory.Misc, "dandelion_tea", Tools(), Books(), Books(CookStationPresentGate)),   // [T67] 烹饪台在场
 
         // [SPEC-B14-补 / T72] 草药绷带：老君须 1 + 绷带 1，工时 ~20 分。止血手术供点 20（普通绷带上位替代）。[T72] **额外**再降该处感染几率 ×0.75（止血+消炎并存，见 SurgeryCatalog）。
-        new RecipeData(
-            Id: "herbal_bandage",
-            DisplayName: "草药绷带",
-            Category: RecipeCategory.Misc,
-            OutputKey: "herbal_bandage",
-            OutputQuantity: 1,
-            MaterialCosts: Cost(("laojunxu", 1), ("bandage", 1)),
-            RequiredTools: Tools(),
-            RequiredBookIds: Books(),
-            WorkMinutes: 20),
+        R("herbal_bandage", "草药绷带", RecipeCategory.Misc, "herbal_bandage", Tools(), Books()),
 
         // [SPEC-B14-补2] 玫瑰果茶：玫瑰果 2 煮制，工时 ~15 分。饮用后 24 游戏小时伤病恢复速度 +9pp（见 Pawn 恢复加成 buff）。
         // ⚠️ [T67] 同蒲公英茶，加"烹饪台在场"门槛（用户拍板）。
-        new RecipeData(
-            Id: "rosehip_tea",
-            DisplayName: "玫瑰果茶",
-            Category: RecipeCategory.Misc,
-            OutputKey: "rosehip_tea",
-            OutputQuantity: 1,
-            MaterialCosts: Cost(("rosehip", 2)),
-            RequiredTools: Tools(),
-            RequiredBookIds: Books(),
-            WorkMinutes: 15,
-            RequiredCrafterGates: Books(CookStationPresentGate)),   // [T67] 烹饪台在场
+        R("rosehip_tea", "玫瑰果茶", RecipeCategory.Misc, "rosehip_tea", Tools(), Books(), Books(CookStationPresentGate)),   // [T67] 烹饪台在场
 
         // ── 布鲁斯（狗）装备五件套（批次5，道格 2 级解锁）────────────────────────────
         // 制作者门槛＝道格且羁绊≥2 级（RequiredCrafterGates: DogGearCrafterGate，判定委托营地层）；
@@ -837,69 +526,19 @@ public static class RecipeBook
         // 产物 key＝DogGearCatalog 键，经 CraftOutputFactory 落地为 Item.Armor（穿戴走 DogApparelSlots）。
 
         // 布制狗衣：身体贴身甲（低防·轻）。缝纫小件，布为主。
-        new RecipeData(
-            Id: "dog_cloth_vest",
-            DisplayName: "布制狗衣",
-            Category: RecipeCategory.Tailoring,
-            OutputKey: "布制狗衣",
-            OutputQuantity: 1,
-            MaterialCosts: Cost(("cloth", 3)),
-            RequiredTools: Tools(),
-            RequiredBookIds: Books(),
-            WorkMinutes: 50,
-            RequiredCrafterGates: Books(DogGearCrafterGate)),
+        R("dog_cloth_vest", "布制狗衣", RecipeCategory.Tailoring, "布制狗衣", Tools(), Books(), Books(DogGearCrafterGate)),
 
         // 皮制狗衣：身体外套甲（中防·稍重）。皮革为主 + 绳绑带。
-        new RecipeData(
-            Id: "dog_leather_vest",
-            DisplayName: "皮制狗衣",
-            Category: RecipeCategory.Tailoring,
-            OutputKey: "皮制狗衣",
-            OutputQuantity: 1,
-            MaterialCosts: Cost(("leather", 2), ("rope", 1)),
-            RequiredTools: Tools(),
-            RequiredBookIds: Books(),
-            WorkMinutes: 70,
-            RequiredCrafterGates: Books(DogGearCrafterGate)),
+        R("dog_leather_vest", "皮制狗衣", RecipeCategory.Tailoring, "皮制狗衣", Tools(), Books(), Books(DogGearCrafterGate)),
 
         // 口袋狗衣：身体无甲，缝多口袋给布鲁斯携带容量（探索负重）。布 + 绳（背带）。
-        new RecipeData(
-            Id: "dog_pocket_vest",
-            DisplayName: "口袋狗衣",
-            Category: RecipeCategory.Tailoring,
-            OutputKey: "口袋狗衣",
-            OutputQuantity: 1,
-            MaterialCosts: Cost(("cloth", 3), ("rope", 1)),
-            RequiredTools: Tools(),
-            RequiredBookIds: Books(),
-            WorkMinutes: 60,
-            RequiredCrafterGates: Books(DogGearCrafterGate)),
+        R("dog_pocket_vest", "口袋狗衣", RecipeCategory.Tailoring, "口袋狗衣", Tools(), Books(), Books(DogGearCrafterGate)),
 
         // 铁皮头甲：头部高防甲（重）。废金属敲打成盔 + 皮革内衬。
-        new RecipeData(
-            Id: "dog_iron_helmet",
-            DisplayName: "铁皮头甲",
-            Category: RecipeCategory.Misc,
-            OutputKey: "铁皮头甲",
-            OutputQuantity: 1,
-            MaterialCosts: Cost(("iron", 2), ("leather", 1)),
-            RequiredTools: Tools(),
-            RequiredBookIds: Books(),
-            WorkMinutes: 70,
-            RequiredCrafterGates: Books(DogGearCrafterGate)),
+        R("dog_iron_helmet", "铁皮头甲", RecipeCategory.Misc, "铁皮头甲", Tools(), Books(), Books(DogGearCrafterGate)),
 
         // 铁丝头甲：头部轻便甲（防护弱于铁皮）。铁丝编笼 + 布衬。
-        new RecipeData(
-            Id: "dog_wire_helmet",
-            DisplayName: "铁丝头甲",
-            Category: RecipeCategory.Misc,
-            OutputKey: "铁丝头甲",
-            OutputQuantity: 1,
-            MaterialCosts: Cost(("wire", 2), ("cloth", 1)),
-            RequiredTools: Tools(),
-            RequiredBookIds: Books(),
-            WorkMinutes: 55,
-            RequiredCrafterGates: Books(DogGearCrafterGate)),
+        R("dog_wire_helmet", "铁丝头甲", RecipeCategory.Misc, "铁丝头甲", Tools(), Books(), Books(DogGearCrafterGate)),
 
         // ══════════════ [批次21·T26] 圈套陷阱 + 战争面具（《野外生存指南》）══════════════
         // 三条新配方**追加在表尾、不插队**：它们全是**无工具**配方，落进 CraftingPanelFormat.GroupByTool
@@ -910,47 +549,20 @@ public static class RecipeBook
         // 造出来进库存 → 玩家自己摆到营地里（同沙袋/床的"造→摆"两段式）。它**不实心、不挖导航洞**
         // （摆不出 kill box），但**守 64px 禁建带**（不许糊在防线上）。工时 40 分。数值皆拟定待调。
         // 拆除走通用规则（FurnitureBuildCost["陷阱"] 折半返还），两处成本由测试钉死一致——否则造一个拆一个就是永动机。
-        new RecipeData(
-            Id: "snare_trap",
-            DisplayName: "圈套陷阱",
-            Category: RecipeCategory.Misc,
-            OutputKey: "snare_trap",
-            OutputQuantity: 1,
-            MaterialCosts: Cost(("wood", 2), ("wire", 2), ("rope", 1)),
-            RequiredTools: Tools(),
-            RequiredBookIds: Books(WildernessSurvivalGuideBookId),
-            WorkMinutes: 40),
+        R("snare_trap", "圈套陷阱", RecipeCategory.Misc, "snare_trap", Tools(), Books(WildernessSurvivalGuideBookId)),
 
         // ── 战争面具：⚠️ **作用待用户定** ──
         // 用户在《野外生存指南》的「效果」列里点了它的名，但**没说它是什么、干什么用**。
         // 落地取**最保守的那一种**：一件占「面部」槽的护甲（骨与皮缝的面罩，护鼻与下巴，不遮眼——你还得看得见）。
         // **刻意不发明玩法效果**（"吓退丧尸"一类本作没有这个机制，不凭空造）。数值拟定待调。
         // 若用户想要的是别的东西（图腾/仪式道具/士气物），改这一条 + ArmorTable.WarMask() 即可，其余不动。
-        new RecipeData(
-            Id: "war_mask",
-            DisplayName: "战争面具",
-            Category: RecipeCategory.Misc,
-            OutputKey: "war_mask",
-            OutputQuantity: 1,
-            MaterialCosts: Cost(("bone", 2), ("leather", 1)),
-            RequiredTools: Tools(),
-            RequiredBookIds: Books(WildernessSurvivalGuideBookId),
-            WorkMinutes: 60),
+        R("war_mask", "战争面具", RecipeCategory.Misc, "war_mask", Tools(), Books(WildernessSurvivalGuideBookId)),
 
         // ══════════════ [批次21·T26] 粗布衬衫 / 短裤 / 长裤（《裁缝手记》）══════════════
         // 照既有「粗布背心 / 粗布外套」的模型来：同一本书、同样无工具、成本只吃布。
         // 补的是**贴身层与裤装槽的可制作缺口**——在此之前，长袖布衣/长裤/短裤全都只能搜刮，
         // 一件被砍烂就再也补不回来。数值对齐同槽既有件（拟定待调）。
-        new RecipeData(
-            Id: "coarse_shirt",
-            DisplayName: "粗布衬衫",
-            Category: RecipeCategory.Tailoring,
-            OutputKey: "coarse_shirt",
-            OutputQuantity: 1,
-            MaterialCosts: Cost(("cloth", 3)),
-            RequiredTools: Tools(),
-            RequiredBookIds: Books(TailorsNotesBookId),
-            WorkMinutes: 60),
+        R("coarse_shirt", "粗布衬衫", RecipeCategory.Tailoring, "coarse_shirt", Tools(), Books(TailorsNotesBookId)),
 
         // ══════════════ [T59] 棉帽（用户在 wiki 上新加的一件）══════════════
         // 数值层由我拟定（用户只给了护甲 6/3 与 0.15kg，没给配方）：**照最小号布衣那一档来**——
@@ -959,40 +571,13 @@ public static class RecipeBook
         //   棉帽 0.15kg 但只罩一个头 + 两只耳朵（全是小部位）⇒ 取**下限档 2 布**，不给它 3 布：
         //   一顶帽子不该和一条长裤一样费布。工时同理取 40 分（全表最短的那一档）。
         // 书：《裁缝手记》—— 它是布类成衣的那本书，棉帽是布类成衣，不新开门槛。
-        new RecipeData(
-            Id: "cotton_hat",
-            DisplayName: "棉帽",
-            Category: RecipeCategory.Tailoring,
-            OutputKey: "cotton_hat",
-            OutputQuantity: 1,
-            MaterialCosts: Cost(("cloth", 2)),
-            RequiredTools: Tools(),
-            RequiredBookIds: Books(TailorsNotesBookId),
-            WorkMinutes: 40),
+        R("cotton_hat", "棉帽", RecipeCategory.Tailoring, "cotton_hat", Tools(), Books(TailorsNotesBookId)),
 
         // 粗布短裤：布最省、工时最短——护得也最少（只护大腿，小腿裸着，同既有「短裤」的取舍）。
-        new RecipeData(
-            Id: "coarse_shorts",
-            DisplayName: "粗布短裤",
-            Category: RecipeCategory.Tailoring,
-            OutputKey: "coarse_shorts",
-            OutputQuantity: 1,
-            MaterialCosts: Cost(("cloth", 2)),
-            RequiredTools: Tools(),
-            RequiredBookIds: Books(TailorsNotesBookId),
-            WorkMinutes: 40),
+        R("coarse_shorts", "粗布短裤", RecipeCategory.Tailoring, "coarse_shorts", Tools(), Books(TailorsNotesBookId)),
 
         // 粗布长裤：多一段布，多护两条小腿。
-        new RecipeData(
-            Id: "coarse_trousers",
-            DisplayName: "粗布长裤",
-            Category: RecipeCategory.Tailoring,
-            OutputKey: "coarse_trousers",
-            OutputQuantity: 1,
-            MaterialCosts: Cost(("cloth", 3)),
-            RequiredTools: Tools(),
-            RequiredBookIds: Books(TailorsNotesBookId),
-            WorkMinutes: 70),
+        R("coarse_trousers", "粗布长裤", RecipeCategory.Tailoring, "coarse_trousers", Tools(), Books(TailorsNotesBookId)),
 
         // ══════════════ [批次25·T44] 消防斧（《进阶木匠技术》）══════════════
         //
@@ -1010,16 +595,7 @@ public static class RecipeBook
         //
         // 材料：铁 3（消防斧钢头）+ 木料 2（斧柄）。工时 180 分（介于反曲弓 180 与长弓 240 之间）。数值皆拟定待调。
         // [T46·impl-iron] 已接手 impl-axe 留的占位：原 `scrap_metal 3` → `iron 3`（废金属 1:1 折铁，用量不变）。
-        new RecipeData(
-            Id: "axe",
-            DisplayName: "消防斧",
-            Category: RecipeCategory.Woodwork,
-            OutputKey: "axe",
-            OutputQuantity: 1,
-            MaterialCosts: Cost(("iron", 3), ("wood", 2)),
-            RequiredTools: Tools(ToolSlot.SawBlade),
-            RequiredBookIds: Books(AdvancedCarpentryBookId),
-            WorkMinutes: 180),
+        R("axe", "消防斧", RecipeCategory.Woodwork, "axe", Tools(ToolSlot.SawBlade), Books(AdvancedCarpentryBookId)),
 
         // ══════════════ [T68] 恐怖装甲（用户在 wiki 上新加；**配方由我拟定**）══════════════
         //
@@ -1039,16 +615,7 @@ public static class RecipeBook
         //    （20/10 ＜ 皮革胸甲 25/12.5），而且**只护胸+腹**（皮甲还护双臂）。
         //    真正的门槛不在书（那本开局就有），在**材料**：皮革要么搜刮、要么**自产**（`tan_leather`：碎皮革→生皮→鞣制→皮革，
         //    一张皮革 = 宰 4 只老鼠 + 1 份鞣制药水）——两条路都得实打实攒，攒 3 张仍是出门的分量。
-        new RecipeData(
-            Id: "horror_armor",
-            DisplayName: "恐怖装甲",
-            Category: RecipeCategory.Misc,
-            OutputKey: "horror_armor",
-            OutputQuantity: 1,
-            MaterialCosts: Cost(("bone", 6), ("leather", 3), ("rope", 2)),
-            RequiredTools: Tools(),
-            RequiredBookIds: Books(WildernessSurvivalGuideBookId),
-            WorkMinutes: 240),
+        R("horror_armor", "恐怖装甲", RecipeCategory.Misc, "horror_armor", Tools(), Books(WildernessSurvivalGuideBookId)),
 
         // ══════════════ [T68] 墨镜 / 平光眼镜：**故意没有配方** ══════════════
         // 磨一片镜片是工业活（模具、抛光、光学面），末日营地里一个拿骨头缝甲的人做不出来——
@@ -1062,16 +629,7 @@ public static class RecipeBook
         // 因纽特式雪镜（用户 authored：木制眼罩·避免雪盲）。削木片一个营地里的人做得来 ⇒ 给它配方是自洽的。
         // 读《尖峰时刻》(滑雪极限运动书)解锁；产物走 CraftOutputFactory 的 ArmorOutputs 落成 Item.Armor(自制简易墨镜)。
         // 材料 wood1+rope1、工时 60min＝拟定（小件、木+绑带），书才是真门槛。追加不插队（配方序不进 Sim 战斗随机流）。
-        new RecipeData(
-            Id: "snow_goggles",
-            DisplayName: "自制简易墨镜",
-            Category: RecipeCategory.Misc,
-            OutputKey: "snow_goggles",
-            OutputQuantity: 1,
-            MaterialCosts: Cost(("wood", 1), ("rope", 1)),
-            RequiredTools: Tools(),
-            RequiredBookIds: Books(PeakHourBookId),
-            WorkMinutes: 60),
+        R("snow_goggles", "自制简易墨镜", RecipeCategory.Misc, "snow_goggles", Tools(), Books(PeakHourBookId)),
 
         // ══════════════ [T67] 采集/种植/诱捕支柱：5 条新配方（**追加表尾不插队**）══════════════
         //
@@ -1080,77 +638,30 @@ public static class RecipeBook
 
         // ── 捕鸟陷阱：《农场主的一百个问题》解锁。抓鸟（→ 宰杀 → 鸟肉 + 羽毛 → 箭）。正文见 BirdTrapSpec/BirdTrapLogic。──
         // 一张网 + 两根木桩 + 一段绳（同圈套陷阱的量级）。不实心、不挖导航洞、守 64px 禁建带。
-        new RecipeData(
-            Id: BirdTrapSpec.RecipeId,
-            DisplayName: "捕鸟陷阱",
-            Category: RecipeCategory.Misc,
-            OutputKey: BirdTrapSpec.ItemKey,
-            OutputQuantity: 1,
-            MaterialCosts: Cost(("wood", 2), ("rope", 2)),
-            RequiredTools: Tools(),
-            RequiredBookIds: Books(FarmerHundredQuestionsBookId),
-            WorkMinutes: 40),
+        R(BirdTrapSpec.RecipeId, "捕鸟陷阱", RecipeCategory.Misc, BirdTrapSpec.ItemKey, Tools(), Books(FarmerHundredQuestionsBookId)),
 
         // ── 菜园：《农场主的一百个问题》解锁。翻一小块地种土豆。正文（含"绝不能变无限食物"的四道闸）见 CropPlotSpec/CropPlotLogic。──
         // 造这件"菜园"只吃木料（垄框/农具），**种薯（土豆 1）是下种时另扣的**（见 CropPlotLogic.SeedCost，不写在这条配方里
         // —— 配方产的是"一块翻好的地"，种什么是摆下之后的事）。工时 60 分。
-        new RecipeData(
-            Id: CropPlotSpec.RecipeId,
-            DisplayName: "菜园",
-            Category: RecipeCategory.Misc,
-            OutputKey: CropPlotSpec.ItemKey,
-            OutputQuantity: 1,
-            MaterialCosts: Cost(("wood", 2)),
-            RequiredTools: Tools(),
-            RequiredBookIds: Books(FarmerHundredQuestionsBookId),
-            WorkMinutes: 60),
+        R(CropPlotSpec.RecipeId, "菜园", RecipeCategory.Misc, CropPlotSpec.ItemKey, Tools(), Books(FarmerHundredQuestionsBookId)),
 
         // ── 简易宰杀点：用户"木材*1"。一块板 + 一个钩子。营地一座就够（AbsentGate 灰掉重复建造）。──
         // 🔴 **无书门槛**（用户没给它挂书）——但它的**价值由刀决定**：没有匕首/骨刀，槽是空的，宰不了。
         //    ⇒ 它天然与"骨刀"配对：骨刀（《野外生存指南》，开局就有）成了营地第一把上得了案板的刀。
-        new RecipeData(
-            Id: ButcherStation.PointRecipeId,
-            DisplayName: "简易宰杀点",
-            Category: RecipeCategory.Misc,
-            OutputKey: ButcherStation.PointItemKey,
-            OutputQuantity: 1,
-            MaterialCosts: Cost(("wood", 1)),                     // 用户："木材*1"
-            RequiredTools: Tools(),
-            RequiredBookIds: Books(),
-            WorkMinutes: 30,
-            RequiredCrafterGates: Books(ButcherStation.AbsentGate)),   // 营地还没有宰杀设施才做得出（一座就够）
+        R(ButcherStation.PointRecipeId, "简易宰杀点", RecipeCategory.Misc, ButcherStation.PointItemKey, Tools(), Books(), Books(ButcherStation.AbsentGate)),   // 营地还没有宰杀设施才做得出（一座就够）
 
         // ── 宰杀台（升级）：用户"木板*3+钉子*4"。🔴🔴 **「木板」在材料表里不存在**（只有「木料」wood / 「废木料」scrap_wood）──
         //    ⇒ 我按**木料*3+钉子*4**落地（木料是唯一的结构性木材），**已 [DECISION] 上抛用户确认**（一行可改）。
         //    +50% 宰杀速度、20% 双倍产出（数值在 ButcheryLogic）。
         // 「升级」不新开引擎轴：它是一条**要求"营地已有简易宰杀点"**的配方（UpgradeGate），造出来落位时把简易点顶掉（消费层做）。
-        new RecipeData(
-            Id: ButcherStation.TableRecipeId,
-            DisplayName: "宰杀台",
-            Category: RecipeCategory.Misc,
-            OutputKey: ButcherStation.TableItemKey,
-            OutputQuantity: 1,
-            MaterialCosts: Cost(("wood", 3), ("nails", 4)),       // ⚠️ 木板→木料（木板不存在，[DECISION] 待确认）
-            RequiredTools: Tools(),
-            RequiredBookIds: Books(),
-            WorkMinutes: 60,
-            RequiredCrafterGates: Books(ButcherStation.UpgradeGate)),   // 要求营地已有简易宰杀点
+        R(ButcherStation.TableRecipeId, "宰杀台", RecipeCategory.Misc, ButcherStation.TableItemKey, Tools(), Books(), Books(ButcherStation.UpgradeGate)),   // 要求营地已有简易宰杀点
 
         // ── 缝合生皮：把宰杀老鼠攒下的「碎皮革」缝成成幅的「生皮」。──
         // 🔴 **它给「生皮」补上了游戏里的第一条生产线**：核实过 `rawhide` 此前**零掉落、零配方产出**，只能找商人买。
         //    碎皮革 4 → 生皮 1（重量账：4 × 0.2 = 0.8kg → 1.0kg，缝完略重，无套利）。无书门槛，工时 30 分。
         //    这条链的下游现在**真的通了**（见紧邻的 `tan_leather`）：生皮 +（鞣制药水，化学书）→ 皮革 → 皮甲/恐怖装甲。
         //    宰杀于是喂到了护甲线上。
-        new RecipeData(
-            Id: "leather_stitch",
-            DisplayName: "缝合生皮",
-            Category: RecipeCategory.Misc,
-            OutputKey: "rawhide",
-            OutputQuantity: 1,
-            MaterialCosts: Cost((Materials.LeatherScrapKey, 4)),
-            RequiredTools: Tools(),
-            RequiredBookIds: Books(),
-            WorkMinutes: 30),
+        R("leather_stitch", "缝合生皮", RecipeCategory.Misc, "rawhide", Tools(), Books()),
 
         // ── 鞣制皮革：生皮 + 鞣制药水 → 皮革。这条链**此前压根没实现**（审计确认）──
         // 🔴 **它接通了两条断链**：① `rawhide`（生皮）此前**无任何消费方**——能产（`leather_stitch`）能买，却没处用；
@@ -1161,16 +672,7 @@ public static class RecipeBook
         //    · 门槛梯度守住**皮革的稀缺**：一张皮革 = 4 碎皮革（宰 4 只老鼠）+ 1 鞣制药水（燃料 1 + 石 1 + 化学书）。
         //      恐怖装甲吃 3 张皮革 ⇒ 12 只老鼠 + 3 份药水 —— 攒起来仍是实打实的出门，可制作但不廉价。
         //    · **不再挂书**：鞣制药水的化学书门槛已在药水那步收过一次；鞣这一步是手工活，同 `leather_stitch` 零书门槛。
-        new RecipeData(
-            Id: "tan_leather",
-            DisplayName: "鞣制皮革",
-            Category: RecipeCategory.Misc,
-            OutputKey: "leather",
-            OutputQuantity: 1,
-            MaterialCosts: Cost(("rawhide", 1), ("tanning_solution", 1)),
-            RequiredTools: Tools(),
-            RequiredBookIds: Books(),
-            WorkMinutes: 60),
+        R("tan_leather", "鞣制皮革", RecipeCategory.Misc, "leather", Tools(), Books()),
     };
 
     private static readonly IReadOnlyDictionary<string, RecipeData> _byId = ToMap(_all);

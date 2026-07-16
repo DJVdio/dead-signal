@@ -71,8 +71,11 @@ public static class RadioMainline
     /// </summary>
     public const string SouthRefusedFlag = "south_refused";
 
-    /// <summary>回复军方后到军方来袭的间隔天数（用户拍板："回复日 + 2 的白天"军袭到期 → 南逃谢幕序列）。</summary>
-    public const int MilitaryRaidDelayDays = 2;
+    /// <summary>
+    /// 回复军方后到军方来袭的间隔天数（用户拍板："回复日 + 2 的白天"军袭到期 → 南逃谢幕序列）。
+    /// 数值真源已外置至 <c>military.json</c>（<see cref="MilitaryConfig.MilitaryRaidDelayDays"/>）；本属性委托到 catalog 段。
+    /// </summary>
+    public static int MilitaryRaidDelayDays => GameConfigCatalog.Section<MilitaryConfig>().MilitaryRaidDelayDays;
 
     /// <summary>广播台"发出设备"定点投放的发现点 id，须与 <c>TestExploration</c> 铺设的 Area2D 一致。</summary>
     public const string TransmitterDiscoveryId = "discovery_broadcast_transmitter";

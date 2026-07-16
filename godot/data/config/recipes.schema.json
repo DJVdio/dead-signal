@@ -1,0 +1,35 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://dead-signal/config/recipes.schema.json",
+  "title": "Dead Signal 配方数值表 (recipes.json)",
+  "description": "消费层数值外置：配方 id → 配方数值 POCO。只装可调数字——产量/工时/材料成本（键=吃什么料、量=吃多少）。配方结构（显示名/类别/产物键/工具槽/书门槛/制作者门槛）仍写死在 godot/scripts/Recipe.cs，不在本表。字段对应 godot/scripts/RecipeConfig.cs 的 RecipeNumbers。缺配置游戏 fail-fast。",
+  "type": "object",
+  "additionalProperties": { "$ref": "#/definitions/recipe" },
+  "definitions": {
+    "recipe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["OutputQuantity", "WorkMinutes", "MaterialCosts"],
+      "properties": {
+        "OutputQuantity": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "一次制作产出的数量。"
+        },
+        "WorkMinutes": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "每配方工时（游戏分钟）。"
+        },
+        "MaterialCosts": {
+          "type": "object",
+          "description": "材料成本：材料 RefKey → 数量。",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      }
+    }
+  }
+}
