@@ -5146,12 +5146,14 @@ public sealed partial class CampMain : Node2D
                 // 抑制围攻/夜袭，脚本夜不叠加常规威胁）；正文在 CampMain.PeteEvent.cs。
                 else if (_clock.Day == 7 && !_storyFlags.Has(PeteEventDoneFlag))
                     BeginPeteRescueEvent();
-                // 尸潮时限到期(day>=DeadlineDay)：本夜起无限围攻直至全灭（无生还，有意为之的黑暗终局）。
+                // 尸潮时限到期(day>=DeadlineDay)：**无限丧尸屠营 → 随机一名幸存者半残南逃 → 南逃谢幕**（用户 authored
+                // 强制终局，与军袭同一套单角色南逃谢幕，只是触发源＝丧尸[HordeSiege]。已推翻旧"可玩无限围攻直至全灭"路由，
+                // 详见 TryTriggerHordeSiegeEnding；旧 TriggerHordeSiege 保留为遗留、不再从 day-40 可达）。
                 // 时限与教学关(第 2 夜)天数相去甚远，不冲突；发现与否不影响触发（Evaluate 到期一律 Arrived）。
-                // 终局冻结门控：主线推进到终局抉择点后置 EndgameFreezeFlag → 结局流程接管，围攻不再触发（置位方留待主线系统）。
+                // 终局冻结门控：主线推进到终局抉择点后置 EndgameFreezeFlag → 结局流程接管，尸潮终局不再触发（置位方留待主线系统）。
                 else if (HordeTimeline.ShouldTriggerSiege(
                     _clock.Day, _storyFlags.Has(HordeTimeline.SightedFlag), _storyFlags.Has(HordeTimeline.EndgameFreezeFlag)))
-                    TriggerHordeSiege();
+                    TryTriggerHordeSiegeEnding();
                 else
                     MaybeTriggerNightRaiderRaid(); // 批次6：常规夜（非教学/非围攻）按概率触发袭击者潜入 + 警戒对抗
                 break;
@@ -6422,10 +6424,11 @@ public sealed partial class CampMain : Node2D
     }
 
     /// <summary>
-    /// 尸潮抵达终局：启动无限围攻（波次不停轮、逐波递增，直至全灭）。到期夜由 <see cref="OnGamePhaseChanged"/> NightAct 调。
-    /// 复用袭营执行层：置 <c>_raidActive</c> 借 <see cref="UpdateRaid"/> 的守卫锁敌 + 破防统计，但走 <c>_siegeActive</c>
-    /// 分支不做胜负结算。首波由首个 UpdateRaid tick 按 <see cref="HordeTimeline.NextWave"/>（waveIndex=0 立即投）投放。
-    /// **无生还路线，有意为之的黑暗设定，不软化。**
+    /// 【遗留·不再从 day-40 可达】旧"尸潮抵达＝可玩无限围攻直至全灭"路由。已被 <see cref="TryTriggerHordeSiegeEnding"/>
+    /// （无限丧尸屠营 CG → 单角色南逃谢幕）**推翻**——day-40 到期改走南逃谢幕，本方法不再被 NightAct 调用。
+    /// 保留本体 + 其 <c>_siegeActive</c> 围攻运行时（<see cref="UpdateRaid"/> 分支）+ <see cref="EndingCg.ForGameOver"/>
+    /// 的 HordeSiege 遗留签名，避免大范围删除（同 military-impl-core 保留 <c>_militaryRaidWipeContext</c> 先例）。
+    /// 复用袭营执行层：置 <c>_raidActive</c> 借守卫锁敌 + 破防统计，走 <c>_siegeActive</c> 分支不做胜负结算。
     /// </summary>
     private void TriggerHordeSiege()
     {

@@ -13,7 +13,7 @@ namespace DeadSignal.Godot;
 ///
 /// <para>三幕：
 /// <list type="number">
-///   <item>CG-A（<see cref="PlayMassacreCinematic"/>）：冻结-脚本演出（军人占位演出体扫入屠营、其余幸存者当场倒下、
+///   <item>CG-A（<see cref="PlayMassacreCinematic"/>）：冻结-脚本演出（施暴方占位演出体扫入屠营——军袭＝军人、尸潮＝丧尸、其余幸存者当场倒下、
 ///     南逃者独自向南脱出）——复用 <see cref="CinematicSequence"/> 真实时基（仿 <see cref="PlayDeathCinematic"/>）。</item>
 ///   <item>玩家操作段（<see cref="LoadEscapeCorridor"/>）：载入 <see cref="EscapeCorridor"/>，玩家右键操作南逃者走单线廊道到峡谷前。</item>
 ///   <item>CG-B（<see cref="PlaySouthEscapeFarewell"/>）：峡谷前谢幕（大桥未落、两哨兵冷眼），<see cref="EndingPanel"/> 黑屏谢幕 → 终局。</item>
@@ -34,8 +34,11 @@ public sealed partial class CampMain
     /// <summary>南逃者半残移速乘子（占位：只做移速惩罚+视觉，南逃段无战斗、半残无其它玩法后果）。</summary>
     private const double SouthEscapeCrippleSpeed = 0.55;
 
-    /// <summary>演出军人数量（占位纯演出体，不走战斗结算）。</summary>
+    /// <summary>军袭演出军人数量（占位纯演出体，不走战斗结算）。</summary>
     private const int MassacreSoldierCount = 5;
+
+    /// <summary>尸潮演出丧尸数量（占位纯演出体，无限丧尸屠营 → 比军袭更多具压场，不走战斗结算）。</summary>
+    private const int MassacreZombieCount = 8;
 
     /// <summary>
     /// 🔴 REUSABLE 入口：启动「南逃谢幕」强制终局序列。调用方选好 <paramref name="escapee"/>（军袭=随机存活者、
@@ -56,10 +59,33 @@ public sealed partial class CampMain
         PlayMassacreCinematic(escapee, trigger, onComplete: () => LoadEscapeCorridor(escapee));
     }
 
+    /// <summary>
+    /// 尸潮到期终局钩子（第 40 天 NightAct 调，由 <see cref="HordeTimeline.ShouldTriggerSiege"/> 门控）：
+    /// **推翻旧"可玩无限围攻直至全灭"路由**（用户 authored）——无限丧尸踏平营地、随机一名幸存者半残南逃
+    /// → 进「南逃谢幕」序列（<see cref="BeginSouthEscapeEnding"/> 传 <see cref="SouthEscapeTrigger.HordeSiege"/>，
+    /// 与军袭 <see cref="TryTriggerMilitaryRaid"/> 共用同一单角色南逃谢幕，只是触发源＝丧尸、CG-A 施暴方＝丧尸）。
+    /// 随机走可注入源 <see cref="_southEscapeRng"/>（复用 military-impl-core 的 <see cref="SouthEscapeEnding.SelectEscapee{T}"/>）。
+    /// 无人存活则兜底不启动（全灭另有 GameOverCondition 路由，不应发生）。
+    /// </summary>
+    private void TryTriggerHordeSiegeEnding()
+    {
+        var alive = _survivors.Where(s => s.Alive).ToList();
+        Pawn? escapee = SouthEscapeEnding.SelectEscapee(alive, _southEscapeRng);
+        if (escapee == null)
+        {
+            GD.Print($"[Horde] 第 {_clock.Day} 天：尸潮到期但无存活幸存者，跳过南逃谢幕（全灭另有路由）。");
+            return;
+        }
+
+        _storyFlags.Set(HordeTimeline.ArrivedFlag, "true"); // 保留"尸潮已抵达"旗标语义（HUD/存档识别本局尸潮终局）
+        BeginSouthEscapeEnding(escapee, SouthEscapeTrigger.HordeSiege);
+    }
+
     // ============ CG-A：屠营演出（冻结-脚本CG-恢复，仿 PlayDeathCinematic） ============
 
     /// <summary>
-    /// 屠营演出：军人占位演出体自北扫入 → 其余幸存者当场倒下留血/隐去 → 南逃者独自向南脱出。
+    /// 屠营演出：施暴方占位演出体自北扫入（军袭＝军人深灰、尸潮＝丧尸本色更多具，按 <paramref name="trigger"/> 分叉）
+    /// → 其余幸存者当场倒下留血/隐去 → 南逃者独自向南脱出。
     /// 全程 <c>TimeScale=0</c>，走 <see cref="CinematicSequence"/> 真实时基。演完调 <paramref name="onComplete"/>。
     /// </summary>
     private void PlayMassacreCinematic(Pawn escapee, SouthEscapeTrigger trigger, Action onComplete)
@@ -73,20 +99,24 @@ public sealed partial class CampMain
         Vector2 camReturnZoom = _camera.Zoom;
         _camera.CinematicHold = true;
 
-        // 军人占位演出体（Zombie.Create 空目标池，纯演出、不进战斗结算——用户拍板占位做法）。自北侧错峰生成、扫向营地中心。
-        var soldiers = new List<Zombie>();
-        var soldierFrom = new List<Vector2>();
+        // 施暴方占位演出体（Zombie.Create 空目标池，纯演出、不进战斗结算——用户拍板占位做法）。自北侧错峰生成、扫向营地中心。
+        // 按触发源分叉：军袭＝军装深灰占位；尸潮＝丧尸本色 + 更多具（无限丧尸压场）。均为占位，美术待 author。
+        bool horde = trigger == SouthEscapeTrigger.HordeSiege;
+        int attackerCount = horde ? MassacreZombieCount : MassacreSoldierCount;
+        var attackers = new List<Zombie>();
+        var attackerFrom = new List<Vector2>();
         Rect2 wander = new(_mapBounds.Position + new Vector2(200, 200), _mapBounds.Size - new Vector2(400, 400));
-        for (int i = 0; i < MassacreSoldierCount; i++)
+        for (int i = 0; i < attackerCount; i++)
         {
             var s = Zombie.Create(wander, () => System.Array.Empty<Actor>());
             s.Inject(_combat, _clock);
-            Vector2 from = _cameraCenter + new Vector2(-220f + i * 110f, -260f - (i % 2) * 40f); // 北侧一排
+            Vector2 from = _cameraCenter + new Vector2(-220f + i * 90f, -260f - (i % 2) * 40f); // 北侧一排（步距随具数收窄以容更多丧尸）
             s.Position = from;
-            s.Modulate = new Color(0.55f, 0.58f, 0.62f); // 军装深灰占位（与丧尸绿区分）
+            if (!horde)
+                s.Modulate = new Color(0.55f, 0.58f, 0.62f); // 军装深灰占位（军袭·与丧尸绿区分）；尸潮版保留丧尸本色
             _actorLayer.AddChild(s);
-            soldiers.Add(s);
-            soldierFrom.Add(from);
+            attackers.Add(s);
+            attackerFrom.Add(from);
         }
 
         // 遇害者 = 除南逃者外的全部存活幸存者。
@@ -98,7 +128,7 @@ public sealed partial class CampMain
 
         void Finish()
         {
-            foreach (Zombie s in soldiers)
+            foreach (Zombie s in attackers)
                 if (IsInstanceValid(s))
                     s.QueueFree();
             if (escapeeSprite != null && IsInstanceValid(escapeeSprite))
@@ -122,13 +152,13 @@ public sealed partial class CampMain
             _camera.Zoom = camReturnZoom.Lerp(new Vector2(1.4f, 1.4f), e);
         });
 
-        // ② 军人扫入。
+        // ② 施暴方扫入（军人／丧尸）。
         seq.Then(1.0f, onTick: t =>
         {
             float e = Smooth(t);
-            for (int i = 0; i < soldiers.Count; i++)
-                if (IsInstanceValid(soldiers[i]))
-                    soldiers[i].Position = soldierFrom[i].Lerp(_cameraCenter + new Vector2(-160f + i * 80f, -40f), e);
+            for (int i = 0; i < attackers.Count; i++)
+                if (IsInstanceValid(attackers[i]))
+                    attackers[i].Position = attackerFrom[i].Lerp(_cameraCenter + new Vector2(-160f + i * 70f, -40f), e);
         });
 
         // ③ 屠杀：相机微震 + 遇害者逐个倒下留血/隐去。

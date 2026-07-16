@@ -78,6 +78,34 @@ public sealed class SouthEscapeEndingTests
         Assert.True(SouthEscapeEnding.IsSequenceActive(restored));
     }
 
+    // —— 第 40 天尸潮终局路由（复用回归锁：CampMain.TryTriggerHordeSiegeEnding 的组合决策）——
+
+    [Fact]
+    public void HordeSiegeEnding_SelectsCrippledEscapee_AndRecordsHordeSiegeTrigger()
+    {
+        // 第 40 天尸潮到期终局：复用 SelectEscapee 选半残南逃者 + RecordEscapee 打 HordeSiege 触发。
+        // 与军袭同一套单角色南逃谢幕，唯一区别＝触发源 HordeSiege（≠ MilitaryRaid），CG-A 施暴方由它分叉成丧尸。
+        var alive = new List<string> { "山姆", "诺蒂", "克莱夫" };
+        var rng = new SequenceRandomSource(1.5); // (int)1.5=1 → 诺蒂
+        string escapee = SouthEscapeEnding.SelectEscapee(alive, rng)!;
+        Assert.Equal("诺蒂", escapee);
+
+        var flags = new StoryFlags();
+        SouthEscapeEnding.RecordEscapee(flags, escapee, "pawn_" + escapee, SouthEscapeTrigger.HordeSiege);
+        Assert.Equal(SouthEscapeTrigger.HordeSiege, SouthEscapeEnding.TriggerOf(flags));
+        Assert.NotEqual(SouthEscapeTrigger.MilitaryRaid, SouthEscapeEnding.TriggerOf(flags)!.Value);
+        Assert.Equal("诺蒂", SouthEscapeEnding.EscapeeName(flags));
+        Assert.True(SouthEscapeEnding.IsSequenceActive(flags));
+    }
+
+    [Fact]
+    public void HordeSiegeEnding_NoSurvivors_SelectsNone_NoRouting()
+    {
+        // 无存活幸存者 → SelectEscapee 返 default → TryTriggerHordeSiegeEnding 兜底不启动（全灭另有 GameOverCondition 路由）。
+        var rng = new SequenceRandomSource();
+        Assert.Null(SouthEscapeEnding.SelectEscapee(new List<string>(), rng));
+    }
+
     [Fact]
     public void RecordEscapee_NullId_LeavesIdUnset()
     {
