@@ -292,6 +292,68 @@
   .hidden { display: none !important; }
 
   .empty-state { padding: 40px; text-align: center; color: var(--text-mute); }
+
+  /* ── 页内分块表头行（按 group 归段）─────────────────── */
+  tbody tr.grouphead td {
+    position: sticky; left: 0;
+    background: #10130f; border-bottom: 1px solid var(--line);
+    border-top: 1px solid var(--line-soft);
+    padding: 6px 10px; height: auto;
+    white-space: nowrap; max-width: none; overflow: visible; text-overflow: clip;
+  }
+  tbody tr.grouphead:hover td { background: #10130f; }
+  tbody tr.grouphead .gname {
+    font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--accent);
+  }
+  tbody tr.grouphead .gcount {
+    margin-left: 8px; font-size: 11px; color: var(--text-mute);
+    font-family: "SF Mono", Menlo, monospace;
+  }
+
+  /* ── 视图切换 + 二级视图一级选择器 ─────────────────── */
+  .viewswitch { display: flex; gap: 4px; align-items: center; }
+  .viewswitch .vbtn {
+    font-size: 11px; padding: 3px 10px; border-radius: 2px; cursor: pointer;
+    border: 1px solid var(--line); color: var(--text-dim); background: var(--panel-2);
+    user-select: none;
+  }
+  .viewswitch .vbtn:hover { border-color: var(--text-mute); color: var(--text); }
+  .viewswitch .vbtn.on { background: #253022; border-color: var(--accent); color: var(--accent); }
+  .picker {
+    display: flex; gap: 5px; flex-wrap: wrap; align-items: center;
+    padding: 8px 16px; border-bottom: 1px solid var(--line-soft); background: var(--panel);
+  }
+  .picker .plabel { font-size: 11px; color: var(--text-mute); margin-right: 3px; }
+
+  /* ── 调查点流程图（内联 SVG）───────────────────────── */
+  .graphwrap { flex: 1; overflow: auto; padding: 16px; background:
+    radial-gradient(circle at 1px 1px, var(--line-soft) 1px, transparent 0) 0 0 / 22px 22px; }
+  .graphwrap svg { display: block; }
+  .graphwrap .gnode rect {
+    fill: var(--panel-2); stroke: var(--line); stroke-width: 1;
+    rx: 4; cursor: pointer;
+  }
+  .graphwrap .gnode:hover rect { stroke: var(--text-mute); }
+  .graphwrap .gnode.start rect { stroke: var(--accent); stroke-width: 1.5; }
+  .graphwrap .gnode .glabel { fill: var(--text); font-size: 12px; font-weight: 600; }
+  .graphwrap .gnode .gsub { fill: var(--text-mute); font-size: 10px; font-family: "SF Mono", Menlo, monospace; }
+  .graphwrap .gnode.danger-low   rect { fill: #16210f; }
+  .graphwrap .gnode.danger-mid   rect { fill: #2a1f0d; }
+  .graphwrap .gnode.danger-high  rect { fill: #2a1210; }
+  .graphwrap .edge { fill: none; stroke: var(--text-mute); stroke-width: 1.4; }
+  .graphwrap .edge.requireall { stroke: var(--rust); stroke-dasharray: 5 3; stroke-width: 1.6; }
+  .graphwrap .edge-arrow { fill: var(--text-mute); }
+  .graphwrap .edge-arrow.requireall { fill: var(--rust); }
+  .graph-legend {
+    display: flex; gap: 16px; flex-wrap: wrap; align-items: center;
+    padding: 8px 16px; border-bottom: 1px solid var(--line-soft);
+    font-size: 11px; color: var(--text-dim); background: var(--panel);
+  }
+  .graph-legend .lk { display: inline-flex; align-items: center; gap: 5px; }
+  .graph-legend .swatch { width: 20px; height: 0; border-top: 2px solid var(--text-mute); }
+  .graph-legend .swatch.requireall { border-top: 2px dashed var(--rust); }
+  .graph-legend .swatch.startdot { width: 10px; height: 10px; border: 1.5px solid var(--accent); border-radius: 2px; }
 </style>
 </head>
 <body>
@@ -331,15 +393,18 @@
       <div class="src" id="cat-src"></div>
     </div>
     <div class="toolbar">
+      <div class="viewswitch hidden" id="viewswitch"></div>
       <button id="btn-add" title="在这个分区末尾加一条新记录（一律追加末尾，不插队）">+ 新增一条</button>
       <input type="search" id="q" placeholder="搜索（名称/说明/任意列）…" autocomplete="off">
       <div class="filters" id="filters"></div>
       <div class="spacer"></div>
       <label class="toggle"><input type="checkbox" id="show-internal"> 显示内部 id 列</label>
     </div>
+    <div class="picker hidden" id="picker"></div>
     <div class="tablewrap" id="tablewrap">
       <div class="empty-state">加载中…</div>
     </div>
+    <div class="graphwrap hidden" id="graphwrap"></div>
   </section>
 </main>
 
@@ -503,7 +568,25 @@ const S = {
   filters: {},            // id → {列key → 选中的值集合}
   query: "",
   showInternal: false,
+  view: {},               // id → 视图模式："flat"(平表·默认) / "group"(分组二级视图) / "graph"(流程图)
+  groupPick: {},          // id → 分组视图里选中的一级值（角色/模块）；null/undefined = 全部
 };
+
+// ═══════════════════════════════════════════════════════════════════
+// 二级视图配置（分组视图）—— 只对声明了的分区生效，别的分区照旧只有平表
+//
+// primaryKey：分组视图「全部」时的分段键，也是顶部一排一级选择器的取值列（角色 / 模块）
+// secondaryKey：选中某个一级值后，行内再按它分块（能力域）；null = 不再细分
+// 数据契约：行的 group 字段由抽取器发；有则用、无则平表降级（并发方还没落 group 也不炸）
+// ═══════════════════════════════════════════════════════════════════
+const GROUP_VIEWS = {
+  "character-stats": { primaryKey: "who",   primaryLabel: "角色", secondaryKey: "group" },
+  "global-rules":    { primaryKey: "group", primaryLabel: "模块", secondaryKey: null },
+};
+const GRAPH_VIEWS = new Set(["world-graph"]);
+
+/** 当前分区的视图模式；缺省 flat。 */
+function curView() { return S.view[S.current] || "flat"; }
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -588,8 +671,91 @@ async function selectCat(id) {
   await loadCat(id);
   renderNav();
   renderHead();
+  renderViewSwitch();
   renderFilters();
-  renderTable();
+  renderView();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// 视图切换（平表 / 分组二级视图 / 流程图）——只对声明过的分区显形，别的分区不出钮
+// ═══════════════════════════════════════════════════════════════════
+function renderViewSwitch() {
+  const box = $("#viewswitch");
+  box.innerHTML = "";
+  const modes = [];
+  if (GROUP_VIEWS[S.current]) {
+    modes.push(["flat", "平表"], ["group", "按" + GROUP_VIEWS[S.current].primaryLabel]);
+  } else if (GRAPH_VIEWS.has(S.current)) {
+    modes.push(["flat", "表"], ["graph", "流程图"]);
+  }
+  box.classList.toggle("hidden", modes.length === 0);
+  if (!modes.length) return;
+  const cur = curView();
+  for (const [mode, label] of modes) {
+    const b = document.createElement("span");
+    b.className = "vbtn" + (cur === mode ? " on" : "");
+    b.textContent = label;
+    b.onclick = () => {
+      if (curView() === mode) return;
+      S.view[S.current] = mode;
+      renderViewSwitch();
+      renderView();
+    };
+    box.appendChild(b);
+  }
+}
+
+/** 视图分发：切表 / 图容器，画一级选择器，再画对应视图。 */
+function renderView() {
+  const graph = curView() === "graph";
+  $("#tablewrap").classList.toggle("hidden", graph);
+  $("#graphwrap").classList.toggle("hidden", !graph);
+  // 流程图下平表那套工具（新增/搜索/列筛选/内部 id）都无意义 → 藏起来，免得误导
+  $("#btn-add").classList.toggle("hidden", graph);
+  $("#q").classList.toggle("hidden", graph);
+  $("#filters").classList.toggle("hidden", graph);
+  renderPicker();
+  if (graph) renderGraph();
+  else renderTable();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// 分组视图的一级选择器（选角色 / 选模块）——只在 group 视图下显形
+// ═══════════════════════════════════════════════════════════════════
+function renderPicker() {
+  const box = $("#picker");
+  box.innerHTML = "";
+  const cfg = GROUP_VIEWS[S.current];
+  const on = cfg && curView() === "group";
+  box.classList.toggle("hidden", !on);
+  if (!on) return;
+
+  const c = S.cats[S.current];
+  const values = [...new Set(c.rows
+    .map((r) => r[cfg.primaryKey])
+    .filter((v) => v !== null && v !== undefined && v !== ""))];
+  const pick = S.groupPick[S.current];
+
+  const lab = document.createElement("span");
+  lab.className = "plabel";
+  lab.textContent = cfg.primaryLabel + "：";
+  box.appendChild(lab);
+
+  const mk = (val, text) => {
+    const chip = document.createElement("span");
+    const active = (val === null && (pick === null || pick === undefined)) || val === pick;
+    chip.className = "fchip" + (active ? " on" : "");
+    chip.textContent = text;
+    if (val !== null) chip.style.borderLeft = "3px solid " + chipColor(val);
+    chip.onclick = () => {
+      S.groupPick[S.current] = val;
+      renderPicker();
+      renderTable();
+    };
+    box.appendChild(chip);
+  };
+  mk(null, "全部");
+  for (const v of values) mk(v, v);
 }
 
 function renderHead() {
@@ -610,7 +776,8 @@ function renderFilters() {
 
   for (const col of c.columns) {
     if (col.type !== "chip" || col.internal) continue;
-    const values = [...new Set(c.rows.map((r) => r[col.key]).filter((v) => v !== null && v !== ""))];
+    // 多值串（「装甲层、裤子」）按「、」拆 token 收集 distinct：筛选钮列的是单个槽位，不是组合串
+    const values = [...new Set(c.rows.flatMap((r) => splitTokens(r[col.key])))];
     if (values.length < 2 || values.length > 12) continue; // 值太少/太散都不值得做筛选
     const sel = (S.filters[S.current][col.key] = S.filters[S.current][col.key] || new Set());
     for (const v of values) {
@@ -653,7 +820,10 @@ function chipColor(v) {
 // ═══════════════════════════════════════════════════════════════════
 // 表
 // ═══════════════════════════════════════════════════════════════════
-function visibleRows() {
+/** 把「、」分隔的多值串拆成 token 数组（板甲「装甲层、裤子」/装备槽多值）。 */
+const splitTokens = (v) => String(v == null ? "" : v).split("、").map((x) => x.trim()).filter(Boolean);
+
+function visibleRows(noSort) {
   const c = S.cats[S.current];
   const q = S.query.trim().toLowerCase();
   const filters = S.filters[S.current] || {};
@@ -661,14 +831,16 @@ function visibleRows() {
   let rows = c.rows.map((r, i) => ({ r, i }));
 
   for (const [key, sel] of Object.entries(filters)) {
-    if (sel.size) rows = rows.filter(({ r }) => sel.has(r[key]));
+    // 🔴 板甲一格是「装甲层、裤子」多值串：把值拆 token，与选中集有交集就命中
+    //    （选「装甲层」或「裤子」都能筛出板甲，不必先立一个组合分类）
+    if (sel.size) rows = rows.filter(({ r }) => splitTokens(r[key]).some((t) => sel.has(t)));
   }
   if (q) {
     rows = rows.filter(({ r }) =>
       Object.values(r).some((v) => v !== null && String(v).toLowerCase().includes(q)));
   }
 
-  const s = S.sort[S.current];
+  const s = noSort ? null : S.sort[S.current];
   if (s) {
     const col = c.columns.find((x) => x.key === s.key);
     rows.sort((a, b) => {
@@ -687,8 +859,32 @@ function visibleRows() {
 
 function renderTable() {
   const c = S.cats[S.current];
-  const cols = c.columns.filter((col) => !col.internal || S.showInternal);
-  const rows = visibleRows();
+  const cfg = GROUP_VIEWS[S.current];
+  const groupView = cfg && curView() === "group";
+  const pick = groupView ? S.groupPick[S.current] : null;
+
+  // 显示列：group 恒隐（它是分段依据，不是数据格）；分组视图再隐掉一级键列（who/module 冗余）
+  const hidden = new Set(["group"]);
+  if (groupView) hidden.add(cfg.primaryKey);
+  const cols = c.columns.filter((col) => (!col.internal || S.showInternal) && !hidden.has(col.key));
+
+  // 取行 + 定分段键：
+  //  分组视图 → 自然序（不排序才能稳定分段）+ 一级过滤；选了具体一级值就按二级键分块，否则按一级键分大段
+  //  平表 → 照旧吃排序；有 group 字段且没在按列排序时也插 group 分段头（排序会打乱段 ⇒ 让位给排序）
+  let rows, sectionKey = null;
+  if (groupView) {
+    rows = visibleRows(true);
+    if (pick !== null && pick !== undefined && pick !== "") {
+      rows = rows.filter(({ r }) => r[cfg.primaryKey] === pick);
+      sectionKey = cfg.secondaryKey;
+    } else {
+      sectionKey = cfg.primaryKey;
+    }
+  } else {
+    rows = visibleRows();
+    if (!S.sort[S.current] && rows.some(({ r }) => r.group)) sectionKey = "group";
+  }
+
   const s = S.sort[S.current];
 
   const table = document.createElement("table");
@@ -739,7 +935,22 @@ function renderTable() {
   table.appendChild(thead);
 
   const tbody = document.createElement("tbody");
+  const colspan = cols.length + 2;   // 图标列 + 删除列
+  // 分段计数：段名 → 行数（表头右侧标「N 条」）
+  const secCount = new Map();
+  if (sectionKey) for (const { r } of rows) {
+    const k = norm(r[sectionKey]);
+    secCount.set(k, (secCount.get(k) || 0) + 1);
+  }
+  let lastSection = null, first = true;
   for (const { r, i } of rows) {
+    if (sectionKey) {
+      const sv = norm(r[sectionKey]);
+      if (first || sv !== lastSection) {
+        lastSection = sv; first = false;
+        tbody.appendChild(sectionHeader(sv || "未分组", secCount.get(sv) || 0, colspan));
+      }
+    }
     const trow = document.createElement("tr");
     trow.dataset.i = i;
     if (rowDirty(i)) trow.classList.add("dirty");
@@ -761,6 +972,186 @@ function renderTable() {
     wrap.appendChild(table);
   }
   updateDirtyUi();
+}
+
+/** 页内分块的段头行（横跨整表宽度）。 */
+function sectionHeader(label, count, colspan) {
+  const trh = document.createElement("tr");
+  trh.className = "grouphead";
+  const td = document.createElement("td");
+  td.colSpan = colspan;
+  const nm = document.createElement("span");
+  nm.className = "gname";
+  nm.textContent = label;
+  td.appendChild(nm);
+  if (count) {
+    const ct = document.createElement("span");
+    ct.className = "gcount";
+    ct.textContent = count + " 条";
+    td.appendChild(ct);
+  }
+  trh.appendChild(td);
+  return trh;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// 调查点路线流程图（内联 SVG · 离线 CSP：不引任何外部图库/CDN）
+//
+// 节点 = world-graph 的行（place）；边 = prereq 列按「、」拆出的前置调查点。
+// start 列非空 = 开局起点（描边高亮）；prereqMode「全部」= requireAll（红色虚线边）。
+// 布局：按到起点的最长距离分层（DAG 纵向分层），同层横向铺开。数据零新增，纯读现有表。
+// ═══════════════════════════════════════════════════════════════════
+function renderGraph() {
+  const c = S.cats[S.current];
+  const wrap = $("#graphwrap");
+  wrap.innerHTML = "";
+
+  // 只看未被墓碑删除的行
+  const nodes = c.rows.filter((r) => r.sync !== SYNC.DELETED && norm(r.place) !== "");
+  if (!nodes.length) { wrap.innerHTML = '<div class="empty-state">没有可画的调查点。</div>'; return; }
+
+  const byName = new Map(nodes.map((r) => [norm(r.place), r]));
+  const prereqOf = (r) => splitTokens(r.prereq).filter((p) => byName.has(p));
+
+  // 分层：起点(无前置/标了 start) 在第 0 层；其余取「所有前置层 + 1」的最大值（最长路径分层）
+  const layer = new Map();
+  const compute = (name, stack) => {
+    if (layer.has(name)) return layer.get(name);
+    if (stack.has(name)) return 0;                 // 防环（数据是 DAG，兜底）
+    stack.add(name);
+    const r = byName.get(name);
+    const pres = prereqOf(r);
+    const isStart = norm(r.start) !== "";
+    let lv = (pres.length === 0 || isStart) ? 0 : 0;
+    for (const p of pres) lv = Math.max(lv, compute(p, stack) + 1);
+    stack.delete(name);
+    layer.set(name, lv);
+    return lv;
+  };
+  for (const r of nodes) compute(norm(r.place), new Set());
+
+  // 同层内按原始行序排列
+  const layers = [];
+  for (const r of nodes) {
+    const nm = norm(r.place), lv = layer.get(nm);
+    (layers[lv] = layers[lv] || []).push(r);
+  }
+
+  // 几何
+  const NW = 168, NH = 46, GAPX = 34, GAPY = 58, PADX = 20, PADY = 20;
+  const rowW = (n) => n * NW + (n - 1) * GAPX;
+  const maxW = Math.max(...layers.filter(Boolean).map((l) => rowW(l.length)));
+  const svgW = maxW + PADX * 2;
+  const svgH = layers.length * NH + (layers.length - 1) * GAPY + PADY * 2;
+
+  // 每个节点的中心坐标
+  const pos = new Map();
+  layers.forEach((row, lv) => {
+    if (!row) return;
+    const w = rowW(row.length);
+    const x0 = PADX + (maxW - w) / 2;
+    row.forEach((r, idx) => {
+      const x = x0 + idx * (NW + GAPX);
+      const y = PADY + lv * (NH + GAPY);
+      pos.set(norm(r.place), { x, y, cx: x + NW / 2 });
+    });
+  });
+
+  const NS = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(NS, "svg");
+  svg.setAttribute("width", svgW);
+  svg.setAttribute("height", svgH);
+  svg.setAttribute("viewBox", `0 0 ${svgW} ${svgH}`);
+
+  // 箭头 marker（普通 + requireAll 各一个，取项目色）
+  const defs = document.createElementNS(NS, "defs");
+  const mkMarker = (id, cls) => {
+    const m = document.createElementNS(NS, "marker");
+    m.setAttribute("id", id);
+    m.setAttribute("viewBox", "0 0 10 10");
+    m.setAttribute("refX", "9"); m.setAttribute("refY", "5");
+    m.setAttribute("markerWidth", "7"); m.setAttribute("markerHeight", "7");
+    m.setAttribute("orient", "auto-start-reverse");
+    const p = document.createElementNS(NS, "path");
+    p.setAttribute("d", "M0,0 L10,5 L0,10 z");
+    p.setAttribute("class", "edge-arrow" + (cls ? " " + cls : ""));
+    m.appendChild(p);
+    return m;
+  };
+  defs.appendChild(mkMarker("arrow", ""));
+  defs.appendChild(mkMarker("arrow-ra", "requireall"));
+  svg.appendChild(defs);
+
+  const dangerClass = (d) => d === "低危" ? "danger-low" : d === "中危" ? "danger-mid" : d === "高危" ? "danger-high" : "";
+
+  // 先画边（在节点下层）
+  for (const r of nodes) {
+    const to = pos.get(norm(r.place));
+    const requireAll = norm(r.prereqMode) === "全部";
+    for (const p of prereqOf(r)) {
+      const from = pos.get(p);
+      if (!from || !to) continue;
+      const x1 = from.cx, y1 = from.y + NH, x2 = to.cx, y2 = to.y;
+      const my = (y1 + y2) / 2;
+      const path = document.createElementNS(NS, "path");
+      path.setAttribute("d", `M${x1},${y1} C${x1},${my} ${x2},${my} ${x2},${y2}`);
+      path.setAttribute("class", "edge" + (requireAll ? " requireall" : ""));
+      path.setAttribute("marker-end", requireAll ? "url(#arrow-ra)" : "url(#arrow)");
+      svg.appendChild(path);
+    }
+  }
+
+  // 再画节点
+  for (const r of nodes) {
+    const nm = norm(r.place), p = pos.get(nm);
+    const g = document.createElementNS(NS, "g");
+    const isStart = norm(r.start) !== "";
+    g.setAttribute("class", "gnode " + dangerClass(norm(r.danger)) + (isStart ? " start" : ""));
+    g.setAttribute("transform", `translate(${p.x},${p.y})`);
+
+    const rect = document.createElementNS(NS, "rect");
+    rect.setAttribute("width", NW); rect.setAttribute("height", NH);
+    rect.setAttribute("rx", "4");
+    const tip = [nm];
+    if (isStart) tip.push("起点·" + norm(r.start));
+    if (norm(r.danger)) tip.push(norm(r.danger));
+    if (norm(r.prereq)) tip.push("需先：" + norm(r.prereq) + (norm(r.prereqMode) === "全部" ? "（全部）" : ""));
+    const title = document.createElementNS(NS, "title");
+    title.textContent = tip.join(" · ");
+    g.appendChild(title);
+    g.appendChild(rect);
+
+    const t1 = document.createElementNS(NS, "text");
+    t1.setAttribute("class", "glabel");
+    t1.setAttribute("x", NW / 2); t1.setAttribute("y", isStart ? 20 : 27);
+    t1.setAttribute("text-anchor", "middle");
+    t1.textContent = nm.length > 12 ? nm.slice(0, 11) + "…" : nm;
+    g.appendChild(t1);
+
+    const subBits = [];
+    if (isStart) subBits.push("起点·" + norm(r.start));
+    if (norm(r.danger)) subBits.push(norm(r.danger));
+    if (subBits.length) {
+      const t2 = document.createElementNS(NS, "text");
+      t2.setAttribute("class", "gsub");
+      t2.setAttribute("x", NW / 2); t2.setAttribute("y", 36);
+      t2.setAttribute("text-anchor", "middle");
+      t2.textContent = subBits.join(" · ");
+      g.appendChild(t2);
+    }
+    svg.appendChild(g);
+  }
+
+  // 图例
+  const legend = document.createElement("div");
+  legend.className = "graph-legend";
+  legend.innerHTML =
+    '<span class="lk"><span class="swatch startdot"></span>开局起点</span>' +
+    '<span class="lk"><span class="swatch"></span>解锁一个前置即可（任一）</span>' +
+    '<span class="lk"><span class="swatch requireall"></span>需集齐全部前置（全部）</span>' +
+    '<span class="lk" style="color:var(--text-mute)">悬停节点看危险度 / 前置</span>';
+  wrap.appendChild(legend);
+  wrap.appendChild(svg);
 }
 
 function iconDir() {

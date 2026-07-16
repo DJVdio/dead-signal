@@ -110,11 +110,13 @@ internal static class Characters
 
         // cfgKey 非空 ⇒ 这一行外置在 config（默认 perks.json，cfgFile 可覆盖到 merchant.json）：_configId=该字段名，
         // wiki-serve 按 configScalar 双向搬（cfg[cfgKey] 即值）。pct=true ⇒ 显示值是 config 分数 *100（双向 /100/*100）。
-        void Add(string who, string key, string label, double value, string unit, string anchor, bool settled = false,
+        // domain = 能力域（波2 页内分块 group）：战斗/生存/操作与生产/感知/经济/升级门槛/生成配置 七组之一。
+        void Add(string who, string domain, string key, string label, double value, string unit, string anchor, bool settled = false,
                  string? cfgKey = null, bool pct = false, string? cfgFile = null)
         {
             var row = new Dictionary<string, object?>
             {
+                ["group"] = domain,
                 ["label"] = label,
                 ["who"] = who,
                 ["value"] = Math.Round(value, 4),
@@ -134,27 +136,27 @@ internal static class Characters
 
         // —— 山姆·英雄风范（数值为用户原话拍板，非拟定）——
         const string samSrc = "godot/scripts/SurvivorPerks.cs :: SamPerk";
-        Add("山姆", "sam_l2_pop", "升 2 级所需营地人数", SamPerk.Level2CampPopulation, "人", samSrc + ".Level2CampPopulation", settled: true, cfgKey: "SamLevel2CampPopulation");
-        Add("山姆", "sam_l3_pop", "升 3 级所需营地人数", SamPerk.Level3CampPopulation, "人", samSrc + ".Level3CampPopulation", settled: true, cfgKey: "SamLevel3CampPopulation");
-        Add("山姆", "sam_l1_damage_reduction", "1 级 自身减伤", Pct(SamPerk.Level1DamageReduction), "%", samSrc + ".Level1DamageReduction", settled: true, cfgKey: "SamLevel1DamageReduction", pct: true);
-        Add("山姆", "sam_l2_carry", "2 级 自身负重上限加成", Pct(SamPerk.Level2CarryBonus), "%", samSrc + ".Level2CarryBonus", settled: true, cfgKey: "SamLevel2CarryBonus", pct: true);
-        Add("山姆", "sam_aura_carry", "3 级光环 全营负重上限", Pct(SamPerk.AuraCarryBonus), "%", samSrc + ".AuraCarryBonus", settled: true, cfgKey: "SamAuraCarryBonus", pct: true);
-        Add("山姆", "sam_aura_work", "3 级光环 全营干活效率", Pct(SamPerk.AuraWorkSpeedBonus), "%", samSrc + ".AuraWorkSpeedBonus", settled: true, cfgKey: "SamAuraWorkSpeedBonus", pct: true);
-        Add("山姆", "sam_aura_heal", "3 级光环 全营恢复速度", Pct(SamPerk.AuraHealSpeedBonus), "%", samSrc + ".AuraHealSpeedBonus", settled: true, cfgKey: "SamAuraHealSpeedBonus", pct: true);
-        Add("山姆", "sam_aura_infection", "3 级光环 全营感染恶化减缓", Pct(SamPerk.AuraInfectionWorsenReduction), "%", samSrc + ".AuraInfectionWorsenReduction", settled: true, cfgKey: "SamAuraInfectionWorsenReduction", pct: true);
-        Add("山姆", "sam_operation", "开局操作能力（缺两指的代价）", Pct(SamOperationCapability()), "%",
+        Add("山姆", "升级门槛", "sam_l2_pop", "升 2 级所需营地人数", SamPerk.Level2CampPopulation, "人", samSrc + ".Level2CampPopulation", settled: true, cfgKey: "SamLevel2CampPopulation");
+        Add("山姆", "升级门槛", "sam_l3_pop", "升 3 级所需营地人数", SamPerk.Level3CampPopulation, "人", samSrc + ".Level3CampPopulation", settled: true, cfgKey: "SamLevel3CampPopulation");
+        Add("山姆", "战斗", "sam_l1_damage_reduction", "1 级 自身减伤", Pct(SamPerk.Level1DamageReduction), "%", samSrc + ".Level1DamageReduction", settled: true, cfgKey: "SamLevel1DamageReduction", pct: true);
+        Add("山姆", "操作与生产", "sam_l2_carry", "2 级 自身负重上限加成", Pct(SamPerk.Level2CarryBonus), "%", samSrc + ".Level2CarryBonus", settled: true, cfgKey: "SamLevel2CarryBonus", pct: true);
+        Add("山姆", "操作与生产", "sam_aura_carry", "3 级光环 全营负重上限", Pct(SamPerk.AuraCarryBonus), "%", samSrc + ".AuraCarryBonus", settled: true, cfgKey: "SamAuraCarryBonus", pct: true);
+        Add("山姆", "操作与生产", "sam_aura_work", "3 级光环 全营干活效率", Pct(SamPerk.AuraWorkSpeedBonus), "%", samSrc + ".AuraWorkSpeedBonus", settled: true, cfgKey: "SamAuraWorkSpeedBonus", pct: true);
+        Add("山姆", "生存", "sam_aura_heal", "3 级光环 全营恢复速度", Pct(SamPerk.AuraHealSpeedBonus), "%", samSrc + ".AuraHealSpeedBonus", settled: true, cfgKey: "SamAuraHealSpeedBonus", pct: true);
+        Add("山姆", "生存", "sam_aura_infection", "3 级光环 全营感染恶化减缓", Pct(SamPerk.AuraInfectionWorsenReduction), "%", samSrc + ".AuraInfectionWorsenReduction", settled: true, cfgKey: "SamAuraInfectionWorsenReduction", pct: true);
+        Add("山姆", "操作与生产", "sam_operation", "开局操作能力（缺两指的代价）", Pct(SamOperationCapability()), "%",
             "src/DeadSignal.Combat/Body.cs :: FingerPenalty（−7%/指·该手累加）+ SurvivorBackstory.SeveredAtStart", settled: true);
 
         // —— 诺蒂·书虫 ——
         const string bookSrc = "godot/scripts/SurvivorPerks.cs :: BookwormPerk";
-        Add("诺蒂", "nordi_l2_hours", "升 2 级所需累计阅读", BookwormPerk.Level2ThresholdHours, "小时", bookSrc + ".Level2ThresholdHours", cfgKey: "BookwormLevel2ThresholdHours");
-        Add("诺蒂", "nordi_l3_hours", "升 3 级所需累计阅读", BookwormPerk.Level3ThresholdHours, "小时", bookSrc + ".Level3ThresholdHours", cfgKey: "BookwormLevel3ThresholdHours");
-        Add("诺蒂", "nordi_l1_read", "1 级 自身读速加成", Pct(BookwormPerk.BonusForLevel(1)), "%", bookSrc + ".BonusForLevel", cfgKey: "BookwormSelfBonusL1", pct: true);
+        Add("诺蒂", "升级门槛", "nordi_l2_hours", "升 2 级所需累计阅读", BookwormPerk.Level2ThresholdHours, "小时", bookSrc + ".Level2ThresholdHours", cfgKey: "BookwormLevel2ThresholdHours");
+        Add("诺蒂", "升级门槛", "nordi_l3_hours", "升 3 级所需累计阅读", BookwormPerk.Level3ThresholdHours, "小时", bookSrc + ".Level3ThresholdHours", cfgKey: "BookwormLevel3ThresholdHours");
+        Add("诺蒂", "操作与生产", "nordi_l1_read", "1 级 自身读速加成", Pct(BookwormPerk.BonusForLevel(1)), "%", bookSrc + ".BonusForLevel", cfgKey: "BookwormSelfBonusL1", pct: true);
         // 🔴 L2、L3 自身读速**共用同一个 config 字段** BookwormSelfBonusL2Plus（BonusForLevel(2)==BonusForLevel(3)）。
         //    只把 L2 行接双向（写它即改该字段，L3 下次抽取自动跟着变）；L3 行不带 _configId，避免两行写同一字段互相覆盖。
-        Add("诺蒂", "nordi_l2_read", "2 级 自身读速加成", Pct(BookwormPerk.BonusForLevel(2)), "%", bookSrc + ".BonusForLevel", cfgKey: "BookwormSelfBonusL2Plus", pct: true);
-        Add("诺蒂", "nordi_l3_read", "3 级 自身读速加成", Pct(BookwormPerk.BonusForLevel(3)), "%", bookSrc + ".BonusForLevel（= L2 同一字段 BookwormSelfBonusL2Plus，改 L2 行即改它）");
-        Add("诺蒂", "nordi_l3_campwide", "3 级 全营读速加成", Pct(BookwormPerk.CampWideBonusAtMax), "%", bookSrc + ".CampWideBonusAtMax", cfgKey: "BookwormCampWideBonusAtMax", pct: true);
+        Add("诺蒂", "操作与生产", "nordi_l2_read", "2 级 自身读速加成", Pct(BookwormPerk.BonusForLevel(2)), "%", bookSrc + ".BonusForLevel", cfgKey: "BookwormSelfBonusL2Plus", pct: true);
+        Add("诺蒂", "操作与生产", "nordi_l3_read", "3 级 自身读速加成", Pct(BookwormPerk.BonusForLevel(3)), "%", bookSrc + ".BonusForLevel（= L2 同一字段 BookwormSelfBonusL2Plus，改 L2 行即改它）");
+        Add("诺蒂", "操作与生产", "nordi_l3_campwide", "3 级 全营读速加成", Pct(BookwormPerk.CampWideBonusAtMax), "%", bookSrc + ".CampWideBonusAtMax", cfgKey: "BookwormCampWideBonusAtMax", pct: true);
         // 🔴 「没座位读书 *0.9」**不是诺蒂的专属效果，是全员通则** —— 用户澄清，代码本来就是对的：
         //    `ReadingSpeed.Effective(..., hasSeat, ...)` 对**每一个** pawn 都算，没有任何按名/按 perk 的门控。
         //    把它列在诺蒂名下，会让人以为"没座位只影响她"，从而调错数值。
@@ -162,60 +164,60 @@ internal static class Characters
 
         // —— 道格 & 布鲁斯·人狗羁绊 ——
         const string bondSrc = "godot/scripts/DougBruceBond.cs :: DougBruceBond";
-        Add("道格", "doug_l2_days", "升 2 级所需共同存活", DougBruceBond.Level2Days, "天", bondSrc + ".Level2Days");
-        Add("道格", "doug_l3_days", "升 3 级所需共同存活", DougBruceBond.Level3Days, "天", bondSrc + ".Level3Days");
-        Add("道格", "doug_angle", "1 级 道格视野角加成", Pct(DougBruceBond.DougAngleBonusMult - 1), "%", bondSrc + ".DougAngleBonusMult");
-        Add("道格", "bruce_angle", "1 级 布鲁斯视野角加成", Pct(DougBruceBond.BruceAngleBonusMult - 1), "%", bondSrc + ".BruceAngleBonusMult");
-        Add("道格", "bruce_range", "2 级 布鲁斯视距加成", Pct(DougBruceBond.BruceRangeBonusMult - 1), "%", bondSrc + ".BruceRangeBonusMult");
-        Add("道格", "bond_aura_production", "3 级光环 生产效率", Pct(DougBruceBond.AuraProductionMult - 1), "%", bondSrc + ".AuraProductionMult");
-        Add("道格", "bond_aura_damage", "3 级光环 受伤减免", Pct(1 - DougBruceBond.AuraDamageTakenMult), "%", bondSrc + ".AuraDamageTakenMult");
-        Add("道格", "bond_aura_radius", "3 级光环 生效半径", DougBruceBond.DefaultAuraRadius, "像素", bondSrc + ".DefaultAuraRadius");
-        Add("道格", "village_siege_zombies", "救援点围困丧尸数", VillageRescue.SiegeZombieCount, "只", "godot/scripts/VillageRescue.cs :: SiegeZombieCount");
-        Add("道格", "village_bark_radius", "布鲁斯吠叫引路半径", VillageRescue.BarkTriggerRadius, "像素", "godot/scripts/VillageRescue.cs :: BarkTriggerRadius");
+        Add("道格", "升级门槛", "doug_l2_days", "升 2 级所需共同存活", DougBruceBond.Level2Days, "天", bondSrc + ".Level2Days");
+        Add("道格", "升级门槛", "doug_l3_days", "升 3 级所需共同存活", DougBruceBond.Level3Days, "天", bondSrc + ".Level3Days");
+        Add("道格", "感知", "doug_angle", "1 级 道格视野角加成", Pct(DougBruceBond.DougAngleBonusMult - 1), "%", bondSrc + ".DougAngleBonusMult");
+        Add("道格", "感知", "bruce_angle", "1 级 布鲁斯视野角加成", Pct(DougBruceBond.BruceAngleBonusMult - 1), "%", bondSrc + ".BruceAngleBonusMult");
+        Add("道格", "感知", "bruce_range", "2 级 布鲁斯视距加成", Pct(DougBruceBond.BruceRangeBonusMult - 1), "%", bondSrc + ".BruceRangeBonusMult");
+        Add("道格", "操作与生产", "bond_aura_production", "3 级光环 生产效率", Pct(DougBruceBond.AuraProductionMult - 1), "%", bondSrc + ".AuraProductionMult");
+        Add("道格", "生存", "bond_aura_damage", "3 级光环 受伤减免", Pct(1 - DougBruceBond.AuraDamageTakenMult), "%", bondSrc + ".AuraDamageTakenMult");
+        Add("道格", "操作与生产", "bond_aura_radius", "3 级光环 生效半径", DougBruceBond.DefaultAuraRadius, "像素", bondSrc + ".DefaultAuraRadius");
+        Add("道格", "生成配置", "village_siege_zombies", "救援点围困丧尸数", VillageRescue.SiegeZombieCount, "只", "godot/scripts/VillageRescue.cs :: SiegeZombieCount");
+        Add("道格", "感知", "village_bark_radius", "布鲁斯吠叫引路半径", VillageRescue.BarkTriggerRadius, "像素", "godot/scripts/VillageRescue.cs :: BarkTriggerRadius");
 
         // —— 布鲁斯（狗）——
-        Add("布鲁斯", "bruce_guard_efficiency", "站岗效率（相对人类）", Pct(DougBruceBond.BruceGuardEfficiency), "%", bondSrc + ".BruceGuardEfficiency");
-        Add("布鲁斯", "dog_gear_unlock_level", "解锁狗装备所需羁绊等级", DougBruceBond.DogGearUnlockLevel, "级", bondSrc + ".DogGearUnlockLevel", settled: true);
-        Add("布鲁斯", "dog_hunger_cap", "饥饿上限", DogHungerState.Cap, "刻", "godot/scripts/DogHungerState.cs :: Cap");
-        Add("布鲁斯", "dog_hunger_eat", "吃一份食物回复（人只回 1）", DogHungerState.EatGain, "刻", "godot/scripts/DogHungerState.cs :: EatGain", settled: true);
-        Add("布鲁斯", "dog_hunger_drain", "每个聚餐相位消耗", 1, "刻", "godot/scripts/DogHungerState.cs :: ResolvePhase", settled: true);
+        Add("布鲁斯", "战斗", "bruce_guard_efficiency", "站岗效率（相对人类）", Pct(DougBruceBond.BruceGuardEfficiency), "%", bondSrc + ".BruceGuardEfficiency");
+        Add("布鲁斯", "升级门槛", "dog_gear_unlock_level", "解锁狗装备所需羁绊等级", DougBruceBond.DogGearUnlockLevel, "级", bondSrc + ".DogGearUnlockLevel", settled: true);
+        Add("布鲁斯", "生存", "dog_hunger_cap", "饥饿上限", DogHungerState.Cap, "刻", "godot/scripts/DogHungerState.cs :: Cap");
+        Add("布鲁斯", "生存", "dog_hunger_eat", "吃一份食物回复（人只回 1）", DogHungerState.EatGain, "刻", "godot/scripts/DogHungerState.cs :: EatGain", settled: true);
+        Add("布鲁斯", "生存", "dog_hunger_drain", "每个聚餐相位消耗", 1, "刻", "godot/scripts/DogHungerState.cs :: ResolvePhase", settled: true);
 
         // —— 南丁格尔·医疗特长（数值为用户原话拍板，非拟定）——
         const string nurseSrc = "godot/scripts/SurvivorPerks.cs :: NightingalePerk";
-        Add("南丁格尔", "nurse_l2_surgeries", "升 2 级所需手术台数", NightingalePerk.Level2ThresholdSurgeries, "台", nurseSrc + ".Level2ThresholdSurgeries", cfgKey: "NightingaleLevel2ThresholdSurgeries");
-        Add("南丁格尔", "nurse_l3_surgeries", "升 3 级所需手术台数", NightingalePerk.Level3ThresholdSurgeries, "台", nurseSrc + ".Level3ThresholdSurgeries", cfgKey: "NightingaleLevel3ThresholdSurgeries");
+        Add("南丁格尔", "升级门槛", "nurse_l2_surgeries", "升 2 级所需手术台数", NightingalePerk.Level2ThresholdSurgeries, "台", nurseSrc + ".Level2ThresholdSurgeries", cfgKey: "NightingaleLevel2ThresholdSurgeries");
+        Add("南丁格尔", "升级门槛", "nurse_l3_surgeries", "升 3 级所需手术台数", NightingalePerk.Level3ThresholdSurgeries, "台", nurseSrc + ".Level3ThresholdSurgeries", cfgKey: "NightingaleLevel3ThresholdSurgeries");
         // 🔴 「常人的手术基础点数 = 15」**不是南丁格尔的特长，是所有人的基线**（人人自带 15 点，不看技能）。
         //    挂在她名下，会让人以为那 15 点也是她给的。她的特长是**她本人 30 点** + **3 级全营 +5**（下面两条）。
         //    已移到「全局规则」分区。
-        Add("南丁格尔", "surgery_base_nurse", "1 级 她本人的手术基础点数", NightingalePerk.NightingaleSurgeryBasePoints, "点", nurseSrc + ".NightingaleSurgeryBasePoints", settled: true, cfgKey: "NightingaleSurgeryBasePoints");
-        Add("南丁格尔", "surgery_base_camp_bonus", "3 级 全营手术基础点加成（永续）", NightingalePerk.CampSurgeryBaseBonus, "点", nurseSrc + ".CampSurgeryBaseBonus", settled: true, cfgKey: "NightingaleCampSurgeryBaseBonus");
-        Add("南丁格尔", "nurse_l2_infection", "2 级 全营感染率降低", Pct(NightingalePerk.Level2InfectionReduction), "%", nurseSrc + ".Level2InfectionReduction", settled: true, cfgKey: "NightingaleLevel2InfectionReduction", pct: true);
-        Add("南丁格尔", "nurse_l3_infection", "3 级 全营感染率再降低（永续）", Pct(NightingalePerk.Level3InfectionReduction), "%", nurseSrc + ".Level3InfectionReduction", settled: true, cfgKey: "NightingaleLevel3InfectionReduction", pct: true);
+        Add("南丁格尔", "生存", "surgery_base_nurse", "1 级 她本人的手术基础点数", NightingalePerk.NightingaleSurgeryBasePoints, "点", nurseSrc + ".NightingaleSurgeryBasePoints", settled: true, cfgKey: "NightingaleSurgeryBasePoints");
+        Add("南丁格尔", "生存", "surgery_base_camp_bonus", "3 级 全营手术基础点加成（永续）", NightingalePerk.CampSurgeryBaseBonus, "点", nurseSrc + ".CampSurgeryBaseBonus", settled: true, cfgKey: "NightingaleCampSurgeryBaseBonus");
+        Add("南丁格尔", "生存", "nurse_l2_infection", "2 级 全营感染率降低", Pct(NightingalePerk.Level2InfectionReduction), "%", nurseSrc + ".Level2InfectionReduction", settled: true, cfgKey: "NightingaleLevel2InfectionReduction", pct: true);
+        Add("南丁格尔", "生存", "nurse_l3_infection", "3 级 全营感染率再降低（永续）", Pct(NightingalePerk.Level3InfectionReduction), "%", nurseSrc + ".Level3InfectionReduction", settled: true, cfgKey: "NightingaleLevel3InfectionReduction", pct: true);
 
         // —— 克莉丝汀 ——
-        Add("克莉丝汀", "christine_declines", "累计几次「暂不」后她离开", ChristineRequestLogic.DeclinesToLeave, "次", "godot/scripts/ChristineRequestLogic.cs :: DeclinesToLeave");
-        Add("克莉丝汀", "christine_raider_wounded", "劫掠者掉血到多少触发她反水", Pct(TutorialRaidLogic.RaiderWoundedThreshold), "%血量", "godot/scripts/TutorialRaidLogic.cs :: RaiderWoundedThreshold");
-        Add("克莉丝汀", "christine_self_hurt", "她自己掉血到多少触发反水", Pct(TutorialRaidLogic.ChristineHurtThreshold), "%血量", "godot/scripts/TutorialRaidLogic.cs :: ChristineHurtThreshold");
+        Add("克莉丝汀", "生成配置", "christine_declines", "累计几次「暂不」后她离开", ChristineRequestLogic.DeclinesToLeave, "次", "godot/scripts/ChristineRequestLogic.cs :: DeclinesToLeave");
+        Add("克莉丝汀", "战斗", "christine_raider_wounded", "劫掠者掉血到多少触发她反水", Pct(TutorialRaidLogic.RaiderWoundedThreshold), "%血量", "godot/scripts/TutorialRaidLogic.cs :: RaiderWoundedThreshold");
+        Add("克莉丝汀", "战斗", "christine_self_hurt", "她自己掉血到多少触发反水", Pct(TutorialRaidLogic.ChristineHurtThreshold), "%血量", "godot/scripts/TutorialRaidLogic.cs :: ChristineHurtThreshold");
 
         // —— 神秘商人（两位商人共用同一套价率与调度）——
         var sched = new MerchantSchedule(new SystemRandomSource(), currentDay: 0);
         // 商人价率外置在 merchant.json（不在 perks.json）⇒ 行级 _configFile 覆盖表级；值本身就是整数百分比(100/60)，config 也存整数 ⇒ 不 pct。
-        Add("神秘商人", "merchant_buy_rate", "玩家买入价（占基准价）", MerchantTrade.BuyRatePercent, "%", "godot/scripts/MerchantTrade.cs :: BuyRatePercent", settled: true, cfgKey: "BuyRatePercent", cfgFile: "merchant.json");
-        Add("神秘商人", "merchant_sell_rate", "玩家卖出价（占基准价）", MerchantTrade.SellRatePercent, "%", "godot/scripts/MerchantTrade.cs :: SellRatePercent", settled: true, cfgKey: "SellRatePercent", cfgFile: "merchant.json");
-        Add("神秘商人", "merchant_gap_min", "来访间隔下限", sched.MinGap, "天", "godot/scripts/MerchantSchedule.cs :: 构造默认 minGap", settled: true);
-        Add("神秘商人", "merchant_gap_max", "来访间隔上限", sched.MaxGap, "天", "godot/scripts/MerchantSchedule.cs :: 构造默认 maxGap", settled: true);
+        Add("神秘商人", "经济", "merchant_buy_rate", "玩家买入价（占基准价）", MerchantTrade.BuyRatePercent, "%", "godot/scripts/MerchantTrade.cs :: BuyRatePercent", settled: true, cfgKey: "BuyRatePercent", cfgFile: "merchant.json");
+        Add("神秘商人", "经济", "merchant_sell_rate", "玩家卖出价（占基准价）", MerchantTrade.SellRatePercent, "%", "godot/scripts/MerchantTrade.cs :: SellRatePercent", settled: true, cfgKey: "SellRatePercent", cfgFile: "merchant.json");
+        Add("神秘商人", "经济", "merchant_gap_min", "来访间隔下限", sched.MinGap, "天", "godot/scripts/MerchantSchedule.cs :: 构造默认 minGap", settled: true);
+        Add("神秘商人", "经济", "merchant_gap_max", "来访间隔上限", sched.MaxGap, "天", "godot/scripts/MerchantSchedule.cs :: 构造默认 maxGap", settled: true);
 
         // —— 敌对 ——
         double dressed = ZombieOutfit.Presets.Where(p => p.Clothes().Count > 0).Sum(p => p.Weight);
-        Add("丧尸", "zombie_dressed_rate", "至少还穿着一件的比例", Pct(dressed), "%", "src/DeadSignal.Combat/ZombieOutfit.cs :: Presets（权重和）", settled: true);
-        Add("丧尸", "zombie_outfit_count", "日常着装预设套数", ZombieOutfit.Presets.Count, "套", "src/DeadSignal.Combat/ZombieOutfit.cs :: Presets", settled: true);
-        Add("超市的「幸存者」", "supermarket_ambushers", "背刺围攻人数", SupermarketAmbush.AmbushRaiderCount, "名", "godot/scripts/SupermarketAmbush.cs :: AmbushRaiderCount", settled: true);
+        Add("丧尸", "生成配置", "zombie_dressed_rate", "至少还穿着一件的比例", Pct(dressed), "%", "src/DeadSignal.Combat/ZombieOutfit.cs :: Presets（权重和）", settled: true);
+        Add("丧尸", "生成配置", "zombie_outfit_count", "日常着装预设套数", ZombieOutfit.Presets.Count, "套", "src/DeadSignal.Combat/ZombieOutfit.cs :: Presets", settled: true);
+        Add("超市的「幸存者」", "生成配置", "supermarket_ambushers", "背刺围攻人数", SupermarketAmbush.AmbushRaiderCount, "名", "godot/scripts/SupermarketAmbush.cs :: AmbushRaiderCount", settled: true);
 
         foreach (ZombieOutfitPreset p in ZombieOutfit.ElitePresets)
         {
-            Add(p.Name, "elite_weight_" + EliteId(p.Name), "随机抽取权重（0 = 永不随机出现）", p.Weight, "",
+            Add(p.Name, "生成配置", "elite_weight_" + EliteId(p.Name), "随机抽取权重（0 = 永不随机出现）", p.Weight, "",
                 "src/DeadSignal.Combat/ZombieOutfit.cs :: ElitePresets", settled: true);
-            Add(p.Name, "elite_layers_" + EliteId(p.Name), "身上的衣物/护甲件数", p.Clothes().Count, "件",
+            Add(p.Name, "生成配置", "elite_layers_" + EliteId(p.Name), "身上的衣物/护甲件数", p.Clothes().Count, "件",
                 "src/DeadSignal.Combat/ZombieOutfit.cs :: ElitePresets", settled: true);
         }
 

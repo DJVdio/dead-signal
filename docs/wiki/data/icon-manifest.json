@@ -192,9 +192,7 @@
       "books/book_archery",
       "books/book_mechanics",
       "books/book_bowcraft",
-      "books/book_peak_hour"
-    ],
-    "diaries": [
+      "books/book_peak_hour",
       "books/book_diary_a",
       "books/book_diary_b"
     ],
@@ -230,13 +228,11 @@
       "food/mushroom",
       "food/rat_meat",
       "food/bird_meat",
-      "materials/rosehip"
-    ],
-    "cooking": [
-      "cooking/base_portion_cost",
-      "cooking/pot_discount",
-      "cooking/grill_discount",
-      "cooking/work_minutes_per_portion"
+      "materials/rosehip",
+      "food/base_portion_cost",
+      "food/pot_discount",
+      "food/grill_discount",
+      "food/work_minutes_per_portion"
     ],
     "characters": [
       "characters/sam",

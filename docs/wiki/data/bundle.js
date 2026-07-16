@@ -2,7 +2,7 @@
 // 用途：以 file:// 直接打开 index.html 时的降级数据源（浏览器不允许 fetch 本地文件）。
 window.WIKI_BUNDLE = {
   index: {
-  "generatedAt": "2026-07-16 09:02:27",
+  "generatedAt": "2026-07-16 10:51:23",
   "iconDir": "godot/assets/items",
   "multiselectOptions": {
     "fitsWeapons": [
@@ -97,17 +97,10 @@ window.WIKI_BUNDLE = {
     },
     {
       "id": "books",
-      "label": "书籍",
+      "label": "书籍与日记",
       "file": "books.json",
-      "count": 10,
-      "source": "godot/scripts/BookData.cs"
-    },
-    {
-      "id": "diaries",
-      "label": "日记与笔记",
-      "file": "diaries.json",
-      "count": 2,
-      "source": "godot/scripts/BookData.cs"
+      "count": 12,
+      "source": "godot/scripts/BookData.cs · godot/scripts/BookData.cs"
     },
     {
       "id": "weapon-mods",
@@ -125,24 +118,24 @@ window.WIKI_BUNDLE = {
     },
     {
       "id": "food",
-      "label": "食物与食材",
+      "label": "食物与烹饪",
       "file": "food.json",
-      "count": 10,
-      "source": "godot/scripts/CookingLogic.cs + godot/scripts/Materials.cs"
+      "count": 14,
+      "source": "godot/scripts/CookingLogic.cs + godot/scripts/Materials.cs · godot/scripts/CookingLogic.cs"
     },
     {
-      "id": "cooking",
-      "label": "烹饪规则",
-      "file": "cooking.json",
-      "count": 4,
-      "source": "godot/scripts/CookingLogic.cs"
+      "id": "farming",
+      "label": "种植与陷阱",
+      "file": "farming.json",
+      "count": 11,
+      "source": "godot/scripts/Farming.cs · godot/scripts/TrapLogic.cs"
     },
     {
       "id": "global-rules",
       "label": "全局规则",
       "file": "global-rules.json",
-      "count": 17,
-      "source": "src/DeadSignal.Combat/DualWield.cs · src/DeadSignal.Combat/BleedModel.cs · godot/scripts/SurvivorPerks.cs · godot/scripts/CoverLogic.cs"
+      "count": 53,
+      "source": "src/DeadSignal.Combat/DualWield.cs · BleedModel.cs · godot/scripts/SurvivorPerks.cs · CoverLogic.cs · 各 config json（hunger/horde/military/nightwatch/southtrial/health/body）"
     },
     {
       "id": "characters",
@@ -4453,9 +4446,9 @@ window.WIKI_BUNDLE = {
 },
     "books": {
   "id": "books",
-  "label": "书籍",
-  "source": "godot/scripts/BookData.cs",
-  "note": "本作没有技能系统——**能力只由角色的专属效果和读过的书承载**。配方解锁只看谁读过哪本书。「读完要几小时」是**角色的时间**：读书的人整夜占着座位，那一夜他不能站岗、也不能干活——这就是书的代价。（日记不在这张表里：它是给玩家看的道具，不花角色一分钟，见「日记与笔记」。）",
+  "label": "书籍与日记",
+  "source": "godot/scripts/BookData.cs · godot/scripts/BookData.cs",
+  "note": "读书是角色的时间成本，日记是白捡的剧情——两者放一页，但**分块泾渭分明**。「书籍」段那些要角色整夜坐着读、能解锁配方/给被动的才是书；「日记」段是道具，玩家点开即读、不花任何角色一分钟、什么也不解锁。",
   "columns": [
     {
       "key": "title",
@@ -4466,12 +4459,14 @@ window.WIKI_BUNDLE = {
     {
       "key": "readHours",
       "label": "读完要几小时",
-      "type": "number"
+      "type": "number",
+      "group": "书籍"
     },
     {
       "key": "unlocks",
       "label": "效果",
       "type": "text",
+      "group": "书籍",
       "hint": "读完这本书带来什么：解锁的配方、给的被动加成、让手术更有把握……都写这一列，用人话。数字直接写在句子里，agent 会照它同步进代码。"
     },
     {
@@ -4536,6 +4531,7 @@ window.WIKI_BUNDLE = {
       "_id": "wilderness_survival_guide",
       "_surgeryPoints": 3,
       "_anchor": "godot/scripts/BookData.cs :: BookLibrary；手术点数在 godot/scripts/HealthConditions.cs :: MedicalBookPoints",
+      "group": "书籍",
       "userNote": "",
       "sync": "",
       "_icon": "books/book_wilderness"
@@ -4549,6 +4545,7 @@ window.WIKI_BUNDLE = {
       "_id": "farmer_hundred_questions",
       "_surgeryPoints": null,
       "_anchor": "godot/scripts/BookData.cs :: BookLibrary",
+      "group": "书籍",
       "userNote": "",
       "sync": "",
       "_icon": "books/book_farming"
@@ -4562,6 +4559,7 @@ window.WIKI_BUNDLE = {
       "_id": "tailors_notes",
       "_surgeryPoints": null,
       "_anchor": "godot/scripts/BookData.cs :: BookLibrary",
+      "group": "书籍",
       "userNote": "",
       "sync": "",
       "_icon": "books/book_tailoring"
@@ -4575,6 +4573,7 @@ window.WIKI_BUNDLE = {
       "_id": "folk_chemistry_notes",
       "_surgeryPoints": null,
       "_anchor": "godot/scripts/BookData.cs :: BookLibrary",
+      "group": "书籍",
       "userNote": "",
       "sync": "",
       "_icon": "books/book_chemistry"
@@ -4588,6 +4587,7 @@ window.WIKI_BUNDLE = {
       "_id": "carpentry_basics",
       "_surgeryPoints": null,
       "_anchor": "godot/scripts/BookData.cs :: BookLibrary",
+      "group": "书籍",
       "userNote": "",
       "sync": "",
       "_icon": "books/book_carpentry"
@@ -4601,6 +4601,7 @@ window.WIKI_BUNDLE = {
       "_id": "advanced_carpentry",
       "_surgeryPoints": null,
       "_anchor": "godot/scripts/BookData.cs :: BookLibrary",
+      "group": "书籍",
       "userNote": "",
       "sync": "",
       "_icon": "books/book_carpentry_adv"
@@ -4614,6 +4615,7 @@ window.WIKI_BUNDLE = {
       "_id": "way_of_bow_and_arrow",
       "_surgeryPoints": null,
       "_anchor": "godot/scripts/BookData.cs :: BookLibrary",
+      "group": "书籍",
       "userNote": "",
       "sync": "",
       "_icon": "books/book_archery"
@@ -4627,6 +4629,7 @@ window.WIKI_BUNDLE = {
       "_id": "mechanical_beauty",
       "_surgeryPoints": null,
       "_anchor": "godot/scripts/BookData.cs :: BookLibrary",
+      "group": "书籍",
       "userNote": "",
       "sync": "",
       "_icon": "books/book_mechanics"
@@ -4640,6 +4643,7 @@ window.WIKI_BUNDLE = {
       "_id": "bow_crafting_guide",
       "_surgeryPoints": null,
       "_anchor": "godot/scripts/BookData.cs :: BookLibrary",
+      "group": "书籍",
       "userNote": "",
       "sync": "",
       "_icon": "books/book_bowcraft"
@@ -4653,77 +4657,17 @@ window.WIKI_BUNDLE = {
       "_id": "peak_hour",
       "_surgeryPoints": null,
       "_anchor": "godot/scripts/BookData.cs :: BookLibrary",
+      "group": "书籍",
       "userNote": "",
       "sync": "",
       "_icon": "books/book_peak_hour"
-    }
-  ]
-},
-    "diaries": {
-  "id": "diaries",
-  "label": "日记与笔记",
-  "source": "godot/scripts/BookData.cs",
-  "note": "**它们不是书，是道具。** 玩家在库存里点开就能看全文，游戏冻结着看，**不花任何角色的时间**——捡到就等于读到了。它们什么也不解锁，只讲故事。（对照：「书籍」表里那些要角色整夜坐着读的，才是书。）",
-  "columns": [
-    {
-      "key": "title",
-      "label": "标题",
-      "type": "text",
-      "primary": true
     },
-    {
-      "key": "body",
-      "label": "正文",
-      "type": "longtext",
-      "hint": "玩家在库存里点开就能看的全文（看的时候游戏是暂停的）。这是剧情文本，你写什么就是什么。"
-    },
-    {
-      "key": "description",
-      "label": "简介",
-      "type": "longtext",
-      "hint": "**玩家在游戏里看到的描述**。改了它，agent 会把新文案同步进代码。（有几个分区代码里还没有描述字段——你照样可以写，写了就是在告诉 agent「这里该有一个」。）"
-    },
-    {
-      "key": "userNote",
-      "label": "备注",
-      "type": "note",
-      "usernote": true,
-      "hint": "**你的设计笔记，不进游戏**——想到什么特殊效果就写在这（比如「这把锤子应该能砸开保险箱」）。它不会被同步成游戏文案，但 agent 每次跑抽取器都会看到你新写的备注。"
-    },
-    {
-      "key": "_id",
-      "label": "内部 id",
-      "type": "text",
-      "internal": true
-    },
-    {
-      "key": "_anchor",
-      "label": "代码位置",
-      "type": "text",
-      "internal": true
-    },
-    {
-      "key": "sync",
-      "label": "同步状态",
-      "type": "chip",
-      "readonly": true,
-      "hint": "空 = 已在代码里。「新增/删除·待同步进代码」= 你在网页上的改动还没进游戏，需要 agent 同步到 C#。"
-    },
-    {
-      "key": "_icon",
-      "label": "图标",
-      "type": "text",
-      "internal": true,
-      "hint": "godot/assets/items/<这个>.png（映射表在 godot/scripts/ItemIcons.cs）"
-    }
-  ],
-  "rows": [
     {
       "title": "一本卷边的日记（其一）",
       "body": "字迹潦草，像是就着火光匆匆写下的。\n灾变头一个月，是老陈拉了我一把。我们俩背靠背，从加油站一路抢到城郊，谁也没抛下谁——那时候我还觉得，能活下来的都是好人。\n后来我们撞上了这伙人。有吃的，有墙，有武器。代价是，你得跟他们一样。\n第一次把那女人拖进屋的时候，我手在抖。老大说，就该如此拿在手里，拿不住的，不配活。老陈先动的手，我跟上了。往后就不抖了。\n他们管自己叫\"金手指\"。老大说，指头是男人身上最诚实的东西——它按住扳机，也按住女人，它做过的事，脑子可以不认，指头认。\n所以入伙那天，每个人都要用手指在她们身上留下印子。这就是规矩。",
       "_id": "goldfinger_diary_a",
       "_anchor": "godot/scripts/BookData.cs :: BookLibrary（BookData.Diary）",
-      "description": "",
+      "group": "日记",
       "userNote": "",
       "sync": "",
       "_icon": "books/book_diary_a"
@@ -4733,7 +4677,7 @@ window.WIKI_BUNDLE = {
       "body": "硬壳笔记本，扉页只写着一个名字：哥顿。字迹清秀得似是小女生字样。\n我母亲从不许我父亲说完一句话。父亲低着头吃饭、低着头挨骂、低着头老去。我恨他的软弱，也害怕自己就是他。\n变尸的那天，是母亲先咬穿了父亲的喉咙。他没有反抗，甚至没有后退——他就那样看着她扑上来，像是终于等到了什么。我躲在门后，一动没动。\n我用稿子砸穿了母亲的头，比我想象得简单得多，我早该这么做了\n后来我立了规矩，教弟兄们如何拿捏一个女人。\n可这些天我总在想——把她们折磨到死，我究竟证明了什么？\n我意识到，我不过是那个躲在门后、连喊都不敢喊的孩子。\n什么都没有。只有我自己那点没用的怕。\n守林人小屋后院那棵老树的横枝够粗，绳子我也试过了。\n没人认得我，也没人替我说话——很好，再见了这个操蛋的世界，我很荣幸让它变得更加操蛋。",
       "_id": "goldfinger_diary_b",
       "_anchor": "godot/scripts/BookData.cs :: BookLibrary（BookData.Diary）",
-      "description": "",
+      "group": "日记",
       "userNote": "",
       "sync": "",
       "_icon": "books/book_diary_b"
@@ -5422,20 +5366,22 @@ window.WIKI_BUNDLE = {
 },
     "food": {
   "id": "food",
-  "label": "食物与食材",
-  "source": "godot/scripts/CookingLogic.cs + godot/scripts/Materials.cs",
-  "note": "能下锅的东西。凑够一份饭的热量，就能在烹饪台做出一份食物——凑不够就做不成。⚠️ 热量点**只在这张表里看得到**：游戏里玩家看不见任何数字，得自己试出来「几只老鼠才够一顿饭」，那是刻意设计的乐趣，别把这些数字搬进游戏 UI。（玫瑰果和蒲公英同时也是草药——末日里没人挑食，所以它们在「材料」分区里也有一份。）",
+  "label": "食物与烹饪",
+  "source": "godot/scripts/CookingLogic.cs + godot/scripts/Materials.cs · godot/scripts/CookingLogic.cs",
+  "note": "从食材到一顿饭：**食材**段是能下锅的东西和它们的热量点，**烹饪**段是把食材变成饭的几个可调数。⚠️ 这些数字**游戏里一个都不显示**，玩家得自己试出「几只老鼠够一顿饭」——刻意设计的乐趣。",
   "columns": [
     {
       "key": "name",
       "label": "名称",
       "type": "text",
-      "primary": true
+      "primary": true,
+      "group": "食材"
     },
     {
       "key": "calories",
       "label": "热量点",
       "type": "number",
+      "group": "食材",
       "hint": "这一个单位的食材能贡献多少热量。一份饭要 16 点（装了炊具更少）"
     },
     {
@@ -5443,6 +5389,7 @@ window.WIKI_BUNDLE = {
       "label": "几个够做一份饭",
       "type": "number",
       "readonly": true,
+      "group": "食材",
       "hint": "自动算的：一份饭要多少热量 ÷ 这个食材的热量点（向上取整）。要改 ⇒ 改「热量点」，或去「烹饪规则」改一份饭要多少热量。"
     },
     {
@@ -5471,6 +5418,32 @@ window.WIKI_BUNDLE = {
       "internal": true
     },
     {
+      "key": "label",
+      "label": "规则",
+      "type": "text",
+      "primary": true,
+      "group": "烹饪"
+    },
+    {
+      "key": "value",
+      "label": "数值",
+      "type": "number",
+      "group": "烹饪"
+    },
+    {
+      "key": "unit",
+      "label": "单位",
+      "type": "chip",
+      "group": "烹饪",
+      "hint": "这个数字的单位。只是给人看的标签。"
+    },
+    {
+      "key": "note",
+      "label": "说明",
+      "type": "longtext",
+      "group": "烹饪"
+    },
+    {
       "key": "sync",
       "label": "同步状态",
       "type": "chip",
@@ -5493,6 +5466,7 @@ window.WIKI_BUNDLE = {
       "description": "兔兔这么可爱！",
       "_id": "rabbit",
       "_anchor": "godot/scripts/CookingLogic.cs :: FoodCalories（热量点）+ godot/scripts/Materials.cs（名称/说明）",
+      "group": "食材",
       "userNote": "",
       "sync": "",
       "_icon": "food/rabbit"
@@ -5504,6 +5478,7 @@ window.WIKI_BUNDLE = {
       "description": "河里的鱼。没人知道那水现在还干不干净，但煮熟了，谁也不会先问这个问题。",
       "_id": "fish",
       "_anchor": "godot/scripts/CookingLogic.cs :: FoodCalories（热量点）+ godot/scripts/Materials.cs（名称/说明）",
+      "group": "食材",
       "userNote": "",
       "sync": "",
       "_icon": "food/fish"
@@ -5515,6 +5490,7 @@ window.WIKI_BUNDLE = {
       "description": "军方发的单兵口粮，密封、耐放、量足。包装上印着「一日份」——印它的那个人还相信会有下一日。",
       "_id": "ration",
       "_anchor": "godot/scripts/CookingLogic.cs :: FoodCalories（热量点）+ godot/scripts/Materials.cs（名称/说明）",
+      "group": "食材",
       "userNote": "",
       "sync": "",
       "_icon": "food/ration_military"
@@ -5526,6 +5502,7 @@ window.WIKI_BUNDLE = {
       "description": "铁皮鼓起来的那种别开。",
       "_id": "canned_food",
       "_anchor": "godot/scripts/CookingLogic.cs :: FoodCalories（热量点）+ godot/scripts/Materials.cs（名称/说明）",
+      "group": "食材",
       "userNote": "",
       "sync": "",
       "_icon": "food/canned_food"
@@ -5537,6 +5514,7 @@ window.WIKI_BUNDLE = {
       "description": "一袋面粉。",
       "_id": "flour",
       "_anchor": "godot/scripts/CookingLogic.cs :: FoodCalories（热量点）+ godot/scripts/Materials.cs（名称/说明）",
+      "group": "食材",
       "userNote": "",
       "sync": "",
       "_icon": "food/flour"
@@ -5548,6 +5526,7 @@ window.WIKI_BUNDLE = {
       "description": "他妈的！土在哪！！！",
       "_id": "potato",
       "_anchor": "godot/scripts/CookingLogic.cs :: FoodCalories（热量点）+ godot/scripts/Materials.cs（名称/说明）",
+      "group": "食材",
       "userNote": "",
       "sync": "",
       "_icon": "food/potato"
@@ -5559,6 +5538,7 @@ window.WIKI_BUNDLE = {
       "description": "你认得这一种，你最好确定你认得这一种。",
       "_id": "mushroom",
       "_anchor": "godot/scripts/CookingLogic.cs :: FoodCalories（热量点）+ godot/scripts/Materials.cs（名称/说明）",
+      "group": "食材",
       "userNote": "",
       "sync": "",
       "_icon": "food/mushroom"
@@ -5570,6 +5550,7 @@ window.WIKI_BUNDLE = {
       "description": "你已经不记得上一次挑食是什么时候了。",
       "_id": "rat_meat",
       "_anchor": "godot/scripts/CookingLogic.cs :: FoodCalories（热量点）+ godot/scripts/Materials.cs（名称/说明）",
+      "group": "食材",
       "userNote": "",
       "sync": "",
       "_icon": "food/rat_meat"
@@ -5581,6 +5562,7 @@ window.WIKI_BUNDLE = {
       "description": "两条细腿，一小块胸脯。",
       "_id": "bird_meat",
       "_anchor": "godot/scripts/CookingLogic.cs :: FoodCalories（热量点）+ godot/scripts/Materials.cs（名称/说明）",
+      "group": "食材",
       "userNote": "",
       "sync": "",
       "_icon": "food/bird_meat"
@@ -5592,17 +5574,66 @@ window.WIKI_BUNDLE = {
       "description": "野蔷薇结的红果，酸得很有营养，有药用价值。",
       "_id": "rosehip",
       "_anchor": "godot/scripts/CookingLogic.cs :: FoodCalories（热量点）+ godot/scripts/Materials.cs（名称/说明）",
+      "group": "食材",
       "userNote": "",
       "sync": "",
       "_icon": "materials/rosehip"
+    },
+    {
+      "label": "一份饭要多少热量",
+      "value": 16,
+      "unit": "热量点",
+      "note": "基础值。装了炊具会更少。份数 = 总热量 ÷ 这个数，向下取整——凑不满一份就做不成，多出来的零头浪费掉（游戏里不提示）。",
+      "_id": "base_portion_cost",
+      "_anchor": "godot/scripts/CookingLogic.cs :: CookingLogic.BasePortionCost",
+      "group": "烹饪",
+      "userNote": "",
+      "sync": "",
+      "_icon": "food/base_portion_cost"
+    },
+    {
+      "label": "装上「锅」省下的热量",
+      "value": 2,
+      "unit": "热量点",
+      "note": "烹饪台两个槽位之一。装上它，每做一份饭就少要这么多热量。与烤架**各是各的数**，可以分别调。",
+      "_id": "pot_discount",
+      "_anchor": "godot/scripts/CookingLogic.cs :: CookingLogic.PotDiscount",
+      "group": "烹饪",
+      "userNote": "",
+      "sync": "",
+      "_icon": "food/pot_discount"
+    },
+    {
+      "label": "装上「烤架」省下的热量",
+      "value": 2,
+      "unit": "热量点",
+      "note": "烹饪台另一个槽位。两个槽都装满，一份饭省下的就是这两个数相加。与锅**各是各的数**，可以分别调。",
+      "_id": "grill_discount",
+      "_anchor": "godot/scripts/CookingLogic.cs :: CookingLogic.GrillDiscount",
+      "group": "烹饪",
+      "userNote": "",
+      "sync": "",
+      "_icon": "food/grill_discount"
+    },
+    {
+      "label": "做一份饭的工时",
+      "value": 45,
+      "unit": "游戏分钟",
+      "note": "得有人站在烹饪台前把活干完。做两份就干两份的活——没有「一锅端」的规模效应。",
+      "_id": "work_minutes_per_portion",
+      "_anchor": "godot/scripts/CookingLogic.cs :: CookingLogic.WorkMinutesPerPortion",
+      "group": "烹饪",
+      "userNote": "",
+      "sync": "",
+      "_icon": "food/work_minutes_per_portion"
     }
   ]
 },
-    "cooking": {
-  "id": "cooking",
-  "label": "烹饪规则",
-  "source": "godot/scripts/CookingLogic.cs",
-  "note": "烹饪的几个可调数。⚠️ 同「食物与食材」分区：这些数字**游戏里一个都不显示**，玩家得自己试出来。",
+    "farming": {
+  "id": "farming",
+  "label": "种植与陷阱",
+  "source": "godot/scripts/Farming.cs · godot/scripts/TrapLogic.cs",
+  "note": "自给自足的两条线：**种植**（菜园，种下慢慢长）和**陷阱**（圈套抓鼠兔、捕鸟陷阱抓鸽）。陷阱一天掷两次点（白天 1 + 夜晚 1），多摆会相互递减命中率——不能靠密铺无限刷肉。⚠️ 这些命中率数字**游戏里不显示**：玩家得自己试出「几个陷阱够养活一个人」。",
   "columns": [
     {
       "key": "label",
@@ -5668,60 +5699,155 @@ window.WIKI_BUNDLE = {
   ],
   "rows": [
     {
-      "label": "一份饭要多少热量",
+      "group": "种植",
+      "label": "一座菜园最多同时种",
       "value": 16,
-      "unit": "热量点",
-      "note": "基础值。装了炊具会更少。份数 = 总热量 ÷ 这个数，向下取整——凑不满一份就做不成，多出来的零头浪费掉（游戏里不提示）。",
-      "_id": "base_portion_cost",
-      "_anchor": "godot/scripts/CookingLogic.cs :: CookingLogic.BasePortionCost",
+      "unit": "颗",
+      "note": "满种要一颗颗下种；每颗收完这一格要重新下种（不自动续种）。",
+      "_id": "crop_max_plants",
+      "_anchor": "godot/scripts/Farming.cs :: CropPlotSpec.MaxPlants",
+      "_icon": "",
       "description": "",
       "userNote": "",
-      "sync": "",
-      "_icon": "cooking/base_portion_cost"
+      "sync": ""
     },
     {
-      "label": "装上「锅」省下的热量",
-      "value": 2,
-      "unit": "热量点",
-      "note": "烹饪台两个槽位之一。装上它，每做一份饭就少要这么多热量。与烤架**各是各的数**，可以分别调。",
-      "_id": "pot_discount",
-      "_anchor": "godot/scripts/CookingLogic.cs :: CookingLogic.PotDiscount",
+      "group": "种植",
+      "label": "成熟所需",
+      "value": 84,
+      "unit": "游戏小时",
+      "note": "种下就不用管，一直走墙钟倒计时。= 3.5 个昼夜（一昼夜 24 游戏小时）。",
+      "_id": "crop_grow_hours",
+      "_anchor": "godot/scripts/Farming.cs :: CropPlotLogic.GrowGameHours",
+      "_icon": "",
       "description": "",
       "userNote": "",
-      "sync": "",
-      "_icon": "cooking/pot_discount"
+      "sync": ""
     },
     {
-      "label": "装上「烤架」省下的热量",
-      "value": 2,
-      "unit": "热量点",
-      "note": "烹饪台另一个槽位。两个槽都装满，一份饭省下的就是这两个数相加。与锅**各是各的数**，可以分别调。",
-      "_id": "grill_discount",
-      "_anchor": "godot/scripts/CookingLogic.cs :: CookingLogic.GrillDiscount",
+      "group": "种植",
+      "label": "下种消耗（种薯＝土豆）",
+      "value": 1,
+      "unit": "个",
+      "note": "种薯就是土豆，不另造「种子」材料。收成的下限也够回本 ⇒ 永不亏种子。",
+      "_id": "crop_seed_cost",
+      "_anchor": "godot/scripts/Farming.cs :: CropPlotLogic.SeedCost",
+      "_icon": "",
       "description": "",
       "userNote": "",
-      "sync": "",
-      "_icon": "cooking/grill_discount"
+      "sync": ""
     },
     {
-      "label": "做一份饭的工时",
-      "value": 45,
+      "group": "种植",
+      "label": "种一颗的人力工时",
+      "value": 9,
       "unit": "游戏分钟",
-      "note": "得有人站在烹饪台前把活干完。做两份就干两份的活——没有「一锅端」的规模效应。",
-      "_id": "work_minutes_per_portion",
-      "_anchor": "godot/scripts/CookingLogic.cs :: CookingLogic.WorkMinutesPerPortion",
+      "note": "下种是一次人力动作（走既有工时化）。满种 16 颗 = 144 游戏分钟一次性人力。",
+      "_id": "crop_plant_action_minutes",
+      "_anchor": "godot/scripts/Farming.cs :: CropPlotLogic.PlantActionGameHours",
+      "_icon": "",
       "description": "",
       "userNote": "",
-      "sync": "",
-      "_icon": "cooking/work_minutes_per_portion"
+      "sync": ""
+    },
+    {
+      "group": "陷阱",
+      "label": "圈套 单个基础命中率",
+      "value": 30,
+      "unit": "%",
+      "note": "一天掷两次点（白天 1 + 夜晚 1）。多摆几个会相互递减（见下），避免无限叠。",
+      "_id": "snare_base_chance",
+      "_anchor": "godot/scripts/TrapLogic.cs :: TrapLogic.BaseChance",
+      "_icon": "",
+      "description": "",
+      "userNote": "",
+      "sync": ""
+    },
+    {
+      "group": "陷阱",
+      "label": "圈套 每多一个的命中递减",
+      "value": 5,
+      "unit": "%",
+      "note": "第 n 个圈套的命中率 = 基础 − 递减*(n−1)，直到下限。防止密铺陷阱刷肉。",
+      "_id": "snare_chance_step",
+      "_anchor": "godot/scripts/TrapLogic.cs :: TrapLogic.ChanceStep",
+      "_icon": "",
+      "description": "",
+      "userNote": "",
+      "sync": ""
+    },
+    {
+      "group": "陷阱",
+      "label": "圈套 命中率下限",
+      "value": 5,
+      "unit": "%",
+      "note": "再多的圈套，单个命中率也不会低于这条线。",
+      "_id": "snare_min_chance",
+      "_anchor": "godot/scripts/TrapLogic.cs :: TrapLogic.MinChance",
+      "_icon": "",
+      "description": "",
+      "userNote": "",
+      "sync": ""
+    },
+    {
+      "group": "陷阱",
+      "label": "圈套 抓到兔子的比例（其余为鼠）",
+      "value": 30,
+      "unit": "%",
+      "note": "命中后再掷一次「物种点」：这个比例抓到兔子，其余抓到老鼠。⚠️ 拟定待调（用户未指定）。",
+      "_id": "snare_rabbit_share",
+      "_anchor": "godot/scripts/TrapLogic.cs :: TrapLogic.RabbitShare",
+      "_icon": "",
+      "description": "",
+      "userNote": "",
+      "sync": ""
+    },
+    {
+      "group": "陷阱",
+      "label": "捕鸟陷阱 单个基础命中率",
+      "value": 20,
+      "unit": "%",
+      "note": "与圈套共用一张尺子、一天两次；抓到的是鸽子。多摆同样相互递减。",
+      "_id": "birdtrap_base_chance",
+      "_anchor": "godot/scripts/Farming.cs :: BirdTrapLogic.BaseChance",
+      "_icon": "",
+      "description": "",
+      "userNote": "",
+      "sync": ""
+    },
+    {
+      "group": "陷阱",
+      "label": "捕鸟陷阱 每多一个的命中递减",
+      "value": 5,
+      "unit": "%",
+      "note": "第 n 个捕鸟陷阱的命中率 = 基础 − 递减*(n−1)，直到下限。",
+      "_id": "birdtrap_chance_step",
+      "_anchor": "godot/scripts/Farming.cs :: BirdTrapLogic.ChanceStep",
+      "_icon": "",
+      "description": "",
+      "userNote": "",
+      "sync": ""
+    },
+    {
+      "group": "陷阱",
+      "label": "捕鸟陷阱 命中率下限",
+      "value": 5,
+      "unit": "%",
+      "note": "再多的捕鸟陷阱，单个命中率也不会低于这条线。",
+      "_id": "birdtrap_min_chance",
+      "_anchor": "godot/scripts/Farming.cs :: BirdTrapLogic.MinChance",
+      "_icon": "",
+      "description": "",
+      "userNote": "",
+      "sync": ""
     }
   ]
 },
     "global-rules": {
   "id": "global-rules",
   "label": "全局规则",
-  "source": "src/DeadSignal.Combat/DualWield.cs · src/DeadSignal.Combat/BleedModel.cs · godot/scripts/SurvivorPerks.cs · godot/scripts/CoverLogic.cs",
-  "note": "**对所有人一体适用**的规则——不属于任何一件武器，也不属于任何一个角色。以前这些数只活在代码里，wiki 上看不到、也改不了。⚠️ 别把这里的东西误当成谁的专属效果：「没座位读书慢 10%」是**每个人**都一样的，不是诺蒂的技能。",
+  "source": "src/DeadSignal.Combat/DualWield.cs · BleedModel.cs · godot/scripts/SurvivorPerks.cs · CoverLogic.cs · 各 config json（hunger/horde/military/nightwatch/southtrial/health/body）",
+  "note": "**对所有人一体适用**的规则——不属于任何一件武器，也不属于任何一个角色。按模块分块：读书/持握/医疗/掩体/流血，以及外置进 config 的 饥饿/尸潮/军队/夜袭潜行/南境审判/致残/感染。以前这些数只活在代码里，wiki 上看不到、也改不了。⚠️ 别把这里的东西误当成谁的专属效果：「没座位读书慢 10%」是**每个人**都一样的，不是诺蒂的技能。",
   "configFile": "perks.json",
   "columns": [
     {
@@ -5795,6 +5921,7 @@ window.WIKI_BUNDLE = {
   ],
   "rows": [
     {
+      "group": "读书",
       "label": "没座位读书的速度",
       "value": 90,
       "unit": "%",
@@ -5809,6 +5936,7 @@ window.WIKI_BUNDLE = {
       "sync": ""
     },
     {
+      "group": "读书",
       "label": "没读前置书就读它的速度",
       "value": 20,
       "unit": "%",
@@ -5823,6 +5951,7 @@ window.WIKI_BUNDLE = {
       "sync": ""
     },
     {
+      "group": "持握",
       "label": "双持时的攻速",
       "value": 70,
       "unit": "%",
@@ -5835,6 +5964,7 @@ window.WIKI_BUNDLE = {
       "sync": ""
     },
     {
+      "group": "持握",
       "label": "双持时远程的散布",
       "value": 1.25,
       "unit": "*",
@@ -5847,6 +5977,7 @@ window.WIKI_BUNDLE = {
       "sync": ""
     },
     {
+      "group": "医疗",
       "label": "常人的手术基础点数",
       "value": 15,
       "unit": "点",
@@ -5860,6 +5991,7 @@ window.WIKI_BUNDLE = {
       "sync": ""
     },
     {
+      "group": "掩体",
       "label": "半身掩体挡下整发的概率",
       "value": 25,
       "unit": "%",
@@ -5872,6 +6004,7 @@ window.WIKI_BUNDLE = {
       "sync": ""
     },
     {
+      "group": "掩体",
       "label": "贴多近才算在掩体后",
       "value": 24,
       "unit": "像素",
@@ -5884,6 +6017,7 @@ window.WIKI_BUNDLE = {
       "sync": ""
     },
     {
+      "group": "流血",
       "label": "丧尸的流血速度",
       "value": 33.3333,
       "unit": "%",
@@ -5896,6 +6030,7 @@ window.WIKI_BUNDLE = {
       "sync": ""
     },
     {
+      "group": "流血",
       "label": "大伤口的流血速度",
       "value": 100,
       "unit": "%",
@@ -5908,6 +6043,7 @@ window.WIKI_BUNDLE = {
       "sync": ""
     },
     {
+      "group": "流血",
       "label": "手脚伤口的流血速度",
       "value": 50,
       "unit": "%",
@@ -5920,6 +6056,7 @@ window.WIKI_BUNDLE = {
       "sync": ""
     },
     {
+      "group": "流血",
       "label": "指/趾/眼/面/耳伤口的流血速度",
       "value": 20,
       "unit": "%",
@@ -5932,6 +6069,7 @@ window.WIKI_BUNDLE = {
       "sync": ""
     },
     {
+      "group": "流血",
       "label": "小伤口最多把血抽到",
       "value": 50,
       "unit": "%",
@@ -5944,6 +6082,7 @@ window.WIKI_BUNDLE = {
       "sync": ""
     },
     {
+      "group": "流血",
       "label": "一刀打掉部位血量的多少就变中流血",
       "value": 30,
       "unit": "%",
@@ -5956,6 +6095,7 @@ window.WIKI_BUNDLE = {
       "sync": ""
     },
     {
+      "group": "流血",
       "label": "一刀打掉部位血量的多少就变大流血",
       "value": 60,
       "unit": "%",
@@ -5968,6 +6108,7 @@ window.WIKI_BUNDLE = {
       "sync": ""
     },
     {
+      "group": "流血",
       "label": "小流血的流速（相对普通伤口）",
       "value": 30,
       "unit": "%",
@@ -5980,6 +6121,7 @@ window.WIKI_BUNDLE = {
       "sync": ""
     },
     {
+      "group": "流血",
       "label": "中流血的流速（相对普通伤口）",
       "value": 100,
       "unit": "%",
@@ -5992,12 +6134,547 @@ window.WIKI_BUNDLE = {
       "sync": ""
     },
     {
+      "group": "流血",
       "label": "大流血的流速（相对普通伤口）",
       "value": 300,
       "unit": "%",
       "note": "**封顶的一级**：两个中流血、或一小一中，都会合成大流血；到了大流血就**不会再往上升**了。一处大流血放干一个常人要一分钟左右，**两处就能在一场仗打完之前把人流死**。",
       "_id": "bleed_rate_large",
       "_anchor": "src/DeadSignal.Combat/BleedModel.cs :: BleedModel.SeverityRateOf",
+      "_icon": "",
+      "description": "",
+      "userNote": "",
+      "sync": ""
+    },
+    {
+      "group": "饥饿",
+      "label": "营养不良的能力惩罚",
+      "value": 45,
+      "unit": "%",
+      "note": "最饿的一档：干活/战斗等能力打这么大的折扣（乘算）。饿肚子是硬代价。",
+      "_id": "hunger_malnourished",
+      "_anchor": "godot/scripts/HungerConfig.cs :: MalnourishedPenalty",
+      "_icon": "",
+      "_configId": "MalnourishedPenalty",
+      "_configPercent": true,
+      "_configFile": "hunger.json",
+      "description": "",
+      "userNote": "",
+      "sync": ""
+    },
+    {
+      "group": "饥饿",
+      "label": "极度饥饿的能力惩罚",
+      "value": 25,
+      "unit": "%",
+      "note": "第二档饿。能力乘这个折扣。",
+      "_id": "hunger_ravenous",
+      "_anchor": "godot/scripts/HungerConfig.cs :: RavenousPenalty",
+      "_icon": "",
+      "_configId": "RavenousPenalty",
+      "_configPercent": true,
+      "_configFile": "hunger.json",
+      "description": "",
+      "userNote": "",
+      "sync": ""
+    },
+    {
+      "group": "饥饿",
+      "label": "饥饿的能力惩罚",
+      "value": 10,
+      "unit": "%",
+      "note": "刚开始饿。能力乘这个折扣。",
+      "_id": "hunger_hungry",
+      "_anchor": "godot/scripts/HungerConfig.cs :: HungryPenalty",
+      "_icon": "",
+      "_configId": "HungryPenalty",
+      "_configPercent": true,
+      "_configFile": "hunger.json",
+      "description": "",
+      "userNote": "",
+      "sync": ""
+    },
+    {
+      "group": "尸潮",
+      "label": "尸潮总攻的天数",
+      "value": 40,
+      "unit": "天",
+      "note": "撑到这一天，最终尸潮压境——主线的硬时限。",
+      "_id": "horde_deadline_day",
+      "_anchor": "godot/scripts/HordeConfig.cs :: DeadlineDay",
+      "_icon": "",
+      "_configId": "DeadlineDay",
+      "_configFile": "horde.json",
+      "description": "",
+      "userNote": "",
+      "sync": ""
+    },
+    {
+      "group": "尸潮",
+      "label": "第一波的基础规模",
+      "value": 8,
+      "unit": "只",
+      "note": "尸潮第一波的丧尸数基准。",
+      "_id": "horde_wave_base",
+      "_anchor": "godot/scripts/HordeConfig.cs :: WaveBase",
+      "_icon": "",
+      "_configId": "WaveBase",
+      "_configFile": "horde.json",
+      "description": "",
+      "userNote": "",
+      "sync": ""
+    },
+    {
+      "group": "尸潮",
+      "label": "每波递增",
+      "value": 2,
+      "unit": "只/波",
+      "note": "一波比一波多这么多。",
+      "_id": "horde_wave_growth",
+      "_anchor": "godot/scripts/HordeConfig.cs :: WaveGrowth",
+      "_icon": "",
+      "_configId": "WaveGrowth",
+      "_configFile": "horde.json",
+      "description": "",
+      "userNote": "",
+      "sync": ""
+    },
+    {
+      "group": "尸潮",
+      "label": "营地人口对波规模的加成",
+      "value": 0.5,
+      "unit": "只/人",
+      "note": "营地每多一个人，波规模加这么多——树大招风。",
+      "_id": "horde_wave_camp_factor",
+      "_anchor": "godot/scripts/HordeConfig.cs :: WaveCampFactor",
+      "_icon": "",
+      "_configId": "WaveCampFactor",
+      "_configFile": "horde.json",
+      "description": "",
+      "userNote": "",
+      "sync": ""
+    },
+    {
+      "group": "尸潮",
+      "label": "单波规模上限",
+      "value": 60,
+      "unit": "只",
+      "note": "再怎么涨，一波也不会超过这个数。",
+      "_id": "horde_wave_cap",
+      "_anchor": "godot/scripts/HordeConfig.cs :: WaveCap",
+      "_icon": "",
+      "_configId": "WaveCap",
+      "_configFile": "horde.json",
+      "description": "",
+      "userNote": "",
+      "sync": ""
+    },
+    {
+      "group": "尸潮",
+      "label": "两波之间的间隔",
+      "value": 12,
+      "unit": "游戏小时",
+      "note": "清完这一波，隔这么久下一波来。",
+      "_id": "horde_wave_interval",
+      "_anchor": "godot/scripts/HordeConfig.cs :: WaveInterval",
+      "_icon": "",
+      "_configId": "WaveInterval",
+      "_configFile": "horde.json",
+      "description": "",
+      "userNote": "",
+      "sync": ""
+    },
+    {
+      "group": "尸潮",
+      "label": "算作「清波」的剩余数",
+      "value": 4,
+      "unit": "只",
+      "note": "场上丧尸压到这个数以下，就算这一波清了，开始倒计时下一波。",
+      "_id": "horde_wave_clear_threshold",
+      "_anchor": "godot/scripts/HordeConfig.cs :: WaveClearThreshold",
+      "_icon": "",
+      "_configId": "WaveClearThreshold",
+      "_configFile": "horde.json",
+      "description": "",
+      "userNote": "",
+      "sync": ""
+    },
+    {
+      "group": "尸潮",
+      "label": "同时围城的丧尸上限",
+      "value": 80,
+      "unit": "只",
+      "note": "同一时刻场上最多这么多围城丧尸（性能/难度双闸）。",
+      "_id": "horde_max_concurrent_siege",
+      "_anchor": "godot/scripts/HordeConfig.cs :: MaxConcurrentSiege",
+      "_icon": "",
+      "_configId": "MaxConcurrentSiege",
+      "_configFile": "horde.json",
+      "description": "",
+      "userNote": "",
+      "sync": ""
+    },
+    {
+      "group": "军队",
+      "label": "军队袭营的延迟天数",
+      "value": 2,
+      "unit": "天",
+      "note": "触发条件满足后，军队隔这么多天才真的打上门。",
+      "_id": "military_raid_delay_days",
+      "_anchor": "godot/scripts/MilitaryConfig.cs :: MilitaryRaidDelayDays",
+      "_icon": "",
+      "_configId": "MilitaryRaidDelayDays",
+      "_configFile": "military.json",
+      "description": "",
+      "userNote": "",
+      "sync": ""
+    },
+    {
+      "group": "夜袭潜行",
+      "label": "潜行力·黑暗权重",
+      "value": 1,
+      "unit": "权重",
+      "note": "越黑越难被发现——这个权重决定黑暗对潜行力的贡献。",
+      "_id": "nw_stealth_darkness_weight",
+      "_anchor": "godot/scripts/NightWatchConfig.cs :: StealthDarknessWeight",
+      "_icon": "",
+      "_configId": "StealthDarknessWeight",
+      "_configFile": "nightwatch.json",
+      "description": "",
+      "userNote": "",
+      "sync": ""
+    },
+    {
+      "group": "夜袭潜行",
+      "label": "潜行力·着装权重",
+      "value": 1,
+      "unit": "权重",
+      "note": "穿得越隐蔽越难被发现。",
+      "_id": "nw_stealth_apparel_weight",
+      "_anchor": "godot/scripts/NightWatchConfig.cs :: StealthApparelWeight",
+      "_icon": "",
+      "_configId": "StealthApparelWeight",
+      "_configFile": "nightwatch.json",
+      "description": "",
+      "userNote": "",
+      "sync": ""
+    },
+    {
+      "group": "夜袭潜行",
+      "label": "潜行力·距离权重",
+      "value": 0.6,
+      "unit": "权重",
+      "note": "离得越远越难被发现。",
+      "_id": "nw_stealth_distance_weight",
+      "_anchor": "godot/scripts/NightWatchConfig.cs :: StealthDistanceWeight",
+      "_icon": "",
+      "_configId": "StealthDistanceWeight",
+      "_configFile": "nightwatch.json",
+      "description": "",
+      "userNote": "",
+      "sync": ""
+    },
+    {
+      "group": "夜袭潜行",
+      "label": "距离权重的参考距离",
+      "value": 300,
+      "unit": "像素",
+      "note": "距离潜行力按这个参考距离归一。",
+      "_id": "nw_stealth_distance_reference",
+      "_anchor": "godot/scripts/NightWatchConfig.cs :: StealthDistanceReference",
+      "_icon": "",
+      "_configId": "StealthDistanceReference",
+      "_configFile": "nightwatch.json",
+      "description": "",
+      "userNote": "",
+      "sync": ""
+    },
+    {
+      "group": "夜袭潜行",
+      "label": "潜行力·掩体权重",
+      "value": 0.5,
+      "unit": "权重",
+      "note": "贴着掩体潜行更不易被发现。",
+      "_id": "nw_stealth_cover_weight",
+      "_anchor": "godot/scripts/NightWatchConfig.cs :: StealthCoverWeight",
+      "_icon": "",
+      "_configId": "StealthCoverWeight",
+      "_configFile": "nightwatch.json",
+      "description": "",
+      "userNote": "",
+      "sync": ""
+    },
+    {
+      "group": "夜袭潜行",
+      "label": "守夜·视觉权重",
+      "value": 1,
+      "unit": "权重",
+      "note": "守夜者靠看发现入侵者的权重。",
+      "_id": "nw_vision_weight",
+      "_anchor": "godot/scripts/NightWatchConfig.cs :: VisionWeight",
+      "_icon": "",
+      "_configId": "VisionWeight",
+      "_configFile": "nightwatch.json",
+      "description": "",
+      "userNote": "",
+      "sync": ""
+    },
+    {
+      "group": "夜袭潜行",
+      "label": "守夜·听觉权重",
+      "value": 0.6,
+      "unit": "权重",
+      "note": "守夜者靠听发现入侵者的权重。",
+      "_id": "nw_hearing_weight",
+      "_anchor": "godot/scripts/NightWatchConfig.cs :: HearingWeight",
+      "_icon": "",
+      "_configId": "HearingWeight",
+      "_configFile": "nightwatch.json",
+      "description": "",
+      "userNote": "",
+      "sync": ""
+    },
+    {
+      "group": "夜袭潜行",
+      "label": "守夜·基础听觉半径",
+      "value": 220,
+      "unit": "像素",
+      "note": "守夜者能听到多远的动静（基准）。",
+      "_id": "nw_hearing_base_range",
+      "_anchor": "godot/scripts/NightWatchConfig.cs :: HearingBaseRange",
+      "_icon": "",
+      "_configId": "HearingBaseRange",
+      "_configFile": "nightwatch.json",
+      "description": "",
+      "userNote": "",
+      "sync": ""
+    },
+    {
+      "group": "夜袭潜行",
+      "label": "先手偷袭伤害倍率",
+      "value": 1.5,
+      "unit": "*",
+      "note": "潜行成功先动手，这一下伤害乘这个数。",
+      "_id": "nw_preemptive_strike_mult",
+      "_anchor": "godot/scripts/NightWatchConfig.cs :: PreemptiveStrikeMultiplier",
+      "_icon": "",
+      "_configId": "PreemptiveStrikeMultiplier",
+      "_configFile": "nightwatch.json",
+      "description": "",
+      "userNote": "",
+      "sync": ""
+    },
+    {
+      "group": "夜袭潜行",
+      "label": "无声窃取件数下限",
+      "value": 1,
+      "unit": "件",
+      "note": "潜行偷东西一次至少拿走这么多。",
+      "_id": "nw_silent_theft_min",
+      "_anchor": "godot/scripts/NightWatchConfig.cs :: SilentTheftMinUnits",
+      "_icon": "",
+      "_configId": "SilentTheftMinUnits",
+      "_configFile": "nightwatch.json",
+      "description": "",
+      "userNote": "",
+      "sync": ""
+    },
+    {
+      "group": "夜袭潜行",
+      "label": "无声窃取件数上限",
+      "value": 4,
+      "unit": "件",
+      "note": "潜行偷东西一次最多拿走这么多。",
+      "_id": "nw_silent_theft_max",
+      "_anchor": "godot/scripts/NightWatchConfig.cs :: SilentTheftMaxUnits",
+      "_icon": "",
+      "_configId": "SilentTheftMaxUnits",
+      "_configFile": "nightwatch.json",
+      "description": "",
+      "userNote": "",
+      "sync": ""
+    },
+    {
+      "group": "南境审判",
+      "label": "南境审判通过所需票数",
+      "value": 5,
+      "unit": "票",
+      "note": "南境审判要凑够这么多票才算过。",
+      "_id": "south_pass_threshold",
+      "_anchor": "godot/scripts/SouthTrialConfig.cs :: PassThreshold",
+      "_icon": "",
+      "_configId": "PassThreshold",
+      "_configFile": "southtrial.json",
+      "description": "",
+      "userNote": "",
+      "sync": ""
+    },
+    {
+      "group": "致残",
+      "label": "断一手/一腿的能力折损",
+      "value": 50,
+      "unit": "%",
+      "note": "少一整条手臂或腿，相关能力打这么大的折扣（乘算）。⚠️ 只读展示：数值在 body.json 的嵌套 Disability 段，暂不接双向编辑。",
+      "_id": "body_single_limb_penalty",
+      "_anchor": "src/DeadSignal.Combat/BodyConfig.cs :: BodyDisability.SingleLimbPenalty（body.json）",
+      "_icon": "",
+      "description": "",
+      "userNote": "",
+      "sync": ""
+    },
+    {
+      "group": "致残",
+      "label": "每断一根手指的能力折损",
+      "value": 7,
+      "unit": "%",
+      "note": "同一只手每少一根手指累加这么多折扣（缺两指的山姆＝0.86）。⚠️ 只读展示，同上。",
+      "_id": "body_finger_penalty",
+      "_anchor": "src/DeadSignal.Combat/BodyConfig.cs :: BodyDisability.FingerPenalty（body.json）",
+      "_icon": "",
+      "description": "",
+      "userNote": "",
+      "sync": ""
+    },
+    {
+      "group": "致残",
+      "label": "每断一根脚趾的能力折损",
+      "value": 2,
+      "unit": "%",
+      "note": "同一只脚每少一根脚趾累加这么多折扣。⚠️ 只读展示，同上。",
+      "_id": "body_toe_penalty",
+      "_anchor": "src/DeadSignal.Combat/BodyConfig.cs :: BodyDisability.ToePenalty（body.json）",
+      "_icon": "",
+      "description": "",
+      "userNote": "",
+      "sync": ""
+    },
+    {
+      "group": "感染",
+      "label": "大伤口感染几率",
+      "value": 25,
+      "unit": "%",
+      "note": "**躯干/头/颈/大部位**的伤口，不处理时染上感染的基础几率。感染是要靠手术/药竞速压下去的。",
+      "_id": "infection_chance_large",
+      "_anchor": "godot/scripts/HealthConfig.cs :: InfectionBaseChanceLarge",
+      "_icon": "",
+      "_configId": "InfectionBaseChanceLarge",
+      "_configPercent": true,
+      "_configFile": "health.json",
+      "description": "",
+      "userNote": "",
+      "sync": ""
+    },
+    {
+      "group": "感染",
+      "label": "中伤口感染几率",
+      "value": 15,
+      "unit": "%",
+      "note": "中等伤口的基础感染几率。",
+      "_id": "infection_chance_medium",
+      "_anchor": "godot/scripts/HealthConfig.cs :: InfectionBaseChanceMedium",
+      "_icon": "",
+      "_configId": "InfectionBaseChanceMedium",
+      "_configPercent": true,
+      "_configFile": "health.json",
+      "description": "",
+      "userNote": "",
+      "sync": ""
+    },
+    {
+      "group": "感染",
+      "label": "小伤口感染几率",
+      "value": 5,
+      "unit": "%",
+      "note": "小伤口的基础感染几率。",
+      "_id": "infection_chance_small",
+      "_anchor": "godot/scripts/HealthConfig.cs :: InfectionBaseChanceSmall",
+      "_icon": "",
+      "_configId": "InfectionBaseChanceSmall",
+      "_configPercent": true,
+      "_configFile": "health.json",
+      "description": "",
+      "userNote": "",
+      "sync": ""
+    },
+    {
+      "group": "感染",
+      "label": "处理过伤口的感染几率倍率",
+      "value": 0.5,
+      "unit": "*",
+      "note": "上过手术/清创的伤口，感染几率乘这个数（<1 ⇒ 处理能压低感染）。",
+      "_id": "infection_operated_factor",
+      "_anchor": "godot/scripts/HealthConfig.cs :: OperatedInfectionFactor",
+      "_icon": "",
+      "_configId": "OperatedInfectionFactor",
+      "_configFile": "health.json",
+      "description": "",
+      "userNote": "",
+      "sync": ""
+    },
+    {
+      "group": "感染",
+      "label": "免疫窗内的感染几率倍率",
+      "value": 0.05,
+      "unit": "*",
+      "note": "免疫力满值后的窗口期内，新伤口感染几率乘这个数——近乎免疫。",
+      "_id": "infection_immune_window_factor",
+      "_anchor": "godot/scripts/HealthConfig.cs :: ImmuneWindowInfectionFactor",
+      "_icon": "",
+      "_configId": "ImmuneWindowInfectionFactor",
+      "_configFile": "health.json",
+      "description": "",
+      "userNote": "",
+      "sync": ""
+    },
+    {
+      "group": "感染",
+      "label": "免疫满后的免疫窗时长",
+      "value": 1,
+      "unit": "天",
+      "note": "免疫力打满后，这段时间内新伤口几乎不感染；过了窗口（＝这么多天，1 天＝24 小时）就清空、恢复常态。",
+      "_id": "infection_immune_window_days",
+      "_anchor": "godot/scripts/HealthConfig.cs :: ImmuneWindowDays",
+      "_icon": "",
+      "_configId": "ImmuneWindowDays",
+      "_configFile": "health.json",
+      "description": "",
+      "userNote": "",
+      "sync": ""
+    },
+    {
+      "group": "感染",
+      "label": "感染每日恶化速度",
+      "value": 16.67,
+      "unit": "%/天",
+      "note": "不压制的话，感染严重度每天涨这么多（＝ 1/6，约 6 天走满）——竞速的另一头。⚠️ 只读展示：真值 1/6 是无限循环小数，过不了百分比往返，改它请直接改 health.json 的 InfectionWorsenPerDay。",
+      "_id": "infection_worsen_per_day",
+      "_anchor": "godot/scripts/HealthConfig.cs :: InfectionWorsenPerDay（health.json，只读展示）",
+      "_icon": "",
+      "description": "",
+      "userNote": "",
+      "sync": ""
+    },
+    {
+      "group": "感染",
+      "label": "草药绷带的感染几率倍率",
+      "value": 0.75,
+      "unit": "*",
+      "note": "用草药绷带包扎，该处感染几率乘 0.75。⚠️ 只读展示：真值在 health.json 的嵌套 SurgerySupplies.herbal_bandage.InfectionChanceMultiplier（「医疗与草药」表可编辑）。",
+      "_id": "infection_herbal_bandage",
+      "_anchor": "godot/scripts/HealthConfig.cs :: SurgerySupplies[herbal_bandage].InfectionChanceMultiplier（body 展示）",
+      "_icon": "",
+      "description": "",
+      "userNote": "",
+      "sync": ""
+    },
+    {
+      "group": "感染",
+      "label": "南丁格尔满级后的全营感染几率",
+      "value": 0.765,
+      "unit": "*",
+      "note": "护士 2 级(*0.9)＋3 级(*0.85)叠加 ⇒ 全营新伤口感染几率乘 0.765。⚠️ 只读展示：两档真值在「角色数值」南丁格尔行。",
+      "_id": "infection_nurse_cumulative",
+      "_anchor": "godot/scripts/SurvivorPerks.cs :: NightingalePerk.Level2/Level3InfectionReduction（派生展示）",
       "_icon": "",
       "description": "",
       "userNote": "",
@@ -6608,6 +7285,7 @@ window.WIKI_BUNDLE = {
   ],
   "rows": [
     {
+      "group": "升级门槛",
       "label": "升 2 级所需营地人数",
       "who": "山姆",
       "value": 3,
@@ -6622,6 +7300,7 @@ window.WIKI_BUNDLE = {
       "sync": ""
     },
     {
+      "group": "升级门槛",
       "label": "升 3 级所需营地人数",
       "who": "山姆",
       "value": 6,
@@ -6636,6 +7315,7 @@ window.WIKI_BUNDLE = {
       "sync": ""
     },
     {
+      "group": "战斗",
       "label": "1 级 自身减伤",
       "who": "山姆",
       "value": 10,
@@ -6651,6 +7331,7 @@ window.WIKI_BUNDLE = {
       "sync": ""
     },
     {
+      "group": "操作与生产",
       "label": "2 级 自身负重上限加成",
       "who": "山姆",
       "value": 15,
@@ -6666,6 +7347,7 @@ window.WIKI_BUNDLE = {
       "sync": ""
     },
     {
+      "group": "操作与生产",
       "label": "3 级光环 全营负重上限",
       "who": "山姆",
       "value": 3,
@@ -6681,6 +7363,7 @@ window.WIKI_BUNDLE = {
       "sync": ""
     },
     {
+      "group": "操作与生产",
       "label": "3 级光环 全营干活效率",
       "who": "山姆",
       "value": 3,
@@ -6696,6 +7379,7 @@ window.WIKI_BUNDLE = {
       "sync": ""
     },
     {
+      "group": "生存",
       "label": "3 级光环 全营恢复速度",
       "who": "山姆",
       "value": 3,
@@ -6711,6 +7395,7 @@ window.WIKI_BUNDLE = {
       "sync": ""
     },
     {
+      "group": "生存",
       "label": "3 级光环 全营感染恶化减缓",
       "who": "山姆",
       "value": 3,
@@ -6726,6 +7411,7 @@ window.WIKI_BUNDLE = {
       "sync": ""
     },
     {
+      "group": "操作与生产",
       "label": "开局操作能力（缺两指的代价）",
       "who": "山姆",
       "value": 86,
@@ -6739,6 +7425,7 @@ window.WIKI_BUNDLE = {
       "sync": ""
     },
     {
+      "group": "升级门槛",
       "label": "升 2 级所需累计阅读",
       "who": "诺蒂",
       "value": 24,
@@ -6753,6 +7440,7 @@ window.WIKI_BUNDLE = {
       "sync": ""
     },
     {
+      "group": "升级门槛",
       "label": "升 3 级所需累计阅读",
       "who": "诺蒂",
       "value": 72,
@@ -6767,6 +7455,7 @@ window.WIKI_BUNDLE = {
       "sync": ""
     },
     {
+      "group": "操作与生产",
       "label": "1 级 自身读速加成",
       "who": "诺蒂",
       "value": 25,
@@ -6782,6 +7471,7 @@ window.WIKI_BUNDLE = {
       "sync": ""
     },
     {
+      "group": "操作与生产",
       "label": "2 级 自身读速加成",
       "who": "诺蒂",
       "value": 50,
@@ -6797,6 +7487,7 @@ window.WIKI_BUNDLE = {
       "sync": ""
     },
     {
+      "group": "操作与生产",
       "label": "3 级 自身读速加成",
       "who": "诺蒂",
       "value": 50,
@@ -6810,6 +7501,7 @@ window.WIKI_BUNDLE = {
       "sync": ""
     },
     {
+      "group": "操作与生产",
       "label": "3 级 全营读速加成",
       "who": "诺蒂",
       "value": 25,
@@ -6825,6 +7517,7 @@ window.WIKI_BUNDLE = {
       "sync": ""
     },
     {
+      "group": "升级门槛",
       "label": "升 2 级所需共同存活",
       "who": "道格",
       "value": 7,
@@ -6838,6 +7531,7 @@ window.WIKI_BUNDLE = {
       "sync": ""
     },
     {
+      "group": "升级门槛",
       "label": "升 3 级所需共同存活",
       "who": "道格",
       "value": 14,
@@ -6851,6 +7545,7 @@ window.WIKI_BUNDLE = {
       "sync": ""
     },
     {
+      "group": "感知",
       "label": "1 级 道格视野角加成",
       "who": "道格",
       "value": 10,
@@ -6864,6 +7559,7 @@ window.WIKI_BUNDLE = {
       "sync": ""
     },
     {
+      "group": "感知",
       "label": "1 级 布鲁斯视野角加成",
       "who": "道格",
       "value": 10,
@@ -6877,6 +7573,7 @@ window.WIKI_BUNDLE = {
       "sync": ""
     },
     {
+      "group": "感知",
       "label": "2 级 布鲁斯视距加成",
       "who": "道格",
       "value": 10,
@@ -6890,6 +7587,7 @@ window.WIKI_BUNDLE = {
       "sync": ""
     },
     {
+      "group": "操作与生产",
       "label": "3 级光环 生产效率",
       "who": "道格",
       "value": 10,
@@ -6903,6 +7601,7 @@ window.WIKI_BUNDLE = {
       "sync": ""
     },
     {
+      "group": "生存",
       "label": "3 级光环 受伤减免",
       "who": "道格",
       "value": 10,
@@ -6916,6 +7615,7 @@ window.WIKI_BUNDLE = {
       "sync": ""
     },
     {
+      "group": "操作与生产",
       "label": "3 级光环 生效半径",
       "who": "道格",
       "value": 160,
@@ -6929,6 +7629,7 @@ window.WIKI_BUNDLE = {
       "sync": ""
     },
     {
+      "group": "生成配置",
       "label": "救援点围困丧尸数",
       "who": "道格",
       "value": 5,
@@ -6942,6 +7643,7 @@ window.WIKI_BUNDLE = {
       "sync": ""
     },
     {
+      "group": "感知",
       "label": "布鲁斯吠叫引路半径",
       "who": "道格",
       "value": 520,
@@ -6955,6 +7657,7 @@ window.WIKI_BUNDLE = {
       "sync": ""
     },
     {
+      "group": "战斗",
       "label": "站岗效率（相对人类）",
       "who": "布鲁斯",
       "value": 75,
@@ -6968,6 +7671,7 @@ window.WIKI_BUNDLE = {
       "sync": ""
     },
     {
+      "group": "升级门槛",
       "label": "解锁狗装备所需羁绊等级",
       "who": "布鲁斯",
       "value": 2,
@@ -6981,6 +7685,7 @@ window.WIKI_BUNDLE = {
       "sync": ""
     },
     {
+      "group": "生存",
       "label": "饥饿上限",
       "who": "布鲁斯",
       "value": 6,
@@ -6994,6 +7699,7 @@ window.WIKI_BUNDLE = {
       "sync": ""
     },
     {
+      "group": "生存",
       "label": "吃一份食物回复（人只回 1）",
       "who": "布鲁斯",
       "value": 3,
@@ -7007,6 +7713,7 @@ window.WIKI_BUNDLE = {
       "sync": ""
     },
     {
+      "group": "生存",
       "label": "每个聚餐相位消耗",
       "who": "布鲁斯",
       "value": 1,
@@ -7020,6 +7727,7 @@ window.WIKI_BUNDLE = {
       "sync": ""
     },
     {
+      "group": "升级门槛",
       "label": "升 2 级所需手术台数",
       "who": "南丁格尔",
       "value": 8,
@@ -7034,6 +7742,7 @@ window.WIKI_BUNDLE = {
       "sync": ""
     },
     {
+      "group": "升级门槛",
       "label": "升 3 级所需手术台数",
       "who": "南丁格尔",
       "value": 21,
@@ -7048,6 +7757,7 @@ window.WIKI_BUNDLE = {
       "sync": ""
     },
     {
+      "group": "生存",
       "label": "1 级 她本人的手术基础点数",
       "who": "南丁格尔",
       "value": 30,
@@ -7062,6 +7772,7 @@ window.WIKI_BUNDLE = {
       "sync": ""
     },
     {
+      "group": "生存",
       "label": "3 级 全营手术基础点加成（永续）",
       "who": "南丁格尔",
       "value": 5,
@@ -7076,6 +7787,7 @@ window.WIKI_BUNDLE = {
       "sync": ""
     },
     {
+      "group": "生存",
       "label": "2 级 全营感染条速度降低",
       "who": "南丁格尔",
       "value": 15,
@@ -7091,6 +7803,7 @@ window.WIKI_BUNDLE = {
       "sync": ""
     },
     {
+      "group": "生存",
       "label": "3 级 全营感染条速度再降低（永续）",
       "who": "南丁格尔",
       "value": 10,
@@ -7106,6 +7819,7 @@ window.WIKI_BUNDLE = {
       "sync": ""
     },
     {
+      "group": "生成配置",
       "label": "累计几次「暂不」后她离开",
       "who": "克莉丝汀",
       "value": 3,
@@ -7119,6 +7833,7 @@ window.WIKI_BUNDLE = {
       "sync": ""
     },
     {
+      "group": "战斗",
       "label": "劫掠者掉血到多少触发她反水",
       "who": "克莉丝汀",
       "value": 50,
@@ -7132,6 +7847,7 @@ window.WIKI_BUNDLE = {
       "sync": ""
     },
     {
+      "group": "战斗",
       "label": "她自己掉血到多少触发反水",
       "who": "克莉丝汀",
       "value": 99,
@@ -7145,6 +7861,7 @@ window.WIKI_BUNDLE = {
       "sync": ""
     },
     {
+      "group": "经济",
       "label": "玩家买入价（占基准价）",
       "who": "神秘商人",
       "value": 100,
@@ -7160,6 +7877,7 @@ window.WIKI_BUNDLE = {
       "sync": ""
     },
     {
+      "group": "经济",
       "label": "玩家卖出价（占基准价）",
       "who": "神秘商人",
       "value": 60,
@@ -7175,6 +7893,7 @@ window.WIKI_BUNDLE = {
       "sync": ""
     },
     {
+      "group": "经济",
       "label": "来访间隔下限",
       "who": "神秘商人",
       "value": 1,
@@ -7188,6 +7907,7 @@ window.WIKI_BUNDLE = {
       "sync": ""
     },
     {
+      "group": "经济",
       "label": "来访间隔上限",
       "who": "神秘商人",
       "value": 5,
@@ -7201,6 +7921,7 @@ window.WIKI_BUNDLE = {
       "sync": ""
     },
     {
+      "group": "生成配置",
       "label": "至少还穿着一件的比例",
       "who": "丧尸",
       "value": 85,
@@ -7214,6 +7935,7 @@ window.WIKI_BUNDLE = {
       "sync": ""
     },
     {
+      "group": "生成配置",
       "label": "日常着装预设套数",
       "who": "丧尸",
       "value": 9,
@@ -7227,6 +7949,7 @@ window.WIKI_BUNDLE = {
       "sync": ""
     },
     {
+      "group": "生成配置",
       "label": "背刺围攻人数",
       "who": "超市的「幸存者」",
       "value": 4,
@@ -7240,6 +7963,7 @@ window.WIKI_BUNDLE = {
       "sync": ""
     },
     {
+      "group": "生成配置",
       "label": "随机抽取权重（0 = 永不随机出现）",
       "who": "防暴警察丧尸",
       "value": 0,
@@ -7253,6 +7977,7 @@ window.WIKI_BUNDLE = {
       "sync": ""
     },
     {
+      "group": "生成配置",
       "label": "身上的衣物/护甲件数",
       "who": "防暴警察丧尸",
       "value": 5,
@@ -7266,6 +7991,7 @@ window.WIKI_BUNDLE = {
       "sync": ""
     },
     {
+      "group": "生成配置",
       "label": "随机抽取权重（0 = 永不随机出现）",
       "who": "军人丧尸",
       "value": 0,
@@ -7279,6 +8005,7 @@ window.WIKI_BUNDLE = {
       "sync": ""
     },
     {
+      "group": "生成配置",
       "label": "身上的衣物/护甲件数",
       "who": "军人丧尸",
       "value": 6,

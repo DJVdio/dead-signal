@@ -1,0 +1,214 @@
+{
+  "id": "farming",
+  "label": "种植与陷阱",
+  "source": "godot/scripts/Farming.cs · godot/scripts/TrapLogic.cs",
+  "note": "自给自足的两条线：**种植**（菜园，种下慢慢长）和**陷阱**（圈套抓鼠兔、捕鸟陷阱抓鸽）。陷阱一天掷两次点（白天 1 + 夜晚 1），多摆会相互递减命中率——不能靠密铺无限刷肉。⚠️ 这些命中率数字**游戏里不显示**：玩家得自己试出「几个陷阱够养活一个人」。",
+  "columns": [
+    {
+      "key": "label",
+      "label": "规则",
+      "type": "text",
+      "primary": true
+    },
+    {
+      "key": "value",
+      "label": "数值",
+      "type": "number"
+    },
+    {
+      "key": "unit",
+      "label": "单位",
+      "type": "chip",
+      "hint": "这个数字的单位。只是给人看的标签。"
+    },
+    {
+      "key": "note",
+      "label": "说明",
+      "type": "longtext"
+    },
+    {
+      "key": "description",
+      "label": "简介",
+      "type": "longtext",
+      "hint": "**玩家在游戏里看到的描述**。改了它，agent 会把新文案同步进代码。（有几个分区代码里还没有描述字段——你照样可以写，写了就是在告诉 agent「这里该有一个」。）"
+    },
+    {
+      "key": "userNote",
+      "label": "备注",
+      "type": "note",
+      "usernote": true,
+      "hint": "**你的设计笔记，不进游戏**——想到什么特殊效果就写在这（比如「这把锤子应该能砸开保险箱」）。它不会被同步成游戏文案，但 agent 每次跑抽取器都会看到你新写的备注。"
+    },
+    {
+      "key": "_id",
+      "label": "内部 id",
+      "type": "text",
+      "internal": true
+    },
+    {
+      "key": "_anchor",
+      "label": "代码位置",
+      "type": "text",
+      "internal": true
+    },
+    {
+      "key": "sync",
+      "label": "同步状态",
+      "type": "chip",
+      "readonly": true,
+      "hint": "空 = 已在代码里。「新增/删除·待同步进代码」= 你在网页上的改动还没进游戏，需要 agent 同步到 C#。"
+    },
+    {
+      "key": "_icon",
+      "label": "图标",
+      "type": "text",
+      "internal": true,
+      "hint": "godot/assets/items/<这个>.png（映射表在 godot/scripts/ItemIcons.cs）"
+    }
+  ],
+  "rows": [
+    {
+      "group": "种植",
+      "label": "一座菜园最多同时种",
+      "value": 16,
+      "unit": "颗",
+      "note": "满种要一颗颗下种；每颗收完这一格要重新下种（不自动续种）。",
+      "_id": "crop_max_plants",
+      "_anchor": "godot/scripts/Farming.cs :: CropPlotSpec.MaxPlants",
+      "_icon": "",
+      "description": "",
+      "userNote": "",
+      "sync": ""
+    },
+    {
+      "group": "种植",
+      "label": "成熟所需",
+      "value": 84,
+      "unit": "游戏小时",
+      "note": "种下就不用管，一直走墙钟倒计时。= 3.5 个昼夜（一昼夜 24 游戏小时）。",
+      "_id": "crop_grow_hours",
+      "_anchor": "godot/scripts/Farming.cs :: CropPlotLogic.GrowGameHours",
+      "_icon": "",
+      "description": "",
+      "userNote": "",
+      "sync": ""
+    },
+    {
+      "group": "种植",
+      "label": "下种消耗（种薯＝土豆）",
+      "value": 1,
+      "unit": "个",
+      "note": "种薯就是土豆，不另造「种子」材料。收成的下限也够回本 ⇒ 永不亏种子。",
+      "_id": "crop_seed_cost",
+      "_anchor": "godot/scripts/Farming.cs :: CropPlotLogic.SeedCost",
+      "_icon": "",
+      "description": "",
+      "userNote": "",
+      "sync": ""
+    },
+    {
+      "group": "种植",
+      "label": "种一颗的人力工时",
+      "value": 9,
+      "unit": "游戏分钟",
+      "note": "下种是一次人力动作（走既有工时化）。满种 16 颗 = 144 游戏分钟一次性人力。",
+      "_id": "crop_plant_action_minutes",
+      "_anchor": "godot/scripts/Farming.cs :: CropPlotLogic.PlantActionGameHours",
+      "_icon": "",
+      "description": "",
+      "userNote": "",
+      "sync": ""
+    },
+    {
+      "group": "陷阱",
+      "label": "圈套 单个基础命中率",
+      "value": 30,
+      "unit": "%",
+      "note": "一天掷两次点（白天 1 + 夜晚 1）。多摆几个会相互递减（见下），避免无限叠。",
+      "_id": "snare_base_chance",
+      "_anchor": "godot/scripts/TrapLogic.cs :: TrapLogic.BaseChance",
+      "_icon": "",
+      "description": "",
+      "userNote": "",
+      "sync": ""
+    },
+    {
+      "group": "陷阱",
+      "label": "圈套 每多一个的命中递减",
+      "value": 5,
+      "unit": "%",
+      "note": "第 n 个圈套的命中率 = 基础 − 递减*(n−1)，直到下限。防止密铺陷阱刷肉。",
+      "_id": "snare_chance_step",
+      "_anchor": "godot/scripts/TrapLogic.cs :: TrapLogic.ChanceStep",
+      "_icon": "",
+      "description": "",
+      "userNote": "",
+      "sync": ""
+    },
+    {
+      "group": "陷阱",
+      "label": "圈套 命中率下限",
+      "value": 5,
+      "unit": "%",
+      "note": "再多的圈套，单个命中率也不会低于这条线。",
+      "_id": "snare_min_chance",
+      "_anchor": "godot/scripts/TrapLogic.cs :: TrapLogic.MinChance",
+      "_icon": "",
+      "description": "",
+      "userNote": "",
+      "sync": ""
+    },
+    {
+      "group": "陷阱",
+      "label": "圈套 抓到兔子的比例（其余为鼠）",
+      "value": 30,
+      "unit": "%",
+      "note": "命中后再掷一次「物种点」：这个比例抓到兔子，其余抓到老鼠。⚠️ 拟定待调（用户未指定）。",
+      "_id": "snare_rabbit_share",
+      "_anchor": "godot/scripts/TrapLogic.cs :: TrapLogic.RabbitShare",
+      "_icon": "",
+      "description": "",
+      "userNote": "",
+      "sync": ""
+    },
+    {
+      "group": "陷阱",
+      "label": "捕鸟陷阱 单个基础命中率",
+      "value": 20,
+      "unit": "%",
+      "note": "与圈套共用一张尺子、一天两次；抓到的是鸽子。多摆同样相互递减。",
+      "_id": "birdtrap_base_chance",
+      "_anchor": "godot/scripts/Farming.cs :: BirdTrapLogic.BaseChance",
+      "_icon": "",
+      "description": "",
+      "userNote": "",
+      "sync": ""
+    },
+    {
+      "group": "陷阱",
+      "label": "捕鸟陷阱 每多一个的命中递减",
+      "value": 5,
+      "unit": "%",
+      "note": "第 n 个捕鸟陷阱的命中率 = 基础 − 递减*(n−1)，直到下限。",
+      "_id": "birdtrap_chance_step",
+      "_anchor": "godot/scripts/Farming.cs :: BirdTrapLogic.ChanceStep",
+      "_icon": "",
+      "description": "",
+      "userNote": "",
+      "sync": ""
+    },
+    {
+      "group": "陷阱",
+      "label": "捕鸟陷阱 命中率下限",
+      "value": 5,
+      "unit": "%",
+      "note": "再多的捕鸟陷阱，单个命中率也不会低于这条线。",
+      "_id": "birdtrap_min_chance",
+      "_anchor": "godot/scripts/Farming.cs :: BirdTrapLogic.MinChance",
+      "_icon": "",
+      "description": "",
+      "userNote": "",
+      "sync": ""
+    }
+  ]
+}

@@ -1,19 +1,21 @@
 {
   "id": "food",
-  "label": "食物与食材",
-  "source": "godot/scripts/CookingLogic.cs + godot/scripts/Materials.cs",
-  "note": "能下锅的东西。凑够一份饭的热量，就能在烹饪台做出一份食物——凑不够就做不成。⚠️ 热量点**只在这张表里看得到**：游戏里玩家看不见任何数字，得自己试出来「几只老鼠才够一顿饭」，那是刻意设计的乐趣，别把这些数字搬进游戏 UI。（玫瑰果和蒲公英同时也是草药——末日里没人挑食，所以它们在「材料」分区里也有一份。）",
+  "label": "食物与烹饪",
+  "source": "godot/scripts/CookingLogic.cs + godot/scripts/Materials.cs · godot/scripts/CookingLogic.cs",
+  "note": "从食材到一顿饭：**食材**段是能下锅的东西和它们的热量点，**烹饪**段是把食材变成饭的几个可调数。⚠️ 这些数字**游戏里一个都不显示**，玩家得自己试出「几只老鼠够一顿饭」——刻意设计的乐趣。",
   "columns": [
     {
       "key": "name",
       "label": "名称",
       "type": "text",
-      "primary": true
+      "primary": true,
+      "group": "食材"
     },
     {
       "key": "calories",
       "label": "热量点",
       "type": "number",
+      "group": "食材",
       "hint": "这一个单位的食材能贡献多少热量。一份饭要 16 点（装了炊具更少）"
     },
     {
@@ -21,6 +23,7 @@
       "label": "几个够做一份饭",
       "type": "number",
       "readonly": true,
+      "group": "食材",
       "hint": "自动算的：一份饭要多少热量 ÷ 这个食材的热量点（向上取整）。要改 ⇒ 改「热量点」，或去「烹饪规则」改一份饭要多少热量。"
     },
     {
@@ -49,6 +52,32 @@
       "internal": true
     },
     {
+      "key": "label",
+      "label": "规则",
+      "type": "text",
+      "primary": true,
+      "group": "烹饪"
+    },
+    {
+      "key": "value",
+      "label": "数值",
+      "type": "number",
+      "group": "烹饪"
+    },
+    {
+      "key": "unit",
+      "label": "单位",
+      "type": "chip",
+      "group": "烹饪",
+      "hint": "这个数字的单位。只是给人看的标签。"
+    },
+    {
+      "key": "note",
+      "label": "说明",
+      "type": "longtext",
+      "group": "烹饪"
+    },
+    {
       "key": "sync",
       "label": "同步状态",
       "type": "chip",
@@ -71,6 +100,7 @@
       "description": "兔兔这么可爱！",
       "_id": "rabbit",
       "_anchor": "godot/scripts/CookingLogic.cs :: FoodCalories（热量点）+ godot/scripts/Materials.cs（名称/说明）",
+      "group": "食材",
       "userNote": "",
       "sync": "",
       "_icon": "food/rabbit"
@@ -82,6 +112,7 @@
       "description": "河里的鱼。没人知道那水现在还干不干净，但煮熟了，谁也不会先问这个问题。",
       "_id": "fish",
       "_anchor": "godot/scripts/CookingLogic.cs :: FoodCalories（热量点）+ godot/scripts/Materials.cs（名称/说明）",
+      "group": "食材",
       "userNote": "",
       "sync": "",
       "_icon": "food/fish"
@@ -93,6 +124,7 @@
       "description": "军方发的单兵口粮，密封、耐放、量足。包装上印着「一日份」——印它的那个人还相信会有下一日。",
       "_id": "ration",
       "_anchor": "godot/scripts/CookingLogic.cs :: FoodCalories（热量点）+ godot/scripts/Materials.cs（名称/说明）",
+      "group": "食材",
       "userNote": "",
       "sync": "",
       "_icon": "food/ration_military"
@@ -104,6 +136,7 @@
       "description": "铁皮鼓起来的那种别开。",
       "_id": "canned_food",
       "_anchor": "godot/scripts/CookingLogic.cs :: FoodCalories（热量点）+ godot/scripts/Materials.cs（名称/说明）",
+      "group": "食材",
       "userNote": "",
       "sync": "",
       "_icon": "food/canned_food"
@@ -115,6 +148,7 @@
       "description": "一袋面粉。",
       "_id": "flour",
       "_anchor": "godot/scripts/CookingLogic.cs :: FoodCalories（热量点）+ godot/scripts/Materials.cs（名称/说明）",
+      "group": "食材",
       "userNote": "",
       "sync": "",
       "_icon": "food/flour"
@@ -126,6 +160,7 @@
       "description": "他妈的！土在哪！！！",
       "_id": "potato",
       "_anchor": "godot/scripts/CookingLogic.cs :: FoodCalories（热量点）+ godot/scripts/Materials.cs（名称/说明）",
+      "group": "食材",
       "userNote": "",
       "sync": "",
       "_icon": "food/potato"
@@ -137,6 +172,7 @@
       "description": "你认得这一种，你最好确定你认得这一种。",
       "_id": "mushroom",
       "_anchor": "godot/scripts/CookingLogic.cs :: FoodCalories（热量点）+ godot/scripts/Materials.cs（名称/说明）",
+      "group": "食材",
       "userNote": "",
       "sync": "",
       "_icon": "food/mushroom"
@@ -148,6 +184,7 @@
       "description": "你已经不记得上一次挑食是什么时候了。",
       "_id": "rat_meat",
       "_anchor": "godot/scripts/CookingLogic.cs :: FoodCalories（热量点）+ godot/scripts/Materials.cs（名称/说明）",
+      "group": "食材",
       "userNote": "",
       "sync": "",
       "_icon": "food/rat_meat"
@@ -159,6 +196,7 @@
       "description": "两条细腿，一小块胸脯。",
       "_id": "bird_meat",
       "_anchor": "godot/scripts/CookingLogic.cs :: FoodCalories（热量点）+ godot/scripts/Materials.cs（名称/说明）",
+      "group": "食材",
       "userNote": "",
       "sync": "",
       "_icon": "food/bird_meat"
@@ -170,9 +208,58 @@
       "description": "野蔷薇结的红果，酸得很有营养，有药用价值。",
       "_id": "rosehip",
       "_anchor": "godot/scripts/CookingLogic.cs :: FoodCalories（热量点）+ godot/scripts/Materials.cs（名称/说明）",
+      "group": "食材",
       "userNote": "",
       "sync": "",
       "_icon": "materials/rosehip"
+    },
+    {
+      "label": "一份饭要多少热量",
+      "value": 16,
+      "unit": "热量点",
+      "note": "基础值。装了炊具会更少。份数 = 总热量 ÷ 这个数，向下取整——凑不满一份就做不成，多出来的零头浪费掉（游戏里不提示）。",
+      "_id": "base_portion_cost",
+      "_anchor": "godot/scripts/CookingLogic.cs :: CookingLogic.BasePortionCost",
+      "group": "烹饪",
+      "userNote": "",
+      "sync": "",
+      "_icon": "food/base_portion_cost"
+    },
+    {
+      "label": "装上「锅」省下的热量",
+      "value": 2,
+      "unit": "热量点",
+      "note": "烹饪台两个槽位之一。装上它，每做一份饭就少要这么多热量。与烤架**各是各的数**，可以分别调。",
+      "_id": "pot_discount",
+      "_anchor": "godot/scripts/CookingLogic.cs :: CookingLogic.PotDiscount",
+      "group": "烹饪",
+      "userNote": "",
+      "sync": "",
+      "_icon": "food/pot_discount"
+    },
+    {
+      "label": "装上「烤架」省下的热量",
+      "value": 2,
+      "unit": "热量点",
+      "note": "烹饪台另一个槽位。两个槽都装满，一份饭省下的就是这两个数相加。与锅**各是各的数**，可以分别调。",
+      "_id": "grill_discount",
+      "_anchor": "godot/scripts/CookingLogic.cs :: CookingLogic.GrillDiscount",
+      "group": "烹饪",
+      "userNote": "",
+      "sync": "",
+      "_icon": "food/grill_discount"
+    },
+    {
+      "label": "做一份饭的工时",
+      "value": 45,
+      "unit": "游戏分钟",
+      "note": "得有人站在烹饪台前把活干完。做两份就干两份的活——没有「一锅端」的规模效应。",
+      "_id": "work_minutes_per_portion",
+      "_anchor": "godot/scripts/CookingLogic.cs :: CookingLogic.WorkMinutesPerPortion",
+      "group": "烹饪",
+      "userNote": "",
+      "sync": "",
+      "_icon": "food/work_minutes_per_portion"
     }
   ]
 }

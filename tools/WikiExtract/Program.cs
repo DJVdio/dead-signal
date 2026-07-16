@@ -93,7 +93,14 @@ internal sealed record Col(
     /// wiki-serve config→wiki *100、wiki→config /100（圆整抹浮点尾）。**仅当 wiki 值本身是"数字10"这种放大表示时才标**；
     /// <para>⚠️ 别跟 <c>type:"percent"</c> 列混淆——那类列 wiki 存的仍是分数(0.35)，*100 只发生在前端渲染，config 恒等，**不标本项**。</para>
     /// </summary>
-    bool PercentTransform = false);
+    bool PercentTransform = false,
+
+    /// <summary>
+    /// **页内分块的段名**（波2 合页数据契约）。非空 ⇒ 这一列只属于合页里的某个原子表分块
+    /// （如「食物与烹饪」页里，热量点列属于「食材」段、工时列属于「烹饪」段）。前端据此把合页拆成分块表头。
+    /// <para>两个源表都有的公共列（title/body/_id/简介/备注/同步状态…）留空 = 该列在所有分块通用。</para>
+    /// </summary>
+    string? Group = null);
 
 internal sealed record Category(
     string Id,
@@ -212,12 +219,23 @@ internal static class Program
             Medical(),
             Recipes(),
             Lights(),
-            Books(),
-            Diaries(),   // [T59] 日记＝道具，不是书（独立一张表，无「阅读工时」列）
+            // [波2 合页] 书籍 + 日记 → 一页（沿用 id "books"；旧 diaries.json 成孤儿，重跑后删）。
+            // 页内两分块：书籍（要角色整夜读、有工时/效果）与 日记（道具，无工时，只讲故事）。
+            MergePages("books", "书籍与日记",
+                "读书是角色的时间成本，日记是白捡的剧情——两者放一页，但**分块泾渭分明**。"
+                + "「书籍」段那些要角色整夜坐着读、能解锁配方/给被动的才是书；"
+                + "「日记」段是道具，玩家点开即读、不花任何角色一分钟、什么也不解锁。",
+                Books(), "书籍", Diaries(), "日记"),
             WeaponMods(),
             Furniture(),
-            Food(),
-            CookingRules(),
+            // [波2 合页] 食物与食材 + 烹饪规则 → 一页（沿用 id "food"；旧 cooking.json 成孤儿，重跑后删）。
+            // 页内两分块：食材（能下锅的东西、热量点）与 烹饪（一份饭要多少热量、工时等可调数）。
+            MergePages("food", "食物与烹饪",
+                "从食材到一顿饭：**食材**段是能下锅的东西和它们的热量点，**烹饪**段是把食材变成饭的几个可调数。"
+                + "⚠️ 这些数字**游戏里一个都不显示**，玩家得自己试出「几只老鼠够一顿饭」——刻意设计的乐趣。",
+                Food(), "食材", CookingRules(), "烹饪"),
+            // [波2 新表] 种植与陷阱（菜园 / 圈套 / 捕鸟陷阱）。
+            Farming(),
             GlobalRules(),
             Characters.Roster(),
             Characters.Stats(),
@@ -448,6 +466,7 @@ internal static class Program
                 if (col.ConfigRoot is not null) jo["configRoot"] = col.ConfigRoot;
                 if (col.ConfigScalar) jo["configScalar"] = true;
                 if (col.PercentTransform) jo["percentTransform"] = true;
+                if (col.Group is not null) jo["group"] = col.Group;
                 if (col.ValueMap is not null)
                 {
                     var vm = new JsonObject();
@@ -487,6 +506,114 @@ internal static class Program
     /// （0.9f 提升成 double 是 0.899999976…，写进 JSON 是 0.9，读回来一比就差 2.4e-8）。
     /// </summary>
     internal static double Round(double d) => Math.Round(d, 4);
+
+    /// <summary>
+    /// **合页**（波2 数据契约）：把两张平表并进一张 Category —— 列取并集、每行带 <c>group</c>=原表名，
+    /// 前端据此把一页拆成按 <c>group</c> 分块的表头。
+    /// <para>
+    /// 列的归属：<b>两个源表都有的列</b>（title/body/_id/_anchor…）与**内部列/简介**留空 = 公共列（所有分块通用）；
+    /// **只属于某一个源表的列**打上该源的 <c>group</c>，前端只在那个分块里显示它。
+    /// </para>
+    /// <para>合页后的 <c>id</c> 沿用其中一张源表的（另一张的旧 json 成为孤儿，重跑后由调用侧删除 + 从 index 自动消失）。</para>
+    /// </summary>
+    private static Category MergePages(string id, string label, string note,
+        Category a, string aGroup, Category b, string bGroup)
+    {
+        var aKeys = a.Columns.Select(c => c.Key).ToHashSet();
+        var bKeys = b.Columns.Select(c => c.Key).ToHashSet();
+        // 恒为公共（不打 group）的列：内部列、简介，以及后续 seed 变换统一补的备注/同步状态/图标。
+        var alwaysCommon = new HashSet<string> { "description", "userNote", "sync", "_icon" };
+
+        string? GroupFor(Col col, string src)
+            => col.Internal || alwaysCommon.Contains(col.Key) || (aKeys.Contains(col.Key) && bKeys.Contains(col.Key))
+                ? null : src;
+
+        var cols = new List<Col>();
+        var seen = new HashSet<string>();
+        foreach (Col col in a.Columns) if (seen.Add(col.Key)) cols.Add(col with { Group = GroupFor(col, aGroup) });
+        foreach (Col col in b.Columns) if (seen.Add(col.Key)) cols.Add(col with { Group = GroupFor(col, bGroup) });
+
+        var rows = new List<Dictionary<string, object?>>();
+        foreach (Dictionary<string, object?> r in a.Rows) { r["group"] = aGroup; rows.Add(r); }
+        foreach (Dictionary<string, object?> r in b.Rows) { r["group"] = bGroup; rows.Add(r); }
+
+        return new Category(id, label, a.Source + " · " + b.Source, note, cols, rows);
+    }
+
+    /// <summary>
+    /// **种植与陷阱**（波2 新表）—— 菜园 / 圈套 / 捕鸟陷阱三套的可调数，一行一个数字（同「烹饪规则」形状）。
+    /// 数值全来自代码常量（<c>CropPlotLogic</c> / <c>TrapLogic</c> / <c>BirdTrapLogic</c>），一个都不编。
+    /// 两个分块：<b>种植</b>（菜园）与 <b>陷阱</b>（圈套 + 捕鸟陷阱）。
+    /// </summary>
+    private static Category Farming()
+    {
+        var cols = new List<Col>
+        {
+            new("label", "规则", Primary: true),
+            new("value", "数值", "number"),
+            new("unit", "单位", "chip", Hint: "这个数字的单位。只是给人看的标签。"),
+            new("note", "说明", "longtext"),
+            new("_id", "内部 id", Internal: true),
+            new("_anchor", "代码位置", Internal: true),
+        };
+
+        var rows = new List<Dictionary<string, object?>>();
+        void Add(string group, string id, string label, double value, string unit, string note, string anchor)
+            => rows.Add(new Dictionary<string, object?>
+            {
+                ["group"] = group, ["label"] = label, ["value"] = Round(value),
+                ["unit"] = unit, ["note"] = note, ["_id"] = id, ["_anchor"] = anchor, ["_icon"] = "",
+            });
+
+        // —— 种植（菜园）——
+        const string cropSrc = "godot/scripts/Farming.cs :: ";
+        Add("种植", "crop_max_plants", "一座菜园最多同时种", CropPlotLogic.MaxPlants, "颗",
+            "满种要一颗颗下种；每颗收完这一格要重新下种（不自动续种）。",
+            cropSrc + "CropPlotSpec.MaxPlants");
+        Add("种植", "crop_grow_hours", "成熟所需", CropPlotLogic.GrowGameHours, "游戏小时",
+            $"种下就不用管，一直走墙钟倒计时。= {Round(CropPlotLogic.MaturesInDayNightCycles)} 个昼夜（一昼夜 24 游戏小时）。",
+            cropSrc + "CropPlotLogic.GrowGameHours");
+        Add("种植", "crop_seed_cost", "下种消耗（种薯＝土豆）", CropPlotLogic.SeedCost, "个",
+            "种薯就是土豆，不另造「种子」材料。收成的下限也够回本 ⇒ 永不亏种子。",
+            cropSrc + "CropPlotLogic.SeedCost");
+        Add("种植", "crop_plant_action_minutes", "种一颗的人力工时", CropPlotLogic.PlantActionGameHours * 60, "游戏分钟",
+            $"下种是一次人力动作（走既有工时化）。满种 16 颗 = {Round(CropPlotLogic.PlantActionGameHours * 60 * CropPlotLogic.MaxPlants)} 游戏分钟一次性人力。",
+            cropSrc + "CropPlotLogic.PlantActionGameHours");
+
+        // —— 陷阱（圈套：抓鼠/兔）——
+        const string trapSrc = "godot/scripts/TrapLogic.cs :: TrapLogic";
+        Add("陷阱", "snare_base_chance", "圈套 单个基础命中率", Round(TrapLogic.BaseChance * 100), "%",
+            "一天掷两次点（白天 1 + 夜晚 1）。多摆几个会相互递减（见下），避免无限叠。",
+            trapSrc + ".BaseChance");
+        Add("陷阱", "snare_chance_step", "圈套 每多一个的命中递减", Round(TrapLogic.ChanceStep * 100), "%",
+            "第 n 个圈套的命中率 = 基础 − 递减*(n−1)，直到下限。防止密铺陷阱刷肉。",
+            trapSrc + ".ChanceStep");
+        Add("陷阱", "snare_min_chance", "圈套 命中率下限", Round(TrapLogic.MinChance * 100), "%",
+            "再多的圈套，单个命中率也不会低于这条线。",
+            trapSrc + ".MinChance");
+        Add("陷阱", "snare_rabbit_share", "圈套 抓到兔子的比例（其余为鼠）", Round(TrapLogic.RabbitShare * 100), "%",
+            "命中后再掷一次「物种点」：这个比例抓到兔子，其余抓到老鼠。⚠️ 拟定待调（用户未指定）。",
+            trapSrc + ".RabbitShare");
+
+        // —— 陷阱（捕鸟陷阱：抓鸽）——
+        const string birdSrc = "godot/scripts/Farming.cs :: BirdTrapLogic";
+        Add("陷阱", "birdtrap_base_chance", "捕鸟陷阱 单个基础命中率", Round(BirdTrapLogic.BaseChance * 100), "%",
+            "与圈套共用一张尺子、一天两次；抓到的是鸽子。多摆同样相互递减。",
+            birdSrc + ".BaseChance");
+        Add("陷阱", "birdtrap_chance_step", "捕鸟陷阱 每多一个的命中递减", Round(BirdTrapLogic.ChanceStep * 100), "%",
+            "第 n 个捕鸟陷阱的命中率 = 基础 − 递减*(n−1)，直到下限。",
+            birdSrc + ".ChanceStep");
+        Add("陷阱", "birdtrap_min_chance", "捕鸟陷阱 命中率下限", Round(BirdTrapLogic.MinChance * 100), "%",
+            "再多的捕鸟陷阱，单个命中率也不会低于这条线。",
+            birdSrc + ".MinChance");
+
+        return new Category("farming", "种植与陷阱",
+            "godot/scripts/Farming.cs · godot/scripts/TrapLogic.cs",
+            "自给自足的两条线：**种植**（菜园，种下慢慢长）和**陷阱**（圈套抓鼠兔、捕鸟陷阱抓鸽）。"
+            + "陷阱一天掷两次点（白天 1 + 夜晚 1），多摆会相互递减命中率——不能靠密铺无限刷肉。"
+            + "⚠️ 这些命中率数字**游戏里不显示**：玩家得自己试出「几个陷阱够养活一个人」。",
+            cols, rows);
+    }
 
     private static void WriteBundle(string dataDir, List<Category> categories, JsonObject index)
     {
@@ -1623,20 +1750,26 @@ internal static class Program
         };
 
         var rows = new List<Dictionary<string, object?>>();
-        // cfgKey 非空 ⇒ 这一行外置在 perks.json（_configId=该字段名）；pct=true ⇒ 显示值是 config 分数 *100（wiki-serve 双向 /100/*100）。
+        // mod = 当前所在模块（页内分块 group）：每个 —— 段开头设一次，Add 闭包按引用取用。
+        string mod = "";
+        // cfgKey 非空 ⇒ 这一行外置在 config（默认表级 perks.json；cfgFile 覆盖到别的源，如 health.json/hunger.json…）；
+        // pct=true ⇒ 显示值是 config 分数 *100（wiki-serve 双向 /100/*100）；cfgFile ⇒ 行级 _configFile 覆盖表级。
         void Add(string id, string label, double value, string unit, string note, string anchor,
-                 string? cfgKey = null, bool pct = false)
+                 string? cfgKey = null, bool pct = false, string? cfgFile = null)
         {
             var row = new Dictionary<string, object?>
             {
+                ["group"] = mod,
                 ["label"] = label, ["value"] = Round(value), ["unit"] = unit, ["note"] = note,
                 ["_id"] = id, ["_anchor"] = anchor, ["_icon"] = "",
             };
             if (cfgKey is not null) row["_configId"] = cfgKey;
             if (pct) row["_configPercent"] = true;
+            if (cfgFile is not null) row["_configFile"] = cfgFile;
             rows.Add(row);
         }
 
+        mod = "读书";
         // —— 读书（全员，不是谁的专属）—— 外置 perks.json ——
         Add("read_no_seat", "没座位读书的速度", Math.Round(ReadingSpeed.NoSeatMultiplier * 100, 4), "%",
             "站着/蹲着读书比坐着慢。**这是所有人都一样的**——不是哪个角色的专属效果。座位家具（板凳/木椅）就是为它存在的。",
@@ -1646,6 +1779,7 @@ internal static class Program
             "godot/scripts/SurvivorPerks.cs :: ReadingSpeed.MissingPrerequisiteMultiplier",
             cfgKey: "ReadingMissingPrerequisiteMultiplier", pct: true);
 
+        mod = "持握";
         // —— 持握（全员）——
         Add("dual_wield_speed", "双持时的攻速", Math.Round(DualWield.AttackSpeedFactor * 100, 4), "%",
             "两只手各拿一把单手武器时，**每只手**都变慢。两把一起打的总输出仍然更高——代价是精度和这个攻速。",
@@ -1654,6 +1788,7 @@ internal static class Program
             "双持开枪更不准（误差角乘这个数）。近战不受影响——近战本来就必中。",
             "src/DeadSignal.Combat/DualWield.cs :: DualWield.RangedSpreadFactor");
 
+        mod = "医疗";
         // —— 医疗（全员基线）——
         Add("surgery_base_default", "常人的手术基础点数", NightingalePerk.DefaultSurgeryBasePoints, "点",
             "**所有人都能做手术，不看技能**——人人自带这些点。⚠️ 这是**全员基线**，不是南丁格尔的特长；"
@@ -1661,6 +1796,7 @@ internal static class Program
             "godot/scripts/SurvivorPerks.cs :: NightingalePerk.DefaultSurgeryBasePoints",
             cfgKey: "NightingaleDefaultSurgeryBasePoints");   // 原始点数，非比例 ⇒ 不 pct
 
+        mod = "掩体";
         // —— 掩体（全员，含敌人）——
         Add("cover_chance", "半身掩体挡下整发的概率", Math.Round(CoverLogic.DefaultCoverChance * 100, 4), "%",
             "贴着沙袋/椅子/围栏时，远程有这个概率**整发打空**（不是减伤）。⚠️ **双向对称**：劫掠者躲在你的沙袋后面，你打它也吃这一下。绕到侧后就白躲。",
@@ -1669,6 +1805,7 @@ internal static class Program
             "身体要**贴上去**才算——站在掩体附近不算。",
             "godot/scripts/CoverLogic.cs :: CoverLogic.AdjacencyRadius");
 
+        mod = "流血";
         // —— 流血（谁流得快、谁流得死）——
         // ⚠️ 这里必须 Round 到 **4** 位（同下面几行的兄弟项）：引擎里的真值是 1/3 ＝ 33.3333…%，
         // 舍到 1 位会种下 33.3，而 TableMerge 是按 4 位精度比对的（Program.Round）⇒ 表里填真值 33.3333 就永远
@@ -1710,9 +1847,153 @@ internal static class Program
             + "一处大流血放干一个常人要一分钟左右，**两处就能在一场仗打完之前把人流死**。",
             "src/DeadSignal.Combat/BleedModel.cs :: BleedModel.SeverityRateOf");
 
+        // ─────────────────────────── 波2：settings 入 wiki（外置 config，行级 _configFile 接双向）───────────────────────────
+        // 值一律经 GameConfigCatalog/CombatCatalog 读**活配置**（单一事实源＝各 config json），不写死字面量。
+        // 扁平 {字段:值} 的 config（hunger/horde/military/nightwatch/southtrial/health）可复用 value 列 configScalar +
+        // 行级 _configFile 接双向；body 是嵌套（Disability 子对象），当前列级 root=顶层 ⇒ 只做只读展示（不带 _configId）。
+
+        // —— 饥饿（hunger.json，惩罚是分数 ⇒ pct）——
+        mod = "饥饿";
+        var hunger = GameConfigCatalog.Section<HungerConfig>();
+        Add("hunger_malnourished", "营养不良的能力惩罚", Math.Round(hunger.MalnourishedPenalty * 100, 4), "%",
+            "最饿的一档：干活/战斗等能力打这么大的折扣（乘算）。饿肚子是硬代价。",
+            "godot/scripts/HungerConfig.cs :: MalnourishedPenalty", cfgKey: "MalnourishedPenalty", pct: true, cfgFile: "hunger.json");
+        Add("hunger_ravenous", "极度饥饿的能力惩罚", Math.Round(hunger.RavenousPenalty * 100, 4), "%",
+            "第二档饿。能力乘这个折扣。", "godot/scripts/HungerConfig.cs :: RavenousPenalty",
+            cfgKey: "RavenousPenalty", pct: true, cfgFile: "hunger.json");
+        Add("hunger_hungry", "饥饿的能力惩罚", Math.Round(hunger.HungryPenalty * 100, 4), "%",
+            "刚开始饿。能力乘这个折扣。", "godot/scripts/HungerConfig.cs :: HungryPenalty",
+            cfgKey: "HungryPenalty", pct: true, cfgFile: "hunger.json");
+
+        // —— 尸潮（horde.json，多为原始计数/间隔）——
+        mod = "尸潮";
+        var horde = GameConfigCatalog.Section<HordeConfig>();
+        Add("horde_deadline_day", "尸潮总攻的天数", horde.DeadlineDay, "天",
+            "撑到这一天，最终尸潮压境——主线的硬时限。", "godot/scripts/HordeConfig.cs :: DeadlineDay",
+            cfgKey: "DeadlineDay", cfgFile: "horde.json");
+        Add("horde_wave_base", "第一波的基础规模", horde.WaveBase, "只",
+            "尸潮第一波的丧尸数基准。", "godot/scripts/HordeConfig.cs :: WaveBase",
+            cfgKey: "WaveBase", cfgFile: "horde.json");
+        Add("horde_wave_growth", "每波递增", horde.WaveGrowth, "只/波",
+            "一波比一波多这么多。", "godot/scripts/HordeConfig.cs :: WaveGrowth",
+            cfgKey: "WaveGrowth", cfgFile: "horde.json");
+        Add("horde_wave_camp_factor", "营地人口对波规模的加成", horde.WaveCampFactor, "只/人",
+            "营地每多一个人，波规模加这么多——树大招风。", "godot/scripts/HordeConfig.cs :: WaveCampFactor",
+            cfgKey: "WaveCampFactor", cfgFile: "horde.json");
+        Add("horde_wave_cap", "单波规模上限", horde.WaveCap, "只",
+            "再怎么涨，一波也不会超过这个数。", "godot/scripts/HordeConfig.cs :: WaveCap",
+            cfgKey: "WaveCap", cfgFile: "horde.json");
+        Add("horde_wave_interval", "两波之间的间隔", horde.WaveInterval, "游戏小时",
+            "清完这一波，隔这么久下一波来。", "godot/scripts/HordeConfig.cs :: WaveInterval",
+            cfgKey: "WaveInterval", cfgFile: "horde.json");
+        Add("horde_wave_clear_threshold", "算作「清波」的剩余数", horde.WaveClearThreshold, "只",
+            "场上丧尸压到这个数以下，就算这一波清了，开始倒计时下一波。", "godot/scripts/HordeConfig.cs :: WaveClearThreshold",
+            cfgKey: "WaveClearThreshold", cfgFile: "horde.json");
+        Add("horde_max_concurrent_siege", "同时围城的丧尸上限", horde.MaxConcurrentSiege, "只",
+            "同一时刻场上最多这么多围城丧尸（性能/难度双闸）。", "godot/scripts/HordeConfig.cs :: MaxConcurrentSiege",
+            cfgKey: "MaxConcurrentSiege", cfgFile: "horde.json");
+
+        // —— 军队（military.json）——
+        mod = "军队";
+        var military = GameConfigCatalog.Section<MilitaryConfig>();
+        Add("military_raid_delay_days", "军队袭营的延迟天数", military.MilitaryRaidDelayDays, "天",
+            "触发条件满足后，军队隔这么多天才真的打上门。", "godot/scripts/MilitaryConfig.cs :: MilitaryRaidDelayDays",
+            cfgKey: "MilitaryRaidDelayDays", cfgFile: "military.json");
+
+        // —— 夜袭潜行（nightwatch.json，权重/半径/倍率，多为原始值）——
+        mod = "夜袭潜行";
+        var nw = GameConfigCatalog.Section<NightWatchConfig>();
+        Add("nw_stealth_darkness_weight", "潜行力·黑暗权重", nw.StealthDarknessWeight, "权重",
+            "越黑越难被发现——这个权重决定黑暗对潜行力的贡献。", "godot/scripts/NightWatchConfig.cs :: StealthDarknessWeight",
+            cfgKey: "StealthDarknessWeight", cfgFile: "nightwatch.json");
+        Add("nw_stealth_apparel_weight", "潜行力·着装权重", nw.StealthApparelWeight, "权重",
+            "穿得越隐蔽越难被发现。", "godot/scripts/NightWatchConfig.cs :: StealthApparelWeight",
+            cfgKey: "StealthApparelWeight", cfgFile: "nightwatch.json");
+        Add("nw_stealth_distance_weight", "潜行力·距离权重", nw.StealthDistanceWeight, "权重",
+            "离得越远越难被发现。", "godot/scripts/NightWatchConfig.cs :: StealthDistanceWeight",
+            cfgKey: "StealthDistanceWeight", cfgFile: "nightwatch.json");
+        Add("nw_stealth_distance_reference", "距离权重的参考距离", nw.StealthDistanceReference, "像素",
+            "距离潜行力按这个参考距离归一。", "godot/scripts/NightWatchConfig.cs :: StealthDistanceReference",
+            cfgKey: "StealthDistanceReference", cfgFile: "nightwatch.json");
+        Add("nw_stealth_cover_weight", "潜行力·掩体权重", nw.StealthCoverWeight, "权重",
+            "贴着掩体潜行更不易被发现。", "godot/scripts/NightWatchConfig.cs :: StealthCoverWeight",
+            cfgKey: "StealthCoverWeight", cfgFile: "nightwatch.json");
+        Add("nw_vision_weight", "守夜·视觉权重", nw.VisionWeight, "权重",
+            "守夜者靠看发现入侵者的权重。", "godot/scripts/NightWatchConfig.cs :: VisionWeight",
+            cfgKey: "VisionWeight", cfgFile: "nightwatch.json");
+        Add("nw_hearing_weight", "守夜·听觉权重", nw.HearingWeight, "权重",
+            "守夜者靠听发现入侵者的权重。", "godot/scripts/NightWatchConfig.cs :: HearingWeight",
+            cfgKey: "HearingWeight", cfgFile: "nightwatch.json");
+        Add("nw_hearing_base_range", "守夜·基础听觉半径", nw.HearingBaseRange, "像素",
+            "守夜者能听到多远的动静（基准）。", "godot/scripts/NightWatchConfig.cs :: HearingBaseRange",
+            cfgKey: "HearingBaseRange", cfgFile: "nightwatch.json");
+        Add("nw_preemptive_strike_mult", "先手偷袭伤害倍率", nw.PreemptiveStrikeMultiplier, "*",
+            "潜行成功先动手，这一下伤害乘这个数。", "godot/scripts/NightWatchConfig.cs :: PreemptiveStrikeMultiplier",
+            cfgKey: "PreemptiveStrikeMultiplier", cfgFile: "nightwatch.json");
+        Add("nw_silent_theft_min", "无声窃取件数下限", nw.SilentTheftMinUnits, "件",
+            "潜行偷东西一次至少拿走这么多。", "godot/scripts/NightWatchConfig.cs :: SilentTheftMinUnits",
+            cfgKey: "SilentTheftMinUnits", cfgFile: "nightwatch.json");
+        Add("nw_silent_theft_max", "无声窃取件数上限", nw.SilentTheftMaxUnits, "件",
+            "潜行偷东西一次最多拿走这么多。", "godot/scripts/NightWatchConfig.cs :: SilentTheftMaxUnits",
+            cfgKey: "SilentTheftMaxUnits", cfgFile: "nightwatch.json");
+
+        // —— 南境审判（southtrial.json）——
+        mod = "南境审判";
+        var south = GameConfigCatalog.Section<SouthTrialConfig>();
+        Add("south_pass_threshold", "南境审判通过所需票数", south.PassThreshold, "票",
+            "南境审判要凑够这么多票才算过。", "godot/scripts/SouthTrialConfig.cs :: PassThreshold",
+            cfgKey: "PassThreshold", cfgFile: "southtrial.json");
+
+        // —— 致残（body.json，嵌套 Disability ⇒ 只读展示，不接双向）——
+        mod = "致残";
+        var disability = CombatCatalog.Section<BodyConfig>().Disability;
+        Add("body_single_limb_penalty", "断一手/一腿的能力折损", Math.Round(disability.SingleLimbPenalty * 100, 4), "%",
+            "少一整条手臂或腿，相关能力打这么大的折扣（乘算）。⚠️ 只读展示：数值在 body.json 的嵌套 Disability 段，暂不接双向编辑。",
+            "src/DeadSignal.Combat/BodyConfig.cs :: BodyDisability.SingleLimbPenalty（body.json）");
+        Add("body_finger_penalty", "每断一根手指的能力折损", Math.Round(disability.FingerPenalty * 100, 4), "%",
+            "同一只手每少一根手指累加这么多折扣（缺两指的山姆＝0.86）。⚠️ 只读展示，同上。",
+            "src/DeadSignal.Combat/BodyConfig.cs :: BodyDisability.FingerPenalty（body.json）");
+        Add("body_toe_penalty", "每断一根脚趾的能力折损", Math.Round(disability.ToePenalty * 100, 4), "%",
+            "同一只脚每少一根脚趾累加这么多折扣。⚠️ 只读展示，同上。",
+            "src/DeadSignal.Combat/BodyConfig.cs :: BodyDisability.ToePenalty（body.json）");
+
+        // —— 感染（health.json，连乘竞速链；扁平顶层字段接双向，嵌套/派生的做只读展示）——
+        mod = "感染";
+        var health = GameConfigCatalog.Section<HealthConfig>();
+        Add("infection_chance_large", "大伤口感染几率", Math.Round(health.InfectionBaseChanceLarge * 100, 4), "%",
+            "**躯干/头/颈/大部位**的伤口，不处理时染上感染的基础几率。感染是要靠手术/药竞速压下去的。",
+            "godot/scripts/HealthConfig.cs :: InfectionBaseChanceLarge", cfgKey: "InfectionBaseChanceLarge", pct: true, cfgFile: "health.json");
+        Add("infection_chance_medium", "中伤口感染几率", Math.Round(health.InfectionBaseChanceMedium * 100, 4), "%",
+            "中等伤口的基础感染几率。", "godot/scripts/HealthConfig.cs :: InfectionBaseChanceMedium",
+            cfgKey: "InfectionBaseChanceMedium", pct: true, cfgFile: "health.json");
+        Add("infection_chance_small", "小伤口感染几率", Math.Round(health.InfectionBaseChanceSmall * 100, 4), "%",
+            "小伤口的基础感染几率。", "godot/scripts/HealthConfig.cs :: InfectionBaseChanceSmall",
+            cfgKey: "InfectionBaseChanceSmall", pct: true, cfgFile: "health.json");
+        Add("infection_operated_factor", "处理过伤口的感染几率倍率", health.OperatedInfectionFactor, "*",
+            "上过手术/清创的伤口，感染几率乘这个数（<1 ⇒ 处理能压低感染）。", "godot/scripts/HealthConfig.cs :: OperatedInfectionFactor",
+            cfgKey: "OperatedInfectionFactor", cfgFile: "health.json");
+        Add("infection_immune_window_factor", "免疫窗内的感染几率倍率", health.ImmuneWindowInfectionFactor, "*",
+            "免疫力满值后的窗口期内，新伤口感染几率乘这个数——近乎免疫。", "godot/scripts/HealthConfig.cs :: ImmuneWindowInfectionFactor",
+            cfgKey: "ImmuneWindowInfectionFactor", cfgFile: "health.json");
+        Add("infection_immune_window_days", "免疫满后的免疫窗时长", health.ImmuneWindowDays, "天",
+            "免疫力打满后，这段时间内新伤口几乎不感染；过了窗口（＝这么多天，1 天＝24 小时）就清空、恢复常态。",
+            "godot/scripts/HealthConfig.cs :: ImmuneWindowDays", cfgKey: "ImmuneWindowDays", cfgFile: "health.json");
+        Add("infection_worsen_per_day", "感染每日恶化速度", Math.Round(health.InfectionWorsenPerDay * 100, 2), "%/天",
+            "不压制的话，感染严重度每天涨这么多（＝ 1/6，约 6 天走满）——竞速的另一头。"
+            + "⚠️ 只读展示：真值 1/6 是无限循环小数，过不了百分比往返，改它请直接改 health.json 的 InfectionWorsenPerDay。",
+            "godot/scripts/HealthConfig.cs :: InfectionWorsenPerDay（health.json，只读展示）");
+        // —— 感染·派生/嵌套（只读展示，不接双向）——
+        Add("infection_herbal_bandage", "草药绷带的感染几率倍率", 0.75, "*",
+            "用草药绷带包扎，该处感染几率乘 0.75。⚠️ 只读展示：真值在 health.json 的嵌套 SurgerySupplies.herbal_bandage.InfectionChanceMultiplier（「医疗与草药」表可编辑）。",
+            "godot/scripts/HealthConfig.cs :: SurgerySupplies[herbal_bandage].InfectionChanceMultiplier（body 展示）");
+        Add("infection_nurse_cumulative", "南丁格尔满级后的全营感染几率", 0.765, "*",
+            "护士 2 级(*0.9)＋3 级(*0.85)叠加 ⇒ 全营新伤口感染几率乘 0.765。⚠️ 只读展示：两档真值在「角色数值」南丁格尔行。",
+            "godot/scripts/SurvivorPerks.cs :: NightingalePerk.Level2/Level3InfectionReduction（派生展示）");
+
         return new Category("global-rules", "全局规则",
-            "src/DeadSignal.Combat/DualWield.cs · src/DeadSignal.Combat/BleedModel.cs · godot/scripts/SurvivorPerks.cs · godot/scripts/CoverLogic.cs",
-            "**对所有人一体适用**的规则——不属于任何一件武器，也不属于任何一个角色。"
+            "src/DeadSignal.Combat/DualWield.cs · BleedModel.cs · godot/scripts/SurvivorPerks.cs · CoverLogic.cs · 各 config json（hunger/horde/military/nightwatch/southtrial/health/body）",
+            "**对所有人一体适用**的规则——不属于任何一件武器，也不属于任何一个角色。按模块分块：读书/持握/医疗/掩体/流血，"
+            + "以及外置进 config 的 饥饿/尸潮/军队/夜袭潜行/南境审判/致残/感染。"
             + "以前这些数只活在代码里，wiki 上看不到、也改不了。"
             + "⚠️ 别把这里的东西误当成谁的专属效果：「没座位读书慢 10%」是**每个人**都一样的，不是诺蒂的技能。",
             // 表级 perks.json：仅带 _configId 的行（读书两条+护士基线一条，已外置进 perks.json）双向；

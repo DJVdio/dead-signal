@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-16 09:02:27",
+  "generatedAt": "2026-07-16 10:51:23",
   "iconDir": "godot/assets/items",
   "multiselectOptions": {
     "fitsWeapons": [
@@ -94,17 +94,10 @@
     },
     {
       "id": "books",
-      "label": "书籍",
+      "label": "书籍与日记",
       "file": "books.json",
-      "count": 10,
-      "source": "godot/scripts/BookData.cs"
-    },
-    {
-      "id": "diaries",
-      "label": "日记与笔记",
-      "file": "diaries.json",
-      "count": 2,
-      "source": "godot/scripts/BookData.cs"
+      "count": 12,
+      "source": "godot/scripts/BookData.cs · godot/scripts/BookData.cs"
     },
     {
       "id": "weapon-mods",
@@ -122,24 +115,24 @@
     },
     {
       "id": "food",
-      "label": "食物与食材",
+      "label": "食物与烹饪",
       "file": "food.json",
-      "count": 10,
-      "source": "godot/scripts/CookingLogic.cs + godot/scripts/Materials.cs"
+      "count": 14,
+      "source": "godot/scripts/CookingLogic.cs + godot/scripts/Materials.cs · godot/scripts/CookingLogic.cs"
     },
     {
-      "id": "cooking",
-      "label": "烹饪规则",
-      "file": "cooking.json",
-      "count": 4,
-      "source": "godot/scripts/CookingLogic.cs"
+      "id": "farming",
+      "label": "种植与陷阱",
+      "file": "farming.json",
+      "count": 11,
+      "source": "godot/scripts/Farming.cs · godot/scripts/TrapLogic.cs"
     },
     {
       "id": "global-rules",
       "label": "全局规则",
       "file": "global-rules.json",
-      "count": 17,
-      "source": "src/DeadSignal.Combat/DualWield.cs · src/DeadSignal.Combat/BleedModel.cs · godot/scripts/SurvivorPerks.cs · godot/scripts/CoverLogic.cs"
+      "count": 53,
+      "source": "src/DeadSignal.Combat/DualWield.cs · BleedModel.cs · godot/scripts/SurvivorPerks.cs · CoverLogic.cs · 各 config json（hunger/horde/military/nightwatch/southtrial/health/body）"
     },
     {
       "id": "characters",

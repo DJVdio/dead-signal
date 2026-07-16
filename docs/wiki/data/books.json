@@ -1,8 +1,8 @@
 {
   "id": "books",
-  "label": "书籍",
-  "source": "godot/scripts/BookData.cs",
-  "note": "本作没有技能系统——**能力只由角色的专属效果和读过的书承载**。配方解锁只看谁读过哪本书。「读完要几小时」是**角色的时间**：读书的人整夜占着座位，那一夜他不能站岗、也不能干活——这就是书的代价。（日记不在这张表里：它是给玩家看的道具，不花角色一分钟，见「日记与笔记」。）",
+  "label": "书籍与日记",
+  "source": "godot/scripts/BookData.cs · godot/scripts/BookData.cs",
+  "note": "读书是角色的时间成本，日记是白捡的剧情——两者放一页，但**分块泾渭分明**。「书籍」段那些要角色整夜坐着读、能解锁配方/给被动的才是书；「日记」段是道具，玩家点开即读、不花任何角色一分钟、什么也不解锁。",
   "columns": [
     {
       "key": "title",
@@ -13,12 +13,14 @@
     {
       "key": "readHours",
       "label": "读完要几小时",
-      "type": "number"
+      "type": "number",
+      "group": "书籍"
     },
     {
       "key": "unlocks",
       "label": "效果",
       "type": "text",
+      "group": "书籍",
       "hint": "读完这本书带来什么：解锁的配方、给的被动加成、让手术更有把握……都写这一列，用人话。数字直接写在句子里，agent 会照它同步进代码。"
     },
     {
@@ -83,6 +85,7 @@
       "_id": "wilderness_survival_guide",
       "_surgeryPoints": 3,
       "_anchor": "godot/scripts/BookData.cs :: BookLibrary；手术点数在 godot/scripts/HealthConditions.cs :: MedicalBookPoints",
+      "group": "书籍",
       "userNote": "",
       "sync": "",
       "_icon": "books/book_wilderness"
@@ -96,6 +99,7 @@
       "_id": "farmer_hundred_questions",
       "_surgeryPoints": null,
       "_anchor": "godot/scripts/BookData.cs :: BookLibrary",
+      "group": "书籍",
       "userNote": "",
       "sync": "",
       "_icon": "books/book_farming"
@@ -109,6 +113,7 @@
       "_id": "tailors_notes",
       "_surgeryPoints": null,
       "_anchor": "godot/scripts/BookData.cs :: BookLibrary",
+      "group": "书籍",
       "userNote": "",
       "sync": "",
       "_icon": "books/book_tailoring"
@@ -122,6 +127,7 @@
       "_id": "folk_chemistry_notes",
       "_surgeryPoints": null,
       "_anchor": "godot/scripts/BookData.cs :: BookLibrary",
+      "group": "书籍",
       "userNote": "",
       "sync": "",
       "_icon": "books/book_chemistry"
@@ -135,6 +141,7 @@
       "_id": "carpentry_basics",
       "_surgeryPoints": null,
       "_anchor": "godot/scripts/BookData.cs :: BookLibrary",
+      "group": "书籍",
       "userNote": "",
       "sync": "",
       "_icon": "books/book_carpentry"
@@ -148,6 +155,7 @@
       "_id": "advanced_carpentry",
       "_surgeryPoints": null,
       "_anchor": "godot/scripts/BookData.cs :: BookLibrary",
+      "group": "书籍",
       "userNote": "",
       "sync": "",
       "_icon": "books/book_carpentry_adv"
@@ -161,6 +169,7 @@
       "_id": "way_of_bow_and_arrow",
       "_surgeryPoints": null,
       "_anchor": "godot/scripts/BookData.cs :: BookLibrary",
+      "group": "书籍",
       "userNote": "",
       "sync": "",
       "_icon": "books/book_archery"
@@ -174,6 +183,7 @@
       "_id": "mechanical_beauty",
       "_surgeryPoints": null,
       "_anchor": "godot/scripts/BookData.cs :: BookLibrary",
+      "group": "书籍",
       "userNote": "",
       "sync": "",
       "_icon": "books/book_mechanics"
@@ -187,6 +197,7 @@
       "_id": "bow_crafting_guide",
       "_surgeryPoints": null,
       "_anchor": "godot/scripts/BookData.cs :: BookLibrary",
+      "group": "书籍",
       "userNote": "",
       "sync": "",
       "_icon": "books/book_bowcraft"
@@ -200,9 +211,30 @@
       "_id": "peak_hour",
       "_surgeryPoints": null,
       "_anchor": "godot/scripts/BookData.cs :: BookLibrary",
+      "group": "书籍",
       "userNote": "",
       "sync": "",
       "_icon": "books/book_peak_hour"
+    },
+    {
+      "title": "一本卷边的日记（其一）",
+      "body": "字迹潦草，像是就着火光匆匆写下的。\n灾变头一个月，是老陈拉了我一把。我们俩背靠背，从加油站一路抢到城郊，谁也没抛下谁——那时候我还觉得，能活下来的都是好人。\n后来我们撞上了这伙人。有吃的，有墙，有武器。代价是，你得跟他们一样。\n第一次把那女人拖进屋的时候，我手在抖。老大说，就该如此拿在手里，拿不住的，不配活。老陈先动的手，我跟上了。往后就不抖了。\n他们管自己叫\"金手指\"。老大说，指头是男人身上最诚实的东西——它按住扳机，也按住女人，它做过的事，脑子可以不认，指头认。\n所以入伙那天，每个人都要用手指在她们身上留下印子。这就是规矩。",
+      "_id": "goldfinger_diary_a",
+      "_anchor": "godot/scripts/BookData.cs :: BookLibrary（BookData.Diary）",
+      "group": "日记",
+      "userNote": "",
+      "sync": "",
+      "_icon": "books/book_diary_a"
+    },
+    {
+      "title": "一本硬壳笔记（其二）",
+      "body": "硬壳笔记本，扉页只写着一个名字：哥顿。字迹清秀得似是小女生字样。\n我母亲从不许我父亲说完一句话。父亲低着头吃饭、低着头挨骂、低着头老去。我恨他的软弱，也害怕自己就是他。\n变尸的那天，是母亲先咬穿了父亲的喉咙。他没有反抗，甚至没有后退——他就那样看着她扑上来，像是终于等到了什么。我躲在门后，一动没动。\n我用稿子砸穿了母亲的头，比我想象得简单得多，我早该这么做了\n后来我立了规矩，教弟兄们如何拿捏一个女人。\n可这些天我总在想——把她们折磨到死，我究竟证明了什么？\n我意识到，我不过是那个躲在门后、连喊都不敢喊的孩子。\n什么都没有。只有我自己那点没用的怕。\n守林人小屋后院那棵老树的横枝够粗，绳子我也试过了。\n没人认得我，也没人替我说话——很好，再见了这个操蛋的世界，我很荣幸让它变得更加操蛋。",
+      "_id": "goldfinger_diary_b",
+      "_anchor": "godot/scripts/BookData.cs :: BookLibrary（BookData.Diary）",
+      "group": "日记",
+      "userNote": "",
+      "sync": "",
+      "_icon": "books/book_diary_b"
     }
   ]
 }
