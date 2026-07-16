@@ -234,6 +234,67 @@ public class RadioMainlineTests
         Assert.Null(RadioMainline.ReplyDay(null!));
     }
 
+    // —— 南方三问失败 → 重开电台、解锁回复军方（[SPEC-B11] 新矩阵）——
+
+    [Fact]
+    public void ReopenAfterSouthFailure_RevertsToHasTransmitter_MarksRefused_ClearsSouthEscape()
+    {
+        var flags = new StoryFlags();
+        RadioMainline.GrantTransmitter(flags);
+        RadioMainline.CallSouth(flags);
+        Assert.Equal(RadioMainlineStage.CalledSouth, RadioMainline.Stage(flags));
+
+        Assert.True(RadioMainline.ReopenAfterSouthFailure(flags));
+        Assert.Equal(RadioMainlineStage.HasTransmitter, RadioMainline.Stage(flags)); // 退回持设备态
+        Assert.True(RadioMainline.IsSouthRefused(flags));                            // 南方已拒
+        Assert.False(flags.Has(RadioMainline.SouthEscapeOpenFlag));                  // 南逃线关闭
+        Assert.True(RadioMainline.IsDecisionAvailable(flags));                       // 电台抉择重新可用
+    }
+
+    [Fact]
+    public void AfterSouthFailure_CanReplyMilitary()
+    {
+        var flags = new StoryFlags();
+        RadioMainline.GrantTransmitter(flags);
+        RadioMainline.CallSouth(flags);
+        RadioMainline.ReopenAfterSouthFailure(flags);
+        // 南方失败后，回复军方重新可达（坏结局军袭因此可达）
+        Assert.True(RadioMainline.ReplyToMilitary(flags, 12));
+        Assert.Equal(RadioMainlineStage.RepliedMilitary, RadioMainline.Stage(flags));
+        Assert.Equal(12, RadioMainline.ReplyDay(flags));
+    }
+
+    [Fact]
+    public void AfterSouthFailure_CannotCallSouthAgain()
+    {
+        var flags = new StoryFlags();
+        RadioMainline.GrantTransmitter(flags);
+        RadioMainline.CallSouth(flags);
+        RadioMainline.ReopenAfterSouthFailure(flags);
+        // 南方已拒：即便退回持设备态，也不能再呼叫南方
+        Assert.False(RadioMainline.CallSouth(flags));
+        Assert.Equal(RadioMainlineStage.HasTransmitter, RadioMainline.Stage(flags));
+        Assert.False(flags.Has(RadioMainline.SouthEscapeOpenFlag));
+    }
+
+    [Fact]
+    public void ReopenAfterSouthFailure_OnlyFromCalledSouth()
+    {
+        var replied = new StoryFlags();
+        RadioMainline.GrantTransmitter(replied);
+        RadioMainline.ReplyToMilitary(replied, 5);
+        Assert.False(RadioMainline.ReopenAfterSouthFailure(replied)); // 已回复军方，非南方终态
+        Assert.Equal(RadioMainlineStage.RepliedMilitary, RadioMainline.Stage(replied));
+
+        var device = new StoryFlags();
+        RadioMainline.GrantTransmitter(device);
+        Assert.False(RadioMainline.ReopenAfterSouthFailure(device)); // 未呼叫南方
+        Assert.False(RadioMainline.IsSouthRefused(device));
+
+        Assert.False(RadioMainline.ReopenAfterSouthFailure(null!));
+        Assert.False(RadioMainline.IsSouthRefused(null!));
+    }
+
     // —— 文案草稿非空（供用户改，但骨架须可跑）——
 
     [Fact]

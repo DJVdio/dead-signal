@@ -4,8 +4,11 @@ using Xunit;
 namespace DeadSignal.Combat.Tests;
 
 /// <summary>
-/// 南方营地三问考验（<see cref="SouthTrial"/>）：叙事性拷问，任何选择都放行，
-/// 三次回答基调择启程旁白临别一句；答满三问即通过；启程一次性去重。
+/// 南方营地三问考验（<see cref="SouthTrial"/>）：**有对错门槛**——每题三答分别记 0/1/2 分，
+/// 三题总分满 <see cref="SouthTrial.PassThreshold"/>（5）分才通过；不满即失败。
+/// 通过 → 举家南逃 WIN 入口（置 <see cref="SouthTrial.PassedFlag"/>，结局本体由 family-escape-win 建）；
+/// 失败 → 见 <see cref="RadioMainlineTests"/>：解锁回复军方、继续游戏。
+/// 三问内容为**占位待 author**（[SPEC-B11] 新矩阵，用户拍板推翻旧"无对错"）。
 /// </summary>
 public class SouthTrialTests
 {
@@ -18,21 +21,24 @@ public class SouthTrialTests
         Assert.Equal(0, SouthTrial.Step(flags));
         Assert.False(SouthTrial.IsComplete(flags));
         Assert.NotNull(SouthTrial.CurrentQuestion(flags));
+        Assert.Equal(0, SouthTrial.TotalScore(flags));
+        Assert.False(SouthTrial.IsPassed(flags));
+        Assert.False(SouthTrial.IsFailed(flags));
     }
 
     [Fact]
     public void RecordAnswer_AdvancesOnePerAnswer_CompletesAtThree()
     {
         var flags = new StoryFlags();
-        Assert.True(SouthTrial.RecordAnswer(flags, SouthTrial.Tone.Principled));
+        Assert.True(SouthTrial.RecordAnswer(flags, 2));
         Assert.Equal(1, SouthTrial.Step(flags));
-        Assert.True(SouthTrial.RecordAnswer(flags, SouthTrial.Tone.Pragmatic));
-        Assert.True(SouthTrial.RecordAnswer(flags, SouthTrial.Tone.Hard));
+        Assert.True(SouthTrial.RecordAnswer(flags, 1));
+        Assert.True(SouthTrial.RecordAnswer(flags, 2));
         Assert.Equal(3, SouthTrial.Step(flags));
         Assert.True(SouthTrial.IsComplete(flags));
         Assert.Null(SouthTrial.CurrentQuestion(flags));
         // 答满后不再推进
-        Assert.False(SouthTrial.RecordAnswer(flags, SouthTrial.Tone.Principled));
+        Assert.False(SouthTrial.RecordAnswer(flags, 2));
     }
 
     [Fact]
@@ -40,14 +46,14 @@ public class SouthTrialTests
     {
         var flags = new StoryFlags();
         Assert.Equal(SouthTrial.Questions[0].Prompt, SouthTrial.CurrentQuestion(flags)!.Value.Prompt);
-        SouthTrial.RecordAnswer(flags, SouthTrial.Tone.Hard);
+        SouthTrial.RecordAnswer(flags, 0);
         Assert.Equal(SouthTrial.Questions[1].Prompt, SouthTrial.CurrentQuestion(flags)!.Value.Prompt);
     }
 
-    // —— 三问定稿结构 ——
+    // —— 三问占位结构 ——
 
     [Fact]
-    public void Questions_AreThree_EachHasThreeAnswers_AllNonBlank()
+    public void Questions_AreThree_EachHasThreeAnswers_ScoredZeroOneTwo_AllNonBlank()
     {
         Assert.Equal(SouthTrial.QuestionCount, SouthTrial.Questions.Count);
         foreach (var q in SouthTrial.Questions)
@@ -55,59 +61,104 @@ public class SouthTrialTests
             Assert.False(string.IsNullOrWhiteSpace(q.SouthLine));
             Assert.False(string.IsNullOrWhiteSpace(q.Prompt));
             Assert.Equal(3, q.Answers.Count);
+            var scores = new System.Collections.Generic.List<int>();
             foreach (var a in q.Answers)
+            {
                 Assert.False(string.IsNullOrWhiteSpace(a.Label));
+                scores.Add(a.Score);
+            }
+            // 每题三答恰好覆盖 0/1/2 分（占位门槛的硬不变量）
+            scores.Sort();
+            Assert.Equal(new[] { 0, 1, 2 }, scores);
         }
     }
 
-    // —— 启程变体：多数基调决定 ——
+    [Fact]
+    public void PassThreshold_IsFiveOfSixMax()
+    {
+        Assert.Equal(5, SouthTrial.PassThreshold);
+        // 满分 = 每题 2 分 × 3 题
+        Assert.Equal(6, SouthTrial.QuestionCount * SouthTrial.MaxScorePerQuestion);
+    }
+
+    // —— 对错门槛：满 5 通过 / 不满失败 ——
 
     [Fact]
-    public void Variant_EmptyDefaultsPragmatic()
-        => Assert.Equal(SouthTrial.DepartureVariant.Pragmatic, SouthTrial.Variant(new StoryFlags()));
-
-    [Fact]
-    public void Variant_MajorityPrincipled()
+    public void TotalScore_SumsRecordedAnswers()
     {
         var flags = new StoryFlags();
-        SouthTrial.RecordAnswer(flags, SouthTrial.Tone.Principled);
-        SouthTrial.RecordAnswer(flags, SouthTrial.Tone.Principled);
-        SouthTrial.RecordAnswer(flags, SouthTrial.Tone.Hard);
-        Assert.Equal(SouthTrial.DepartureVariant.Principled, SouthTrial.Variant(flags));
+        SouthTrial.RecordAnswer(flags, 2);
+        SouthTrial.RecordAnswer(flags, 1);
+        SouthTrial.RecordAnswer(flags, 2);
+        Assert.Equal(5, SouthTrial.TotalScore(flags));
     }
 
     [Fact]
-    public void Variant_MajorityHard()
+    public void Score5_ExactlyThreshold_Passes()
     {
-        var flags = new StoryFlags();
-        SouthTrial.RecordAnswer(flags, SouthTrial.Tone.Hard);
-        SouthTrial.RecordAnswer(flags, SouthTrial.Tone.Hard);
-        SouthTrial.RecordAnswer(flags, SouthTrial.Tone.Pragmatic);
-        Assert.Equal(SouthTrial.DepartureVariant.Hard, SouthTrial.Variant(flags));
+        var flags = ScoredTrial(2, 2, 1); // = 5
+        Assert.True(SouthTrial.IsComplete(flags));
+        Assert.True(SouthTrial.IsPassed(flags));
+        Assert.False(SouthTrial.IsFailed(flags));
     }
 
-    [Theory]
-    [InlineData(SouthTrial.DepartureVariant.Principled)]
-    [InlineData(SouthTrial.DepartureVariant.Pragmatic)]
-    [InlineData(SouthTrial.DepartureVariant.Hard)]
-    public void PartingLine_NonBlankForEachVariant(SouthTrial.DepartureVariant v)
-        => Assert.False(string.IsNullOrWhiteSpace(SouthTrial.PartingLine(v)));
+    [Fact]
+    public void Score6_AboveThreshold_Passes()
+    {
+        var flags = ScoredTrial(2, 2, 2); // = 6
+        Assert.True(SouthTrial.IsPassed(flags));
+        Assert.False(SouthTrial.IsFailed(flags));
+    }
 
-    // —— CG③ 组装：启程旁白 + SouthEscape ——
+    [Fact]
+    public void Score4_BelowThreshold_Fails()
+    {
+        var flags = ScoredTrial(2, 2, 0); // = 4
+        Assert.True(SouthTrial.IsComplete(flags));
+        Assert.False(SouthTrial.IsPassed(flags));
+        Assert.True(SouthTrial.IsFailed(flags));
+    }
+
+    [Fact]
+    public void Score0_AllWorst_Fails()
+    {
+        var flags = ScoredTrial(0, 0, 0);
+        Assert.False(SouthTrial.IsPassed(flags));
+        Assert.True(SouthTrial.IsFailed(flags));
+    }
+
+    [Fact]
+    public void Incomplete_NeitherPassNorFail_EvenIfHighScore()
+    {
+        var flags = new StoryFlags();
+        SouthTrial.RecordAnswer(flags, 2);
+        SouthTrial.RecordAnswer(flags, 2); // 只答两题，分够但未答满
+        Assert.Equal(4, SouthTrial.TotalScore(flags));
+        Assert.False(SouthTrial.IsComplete(flags));
+        Assert.False(SouthTrial.IsPassed(flags));
+        Assert.False(SouthTrial.IsFailed(flags));
+    }
+
+    // —— 通过 flag（family-escape-win 入口）——
+
+    [Fact]
+    public void MarkPassed_OnceOnly()
+    {
+        var flags = ScoredTrial(2, 2, 2);
+        Assert.False(SouthTrial.HasPassed(flags));
+        Assert.True(SouthTrial.MarkPassed(flags));
+        Assert.True(SouthTrial.HasPassed(flags));
+        Assert.False(SouthTrial.MarkPassed(flags)); // 二次不再触发
+    }
+
+    // —— CG③ 组装（占位启程旁白 + SouthEscape 结尾段）——
 
     [Fact]
     public void EscapeCg_ConcatenatesDepartureNarrationAndSouthEscape()
     {
-        var flags = new StoryFlags();
-        SouthTrial.RecordAnswer(flags, SouthTrial.Tone.Principled);
-        SouthTrial.RecordAnswer(flags, SouthTrial.Tone.Principled);
-        SouthTrial.RecordAnswer(flags, SouthTrial.Tone.Principled);
-        var cg = SouthTrial.EscapeCg(flags);
-        var narration = SouthTrial.DepartureNarration(SouthTrial.DepartureVariant.Principled);
+        var cg = SouthTrial.EscapeCg(new StoryFlags());
+        var narration = SouthTrial.DepartureNarration();
         Assert.Equal(narration.Count + EndingCg.SouthEscape.Count, cg.Count);
-        // 变体一句在旁白里
-        Assert.Contains(SouthTrial.PartingLine(SouthTrial.DepartureVariant.Principled), cg);
-        // 结尾 CG 段并入
         Assert.Contains(EndingCg.SouthEscape[EndingCg.SouthEscape.Count - 1], cg);
     }
 
@@ -130,8 +181,25 @@ public class SouthTrialTests
     {
         Assert.Equal(0, SouthTrial.Step(null!));
         Assert.False(SouthTrial.IsComplete(null!));
-        Assert.False(SouthTrial.RecordAnswer(null!, SouthTrial.Tone.Principled));
+        Assert.Equal(0, SouthTrial.TotalScore(null!));
+        Assert.False(SouthTrial.IsPassed(null!));
+        Assert.False(SouthTrial.IsFailed(null!));
+        Assert.False(SouthTrial.RecordAnswer(null!, 2));
+        Assert.False(SouthTrial.HasPassed(null!));
+        Assert.False(SouthTrial.MarkPassed(null!));
         Assert.False(SouthTrial.HasDeparted(null!));
         Assert.False(SouthTrial.MarkDeparted(null!));
+    }
+
+    // —— helper ——
+
+    /// <summary>造一个答满三题的 flags，三题得分依次为参数。</summary>
+    private static StoryFlags ScoredTrial(int a, int b, int c)
+    {
+        var flags = new StoryFlags();
+        SouthTrial.RecordAnswer(flags, a);
+        SouthTrial.RecordAnswer(flags, b);
+        SouthTrial.RecordAnswer(flags, c);
+        return flags;
     }
 }

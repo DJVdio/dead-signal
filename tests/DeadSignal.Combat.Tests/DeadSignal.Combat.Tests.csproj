@@ -236,6 +236,8 @@
     <Compile Include="..\..\godot\scripts\SouthTrial.cs" Link="Consumed\SouthTrial.cs" />
     <!-- 「南逃谢幕」结局序列纯逻辑内核（military-impl-core，REUSABLE·无 Godot 依赖）：随机半残南逃者选择+南逃者身份持久化(存档往返)+触发上下文+序列态。 -->
     <Compile Include="..\..\godot\scripts\SouthEscapeEnding.cs" Link="Consumed\SouthEscapeEnding.cs" />
+    <!-- 「举家南逃 WIN」好结局纯逻辑内核（family-escape-win·无 Godot 依赖）：全营名单持久化(存档往返)+WIN/启程去重 flag+与坏结局区分+正面 CG 文本组装。 -->
+    <Compile Include="..\..\godot\scripts\FamilyEscapeWin.cs" Link="Consumed\FamilyEscapeWin.cs" />
     <Compile Include="..\..\godot\scripts\NurseRecruit.cs" Link="Consumed\NurseRecruit.cs" />
     <Compile Include="..\..\godot\scripts\RatRecruit.cs" Link="Consumed\RatRecruit.cs" />
     <!-- 劫掠者战术 AI 纯逻辑（impl-raider-ai，无 Godot 依赖）：撤退判定/掩体择优/包抄绕锥/增援触发 + 战术参数。

@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace DeadSignal.Combat;
 
 /// <summary>伤害类型。锐器命中可在结算中转为钝器；钝器天然保留穿透。</summary>
@@ -168,6 +170,7 @@ public sealed class Weapon
     public string AmmoKey { get; init; } = "";
 
     /// <summary>本武器是否消耗弹药（<see cref="AmmoKey"/> 非空）。近战恒 <c>false</c>。</summary>
+    [JsonIgnore] // 计算属性：从 AmmoKey 派生，不入 weapons.json（否则序列化噪声、反序列化也读不回 get-only）。
     public bool UsesAmmo => !string.IsNullOrEmpty(AmmoKey);
 
     /// <summary>
@@ -182,6 +185,7 @@ public sealed class Weapon
     /// 但消耗的是<b>一发</b>霰弹，不是 8 发。
     /// </para>
     /// </summary>
+    [JsonIgnore] // 计算属性：由 BurstCount 派生，不入 weapons.json。
     public int AmmoPerAttack => UsesAmmo ? Math.Max(1, BurstCount) : 0;
 
     // ---- 噪音（潜行：响声会把敌人引过来）----
@@ -292,6 +296,7 @@ public sealed class Weapon
     public DamageType StockMeleeDamageType { get; init; } = DamageType.Blunt;
 
     /// <summary>是否具备枪托近战 profile（远程武器且填了伤害上限）。近战武器恒为 false。</summary>
+    [JsonIgnore] // 计算属性：由 IsRanged + StockMeleeDamageMax 派生，不入 weapons.json。
     public bool HasMeleeProfile => IsRanged && StockMeleeDamageMax.HasValue;
 
     /// <summary>

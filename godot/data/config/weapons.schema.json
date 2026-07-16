@@ -1,0 +1,46 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://dead-signal/config/weapons.schema.json",
+  "title": "Dead Signal 武器数值表 (weapons.json)",
+  "description": "战斗数值外置：id → 武器 POCO。代码只写规则，数值全在此。字段名/类型对应 src/DeadSignal.Combat/Model.cs 的 Weapon。缺 combat 配置游戏 fail-fast。",
+  "type": "object",
+  "additionalProperties": { "$ref": "#/definitions/weapon" },
+  "definitions": {
+    "weapon": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["Name", "DamageMin", "DamageMax", "Penetration", "DamageType", "AttackInterval"],
+      "properties": {
+        "Name": { "type": "string", "description": "玩家可见名（中文）。" },
+        "Description": { "type": "string", "description": "一行风味描述（UI 展示，不参与结算）。" },
+        "DamageMin": { "type": "number", "description": "伤害下限（含）。" },
+        "DamageMax": { "type": "number", "description": "伤害上限（含）。" },
+        "Penetration": { "type": "number", "minimum": 0, "maximum": 1, "description": "穿透力 0~1。" },
+        "DamageType": { "type": "string", "enum": ["Sharp", "Blunt"], "description": "锐器/钝器。" },
+        "BleedRateMultiplier": { "type": "number", "description": "伤口流血速率乘数（1.0=常规）。" },
+        "BleedOnHitChance": { "type": "number", "minimum": 0, "maximum": 1, "description": "额外引发小流血的概率（0=不会）。" },
+        "TwoHanded": { "type": "boolean", "description": "双手武器。" },
+        "CanDualWield": { "type": "boolean", "description": "可双持。" },
+        "IsRanged": { "type": "boolean", "description": "远程武器（有弹道误差角）。" },
+        "BaseSpreadDegrees": { "type": "number", "minimum": 0, "description": "远程基础误差角（度）。近战忽略。" },
+        "AttackInterval": { "type": "number", "exclusiveMinimum": 0, "description": "出手间隔（秒/次）。" },
+        "BurstCount": { "type": "integer", "minimum": 1, "description": "连发数（1=单发）。" },
+        "BurstInterval": { "type": "number", "minimum": 0, "description": "连发内每弹间隔（秒）。" },
+        "PelletCount": { "type": "integer", "minimum": 1, "description": "弹丸数（1=单弹丸；霰弹=8，单独计算）。" },
+        "FlightSpeed": { "type": "number", "exclusiveMinimum": 0, "description": "弹丸飞行速度（世界单位/秒），默认 560。" },
+        "AmmoKey": { "type": "string", "description": "弹药类型（ammo_short/ammo_medium/ammo_long/ammo_buck/ammo_arrow；空串=不吃弹药）。" },
+        "NoiseRadius": { "type": "number", "minimum": 0, "description": "攻击噪音半径（0=无声）。" },
+        "StructureFactor": { "type": ["number", "null"], "description": "砸墙系数（对结构的伤害倍率）；null=按伤害类型兜底。" },
+        "MaxRange": { "type": ["number", "null"], "description": "最大射程；null=近战无射程模型。" },
+        "FalloffStart": { "type": ["number", "null"], "description": "满伤射程。" },
+        "FalloffFloor": { "type": ["number", "null"], "description": "射程末端伤害下限系数 (0,1]。" },
+        "StockMeleeDamageMin": { "type": ["number", "null"], "description": "枪托近战伤害下限。" },
+        "StockMeleeDamageMax": { "type": ["number", "null"], "description": "枪托近战伤害上限；null=无枪托 profile。" },
+        "StockMeleeInterval": { "type": ["number", "null"], "description": "枪托近战出手间隔。" },
+        "StockMeleePenetration": { "type": ["number", "null"], "description": "枪托近战穿透。" },
+        "StockMeleeNoiseRadius": { "type": ["number", "null"], "description": "枪托近战噪音半径；null=回落全局 110。" },
+        "StockMeleeDamageType": { "type": "string", "enum": ["Sharp", "Blunt"], "description": "枪托近战伤害类型（默认 Blunt；近战型改装为 Sharp）。" }
+      }
+    }
+  }
+}

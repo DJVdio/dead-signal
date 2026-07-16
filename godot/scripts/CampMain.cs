@@ -6891,12 +6891,13 @@ public sealed partial class CampMain : Node2D
     /// </summary>
     private void OpenRadio()
     {
-        // 已呼叫南方（结局③）：电台成为南逃指挥入口——未答满三问则续答，答满则提供启程南逃。
+        // 已呼叫南方（结局③）：电台成为南逃指挥入口——未答满三问则续答，通过则提供启程南逃。
+        // （三问失败会经 ReopenAfterSouthFailure 退回 HasTransmitter，不再命中本分支。）
         if (RadioMainline.Stage(_storyFlags) == RadioMainlineStage.CalledSouth)
         {
             if (!SouthTrial.IsComplete(_storyFlags))
                 StartSouthTrial(); // 三问未答满（如中途离开）：从当前题续答
-            else if (!SouthTrial.HasDeparted(_storyFlags))
+            else if (SouthTrial.IsPassed(_storyFlags) && !SouthTrial.HasDeparted(_storyFlags))
                 PromptSouthDeparture(); // 已通过考验、尚未启程：提供启程入口
             // 已启程则终局已由 CG③ 接管，不会再走到此
             return;
@@ -6920,19 +6921,24 @@ public sealed partial class CampMain : Node2D
         double prevScale = Engine.TimeScale;
         Engine.TimeScale = 0;
 
+        // 南方已回绝（三问失败过）则隐藏"呼叫南方"选项——南方是一次性机会（[SPEC-B11]）。
+        bool southRefused = RadioMainline.IsSouthRefused(_storyFlags);
+        var options = new List<ChoicePanel.ChoiceOption>
+        {
+            new() { Value = 1, Label = RadioMainline.ReplyOptionLabel,
+                    Description = "报出坐标，等军方派人前来", Accent = new Color(0.30f, 0.45f, 0.62f) },
+        };
+        if (!southRefused)
+            options.Add(new() { Value = 2, Label = RadioMainline.CallSouthOptionLabel,
+                    Description = "向南方营地求救，试着求一条生路", Accent = new Color(0.35f, 0.55f, 0.38f) });
+        options.Add(new() { Value = 0, Label = RadioMainline.DeferOptionLabel,
+                    Description = "先不急，再想想", Accent = new Color(0.45f, 0.42f, 0.4f) });
+
         var panel = new ChoicePanel();
         AddChild(panel);
         panel.Setup(
-            RadioMainline.DecisionPrompt,
-            new List<ChoicePanel.ChoiceOption>
-            {
-                new() { Value = 1, Label = RadioMainline.ReplyOptionLabel,
-                        Description = "报出坐标，等军方派人前来", Accent = new Color(0.30f, 0.45f, 0.62f) },
-                new() { Value = 2, Label = RadioMainline.CallSouthOptionLabel,
-                        Description = "向南方营地求救，试着求一条生路", Accent = new Color(0.35f, 0.55f, 0.38f) },
-                new() { Value = 0, Label = RadioMainline.DeferOptionLabel,
-                        Description = "先不急，再想想", Accent = new Color(0.45f, 0.42f, 0.4f) },
-            });
+            southRefused ? RadioMainline.DecisionPromptSouthRefused : RadioMainline.DecisionPrompt,
+            options);
         panel.Confirmed += v =>
         {
             Engine.TimeScale = prevScale <= 0 ? 1 : prevScale;
@@ -7024,29 +7030,30 @@ public sealed partial class CampMain : Node2D
 
     /// <summary>
     /// 南方营地三问考验（呼叫南方后经电台逐题抛出，复用 <see cref="ChoicePanel"/>）。
-    /// **叙事性拷问——任何选择都放行**（[SPEC-B11]），三次回答基调择启程旁白临别一句（<see cref="SouthTrial.Variant"/>）。
-    /// 可从当前已答进度续答（中途离开再回电台续问）；答满三问 → 南方裁决 + 临时开路。
+    /// **有真对错门槛**（[SPEC-B11] 新矩阵）：每题三答记 0/1/2 分，三题满 <see cref="SouthTrial.PassThreshold"/> 分才通过。
+    /// 可从当前已答进度续答（中途离开再回电台续问）；答满三问 → <see cref="ResolveSouthTrial"/> 判通过/失败。
     /// </summary>
     private void StartSouthTrial()
     {
         var q = SouthTrial.CurrentQuestion(_storyFlags);
         if (q == null)
         {
-            ShowSouthVerdict(); // 已答满（幂等兜底）：直接给裁决
+            ResolveSouthTrial(); // 已答满（幂等兜底）：直接结算
             return;
         }
         AskSouthQuestion(q.Value);
     }
 
-    /// <summary>抛出一道考题（三个基调各异的回答，选后记录并推进；未答满续下一题，答满走裁决）。</summary>
+    /// <summary>抛出一道考题（三个记分各异的回答，选后记该题得分并推进；未答满续下一题，答满走结算）。</summary>
     private void AskSouthQuestion(SouthTrial.TrialQuestion question)
     {
         double prevScale = Engine.TimeScale;
         Engine.TimeScale = 0;
 
+        // Value = 答案下标（据下标取该答案的得分，避免分值撞车）。
         var opts = new List<ChoicePanel.ChoiceOption>();
-        foreach (var a in question.Answers)
-            opts.Add(new ChoicePanel.ChoiceOption { Value = (int)a.Tone, Label = a.Label, Accent = new Color(0.4f, 0.42f, 0.46f) });
+        for (int i = 0; i < question.Answers.Count; i++)
+            opts.Add(new ChoicePanel.ChoiceOption { Value = i, Label = question.Answers[i].Label, Accent = new Color(0.4f, 0.42f, 0.46f) });
 
         var panel = new ChoicePanel();
         AddChild(panel);
@@ -7055,18 +7062,46 @@ public sealed partial class CampMain : Node2D
         {
             Engine.TimeScale = prevScale <= 0 ? 1 : prevScale;
             panel.QueueFree();
-            SouthTrial.RecordAnswer(_storyFlags, (SouthTrial.Tone)v);
+            int score = (v >= 0 && v < question.Answers.Count) ? question.Answers[v].Score : 0;
+            SouthTrial.RecordAnswer(_storyFlags, score);
             var next = SouthTrial.CurrentQuestion(_storyFlags);
             if (next != null)
                 AskSouthQuestion(next.Value); // 下一题
             else
-                ShowSouthVerdict(); // 三问答满 → 南方裁决 + 开路
+                ResolveSouthTrial(); // 三问答满 → 判通过/失败
         };
     }
 
-    /// <summary>南方裁决（无对错放行）：告知路已开、回电台启程、尸潮不等人（须抢在第 40 天前）。</summary>
+    /// <summary>
+    /// 三问结算（[SPEC-B11] 新矩阵）：满 <see cref="SouthTrial.PassThreshold"/> 分通过、否则失败。
+    ///   · 通过 → 置 <see cref="SouthTrial.MarkPassed"/> 入口 flag（family-escape-win 挂"举家南逃 WIN"结局本体）
+    ///           + 南方裁决开路（现占位走启程→CG③，待 family-escape-win 替换）。
+    ///   · 失败 → <see cref="RadioMainline.ReopenAfterSouthFailure"/> 退回电台"持设备"态、解锁回复军方
+    ///           （南方已拒，不可再呼叫南方）+ 南方回绝叙事；**不结束游戏**，续走坏结局（军袭/40 天尸潮）。
+    /// </summary>
+    private void ResolveSouthTrial()
+    {
+        if (SouthTrial.IsPassed(_storyFlags))
+        {
+            SouthTrial.MarkPassed(_storyFlags);
+            GD.Print($"[电台] 南方三问通过（总分 {SouthTrial.TotalScore(_storyFlags)}/{SouthTrial.QuestionCount * SouthTrial.MaxScorePerQuestion}），南方开路。");
+            ShowSouthVerdict();
+        }
+        else
+        {
+            RadioMainline.ReopenAfterSouthFailure(_storyFlags); // 退回持设备态、解锁回复军方、南方线关闭（南方已拒 flag 承载失败态）
+            GD.Print($"[电台] 南方三问失败（总分 {SouthTrial.TotalScore(_storyFlags)}/{SouthTrial.QuestionCount * SouthTrial.MaxScorePerQuestion}），南方回绝；解锁回复军方，游戏继续。");
+            ShowSouthFailure();
+        }
+    }
+
+    /// <summary>南方裁决（通过后放行）：告知路已开、回电台启程、尸潮不等人（须抢在第 40 天前）。</summary>
     private void ShowSouthVerdict()
         => ShowDiscoveryNarrative(SouthTrial.VerdictTitle, SouthTrial.VerdictNarrative);
+
+    /// <summary>南方回绝（三问失败）：路封了，退回电台可回复军方或死守；不结束游戏。</summary>
+    private void ShowSouthFailure()
+        => ShowDiscoveryNarrative(SouthTrial.FailureTitle, SouthTrial.FailureNarrative);
 
     /// <summary>
     /// 南逃启程入口（考验通过后回营地电台交互时）：提供「启程南逃 / 再等等」。
@@ -7099,7 +7134,8 @@ public sealed partial class CampMain : Node2D
 
     /// <summary>
     /// 南逃启程二次确认（不可逆）。尸潮已至（第 40 天到期或围攻已起）→ 错过窗口，路走不成（兜底叙事）。
-    /// 确认 → 一次性置启程 flag + 停全灭路由 + 播 CG③（启程旁白含三问变体 + 南逃结尾段），终局由 EndingPanel 接管。
+    /// 确认 → 一次性置启程 flag（<see cref="FamilyEscapeWin.MarkDeparted"/> 去重）→ **举家南逃 WIN 好结局序列**
+    /// （<see cref="BeginFamilyEscapeWin"/>：全员行军 → 大桥落下被迎接 → 胜利谢幕）。取代旧单人 text CG③ 占位。
     /// </summary>
     private void ConfirmSouthDeparture()
     {
@@ -7133,11 +7169,11 @@ public sealed partial class CampMain : Node2D
                 PromptSouthDeparture(); // 再想想：回到启程入口
                 return;
             }
-            if (!SouthTrial.MarkDeparted(_storyFlags))
+            if (!FamilyEscapeWin.MarkDeparted(_storyFlags))
                 return; // 已启程过（幂等去重）
-            _gameOver = true; // 南逃成功＝终局，停掉其余全灭/围攻路由
-            GD.Print($"[电台] 第 {_clock.Day} 天：南逃启程（结局③·唯一生路），播 CG③。");
-            EndingPanel.Show(_hud, SouthTrial.EscapeCg(_storyFlags), EndingCg.SouthEscapeTitle);
+            // 🟢 好结局：举家南逃 WIN（全员行军 → 大桥落下被迎接 → 胜利谢幕）。取代旧单人 text CG③ 占位。
+            GD.Print($"[电台] 第 {_clock.Day} 天：南方三问通过，举家南逃启程（好结局 WIN），进全员行军序列。");
+            BeginFamilyEscapeWin();
         };
     }
 

@@ -64,6 +64,13 @@ public static class RadioMainline
     /// </summary>
     public const string SouthEscapeOpenFlag = "south_escape_open";
 
+    /// <summary>
+    /// 南方已回绝 flag（三问失败后置，[SPEC-B11] 新矩阵）。置后不可再呼叫南方（一次性机会），
+    /// 但 <see cref="ReopenAfterSouthFailure"/> 会把状态退回 <see cref="RadioMainlineStage.HasTransmitter"/>，
+    /// 让回复军方重新可达（坏结局军袭因此可达；40 天尸潮照常）。
+    /// </summary>
+    public const string SouthRefusedFlag = "south_refused";
+
     /// <summary>回复军方后到军方来袭的间隔天数（用户拍板："回复日 + 2 的白天"军袭到期 → 南逃谢幕序列）。</summary>
     public const int MilitaryRaidDelayDays = 2;
 
@@ -149,10 +156,30 @@ public static class RadioMainline
     public static bool CallSouth(StoryFlags flags)
     {
         if (flags == null || Stage(flags) != RadioMainlineStage.HasTransmitter) return false;
+        if (flags.Has(SouthRefusedFlag)) return false; // 南方已拒（三问失败过）：不可再呼叫南方
         flags.Set(StageKey, CalledSouthValue);
         flags.Set(SouthEscapeOpenFlag, "true");
         return true;
     }
+
+    /// <summary>
+    /// 南方三问失败后重开电台（[SPEC-B11] 新矩阵）：CalledSouth 终态 → 退回
+    /// <see cref="RadioMainlineStage.HasTransmitter"/>（回复军方重新可达），并置 <see cref="SouthRefusedFlag"/>
+    /// （南方已拒，不可再呼叫南方）+ 清 <see cref="SouthEscapeOpenFlag"/>（南逃线关闭）。
+    /// 仅 CalledSouth 可退回（非该终态 → false，什么都不做）。返回是否发生退回。
+    /// ★不结束游戏：调用方失败后继续游戏，玩家可回复军方（→军袭坏结局）或死守（→第 40 天尸潮）。
+    /// </summary>
+    public static bool ReopenAfterSouthFailure(StoryFlags flags)
+    {
+        if (flags == null || Stage(flags) != RadioMainlineStage.CalledSouth) return false;
+        flags.Set(StageKey, DeviceValue);        // 退回持设备态，抉择入口重新可用
+        flags.Set(SouthRefusedFlag, "true");     // 南方已拒，CallSouth 从此被 guard 挡下
+        flags.Set(SouthEscapeOpenFlag, null);    // 南逃线关闭（清 flag）
+        return true;
+    }
+
+    /// <summary>南方是否已回绝过（三问失败）；供消费层隐藏"呼叫南方"选项。</summary>
+    public static bool IsSouthRefused(StoryFlags flags) => flags != null && flags.Has(SouthRefusedFlag);
 
     // —— 军方来袭倒计时（结局②，回复军方后）——
 
@@ -200,6 +227,10 @@ public static class RadioMainline
     /// <summary>抉择面板标题（**草稿供用户改**）。持发出设备后同一交互升级为此抉择。</summary>
     public const string DecisionPrompt =
         "发出设备已就位，电台能发得出去了。频道那头，军方的循环讯息仍在一遍遍重复。\n\n你要怎么做？";
+
+    /// <summary>抉择面板标题·南方已回绝版（**草稿供用户改**）。三问失败后，南方选项已不在，只剩回复军方/暂不。</summary>
+    public const string DecisionPromptSouthRefused =
+        "南边那扇门已经关上了。频道那头，只剩军方的循环讯息还在一遍遍重复。\n\n你要怎么做？";
 
     /// <summary>抉择选项：回复军方（**草稿供用户改**）。</summary>
     public const string ReplyOptionLabel = "回复军方，报出我们的坐标";

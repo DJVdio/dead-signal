@@ -11,13 +11,23 @@ namespace DeadSignal.Godot;
 /// 由 CampMain 播 CG-B（峡谷前谢幕）→ 黑屏谢幕。
 ///
 /// <para>
-/// 🔴 REUSABLE：军袭结局 + 将来「40 天无限尸潮」结局共用本关（走廊几何与谢幕通路与触发上下文无关）。
-/// 美术为**占位**（用户日后 author）：密林＝两侧深色障碍带夹出中央窄道；峡谷＝终点区，含占位「未落下的大桥」+「两个哨兵」。
-/// 自包含（仿 <see cref="TestExploration"/>）：自建地形/相机（跟随南逃者）/导航/终点区，不铺发现点、不放敌人、不铺战斗。
+/// 🔴 REUSABLE：军袭/40 天尸潮**坏结局**（单人半残南逃）+ **举家南逃 WIN 好结局**（全营列队向南）共用本关——
+/// 走廊几何完全一致，只按 <see cref="FamilyMode"/> 分叉**演出**（放置人数/相机取景/终点触发条件/峡谷美术）：
+///   · 单人坏结局（默认 FamilyMode=false）：放 <see cref="ExplorationLevel.ExpeditionTeam"/>[0] 一人、相机跟单人、
+///     首个 Pawn 踏入终点即触发、峡谷＝「未落下的大桥」+「两个哨兵冷眼」（<see cref="BuildCanyonProps"/> dark 分支）。
+///   · 举家 WIN（FamilyMode=true）：放**全员**（列成一列）、跟随者自动跟排头、相机取景**全队**、**全员到齐**才触发、
+///     峡谷＝「大桥落下」+「迎接者」（<see cref="BuildCanyonProps"/> WIN 分支）。
+/// 美术为**占位**（用户日后 author）：密林＝两侧深色障碍带夹出中央窄道。
+/// 自包含（仿 <see cref="TestExploration"/>）：自建地形/相机/导航/终点区，不铺发现点、不放敌人、不铺战斗。
 /// </para>
 /// </summary>
 public sealed partial class EscapeCorridor : ExplorationLevel
 {
+    /// <summary>
+    /// 全员行军模式（举家南逃 WIN）：放全员、跟随者自动跟排头、相机取景全队、**全员到齐**才触发终点。
+    /// 默认 false＝单人坏结局（放 [0]、跟单人、首个到达即触发）——CampMain 在 Initialize 前置位。
+    /// </summary>
+    public bool FamilyMode;
     // —— 廊道几何（占位待调）：窄而长（约一屏半），单线往南 ——
     private const float LevelW = 900f;      // 关卡总宽
     private const float LevelH = 2200f;     // 关卡总高（南北纵深，约 1.5 屏）
@@ -33,8 +43,11 @@ public sealed partial class EscapeCorridor : ExplorationLevel
     private NavigationRegion2D _navRegion = null!;
     private Node2D _actorLayer = null!;
     private Area2D _canyonZone = null!;
-    private Pawn? _escapee;
+    private Pawn? _escapee;                       // 单人坏结局：南逃者 / 全员 WIN：排头（玩家操控者）
+    private readonly List<Pawn> _followers = new();// 全员 WIN：跟随者（自动跟排头）
+    private readonly List<Pawn> _team = new();     // 全员 WIN：全队（含排头，用于取景/到齐判定）
     private bool _reached; // 终点只触发一次
+    private double _followThrottle; // 跟随者重发 CommandMoveTo 的节流累加（避免每帧抖 nav agent）
 
     private readonly List<Rect2> _obstructions = new();
     private readonly Dictionary<Actor, Node2D> _markers = new();
@@ -53,9 +66,69 @@ public sealed partial class EscapeCorridor : ExplorationLevel
 
     public override void _Process(double delta)
     {
-        // 相机跟随南逃者（廊道比屏高，须跟随；CG 接管期间 CameraController 自行让位）。
-        if (_escapee is { } e && IsInstanceValid(e) && _camera != null && IsInstanceValid(_camera))
-            _camera.FocusOn(e.GlobalPosition);
+        if (_camera == null || !IsInstanceValid(_camera))
+            return;
+
+        if (!FamilyMode)
+        {
+            // 单人坏结局：相机跟随南逃者（廊道比屏高，须跟随；CG 接管期间 CameraController 自行让位）。
+            if (_escapee is { } e && IsInstanceValid(e))
+                _camera.FocusOn(e.GlobalPosition);
+            return;
+        }
+
+        // —— 全员 WIN：跟随者自动跟排头 + 相机取景全队 + 全员到齐判定 ——
+        var living = LivingTeam();
+        if (living.Count == 0)
+            return;
+
+        // 相机取景全队：跟随全队质心（占位口径，全员集中在窄道里，质心即队伍中心）。
+        Vector2 centroid = Vector2.Zero;
+        foreach (Pawn p in living)
+            centroid += p.GlobalPosition;
+        centroid /= living.Count;
+        _camera.FocusOn(centroid);
+
+        // 跟随者跟排头（节流重发路径令，避免每帧抖 nav agent）。排头由玩家右键操控。
+        _followThrottle += delta;
+        if (_followThrottle >= 0.35 && _escapee is { } lead && IsInstanceValid(lead))
+        {
+            _followThrottle = 0;
+            for (int i = 0; i < _followers.Count; i++)
+            {
+                Pawn f = _followers[i];
+                if (f == null || !IsInstanceValid(f) || !f.Alive)
+                    continue;
+                // 跟到排头身后（北侧）一列错位点——排头往南走，跟随者鱼贯而随。
+                Vector2 slot = lead.GlobalPosition + new Vector2(((i % 2) * 2 - 1) * 34f, -60f - (i / 2) * 46f);
+                f.CommandMoveTo(slot);
+            }
+        }
+
+        // 全员到齐：所有存活队员都进了终点区 → 触发一次谢幕。
+        if (!_reached && AllInCanyonZone(living))
+        {
+            _reached = true;
+            Callable.From(() => OnReachedCanyon?.Invoke()).CallDeferred();
+        }
+    }
+
+    private List<Pawn> LivingTeam()
+    {
+        var living = new List<Pawn>(_team.Count);
+        foreach (Pawn p in _team)
+            if (p != null && IsInstanceValid(p) && p.Alive)
+                living.Add(p);
+        return living;
+    }
+
+    private static bool AllInCanyonZone(IReadOnlyList<Pawn> living)
+    {
+        float r = CanyonZoneSize * 0.5f;
+        foreach (Pawn p in living)
+            if (Mathf.Abs(p.GlobalPosition.X - CanyonZonePos.X) > r || Mathf.Abs(p.GlobalPosition.Y - CanyonZonePos.Y) > r)
+                return false;
+        return true;
     }
 
     public override void _ExitTree()
@@ -105,10 +178,11 @@ public sealed partial class EscapeCorridor : ExplorationLevel
         BuildCanyonProps();
     }
 
-    // —— 峡谷终点占位美术：未落下的大桥 + 两个哨兵（authored 占位，用户日后换真美术）——
+    // —— 峡谷终点占位美术（authored 占位，用户日后换真美术）——
+    //   坏结局 dark：未落下的大桥 + 两个哨兵冷眼；举家 WIN：大桥落下（搭到近岸）+ 迎接者（暖色·招手）。
     private void BuildCanyonProps()
     {
-        // 峡谷裂隙（横贯的深渊带）。
+        // 峡谷裂隙（横贯的深渊带·两分支共用）。
         float chasmY = CanyonZonePos.Y + 40f;
         AddChild(new Polygon2D
         {
@@ -117,7 +191,28 @@ public sealed partial class EscapeCorridor : ExplorationLevel
             ZIndex = -8,
         });
 
-        // 「大桥没有落下」：对岸一截吊起的桥板（占位，斜置在裂隙对岸之上，未搭到近岸）。
+        if (FamilyMode)
+        {
+            // 举家 WIN：大桥**落下**——桥板横搭裂隙、连通近岸对岸（占位）。
+            AddChild(new Polygon2D
+            {
+                Polygon = Quad(new Vector2(LaneCx - 70f, chasmY - 6f), new Vector2(140f, 102f)),
+                Color = new Color(0.42f, 0.34f, 0.22f),
+                ZIndex = -6,
+            });
+            // 迎接者（对岸桥头·暖色人形·占位，示意有人来迎）。
+            foreach (float dx in new[] { -70f, 0f, 70f })
+                AddChild(new Polygon2D
+                {
+                    Polygon = new Vector2[] { new(0, -18), new(9, 0), new(0, 18), new(-9, 0) },
+                    Color = new Color(0.72f, 0.6f, 0.32f),
+                    Position = new Vector2(LaneCx + dx, chasmY - 150f),
+                    ZIndex = -5,
+                });
+            return;
+        }
+
+        // 坏结局：「大桥没有落下」——对岸一截吊起的桥板（占位，斜置对岸之上，未搭到近岸）。
         AddChild(new Polygon2D
         {
             Polygon = Quad(new Vector2(LaneCx - 70f, chasmY - 120f), new Vector2(140f, 60f)),
@@ -195,7 +290,8 @@ public sealed partial class EscapeCorridor : ExplorationLevel
 
     private void OnCanyonBodyEntered(Node2D body)
     {
-        if (_reached || body is not Pawn)
+        // 全员 WIN：终点触发改由 _Process「全员到齐」判定，Area2D 单体 BodyEntered 不作数（否则首个到达即误触）。
+        if (FamilyMode || _reached || body is not Pawn)
             return;
         _reached = true;
         Callable.From(() => OnReachedCanyon?.Invoke()).CallDeferred();
@@ -205,10 +301,34 @@ public sealed partial class EscapeCorridor : ExplorationLevel
     {
         if (ExpeditionTeam == null || ExpeditionTeam.Count == 0)
             return;
-        _escapee = ExpeditionTeam[0];
-        _escapee.Position = SpawnPoint;
-        _escapee.Reparent(_actorLayer, keepGlobalTransform: false);
-        _markers[_escapee] = CreateActorMarker(_escapee, _escapee.BodyTint);
+
+        if (!FamilyMode)
+        {
+            // 单人坏结局：放 [0]、跟单人。
+            _escapee = ExpeditionTeam[0];
+            _escapee.Position = SpawnPoint;
+            _escapee.Reparent(_actorLayer, keepGlobalTransform: false);
+            _markers[_escapee] = CreateActorMarker(_escapee, _escapee.BodyTint);
+            return;
+        }
+
+        // 全员 WIN：放全员，列成一列（排头在南端 SpawnPoint，其余鱼贯在北侧错位）。
+        _team.Clear();
+        _followers.Clear();
+        for (int i = 0; i < ExpeditionTeam.Count; i++)
+        {
+            Pawn p = ExpeditionTeam[i];
+            if (p == null || !IsInstanceValid(p))
+                continue;
+            // 排头 [0] 在 SpawnPoint；跟随者往北错位排列（窄道内 x 左右交替）。
+            p.Position = i == 0
+                ? SpawnPoint
+                : SpawnPoint + new Vector2(((i % 2) * 2 - 1) * 34f, -60f - ((i - 1) / 2) * 46f);
+            p.Reparent(_actorLayer, keepGlobalTransform: false);
+            _markers[p] = CreateActorMarker(p, p.BodyTint);
+            _team.Add(p);
+            if (i == 0) _escapee = p; else _followers.Add(p);
+        }
     }
 
     private static Node2D CreateActorMarker(Actor actor, Color color)

@@ -12,7 +12,9 @@ namespace DeadSignal.Godot;
 //     旧「全员在营被屠尽 → EndingCg.ForGameOver 选 CG②」路由作废（新序列不经全灭判定，序列末尾直接 EndingPanel.Show）。
 //     新 CG 分两幕：CG-A（<see cref="MilitaryRaidMassacre"/>）=屠营+半残南逃，接玩家操作段单线南逃；
 //     CG-B（<see cref="SouthEscapeFarewell"/>）=峡谷前大桥未落、两哨兵冷眼看着 → 黑屏谢幕。**军方动机保持不解释**（[SPEC-B11] 留白）。
-//   · CG③=南逃成功（唯一生路，留悬念不圆满）——南逃启程完成时播（见 SouthTrial.EscapeCg 组装启程旁白+本 CG）。
+//   · CG③【已被好结局 CG-WIN 取代】=旧「单人南逃成功·留悬念」占位（SouthTrial.EscapeCg/SouthEscape）——正史好结局改为
+//     **举家南逃 WIN**：三问满 5 分通过 → 全营列队南逃 → 对方大桥**落下** + 被迎接 + 胜利画面（<see cref="FamilyEscapeWin"/>/<see cref="FamilyEscapeWin.WinCg"/>，
+//     与坏结局 CG-B <see cref="SouthEscapeFarewell"/> 对称反转）。旧 CG③ 文本字段保留但运行时不再走（ConfirmSouthDeparture 已改路由到 WIN 序列）。
 //
 // CG 文本以 drafts-authored.md §4 底稿升正式（用户拍板"直接做"，微调润色，正史事实不改）。分段承载：每个 string 为一屏（EndingPanel 逐段渐显）。
 // 结局路由 EndingRouting.ForGameOver 为纯函数，供 CampMain 全灭时选 CG，亦可单测。
@@ -126,7 +128,7 @@ public static class EndingCg
 
     /// <summary>
     /// CG③ 分段文本（南逃成功的结尾段）。不是胜利，是"还没死"——留悬念、开放，一丝微光，为二号大地图伏笔。
-    /// 完整播放序列＝启程旁白（<see cref="SouthTrial.DepartureNarration"/>，含三问变体一句）＋本段，见 <see cref="SouthTrial.EscapeCg"/>。
+    /// 完整播放序列＝启程旁白（<see cref="SouthTrial.DepartureNarration"/>）＋本段，见 <see cref="SouthTrial.EscapeCg"/>。
     /// </summary>
     public static readonly IReadOnlyList<string> SouthEscape = new[]
     {
@@ -135,6 +137,37 @@ public static class EndingCg
         "峡谷的风，比城里干净一些。前面是什么，没人知道。",
         "至少，信号还在——",
         "只是这一次，是你们自己，往前走。",
+    };
+
+    // —— 好结局 CG-WIN：举家南逃成功（🟢 与坏结局 CG-B 对称反转·family-escape-win 建）——
+    // ⚠️ 文案为**占位草稿**（忠实用户 authored 节拍：南方三问满 5 分通过 → 全营列队向南 → 对方大桥**落下** + 被迎接 + 胜利画面），
+    //   待用户润色定稿。**与坏结局 <see cref="SouthEscape"/>「活下来的没剩几个」/<see cref="SouthEscapeFarewell"/>「大桥没有落下」完全不复用**。
+    //   完整播放序列由 <see cref="FamilyEscapeWin.WinCg"/> 组装（本启程行军旁白 + 峡谷前被迎接的胜利段）。
+
+    /// <summary>CG-WIN 启程行军旁白（全营列队向南·正面·占位草稿）。每段一屏。</summary>
+    public static readonly IReadOnlyList<string> FamilyDepartureNarration = new[]
+    {
+        "南方给你们开了路。这一次，是所有人一起走。",
+        "该带的都捆上了，队伍在营门前列成一行——没有谁被留下。",
+        "身后是守了这么久的城，和它身后追来的东西。你们头也不回，朝着南边。",
+        "一路上没人掉队。倒计时还在走，可这一次，你们赶在了它前面。",
+    };
+
+    /// <summary>CG-WIN 标题（胜利谢幕）。</summary>
+    public const string FamilyEscapeWinTitle = "";
+
+    /// <summary>
+    /// CG-WIN 分段文本（举家南逃成功·峡谷前被迎接的胜利段·占位草稿）。全营抵达峡谷前后播出，播完＝**好结局 WIN**。
+    /// 与坏结局 <see cref="SouthEscapeFarewell"/>「大桥没有落下·两哨兵冷眼」**对称反转**：大桥**落下**、有人来迎接。
+    /// 全营是保留身份的桥梁角色（见 <see cref="FamilyEscapeWin"/> 全营名单持久化），过渡到第二幕「峡谷营地」（很久远排期）。
+    /// </summary>
+    public static readonly IReadOnlyList<string> FamilyEscapeWin = new[]
+    {
+        "一整队人，一路向南，走到了密林尽头那道峡谷前。",
+        "对岸就是活路。这一次，那座桥，缓缓地落了下来。",
+        "桥头有人在等你们。他们朝这边挥手，喊着「过来吧，都过来」。",
+        "你们一个接一个走过桥去，没有落下任何一个人。",
+        "身后的城，连同倒计时，一起沉进了暮色里。前面是峡谷营地——你们，全都活着到了这里。",
     };
 
     /// <summary>据结局种类取 CG 分段文本（<see cref="EndingKind.Normal"/> 无 CG → 空列表，调用方回落 GameOverPanel）。</summary>
