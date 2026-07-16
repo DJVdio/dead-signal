@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-16 11:21:29",
+  "generatedAt": "2026-07-16 11:44:24",
   "iconDir": "godot/assets/items",
   "multiselectOptions": {
     "fitsWeapons": [
@@ -154,6 +154,13 @@
       "file": "world-graph.json",
       "count": 18,
       "source": "godot/data/world_graph.json"
+    },
+    {
+      "id": "endings",
+      "label": "结局",
+      "file": "endings.json",
+      "count": 4,
+      "source": "godot/scripts/EndingCg.cs · FamilyEscapeWin.cs · SouthEscapeEnding.cs · SouthTrial.cs · RadioMainline.cs"
     }
   ]
 }

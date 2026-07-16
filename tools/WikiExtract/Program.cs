@@ -242,6 +242,8 @@ internal static class Program
             // [T57] 调查点路线（网状解锁图）。种子来自 godot/data/world_graph.json —— 那份数据本身就是事实源，
             // 游戏运行时直接读它 ⇒ 用户在这张表上重排路线，agent 同步回那份 JSON 即可，**不用改任何 C# 代码**。
             WorldGraphTable.Build(repoRoot),
+            // [结局] 全作四条结局骨架的**内部设计参考表**（⚠️含最大剧透·只进内部 wiki·CG 摘要逐屏抄 EndingCg 的 draft 文本）。
+            EndingTable(),
         };
 
         // ── 「简介」和「备注」统一在这里补，16 个分区一个都不落（用户要求"每一样都应该有"）──
@@ -2054,6 +2056,88 @@ internal static class Program
             // 表级 perks.json：仅带 _configId 的行（读书两条+护士基线一条，已外置进 perks.json）双向；
             // 双持/掩体/流血等仍是代码常量、无 _configId ⇒ wiki-serve 只读它们的展示值、不投影。
             cols, rows, ConfigFile: "perks.json");
+    }
+
+    /// <summary>
+    /// **结局** —— 全作四条结局骨架的**内部设计参考表**（⚠️ 含全作最大剧透，按 README 禁剧透纪律**只进内部 wiki**）。
+    ///
+    /// <para><b>authored 纪律</b>：本表只如实反映代码里已有的事实（<see cref="EndingCg"/> 的分段 CG 文本、
+    /// <see cref="SouthEscapeEnding"/> 的南逃谢幕序列、<see cref="FamilyEscapeWin"/> 的 WIN 序列）——
+    /// 不引申、不自造剧情。CG 摘要一律**逐屏抄** EndingCg 的字段（每段一屏），标注 draft 待 author 润色。</para>
+    ///
+    /// <para><b>触发条件</b>只作文字描述：具体数值（南境审判通过票数 / 军队袭营延迟天数 / 尸潮总攻天数）
+    /// 已在「全局规则」表外置进 config，本表不重复外置——所以**不接双向**（无 _configId / configFile）。</para>
+    /// </summary>
+    private static Category EndingTable()
+    {
+        var cols = new List<Col>
+        {
+            new("name", "名称", Primary: true),
+            new("kind", "种类", "chip", Hint: "好结局 WIN / 坏结局 / 失败路由（把玩家推向坏结局的中间态，本身非终局）。"),
+            new("trigger", "触发条件", "longtext",
+                Hint: "怎么走到这条结局（文字描述）。具体数值（南境通过票数/军队延迟天数/尸潮总攻天数）见「全局规则」表，这里不重复。"),
+            new("cg", "CG 摘要（draft）", "longtext",
+                Hint: "逐屏抄自代码 EndingCg 的分段 CG 文本（每段一屏渐显）。**draft 占位草稿·待 author 润色**——正史事实不改。"),
+            new("_id", "内部 id", Internal: true),
+            new("_anchor", "代码位置", Internal: true),
+        };
+
+        // 逐屏 CG 文本 → 一格（每段一屏渐显；如实抄 EndingCg 字段，不改一字）。draft 前缀提醒待润色。
+        static string Screens(params IReadOnlyList<string>[] acts)
+            => "【draft·逐屏文本待 author 润色】" + string.Join("　‖　",
+                acts.Select(a => string.Join(" / ", a)));
+
+        var rows = new List<Dictionary<string, object?>>();
+        void Add(string id, string name, string kind, string trigger, string cg, string anchor)
+        {
+            rows.Add(new Dictionary<string, object?>
+            {
+                ["name"] = name, ["kind"] = kind, ["trigger"] = trigger, ["cg"] = cg,
+                ["_id"] = id, ["_anchor"] = anchor, ["_icon"] = "",
+            });
+        }
+
+        // 🟢 好结局 WIN：举家南逃（FamilyEscapeWin.WinCg = 启程行军旁白 + 峡谷前被迎接的胜利段）。
+        Add("family-escape-win", "举家南逃（好结局 WIN）", "好结局 WIN",
+            "联系南方 → 南境审判三问全部答满、总分达到通过线 → 回营电台确认启程 → 全营列队南逃 → "
+            + "抵达峡谷前，对方大桥**落下**、有人迎接，全员过桥无一落下 → 过渡到第二幕「峡谷营地」（很久远排期）。"
+            + "（通过所需票数见「全局规则·南境审判」。）",
+            Screens(EndingCg.FamilyDepartureNarration, EndingCg.FamilyEscapeWin),
+            "godot/scripts/FamilyEscapeWin.cs :: FamilyEscapeWin.WinCg（EndingCg.FamilyDepartureNarration + FamilyEscapeWin）");
+
+        // 🔴 坏结局·军袭南逃：回复军方 → 军人屠营 → 随机一人半残南逃 → 峡谷谢幕。CG-A 屠营旁白 + CG-B 峡谷谢幕。
+        Add("military-raid-south-escape", "军袭·单角色南逃（坏结局）", "坏结局",
+            "回复军方求救 → 延迟数天后（第 n+2 天）白天，军人带顶级装备屠尽全营 → 随机一名半残幸存者向南逃 → "
+            + "峡谷前谢幕（大桥**未落**、两哨兵冷眼看着）。军方为何屠杀全篇不解释（留白）。"
+            + "（军队袭营延迟天数见「全局规则·军队」。）",
+            Screens(EndingCg.MilitaryRaidMassacre, EndingCg.SouthEscapeFarewell),
+            "godot/scripts/EndingCg.cs :: MilitaryRaidMassacre（CG-A）+ SouthEscapeFarewell（CG-B）；序列 SouthEscapeEnding（MilitaryRaid）");
+
+        // 🔴 坏结局·第 40 天尸潮南逃：与军袭复用同一「南逃谢幕」序列，施暴方换成尸潮。CG-A 为冻结演出无独立旁白定稿，CG-B 共用峡谷谢幕。
+        Add("horde-siege-south-escape", "第 40 天尸潮·单角色南逃（坏结局）", "坏结局",
+            "撑到第 40 天仍未南逃 → 无限尸潮踏平营地 → 随机一名幸存者半残向南逃 → 同款峡谷前谢幕。"
+            + "与军袭结局**复用同一条「南逃谢幕」序列**（SouthEscapeEnding），只是施暴方换成尸潮。"
+            + "（尸潮总攻天数见「全局规则·尸潮」。）",
+            // CG-A＝尸潮屠营的冻结演出（无独立旁白定稿）；CG-B 复用峡谷谢幕。旧 CG① 阴云文本为遗留可玩全灭路线、第 40 天已不再走。
+            "【draft·逐屏文本待 author 润色】CG-A＝尸潮屠营的冻结演出（无独立旁白定稿）　‖　"
+            + "CG-B（峡谷谢幕·与军袭复用）：" + string.Join(" / ", EndingCg.SouthEscapeFarewell)
+            + "　‖　〔遗留〕旧 CG①（可玩全灭路线·第 40 天已不再命中）：" + string.Join(" / ", EndingCg.HordeSiege),
+            "godot/scripts/SouthEscapeEnding.cs :: SouthEscapeTrigger.HordeSiege；CG-B EndingCg.SouthEscapeFarewell；遗留 EndingCg.HordeSiege");
+
+        // ⚪ 失败路由（非终局）：南境审判没过 → 解锁回复军方 → 最终落进军袭/40 天坏结局。
+        Add("south-trial-failure", "南方失败（失败路由·非终局）", "失败路由",
+            "南境审判三问总分未达通过线 → 不通过 → 解锁「回复军方」选项 → 最终落进军袭或第 40 天坏结局。"
+            + "**本身不是结局**，是把玩家推向坏结局的路由态。",
+            "无独立 CG（路由态·非终局）。后续 CG 走军袭 / 第 40 天坏结局。",
+            "godot/scripts/SouthTrial.cs（未过）→ RadioMainline.ReopenAfterSouthFailure（解锁回复军方）");
+
+        return new Category("endings", "结局",
+            "godot/scripts/EndingCg.cs · FamilyEscapeWin.cs · SouthEscapeEnding.cs · SouthTrial.cs · RadioMainline.cs",
+            "⚠️ **内部设计参考 · 含全作最大剧透** —— 按 README 禁剧透纪律，本表**只进内部 wiki**，不得以任何形式对外/进 README。\n\n"
+            + "全作四条结局的骨架总览：一条好结局 WIN（举家南逃）、两条坏结局（军袭南逃 / 第 40 天尸潮南逃，复用同一「南逃谢幕」序列）、"
+            + "一条失败路由（南方没过 → 把玩家推向坏结局）。**CG 摘要逐屏抄自代码 EndingCg 的分段文本，全部为 draft 占位草稿，待 author 润色**；"
+            + "触发条件里的数值（南境通过票数/军队延迟天数/尸潮总攻天数）已在「全局规则」表，这里只作文字描述、不重复外置。",
+            cols, rows);
     }
 
     private static Category Furniture()

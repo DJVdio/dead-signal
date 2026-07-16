@@ -1,0 +1,121 @@
+{
+  "id": "endings",
+  "label": "结局",
+  "source": "godot/scripts/EndingCg.cs · FamilyEscapeWin.cs · SouthEscapeEnding.cs · SouthTrial.cs · RadioMainline.cs",
+  "note": "⚠️ **内部设计参考 · 含全作最大剧透** —— 按 README 禁剧透纪律，本表**只进内部 wiki**，不得以任何形式对外/进 README。\n\n全作四条结局的骨架总览：一条好结局 WIN（举家南逃）、两条坏结局（军袭南逃 / 第 40 天尸潮南逃，复用同一「南逃谢幕」序列）、一条失败路由（南方没过 → 把玩家推向坏结局）。**CG 摘要逐屏抄自代码 EndingCg 的分段文本，全部为 draft 占位草稿，待 author 润色**；触发条件里的数值（南境通过票数/军队延迟天数/尸潮总攻天数）已在「全局规则」表，这里只作文字描述、不重复外置。",
+  "columns": [
+    {
+      "key": "name",
+      "label": "名称",
+      "type": "text",
+      "primary": true
+    },
+    {
+      "key": "kind",
+      "label": "种类",
+      "type": "chip",
+      "hint": "好结局 WIN / 坏结局 / 失败路由（把玩家推向坏结局的中间态，本身非终局）。"
+    },
+    {
+      "key": "trigger",
+      "label": "触发条件",
+      "type": "longtext",
+      "hint": "怎么走到这条结局（文字描述）。具体数值（南境通过票数/军队延迟天数/尸潮总攻天数）见「全局规则」表，这里不重复。"
+    },
+    {
+      "key": "cg",
+      "label": "CG 摘要（draft）",
+      "type": "longtext",
+      "hint": "逐屏抄自代码 EndingCg 的分段 CG 文本（每段一屏渐显）。**draft 占位草稿·待 author 润色**——正史事实不改。"
+    },
+    {
+      "key": "description",
+      "label": "简介",
+      "type": "longtext",
+      "hint": "**玩家在游戏里看到的描述**。改了它，agent 会把新文案同步进代码。（有几个分区代码里还没有描述字段——你照样可以写，写了就是在告诉 agent「这里该有一个」。）"
+    },
+    {
+      "key": "userNote",
+      "label": "备注",
+      "type": "note",
+      "usernote": true,
+      "hint": "**你的设计笔记，不进游戏**——想到什么特殊效果就写在这（比如「这把锤子应该能砸开保险箱」）。它不会被同步成游戏文案，但 agent 每次跑抽取器都会看到你新写的备注。"
+    },
+    {
+      "key": "_id",
+      "label": "内部 id",
+      "type": "text",
+      "internal": true
+    },
+    {
+      "key": "_anchor",
+      "label": "代码位置",
+      "type": "text",
+      "internal": true
+    },
+    {
+      "key": "sync",
+      "label": "同步状态",
+      "type": "chip",
+      "readonly": true,
+      "hint": "空 = 已在代码里。「新增/删除·待同步进代码」= 你在网页上的改动还没进游戏，需要 agent 同步到 C#。"
+    },
+    {
+      "key": "_icon",
+      "label": "图标",
+      "type": "text",
+      "internal": true,
+      "hint": "godot/assets/items/<这个>.png（映射表在 godot/scripts/ItemIcons.cs）"
+    }
+  ],
+  "rows": [
+    {
+      "name": "举家南逃（好结局 WIN）",
+      "kind": "好结局 WIN",
+      "trigger": "联系南方 → 南境审判三问全部答满、总分达到通过线 → 回营电台确认启程 → 全营列队南逃 → 抵达峡谷前，对方大桥**落下**、有人迎接，全员过桥无一落下 → 过渡到第二幕「峡谷营地」（很久远排期）。（通过所需票数见「全局规则·南境审判」。）",
+      "cg": "【draft·逐屏文本待 author 润色】南方给你们开了路。这一次，是所有人一起走。 / 该带的都捆上了，队伍在营门前列成一行——没有谁被留下。 / 身后是守了这么久的城，和它身后追来的东西。你们头也不回，朝着南边。 / 一路上没人掉队。倒计时还在走，可这一次，你们赶在了它前面。\u3000‖\u3000一整队人，一路向南，走到了密林尽头那道峡谷前。 / 对岸就是活路。这一次，那座桥，缓缓地落了下来。 / 桥头有人在等你们。他们朝这边挥手，喊着「过来吧，都过来」。 / 你们一个接一个走过桥去，没有落下任何一个人。 / 身后的城，连同倒计时，一起沉进了暮色里。前面是峡谷营地——你们，全都活着到了这里。",
+      "_id": "family-escape-win",
+      "_anchor": "godot/scripts/FamilyEscapeWin.cs :: FamilyEscapeWin.WinCg（EndingCg.FamilyDepartureNarration + FamilyEscapeWin）",
+      "_icon": "",
+      "description": "",
+      "userNote": "",
+      "sync": ""
+    },
+    {
+      "name": "军袭·单角色南逃（坏结局）",
+      "kind": "坏结局",
+      "trigger": "回复军方求救 → 延迟数天后（第 n+2 天）白天，军人带顶级装备屠尽全营 → 随机一名半残幸存者向南逃 → 峡谷前谢幕（大桥**未落**、两哨兵冷眼看着）。军方为何屠杀全篇不解释（留白）。（军队袭营延迟天数见「全局规则·军队」。）",
+      "cg": "【draft·逐屏文本待 author 润色】你按响了求救的信号。 / 他们真的来了——成队的军人，武装到牙齿。 / （收音机还在一遍遍地循环：「……请保持冷静，就地固守……等待接应……」） / 枪声很短，很整齐。一个接一个，他们伏在自己的位子上，再没有起身。 / 你等来的，是你亲手呼叫的那一方。 / 混乱里，只有一个人还在动——朝着南边，一步一拐地跑了出去。\u3000‖\u3000一路向南，密林尽头是那道峡谷。 / 对岸就是活路。可是那座桥，没有落下来。 / 桥头站着两个哨兵。他们看着你，冷冷地，没有一个人动。 / 他们不会放下那座桥。你也过不去。 / 风从峡谷里灌上来。你停在原地，退无可退，也进无可进。",
+      "_id": "military-raid-south-escape",
+      "_anchor": "godot/scripts/EndingCg.cs :: MilitaryRaidMassacre（CG-A）+ SouthEscapeFarewell（CG-B）；序列 SouthEscapeEnding（MilitaryRaid）",
+      "_icon": "",
+      "description": "",
+      "userNote": "",
+      "sync": ""
+    },
+    {
+      "name": "第 40 天尸潮·单角色南逃（坏结局）",
+      "kind": "坏结局",
+      "trigger": "撑到第 40 天仍未南逃 → 无限尸潮踏平营地 → 随机一名幸存者半残向南逃 → 同款峡谷前谢幕。与军袭结局**复用同一条「南逃谢幕」序列**（SouthEscapeEnding），只是施暴方换成尸潮。（尸潮总攻天数见「全局规则·尸潮」。）",
+      "cg": "【draft·逐屏文本待 author 润色】CG-A＝尸潮屠营的冻结演出（无独立旁白定稿）\u3000‖\u3000CG-B（峡谷谢幕·与军袭复用）：一路向南，密林尽头是那道峡谷。 / 对岸就是活路。可是那座桥，没有落下来。 / 桥头站着两个哨兵。他们看着你，冷冷地，没有一个人动。 / 他们不会放下那座桥。你也过不去。 / 风从峡谷里灌上来。你停在原地，退无可退，也进无可进。\u3000‖\u3000〔遗留〕旧 CG①（可玩全灭路线·第 40 天已不再命中）：望远镜里的那片阴云，终于漫到了脚下。 / 它不是云。你们早就知道。 / 一波，又一波。你们把门顶了一次又一次，把还能开火的人一个个补到缺口上。 / 没有援军。从来没有。 / 一个接一个，名字从你心里的那份名单上划去，再没能添回来。 / 你守住了这里，直到最后一个人。 / 这样做，是对的吗？",
+      "_id": "horde-siege-south-escape",
+      "_anchor": "godot/scripts/SouthEscapeEnding.cs :: SouthEscapeTrigger.HordeSiege；CG-B EndingCg.SouthEscapeFarewell；遗留 EndingCg.HordeSiege",
+      "_icon": "",
+      "description": "",
+      "userNote": "",
+      "sync": ""
+    },
+    {
+      "name": "南方失败（失败路由·非终局）",
+      "kind": "失败路由",
+      "trigger": "南境审判三问总分未达通过线 → 不通过 → 解锁「回复军方」选项 → 最终落进军袭或第 40 天坏结局。**本身不是结局**，是把玩家推向坏结局的路由态。",
+      "cg": "无独立 CG（路由态·非终局）。后续 CG 走军袭 / 第 40 天坏结局。",
+      "_id": "south-trial-failure",
+      "_anchor": "godot/scripts/SouthTrial.cs（未过）→ RadioMainline.ReopenAfterSouthFailure（解锁回复军方）",
+      "_icon": "",
+      "description": "",
+      "userNote": "",
+      "sync": ""
+    }
+  ]
+}
