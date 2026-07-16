@@ -35,10 +35,10 @@ public class CraftingPanelFormatTests
 
         // 各桶的代表配方（锚点，防止分桶逻辑把东西丢错桶）。
         Assert.Contains(groups[0].Recipes, r => r.Id == "bone_knife");   // 骨刀：无工具
+        Assert.Contains(groups[0].Recipes, r => r.Id == "handmade_bow"); // 自制弓：徒手（[用户后撤]卡尺门槛已解除）
         Assert.Contains(groups[1].Recipes, r => r.Id == "chair");        // 木椅：锯片
         Assert.Contains(groups[2].Recipes, r => r.Id == "gunpowder");    // 火药：烧杯
-        Assert.Contains(groups[3].Recipes, r => r.Id == "handmade_bow"); // 自制弓：卡尺
-        Assert.Contains(groups[3].Recipes, r => r.Id == "improvised_shotgun"); // 自制霰弹枪：卡尺精工
+        Assert.Contains(groups[3].Recipes, r => r.Id == "improvised_shotgun"); // 自制霰弹枪：卡尺
     }
 
     [Fact]

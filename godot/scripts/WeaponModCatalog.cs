@@ -176,13 +176,17 @@ public static class WeaponModCatalog
     //        那不是消防斧，那是一把很差的剑。**这条是"明显不通"，故不硬勾。**
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// <summary>六把锐器 + **消防斧**（用户拍板：消防斧与长剑同档）。</summary>
+    /// <summary>六把锐器 + **消防斧**（用户拍板：消防斧与长剑同档）。锋刃研磨/轻质化剑柄仍用它。</summary>
     private static IReadOnlySet<string> Blades6WithAxe()
         => Names("匕首", "短剑", "刺剑", "长剑", "草叉", "重剑", "消防斧");
 
-    /// <summary>锯齿剑刃能装的：5 把锐器（用户划掉了刺剑）+ **消防斧**。</summary>
+    /// <summary>六把锐器、**不含消防斧**（用户后撤：加重剑柄不再装消防斧）。</summary>
+    private static IReadOnlySet<string> Blades6NoAxe()
+        => Names("匕首", "短剑", "刺剑", "长剑", "草叉", "重剑");
+
+    /// <summary>锯齿剑刃能装的：5 把锐器（用户划掉了刺剑）。**消防斧已按用户后撤移除**。</summary>
     private static IReadOnlySet<string> SerratedFits()
-        => Names("匕首", "短剑", "长剑", "草叉", "重剑", "消防斧");
+        => Names("匕首", "短剑", "长剑", "草叉", "重剑");
 
     /// <summary>
     /// 镂空剑刃能装的：5 把锐器（用户划掉了刺剑）—— <b>唯一不含消防斧的锐器改装</b>，
@@ -533,7 +537,7 @@ public static class WeaponModCatalog
     {
         Id = "weighted_handle",
         Name = "加重剑柄",
-        FitsWeapons = Blades6WithAxe(),   // 含消防斧（用户拍板：与长剑同档）
+        FitsWeapons = Blades6NoAxe(),     // 用户后撤消防斧：加重剑柄不再装消防斧
         Part = WeaponPart.Handle,
         Note = "柄里灌铅配重：每一下都更沉。你的胳膊也知道。",
         Description = "柄里灌了铅，每一下都更实在。你的肩膀替这份实在付账，付一整天。",

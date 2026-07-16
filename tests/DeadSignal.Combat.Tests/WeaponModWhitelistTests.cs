@@ -104,10 +104,11 @@ public class WeaponModWhitelistTests
         string[] gunsSawn = { "自制猎枪", "手枪", "步枪", "狙击枪", "自制霰弹枪" };          // 用户划掉冲锋枪
         string[] gunsForm = { "自制猎枪", "步枪", "狙击枪", "自制霰弹枪" };                  // 用户划掉手枪+冲锋枪
         string[] gunsBladeForm = { "手枪", "冲锋枪" };                                       // [T68] 锋刃型＝短枪专属（与 gunsForm 不相交）
-        // 🔴 消防斧已按用户拍板勾进锐器改装（「和长剑同档」）—— **唯独镂空剑刃不勾**
-        //    （镂空会挖掉消防斧赖以成立的头部质量，见 消防斧按与长剑同档的口径拿到五条锐器改装_唯独镂空剑刃不勾）
+        // 🔴 消防斧勾进部分锐器改装（「和长剑同档」的历史口径）——但**用户后撤了锯齿剑刃/加重剑柄两条**，
+        //    加上镂空剑刃本就不勾，消防斧现只吃 锋刃研磨/轻质化剑柄/防滑缠手 三条（见下方那条专测）。
         string[] blades6WithAxe = { "匕首", "短剑", "刺剑", "长剑", "草叉", "重剑", "消防斧" };
-        string[] serratedFits = { "匕首", "短剑", "长剑", "草叉", "重剑", "消防斧" };            // 划掉刺剑，含消防斧
+        string[] blades6NoAxe = { "匕首", "短剑", "刺剑", "长剑", "草叉", "重剑" };            // 六锐器，**不含消防斧**（加重剑柄用户后撤）
+        string[] serratedFits = { "匕首", "短剑", "长剑", "草叉", "重剑" };                  // 划掉刺剑，**消防斧已后撤移除**
         string[] fullerFits = { "匕首", "短剑", "长剑", "草叉", "重剑" };                      // 划掉刺剑，**不含消防斧**
         string[] bladesAndBlunts = { "匕首", "短剑", "刺剑", "长剑", "草叉", "重剑", "消防斧", "棍棒", "尖头锤", "破甲锤" };
         string[] clubOnly = { "棍棒" };
@@ -130,7 +131,7 @@ public class WeaponModWhitelistTests
             ["serrated_blade"] = serratedFits,
             ["honed_edge"] = blades6WithAxe,
             ["fuller_blade"] = fullerFits,
-            ["weighted_handle"] = blades6WithAxe,
+            ["weighted_handle"] = blades6NoAxe,
             ["lightened_handle"] = blades6WithAxe,
             ["grip_wrap_blade"] = bladesAndBlunts,   // 用户把原来同名的锐器/钝器两条合并成了一条
             ["wire_wrap"] = clubOnly,
@@ -187,10 +188,10 @@ public class WeaponModWhitelistTests
     }
 
     /// <summary>
-    /// ✅ <b>[用户拍板] 消防斧按「和长剑同档」的口径勾进锐器改装 —— 6 条里拿到 5 条。</b>
+    /// ✅ <b>消防斧的锐器改装口径：历史「与长剑同档」拿 5 条，用户后撤锯齿剑刃/加重剑柄 ⇒ 现只吃 3 条。</b>
     ///
-    /// <para>依据（口径）：消防斧原先 DPS <b>2.79</b> ≈ 长剑 <b>2.81</b>（同档）。用户原话是要「**和长剑同档的口径**」，
-    /// 不是"一个字不差照抄" ⇒ 逐条过了语义，**只跳掉「镂空剑刃」一条**。
+    /// <para>依据（口径）：消防斧原先 DPS <b>2.79</b> ≈ 长剑 <b>2.81</b>（同档），历史上按「和长剑同档」拿到 6 条减镂空＝5 条。
+    /// **用户后来在 wiki 上把消防斧从「锯齿剑刃」「加重剑柄」两条里划掉** ⇒ 现只剩 锋刃研磨/轻质化剑柄/防滑缠手 三条。
     /// （⚠ [weapon-finalize] 消防斧已升到 6.5~14＝DPS 3.01，略高于长剑——但**改装白名单是用户拍板的口径归属**，
     /// 不随 DPS 微调重算；这条测试钉的是"哪些改装装得上"，与具体 DPS 值无关，故不受升伤影响。）</para>
     ///
@@ -203,7 +204,7 @@ public class WeaponModWhitelistTests
     /// <para>（本条**取代了**先前那条"消防斧拿不到任何改装_待用户在 wiki 上勾选" —— 用户已经勾了。改钉新意图，不是删。）</para>
     /// </summary>
     [Fact]
-    public void 消防斧按与长剑同档的口径拿到五条锐器改装_唯独镂空剑刃不勾()
+    public void 消防斧拿三条锐器改装_镂空剑刃不勾_锯齿加重用户后撤()
     {
         Weapon axe = WeaponTable.Axe();
         Weapon longsword = WeaponTable.Longsword();
@@ -216,9 +217,11 @@ public class WeaponModWhitelistTests
             new[] { "fuller_blade", "grip_wrap_blade", "honed_edge", "lightened_handle", "serrated_blade", "weighted_handle" },
             swordMods);
 
-        // 消防斧 = 长剑的那 6 条**减去镂空剑刃**
-        Assert.Equal(swordMods.Where(id => id != "fuller_blade"), axeMods);
-        Assert.Equal(5, axeMods.Count);
+        // 消防斧 = 长剑的 6 条**减去镂空剑刃 + 用户后撤的锯齿剑刃/加重剑柄** = 剩 3 条
+        Assert.Equal(
+            new[] { "grip_wrap_blade", "honed_edge", "lightened_handle" },
+            axeMods);
+        Assert.Equal(3, axeMods.Count);
 
         // 逐条正向：这 5 条是真的装得上（不是白名单写了却合成失败）
         foreach (WeaponMod m in WeaponModCatalog.For(axe))

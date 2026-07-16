@@ -116,10 +116,11 @@ public class RecipeBookTests
     /// </para>
     /// </summary>
     [Fact]
-    public void HandmadeBow_RequiresCalipers_AndWildernessSurvivalGuide()
+    public void HandmadeBow_NoToolNeeded_RequiresWildernessSurvivalGuide()
     {
         var r = RecipeBook.Find("handmade_bow")!;
-        Assert.Contains(ToolSlot.Calipers, r.RequiredTools);
+        // [用户后撤] 三把弓（短弓/反曲弓/长弓）的卡尺工具门槛已解除——短弓徒手可造。
+        Assert.DoesNotContain(ToolSlot.Calipers, r.RequiredTools);
         Assert.Contains(RecipeBook.WildernessSurvivalGuideBookId, r.RequiredBookIds);
         Assert.DoesNotContain(RecipeBook.CarpentryBasicsBookId, r.RequiredBookIds);
     }

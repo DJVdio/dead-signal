@@ -316,7 +316,7 @@ public static class RecipeBook
         // 留着它就是凭空多出第 6 把弓。而「木料 2 + 绳 1」＝一根木头 + 一根弦，本来就是最朴素的短弓，
         // 故这条配方由「短弓」承接（它此前是**悬空引用**：有配方，WeaponTable 却查不到武器数值）。
         // Id / OutputKey 仍是 handmade_bow（内部键，改它会无谓地波及 CraftOutputFactory 与一批既有测试）。
-        R("handmade_bow", "短弓", RecipeCategory.Precision, "handmade_bow", Tools(ToolSlot.Calipers), Books(WildernessSurvivalGuideBookId)),
+        R("handmade_bow", "短弓", RecipeCategory.Precision, "handmade_bow", Tools(), Books(WildernessSurvivalGuideBookId)),
 
         // 自制猎枪（批次18b，用户拍板新增；旧「土制枪」已删）：唯一**能自己造**的枪。
         // 工具槽取卡尺类精工（同自制弓——枪管/击发机构是精工活）；书门槛取《土法化学笔记》而非木工书：
