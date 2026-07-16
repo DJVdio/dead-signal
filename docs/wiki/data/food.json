@@ -144,7 +144,7 @@
     {
       "name": "面粉",
       "calories": 10,
-      "portions": 3,
+      "portions": 2,
       "description": "一袋面粉。",
       "_id": "flour",
       "_anchor": "godot/scripts/CookingLogic.cs :: FoodCalories（热量点）+ godot/scripts/Materials.cs（名称/说明）",

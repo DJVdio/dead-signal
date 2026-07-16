@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-16 13:29:25",
+  "generatedAt": "2026-07-16 16:18:05",
   "iconDir": "godot/assets/items",
   "multiselectOptions": {
     "fitsWeapons": [
@@ -47,7 +47,7 @@
       "id": "armor",
       "label": "护甲服装",
       "file": "armor.json",
-      "count": 28,
+      "count": 27,
       "source": "src/DeadSignal.Combat/ArmorTable.cs（防护数值）+ godot/scripts/ApparelSlots.cs（穿在哪、护到哪）"
     },
     {
@@ -124,7 +124,7 @@
       "id": "farming",
       "label": "种植与陷阱",
       "file": "farming.json",
-      "count": 11,
+      "count": 15,
       "source": "godot/scripts/Farming.cs · godot/scripts/TrapLogic.cs"
     },
     {
