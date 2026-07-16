@@ -608,9 +608,24 @@ internal static class Program
         Add("种植", "crop_seed_cost", "下种消耗（种薯＝土豆）", CropPlotLogic.SeedCost, "个",
             "种薯就是土豆，不另造「种子」材料。收成的下限也够回本 ⇒ 永不亏种子。",
             cropSrc + "CropPlotLogic.SeedCost");
-        Add("种植", "crop_plant_action_minutes", "种一颗的人力工时", CropPlotLogic.PlantActionGameHours * 60, "游戏分钟",
-            $"下种是一次人力动作（走既有工时化）。满种 16 颗 = {Round(CropPlotLogic.PlantActionGameHours * 60 * CropPlotLogic.MaxPlants)} 游戏分钟一次性人力。",
-            cropSrc + "CropPlotLogic.PlantActionGameHours");
+        // 展示的 9 = PlantWorkMinutes（(int)(PlantActionGameHours*60)）⇒ anchor 指它，别指 PlantActionGameHours（那是 0.15h）。
+        Add("种植", "crop_plant_action_minutes", "种一颗的人力工时", CropPlotLogic.PlantWorkMinutes, "游戏分钟",
+            $"下种是一次人力动作（走既有工时化）。满种 16 颗 = {Round((double)CropPlotLogic.PlantWorkMinutes * CropPlotLogic.MaxPlants)} 游戏分钟一次性人力。",
+            cropSrc + "CropPlotLogic.PlantWorkMinutes");
+        // —— 收获产量分布（编译期 const 三段分布，不外置 ⇒ 无 _configId ⇒ 只读展示）——
+        // 每颗成熟收获掷一次点：50% 出 2 / 25% 出 3 / 25% 出 1（下限=种薯成本 ⇒ 永不亏种子）。
+        Add("种植", "crop_yield_out2", "收获出 2 颗的几率", Round(CropPlotLogic.Out2Chance * 100), "%",
+            "每颗成熟收获时掷一次点：这个几率出 2 颗（最常见的一档）。三档几率相加 = 100%。",
+            cropSrc + "CropPlotLogic.Out2Chance");
+        Add("种植", "crop_yield_out3", "收获出 3 颗的几率", Round(CropPlotLogic.Out3Chance * 100), "%",
+            "走运的一档：这个几率出 3 颗。",
+            cropSrc + "CropPlotLogic.Out3Chance");
+        Add("种植", "crop_yield_out1", "收获出 1 颗的几率", Round(CropPlotLogic.Out1Chance * 100), "%",
+            "下限档：这个几率只出 1 颗（= 种薯成本 1 ⇒ 回本，永不亏种子）。",
+            cropSrc + "CropPlotLogic.Out1Chance");
+        Add("种植", "crop_expected_yield", "每颗期望产量", Round(CropPlotLogic.ExpectedYieldPerPlant), "颗",
+            $"按上面三档几率算的每颗平均收成（下种消耗 1 ⇒ 净赚约 {Round(CropPlotLogic.NetExpectedYieldPerPlant)} 颗/颗）。",
+            cropSrc + "CropPlotLogic.ExpectedYieldPerPlant");
 
         // —— 陷阱（圈套：抓鼠/兔）—— 命中率外置 farming.json，接双向（分数 *100 ⇒ pct）——
         const string trapSrc = "godot/scripts/TrapLogic.cs :: TrapLogic";
@@ -682,6 +697,8 @@ internal static class Program
             new("damageMin", "伤害下限", "number", ConfigKey: "DamageMin"),
             new("damageMax", "伤害上限", "number", ConfigKey: "DamageMax"),
             new("penetration", "穿透力", "percent", Hint: "无视多少护甲。25% = 这一击当对方的甲只有 75%。", ConfigKey: "Penetration"),
+            new("bleedRate", "流血速度", "mult", Hint: "这一击造成的伤口流血速度乘子（1 = 标准；越大越危险，与受害者体质倍率正交相乘）。", ConfigKey: "BleedRateMultiplier"),
+            new("bleedOnHit", "命中流血几率", "percent", Hint: "每次命中额外开一道流血伤口的几率（0 = 不额外流血）。", ConfigKey: "BleedOnHitChance"),
             new("attackInterval", "攻击间隔(秒)", "number", Hint: "越小出手越快", ConfigKey: "AttackInterval"),
             new("burstCount", "连发数", "number", ConfigKey: "BurstCount"),
             new("burstInterval", "连发间隔(秒)", "number", ConfigKey: "BurstInterval"),
@@ -696,6 +713,7 @@ internal static class Program
             new("falloffFloor", "最远处伤害", "percent", Hint: "打到最大射程时还剩几成伤害。", ConfigKey: "FalloffFloor"),
             new("spread", "基础散布(度)", "number", Hint: "越大越不准", ConfigKey: "BaseSpreadDegrees"),
             new("noiseRadius", "噪音半径(像素)", "number", Hint: "多远内的丧尸/劫掠者会被引来", ConfigKey: "NoiseRadius"),
+            new("flightSpeed", "弹丸飞行速度", "number", Hint: "远程弹丸/箭矢的飞行速度（像素/秒）；近战武器用不上。", ConfigKey: "FlightSpeed"),
             // DPS 两列：**引擎算的**（WeaponDps），网页只显示、绝不自己写一遍公式。
             new("dps", "每秒伤害", "number", ReadOnly: true,
                 Hint: "自动算的（引擎公式，手填会算错）：无甲/贴脸/无限弹药/单挑下的杀伤力天花板。改「伤害」「攻击间隔」「连发数」，它会立刻跟着变。"),
@@ -708,6 +726,9 @@ internal static class Program
             new("stockMax", "枪托近战 伤害上限", "number", ConfigKey: "StockMeleeDamageMax"),
             new("stockInterval", "枪托近战 间隔(秒)", "number", ConfigKey: "StockMeleeInterval"),
             new("stockPenetration", "枪托近战 穿透力", "percent", ConfigKey: "StockMeleePenetration"),
+            new("stockNoiseRadius", "枪托噪音半径(像素)", "number", Hint: "抡枪托近战砸人的噪音半径；空 = 近战/弓弩无枪托（回落到全局默认 110）。", ConfigKey: "StockMeleeNoiseRadius"),
+            new("stockDamageType", "枪托伤害类型", "chip", Hint: "枪托近战是钝击还是锐击（默认钝；装了刺刀/利爪型改装可为锐）。", ConfigKey: "StockMeleeDamageType",
+                ValueMap: new Dictionary<string, string> { ["锐"] = "Sharp", ["钝"] = "Blunt" }),
             new("structureFactor", "砸墙倍率", "mult", Hint: "拿它砸围栏/门时，伤害要乘的倍数。可以大于 1。", ConfigKey: "StructureFactor"),
             new("description", "说明", "longtext"),
             new("_id", "内部 id", Internal: true),
@@ -726,6 +747,8 @@ internal static class Program
                 ["damageMin"] = w.DamageMin,
                 ["damageMax"] = w.DamageMax,
                 ["penetration"] = w.Penetration,
+                ["bleedRate"] = w.BleedRateMultiplier,
+                ["bleedOnHit"] = w.BleedOnHitChance,
                 ["attackInterval"] = w.AttackInterval,
                 ["burstCount"] = w.BurstCount,
                 ["burstInterval"] = w.BurstInterval,
@@ -739,6 +762,7 @@ internal static class Program
                 ["falloffFloor"] = w.FalloffFloor,
                 ["spread"] = w.BaseSpreadDegrees,
                 ["noiseRadius"] = w.NoiseRadius,
+                ["flightSpeed"] = w.FlightSpeed,
                 // 🔴 引擎算的，不是这里推的（WeaponDps 是唯一事实源；网页也不许自己写公式）
                 ["dps"] = WeaponDps.Single(w),
                 ["dpsVsLeather"] = WeaponDps.AgainstLeatherArmor(w),   // 引擎跑蒙特卡洛，含三段判定+部位覆盖
@@ -749,6 +773,8 @@ internal static class Program
                 ["stockMax"] = w.StockMeleeDamageMax,
                 ["stockInterval"] = w.StockMeleeInterval,
                 ["stockPenetration"] = w.StockMeleePenetration,
+                ["stockNoiseRadius"] = w.StockMeleeNoiseRadius,
+                ["stockDamageType"] = w.StockMeleeDamageType == DamageType.Sharp ? "锐" : "钝",
                 ["structureFactor"] = w.StructureFactor,
                 ["description"] = w.Description,
                 ["_id"] = member,
@@ -1155,11 +1181,22 @@ internal static class Program
             new("surgeryPoints", "手术点数", "number", Hint: "手术要凑够点数才做得成",
                 ConfigKey: "Points", ConfigRoot: "SurgerySupplies"),
             new("exclusive", "手术独占", "bool", Hint: "独占的（急救包）不能和别的耗材一起用"),
+            // 手术耗材的感染减免：health.json 的 SurgerySupplies.<key>.InfectionChanceMultiplier（草药绷带 0.75，其余 1）。
+            new("infectionMult", "感染几率乘子", "mult", Hint: "用这味手术耗材时，该处伤口感染几率要乘的倍数（1 = 不影响；草药绷带 0.75）。空 = 非手术耗材。",
+                ConfigKey: "InfectionChanceMultiplier", ConfigRoot: "SurgerySupplies"),
             // 治疗效率：config 存分数(0.35)，wiki 也存分数（type:percent 只让前端渲染成 35%）⇒ **恒等**，不加 PercentTransform。
             new("efficacy", "治疗效率", "percent", Hint: "抗生素 100% 是满效；草药是它的零头。",
                 ConfigKey: "Efficacy", ConfigRoot: "Medicines"),
+            // 药效基数：health.json 的 Medicines.<key>.Potency（0..1；乘固定照护系数、再乘治疗效率得单次病情消退量）。
+            new("potency", "药效基数", "number", Hint: "这味药一次照护的病情消退基数 0..1（成药 0.6、抗生素/草药 0.5）。空 = 非药品。",
+                ConfigKey: "Potency", ConfigRoot: "Medicines"),
             // 恶化减缓：抽取器对 ≥1.0 的值显示空（"不影响恶化"的约定），与 config 恒等投影冲突 ⇒ 暂不双向，留 agent 手动。
             new("worsenMult", "恶化减缓", "mult", Hint: "当天的恶化速度要乘的倍数——越小越能拖住病情。空 = 不影响恶化。"),
+            // 玫瑰果茶专属：喝下当日昼夜恢复效率 +N 个百分点（加算）。数值真源是 health.json **顶层**标量
+            // RosehipTeaHealBonusPct（全局单值，不挂在任何物品条目下）——双向 join 一律按行的 _configId 键入某个
+            // id-字典，顶层标量无处安放，故这一列**只读展示**：要改它得去 health.json 顶层，不在本表投影。
+            new("rosehipHealBonus", "当日恢复加成(pp)", "number", ReadOnly: true,
+                Hint: "只对玫瑰果茶：喝下当日昼夜恢复效率 +这么多个百分点（加算，非乘算）。真源在 health.json 顶层 RosehipTeaHealBonusPct（全局单值，改它去 health.json，本表只读）。"),
             // 重量在 materials.json（标量条目 {key:数值}），与「材料」表同源；这一列级 configFile 覆盖表级 health.json（一表多源）。
             new("weight", "单位重量(公斤)", "number", ConfigFile: "materials.json", ConfigScalar: true),
             new("description", "说明", "longtext"),
@@ -1186,7 +1223,12 @@ internal static class Program
                 ["treats"] = treats,
                 ["surgeryPoints"] = s?.Points,
                 ["exclusive"] = s?.Exclusive,
+                ["infectionMult"] = s?.InfectionChanceMultiplier,   // 手术耗材才有；草药绷带 0.75、其余 1
                 ["efficacy"] = med?.Efficacy,
+                ["potency"] = med?.Potency,                         // 药品才有
+                // 玫瑰果茶专属·health.json 顶层全局单值（只读列）；别的物品该格留空
+                ["rosehipHealBonus"] = m.Key == "rosehip_tea"
+                    ? GameConfigCatalog.Section<HealthConfig>().RosehipTeaHealBonusPct : (object?)null,
                 ["worsenMult"] = med is { WorsenMultiplier: < 1.0 } ? med.Value.WorsenMultiplier : (object?)null,
                 ["weight"] = ItemWeights.MaterialKg(m.Key),
                 ["description"] = m.Description,
