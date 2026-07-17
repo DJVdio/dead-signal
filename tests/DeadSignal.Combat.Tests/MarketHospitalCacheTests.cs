@@ -58,7 +58,7 @@ public class MarketHospitalCacheTests
     public void Hospital_Has30Points_AllResolveOnce_WithSyncedFlags()
     {
         var ids = ExplorationCache.CacheIdsFor(ExplorationCache.HospitalName);
-        Assert.Equal(30, ids.Count);
+        Assert.Equal(44, ids.Count); // [大图放大] 原 30 → 44（补 14 点抬工作量到 ≈5 天量级）
         foreach (string id in ids)
         {
             var f = new StoryFlags();

@@ -163,6 +163,13 @@ public static class ExplorationCache
     public const string BroadcastServerRackId = "cache_broadcast_server_rack";
     public const string BroadcastRoofAntennaId = "cache_broadcast_roof_antenna";
     public const string BroadcastStoreroomId = "cache_broadcast_storeroom";
+    // 广播台（中图放大 10→16，[SPEC-T60]）：电子/线材/燃油/碎铁为主，站区随纵深铺开；食物/医疗仅门卫室一处。
+    public const string BroadcastControlRoomId = "cache_broadcast_control_room";
+    public const string BroadcastAntennaShedId = "cache_broadcast_antenna_shed";
+    public const string BroadcastTapeLibraryId = "cache_broadcast_tape_library";
+    public const string BroadcastGarageId = "cache_broadcast_garage";
+    public const string BroadcastGuardBoothId = "cache_broadcast_guard_booth";
+    public const string BroadcastBoilerRoomId = "cache_broadcast_boiler_room";
     // 南林村庄（大点 9→30，band 30+ 硬口径）：既有四分区加密 + 新增后山/河滩两分区；单点调薄、食物医疗分散控量。
     //   民居区加密(6)：
     public const string VillageBedroom2Id = "cache_village_bedroom2";
@@ -191,6 +198,19 @@ public static class ExplorationCache
     public const string VillageRiverbankBoatId = "cache_village_riverbank_boat";
     public const string VillageRiverbankShackId = "cache_village_riverbank_shack";
     public const string VillageRiverbankPumpId = "cache_village_riverbank_pump";
+    //   [放大·≈5天量级] 画布 4200×2800 后各分区加密 +12（村口/民居/村中心/村尾/后山/河滩加密 + 新分区·果园梯田），非医疗掉落，数值拟定待调：
+    public const string VillageRoadHutId = "cache_village_road_hut";               // 村口·道班房
+    public const string VillageOldWellHouseId = "cache_village_old_well_house";    // 民居·老井人家灶间
+    public const string VillageDryingShedId = "cache_village_drying_shed";         // 民居·晒场杂物棚
+    public const string VillagePostOfficeId = "cache_village_post_office";         // 村中心·邮电所
+    public const string VillageCreditCoopId = "cache_village_credit_coop";         // 村中心·信用社铁柜
+    public const string VillageThreshingId = "cache_village_threshing";           // 村尾·打谷场谷堆
+    public const string VillageStoneMillId = "cache_village_stone_mill";           // 村尾·石碾房
+    public const string VillageBackhillHerbHutId = "cache_village_backhill_herb_hut"; // 后山·采药人石屋
+    public const string VillageBackhillSnareId = "cache_village_backhill_snare";   // 后山·兽夹套子
+    public const string VillageWatermillId = "cache_village_watermill";            // 河滩·水磨坊
+    public const string VillageOrchardCellarId = "cache_village_orchard_cellar";   // 果园·果窖（最深）
+    public const string VillageOrchardShedId = "cache_village_orchard_shed";       // 果园·看园棚（最深）
     // 金手指帮根据地（[SPEC-B12-补] 用户改口径"中型探索点·以战斗为主"：Large→Medium，铺 11 处帮派储备点）：
     //   弹药火药/碎金属/武器配件/白银/皮革布料为主，禁食物医疗灌水（医疗仅深藏头目急救箱 1 处封顶）；"打过才拿"——近入口少、gauntlet 后方与深处多。
     //   与克莉丝汀复仇线两具尸体发现点（GoldfingerDiscovery）共存：那是剧情尸体点(found_*)，id/flag 命名空间独立、互不干扰。
@@ -311,6 +331,21 @@ public static class ExplorationCache
     public const string HospitalAnesthesiaId = "cache_hospital_anesthesia";    // 麻醉科（最深·成药）
     public const string HospitalSterilizerId = "cache_hospital_sterilizer";    // 器械灭菌室（最深·夹板）
     public const string HospitalChiefSafeId = "cache_hospital_chief_safe";     // 主任药品保险柜（最深·最高价值医疗）
+    // [大图放大] 补 14 点（放大后画布空档；医疗集中身份保持——新点药品/耗材压在药房/手术层）：
+    public const string HospitalGiftShopId = "cache_hospital_gift_shop";           // 便民商店（近·非医疗）
+    public const string HospitalRadiologyId = "cache_hospital_radiology";          // 放射科候诊（近）
+    public const string HospitalAmbulanceBayId = "cache_hospital_ambulance_bay";   // 救护车停车区（近）
+    public const string HospitalPhysiotherapyId = "cache_hospital_physiotherapy";  // 康复理疗室（中）
+    public const string HospitalRecordsId = "cache_hospital_records";              // 病案室（中）
+    public const string HospitalStaffLoungeId = "cache_hospital_staff_lounge";     // 医护休息室（中·医疗）
+    public const string HospitalIsolationWardId = "cache_hospital_isolation_ward"; // 隔离病房（中·医疗）
+    public const string HospitalCompoundingLabId = "cache_hospital_compounding_lab"; // 药房·配置室（深·医疗）
+    public const string HospitalIvPrepId = "cache_hospital_iv_prep";              // 药房·静配中心（深·医疗）
+    public const string HospitalVaccineFridgeId = "cache_hospital_vaccine_fridge"; // 药房·疫苗冷库（深·医疗）
+    public const string HospitalRecoveryRoomId = "cache_hospital_recovery_room";   // 手术层·术后恢复室（最深·医疗）
+    public const string HospitalPathologyLabId = "cache_hospital_pathology_lab";   // 手术层·病理科（最深）
+    public const string HospitalOnCallRoomId = "cache_hospital_on_call_room";      // 手术层·值班室（最深）
+    public const string HospitalCentralSupplyId = "cache_hospital_central_supply"; // 手术层·中心供应室（最深·手术耗材）
 
     // ==== [批次25·T50] 消防站（Small，5 处·低危）——救援装备：车库(近)→值班室(中)→器材间(深)→后院(最深) ====
     //   量级克制：小地图＝小收成。全站唯一的武器是器材墙上的**消防斧**；急救柜里恰一个急救包，仅此而已。
@@ -436,6 +471,12 @@ public static class ExplorationCache
     public const string BroadcastServerRackFlag = "searched_broadcast_server_rack";
     public const string BroadcastRoofAntennaFlag = "searched_broadcast_roof_antenna";
     public const string BroadcastStoreroomFlag = "searched_broadcast_storeroom";
+    public const string BroadcastControlRoomFlag = "searched_broadcast_control_room";
+    public const string BroadcastAntennaShedFlag = "searched_broadcast_antenna_shed";
+    public const string BroadcastTapeLibraryFlag = "searched_broadcast_tape_library";
+    public const string BroadcastGarageFlag = "searched_broadcast_garage";
+    public const string BroadcastGuardBoothFlag = "searched_broadcast_guard_booth";
+    public const string BroadcastBoilerRoomFlag = "searched_broadcast_boiler_room";
     public const string VillageBedroom2Flag = "searched_village_bedroom2";
     public const string VillageLoftFlag = "searched_village_loft";
     public const string VillageCourtyardFlag = "searched_village_courtyard";
@@ -457,6 +498,19 @@ public static class ExplorationCache
     public const string VillageRiverbankBoatFlag = "searched_village_riverbank_boat";
     public const string VillageRiverbankShackFlag = "searched_village_riverbank_shack";
     public const string VillageRiverbankPumpFlag = "searched_village_riverbank_pump";
+    // [放大·≈5天量级] 加密 +12 的 flag：
+    public const string VillageRoadHutFlag = "searched_village_road_hut";
+    public const string VillageOldWellHouseFlag = "searched_village_old_well_house";
+    public const string VillageDryingShedFlag = "searched_village_drying_shed";
+    public const string VillagePostOfficeFlag = "searched_village_post_office";
+    public const string VillageCreditCoopFlag = "searched_village_credit_coop";
+    public const string VillageThreshingFlag = "searched_village_threshing";
+    public const string VillageStoneMillFlag = "searched_village_stone_mill";
+    public const string VillageBackhillHerbHutFlag = "searched_village_backhill_herb_hut";
+    public const string VillageBackhillSnareFlag = "searched_village_backhill_snare";
+    public const string VillageWatermillFlag = "searched_village_watermill";
+    public const string VillageOrchardCellarFlag = "searched_village_orchard_cellar";
+    public const string VillageOrchardShedFlag = "searched_village_orchard_shed";
     public const string GoldfingerCheckpointFlag = "searched_goldfinger_checkpoint";
     public const string GoldfingerYardWreckFlag = "searched_goldfinger_yard_wreck";
     public const string GoldfingerBunksFlag = "searched_goldfinger_bunks";
@@ -559,6 +613,21 @@ public static class ExplorationCache
     public const string HospitalAnesthesiaFlag = "searched_hospital_anesthesia";
     public const string HospitalSterilizerFlag = "searched_hospital_sterilizer";
     public const string HospitalChiefSafeFlag = "searched_hospital_chief_safe";
+    // [大图放大] 补 14 点 flag（与上方 id 一一对应）：
+    public const string HospitalGiftShopFlag = "searched_hospital_gift_shop";
+    public const string HospitalRadiologyFlag = "searched_hospital_radiology";
+    public const string HospitalAmbulanceBayFlag = "searched_hospital_ambulance_bay";
+    public const string HospitalPhysiotherapyFlag = "searched_hospital_physiotherapy";
+    public const string HospitalRecordsFlag = "searched_hospital_records";
+    public const string HospitalStaffLoungeFlag = "searched_hospital_staff_lounge";
+    public const string HospitalIsolationWardFlag = "searched_hospital_isolation_ward";
+    public const string HospitalCompoundingLabFlag = "searched_hospital_compounding_lab";
+    public const string HospitalIvPrepFlag = "searched_hospital_iv_prep";
+    public const string HospitalVaccineFridgeFlag = "searched_hospital_vaccine_fridge";
+    public const string HospitalRecoveryRoomFlag = "searched_hospital_recovery_room";
+    public const string HospitalPathologyLabFlag = "searched_hospital_pathology_lab";
+    public const string HospitalOnCallRoomFlag = "searched_hospital_on_call_room";
+    public const string HospitalCentralSupplyFlag = "searched_hospital_central_supply";
     // [批次25·T50] 消防站 5 处一次性 flag（与上方 id 一一对应）：
     public const string FireStationEngineBayFlag = "searched_firestation_engine_bay";
     public const string FireStationGearWallFlag = "searched_firestation_gear_wall";
@@ -743,6 +812,9 @@ public static class ExplorationCache
             BroadcastCanteenId, BroadcastStoreroomId, BroadcastGeneratorId,
             BroadcastServerRackId, BroadcastArchiveId, BroadcastRoofAntennaId,
             BroadcastPartsStoreId,
+            // [SPEC-T60·补物资] 中图放大补 6 处（10→16，band 10~30 内）
+            BroadcastControlRoomId, BroadcastAntennaShedId, BroadcastTapeLibraryId,
+            BroadcastGarageId, BroadcastGuardBoothId, BroadcastBoilerRoomId,
         },
         // 守林人小屋（小点，5 处；密度克制不破坏"内容很少"氛围）：里屋碗柜(近)→床底→门廊→阁楼(深)→后院柴房(深)。哥顿上吊尸+日记B 不在此列（GoldfingerDiscovery 管）。
         WatchersCabinName => new[]
@@ -751,23 +823,28 @@ public static class ExplorationCache
             RangersCabinAtticId, RangersCabinShedId,
         },
         // 南林村庄（大点，30 处，[SPEC-B12] 大=30+ 硬口径）：近入口→藏深，村口→民居→村中心→村尾→后山→河滩。救援锁屋(VillageRescue)不在此列——主线入队触发点，不计物资完成度。
+        // [放大·≈5天量级] 画布 4200×2800 后加密 30→42（各分区补点 + 新分区·果园梯田），仍按近→深登记序。
         VillageRescue.DestinationName => new[]
         {
-            // 村口/杂物(3)
-            VillageRoadsideCarId, VillageGatePostId, VillageTrikeId,
-            // 民居区(9)
+            // 村口/杂物(4)
+            VillageRoadsideCarId, VillageGatePostId, VillageTrikeId, VillageRoadHutId,
+            // 民居区(11)
             VillageKitchenId, VillageWardrobeId, VillageBedroom2Id, VillageCourtyardId,
             VillageCoopId, VillagePantry2Id, VillageLoftId, VillageWoodpileId, VillageBackRoomId,
-            // 村中心(6)
+            VillageOldWellHouseId, VillageDryingShedId,
+            // 村中心(8)
             VillageShopShelfId, VillageCoopStoreId, VillageBusStopId, VillageSchoolId,
-            VillageWellToolboxId, VillageForgeId,
-            // 村尾/藏深(6)
+            VillageWellToolboxId, VillageForgeId, VillagePostOfficeId, VillageCreditCoopId,
+            // 村尾/藏深(8)
             VillageToolShedId, VillageBarnId, VillageBeehiveId, VillageGraveHutId,
-            VillageShrineId, VillageClinicId,
-            // 后山(3, 山洞医疗深藏)
+            VillageShrineId, VillageClinicId, VillageThreshingId, VillageStoneMillId,
+            // 后山(5, 山洞医疗深藏)
             VillageBackhillBlindId, VillageBackhillKilnId, VillageBackhillCaveId,
-            // 河滩(3)
-            VillageRiverbankBoatId, VillageRiverbankShackId, VillageRiverbankPumpId,
+            VillageBackhillHerbHutId, VillageBackhillSnareId,
+            // 河滩(4)
+            VillageRiverbankBoatId, VillageRiverbankShackId, VillageRiverbankPumpId, VillageWatermillId,
+            // 新分区·果园梯田(2, 最深·NE 远角)
+            VillageOrchardCellarId, VillageOrchardShedId,
         },
         // 金手指帮根据地（中型·战斗为主，[SPEC-B12-补]）：11 处帮派储备点，近→深（岗哨/前院 少 → gauntlet 中 → 军械/头目区 深）。
         // 克莉丝汀复仇线两具尸体发现点(GoldfingerDiscovery)不在此列——那是剧情尸体点，命名空间独立、由 ExplorationProgress.PointFlagsFor 另行登记。
@@ -828,6 +905,11 @@ public static class ExplorationCache
             // 手术层(最深, 8·手术耗材+高价值医疗)
             HospitalOrScrubId, HospitalOrTheatreId, HospitalSterileStoreId, HospitalIcuId,
             HospitalBloodBankId, HospitalAnesthesiaId, HospitalSterilizerId, HospitalChiefSafeId,
+            // [大图放大] 补 14 点：门诊 3 / 住院部 4 / 药房 3 / 手术层 4（44 点 = 10/12/10/12）
+            HospitalGiftShopId, HospitalRadiologyId, HospitalAmbulanceBayId,
+            HospitalPhysiotherapyId, HospitalRecordsId, HospitalStaffLoungeId, HospitalIsolationWardId,
+            HospitalCompoundingLabId, HospitalIvPrepId, HospitalVaccineFridgeId,
+            HospitalRecoveryRoomId, HospitalPathologyLabId, HospitalOnCallRoomId, HospitalCentralSupplyId,
         },
         // 南丁格尔的小药店（[SPEC-B13]，小点 5 处）：前台收银台(近)→店面货架(近)→后屋处方柜(深)→后屋冷藏箱(深)→阁楼(最深)。
         // 护士相遇点(NurseRecruit.MeetDiscoveryId)不在此列——招募主线触发点，不计物资完成度（同瞭望望远镜/村庄救援口径）。
@@ -937,6 +1019,12 @@ public static class ExplorationCache
         BroadcastServerRackId => BroadcastServerRackFlag,
         BroadcastRoofAntennaId => BroadcastRoofAntennaFlag,
         BroadcastStoreroomId => BroadcastStoreroomFlag,
+        BroadcastControlRoomId => BroadcastControlRoomFlag,
+        BroadcastAntennaShedId => BroadcastAntennaShedFlag,
+        BroadcastTapeLibraryId => BroadcastTapeLibraryFlag,
+        BroadcastGarageId => BroadcastGarageFlag,
+        BroadcastGuardBoothId => BroadcastGuardBoothFlag,
+        BroadcastBoilerRoomId => BroadcastBoilerRoomFlag,
         VillageBedroom2Id => VillageBedroom2Flag,
         VillageLoftId => VillageLoftFlag,
         VillageCourtyardId => VillageCourtyardFlag,
@@ -958,6 +1046,19 @@ public static class ExplorationCache
         VillageRiverbankBoatId => VillageRiverbankBoatFlag,
         VillageRiverbankShackId => VillageRiverbankShackFlag,
         VillageRiverbankPumpId => VillageRiverbankPumpFlag,
+        // [放大·≈5天量级] 加密 +12：
+        VillageRoadHutId => VillageRoadHutFlag,
+        VillageOldWellHouseId => VillageOldWellHouseFlag,
+        VillageDryingShedId => VillageDryingShedFlag,
+        VillagePostOfficeId => VillagePostOfficeFlag,
+        VillageCreditCoopId => VillageCreditCoopFlag,
+        VillageThreshingId => VillageThreshingFlag,
+        VillageStoneMillId => VillageStoneMillFlag,
+        VillageBackhillHerbHutId => VillageBackhillHerbHutFlag,
+        VillageBackhillSnareId => VillageBackhillSnareFlag,
+        VillageWatermillId => VillageWatermillFlag,
+        VillageOrchardCellarId => VillageOrchardCellarFlag,
+        VillageOrchardShedId => VillageOrchardShedFlag,
         GoldfingerCheckpointId => GoldfingerCheckpointFlag,
         GoldfingerYardWreckId => GoldfingerYardWreckFlag,
         GoldfingerBunksId => GoldfingerBunksFlag,
@@ -1054,6 +1155,20 @@ public static class ExplorationCache
         HospitalAnesthesiaId => HospitalAnesthesiaFlag,
         HospitalSterilizerId => HospitalSterilizerFlag,
         HospitalChiefSafeId => HospitalChiefSafeFlag,
+        HospitalGiftShopId => HospitalGiftShopFlag,
+        HospitalRadiologyId => HospitalRadiologyFlag,
+        HospitalAmbulanceBayId => HospitalAmbulanceBayFlag,
+        HospitalPhysiotherapyId => HospitalPhysiotherapyFlag,
+        HospitalRecordsId => HospitalRecordsFlag,
+        HospitalStaffLoungeId => HospitalStaffLoungeFlag,
+        HospitalIsolationWardId => HospitalIsolationWardFlag,
+        HospitalCompoundingLabId => HospitalCompoundingLabFlag,
+        HospitalIvPrepId => HospitalIvPrepFlag,
+        HospitalVaccineFridgeId => HospitalVaccineFridgeFlag,
+        HospitalRecoveryRoomId => HospitalRecoveryRoomFlag,
+        HospitalPathologyLabId => HospitalPathologyLabFlag,
+        HospitalOnCallRoomId => HospitalOnCallRoomFlag,
+        HospitalCentralSupplyId => HospitalCentralSupplyFlag,
         PharmacyCounterId => PharmacyCounterFlag,
         PharmacyShelfId => PharmacyShelfFlag,
         PharmacyDispensaryId => PharmacyDispensaryFlag,
@@ -1450,6 +1565,37 @@ public static class ExplorationCache
                 new[] { LootItem.Material("nails", 2), LootItem.Material("rope", 1), LootItem.Material("iron", 1) },
                 BroadcastStoreroomTitle, BroadcastStoreroomNarrative),
 
+            // —— [SPEC-T60] 广播台中图放大补 6 处（电子/线材/燃油/碎铁为主；食物医疗仅门卫室；无枪）——
+            BroadcastControlRoomId when NotYet(flags, BroadcastControlRoomFlag) => new CacheResult(
+                BroadcastControlRoomFlag,
+                new[] { LootItem.Material("components", 2), LootItem.Material("wire", 1) },
+                BroadcastControlRoomTitle, BroadcastControlRoomNarrative),
+
+            BroadcastAntennaShedId when NotYet(flags, BroadcastAntennaShedFlag) => new CacheResult(
+                BroadcastAntennaShedFlag,
+                new[] { LootItem.Material("wire", 2), LootItem.Material("components", 1) },
+                BroadcastAntennaShedTitle, BroadcastAntennaShedNarrative),
+
+            BroadcastTapeLibraryId when NotYet(flags, BroadcastTapeLibraryFlag) => new CacheResult(
+                BroadcastTapeLibraryFlag,
+                new[] { LootItem.Material("cloth", 2), LootItem.Material("iron", 1) },
+                BroadcastTapeLibraryTitle, BroadcastTapeLibraryNarrative),
+
+            BroadcastGarageId when NotYet(flags, BroadcastGarageFlag) => new CacheResult(
+                BroadcastGarageFlag,
+                new[] { LootItem.Material("fuel", 2), LootItem.Material("rope", 1) },
+                BroadcastGarageTitle, BroadcastGarageNarrative),
+
+            BroadcastGuardBoothId when NotYet(flags, BroadcastGuardBoothFlag) => new CacheResult(
+                BroadcastGuardBoothFlag,
+                new[] { LootItem.Material("canned_food", 1), LootItem.Material("bandage", 1) },
+                BroadcastGuardBoothTitle, BroadcastGuardBoothNarrative),
+
+            BroadcastBoilerRoomId when NotYet(flags, BroadcastBoilerRoomFlag) => new CacheResult(
+                BroadcastBoilerRoomFlag,
+                new[] { LootItem.Material("nails", 2), LootItem.Material("iron", 1) },
+                BroadcastBoilerRoomTitle, BroadcastBoilerRoomNarrative),
+
             // —— [SPEC-B12] 南林村庄补 21 处（大点 30；单点调薄，食物散布 7 处、医疗集中候车棚 1+后山洞深藏 1）——
             // 村口(2)
             VillageGatePostId when NotYet(flags, VillageGatePostFlag) => new CacheResult(
@@ -1569,6 +1715,67 @@ public static class ExplorationCache
                 VillageRiverbankPumpFlag,
                 new[] { LootItem.Material("components", 1), LootItem.Material("fuel", 1), LootItem.Material("wire", 1) },
                 VillageRiverbankPumpTitle, VillageRiverbankPumpNarrative),
+
+            // —— [放大·≈5天量级] 加密 +12（画布 4200×2800 后各分区补点；非医疗掉落，量薄，数值拟定待调）——
+            VillageRoadHutId when NotYet(flags, VillageRoadHutFlag) => new CacheResult(
+                VillageRoadHutFlag,
+                new[] { LootItem.Material("iron", 1), LootItem.Material("rope", 1) },
+                VillageRoadHutTitle, VillageRoadHutNarrative),
+
+            VillageOldWellHouseId when NotYet(flags, VillageOldWellHouseFlag) => new CacheResult(
+                VillageOldWellHouseFlag,
+                new[] { LootItem.Food(1), LootItem.Material("cloth", 1) },
+                VillageOldWellHouseTitle, VillageOldWellHouseNarrative),
+
+            VillageDryingShedId when NotYet(flags, VillageDryingShedFlag) => new CacheResult(
+                VillageDryingShedFlag,
+                new[] { LootItem.Material("wood", 1), LootItem.Material("nails", 1) },
+                VillageDryingShedTitle, VillageDryingShedNarrative),
+
+            VillagePostOfficeId when NotYet(flags, VillagePostOfficeFlag) => new CacheResult(
+                VillagePostOfficeFlag,
+                new[] { LootItem.Material("wire", 1), LootItem.Material("components", 1) },
+                VillagePostOfficeTitle, VillagePostOfficeNarrative),
+
+            VillageCreditCoopId when NotYet(flags, VillageCreditCoopFlag) => new CacheResult(
+                VillageCreditCoopFlag,
+                new[] { LootItem.Material("iron", 1), LootItem.Material("nails", 1) },
+                VillageCreditCoopTitle, VillageCreditCoopNarrative),
+
+            VillageThreshingId when NotYet(flags, VillageThreshingFlag) => new CacheResult(
+                VillageThreshingFlag,
+                new[] { LootItem.Food(1), LootItem.Material("rope", 1) },
+                VillageThreshingTitle, VillageThreshingNarrative),
+
+            VillageStoneMillId when NotYet(flags, VillageStoneMillFlag) => new CacheResult(
+                VillageStoneMillFlag,
+                new[] { LootItem.Material("wood", 1), LootItem.Material("iron", 1) },
+                VillageStoneMillTitle, VillageStoneMillNarrative),
+
+            VillageBackhillHerbHutId when NotYet(flags, VillageBackhillHerbHutFlag) => new CacheResult(
+                VillageBackhillHerbHutFlag,
+                new[] { LootItem.Material("laojunxu", 1), LootItem.Material("dandelion", 1), LootItem.Material("mushroom", 1) },
+                VillageBackhillHerbHutTitle, VillageBackhillHerbHutNarrative),
+
+            VillageBackhillSnareId when NotYet(flags, VillageBackhillSnareFlag) => new CacheResult(
+                VillageBackhillSnareFlag,
+                new[] { LootItem.Material("rabbit", 1), LootItem.Material("bone", 1) },
+                VillageBackhillSnareTitle, VillageBackhillSnareNarrative),
+
+            VillageWatermillId when NotYet(flags, VillageWatermillFlag) => new CacheResult(
+                VillageWatermillFlag,
+                new[] { LootItem.Material("components", 1), LootItem.Material("wood", 1) },
+                VillageWatermillTitle, VillageWatermillNarrative),
+
+            VillageOrchardCellarId when NotYet(flags, VillageOrchardCellarFlag) => new CacheResult(
+                VillageOrchardCellarFlag,
+                new[] { LootItem.Food(2) },
+                VillageOrchardCellarTitle, VillageOrchardCellarNarrative),
+
+            VillageOrchardShedId when NotYet(flags, VillageOrchardShedFlag) => new CacheResult(
+                VillageOrchardShedFlag,
+                new[] { LootItem.Material("rope", 1), LootItem.Material("nails", 1), LootItem.Material("cloth", 1) },
+                VillageOrchardShedTitle, VillageOrchardShedNarrative),
 
             // —— [SPEC-B12-补] 金手指帮根据地 11 处（中型·战斗为主；帮派储备＝弹药火药/碎金属/武器配件/白银/皮革布料，无食物，医疗仅头目急救箱 1 处封顶）——
             // 近入口(2)：岗哨/前院，量薄。
@@ -2217,6 +2424,81 @@ public static class ExplorationCache
                 HospitalChiefSafeFlag,
                 new[] { LootItem.Material("antibiotics", 2), LootItem.Material("first_aid_kit", 1), LootItem.Material("splint", 1) },
                 HospitalChiefSafeTitle, HospitalChiefSafeNarrative),
+
+            // —— [大图放大] 补 14 点掉落（draft 待用户改；医疗仍集中药房/手术层，门诊/住院部克制）——
+            // 门诊/急诊大厅（近，3·非医疗为主）：
+            HospitalGiftShopId when NotYet(flags, HospitalGiftShopFlag) => new CacheResult(
+                HospitalGiftShopFlag,
+                new[] { LootItem.Food(1), LootItem.Material("cloth", 1) },
+                HospitalGiftShopTitle, HospitalGiftShopNarrative),
+
+            HospitalRadiologyId when NotYet(flags, HospitalRadiologyFlag) => new CacheResult(
+                HospitalRadiologyFlag,
+                new[] { LootItem.Material("components", 1), LootItem.Material("cloth", 1) },
+                HospitalRadiologyTitle, HospitalRadiologyNarrative),
+
+            HospitalAmbulanceBayId when NotYet(flags, HospitalAmbulanceBayFlag) => new CacheResult(
+                HospitalAmbulanceBayFlag,
+                new[] { LootItem.Material("fuel", 1), LootItem.Material("iron", 1), LootItem.Material("bandage", 1) },
+                HospitalAmbulanceBayTitle, HospitalAmbulanceBayNarrative),
+
+            // 住院部（中，4）：
+            HospitalPhysiotherapyId when NotYet(flags, HospitalPhysiotherapyFlag) => new CacheResult(
+                HospitalPhysiotherapyFlag,
+                new[] { LootItem.Material("cloth", 1), LootItem.Material("components", 1) },
+                HospitalPhysiotherapyTitle, HospitalPhysiotherapyNarrative),
+
+            HospitalRecordsId when NotYet(flags, HospitalRecordsFlag) => new CacheResult(
+                HospitalRecordsFlag,
+                new[] { LootItem.Material("cloth", 2), LootItem.Material("wire", 1) },
+                HospitalRecordsTitle, HospitalRecordsNarrative),
+
+            HospitalStaffLoungeId when NotYet(flags, HospitalStaffLoungeFlag) => new CacheResult(
+                HospitalStaffLoungeFlag,
+                new[] { LootItem.Food(1), LootItem.Material("medicine", 1) },
+                HospitalStaffLoungeTitle, HospitalStaffLoungeNarrative),
+
+            HospitalIsolationWardId when NotYet(flags, HospitalIsolationWardFlag) => new CacheResult(
+                HospitalIsolationWardFlag,
+                new[] { LootItem.Material("bandage", 2), LootItem.Material("medicine", 1) },
+                HospitalIsolationWardTitle, HospitalIsolationWardNarrative),
+
+            // 药房（深，3·医疗集中）：
+            HospitalCompoundingLabId when NotYet(flags, HospitalCompoundingLabFlag) => new CacheResult(
+                HospitalCompoundingLabFlag,
+                new[] { LootItem.Material("antibiotics", 1), LootItem.Material("needle_thread", 2) },
+                HospitalCompoundingLabTitle, HospitalCompoundingLabNarrative),
+
+            HospitalIvPrepId when NotYet(flags, HospitalIvPrepFlag) => new CacheResult(
+                HospitalIvPrepFlag,
+                new[] { LootItem.Material("first_aid_kit", 1), LootItem.Material("needle_thread", 1) },
+                HospitalIvPrepTitle, HospitalIvPrepNarrative),
+
+            HospitalVaccineFridgeId when NotYet(flags, HospitalVaccineFridgeFlag) => new CacheResult(
+                HospitalVaccineFridgeFlag,
+                new[] { LootItem.Material("antibiotics", 1), LootItem.Material("medicine", 1) },
+                HospitalVaccineFridgeTitle, HospitalVaccineFridgeNarrative),
+
+            // 手术层（最深，4·手术耗材+高价值医疗）：
+            HospitalRecoveryRoomId when NotYet(flags, HospitalRecoveryRoomFlag) => new CacheResult(
+                HospitalRecoveryRoomFlag,
+                new[] { LootItem.Material("first_aid_kit", 1), LootItem.Material("medicine", 1) },
+                HospitalRecoveryRoomTitle, HospitalRecoveryRoomNarrative),
+
+            HospitalPathologyLabId when NotYet(flags, HospitalPathologyLabFlag) => new CacheResult(
+                HospitalPathologyLabFlag,
+                new[] { LootItem.Material("components", 1), LootItem.Material("bone", 1), LootItem.Material("medicine", 1) },
+                HospitalPathologyLabTitle, HospitalPathologyLabNarrative),
+
+            HospitalOnCallRoomId when NotYet(flags, HospitalOnCallRoomFlag) => new CacheResult(
+                HospitalOnCallRoomFlag,
+                new[] { LootItem.Food(1), LootItem.Material("medicine", 1) },
+                HospitalOnCallRoomTitle, HospitalOnCallRoomNarrative),
+
+            HospitalCentralSupplyId when NotYet(flags, HospitalCentralSupplyFlag) => new CacheResult(
+                HospitalCentralSupplyFlag,
+                new[] { LootItem.Material("splint", 2), LootItem.Material("bandage", 2), LootItem.Material("needle_thread", 1) },
+                HospitalCentralSupplyTitle, HospitalCentralSupplyNarrative),
 
             // —— [SPEC-B13] 南丁格尔的小药店（基础药品/绷带为主但量薄；大头药品在医院。掉落 draft 待用户改）——
             PharmacyCounterId when NotYet(flags, PharmacyCounterFlag) => new CacheResult(
@@ -2878,6 +3160,18 @@ public static class ExplorationCache
     private const string BroadcastRoofAntennaNarrative = "爬上屋顶，天线基座锈成一片，敲下几块结实的碎金属和一段拉线。";
     private const string BroadcastStoreroomTitle = "杂物储藏间";
     private const string BroadcastStoreroomNarrative = "走廊尽头的储藏间堆着杂物，翻出一把铁钉、一卷麻绳，还有块能回炉的碎铁。";
+    private const string BroadcastControlRoomTitle = "控制室";
+    private const string BroadcastControlRoomNarrative = "发射控制台一排排旋钮蒙了灰，拆开面板抠出几块电子件、扯下一段信号线。";
+    private const string BroadcastAntennaShedTitle = "天线机房";
+    private const string BroadcastAntennaShedNarrative = "塔下的调谐机房里绕着成盘的馈线，顺走两卷线材，又从调谐柜里拆下块电子件。";
+    private const string BroadcastTapeLibraryTitle = "磁带库";
+    private const string BroadcastTapeLibraryNarrative = "满架的节目磁带早已发脆，扯下几幅盖设备的遮尘布，墙角还有块能回炉的碎铁。";
+    private const string BroadcastGarageTitle = "车库";
+    private const string BroadcastGarageNarrative = "台里那辆采访车瘫在车库里，油箱早空了，架子上倒还剩两桶备用柴油和一卷拖车绳。";
+    private const string BroadcastGuardBoothTitle = "门卫室";
+    private const string BroadcastGuardBoothNarrative = "大门口的门卫室，值班表停在撤离那天。抽屉里剩一听罐头，急救格里压着一卷绷带。";
+    private const string BroadcastBoilerRoomTitle = "锅炉房";
+    private const string BroadcastBoilerRoomNarrative = "地下锅炉房的管路被拆过，撬下一把管卡铁钉，还有段能回炉的粗铁管。";
 
     // —— 南林村庄补点（村口/民居/村中心/村尾/后山/河滩）——
     private const string VillageGatePostTitle = "村口岗亭";
@@ -2924,6 +3218,31 @@ public static class ExplorationCache
     private const string VillageRiverbankShackNarrative = "河边搭着个晒鱼的草棚，架上还挂着几条风干的鱼，脚下散着剔净的鱼骨。";
     private const string VillageRiverbankPumpTitle = "河滩·抽水泵房";
     private const string VillageRiverbankPumpNarrative = "灌溉用的抽水泵房锈迹斑斑，拆开泵机取出电机零件、一段线，油壶里还余点柴油。";
+    // [放大·≈5天量级] 加密 +12 的标题/叙事（机制层密度放大·非新编剧情，均为搜刮点物件描写，数值拟定待调）：
+    private const string VillageRoadHutTitle = "村口·道班房";
+    private const string VillageRoadHutNarrative = "村口岔道边养路的道班房，墙角撂着修路的铁镐头，横梁上盘着一捆没用完的草绳。";
+    private const string VillageOldWellHouseTitle = "民居·老井人家灶间";
+    private const string VillageOldWellHouseNarrative = "紧挨老井的一户人家，灶间水缸边还剩点晒干的口粮，灶台上叠着几块洗得发白的粗布。";
+    private const string VillageDryingShedTitle = "民居·晒场杂物棚";
+    private const string VillageDryingShedNarrative = "晒谷场边的杂物棚，横梁下码着劈好的木料，钉盒里散着一把生锈的洋钉。";
+    private const string VillagePostOfficeTitle = "村中心·邮电所";
+    private const string VillagePostOfficeNarrative = "村里唯一的邮电所，配电盘后绕着成卷的电话线，拆开旧交换机还能抠出几个能用的零件。";
+    private const string VillageCreditCoopTitle = "村中心·信用社铁柜";
+    private const string VillageCreditCoopNarrative = "村信用社的旧铁皮柜早被撬空了钱，柜板拆下来是好铁，合页上还留着几颗钉。";
+    private const string VillageThreshingTitle = "村尾·打谷场谷堆";
+    private const string VillageThreshingNarrative = "打谷场上一垛没脱粒的谷堆霉了大半，扒开还能筛出点余粮，边上盘着捆秸秆的草绳。";
+    private const string VillageStoneMillTitle = "村尾·石碾房";
+    private const string VillageStoneMillNarrative = "碾米的石碾房塌了半边，碾架的硬木还结实，转轴上箍着几道能撬下来的铁。";
+    private const string VillageBackhillHerbHutTitle = "后山·采药人石屋";
+    private const string VillageBackhillHerbHutNarrative = "后山坡上采药人的石屋，梁上倒挂着晾到半干的老君须和蒲公英，墙根竹匾里摊着蘑菇。";
+    private const string VillageBackhillSnareTitle = "后山·兽夹套子";
+    private const string VillageBackhillSnareNarrative = "林子里下的一排铁兽夹，其中一副夹住只野兔早已风干，旁边散着啃剩的骨头。";
+    private const string VillageWatermillTitle = "河滩·水磨坊";
+    private const string VillageWatermillNarrative = "河湾上的水磨坊水轮朽了，传动轴上还拆得下几个铁件木件，磨盘缝里卡着颗能用的零件。";
+    private const string VillageOrchardCellarTitle = "果园·果窖";
+    private const string VillageOrchardCellarNarrative = "梯田果园尽头的地窖，草帘下窖着一堆没烂透的果子——走到这最远处，是难得的一整口粮。";
+    private const string VillageOrchardShedTitle = "果园·看园棚";
+    private const string VillageOrchardShedNarrative = "看园人守夜的窝棚，钉着挡风的粗布，墙上挂着捆扎果枝的麻绳和一盒钉。";
 
     // —— 金手指帮根据地（中型·战斗为主；帮派储备语义，draft 待用户改）——
     private const string GoldfingerCheckpointTitle = "门口岗哨掩体";
@@ -3124,6 +3443,35 @@ public static class ExplorationCache
     private const string HospitalSterilizerNarrative = "灭菌室的高压锅炉冷了很久，成套器械泡在失效的消毒液里。挑出还能用的钢制夹板和一块器械托盘的碎金属。";
     private const string HospitalChiefSafeTitle = "手术层·主任药品保险柜";
     private const string HospitalChiefSafeNarrative = "外科主任办公室里那口药品保险柜，锁着全院最金贵的储备——两板抗生素、一只齐备急救包、一副夹板。打到这最深处、砸开这最后一柜，这一趟九死一生才算值了。";
+    // [大图放大] 补 14 点文案（draft·待用户验收/优化）
+    private const string HospitalGiftShopTitle = "大厅·便民商店";
+    private const string HospitalGiftShopNarrative = "大厅一角的便民小店卷帘半落，货架早被扫过一轮。角落里翻出几样没人要的干粮和一卷打包用的棉布。";
+    private const string HospitalRadiologyTitle = "门诊·放射科候诊";
+    private const string HospitalRadiologyNarrative = "放射科走廊尽头的候诊区，读片灯还亮着一格残电。拆报废的显影设备外壳能取下几样精密零件，散落的检查单纸倒是引火的好料。";
+    private const string HospitalAmbulanceBayTitle = "急诊·救护车停车区";
+    private const string HospitalAmbulanceBayNarrative = "急诊侧的救护车停车区停着一辆掏空的救护车，油箱里还剩点燃料。车厢急救包被翻乱，一卷绷带滚在担架底下，仪表台后拆得下几块铁皮。";
+    private const string HospitalPhysiotherapyTitle = "住院部·康复理疗室";
+    private const string HospitalPhysiotherapyNarrative = "康复理疗室里各式器械落满灰。绑带和护具的棉布还能拆用，几台理疗仪里也拆得出可用的零件。";
+    private const string HospitalRecordsTitle = "住院部·病案室";
+    private const string HospitalRecordsNarrative = "病案室成排的档案柜倒了一地，纸页铺满地面——除了引火没别的用。柜架上盘着的成捆布带和一卷装订铁丝还算实在。";
+    private const string HospitalStaffLoungeTitle = "住院部·医护休息室";
+    private const string HospitalStaffLoungeNarrative = "值班医护的休息室里，储物柜半开着。没吃完的干粮还封着，抽屉里压着一板留作应急的成药。";
+    private const string HospitalIsolationWardTitle = "住院部·隔离病房";
+    private const string HospitalIsolationWardNarrative = "走廊最深处那间隔离病房贴着褪色的封条，没人愿意进。屏息推门，治疗车上还剩几卷无菌绷带和一板成药——正因没人敢碰，才留到了现在。";
+    private const string HospitalCompoundingLabTitle = "药房·配置室";
+    private const string HospitalCompoundingLabNarrative = "药房里间的配置室，操作台上摊着没做完的调配活。无菌封装的缝合针线成排码着，抽屉最里藏着一板紧俏的抗生素。";
+    private const string HospitalIvPrepTitle = "药房·静配中心";
+    private const string HospitalIvPrepNarrative = "静脉配液中心的层流台断电已久。密封的耗材还干净，一只完整急救包和几套缝合针线留在无菌柜里。";
+    private const string HospitalVaccineFridgeTitle = "药房·疫苗冷库";
+    private const string HospitalVaccineFridgeNarrative = "疫苗冷库断电后大半报废，唯独门边应急架上一板密封抗生素和几盒常温成药还顶用。冷库的门很重，也正因此挡住了不少人。";
+    private const string HospitalRecoveryRoomTitle = "手术层·术后恢复室";
+    private const string HospitalRecoveryRoomNarrative = "术后恢复室成排的推床空着，监护线垂在地上。床边药车里留着一只急救包和一板镇痛的成药——离手术室最近，也离最深的丧尸最近。";
+    private const string HospitalPathologyLabTitle = "手术层·病理科";
+    private const string HospitalPathologyLabNarrative = "病理科的取材台冷冷发着金属光，标本柜早已无人问津。拆得下显微设备里的精密零件，柜底还压着几段骨料和一板成药。";
+    private const string HospitalOnCallRoomTitle = "手术层·值班室";
+    private const string HospitalOnCallRoomNarrative = "外科值班室的行军床还铺着，主人像是随时会回来接班。床头柜里塞着没吃的干粮和一板顶班熬夜用的成药。";
+    private const string HospitalCentralSupplyTitle = "手术层·中心供应室";
+    private const string HospitalCentralSupplyNarrative = "中心供应室是全院无菌耗材的总仓——成箱夹板、绷带、缝合针线层层码到顶。搬空一格，够营地的流血救治撑上好一阵；只是它就压在手术层最深处，丧尸最密的地方。";
 
     // —— [SPEC-B13] 南丁格尔的小药店（环境叙事 draft·末日守店氛围；全文待用户验收/优化）——
     private const string PharmacyCounterTitle = "前台收银台";

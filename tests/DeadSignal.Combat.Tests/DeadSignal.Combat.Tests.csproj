@@ -146,6 +146,8 @@
     <Compile Include="..\..\godot\scripts\SupermarketAmbush.cs" Link="Consumed\SupermarketAmbush.cs" />
     <!-- 调查点规模三级 + 探索完成度聚合纯逻辑（无 Godot 依赖）：SizeTier 枚举/TierLabel + 目的地登记点位集 vs StoryFlags 旗标 → 已调查 X/Y。 -->
     <Compile Include="..\..\godot\scripts\ExplorationProgress.cs" Link="Consumed\ExplorationProgress.cs" />
+    <!-- 探索关画布尺寸 per-destination 单一登记处（无 Godot 依赖）：DestinationName → (宽,高)，覆盖表为空时回退默认 2400×1600（零漂移基线）。 -->
+    <Compile Include="..\..\godot\scripts\ExplorationLevelSize.cs" Link="Consumed\ExplorationLevelSize.cs" />
     <!-- [T57] 调查点网状解锁图纯逻辑（无 Godot 依赖）：world_graph.json → 图 + 「前置去过 且 探索度>50%」门槛 + 反死锁/反孤岛/反环校验。
          ⚠️ 图本身是**数据**（godot/data/world_graph.json，wiki 上有对应表）；本文件只写规则，重排路线不用改代码。 -->
     <Compile Include="..\..\godot\scripts\WorldGraph.cs" Link="Consumed\WorldGraph.cs" />
@@ -176,6 +178,8 @@
     <Compile Include="..\..\godot\scripts\SurvivorPerks.cs" Link="Consumed\SurvivorPerks.cs" />
     <!-- 皮特 authored 三级专属效果纯逻辑（无 Godot 依赖）：移速 1.15/1.25/1.3 + 操作×1.05 + 负重<30kg 受击闪避 0.15 + 饥饿 25% 掉 2 + 升级条件（连续 10 相位≥3 / 出发饥饿≤5 累计 3 次）。 -->
     <Compile Include="..\..\godot\scripts\PetePerk.cs" Link="Consumed\PetePerk.cs" />
+    <!-- 克莉丝汀 authored 三级专属效果纯逻辑（无 Godot 依赖）：相位 25%/35% 不掉饥饿 + 商人买入 6.25% 折扣 + 卖出价率 60→70 + 升级轴（在营存活 3 天 / 灭金手指帮旗标）。 -->
+    <Compile Include="..\..\godot\scripts\ChristinePerk.cs" Link="Consumed\ChristinePerk.cs" />
     <Compile Include="..\..\godot\scripts\ReadingProgress.cs" Link="Consumed\ReadingProgress.cs" />
     <!-- authored 背景在躯体上的开局痕迹（无 Godot 依赖）：山姆开局左手缺小指+无名指（九岁救诺蒂被野狗咬掉）。 -->
     <Compile Include="..\..\godot\scripts\SurvivorBackstory.cs" Link="Consumed\SurvivorBackstory.cs" />
@@ -189,6 +193,8 @@
     <Compile Include="..\..\godot\scripts\CraftingJob.cs" Link="Consumed\CraftingJob.cs" />
     <!-- [批次21·T25] 工时的**总工时乘算轴**（《木匠入门》做家具 ×0.95，连乘不覆盖）+ 可摆放物事实源（PlaceableItems）。 -->
     <Compile Include="..\..\godot\scripts\CraftWorkTime.cs" Link="Consumed\CraftWorkTime.cs" />
+    <!-- [A4] 书→近战攻速被动的消费层乘子汇总（进阶木匠→消防斧攻速+8%）。纯逻辑，先红后绿。 -->
+    <Compile Include="..\..\godot\scripts\MeleeBookEffect.cs" Link="Consumed\MeleeBookEffect.cs" />
     <!-- [批次21·T25] 桌子（玩家可造可摆的纯家具：非实心、可跨越、守 64px 禁建带）。 -->
     <Compile Include="..\..\godot\scripts\TableSpec.cs" Link="Consumed\TableSpec.cs" />
     <!-- 制作面板纯展示逻辑（无 Godot 依赖）：配方按工具分组 + 工具需求文案/满足判定 + 库存材料计数聚合。 -->

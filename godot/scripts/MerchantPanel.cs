@@ -27,6 +27,7 @@ public sealed partial class MerchantPanel : CanvasLayer
     private MerchantShelf? _shelf;
     private IReadOnlyList<SellRow> _sellRows = Array.Empty<SellRow>();
     private int _currencyOwned;
+    private double _buyDiscount; // 克莉丝汀 L2 在营 → 6.25% 买入折扣（0＝无折扣，零回归）；展示价与实扣同源。
     private Tab _activeTab = Tab.Buy;
 
     /// <summary>玩家请求买入某条货架条目（参数=货架 <c>Offers</c> 下标）。CampMain 结算后应回调 <see cref="Show"/> 刷新。</summary>
@@ -126,11 +127,13 @@ public sealed partial class MerchantPanel : CanvasLayer
     /// <summary>
     /// 用当前货架 + 玩家可收购库存行 + 持币量刷新面板（保持当前页签）。每次买入/卖出结算后 CampMain 再调一次，令持币/库存/灰显即时更新。
     /// </summary>
-    public void Show(MerchantShelf shelf, IReadOnlyList<SellRow> sellRows, int currencyOwned)
+    /// <param name="buyDiscount">克莉丝汀 L2 在营买入折扣（默认 0＝原价，零回归）：买入价按 <see cref="MerchantTrade.EffectiveBuyPrice"/> 折后展示，与实扣同源。</param>
+    public void Show(MerchantShelf shelf, IReadOnlyList<SellRow> sellRows, int currencyOwned, double buyDiscount = 0.0)
     {
         _shelf = shelf;
         _sellRows = sellRows ?? Array.Empty<SellRow>();
         _currencyOwned = currencyOwned;
+        _buyDiscount = buyDiscount;
         Render();
     }
 
@@ -174,12 +177,13 @@ public sealed partial class MerchantPanel : CanvasLayer
         for (int i = 0; i < count; i++)
         {
             MerchantOffer offer = _shelf!.Offers[i];
-            PurchaseCheck check = MerchantTrade.Check(offer, _currencyOwned);
+            PurchaseCheck check = MerchantTrade.Check(offer, _currencyOwned, _buyDiscount);
+            int shownPrice = MerchantTrade.EffectiveBuyPrice(offer.Price, _buyDiscount); // 克莉丝汀折后价（无折扣＝原价）
 
             HBoxContainer hbox = MakeRow(offer.Good);
 
             var priceLabel = new Label();
-            priceLabel.Text = $"{Silver.Format(offer.Price)} {coinName}"; // 分→两位小数（[SPEC-B14-补6]）
+            priceLabel.Text = $"{Silver.Format(shownPrice)} {coinName}"; // 分→两位小数（[SPEC-B14-补6]），折后价与实扣同源
             priceLabel.CustomMinimumSize = new Vector2(110, 32);
             priceLabel.VerticalAlignment = VerticalAlignment.Center;
             priceLabel.AddThemeFontSizeOverride("font_size", 14);

@@ -438,7 +438,7 @@ public static class NarrativeSpotRegistry
         {
             Id = "narrative_hospital_triage_notice",
             Destination = ExplorationCache.HospitalName,
-            X = 520f, Y = 1250f,           // 急诊入口分诊台旁的公告板（避开分诊搜刮点）
+            X = 910f, Y = 2187.5f,         // [大图放大] 急诊入口分诊台旁公告板（原 520,1250 ×1.75，避开分诊搜刮点）
             Trigger = NarrativeTrigger.Proximity,
             Label = "公告",
             Title = "分诊台的最后公告",
@@ -459,7 +459,7 @@ public static class NarrativeSpotRegistry
         {
             Id = "narrative_hospital_ward",
             Destination = ExplorationCache.HospitalName,
-            X = 1450f, Y = 700f,           // 住院部一间病房（避开病房搜刮点/护士站）
+            X = 2537.5f, Y = 1225f,        // [大图放大] 住院部一间病房（原 1450,700 ×1.75，避开病房搜刮点/护士站）
             Trigger = NarrativeTrigger.Proximity,
             Label = "病房",
             Title = "住院部的病房",

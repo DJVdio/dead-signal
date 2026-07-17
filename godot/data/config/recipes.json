@@ -406,6 +406,14 @@
       "rope": 1
     }
   },
+  "ankle_guard": {
+    "OutputQuantity": 1,
+    "WorkMinutes": 80,
+    "MaterialCosts": {
+      "leather": 2,
+      "rope": 1
+    }
+  },
   "bird_trap": {
     "OutputQuantity": 1,
     "WorkMinutes": 40,

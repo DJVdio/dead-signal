@@ -56,8 +56,8 @@
       "WeightMultiplier": 0.75,
       "Stats": {
         "AttackInterval": 0.85,
-        "DamageMin": 0.91,
-        "DamageMax": 0.91
+        "DamageMin": 0.90,
+        "DamageMax": 0.90
       }
     },
     "weighted_handle": {
@@ -95,7 +95,7 @@
     },
 
     "limb_wrap": {
-      "Stats": { "AttackInterval": 0.95 }
+      "Stats": { "AttackInterval": 0.96, "BaseSpreadDegrees": 0.96 }
     },
     "compound_limbs": {
       "WeightMultiplier": 1.15,

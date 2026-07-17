@@ -673,6 +673,16 @@ public static class RecipeBook
         //      恐怖装甲吃 3 张皮革 ⇒ 12 只老鼠 + 3 份药水 —— 攒起来仍是实打实的出门，可制作但不廉价。
         //    · **不再挂书**：鞣制药水的化学书门槛已在药水那步收过一次；鞣这一步是手工活，同 `leather_stitch` 零书门槛。
         R("tan_leather", "鞣制皮革", RecipeCategory.Misc, "leather", Tools(), Books()),
+
+        // ══════════════ [A2] 护踝鞋具 recipe —— **配方补齐**（armor.json 早有该护甲，却无获取途径）══════════════
+        // 🔴 **为什么它必须有配方**：`ankle_guard`（护踝鞋具，authored [T72]，护小腿+脚含趾）此前**只在 armor.json 里**，
+        //    没配方、没掉落投放 ⇒ 一件**永远拿不到的死物品**（同"金属锭零获取途径"那个 bug 的原样重演）。
+        // **书＝《尖峰时刻》**（滑雪极限运动书，wiki 已定它解锁护踝鞋具）——不新造书（书是 authored，CLAUDE.md 铁律）。
+        //    语义自洽：同一本极限运动书既教你做木缝雪镜、也教你做护住脚踝小腿的高帮硬底鞋具。
+        // **材料＝皮革 2 + 绳 1、工时 80min＝拟定待调**（照恐怖装甲拟定先例；护踝 0.75kg、只护一双脚，
+        //    比恐怖装甲 3kg 轻得多 ⇒ 量级取其零头：皮革做鞋body、绳做绑带高帮）。追加表尾不插队（配方序不进 Sim 战斗随机流）。
+        //    产物走 CraftOutputFactory 的 ArmorOutputs 落成 Item.Armor(护踝鞋具)，穿戴登记见 ApparelSlots(脚槽·成对)。
+        R("ankle_guard", "护踝鞋具", RecipeCategory.Misc, "ankle_guard", Tools(), Books(PeakHourBookId)),
     };
 
     private static readonly IReadOnlyDictionary<string, RecipeData> _byId = ToMap(_all);

@@ -107,11 +107,11 @@ public class ExplorationCacheTests
                 ExplorationCache.LookoutWardensRoomId,
             },
             ExplorationCache.CacheIdsFor(ExplorationCache.CityRooftopLookoutName).ToArray());
-        // 广播台：10 处（茶水间近→备件仓库最深）。
-        Assert.Equal(10, ExplorationCache.CacheIdsFor(ExplorationCache.BroadcastStationName).Count);
-        // [SPEC-B13] 超市/医院已落真探索关：超市 11 处（外围 7 + 内圈 4）、医院 30 处（丧尸巢·药房手术层医疗集中）。
+        // 广播台：16 处（[SPEC-T60] 中图放大 10→16；茶水间近→备件仓库最深，band 10~30 内）。
+        Assert.Equal(16, ExplorationCache.CacheIdsFor(ExplorationCache.BroadcastStationName).Count);
+        // [SPEC-B13] 超市/医院已落真探索关：超市 11 处（外围 7 + 内圈 4）、医院 44 处（≈5天放大后·丧尸巢·药房手术层医疗集中）。
         Assert.Equal(11, ExplorationCache.CacheIdsFor(ExplorationCache.SupermarketName).Count);
-        Assert.Equal(30, ExplorationCache.CacheIdsFor(ExplorationCache.HospitalName).Count);
+        Assert.Equal(44, ExplorationCache.CacheIdsFor(ExplorationCache.HospitalName).Count);
         // 未登记的目的地仍返回空清单。
         Assert.Empty(ExplorationCache.CacheIdsFor("不存在的目的地"));
     }

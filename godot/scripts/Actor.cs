@@ -642,6 +642,11 @@ public abstract partial class Actor : CharacterBody2D
             CombatEffectCfg.FractureCapabilityFloor);
         double interval = GripCombat.EffectiveInterval(baseCooldown ?? AttackCooldown, operation, ActiveGrip);
 
+        // [A4] 书→近战攻速被动（消费层乘子汇总，见 MeleeBookEffect）：读过《进阶木匠技术》持消防斧 ⇒ 攻速 +8%（间隔 ×1/1.08）。
+        // 仅 Pawn 有 ReadBookSet（IsBookRead 对非 Pawn 恒 false）⇒ 丧尸等零回归。武器名走当前生效武器；base 武器 Sim 读不到本乘子。
+        interval *= AttackWeapon is null ? 1.0
+            : MeleeBookEffect.AttackIntervalMultiplier(AttackWeapon.Name, IsBookRead);
+
         // 🔴 [T45] 负重罚攻速：**从免罚线（30kg）起就线性掉**（50kg −20%、80kg −50%）。攻速乘子 m ⇒ **间隔 ÷ m**（0.50 ⇒ 间隔 ×2.0）。
         // 刻意**不**并进上面的 operation 乘法——`Loadout` 明确写了负重不碰操作能力（那是残缺与饥饿的地盘，
         // 且负重上限本身已经乘过一遍操作能力，再扣一次就是双重惩罚）。故独立除在最后一层。
@@ -829,6 +834,12 @@ public abstract partial class Actor : CharacterBody2D
     /// </summary>
     private bool HasReadArcheryBook =>
         this is Pawn pawn && pawn.HasReadBook(BookLibrary.WayOfBowAndArrowId);
+
+    /// <summary>
+    /// 本单位**本人**是否读过某书（判据＝其 <see cref="Pawn.HasReadBook"/>）。喂给 <see cref="MeleeBookEffect"/> 等消费层书被动。
+    /// 丧尸/劫掠者不是 <see cref="Pawn"/>，恒 <c>false</c>（既有行为零回归）。同 <see cref="HasReadArcheryBook"/> 的"书属于人"口径。
+    /// </summary>
+    private bool IsBookRead(string bookId) => this is Pawn pawn && pawn.HasReadBook(bookId);
 
     /// <summary>该弹药键的当前余量。不吃弹药的武器、或吃弹药但一支箭都没有（空键）→ 0。</summary>
     private int AmmoOnHand(Weapon weapon, string ammoKey)

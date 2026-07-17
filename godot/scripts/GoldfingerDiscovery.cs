@@ -56,6 +56,19 @@ public static class GoldfingerDiscovery
     public const string NoBookId = "";
 
     /// <summary>
+    /// **金手指帮已被清剿**（据点守备全灭）的永久旗标。灭帮是探索关一次性事件，在
+    /// <c>CampMain.OnAnyActorDied</c> 检测到据点内最后一名 <c>GoldfingerGang.GuardName</c> 守备倒下时置位。
+    /// 克莉丝汀 L3「大仇得报」升级读它（<see cref="ChristinePerk.EvaluateLevel"/>）。同 <c>StoryFlags</c> 布尔承载惯例，字符串 "true"。
+    /// </summary>
+    public const string GangClearedFlag = "goldfinger_gang_cleared";
+
+    /// <summary>金手指帮是否已被清剿（据点守备全灭）。未设置/未清剿 → false。</summary>
+    public static bool GangCleared(StoryFlags flags) => flags != null && flags.Has(GangClearedFlag);
+
+    /// <summary>标记金手指帮已被清剿（幂等；据点守备全灭时调用一次）。</summary>
+    public static void MarkGangCleared(StoryFlags flags) => flags?.Set(GangClearedFlag, "true");
+
+    /// <summary>
     /// 解析一次发现。未知 id 或对应 flag 已置（已发现）返回 <c>null</c>。
     /// 克莉丝汀本人尸体点仅在复仇线（<see cref="ChristineLeftForRevengeFlag"/> 已置）成立，否则返回 <c>null</c>。
     /// 本方法**不写** flag（无副作用）；置 flag 由调用方在弹叙事后进行。

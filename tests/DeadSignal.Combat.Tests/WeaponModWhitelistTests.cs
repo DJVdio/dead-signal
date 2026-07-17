@@ -110,7 +110,7 @@ public class WeaponModWhitelistTests
         string[] blades6NoAxe = { "匕首", "短剑", "刺剑", "长剑", "草叉", "重剑" };            // 六锐器，**不含消防斧**（加重剑柄用户后撤）
         string[] serratedFits = { "匕首", "短剑", "长剑", "草叉", "重剑" };                  // 划掉刺剑，**消防斧已后撤移除**
         string[] fullerFits = { "匕首", "短剑", "长剑", "草叉", "重剑" };                      // 划掉刺剑，**不含消防斧**
-        string[] bladesAndBlunts = { "匕首", "短剑", "刺剑", "长剑", "草叉", "重剑", "消防斧", "棍棒", "尖头锤", "破甲锤" };
+        string[] bladesAndBlunts = { "匕首", "短剑", "刺剑", "长剑", "草叉", "重剑", "消防斧", "骨刀", "棍棒", "尖头锤", "破甲锤" };
         string[] clubOnly = { "棍棒" };
         // [T69] 近身防御 + 弓弩专属 5 条（用户在 wiki 上新加）
         string[] handguardFits = { "匕首", "短剑", "刺剑" };                                 // 护手挡格

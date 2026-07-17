@@ -58,7 +58,7 @@ public sealed class WeaponModConfigMigrationTests
         ["honed_edge"] = new(null, new[] { (WeaponStat.Penetration, 1.75) }),
         ["fuller_blade"] = new(0.75, new[]
         {
-            (WeaponStat.AttackInterval, 0.85), (WeaponStat.DamageMin, 0.91), (WeaponStat.DamageMax, 0.91),
+            (WeaponStat.AttackInterval, 0.85), (WeaponStat.DamageMin, 0.90), (WeaponStat.DamageMax, 0.90),
         }),
         ["weighted_handle"] = new(1.18, new[] { (WeaponStat.DamageMin, 1.06), (WeaponStat.DamageMax, 1.06) }),
         ["lightened_handle"] = new(0.88, new[] { (WeaponStat.AttackInterval, 0.97) }),
@@ -69,7 +69,7 @@ public sealed class WeaponModConfigMigrationTests
         // ── 近身锐器·防御型（1）──
         ["handguard"] = new(1.10, Array.Empty<(WeaponStat, double)>(), HandGuard: 0.50),
         // ── 弓弩专属（4）──
-        ["limb_wrap"] = new(null, new[] { (WeaponStat.AttackInterval, 0.95) }),
+        ["limb_wrap"] = new(null, new[] { (WeaponStat.AttackInterval, 0.96), (WeaponStat.BaseSpreadDegrees, 0.96) }),
         ["compound_limbs"] = new(1.15, new[]
         {
             (WeaponStat.AttackInterval, 1.06), (WeaponStat.DamageMin, 1.08), (WeaponStat.DamageMax, 1.08),

@@ -136,6 +136,8 @@ public static class ItemIcons
         ["平光眼镜"] = new(Armor, "plain_glasses", "delapouite/spectacles"),
         // [T71] 自制简易墨镜（木缝雪镜）——护目镜剪影
         ["自制简易墨镜"] = new(Armor, "snow_goggles", "delapouite/goggles"),
+        // [A2/T72] 护踝鞋具（高帮硬底，护脚踝到小腿）——护胫/护腿剪影
+        ["护踝鞋具"] = new(Armor, "ankle_guard", "delapouite/leg-armor"),
 
         // —— 护甲：布鲁斯的狗装五件套（DogGearCatalog；口袋狗衣不提供防护，只加负重）——
         ["布制狗衣"] = new(Armor, "dog_cloth_vest", "lorc/armor-vest"),

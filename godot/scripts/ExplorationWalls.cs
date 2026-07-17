@@ -226,16 +226,18 @@ public static class ExplorationWalls
     /// <summary>医院门洞宽（须 &gt; 2×<see cref="NavAgentRadius"/>，否则寻路判定此路不通）。</summary>
     public const float HospitalDoorwayWidth = 72f;
 
-    // 建筑外轮廓（关卡 2400×1600；南面留出返回区，故南墙压在 y=1400）。
-    private const float HosLeft = 260f;
-    private const float HosRight = 2220f;
-    private const float HosTop = 100f;
-    private const float HosBottom = 1416f;
+    // 建筑外轮廓（关卡 4200×2800——[大图放大] 由 2400×1600 均匀 1.75× 得来；南面留出返回区，故南墙压在 y≈2478）。
+    // 🔴 全部医院几何常量/坐标一律 ×1.75（4200/2400 == 2800/1600 == 1.75），保 authored 楼层布局比例不变；
+    // 门/墙厚与门洞宽刻意不缩放（现实里楼更大门不必更宽；门洞 72 仍 > 2×NavAgentRadius）。数值拟定待调。
+    private const float HosLeft = 455f;    // 260 × 1.75
+    private const float HosRight = 3885f;  // 2220 × 1.75
+    private const float HosTop = 175f;     // 100 × 1.75
+    private const float HosBottom = 2478f; // 1416 × 1.75
 
-    // 三道分区隔墙的 y（正落在四片分区地台之间的缝隙里）。
-    private const float HosWallAY = 1046f; // 门诊/急诊大厅 ｜ 住院部
-    private const float HosWallBY = 602f;  // 住院部 ｜ 药房
-    private const float HosWallCY = 366f;  // 药房 ｜ 手术层
+    // 三道分区隔墙的 y（正落在四片分区地台之间的缝隙里；均 ×1.75）。
+    private const float HosWallAY = 1830.5f; // 门诊/急诊大厅 ｜ 住院部（1046 × 1.75）
+    private const float HosWallBY = 1053.5f; // 住院部 ｜ 药房（602 × 1.75）
+    private const float HosWallCY = 640.5f;  // 药房 ｜ 手术层（366 × 1.75）
 
     /// <summary>大厅↔住院部 中央走廊上的防火门（关着＝把大厅的丧尸挡在南边）。</summary>
     public const string HospitalLobbyFireDoor = "大厅防火门";
@@ -258,24 +260,24 @@ public static class ExplorationWalls
     /// </summary>
     public static IReadOnlyList<HospitalBoundary> HospitalBoundaries() => new[]
     {
-        // 西侧楼梯(装门) / 中央走廊(装门) / 东侧楼梯(**永远敞着**——这是关完两扇门后仍存在的那条退路)
+        // 西侧楼梯(装门) / 中央走廊(装门) / 东侧楼梯(**永远敞着**——这是关完两扇门后仍存在的那条退路)。门洞中心均 ×1.75。
         new HospitalBoundary("门诊大厅｜住院部", new[]
         {
-            new Doorway(480f, HospitalWardStairDoor),
-            new Doorway(1180f, HospitalLobbyFireDoor),
-            new Doorway(1900f, null),
+            new Doorway(840f, HospitalWardStairDoor),   // 480 × 1.75
+            new Doorway(2065f, HospitalLobbyFireDoor),  // 1180 × 1.75
+            new Doorway(3325f, null),                   // 1900 × 1.75
         }),
         // 中央安全门(装门) / 东侧污物通道(敞着)
         new HospitalBoundary("住院部｜药房", new[]
         {
-            new Doorway(1140f, HospitalPharmacyDoor),
-            new Doorway(1930f, null),
+            new Doorway(1995f, HospitalPharmacyDoor),   // 1140 × 1.75
+            new Doorway(3377.5f, null),                 // 1930 × 1.75
         }),
         // 中央防火门(装门) / 西侧刷手通道(敞着)
         new HospitalBoundary("药房｜手术层", new[]
         {
-            new Doorway(1240f, HospitalOrFireDoor),
-            new Doorway(600f, null),
+            new Doorway(2170f, HospitalOrFireDoor),     // 1240 × 1.75
+            new Doorway(1050f, null),                   // 600 × 1.75
         }),
     };
 
@@ -306,10 +308,10 @@ public static class ExplorationWalls
         walls.Add(new WallRect(HosLeft, HosTop, HosRight - HosLeft, t));
         // 东墙（实心，竖贯）
         walls.Add(new WallRect(HosRight - t, HosTop, t, HosBottom - HosTop));
-        // 西墙：员工侧门（y 中心 1000）处断开
-        AddSplitEdge(walls, new WallRect(HosLeft, HosTop, t, HosBottom - HosTop), horizontal: false, new[] { 1000f }, w);
-        // 南墙：正门（x 中心 1180）+ 急诊入口（x 中心 1850）两处断开
-        AddSplitEdge(walls, new WallRect(HosLeft, HosBottom - t, HosRight - HosLeft, t), horizontal: true, new[] { 1180f, 1850f }, w);
+        // 西墙：员工侧门（y 中心 1750 = 1000 × 1.75）处断开
+        AddSplitEdge(walls, new WallRect(HosLeft, HosTop, t, HosBottom - HosTop), horizontal: false, new[] { 1750f }, w);
+        // 南墙：正门（x 中心 2065 = 1180 × 1.75）+ 急诊入口（x 中心 3237.5 = 1850 × 1.75）两处断开
+        AddSplitEdge(walls, new WallRect(HosLeft, HosBottom - t, HosRight - HosLeft, t), horizontal: true, new[] { 2065f, 3237.5f }, w);
 
         // ── 三道分区隔墙（内墙贴在外墙内表面之间；门洞中心取自 HospitalBoundaries）──
         foreach (HospitalBoundary b in HospitalBoundaries())
@@ -332,8 +334,34 @@ public static class ExplorationWalls
                 w);
         }
 
+        // ── [大图放大] 分区内部的绕行短墙（wing stubs）──
+        // 放大后每片分区变成一块大空地，直线穿行等于免费；这几段**悬浮**短墙（两端都留通道、都不装门、
+        // 都不跨满边界）把"走直线"变成"绕 S 形"，也把长视线打断——地形复杂度的主要来源。
+        // 它们只**增加**墙覆盖：既不改三道 authored 分区边界（HospitalBoundaries 不变 ⇒ 门洞不变量原样成立），
+        // 也不会封死任何分区（每段两端各留 ≥150px 通道）。坐标经离线校验不压任何搜刮点/丧尸点/叙事点（拟定待调）。
+        foreach (WallRect stub in HospitalDetourStubs)
+            walls.Add(stub);
+
         return walls;
     }
+
+    /// <summary>
+    /// [大图放大] 医院分区内部的绕行短墙（见 <see cref="HospitalWalls"/> 尾部说明）。
+    /// 全为**悬浮**竖墙段：两端留通道、不装门、不跨满分区边界 ⇒ 只制造绕路/挡视线，绝不封死分区。
+    /// </summary>
+    private static readonly IReadOnlyList<WallRect> HospitalDetourStubs = new[]
+    {
+        // 门诊/急诊大厅（最大）：两道错位竖隔 → S 型
+        new WallRect(1350f, 1980.5f, 12f, 480f),
+        new WallRect(2950f, 1870.5f, 12f, 470f),
+        // 住院部：两道错位竖隔（病房走廊迷宫）
+        new WallRect(1350f, 1183.5f, 12f, 460f),
+        new WallRect(2950f, 1093.5f, 12f, 480f),
+        // 药房：一道货架竖隔
+        new WallRect(1500f, 760.5f, 12f, 200f),
+        // 手术层：一道无菌区竖隔
+        new WallRect(1350f, 265f, 12f, 260f),
+    };
 
     /// <summary>
     /// 医院的全部**可关的门**（门板矩形恰好填满其门洞）。初始一律 <see cref="DoorState.Closed"/>——
@@ -349,10 +377,10 @@ public static class ExplorationWalls
         const float w = HospitalDoorwayWidth;
         var doors = new List<ExplorationDoor>(5);
 
-        // 外墙上的门：急诊卷帘门（南墙，x 中心 1850）
+        // 外墙上的门：急诊卷帘门（南墙，x 中心 3237.5 = 1850 × 1.75）
         doors.Add(new ExplorationDoor(
             HospitalErShutterDoor,
-            new WallRect(1850f - w / 2f, HosBottom - t, w, t),
+            new WallRect(3237.5f - w / 2f, HosBottom - t, w, t),
             DoorState.Closed));
 
         // 分区隔墙上的门
@@ -413,49 +441,67 @@ public static class ExplorationWalls
     }
 
     /// <summary>
-    /// 医院 30 处搜刮点（id 与 <see cref="ExplorationCache"/> 一一对应）：坐标 + 中文标签 + 分区。
-    /// 分区由南（近）到北（深）：门诊/急诊 7 → 住院部 8 → 药房 7（医疗集中）→ 手术层 8（高价值医疗）。
-    /// <b>坐标与改造前逐字一致</b>（墙是加在它们之间的，一处点都没挪）。
+    /// 医院 44 处搜刮点（id 与 <see cref="ExplorationCache"/> 一一对应）：坐标 + 中文标签 + 分区。
+    /// 分区由南（近）到北（深）：门诊/急诊 10 → 住院部 12 → 药房 10（医疗集中）→ 手术层 12（高价值医疗）。
+    /// <para>
+    /// <b>[大图放大]</b> 原 30 点坐标一律 ×1.75（保 authored 相对布局），另在放大后的分区空档补 14 点
+    /// （医疗集中投放的身份保持：新点也把药品/手术耗材压在药房/手术层）——把搜刮工作量抬向 ≈5 天量级。
+    /// 坐标经离线校验不落墙内（<c>HospitalLayoutTests</c> 钉死）。掉落/坐标数值拟定待调。
+    /// </para>
     /// </summary>
     public static readonly IReadOnlyList<HospitalCacheSpot> HospitalCacheSpots = new[]
     {
-        // 门诊/急诊大厅（南·近，7·非医疗为主）
-        new HospitalCacheSpot(ExplorationCache.HospitalReceptionId, 700f, 1300f, "挂号台", HospitalZone.Lobby),
-        new HospitalCacheSpot(ExplorationCache.HospitalTriageId, 900f, 1150f, "分诊台", HospitalZone.Lobby),
-        new HospitalCacheSpot(ExplorationCache.HospitalWaitingRoomId, 1200f, 1250f, "候诊区", HospitalZone.Lobby),
-        new HospitalCacheSpot(ExplorationCache.HospitalVendingId, 1500f, 1300f, "自动贩卖机", HospitalZone.Lobby),
-        new HospitalCacheSpot(ExplorationCache.HospitalErTrolleyId, 1750f, 1150f, "急诊抢救推车", HospitalZone.Lobby),
-        new HospitalCacheSpot(ExplorationCache.HospitalSecurityId, 400f, 1150f, "保安室", HospitalZone.Lobby),
-        new HospitalCacheSpot(ExplorationCache.HospitalCafeteriaId, 2000f, 1250f, "食堂", HospitalZone.Lobby),
+        // 门诊/急诊大厅（南·近，10·非医疗为主）
+        new HospitalCacheSpot(ExplorationCache.HospitalReceptionId, 1225f, 2275f, "挂号台", HospitalZone.Lobby),
+        new HospitalCacheSpot(ExplorationCache.HospitalTriageId, 1575f, 2012.5f, "分诊台", HospitalZone.Lobby),
+        new HospitalCacheSpot(ExplorationCache.HospitalWaitingRoomId, 2100f, 2187.5f, "候诊区", HospitalZone.Lobby),
+        new HospitalCacheSpot(ExplorationCache.HospitalVendingId, 2625f, 2275f, "自动贩卖机", HospitalZone.Lobby),
+        new HospitalCacheSpot(ExplorationCache.HospitalErTrolleyId, 3062.5f, 2012.5f, "急诊抢救推车", HospitalZone.Lobby),
+        new HospitalCacheSpot(ExplorationCache.HospitalSecurityId, 700f, 2012.5f, "保安室", HospitalZone.Lobby),
+        new HospitalCacheSpot(ExplorationCache.HospitalCafeteriaId, 3500f, 2187.5f, "食堂", HospitalZone.Lobby),
+        new HospitalCacheSpot(ExplorationCache.HospitalGiftShopId, 1150f, 2050f, "便民商店", HospitalZone.Lobby),
+        new HospitalCacheSpot(ExplorationCache.HospitalRadiologyId, 3550f, 2050f, "放射科候诊", HospitalZone.Lobby),
+        new HospitalCacheSpot(ExplorationCache.HospitalAmbulanceBayId, 2900f, 2350f, "救护车停车区", HospitalZone.Lobby),
 
-        // 住院部（中，8）
-        new HospitalCacheSpot(ExplorationCache.HospitalWardLinenId, 600f, 900f, "病房布草间", HospitalZone.Ward),
-        new HospitalCacheSpot(ExplorationCache.HospitalWardLockerId, 900f, 850f, "病床储物柜", HospitalZone.Ward),
-        new HospitalCacheSpot(ExplorationCache.HospitalNurseStationId, 1200f, 900f, "护士站", HospitalZone.Pharmacy),
-        new HospitalCacheSpot(ExplorationCache.HospitalDoctorOfficeId, 1600f, 850f, "医生办公室", HospitalZone.Ward),
-        new HospitalCacheSpot(ExplorationCache.HospitalDirtyUtilityId, 1900f, 950f, "污物处置间", HospitalZone.Ward),
-        new HospitalCacheSpot(ExplorationCache.HospitalKitchenetteId, 700f, 680f, "配餐间", HospitalZone.Ward),
-        new HospitalCacheSpot(ExplorationCache.HospitalFloorStoreId, 2050f, 700f, "楼层库房", HospitalZone.Ward),
-        new HospitalCacheSpot(ExplorationCache.HospitalMorgueId, 350f, 700f, "太平间", HospitalZone.Ward),
+        // 住院部（中，12）
+        new HospitalCacheSpot(ExplorationCache.HospitalWardLinenId, 1050f, 1575f, "病房布草间", HospitalZone.Ward),
+        new HospitalCacheSpot(ExplorationCache.HospitalWardLockerId, 1575f, 1487.5f, "病床储物柜", HospitalZone.Ward),
+        new HospitalCacheSpot(ExplorationCache.HospitalNurseStationId, 2100f, 1575f, "护士站", HospitalZone.Pharmacy),
+        new HospitalCacheSpot(ExplorationCache.HospitalDoctorOfficeId, 2800f, 1487.5f, "医生办公室", HospitalZone.Ward),
+        new HospitalCacheSpot(ExplorationCache.HospitalDirtyUtilityId, 3325f, 1662.5f, "污物处置间", HospitalZone.Ward),
+        new HospitalCacheSpot(ExplorationCache.HospitalKitchenetteId, 1225f, 1190f, "配餐间", HospitalZone.Ward),
+        new HospitalCacheSpot(ExplorationCache.HospitalFloorStoreId, 3587.5f, 1225f, "楼层库房", HospitalZone.Ward),
+        new HospitalCacheSpot(ExplorationCache.HospitalMorgueId, 612.5f, 1225f, "太平间", HospitalZone.Ward),
+        new HospitalCacheSpot(ExplorationCache.HospitalPhysiotherapyId, 800f, 1550f, "康复理疗室", HospitalZone.Ward),
+        new HospitalCacheSpot(ExplorationCache.HospitalRecordsId, 3600f, 1500f, "病案室", HospitalZone.Ward),
+        new HospitalCacheSpot(ExplorationCache.HospitalStaffLoungeId, 1450f, 1650f, "医护休息室", HospitalZone.Ward),
+        new HospitalCacheSpot(ExplorationCache.HospitalIsolationWardId, 3050f, 1300f, "隔离病房", HospitalZone.Ward),
 
-        // 药房（深，7·医疗集中——高价值）
-        new HospitalCacheSpot(ExplorationCache.HospitalPharmacyCounterId, 700f, 520f, "药房前台", HospitalZone.Pharmacy),
-        new HospitalCacheSpot(ExplorationCache.HospitalPharmacyShelfId, 1000f, 470f, "处方药架", HospitalZone.Pharmacy),
-        new HospitalCacheSpot(ExplorationCache.HospitalPharmacyFridgeId, 1300f, 500f, "冷藏药柜", HospitalZone.Pharmacy),
-        new HospitalCacheSpot(ExplorationCache.HospitalPharmacyBackId, 1600f, 460f, "药库后间", HospitalZone.Pharmacy),
-        new HospitalCacheSpot(ExplorationCache.HospitalNarcoticsCabinetId, 1900f, 520f, "管制药柜", HospitalZone.Pharmacy),
-        new HospitalCacheSpot(ExplorationCache.HospitalDispensaryId, 500f, 420f, "配药室", HospitalZone.Pharmacy),
-        new HospitalCacheSpot(ExplorationCache.HospitalMedSupplyRoomId, 2100f, 460f, "医材库", HospitalZone.Pharmacy),
+        // 药房（深，10·医疗集中——高价值）
+        new HospitalCacheSpot(ExplorationCache.HospitalPharmacyCounterId, 1225f, 910f, "药房前台", HospitalZone.Pharmacy),
+        new HospitalCacheSpot(ExplorationCache.HospitalPharmacyShelfId, 1750f, 822.5f, "处方药架", HospitalZone.Pharmacy),
+        new HospitalCacheSpot(ExplorationCache.HospitalPharmacyFridgeId, 2275f, 875f, "冷藏药柜", HospitalZone.Pharmacy),
+        new HospitalCacheSpot(ExplorationCache.HospitalPharmacyBackId, 2800f, 805f, "药库后间", HospitalZone.Pharmacy),
+        new HospitalCacheSpot(ExplorationCache.HospitalNarcoticsCabinetId, 3325f, 910f, "管制药柜", HospitalZone.Pharmacy),
+        new HospitalCacheSpot(ExplorationCache.HospitalDispensaryId, 875f, 735f, "配药室", HospitalZone.Pharmacy),
+        new HospitalCacheSpot(ExplorationCache.HospitalMedSupplyRoomId, 3675f, 805f, "医材库", HospitalZone.Pharmacy),
+        new HospitalCacheSpot(ExplorationCache.HospitalCompoundingLabId, 850f, 950f, "配置室", HospitalZone.Pharmacy),
+        new HospitalCacheSpot(ExplorationCache.HospitalIvPrepId, 3550f, 950f, "静配中心", HospitalZone.Pharmacy),
+        new HospitalCacheSpot(ExplorationCache.HospitalVaccineFridgeId, 2400f, 830f, "疫苗冷库", HospitalZone.Pharmacy),
 
-        // 手术层（最深，8·手术耗材+高价值医疗）
-        new HospitalCacheSpot(ExplorationCache.HospitalOrScrubId, 600f, 300f, "刷手准备间", HospitalZone.OperatingRoom),
-        new HospitalCacheSpot(ExplorationCache.HospitalOrTheatreId, 900f, 240f, "手术室", HospitalZone.OperatingRoom),
-        new HospitalCacheSpot(ExplorationCache.HospitalSterileStoreId, 1200f, 300f, "无菌耗材库", HospitalZone.OperatingRoom),
-        new HospitalCacheSpot(ExplorationCache.HospitalIcuId, 1500f, 240f, "ICU 重症监护", HospitalZone.OperatingRoom),
-        new HospitalCacheSpot(ExplorationCache.HospitalBloodBankId, 1800f, 300f, "血库", HospitalZone.OperatingRoom),
-        new HospitalCacheSpot(ExplorationCache.HospitalAnesthesiaId, 2050f, 240f, "麻醉科", HospitalZone.OperatingRoom),
-        new HospitalCacheSpot(ExplorationCache.HospitalSterilizerId, 350f, 280f, "器械灭菌室", HospitalZone.OperatingRoom),
-        new HospitalCacheSpot(ExplorationCache.HospitalChiefSafeId, 1250f, 150f, "主任药品保险柜", HospitalZone.OperatingRoom),
+        // 手术层（最深，12·手术耗材+高价值医疗）
+        new HospitalCacheSpot(ExplorationCache.HospitalOrScrubId, 1050f, 525f, "刷手准备间", HospitalZone.OperatingRoom),
+        new HospitalCacheSpot(ExplorationCache.HospitalOrTheatreId, 1575f, 420f, "手术室", HospitalZone.OperatingRoom),
+        new HospitalCacheSpot(ExplorationCache.HospitalSterileStoreId, 2100f, 525f, "无菌耗材库", HospitalZone.OperatingRoom),
+        new HospitalCacheSpot(ExplorationCache.HospitalIcuId, 2625f, 420f, "ICU 重症监护", HospitalZone.OperatingRoom),
+        new HospitalCacheSpot(ExplorationCache.HospitalBloodBankId, 3150f, 525f, "血库", HospitalZone.OperatingRoom),
+        new HospitalCacheSpot(ExplorationCache.HospitalAnesthesiaId, 3587.5f, 420f, "麻醉科", HospitalZone.OperatingRoom),
+        new HospitalCacheSpot(ExplorationCache.HospitalSterilizerId, 612.5f, 490f, "器械灭菌室", HospitalZone.OperatingRoom),
+        new HospitalCacheSpot(ExplorationCache.HospitalChiefSafeId, 2187.5f, 262.5f, "主任药品保险柜", HospitalZone.OperatingRoom),
+        new HospitalCacheSpot(ExplorationCache.HospitalRecoveryRoomId, 700f, 560f, "术后恢复室", HospitalZone.OperatingRoom),
+        new HospitalCacheSpot(ExplorationCache.HospitalPathologyLabId, 2900f, 430f, "病理科", HospitalZone.OperatingRoom),
+        new HospitalCacheSpot(ExplorationCache.HospitalOnCallRoomId, 3650f, 560f, "值班室", HospitalZone.OperatingRoom),
+        new HospitalCacheSpot(ExplorationCache.HospitalCentralSupplyId, 1900f, 560f, "中心供应室", HospitalZone.OperatingRoom),
     };
 
     /// <summary>
@@ -465,18 +511,21 @@ public static class ExplorationWalls
     /// 🔴 这 14 只**不是让你清完的**（连场战斗的代价见 <c>docs/research/2026-07-14-combat-cost.md</c>）。
     /// 它们是让你**选择不打**的：关门、绕路、别开枪。数量/布点拟定待调。
     /// </para>
-    /// <b>坐标与改造前逐字一致</b>（墙是加在它们之间的，一只都没挪）。
+    /// <b>[大图放大]</b> 原 14 只坐标一律 ×1.75；放大后画布是 3 倍面积，为守住「大量丧尸」身份补 4 只到深区
+    /// （共 18 只）——密度反而略降、更「能绕」，仍是**让你选择不打**的 14~18 只（数量/布点拟定待调）。
     /// </summary>
     public static readonly IReadOnlyList<(float X, float Y)> HospitalZombieSpots = new[]
     {
         // 门诊/急诊大厅（南·近，2·稀——进门不会当场被淹）
-        (700f, 1150f), (1500f, 1200f),
+        (1225f, 2012.5f), (2625f, 2100f),
         // 住院部（中，4）
-        (600f, 850f), (1100f, 780f), (1600f, 900f), (900f, 650f),
+        (1050f, 1487.5f), (1925f, 1365f), (2800f, 1575f), (1575f, 1137.5f),
         // 药房（北·深，4·扎堆守医疗）
-        (1200f, 450f), (700f, 400f), (1600f, 420f), (2000f, 500f),
+        (2100f, 787.5f), (1225f, 700f), (2800f, 735f), (3500f, 875f),
         // 手术层（最北·最深，4·扎堆守高价值医疗）
-        (1000f, 220f), (1400f, 200f), (1800f, 240f), (500f, 260f),
+        (1750f, 385f), (2450f, 350f), (3150f, 420f), (875f, 455f),
+        // [大图放大] 补 4 只到放大后的深区东翼/新点周边（守新增医疗点，皆可绕）
+        (3400f, 2100f), (3300f, 1400f), (3000f, 950f), (3400f, 560f),
     };
 
     /// <summary>

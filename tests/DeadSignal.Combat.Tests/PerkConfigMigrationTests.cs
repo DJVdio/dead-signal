@@ -80,6 +80,12 @@ public sealed class PerkConfigMigrationTests
     private const int GoldPeteConsecutivePhases = 10;
     private const int GoldPeteDepartureCeiling = 5;
     private const int GoldPeteDepartureCount = 3;
+    // 克莉丝汀
+    private const int GoldChristineL2Days = 3;
+    private const double GoldChristineL1HungerSkip = 0.25;
+    private const double GoldChristineL3ExtraHungerSkip = 0.10;
+    private const double GoldChristineL2BuyDiscount = 0.0625;
+    private const int GoldChristineL3SellRate = 70;
 
     [Fact]
     public void Catalog_is_wired_and_lazy_loaded()
@@ -156,6 +162,18 @@ public sealed class PerkConfigMigrationTests
         Assert.Equal(GoldPeteDepartureCount, PetePerk.Level3DepartureCount);
     }
 
+    [Fact]
+    public void Christine_values_match_original_literals()
+    {
+        Assert.Equal(GoldChristineL2Days, ChristinePerk.Level2ThresholdDays);
+        BitEqual(GoldChristineL1HungerSkip, ChristinePerk.L1HungerSkipChance);
+        BitEqual(GoldChristineL3ExtraHungerSkip, ChristinePerk.L3ExtraHungerSkipChance);
+        BitEqual(GoldChristineL2BuyDiscount, ChristinePerk.Level2BuyDiscount);
+        Assert.Equal(GoldChristineL3SellRate, ChristinePerk.Level3SellRatePercent);
+        // L3「不掉饥饿」加算合计 = 25%+10% = 35%（[Q1]）。
+        BitEqual(GoldChristineL1HungerSkip + GoldChristineL3ExtraHungerSkip, ChristinePerk.HungerSkipChance(3));
+    }
+
     // ── 取用点确实读 catalog（证明委托到配置、不是残留 const）──────────────────────
     [Fact]
     public void Perk_classes_read_from_catalog_section()
@@ -205,6 +223,12 @@ public sealed class PerkConfigMigrationTests
         Assert.Equal(s.PeteLevel2ConsecutivePhases, PetePerk.Level2ConsecutivePhases);
         Assert.Equal(s.PeteDepartureHungerCeiling, PetePerk.DepartureHungerCeiling);
         Assert.Equal(s.PeteLevel3DepartureCount, PetePerk.Level3DepartureCount);
+
+        Assert.Equal(s.ChristineLevel2ThresholdDays, ChristinePerk.Level2ThresholdDays);
+        BitEqual(s.ChristineL1HungerSkipChance, ChristinePerk.L1HungerSkipChance);
+        BitEqual(s.ChristineL3ExtraHungerSkipChance, ChristinePerk.L3ExtraHungerSkipChance);
+        BitEqual(s.ChristineLevel2BuyDiscount, ChristinePerk.Level2BuyDiscount);
+        Assert.Equal(s.ChristineLevel3SellRatePercent, ChristinePerk.Level3SellRatePercent);
     }
 
     // ── 往返保真：加载器不丢精度（值无关，永久护栏）────────────────────────────────
@@ -287,6 +311,11 @@ public sealed class PerkConfigMigrationTests
         PeteLevel2ConsecutivePhases = GoldPeteConsecutivePhases,
         PeteDepartureHungerCeiling = GoldPeteDepartureCeiling,
         PeteLevel3DepartureCount = GoldPeteDepartureCount,
+        ChristineLevel2ThresholdDays = GoldChristineL2Days,
+        ChristineL1HungerSkipChance = GoldChristineL1HungerSkip,
+        ChristineL3ExtraHungerSkipChance = GoldChristineL3ExtraHungerSkip,
+        ChristineLevel2BuyDiscount = GoldChristineL2BuyDiscount,
+        ChristineLevel3SellRatePercent = GoldChristineL3SellRate,
     };
 
     // ── helpers ──────────────────────────────────────────────────────────────

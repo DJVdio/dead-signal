@@ -378,8 +378,12 @@ public sealed partial class Pawn : Actor
             extraHealBonusPct = RosehipTeaHealBonusPct;
             _rosehipTeaHealTicks--;
         }
+        // [A3] 书 → 骨折恢复被动：读过《尖峰时刻》⇒ 本人**骨折**逐日愈合 ×1.15（仅骨折，见 FractureRecoveryBooks）。
+        // 这是**该人本人**的属性（判据＝其 ReadBookSet），故在此按 this 的已读书就地算——与山姆 L3 全营光环（healSpeedMultiplier，
+        // 由 CampMain 统一传入）是正交两轴、对骨折连乘。非 Pawn 单位不经此路径 ⇒ 零回归。
+        double fractureHealSpeedMultiplier = FractureRecoveryBooks.HealSpeedMultiplier(HasReadBook);
         HealthTickResult result = Health.TickDay(rng, resting, restedInBed, infectionChanceMultiplier, extraHealBonusPct, healSpeedMultiplier,
-            restFraction, bedFraction);
+            restFraction, bedFraction, fractureHealSpeedMultiplier);
 
         foreach (string part in result.MaimedParts)
         {
@@ -547,6 +551,8 @@ public sealed partial class Pawn : Actor
             p.Perks.GrantRat(); // [T61] 耗子：下水道招募（等级同样**不存在 Pawn 上**，由累计搜出件数从 StoryFlags 派生，见 RatPerk）
         else if (name == PetePerk.PeteName)
             p.Perks.GrantPete(); // 皮特：Day7 敲门救援入队（等级**不存在 Pawn 上**，由"连续五天≥3"latch + "饥饿≤5出行三次"累计从 StoryFlags 派生，见 PetePerk）
+        else if (name == ChristinePerk.ChristineName)
+            p.Perks.GrantChristine(); // 克莉丝汀：教学关反水后收留入队（等级**不存在 Pawn 上**，由在营存活天数 + 灭金手指帮旗标派生，见 ChristinePerk）
 
         // 初始主手武器（authored「自带装备」，逐角色）：无=空手入队 / 手枪→远程 / 匕首·棍棒→近战。
         // EquipToHand 自动按 TwoHanded 分流；StartingWeapon.None 不发主手武器（多数幸存者 + 皮特空手入队）。

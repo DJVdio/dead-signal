@@ -195,9 +195,9 @@ public static class WeaponModCatalog
     private static IReadOnlySet<string> FullerFits()
         => Names("匕首", "短剑", "长剑", "草叉", "重剑");
 
-    /// <summary>防滑缠手：锐器 6 + **消防斧** + 钝器 3（用户把原来同名的两条合并成了一条）。</summary>
+    /// <summary>防滑缠手：锐器 6 + **消防斧** + **骨刀** + 钝器 3（用户把原来同名的两条合并成了一条；骨刀按 wiki 补入）。</summary>
     private static IReadOnlySet<string> BladesAndBlunts()
-        => Names("匕首", "短剑", "刺剑", "长剑", "草叉", "重剑", "消防斧", "棍棒", "尖头锤", "破甲锤");
+        => Names("匕首", "短剑", "刺剑", "长剑", "草叉", "重剑", "消防斧", "骨刀", "棍棒", "尖头锤", "破甲锤");
 
     /// <summary>棍棒（铁丝/钉子强化是它独有的）。</summary>
     private static IReadOnlySet<string> ClubOnly() => Names("棍棒");
@@ -691,7 +691,7 @@ public static class WeaponModCatalog
     // 部位：弓臂缠手=缠手(LimbWrap)、复合弓臂=弓(Bow)、重磅弓弦=弦(String)、弩盾=弩身(CrossbowBody)。
     // 🔴 用户拍板：弓臂缠手(缠手) 与 复合弓臂(弓) **不互斥、可同装一把弓**（两个不同部位）。
 
-    /// <summary>弓臂缠手：弓臂缠一层布，攻速 +5%（间隔 ×0.95）。适配短弓/反曲弓/长弓/狩猎弓。</summary>
+    /// <summary>弓臂缠手：弓臂缠一层布，攻速 +4%（间隔 ×0.96）、散布 −4%（×0.96）。适配短弓/反曲弓/长弓/狩猎弓。</summary>
     public static WeaponMod LimbWrap() => new()
     {
         Id = "limb_wrap",
@@ -702,10 +702,11 @@ public static class WeaponModCatalog
         Description = "缠一层布在弓臂上，冰冷的木头就有了点体温。射出去的还是要命的东西，握着的却不那么硌手了。",
         MaterialCosts = Cost(("cloth", 2), ("leather", 1)),
         WorkMinutes = 60,
-        // wiki「攻击速度+5%，。」末尾空悬顿号疑似漏填，用户未补 ⇒ 只落攻速 +5%（无重量、无其他）。
+        // wiki（唯一设计源）：攻击速度 +4%、散布 −4%。表赢代码对齐（原实现为攻速 +5%、无散布）。
         Stats = new[]
         {
-            StatMod.Mul(WeaponStat.AttackInterval, S("limb_wrap", WeaponStat.AttackInterval)),         // 攻速 +5% ⇒ 间隔 ×0.95
+            StatMod.Mul(WeaponStat.AttackInterval, S("limb_wrap", WeaponStat.AttackInterval)),         // 攻速 +4% ⇒ 间隔 ×0.96
+            StatMod.Mul(WeaponStat.BaseSpreadDegrees, S("limb_wrap", WeaponStat.BaseSpreadDegrees)),   // 散布 −4% ⇒ ×0.96
         },
     };
 

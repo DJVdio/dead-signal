@@ -70,6 +70,17 @@ public sealed class SurvivorPerks
 
     /// <summary>把本 pawn 标记为皮特（赋予其三级专属效果身份）。建角时对皮特调用一次（<c>Pawn.Create</c> 按名授予）。</summary>
     public void GrantPete() => IsPete = true;
+
+    /// <summary>
+    /// 本 pawn 是否为**克莉丝汀**（教学关反水后收留的销售员；authored 三级专属效果「巧舌如簧」）。同山姆/耗子/皮特的形态：
+    /// 效果规则/等级/升级轴皆走静态 <see cref="ChristinePerk"/>——她的等级由**在营存活天数**（调用方喂，同道格羁绊天数先例）
+    /// 与**灭金手指帮旗标**（<see cref="GoldfingerDiscovery.GangClearedFlag"/>）派生（见 <see cref="ChristinePerk.EvaluateLevel"/>），
+    /// 本处只标"这人是不是克莉丝汀"（供 <c>CampMain</c> 判相位不掉饥饿/商人折扣与卖价）。其余角色恒 false。
+    /// </summary>
+    public bool IsChristine { get; private set; }
+
+    /// <summary>把本 pawn 标记为克莉丝汀（赋予「巧舌如簧」专属效果身份）。招募入队时对她调用一次（<c>Pawn.Create</c> 按名授予）。</summary>
+    public void GrantChristine() => IsChristine = true;
 }
 
 /// <summary>

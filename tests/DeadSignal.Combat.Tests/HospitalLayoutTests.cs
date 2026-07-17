@@ -142,7 +142,7 @@ public class HospitalLayoutTests
         IReadOnlyList<WallRect> walls = Walls();
         IReadOnlyList<HospitalCacheSpot> spots = ExplorationWalls.HospitalCacheSpots;
 
-        Assert.Equal(30, spots.Count);
+        Assert.Equal(44, spots.Count); // [大图放大] 原 30 → 44（补 14 点抬工作量到 ≈5 天量级）
         Assert.Equal(
             ExplorationCache.CacheIdsFor(ExplorationCache.HospitalName).OrderBy(x => x),
             spots.Select(s => s.Id).OrderBy(x => x));
@@ -204,8 +204,10 @@ public class HospitalLayoutTests
     [Fact]
     public void 大厅到手术层的直线必然穿墙()
     {
+        // [大图放大] 探针随画布 ×1.75 重取：x=1400 是三道分区隔墙上都实心（不在任何门洞）的列，
+        // 从大厅 (y2100) 直射手术层 (y420) 必穿三道隔墙。
         Assert.True(
-            ExplorationWalls.SegmentHitsAnyWall(Walls(), 1180f, 1250f, 1180f, 240f),
+            ExplorationWalls.SegmentHitsAnyWall(Walls(), 1400f, 2100f, 1400f, 420f),
             "从大厅一眼望穿到手术层——那就等于全楼的丧尸一开始就全看见你了。");
     }
 

@@ -42,5 +42,11 @@
   "PeteHungerThresholdForStreak": 3,
   "PeteLevel2ConsecutivePhases": 10,
   "PeteDepartureHungerCeiling": 5,
-  "PeteLevel3DepartureCount": 3
+  "PeteLevel3DepartureCount": 3,
+
+  "ChristineLevel2ThresholdDays": 3,
+  "ChristineL1HungerSkipChance": 0.25,
+  "ChristineL3ExtraHungerSkipChance": 0.1,
+  "ChristineLevel2BuyDiscount": 0.0625,
+  "ChristineLevel3SellRatePercent": 70
 }

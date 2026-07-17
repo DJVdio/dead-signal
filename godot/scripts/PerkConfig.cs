@@ -119,6 +119,18 @@ public sealed class PerkConfig : IGameConfigSection
     /// <summary>L2→L3 所需的合格出行次数。</summary>
     public int PeteLevel3DepartureCount { get; init; } = 3;
 
+    // ── 克莉丝汀·巧舌如簧（ChristinePerk）——数值 authored·非拟定（characters.json 克莉丝汀行）─────
+    /// <summary>L1→L2 所需在营存活天数（characters.json：存活三天）。</summary>
+    public int ChristineLevel2ThresholdDays { get; init; } = 3;
+    /// <summary>L1：每相位「不掉饥饿」的基础几率（25%）。</summary>
+    public double ChristineL1HungerSkipChance { get; init; } = 0.25;
+    /// <summary>L3：每相位「不掉饥饿」的额外几率（10%；与 L1 加算 ⇒ 合计 35%）。</summary>
+    public double ChristineL3ExtraHungerSkipChance { get; init; } = 0.10;
+    /// <summary>L2：商人买入折扣（6.25%；需她在营存活）。</summary>
+    public double ChristineLevel2BuyDiscount { get; init; } = 0.0625;
+    /// <summary>L3：商人卖出价率（百分比，70；需她在营存活）。</summary>
+    public int ChristineLevel3SellRatePercent { get; init; } = 70;
+
     /// <inheritdoc/>
     [JsonIgnore]
     public string FileName => "perks.json";

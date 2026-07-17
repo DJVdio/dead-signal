@@ -14,7 +14,7 @@ public class WeaponModDefenseTests
     // ════════════════════════════ 五条改装的数值 ════════════════════════════
 
     [Fact]
-    public void 弓臂缠手_攻速加5百分比_无重量无其他()
+    public void 弓臂缠手_攻速加4百分比加散布减4_无重量()
     {
         WeaponMod m = WeaponModCatalog.LimbWrap();
         Assert.Equal(WeaponPart.LimbWrap, m.Part);
@@ -24,8 +24,9 @@ public class WeaponModDefenseTests
 
         Weapon bow = WeaponTable.ShortBow();
         Weapon after = WeaponMods.ApplyMods(bow, new[] { m }).Weapon;
-        Assert.Equal(bow.AttackInterval * 0.95, after.AttackInterval, 6);   // 攻速 +5% ⇒ 间隔 ×0.95
-        Assert.Equal(bow.DamageMax, after.DamageMax, 6);                    // 别的不动
+        Assert.Equal(bow.AttackInterval * 0.96, after.AttackInterval, 6);       // 攻速 +4% ⇒ 间隔 ×0.96（wiki）
+        Assert.Equal(bow.BaseSpreadDegrees * 0.96, after.BaseSpreadDegrees, 6); // 散布 −4% ⇒ ×0.96（wiki）
+        Assert.Equal(bow.DamageMax, after.DamageMax, 6);                        // 别的不动
     }
 
     [Fact]
@@ -38,7 +39,7 @@ public class WeaponModDefenseTests
 
         // 同装不抛（部位不冲突）；两者效果连乘
         Weapon after = WeaponMods.ApplyMods(bow, new[] { wrap, compound }).Weapon;
-        Assert.Equal(bow.AttackInterval * 0.95 * 1.06, after.AttackInterval, 6);   // 缠手×0.95 · 复合×1.06
+        Assert.Equal(bow.AttackInterval * 0.96 * 1.06, after.AttackInterval, 6);   // 缠手×0.96 · 复合×1.06
         Assert.Equal(bow.FlightSpeed * 1.12, after.FlightSpeed, 6);                // 复合弓臂的飞速 +12%
     }
 

@@ -360,6 +360,10 @@ public sealed partial class CampMain : Node2D
     // 羁绊升级推进：道格&布鲁斯共同存活天数（每昼夜两者皆活 +1；任一死即停累加=冻结，见 AdvanceBondDay）。
     // 运行时态——本工程尚无存档系统，故不持久化（有存档后随现有状态模式落盘）。等级经 DougBruceBond.EvaluateLevel 现算。
     private int _bondDaysBothAlive;
+
+    // 克莉丝汀「巧舌如簧」升级轴：她入队后**在营存活天数**（每昼夜她在营存活 +1；死/离营天然停累加=冻结，见 AdvanceChristineDay）。
+    // 运行时态——同羁绊天数不持久化（有存档后随现有状态模式落盘）。等级经 ChristinePerk.EvaluateLevel（+灭金手指帮旗标）现算。
+    private int _christineDaysInCamp;
     private bool _raidActive;
     private float _raidIntensity = 1f;
     // 尸潮终局：到期(day>=DeadlineDay)启动的无限围攻。复用袭营执行层(_raidActive+守卫锁敌+SpawnCampZombies)，
@@ -2408,6 +2412,25 @@ public sealed partial class CampMain : Node2D
             _bondDaysBothAlive++;
     }
 
+    // ---------------- 克莉丝汀「巧舌如簧」接线辅助 ----------------
+
+    /// <summary>
+    /// 克莉丝汀升级推进：在营存活天数每昼夜 +1，仅她在营存活时累加（未招募/已亡/已离营即冻结＝停止累加）。
+    /// 在 <see cref="OnGamePhaseChanged"/> 的黎明聚餐分支（每昼夜一次，紧随 <see cref="AdvanceBondDay"/>）调用。
+    /// </summary>
+    private void AdvanceChristineDay()
+    {
+        if (ChristinePawn() != null)
+            _christineDaysInCamp++;
+    }
+
+    /// <summary>克莉丝汀当前等级（1/2/3），由在营存活天数 + 灭金手指帮旗标现算（<see cref="ChristinePerk.EvaluateLevel"/>）。未招募时值无意义（消费点另经在营门控）。</summary>
+    private int ChristineLevelNow()
+        => ChristinePerk.EvaluateLevel(_christineDaysInCamp, GoldfingerDiscovery.GangCleared(_storyFlags));
+
+    /// <summary>克莉丝汀是否在营存活（招募后未亡故/未离营）——商人折扣/卖价 70% 的存活门控（[Q2] 需她在营维持）。</summary>
+    private bool ChristineAliveInCamp() => ChristinePawn() != null;
+
     /// <summary>
     /// 3 级光环当前生效态：等级≥3、道格布鲁斯皆存活、互相距离 ≤ <see cref="DougBruceBond.DefaultAuraRadius"/> 时激活
     /// （生产 ×1.10、受伤 ×0.90）；否则中性（两系数 1.0）。一方死亡即永失（_doug/_bruce 死时置 null）。
@@ -2983,6 +3006,7 @@ public sealed partial class CampMain : Node2D
         if (_currentLevel is not null)
         {
             SpawnLevelCorpse(actor);
+            MaybeMarkGoldfingerGangCleared(actor);
             return;
         }
         if (_corpseYard is null)
@@ -3128,6 +3152,27 @@ public sealed partial class CampMain : Node2D
     /// <b>光尸体不登记</b>（衣不蔽体、赤手空拳）——与营地 <c>CorpseYard.SpawnFor</c> 同一条闸门：
     /// 地图上不该多出一个点了没反应的可交互点。
     /// </summary>
+    /// <summary>
+    /// 金手指帮据点：一名守备（<see cref="GoldfingerGang.GuardName"/>）倒下后，若场上再无存活守备 ⇒ 置「灭帮」永久旗标
+    /// （<see cref="GoldfingerDiscovery.GangClearedFlag"/>），克莉丝汀 L3「大仇得报」升级读它。幂等（旗标已置也无害）。
+    /// 仅金手指帮根据地关、且倒下的是守备时才检查；排除刚倒下的这名（<paramref name="justDied"/>，防死亡事件时序把自己算作存活）。
+    /// </summary>
+    private void MaybeMarkGoldfingerGangCleared(Actor justDied)
+    {
+        if (_currentLevel is not TestExploration level
+            || level.DestinationName != WorldMapPanel.GoldfingerBaseName
+            || CorpseYard.NameOf(justDied) != GoldfingerGang.GuardName)
+        {
+            return;
+        }
+        bool anyGuardAlive = level.LevelHostiles()
+            .Any(h => h != justDied && h.Alive && CorpseYard.NameOf(h) == GoldfingerGang.GuardName);
+        if (!anyGuardAlive)
+        {
+            GoldfingerDiscovery.MarkGangCleared(_storyFlags);
+        }
+    }
+
     private void SpawnLevelCorpse(Actor actor)
     {
         if (_currentLevel is not TestExploration level)
@@ -4591,6 +4636,12 @@ public sealed partial class CampMain : Node2D
             {
                 PetePerk.ResolveHungerPhase(diner.Hunger, ration.Fed[i], _mealRng, isPete: true);
             }
+            else if (diner.Perks.IsChristine)
+            {
+                // 克莉丝汀「懂得挨饿」：本相位本会掉饥饿时，以本级几率（L1/L2=25%，L3 加算=35%）跳过这次衰减。
+                // 随机走同一 _mealRng；非克莉丝汀不触 rng（ChristinePerk 内部 isChristine 门控）。
+                ChristinePerk.ResolveHungerPhase(diner.Hunger, ration.Fed[i], _mealRng, isChristine: true, ChristineLevelNow());
+            }
             else
             {
                 diner.ResolveHungerPhase(ration.Fed[i]);
@@ -5106,6 +5157,7 @@ public sealed partial class CampMain : Node2D
                 ReleaseReaders(); // 夜晚结束：读者放座、清读书态（阅读进度已跨夜持久）
                 AdvanceSurvivorsHealthDay(); // 又过一昼夜：伤病恶化/愈合、封顶致残/致死（须在聚餐结算前，死亡先反映到名单与全灭判定）
                 AdvanceBondDay(); // 道格&布鲁斯共同存活又一昼夜 → 羁绊升级推进（两者皆活才 +1，任一死即冻结）
+                AdvanceChristineDay(); // 克莉丝汀在营存活又一昼夜 → 「巧舌如簧」升级推进（她在营活着才 +1，L2＝存活三天）
                 // 电台主线：回复军方后（回复日+2）白天军袭到期 → 屠营+南逃谢幕强制终局序列接管画面，跳过本次聚餐。
                 if (TryTriggerMilitaryRaid())
                     break;
@@ -8190,7 +8242,19 @@ public sealed partial class CampMain : Node2D
 
     /// <summary>用当前货架 + 可收购库存行 + 持币量刷新交易面板（买入/卖出结算后即时反映扣币/库存/灰显，保持当前页签）。</summary>
     private void RefreshMerchantPanel()
-        => _merchantPanel.Show(_merchantShelf, MerchantBuyList.SellableRows(_inventory), _inventory.MaterialCount(Materials.CurrencyKey));
+    {
+        // 克莉丝汀「巧舌如簧」：L2 在营 → 买入 6.25% 折扣；L3 在营 → 卖出价率 60%→70%（[Q2] 需她在营存活）。
+        // 卖价率始终传解析后的整数（未激活＝60＝默认，与不传等价，零回归）；折扣未激活＝0。
+        int level = ChristineLevelNow();
+        bool alive = ChristineAliveInCamp();
+        double buyDiscount = ChristinePerk.MerchantBuyDiscount(level, alive);
+        int sellRate = ChristinePerk.MerchantSellRatePercent(level, alive, MerchantTrade.SellRatePercent);
+        _merchantPanel.Show(
+            _merchantShelf,
+            MerchantBuyList.SellableRows(_inventory, sellRate),
+            _inventory.MaterialCount(Materials.CurrencyKey),
+            buyDiscount);
+    }
 
     /// <summary>买入某货架条目：<see cref="MerchantTrade.Buy"/> 实扣白银实产商品 → 结果 toast → 刷新面板。</summary>
     private void OnMerchantBuyRequested(int offerIndex)
@@ -8200,7 +8264,8 @@ public sealed partial class CampMain : Node2D
             return;
         }
         MerchantOffer offer = _merchantShelf.Offers[offerIndex];
-        switch (MerchantTrade.Buy(_inventory, offer))
+        double buyDiscount = ChristinePerk.MerchantBuyDiscount(ChristineLevelNow(), ChristineAliveInCamp()); // 克莉丝汀 L2 在营 → 6.25% 折扣
+        switch (MerchantTrade.Buy(_inventory, offer, buyDiscount: buyDiscount))
         {
             case PurchaseStatus.Ok:
                 _campToast.Show($"买下了「{offer.Good.DisplayName}」。", CampToast.Ok);
@@ -8221,7 +8286,9 @@ public sealed partial class CampMain : Node2D
     /// </summary>
     private void OnMerchantSellRequested(SellRow row)
     {
-        switch (MerchantTrade.SellOne(_inventory, row.UnitItem))
+        // 克莉丝汀 L3 在营 → 卖出价率 70%（未激活＝默认 60%，零回归）。展示价 row.UnitSellPrice 已按同一价率算得，实付同源。
+        int sellRate = ChristinePerk.MerchantSellRatePercent(ChristineLevelNow(), ChristineAliveInCamp(), MerchantTrade.SellRatePercent);
+        switch (MerchantTrade.SellOne(_inventory, row.UnitItem, sellRatePercentOverride: sellRate))
         {
             case SellStatus.Ok:
                 _campToast.Show($"卖出「{row.DisplayName}」，进账 {Silver.Format(row.UnitSellPrice)} 白银。", CampToast.Ok); // 分→两位小数（[SPEC-B14-补6]）

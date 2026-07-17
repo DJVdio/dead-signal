@@ -43,6 +43,7 @@ public static class CraftOutputFactory
             "war_mask", "coarse_shirt", "coarse_shorts", "coarse_trousers",
             "cotton_hat", "horror_armor",
             "snow_goggles",   // [T71] 自制简易墨镜（木缝雪镜，读《尖峰时刻》解锁）
+            "ankle_guard",    // [A2] 护踝鞋具（读《尖峰时刻》解锁；落成 Item.Armor(护踝鞋具)，穿戴登记在 ApparelSlots 脚槽·成对）
         }.Concat(DogGearCatalog.AllKeys));
     // 光源类产物（火把）：落地为 Item.Light，refKey=产物 key（对齐 LightSource 目录）。手电不可制作，不列此表。
     private static readonly IReadOnlySet<string> LightOutputs = new HashSet<string> { "torch" };

@@ -317,6 +317,35 @@ public static class MedicalBookPoints
         => readBookIds == null ? 0 : readBookIds.Where(RequiresNoSupplies).Sum(For);
 }
 
+/// <summary>
+/// [A3] 书 → **骨折恢复速度**被动（纯逻辑，同 <see cref="MedicalBookPoints"/> 的 book-passive 模式）。
+/// 读过《尖峰时刻》(peak_hour) 的人，其术后**骨折**逐日愈合量 ×1.15（+15%，用户 wiki 字面「骨折恢复+15%」）。
+///
+/// <para><b>为什么只有骨折</b>：wiki 原文写的是「骨折恢复」，不是「全身恢复」——故只喂给 <see cref="HealthConditionSet.TickDay"/>
+/// 的 <c>fractureHealSpeedMultiplier</c> 轴（该轴只作用骨折分支，不碰出血/感染）。这与山姆 L3 光环那条
+/// 作用"流血+骨折两者"的 <c>healSpeedMultiplier</c> 是**正交两轴**，二者对骨折在 TickDay 里**连乘**。</para>
+///
+/// <para><b>乘算，禁加算</b>（项目铁律）：多条来源应在此**连乘**（当前唯一来源＝尖峰时刻）。
+/// 判据＝**该人本人**已读书集（调用方喂其 <c>ReadBookSet</c> 谓词，同弓与箭之道/医疗书加点）。</para>
+/// </summary>
+public static class FractureRecoveryBooks
+{
+    /// <summary>《尖峰时刻》骨折恢复加成：+15% ⇒ 逐日愈合量 ×1.15。乘算，禁加算。</summary>
+    public const double PeakHourFractureHealMultiplier = 1.15;
+
+    /// <summary>
+    /// 某人的**骨折**逐日愈合乘子（1.0=无加成 ⇒ 零回归）：读过《尖峰时刻》⇒ ×1.15。其余书恒不加。
+    /// 多来源在此连乘（当前仅一条）。喂给 <see cref="HealthConditionSet.TickDay"/> 的 <c>fractureHealSpeedMultiplier</c>。
+    /// </summary>
+    /// <param name="isBookRead">该人是否读过某 bookId（调用方＝其 <c>ReadBookSet.HasRead</c> / <c>Pawn.HasReadBook</c>）。</param>
+    public static double HealSpeedMultiplier(Func<string, bool> isBookRead)
+    {
+        double mult = 1.0;
+        if (isBookRead != null && isBookRead(BookLibrary.PeakHourId)) mult *= PeakHourFractureHealMultiplier;
+        return mult;
+    }
+}
+
 /// <summary>一次药品治疗（感染/疾病）结果。</summary>
 public sealed class TreatmentResult
 {
@@ -1002,8 +1031,14 @@ public sealed class HealthConditionSet
     /// 由 <see cref="RestLedger.BedFraction"/> 得出，线性折算 <see cref="BedSleepHealBonusPct"/> 加算百分点。
     /// 睡地铺只吃 <paramref name="restFraction"/> 那一轴、不吃本轴——**床是要造的**（见 <see cref="BedRegistry"/>）。
     /// </param>
+    /// <param name="fractureHealSpeedMultiplier">
+    /// [A3] **仅骨折**的逐日愈合乘子（<b>默认 1.0＝无影响</b>，追加在参数表末尾 ⇒ 既有位置/命名调用零回归）：
+    /// 承载"读过《尖峰时刻》⇒ 骨折恢复 +15%"（×1.15，来源 <see cref="FractureRecoveryBooks.HealSpeedMultiplier"/>，由调用方按**该人**已读书集算好传入）。
+    /// 与 <paramref name="healSpeedMultiplier"/>（山姆 L3 光环，作用流血+骨折两者）是**正交两轴**：本轴只乘在骨折分支上、不碰出血/感染；
+    /// 对骨折两轴**连乘**（用户 wiki 字面写「骨折恢复」，非全身恢复，故出血不吃本轴）。
+    /// </param>
     public HealthTickResult TickDay(IRandomSource rng, bool resting, bool restedInBed = false, double infectionChanceMultiplier = 1.0, double extraHealBonusPct = 0.0, double healSpeedMultiplier = 1.0,
-        double? restFraction = null, double? bedFraction = null)
+        double? restFraction = null, double? bedFraction = null, double fractureHealSpeedMultiplier = 1.0)
     {
         if (IsDead)
         {
@@ -1095,8 +1130,9 @@ public sealed class HealthConditionSet
                     if (c.IsOperated)
                     {
                         // 睡床与玫瑰果茶同池的两条百分比加成 → **来源之间连乘**（见 EfficiencyPoolBonusPct）；山姆 L3 光环走 healSpeedMultiplier 乘子轴。
+                        // [A3] fractureHealSpeedMultiplier（《尖峰时刻》×1.15）**只**乘在骨折分支——出血分支不带此因子（用户 wiki 字面「骨折恢复」）。与山姆光环 healSpeedMultiplier 正交连乘。
                         double effPct = c.RecoveryEfficiency + EfficiencyPoolBonusPct(bedBonusPct, extraHealBonusPct);
-                        double heal = FractureHealPerDay * (effPct / 100.0) * restHealMult * Math.Max(0.0, healSpeedMultiplier);
+                        double heal = FractureHealPerDay * (effPct / 100.0) * restHealMult * Math.Max(0.0, healSpeedMultiplier) * Math.Max(0.0, fractureHealSpeedMultiplier);
                         c.AddSeverity(-heal);
                     }
                     else

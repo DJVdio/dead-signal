@@ -64,23 +64,37 @@ public static class MerchantTrade
     /// <summary>某基准价（**分**）的**买入价**（分）= 基准价 × <see cref="BuyRatePercent"/>%（≥0）。</summary>
     public static int BuyPrice(int baseCents) => Math.Max(0, baseCents) * BuyRatePercent / 100;
 
-    /// <summary>某基准价（**分**）的**卖出价**（玩家所得，分）= 基准价 × <see cref="SellRatePercent"/>%（分级取整，≥0）。</summary>
-    public static int SellPrice(int baseCents) => Math.Max(0, baseCents) * SellRatePercent / 100;
+    /// <summary>
+    /// 某基准价（**分**）的**卖出价**（玩家所得，分）= 基准价 × 卖出价率%（分级取整，≥0）。
+    /// <paramref name="sellRatePercentOverride"/> 非空时用它替代默认 <see cref="SellRatePercent"/>（克莉丝汀 L3 传 70）；
+    /// 默认 <c>null</c> ⇒ 走 <see cref="SellRatePercent"/>(60)，零回归。
+    /// </summary>
+    public static int SellPrice(int baseCents, int? sellRatePercentOverride = null)
+        => Math.Max(0, baseCents) * (sellRatePercentOverride ?? SellRatePercent) / 100;
+
+    /// <summary>
+    /// 应用买入折扣后的**实付买价**（分）= <paramref name="price"/> × (1 − <paramref name="buyDiscount"/>)，分级向下取整、≥0。
+    /// 克莉丝汀 L2 传 0.0625；<paramref name="buyDiscount"/>=0（默认）⇒ 原价，零回归。折扣 clamp 到 [0,1]。
+    /// </summary>
+    public static int EffectiveBuyPrice(int price, double buyDiscount = 0.0)
+        => (int)(Math.Max(0, price) * (1.0 - Math.Clamp(buyDiscount, 0.0, 1.0)));
 
     /// <summary>
     /// 判定能否买下 <paramref name="offer"/>（不改状态）：先看售罄，再看持币 <paramref name="currencyOwned"/> 是否≥单价。
     /// 钱不够时 <see cref="PurchaseCheck.Shortfall"/> = 单价 − 持币（正数缺口，供 UI 提示）。
     /// </summary>
-    public static PurchaseCheck Check(MerchantOffer offer, int currencyOwned)
+    /// <param name="buyDiscount">克莉丝汀 L2 买入折扣（默认 0＝原价，零回归）：判定按 <see cref="EffectiveBuyPrice"/> 折后价比价。</param>
+    public static PurchaseCheck Check(MerchantOffer offer, int currencyOwned, double buyDiscount = 0.0)
     {
         if (offer.SoldOut)
         {
             return new PurchaseCheck(PurchaseStatus.SoldOut, 0);
         }
 
-        if (currencyOwned < offer.Price)
+        int price = EffectiveBuyPrice(offer.Price, buyDiscount);
+        if (currencyOwned < price)
         {
-            return new PurchaseCheck(PurchaseStatus.NotEnoughMoney, offer.Price - currencyOwned);
+            return new PurchaseCheck(PurchaseStatus.NotEnoughMoney, price - currencyOwned);
         }
 
         return new PurchaseCheck(PurchaseStatus.Ok, 0);
@@ -91,18 +105,19 @@ public static class MerchantTrade
     /// （货币键 <paramref name="currencyKey"/>，默认白银）+ 追加商品拷贝 + 库存减一，返回 <see cref="PurchaseStatus.Ok"/>；
     /// 售罄/钱不够则不改任何状态，返回对应状态。判定与实扣同源（<see cref="Check"/> + <see cref="InventoryStore.TrySpendMaterial"/>），不会半途扣钱不给货。
     /// </summary>
-    public static PurchaseStatus Buy(InventoryStore store, MerchantOffer offer, string? currencyKey = null)
+    /// <param name="buyDiscount">克莉丝汀 L2 买入折扣（默认 0＝原价，零回归）：实扣按 <see cref="EffectiveBuyPrice"/> 折后价。</param>
+    public static PurchaseStatus Buy(InventoryStore store, MerchantOffer offer, string? currencyKey = null, double buyDiscount = 0.0)
     {
         currencyKey ??= Materials.CurrencyKey;
         int owned = store.MaterialCount(currencyKey);
-        PurchaseCheck check = Check(offer, owned);
+        PurchaseCheck check = Check(offer, owned, buyDiscount);
         if (!check.CanBuy)
         {
             return check.Status;
         }
 
         // 判定已保证足额，实扣必成；仍以返回值兜底防御。
-        if (!store.TrySpendMaterial(currencyKey, offer.Price))
+        if (!store.TrySpendMaterial(currencyKey, EffectiveBuyPrice(offer.Price, buyDiscount)))
         {
             return PurchaseStatus.NotEnoughMoney;
         }
@@ -118,14 +133,15 @@ public static class MerchantTrade
     /// 成交则从 <paramref name="store"/> 实扣一单位（食物扣 1 份 / 材料扣 1 个）并把 <see cref="MerchantBuyList.SellUnitPrice"/> 白银入账，返回 <see cref="SellStatus.Ok"/>。
     /// 判定与实扣同源，不会半途扣物不给钱。<paramref name="currencyKey"/> 默认白银。
     /// </summary>
-    public static SellStatus SellOne(InventoryStore store, Item unit, string? currencyKey = null)
+    /// <param name="sellRatePercentOverride">克莉丝汀 L3 卖出价率覆盖（默认 null＝走 <see cref="SellRatePercent"/>=60，零回归；她在营 L3 传 70）。</param>
+    public static SellStatus SellOne(InventoryStore store, Item unit, string? currencyKey = null, int? sellRatePercentOverride = null)
     {
         if (store == null || unit == null || !MerchantBuyList.CanSell(unit))
         {
             return SellStatus.NotBuying;
         }
 
-        int unitPrice = MerchantBuyList.SellUnitPrice(unit);
+        int unitPrice = MerchantBuyList.SellUnitPrice(unit, sellRatePercentOverride);
         bool spent = unit.Category == ItemCategory.Food
             ? store.TrySpendFood(1)
             : store.TrySpendMaterial(unit.RefKey!, 1);
