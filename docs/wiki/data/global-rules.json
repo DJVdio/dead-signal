@@ -651,10 +651,10 @@
     },
     {
       "group": "南境审判",
-      "label": "南境审判通过所需票数",
+      "label": "南境审判通过所需分数",
       "value": 5,
-      "unit": "票",
-      "note": "南境审判要凑够这么多票才算过。",
+      "unit": "分",
+      "note": "南境审判三问各计 0/1/2 分（满分 6），三题总分凑够这么多才算过。",
       "_id": "south_pass_threshold",
       "_anchor": "godot/scripts/SouthTrialConfig.cs :: PassThreshold",
       "_icon": "",

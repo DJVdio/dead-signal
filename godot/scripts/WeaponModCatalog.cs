@@ -5,7 +5,7 @@ using DeadSignal.Combat;
 namespace DeadSignal.Godot;
 
 /// <summary>
-/// 武器改装目录（**数据表，非逻辑**）：14 条改装。合成走通用的 <see cref="WeaponMods.ApplyMods"/>。
+/// 武器改装目录（**数据表，非逻辑**）：20 条改装。合成走通用的 <see cref="WeaponMods.ApplyMods"/>。
 ///
 /// <para>
 /// 🔴 <b>这张表的单一事实源是用户的 wiki：<c>docs/wiki/data/weapon-mods.json</c></b>（[T47] 用户整表重设计）。

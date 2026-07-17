@@ -297,6 +297,64 @@ public sealed partial class CampMain
         => _merchantShelf.Restore(saved.Select(o =>
             new MerchantOffer(SaveMapper.FromSave(o.Good), o.Price, o.Stock)));
 
+    // ---- 冷启动读档（从主菜单直接读，TODO 21①）----
+
+    /// <summary>
+    /// 冷启动读档请求槽：上层（主菜单 / 存档选择界面）在 <b>切换到 CampMain 场景之前</b> 写入要读的存档槽名，
+    /// <c>_Ready</c> 会在建好世界后据此走冷启动读档分支——<b>跳过开局物资与商人起步白银</b>（否则会在存档物资之上
+    /// 再叠一份，见 <see cref="ApplySave"/> 的调用前提），改由 <see cref="ApplySave"/> 灌档。
+    /// <para>
+    /// 用 static 做跨场景传参是 Godot 的惯用手法（无需 autoload）；<see cref="TakeColdLoadRequest"/> 读一次即清空，
+    /// 保证下一次正常新开局不会误触。默认 <c>null</c> ⇒ 分支不入 ⇒ 既有新开局路径逐字节不变。
+    /// </para>
+    /// <para>
+    /// ⚠️ <b>当前无生产者</b>：游戏直接以 CampMain 为 <c>main_scene</c> 启动，尚无主菜单场景写入此槽。
+    /// 接口 + 消费侧（_Ready 分支）已就绪，等主菜单 UI（遗留 21②/GUI）落地后由它写入。
+    /// </para>
+    /// </summary>
+    public static string? PendingColdLoadSlot;
+
+    /// <summary>本次 _Ready 已消费到的冷启动存档（null = 非冷启动，走正常新开局）。</summary>
+    private SaveData? _coldLoadData;
+
+    /// <summary>
+    /// 消费 <see cref="PendingColdLoadSlot"/>：读一次即清空静态槽（避免污染下次新开局），读盘成功返回存档，
+    /// 失败（无请求 / 版本闸门拒 / 损坏）返回 <c>null</c> —— 由调用方退回正常新开局，绝不把玩家丢进空营。
+    /// </summary>
+    private SaveData? TakeColdLoadRequest()
+    {
+        string? slot = PendingColdLoadSlot;
+        PendingColdLoadSlot = null;   // 消费一次即清
+        if (string.IsNullOrEmpty(slot))
+            return null;
+
+        SaveLoadResult result = SaveManager.Read(slot);
+        if (!result.Ok)
+        {
+            // 版本闸门拒了 / 文件损坏：明说并退回新开局，不"尽力而为"读半个世界。
+            GD.PushWarning($"冷启动读档失败（{result.Error}），改为新开局。");
+            return null;
+        }
+        return result.Data;
+    }
+
+    /// <summary>
+    /// 冷启动读档入口：由 <c>_Ready</c> 尾部 <c>CallDeferred</c>（时序与 <c>StartFirstDay</c> 同契约），
+    /// 把 <see cref="_coldLoadData"/> 灌回营地。走的是与「游戏内就地覆盖读档」完全相同的 <see cref="ApplySave"/>，
+    /// 因此人/物资/结构/剧情等 <b>玩法状态全部正确</b>。
+    /// <para>
+    /// 🔴 <b>遗留（GUI 目视验收，21②）</b>：<see cref="ApplySave"/> 的 <c>_clock.Restore</c> 刻意不发
+    /// <see cref="OnGamePhaseChanged"/>（那里含聚餐/健康日推进/关卡加载等重玩法副作用，绝不能为"刷视觉"而触发）。
+    /// 于是冷启动直读<b>夜晚档</b>时，视野遮暗层 / 环境光仍是 <c>_Ready</c> 的白天默认，要到下一次自然相位切换才更新。
+    /// 这是纯视觉的过渡瑕疵（玩法数据无误），需抽出「只刷相位视觉、不带玩法副作用」的再入点、且只能实机目视校准。
+    /// </para>
+    /// </summary>
+    private void StartFromColdLoad()
+    {
+        ApplySave(_coldLoadData!);
+        _coldLoadData = null;
+    }
+
     // ---- 恢复 ----
 
     /// <summary>

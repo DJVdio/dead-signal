@@ -652,16 +652,27 @@ public sealed partial class CampMain : Node2D
         _creditsPanel = new CreditsPanel();
         AddChild(_creditsPanel);
 
-        // storage 容器（住宅柜子）的开局藏物：食物入 _resources.Food、书/武器/护甲入共享库存、材料入库存、工具装工作台。
-        ApplyStorageInitialStock();
+        // [TODO 21①] 冷启动读档：上层（主菜单）在切场景前把要读的存档槽写进 CampMain.PendingColdLoadSlot。
+        // 读成功 ⇒ **跳过开局物资与商人起步白银**（ApplySave 会把存档物资灌回来；不跳会在其上再叠一份，
+        //          见 ApplySave 的调用前提），并在 _Ready 末尾走 StartFromColdLoad 而非 StartFirstDay。
+        // 读失败 / 无请求（含当前无主菜单 producer 的默认情形）⇒ _coldLoadData 为 null，照常新开局，路径逐字节不变。
+        _coldLoadData = TakeColdLoadRequest();
+        bool coldLoad = _coldLoadData is not null;
 
-        // 神秘商人：给一点起步白银（draft，让交易开箱可跑；正式掉落来源/经济量级待用户设计）+ 初始化来访调度。
-        // 首访排在 1~5 天后（不在开局当天）；随机走 SystemRandomSource（生产随机源）。
-        if (MerchantStartingCurrency > 0)
+        if (!coldLoad)
         {
-            string coinName = Materials.Find(Materials.CurrencyKey)?.DisplayName ?? "白银";
-            _inventory.Add(Item.Material(Materials.CurrencyKey, coinName, Silver.FromWhole(MerchantStartingCurrency))); // 整银→分（[SPEC-B14-补6]）
+            // storage 容器（住宅柜子）的开局藏物：食物入 _resources.Food、书/武器/护甲入共享库存、材料入库存、工具装工作台。
+            ApplyStorageInitialStock();
+
+            // 神秘商人：给一点起步白银（draft，让交易开箱可跑；正式掉落来源/经济量级待用户设计）。
+            if (MerchantStartingCurrency > 0)
+            {
+                string coinName = Materials.Find(Materials.CurrencyKey)?.DisplayName ?? "白银";
+                _inventory.Add(Item.Material(Materials.CurrencyKey, coinName, Silver.FromWhole(MerchantStartingCurrency))); // 整银→分（[SPEC-B14-补6]）
+            }
         }
+        // 初始化来访调度：首访排在 1~5 天后（不在开局当天）；随机走 SystemRandomSource（生产随机源）。
+        // 冷启动读档时这只是过渡值——ApplySave 里的 MerchantSchedule.Restore 会把它按存档覆盖掉。
         _merchantSchedule = new MerchantSchedule(new SystemRandomSource(), _clock.Day);
 
         _ambient = new CanvasModulate();
@@ -703,7 +714,8 @@ public sealed partial class CampMain : Node2D
         _roleManager = new PawnRoleManager(_survivors, _clock);
         _roleManager.RolesChanged += OnRolesChanged;
 
-        CallDeferred(nameof(StartFirstDay));
+        // 冷启动读档时改灌存档（时序与 StartFirstDay 同为 deferred，走既有 ApplySave 就地覆盖路径）；否则正常开局。
+        CallDeferred(_coldLoadData is not null ? nameof(StartFromColdLoad) : nameof(StartFirstDay));
     }
 
     /// <summary>反投影正确性自检：一批 cartesian 点 project→unproject 应精确还原（误差 ~0）。</summary>
@@ -6961,7 +6973,7 @@ public sealed partial class CampMain : Node2D
 
     /// <summary>
     /// 电台终局抉择的二次确认（不可逆，故独立一层确认面板）。确认→推进对应终态：
-    ///   · 回复军方：<see cref="RadioMainline.ReplyToMilitary"/> 记录回复日（当天），第 3 天白天军袭到期（钩子在 <see cref="TryTriggerMilitaryRaid"/>）；
+    ///   · 回复军方：<see cref="RadioMainline.ReplyToMilitary"/> 记录回复日（当天），回复日+2 白天军袭到期（钩子在 <see cref="TryTriggerMilitaryRaid"/>）；
     ///   · 呼叫南方：<see cref="RadioMainline.CallSouth"/> 开启南逃线 flag（后续 authored）。
     /// 两者均不冻结尸潮时限（用户口径）。取消→回到未抉择态，可再来。
     /// </summary>

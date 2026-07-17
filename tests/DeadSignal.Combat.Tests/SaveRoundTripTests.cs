@@ -365,6 +365,30 @@ public class SaveRoundTripTests
         Assert.Equal("1.80", Silver.Format(restored.MaterialCount(Materials.CurrencyKey)));
     }
 
+    [Fact]
+    public void 读档会清空已有库存再灌档不会叠加()
+    {
+        // 这是「冷启动读档」（TODO 21①）安全性的地基：读档是**就地覆盖**、不是合并。
+        // 目标库存已经装了开局物资（ApplyStorageInitialStock + 商人起步白银那一份）——
+        // RestoreInventory 必须先把它清空、再照存档灌回，否则存档物资会**叠在开局物资之上**
+        // （ApplySave 文档注释里点名的"再叠一份"隐患）。哪天有人把清空改成 append，这条会立刻变红。
+        var target = new InventoryStore();
+        target.Add(Item.Food(12));                                                  // 开局食物
+        target.Add(Item.Material(Materials.CurrencyKey, "白银", Silver.FromWhole(40))); // 商人起步白银
+        target.Add(Item.Weapon(WeaponTable.Dagger().Name));                          // 开局武器
+
+        // 存档里只有一把弓、一份白银 1.80 银——和上面的开局物资完全不同。
+        var saved = new InventoryStore();
+        saved.Add(Item.Material(Materials.CurrencyKey, "白银", 180));
+        SaveMapper.RestoreInventory(target, SaveMapper.ToSave(saved));
+
+        // 覆盖后：只剩存档里的东西，开局那份被清掉（不是 40+1.80 叠加、不是三件+一件）。
+        Assert.Equal(1, target.Count);
+        Assert.Equal(0, target.TotalFood);
+        Assert.Equal(180, target.MaterialCount(Materials.CurrencyKey));
+        Assert.DoesNotContain(target.Weapons, i => i.RefKey == WeaponTable.Dagger().Name);
+    }
+
     // ---- 饥饿 ----
 
     [Fact]
