@@ -209,4 +209,70 @@ public class GoldfingerGangTests
                 viaApply.FracturedParts.OrderBy(p => p));
         }
     }
+
+    // ── 五、画布尺寸：Sim 与关卡读同一个数 ────────────────────────────────
+
+    /// <summary>
+    /// 🔴 <b>把 <see cref="GoldfingerGang.LevelW"/>/<see cref="GoldfingerGang.LevelH"/> 焊死在
+    /// <see cref="ExplorationLevelSize"/> 上</b>——本关画布的<b>单一事实源是 ExplorationLevelSize</b>，
+    /// <c>GoldfingerGang</c> 里那两个 const 只是<b>脱 Godot 的副本</b>（<see cref="GoldfingerCalibration"/> 在 Sim 里要读它，
+    /// 而 <c>ExplorationLevelSize</c> <b>刻意不被 Sim Link</b>——那是"既有 Sim 战斗基线结构性零漂移"论证的基础，不能为了取个尺寸就动摇它）。
+    /// <para>
+    /// <b>这条测试就是那道焊缝。</b>此前 Sim 里写的是<b>硬编码字面量</b> <c>2400, 1600</c>，与 ExplorationLevelSize 之间
+    /// <b>没有任何东西保证一致</b> ⇒ 谁哪天给金手指加一行 <c>Overrides</c>，<b>游戏里的招怪变了、Sim 报告还在印旧数</b>，
+    /// 而且<b>不会有任何测试红</b>（实测漏修的后果：报告会把 短剑 0→1 / 长剑 0→1 / 手枪 2→4 / 步枪 5→7，
+    /// 把"潜行清哨可行"这条设计红线在报告里<b>当场写反</b>）。现在改画布必须同步这两个 const，否则本测试当场红。
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void 画布尺寸与ExplorationLevelSize焊死_改了那边这边必须跟着改()
+    {
+        // 真源＝ExplorationLevelSize（下面把 const 摆在 expected 位只为满足 xUnit2000 分析器；语义上是"副本必须等于真源"）。
+        (float w, float h) = ExplorationLevelSize.SizeFor(ExplorationCache.GoldfingerBaseName);
+
+        Assert.Equal(GoldfingerGang.LevelW, w, 6);
+        Assert.Equal(GoldfingerGang.LevelH, h, 6);
+    }
+
+    /// <summary>
+    /// 🔴 <b>authored 噪音红线</b>（用户裁决 C 明示保住的那条）：「<b>枪一响还是死</b>」。
+    /// <para>
+    /// 半径一律读<b>真武器表</b>（<see cref="WeaponTable"/> 的 NoiseRadius），不自造常数——与 <c>StuartManorTests</c> 同规矩。
+    /// 噪音源＝<b>中段</b>（0.55, 0.40，玩家推进必经），与 <see cref="GoldfingerCalibration"/> 报告口径一致。
+    /// </para>
+    /// <para>
+    /// 这几个数是 <c>GoldfingerGang.cs</c> 的 [T57] 拍板<b>前提</b>（那段注释明写"噪音设计<b>一格没动</b>"才敢降难度）：
+    /// <b>弓/匕首叫醒 0 人 ⇒ 逐个清哨可行；手枪 2 人 ⇒ 招来一小撮；步枪 5 人 ⇒ 半个据点扑上来。</b>
+    /// 此前<b>全项目没有任何测试钉它</b>（招怪表只活在 Sim 生成的 research 文档里）⇒ 悄悄改布点/画布不会有人发现。
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void 枪一响还是死_弓与匕首叫醒零人而枪招来一片()
+    {
+        int Alerted(Weapon w) => GoldfingerGang.AlertedBy(
+            GoldfingerGang.NoiseProbeX, GoldfingerGang.NoiseProbeY,
+            w.NoiseRadius, GoldfingerGang.LevelW, GoldfingerGang.LevelH);
+
+        Assert.Equal(0, Alerted(WeaponTable.ShortBow()));   // 70  —— 潜行清哨可行的全部依据
+        Assert.Equal(0, Alerted(WeaponTable.Dagger()));     // 90
+        Assert.Equal(0, Alerted(WeaponTable.Shortsword())); // 95
+        Assert.Equal(2, Alerted(WeaponTable.Pistol()));     // 350 —— 招来一小撮
+        Assert.Equal(5, Alerted(WeaponTable.Rifle()));      // 600 —— 半个据点
+    }
+
+    /// <summary>越响叫醒的人越多（单调不减）——这是几何本身，任何布点/画布改动都不该打破它。</summary>
+    [Fact]
+    public void 越响叫醒的人越多()
+    {
+        int prev = -1;
+        foreach (double radius in new[] { 50.0, 70.0, 90.0, 150.0, 350.0, 500.0, 600.0, 700.0, 5000.0 })
+        {
+            int n = GoldfingerGang.AlertedBy(
+                GoldfingerGang.NoiseProbeX, GoldfingerGang.NoiseProbeY,
+                radius, GoldfingerGang.LevelW, GoldfingerGang.LevelH);
+            Assert.True(n >= prev, $"半径 {radius} 反而叫醒得更少");
+            prev = n;
+        }
+        Assert.Equal(GoldfingerGang.Roster.Count, prev); // 半径够大 ⇒ 全据点
+    }
 }

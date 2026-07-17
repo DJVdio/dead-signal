@@ -23,10 +23,13 @@ public sealed partial class TestExploration
     private void SetupRuinedChurch()
     {
         // 分区占位地台（纯视觉）。墓地那一片刻意压暗——但你在推开门之前**根本看不到它**。
-        AddZonePad(new Vector2(300, 1240), new Vector2(1800, 164), new Color(0.24f, 0.22f, 0.24f, 0.55f)); // 门厅
-        AddZonePad(new Vector2(300, 792), new Vector2(1800, 448), new Color(0.22f, 0.21f, 0.25f, 0.55f));  // 中殿
-        AddZonePad(new Vector2(300, 512), new Vector2(1800, 268), new Color(0.26f, 0.24f, 0.20f, 0.58f));  // 圣坛（旧金色）
-        AddZonePad(new Vector2(300, 136), new Vector2(1800, 364), new Color(0.16f, 0.19f, 0.17f, 0.62f));  // 后院墓地（最暗）
+        // [Phase2] 画布放大到 3200×2200（ExplorationLevelSize 登记）⇒ 四条地台随 RuinedChurch 的几何重排：
+        //   门厅 1700..1934 / 中殿 1112..1700 / 圣坛 712..1100 / 墓地 166..700，东西两侧一律 400..2800。
+        //   🔴 别在这里另写一份数：这四条是 Left/Right/Top/Bottom + GraveyardWallY/ScreenY 的投影，几何改了这里要跟着改。
+        AddZonePad(new Vector2(400, 1700), new Vector2(2400, 234), new Color(0.24f, 0.22f, 0.24f, 0.55f)); // 门厅
+        AddZonePad(new Vector2(400, 1112), new Vector2(2400, 588), new Color(0.22f, 0.21f, 0.25f, 0.55f)); // 中殿
+        AddZonePad(new Vector2(400, 712), new Vector2(2400, 388), new Color(0.26f, 0.24f, 0.20f, 0.58f));  // 圣坛（旧金色）
+        AddZonePad(new Vector2(400, 166), new Vector2(2400, 534), new Color(0.16f, 0.19f, 0.17f, 0.62f));  // 后院墓地（最暗）
 
         // ——墙体：外墙 / 墓地边界 / 屏风 / 长椅 / 立柱 / 告解亭 / 祭台 / 圣器室——
         // 同一批矩形三用：碰撞（挡人）/ 导航 obstruction（阻断寻路）/ 墙层射线（**挡视线**）。

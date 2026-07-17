@@ -75,6 +75,33 @@ public static class GoldfingerGang
     /// 谁在当家、他们跟谁打的那一场，都是 <b>authored 前史，待用户手写</b>，代码不替用户编人物。</summary>
     public const string GuardName = "金手指帮守备";
 
+    // ── 关卡画布尺寸（脱 Godot 副本）────────────────────────────────────────
+    // 🔴 单一事实源是 ExplorationLevelSize.SizeFor("金手指帮根据地")；下面两个 const 只是它的**副本**。
+    //    为什么要副本：AlertedBy 的"招怪"是纯几何，Sim 的 GoldfingerCalibration 要算它，而
+    //    **ExplorationLevelSize 刻意不被 DeadSignal.Sim Link**（见 DeadSignal.Sim.csproj 注释）——
+    //    那条"不链接 ⇒ 结算路径读不到 ⇒ 既有 Sim 战斗基线结构性零漂移"的论证是项目纪律，
+    //    不能为了取个画布尺寸就把 ExplorationLevelSize 拖进 Sim、把论证改弱。
+    // 🔴 副本靠**测试焊死**，不靠注释提醒：GoldfingerGangTests.画布尺寸与ExplorationLevelSize焊死_改了那边这边必须跟着改。
+    //    改画布 ⇒ 必须同步这里 ⇒ 否则当场红。（此前 Sim 里是硬编码 2400,1600，与真源之间**零保障**。）
+
+    /// <summary>本关画布宽（＝<c>ExplorationLevelSize.SizeFor("金手指帮根据地")</c> 的副本，由测试焊死）。
+    /// <para>🔴 <b>2400×1600 ＝ 用户裁决 C：金手指维持原尺寸不放大</b>——本关是全项目唯一"authored 招怪红线
+    /// （弓/匕首叫醒 0、手枪 2、步枪 5）由布点绝对像素直接决定"的敌营，放大会当场改掉那条红线
+    /// （实测：均匀放大到 3200×2200 ⇒ 破甲锤 1→0、冲锋枪 4→2、步枪 5→4、狙击 7→4）。
+    /// 用户看过"逆缩放技术上可行且逐字节保住红线"的方案后<b>仍选择维持不放大</b>，此处非遗漏。</para></summary>
+    public const double LevelW = 2400.0;
+
+    /// <summary>本关画布高（同上）。</summary>
+    public const double LevelH = 1600.0;
+
+    // ── 招怪探针位置（authored 口径）────────────────────────────────────────
+
+    /// <summary>噪音探针 X：<b>中段</b>，玩家推进必经。招怪表（research 文档）与护栏测试都以此为噪音源。</summary>
+    public const double NoiseProbeX = 0.55;
+
+    /// <summary>噪音探针 Y：同上。</summary>
+    public const double NoiseProbeY = 0.40;
+
     // ── 伤情三档（拟定待调）────────────────────────────────────────────────
     // 参考量级：胸 MaxHp 20 / 腹 16 / 头 16 / 手臂 21 / 大腿 12（HumanBody）。致死池 = 胸+腹+头。
 

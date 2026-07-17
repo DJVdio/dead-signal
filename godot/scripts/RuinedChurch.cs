@@ -15,8 +15,8 @@ namespace DeadSignal.Godot;
 // 🔴 **这是一关"视野"，不是一关"战力"。**
 //    项目里那套光照与锥形视野（VisionLogic / VisionOcclusion / VisionMask）一直在，却从没有一关拿它当主轴。
 //    这一关的每一堵墙都是为**遮挡视线**而砌的，不是为了挡路：
-//      · **长椅**（5 排横贯的实心长条）——把中殿切成一条条**东西向的窄槽**：你只看得见自己所在的那一条。
-//      · **立柱**（3 根，在中央走道里**左右交错**）——中央走道因此**是折的**，站在门厅望不到头。
+//      · **长椅**（6 排横贯的实心长条）——把中殿切成一条条**东西向的窄槽**：你只看得见自己所在的那一条。
+//      · **立柱**（4 根，在中央走道里**左右交错**）——中央走道因此**是折的**，站在门厅望不到头。
 //      · **告解亭**（2 座封闭小间）——真正的盲盒：不迈进去，你不知道里头有什么。
 //      · **屏风**（中殿↔圣坛的横墙，两处拱门）——**你走完整个中殿都看不见后院那扇门**。
 //    ⇒ 「穿过教堂的视野盲区」是**几何做出来的**，不是脚本演的。
@@ -24,9 +24,18 @@ namespace DeadSignal.Godot;
 // 🔴 **"吓一跳"是机制，不是演出。**
 //    后院门**初始关着**。门在本仓的口径里＝墙层（VisionOcclusion.WallMask）⇒ **它挡视线**。
 //    ⇒ 站在门前（<see cref="DoorApproachPoint"/>），到墓地里 12 只丧尸的**每一条视线都被挡死，可见数 = 0**。
-//    ⇒ 推开门、迈进门洞（<see cref="DoorwayPoint"/>）的那一刻，门板从墙层里摘掉，
-//      **一整片丧尸同时进入视野锥** —— 信息量在一帧里爆炸。这就是"突然看到吓一跳"。
-//    两条都上了单测（<c>RuinedChurchTests</c>），谁改坏了几何当场红。
+//    ⇒ **推开门的那一刻**，门后那一整片**冻结的特殊丧尸同时唤醒、涌向你**（ZombieActivation）。
+//      这就是"突然看到吓一跳"。两条都上了单测（<c>RuinedChurchTests</c>），谁改坏了几何/唤醒当场红。
+//
+// 🔴 **[Phase2] 这一关为什么能放大到 3200×2200（中图·≈3 天量级）。**
+//    旧口径的"吓一跳"＝「12 只必须**同时挤进门洞站位的固定 300px 白昼锥**」⇒ 墓地的深度被**像素**钉死，
+//    一放大惊吓就没了 ⇒ 当时的裁定是"authored 视野谜题关，维持不放大"。
+//    Phase1（探索期威胁模型）把它重定义成「**推开墓地边界那两扇门 ⇒ 门后整片唤醒涌来**」——
+//    **触发绑的是门实体，与尺度无关** ⇒ 固定像素约束就此解绑，画布可以放大。
+//    放大只加**纵深与数量**（长椅 5→6 排、立柱 3→4 根、墓地进深 364→534）：
+//    🔴 **门宽 72 / 中央走道 140 / 侧廊 64 / 排距 90 / 立柱 70 一律不缩放**——它们是按人体与丧尸直径（26）
+//    标定的**物理常量**，跟着画布 ×4/3 会把"挤得进窄槽""一次过得来几只"的战术含义全改掉（同医院先例
+//    ExplorationWalls.cs 的"门宽刻意不缩放"）。**数值一律拟定待调**，按时间模型/实机校准。
 //
 // 🔴 **推开门 = 转身就跑，不是清场。**（docs/research/2026-07-14-lanchester.md）
 //    2 只丧尸围攻＝胜率 16.6%，3 只＝0.8%，4 只起＝**0%**。围攻是**断崖不是斜坡**。
@@ -74,24 +83,43 @@ public static class RuinedChurch
     /// <summary>目的地路由键（须与 world_graph.json / ExplorationCache / WorldMapPanel 一字不差）。</summary>
     public const string DestinationName = "破败教堂";
 
-    // ── 尺寸 ──（关卡 2400×1600，南面 y>1420 留返回区）
+    // ── 尺寸 ──（[Phase2] 关卡 3200×2200，登记在 ExplorationLevelSize；南面 y>1950 留返回区）
     /// <summary>外墙厚。</summary>
     public const float WallThickness = 16f;
     /// <summary>内墙（隔墙/屏风）厚。</summary>
     public const float PartitionThickness = 12f;
-    /// <summary>门洞宽（须 &gt; 2×<see cref="ExplorationWalls.NavAgentRadius"/>）。</summary>
+    /// <summary>
+    /// 门洞宽（须 &gt; 2×<see cref="ExplorationWalls.NavAgentRadius"/>）。
+    /// 🔴 <b>刻意不随画布缩放</b>（同 <c>ExplorationWalls</c> 的医院先例）：门宽是按人体标定的物理常量。
+    /// </summary>
     public const float DoorwayWidth = 72f;
 
-    private const float Left = 300f;
-    private const float Right = 2100f;
-    private const float Top = 120f;
-    private const float Bottom = 1420f;
+    // ── 教堂本体的四至（[Phase2] 3200×2200 画布：南 1950 之下是关外返回区）──
+    private const float Left = 400f;
+    private const float Right = 2800f;
+    private const float Top = 150f;
+    private const float Bottom = 1950f;
 
     /// <summary>墓地／教堂的分界墙 y（＝教堂北墙。**这一条线就是这一关的全部**）。</summary>
-    public const float GraveyardWallY = 500f;
+    public const float GraveyardWallY = 700f;
 
     /// <summary>屏风（中殿↔圣坛）y。走完整个中殿都看不见后院门，靠的就是它。</summary>
-    public const float ScreenY = 780f;
+    public const float ScreenY = 1100f;
+
+    // ── 🔴 不随画布缩放的物理常量（按人体/丧尸直径 26 标定；护栏见 RuinedChurchTests）──
+    /// <summary>中央走道宽（立柱各占其一半 ⇒ 走道被折成 Z 字）。</summary>
+    public const float CentralAisleWidth = 140f;
+    /// <summary>侧廊宽（长椅背与外墙之间的那条缝）＝长椅排间窄槽的净宽，两者同一个数。</summary>
+    public const float SideAisleWidth = 64f;
+    /// <summary>长椅排距 ⇒ 排间窄槽 ＝ <see cref="PewRowPitch"/> − <see cref="PewThickness"/> ＝ 64。</summary>
+    public const float PewRowPitch = 90f;
+
+    /// <summary>中央走道中心 x（正门/后院门/祭台都钉在这条中轴上）。</summary>
+    public const float AisleCenterX = 1500f;
+    /// <summary>中央走道西缘 x。</summary>
+    public const float AisleLeft = AisleCenterX - CentralAisleWidth / 2f;
+    /// <summary>中央走道东缘 x。</summary>
+    public const float AisleRight = AisleCenterX + CentralAisleWidth / 2f;
 
     // ── 门（authored 名字；与 TestExploration 的可交互门一一对应）──
     /// <summary>后院门（中轴，正对祭台后方）：**推开它的那一刻就是这一关的全部**。</summary>
@@ -99,19 +127,26 @@ public static class RuinedChurch
     /// <summary>北耳门（圣坛东侧的边门；墓地的第二个洞，一样装了门——墓地必须关得死）。</summary>
     public const string NorthSideDoor = "北耳门";
 
-    /// <summary>后院门的门洞中心 X。</summary>
-    public const float BackyardDoorX = 1100f;
-    /// <summary>北耳门的门洞中心 X。</summary>
-    public const float NorthSideDoorX = 1560f;
+    /// <summary>
+    /// [SPEC-T60·探索威胁模型] 墓地那一群的**唤醒门集**：墓地边界上的两扇真门。
+    /// 🔴 墓地 12 只是**门后特殊丧尸**（冻结、免疫视野/噪音/靠近），**推开其一即整片唤醒涌来**——
+    /// "吓一跳"从"一眼看见一片站着的丧尸"重定义为"开门那刻门后一群醒来扑向你"（<see cref="ZombieActivation"/>）。
+    /// </summary>
+    public static readonly IReadOnlyList<string> GraveyardWakeDoors = new[] { BackyardDoor, NorthSideDoor };
+
+    /// <summary>后院门的门洞中心 X（＝中轴 <see cref="AisleCenterX"/>：从正门一路走到底就是它）。</summary>
+    public const float BackyardDoorX = AisleCenterX;
+    /// <summary>北耳门的门洞中心 X（圣坛东侧的边门）。</summary>
+    public const float NorthSideDoorX = 2100f;
 
     /// <summary>**门前**站位（后院门南侧，教堂这一边）：在这里，墓地的可见丧尸数**必须是 0**。</summary>
-    public static readonly (float X, float Y) DoorApproachPoint = (BackyardDoorX, 566f);
+    public static readonly (float X, float Y) DoorApproachPoint = (BackyardDoorX, GraveyardWallY + 66f);
 
     /// <summary>**门洞**站位（推开门、迈进去的那一帧）：在这里，一整片丧尸同时进视野。</summary>
     public static readonly (float X, float Y) DoorwayPoint = (BackyardDoorX, GraveyardWallY + PartitionThickness / 2f);
 
     /// <summary>正门内侧站位（进关第一步；从这里望出去，中殿深处什么都看不见——盲区测试的观察点之一）。</summary>
-    public static readonly (float X, float Y) FrontDoorPoint = (1100f, 1360f);
+    public static readonly (float X, float Y) FrontDoorPoint = (FrontDoorX, Bottom - 60f);
 
     /// <summary>
     /// 外墙的两个入口。<b>两个都是关不上的洞</b>（DoorName = null）——这是不变量 B（玩家跑得掉）的全部依据：
@@ -123,10 +158,10 @@ public static class RuinedChurch
         new HospitalEntrance("侧门", null),   // 西墙，绕开门厅直入中殿
     };
 
-    /// <summary>正门（南墙）的洞中心 X。</summary>
-    public const float FrontDoorX = 1100f;
-    /// <summary>侧门（西墙）的洞中心 Y。</summary>
-    public const float SideDoorY = 1150f;
+    /// <summary>正门（南墙）的洞中心 X（＝中轴：正门→中殿→屏风→后院门是一条直的路，但**你看不穿它**）。</summary>
+    public const float FrontDoorX = AisleCenterX;
+    /// <summary>侧门（西墙）的洞中心 Y（开在中殿南段，绕开门厅直入西侧廊）。</summary>
+    public const float SideDoorY = 1580f;
 
     /// <summary>
     /// 墓地边界（教堂北墙）上的门洞。
@@ -147,10 +182,14 @@ public static class RuinedChurch
     /// 屏风（中殿↔圣坛）上的两处拱门：**都关不上**（教堂的屏风本就没有门）。
     /// 它只挡视线、不挡路——这正是"视野盲区"想要的：你走得过去，但你**看不过去**。
     /// </summary>
+    /// <remarks>
+    /// 两处拱门都**刻意不在中轴上**（中轴 <see cref="AisleCenterX"/>＝1500，拱门在 950 / 2000）：
+    /// 你顺着中央走道走到底，正对着的是**实心屏风**——想去圣坛得往两侧拐。看不穿，靠的就是这个偏心。
+    /// </remarks>
     public static IReadOnlyList<Doorway> ScreenDoorways() => new[]
     {
-        new Doorway(700f, null),
-        new Doorway(1500f, null),
+        new Doorway(950f, null),
+        new Doorway(2000f, null),
     };
 
     /// <summary>
@@ -183,28 +222,31 @@ public static class RuinedChurch
             sc.Add(d.Center);
         AddSplit(walls, new WallRect(Left + t, ScreenY, (Right - t) - (Left + t), p), true, sc, w);
 
-        // ── 圣坛区（y 512..780）──
-        // 祭台：横在圣坛正中，挡住从屏风拱门望向后院门的那条线。
-        walls.Add(new WallRect(950f, 600f, 300f, 60f));
+        // ── 圣坛区（y 712..1100）──
+        // 祭台：横在圣坛正中（中轴上），挡住从屏风拱门望向后院门的那条线。
+        walls.Add(AltarRect);
         // 圣器室：封闭小间，西墙留门（从圣坛进）。里头一个搜刮点。
-        foreach (WallRect r in ExplorationWalls.RoomOutlineWalls(
-                     new WallRect(1740f, 530f, 340f, 240f), RoomEdge.Left))
+        foreach (WallRect r in ExplorationWalls.RoomOutlineWalls(SacristyRoom, RoomEdge.Left))
             walls.Add(r);
 
-        // ── 中殿（y 792..1240）：5 排长椅 ──
-        // 每排＝两条实心长条（中央走道在 1030..1170）。排距 90、条厚 26 ⇒ 排间留 64px 的**东西向窄槽**
-        // （净宽 64−2×14＝36 &gt; 0 ⇒ 走得进去）。站在槽里，你**只看得见这一条槽**。
+        // ── 中殿（y 1112..1700）：6 排长椅 ──
+        // 每排＝两条实心长条（中央走道在 1430..1570，宽 140 **不缩放**）。排距 90、条厚 26 ⇒ 排间留 64px 的
+        // **东西向窄槽**（净宽 64−2×14＝36 &gt; 0 ⇒ 走得进去）。站在槽里，你**只看得见这一条槽**。
+        // 🔴 [Phase2] 中殿变深 ⇒ **加排数**（5→6），排距/条厚一动不动：长椅的间距是按人腿标的，不是按画布标的。
+        const float pewWestX = Left + t + SideAisleWidth;                      // 西侧廊留 64
+        const float pewWestW = AisleLeft - pewWestX;
+        const float pewEastW = (Right - t - SideAisleWidth) - AisleRight;      // 东侧廊留 64
         foreach (float y in PewRowY)
         {
-            walls.Add(new WallRect(380f, y, 650f, PewThickness));    // 西半排
-            walls.Add(new WallRect(1170f, y, 850f, PewThickness));   // 东半排
+            walls.Add(new WallRect(pewWestX, y, pewWestW, PewThickness));      // 西半排
+            walls.Add(new WallRect(AisleRight, y, pewEastW, PewThickness));    // 东半排
         }
 
-        // ── 中殿：3 根立柱，在中央走道里**左右交错** ⇒ 中央走道是折的，从门厅望不到头 ──
+        // ── 中殿：4 根立柱，在中央走道里**左右交错** ⇒ 中央走道是折的，从门厅望不到头 ──
         foreach (WallRect c in Columns)
             walls.Add(c);
 
-        // ── 门厅（y 1240..1404）：2 座告解亭（封闭小间，门朝北开向门厅）──
+        // ── 门厅（y 1700..1934）：2 座告解亭（封闭小间，门朝北开向门厅）──
         foreach (WallRect box in ConfessionalBoxes)
         {
             foreach (WallRect r in ExplorationWalls.RoomOutlineWalls(box, RoomEdge.Top))
@@ -217,25 +259,36 @@ public static class RuinedChurch
     /// <summary>长椅条厚。</summary>
     public const float PewThickness = 26f;
 
-    /// <summary>5 排长椅的 y（排距 90 ⇒ 排间 64px 的东西向窄槽，走得进去、看不出去）。</summary>
-    public static readonly IReadOnlyList<float> PewRowY = new[] { 830f, 920f, 1010f, 1100f, 1190f };
+    /// <summary>
+    /// 6 排长椅的 y（排距 <see cref="PewRowPitch"/>＝90 ⇒ 排间 64px 的东西向窄槽，走得进去、看不出去）。
+    /// [Phase2] 中殿变深 ⇒ 5→6 排；**排距不变**（物理常量）。
+    /// </summary>
+    public static readonly IReadOnlyList<float> PewRowY = new[] { 1170f, 1260f, 1350f, 1440f, 1530f, 1620f };
 
     /// <summary>
-    /// 中央走道（x 1030..1170，宽 140）里的 3 根立柱，**左右交错**（西/东/西）：
+    /// 中央走道（x 1430..1570，宽 140 **不缩放**）里的 4 根立柱，**左右交错**（西/东/西/东）：
     /// 每根占走道的一半（70），把直的走道折成 Z 字 ⇒ 站在门厅望不到圣坛，站在圣坛望不到门厅。
+    /// [Phase2] 走道变长 ⇒ 3→4 根（柱距 160 不变）：折数跟着长度走，不然放大出来的就是一条直的通视走廊。
     /// </summary>
     public static readonly IReadOnlyList<WallRect> Columns = new[]
     {
-        new WallRect(1030f, 1140f, 70f, 70f), // 西半，近门厅
-        new WallRect(1100f, 960f, 70f, 70f),  // 东半，居中
-        new WallRect(1030f, 800f, 70f, 70f),  // 西半，近屏风
+        new WallRect(AisleLeft, 1620f, 70f, 70f),     // 西半，近门厅
+        new WallRect(AisleCenterX, 1460f, 70f, 70f),  // 东半
+        new WallRect(AisleLeft, 1300f, 70f, 70f),     // 西半
+        new WallRect(AisleCenterX, 1140f, 70f, 70f),  // 东半，近屏风
     };
+
+    /// <summary>祭台：横在圣坛正中（中轴上），挡住从屏风拱门望向后院门的那条线。</summary>
+    public static readonly WallRect AltarRect = new(AisleCenterX - 150f, 850f, 300f, 60f);
+
+    /// <summary>圣器室：圣坛东北的封闭小间，西墙留门（从圣坛进）。里头一个搜刮点。</summary>
+    public static readonly WallRect SacristyRoom = new(2340f, 750f, 380f, 300f);
 
     /// <summary>门厅里的 2 座告解亭（封闭小间，门朝北）。**烧了一半的忏悔录在西侧那一座里。**</summary>
     public static readonly IReadOnlyList<WallRect> ConfessionalBoxes = new[]
     {
-        new WallRect(420f, 1250f, 160f, 150f),  // 西侧告解亭 ← 忏悔录
-        new WallRect(640f, 1250f, 160f, 150f),  // 东侧告解亭
+        new WallRect(520f, 1770f, 160f, 150f),  // 西侧告解亭 ← 忏悔录
+        new WallRect(740f, 1770f, 160f, 150f),  // 东侧告解亭
     };
 
     /// <summary>
@@ -265,27 +318,31 @@ public static class RuinedChurch
     /// 🔴 **穷**：布/木/铁/蜡 + 一点白银，**没有枪，没有弹药**。「高风险不是永远高回报」——
     /// 这一关的回报是墙上那些字，不是烛台。
     /// </summary>
+    /// <remarks>
+    /// [Phase2] 随 3200×2200 的画布**沿纵深/两翼铺开**（东西两端的衣帽间/风琴台、墓地两角的工棚与墓室都拉到了边上）——
+    /// 🔴 **一处新 id 都不加**（新搜刮点要用户先写叙事 draft）：12 处只是换了坐标，四处登记表逐字不变。
+    /// </remarks>
     public static readonly IReadOnlyList<ChurchCacheSpot> CacheSpots = new[]
     {
         // 门厅（南·近，3）
-        new ChurchCacheSpot(ExplorationCache.ChurchOfferingBoxId, 1400f, 1330f, "奉献箱", ChurchZone.Narthex),
-        new ChurchCacheSpot(ExplorationCache.ChurchCloakroomId, 1760f, 1330f, "衣帽间", ChurchZone.Narthex),
-        new ChurchCacheSpot(ExplorationCache.ChurchHymnalRackId, 950f, 1300f, "圣诗集架", ChurchZone.Narthex),
+        new ChurchCacheSpot(ExplorationCache.ChurchOfferingBoxId, 1820f, 1870f, "奉献箱", ChurchZone.Narthex),
+        new ChurchCacheSpot(ExplorationCache.ChurchCloakroomId, 2450f, 1860f, "衣帽间", ChurchZone.Narthex),
+        new ChurchCacheSpot(ExplorationCache.ChurchHymnalRackId, 1180f, 1830f, "圣诗集架", ChurchZone.Narthex),
 
         // 中殿（中，4）——全在长椅切出来的窄槽/侧廊里，得钻进去才够得着
-        new ChurchCacheSpot(ExplorationCache.ChurchPewUnderId, 700f, 1155f, "长椅底下", ChurchZone.Nave),
-        new ChurchCacheSpot(ExplorationCache.ChurchCandleStandId, 345f, 975f, "侧廊烛台", ChurchZone.Nave),
-        new ChurchCacheSpot(ExplorationCache.ChurchOrganLoftId, 2050f, 880f, "风琴台", ChurchZone.Nave),
-        new ChurchCacheSpot(ExplorationCache.ChurchFontId, 1600f, 1155f, "洗礼池", ChurchZone.Nave),
+        new ChurchCacheSpot(ExplorationCache.ChurchPewUnderId, 900f, 1408f, "长椅底下", ChurchZone.Nave),
+        new ChurchCacheSpot(ExplorationCache.ChurchCandleStandId, 448f, 1350f, "侧廊烛台", ChurchZone.Nave),
+        new ChurchCacheSpot(ExplorationCache.ChurchOrganLoftId, 2752f, 1230f, "风琴台", ChurchZone.Nave),
+        new ChurchCacheSpot(ExplorationCache.ChurchFontId, 2000f, 1588f, "洗礼池", ChurchZone.Nave),
 
         // 圣坛区（深，3）
-        new ChurchCacheSpot(ExplorationCache.ChurchAltarId, 1100f, 700f, "祭台", ChurchZone.Chancel),
-        new ChurchCacheSpot(ExplorationCache.ChurchSacristyCabinetId, 1900f, 660f, "圣器室橱柜", ChurchZone.Chancel),
-        new ChurchCacheSpot(ExplorationCache.ChurchChoirLockerId, 560f, 620f, "唱诗席储物柜", ChurchZone.Chancel),
+        new ChurchCacheSpot(ExplorationCache.ChurchAltarId, AisleCenterX, 950f, "祭台", ChurchZone.Chancel),
+        new ChurchCacheSpot(ExplorationCache.ChurchSacristyCabinetId, 2530f, 900f, "圣器室橱柜", ChurchZone.Chancel),
+        new ChurchCacheSpot(ExplorationCache.ChurchChoirLockerId, 700f, 880f, "唱诗席储物柜", ChurchZone.Chancel),
 
         // 后院墓地（最深·门后那一片，2）——**这两处就是"要不要迈进去"的赌注**
-        new ChurchCacheSpot(ExplorationCache.ChurchGravediggerShedId, 480f, 260f, "掘墓人工棚", ChurchZone.Graveyard),
-        new ChurchCacheSpot(ExplorationCache.ChurchCryptId, 1850f, 240f, "石棺墓室", ChurchZone.Graveyard),
+        new ChurchCacheSpot(ExplorationCache.ChurchGravediggerShedId, 620f, 330f, "掘墓人工棚", ChurchZone.Graveyard),
+        new ChurchCacheSpot(ExplorationCache.ChurchCryptId, 2450f, 300f, "石棺墓室", ChurchZone.Graveyard),
     };
 
     /// <summary>
@@ -293,9 +350,9 @@ public static class RuinedChurch
     /// </summary>
     public static readonly IReadOnlyList<(float X, float Y)> ChurchZombieSpots = new[]
     {
-        (1600f, 1330f),  // 门厅东侧
-        (350f, 1080f),   // 西侧廊
-        (2050f, 1050f),  // 东侧廊
+        (2000f, 1860f),  // 门厅东侧
+        (448f, 1450f),   // 西侧廊
+        (2752f, 1500f),  // 东侧廊
     };
 
     /// <summary>
@@ -307,18 +364,19 @@ public static class RuinedChurch
     /// </para>
     /// </summary>
     /// <remarks>
-    /// 布点是**按视野锥算出来的**，不是撒的：以门洞站位（<see cref="DoorwayPoint"/>）为原点，
-    /// 白昼锥＝视距 300 / 半角 60° ⇒ 前 10 只落在锥内（推开门那一瞬**同时**出现），
-    /// 剩 2 只是更远的散兵（东、西各一，第一眼看不到——它们会自己朝你来）。
-    /// 挪动坐标之前先跑 <c>RuinedChurchTests</c> 那两条：可见数会当场告诉你惊吓还在不在。
+    /// [Phase2] 布点**不再按视野锥算**：旧版把 10 只硬塞进门洞站位的固定 300px 白昼锥里（"一眼看见一片"），
+    /// 那条像素约束正是"教堂不能放大"的理由。现在唤醒是**门事件**（<see cref="GraveyardWakeDoors"/>）⇒
+    /// 布点只需服从**这片墓地本身**：主群压在后院门正北（推开门＝一堵墙的丧尸站起来），
+    /// 另有两只散在东西两头（<see cref="NorthSideDoorX"/> 北面那只守着北耳门那条路）——它们一样是整片同时醒。
+    /// <para>坐标/密度**拟定待调**（涌来的层次感只能实机校准）；<c>RuinedChurchTests</c> 钉的是"门→整片唤醒"与「大量」，不是像素。</para>
     /// </remarks>
     public static readonly IReadOnlyList<(float X, float Y)> GraveyardZombieSpots = new[]
     {
-        // 锥内（推开门 ⇒ 一眼看到这一片）
-        (1010f, 430f), (1190f, 425f), (1100f, 355f), (950f, 375f), (1265f, 370f),
-        (1090f, 265f), (890f, 300f), (1290f, 300f), (1150f, 235f), (1010f, 250f),
-        // 锥外的两只散兵（东/西）——第一眼看不见，但它们听得见你
-        (1420f, 430f), (760f, 420f),
+        // 后院门正北的主群（推开门 ⇒ 这一片同时醒来涌向门洞）
+        (1500f, 610f), (1370f, 585f), (1630f, 590f), (1440f, 505f), (1580f, 500f),
+        (1290f, 470f), (1710f, 480f), (1500f, 395f), (1340f, 360f), (1660f, 355f),
+        // 东西两头的散兵：北耳门那条路上一只，西墓区一只——同样是开门那一刻醒
+        (2100f, 520f), (880f, 545f),
     };
 
     /// <summary>一条边按若干门洞中心断开成多段（同 <see cref="ExplorationWalls"/> 的口径）。</summary>

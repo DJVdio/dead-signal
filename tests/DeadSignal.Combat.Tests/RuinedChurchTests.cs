@@ -25,11 +25,18 @@ namespace DeadSignal.Combat.Tests;
 /// </summary>
 public class RuinedChurchTests
 {
-    // 关卡边界（与 TestExploration 的 LevelW/LevelH 一致）。
-    private static readonly WallRect Level = new(0f, 0f, 2400f, 1600f);
+    // 关卡边界：**直接读画布登记处**（<see cref="ExplorationLevelSize.SizeFor"/> ⇒ 与 TestExploration 的
+    // LevelW/LevelH 同源，不再手抄一份尺寸）。教堂已放大到中图档 3200×2200（≈3 天量级，数值拟定待调）。
+    private static readonly WallRect Level = LevelRect();
+
+    private static WallRect LevelRect()
+    {
+        (float w, float h) = ExplorationLevelSize.SizeFor(RuinedChurch.DestinationName);
+        return new WallRect(0f, 0f, w, h);
+    }
 
     /// <summary>返回区（关外）：南面，正门正对着它。</summary>
-    private static readonly (float X, float Y) ReturnZone = (1100f, 1500f);
+    private static readonly (float X, float Y) ReturnZone = (RuinedChurch.FrontDoorX, 2080f);
 
     /// <summary>丧尸的碰撞直径（<c>Zombie.cs</c>：Radius = 13f）。围攻名额的几何全靠它。</summary>
     private const float ZombieDiameter = 26f;
@@ -72,37 +79,58 @@ public class RuinedChurchTests
     [Fact]
     public void TheJumpScare_BeforeYouOpenTheDoor_YouSeeNotOneOfThem()
     {
+        List<WallRect> closed = WallsWithAllDoorsClosed();
+
         int seen = VisibleCount(
-            WallsWithAllDoorsClosed(),
+            closed,
             RuinedChurch.DoorApproachPoint,
             new Vector2(0f, -1f), // 朝北，正对着那扇门
             RuinedChurch.GraveyardZombieSpots);
 
         Assert.Equal(0, seen);
+
+        // 🔴 而且这个 0 **不是靠距离蒙来的**（"太远了所以没看见"随画布一放大就成了假绿）：
+        //    逐条钉死**遮挡**——门前站位到墓地里每一只的视线，都真的撞在关着的门板/墓地边界墙上。
+        //    这条**与尺度无关**：它说的是"这道边界不透视线"，不是"它们恰好在 300px 之外"。
+        Assert.All(RuinedChurch.GraveyardZombieSpots, z =>
+            Assert.True(
+                ExplorationWalls.SegmentHitsAnyWall(
+                    closed, RuinedChurch.DoorApproachPoint.X, RuinedChurch.DoorApproachPoint.Y, z.X, z.Y),
+                $"门关着，站在门前却有一条直通 ({z.X},{z.Y}) 的视线——墓地边界漏光了，惊吓提前泄底。"));
     }
 
     /// <summary>
-    /// 🔴 <b>推开门、迈进门洞的那一刻，一整片墓地同时进入你的视野。</b>
-    /// 同一个人、同一个朝向、同一片丧尸——<b>只是门板从墙层里摘掉了</b>，可见数就从 0 跳到 ≥8。
-    /// <b>信息量在一帧里爆炸，这就是"突然看到吓一跳"。</b>
+    /// 🔴 <b>"吓一跳"重定义（用户口径）：不是"一眼看见一片站着的丧尸"，是<b>开门那一刻门后一整群醒来涌向你</b>。</b>
+    /// 墓地那 12 只是**门后特殊丧尸**（<see cref="ZombieActivation"/>）：门未开时**完全冻结**——免疫视野/噪音/靠近，
+    /// 你贴到门板上它也不动；推开后院门（或北耳门）的那一刻，它们**全部唤醒、转为普通丧尸**扑上来。
     /// <para>
-    /// 而 <c>docs/research/2026-07-14-lanchester.md</c> 说得很清楚：2 只围攻＝胜率 16.6%，3 只＝0.8%，4 只起＝<b>0%</b>。
-    /// ⇒ <b>你看到的不是一场仗，是一个必须立刻离开的房间。</b>
+    /// 而 <c>docs/research/2026-07-14-lanchester.md</c>：2 只围攻＝胜率 16.6%，3 只＝0.8%，4 只起＝<b>0%</b>
+    /// ⇒ <b>你唤醒的不是一场仗，是一个必须立刻离开的房间。</b>
+    /// </para>
+    /// <para>
+    /// 🔴 这条<b>与尺度无关</b>（触发绑墓地边界那两扇门，不再要求 12 只同时挤进固定 300px 白昼锥）——
+    /// 正是它把"吓一跳"从像素几何里解放出来，Phase2 才能放大墓地/教堂。旧的"≥8 同时进锥"纯视觉不变量到此让位。
     /// </para>
     /// </summary>
     [Fact]
-    public void TheJumpScare_TheInstantYouStepIntoTheDoorway_AWholeGraveyardEntersYourVisionAtOnce()
+    public void TheJumpScare_OpeningTheGraveyardDoor_WakesTheWholeFrozenHorde()
     {
-        List<WallRect> opened = LevelReachability.WithOneDoorOpen(
-            RuinedChurch.Walls(), RuinedChurch.Doors(), RuinedChurch.BackyardDoor);
+        // 门未开：墓地那群是冻结的门后特殊丧尸（免疫视野/噪音/靠近）。
+        Assert.True(ZombieActivation.IsFrozen(doorLocked: true, activated: false));
 
-        int seen = VisibleCount(
-            opened,
-            RuinedChurch.DoorwayPoint,
-            new Vector2(0f, -1f),
-            RuinedChurch.GraveyardZombieSpots);
+        // 唤醒门集＝墓地边界那两扇**真门**（后院门 / 北耳门）；外墙那两个关不上的入口不在其列（不会误唤醒墓地）。
+        Assert.Contains(RuinedChurch.BackyardDoor, RuinedChurch.GraveyardWakeDoors);
+        Assert.Contains(RuinedChurch.NorthSideDoor, RuinedChurch.GraveyardWakeDoors);
+        foreach (HospitalEntrance e in RuinedChurch.Entrances())
+            Assert.DoesNotContain(e.Name, RuinedChurch.GraveyardWakeDoors);
 
-        Assert.True(seen >= 8, $"推开后院门、迈进门洞，应当**一眼看到一片**（≥8 只），实际只有 {seen} 只进锥——惊吓没了。");
+        // 推开其一 ⇒ 门后那一整片（尚未激活）全部唤醒；开无关的门不唤醒。
+        Assert.True(ZombieActivation.DoorOpenActivates(RuinedChurch.GraveyardWakeDoors, RuinedChurch.BackyardDoor, activated: false));
+        Assert.True(ZombieActivation.DoorOpenActivates(RuinedChurch.GraveyardWakeDoors, RuinedChurch.NorthSideDoor, activated: false));
+        Assert.False(ZombieActivation.DoorOpenActivates(RuinedChurch.GraveyardWakeDoors, "正门", activated: false));
+
+        // 「大量」仍在：门后这一群不能是三五只（涌来才吓人）。
+        Assert.True(RuinedChurch.GraveyardZombieSpots.Count >= 10);
     }
 
     /// <summary>
@@ -135,9 +163,10 @@ public class RuinedChurchTests
             ExplorationWalls.SegmentHitsAnyWall(walls, eye.X, eye.Y, RuinedChurch.BackyardDoorX, RuinedChurch.GraveyardWallY + 6f),
             "站在正门就能一眼望到后院门——屏风/立柱形同虚设，'穿过视野盲区'没了。");
 
-        // 祭台（圣坛正中）
+        // 祭台（圣坛正中·横在中轴上，见 RuinedChurch.AltarRect）
         Assert.True(
-            ExplorationWalls.SegmentHitsAnyWall(walls, eye.X, eye.Y, 1100f, 630f),
+            ExplorationWalls.SegmentHitsAnyWall(
+                walls, eye.X, eye.Y, RuinedChurch.AltarRect.X + RuinedChurch.AltarRect.Width / 2f, RuinedChurch.AltarRect.Y + 30f),
             "站在正门就能看见祭台——圣坛不该从门口一览无余。");
     }
 
@@ -205,8 +234,8 @@ public class RuinedChurchTests
         (float X, float Y)[] inside =
         {
             RuinedChurch.FrontDoorPoint,     // 门厅
-            (350f, 1080f),                   // 中殿·西侧廊（最窄的地方）
-            (1100f, 900f),                   // 中殿·中央走道
+            (448f, 1450f),                   // 中殿·西侧廊（最窄的地方·净宽 64 不随画布缩放）
+            (1500f, 1250f),                  // 中殿·中央走道（宽 140 不随画布缩放）
             RuinedChurch.DoorApproachPoint,  // 圣坛·后院门前
         };
         foreach ((float X, float Y) p in inside)
@@ -228,7 +257,7 @@ public class RuinedChurchTests
             RuinedChurch.Walls(), RuinedChurch.Doors(), RuinedChurch.BackyardDoor);
 
         Assert.True(
-            LevelReachability.PathExists(onlyBackyardOpen, Level, (1100f, 300f), ReturnZone),
+            LevelReachability.PathExists(onlyBackyardOpen, Level, (RuinedChurch.BackyardDoorX, 400f), ReturnZone),
             "人在墓地里、推开后院门，却走不回关外 —— 这一关会把玩家永久卡死。");
     }
 
@@ -241,6 +270,76 @@ public class RuinedChurchTests
     [Fact]
     public void DoorwaysAreWideEnoughToWalkThrough()
         => Assert.True(RuinedChurch.DoorwayWidth > 2f * ExplorationWalls.NavAgentRadius);
+
+    // ══════════════════════ Phase2 放大：画布 / 不缩放的物理常量 / 两份事实源焊死 ══════════════════════
+
+    /// <summary>
+    /// 🔴 <b>教堂能放大，是 Phase1 挣来的。</b>
+    /// 旧口径下"吓一跳"＝「12 只必须同时挤进门洞站位的**固定 300px** 白昼锥」⇒ 墓地深度被像素钉死，一放大惊吓就没了。
+    /// Phase1 把它重定义成「推开墓地边界那两扇门 ⇒ 门后整片唤醒涌来」（<see cref="ZombieActivation"/>）——
+    /// <b>触发绑的是门实体，与尺度无关</b> ⇒ 固定像素约束解绑 ⇒ 画布放到中图档 3200×2200（≈3 天量级）。
+    /// <para>数值<b>拟定待调</b>（档位/在关工作量按时间模型校准，精调归 param-calibration + 实机）。</para>
+    /// </summary>
+    [Fact]
+    public void TheChurchIsAMidSizedMap_ItsPixelLeashCutByTheDoorWakeModel()
+    {
+        (float w, float h) = ExplorationLevelSize.SizeFor(RuinedChurch.DestinationName);
+        Assert.Equal(3200f, w);
+        Assert.Equal(2200f, h);
+
+        // 解绑的依据本身：唤醒是门事件（与距离/视锥无关）——这条一没，放大就失去理由。
+        Assert.NotEmpty(RuinedChurch.GraveyardWakeDoors);
+        Assert.True(ZombieActivation.DoorOpenActivates(
+            RuinedChurch.GraveyardWakeDoors, RuinedChurch.BackyardDoor, activated: false));
+    }
+
+    /// <summary>
+    /// 🔴 <b>放大画布，不放大"人和门的尺寸"。</b>（同医院先例：<c>ExplorationWalls.cs</c> "门宽刻意不缩放"）
+    /// 门洞 72 / 中央走道 140 / 侧廊 64 / 长椅排距 90 / 立柱 70 都是**按人体与丧尸直径标定的物理常量**：
+    /// 跟着画布 ×4/3 会把"挤进窄槽""一次过得来几只"这些战术含义全改掉。放大只加**纵深与数量**。
+    /// </summary>
+    [Fact]
+    public void EnlargingTheCanvasNeverWidensADoorwayNorAnAisle()
+    {
+        Assert.Equal(72f, RuinedChurch.DoorwayWidth);        // 门洞
+        Assert.Equal(140f, RuinedChurch.CentralAisleWidth);  // 中央走道
+        Assert.Equal(64f, RuinedChurch.SideAisleWidth);      // 侧廊
+        Assert.Equal(26f, RuinedChurch.PewThickness);        // 长椅条厚
+        Assert.Equal(90f, RuinedChurch.PewRowPitch);         // 长椅排距 ⇒ 排间窄槽 = 90−26 = 64
+        Assert.Equal(RuinedChurch.SideAisleWidth, RuinedChurch.PewRowPitch - RuinedChurch.PewThickness);
+
+        // 窄槽仍走得进去（净宽 64 − 2×导航体半径 > 0）——这是"钻进去搜"而不是"此路不通"。
+        Assert.True(RuinedChurch.PewRowPitch - RuinedChurch.PewThickness - 2f * ExplorationWalls.NavAgentRadius > 0f);
+    }
+
+    /// <summary>
+    /// 两份事实源焊死：<see cref="RuinedChurch"/> 的每一堵墙、每一处点位都必须落在**登记画布**
+    /// （<see cref="ExplorationLevelSize"/>）之内，返回区在关外的南面空地上。
+    /// 谁改了画布不改几何（或反过来），这条当场红——不会等到实机才发现墙砌到了画布外面。
+    /// </summary>
+    [Fact]
+    public void TheGeometryAndTheRegisteredCanvasAreWeldedTogether()
+    {
+        foreach (WallRect w in RuinedChurch.Walls())
+        {
+            Assert.True(
+                w.X >= 0f && w.Y >= 0f && w.Right <= Level.Width && w.Bottom <= Level.Height,
+                $"墙 ({w.X},{w.Y},{w.Width},{w.Height}) 砌到了 {Level.Width}×{Level.Height} 的画布外面。");
+        }
+
+        foreach (ChurchCacheSpot s in RuinedChurch.CacheSpots)
+        {
+            Assert.True(
+                s.X > 0f && s.X < Level.Width && s.Y > 0f && s.Y < Level.Height,
+                $"搜刮点「{s.Label}」({s.X},{s.Y}) 在画布外面。");
+        }
+
+        // 返回区：在关外（教堂南墙之南），且仍在画布内。
+        Assert.True(ReturnZone.Y > RuinedChurch.FrontDoorPoint.Y, "返回区跑到教堂里面去了。");
+        Assert.True(ReturnZone.Y < Level.Height, "返回区在画布外面。");
+        Assert.False(LevelReachability.IsBlocked(RuinedChurch.Walls(), ReturnZone.X, ReturnZone.Y, 0f),
+            "返回区被墙压住了。");
+    }
 
     /// <summary>没有一处搜刮点/丧尸被砌进墙里（几何与布点同源，这条是它的证明）。</summary>
     [Fact]

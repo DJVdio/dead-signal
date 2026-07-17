@@ -323,17 +323,43 @@ public class PoliceStationTests
     [Fact]
     public void 门板恰好填满拘留区南墙缺口_不越界压住囚室或走廊别处()
     {
-        // 门板落在拘留区(760,180,420,220)南墙那道缺口上（主走廊 x[900,1040] 穿墙口）。
+        // 门板落在拘留区(1440,200,560,240)南墙那道缺口上（主走廊 x[1600,1740] 穿墙口）。
         ExplorationDoor door = ExplorationWalls.PoliceDoors().Single();
         var r = door.Rect;
-        Assert.Equal(900f, r.X, 1);
-        Assert.Equal(1040f, r.Right, 1);           // 门宽＝走廊宽 140
-        Assert.Equal(400f, r.Y, 1);                // 拘留区底边
+        Assert.Equal(1600f, r.X, 1);
+        Assert.Equal(1740f, r.Right, 1);           // 🔴 门宽＝走廊宽 140 —— 放大到 2800×1900 后**刻意不缩放**
+        Assert.Equal(440f, r.Y, 1);                // 拘留区底边
         Assert.Equal(ExplorationWalls.PoliceWallThickness, r.Height, 1); // 厚度＝墙厚
 
         // 门不该压住囚室搜刮点（囚室在门的另一侧、够不着才是设计）。
         PoliceCacheSpot cell = ExplorationWalls.PoliceCacheSpots.Single(s => s.Id == ExplorationCache.PoliceHoldingCellId);
         bool cellInDoor = cell.X >= r.X && cell.X <= r.Right && cell.Y >= r.Y && cell.Y <= r.Bottom;
         Assert.False(cellInDoor, "门板压住了囚室搜刮点");
+    }
+
+    // ==================== 🔴 [SPEC-T60] 探索威胁模型：拘留区那只锁在铁门后 ====================
+
+    /// <summary>
+    /// 🔴 拘留区那只（守着两件甲）＝**门后特殊丧尸**：冻结在拘留区铁门后，对视野/噪音/靠近全免疫，
+    /// **有且仅有撬开铁门才唤醒**（转为普通丧尸）。另 3 间无门开放侧房的那 3 只＝普通丧尸（靠近/视野唤醒）。
+    /// <para>门未开时它冻结，正是"入口看不见 / 走廊摸过去也不惊动它"的机制侧保证——威胁绑门实体、与尺度无关（Phase2 可放大）。</para>
+    /// </summary>
+    [Fact]
+    public void 拘留区那只锁在铁门后_撬开才唤醒_另三只是普通丧尸()
+    {
+        var behindGate = ExplorationWalls.PoliceZombieSpots
+            .Where(s => ExplorationWalls.PoliceSpotBehindHoldingDoor(s)).ToList();
+        Assert.Single(behindGate);                    // 有且仅有拘留区那只锁在门后
+        Assert.Equal((1960f, 240f), behindGate[0]);   // 守着两件甲的那只（Phase2 放大后的拘留区远 NE 角）
+
+        // 门未开：它冻结（免疫视野/噪音/靠近）。
+        Assert.True(ZombieActivation.IsFrozen(doorLocked: true, activated: false));
+
+        // 撬开拘留区铁门 ⇒ 唤醒它（转普通）。
+        Assert.True(ZombieActivation.DoorOpenActivates(
+            new[] { ExplorationWalls.PoliceHoldingDoorName }, ExplorationWalls.PoliceHoldingDoorName, activated: false));
+
+        // 另 3 只不在拘留区 ⇒ 普通丧尸（不锁门、靠近/视野唤醒）。
+        Assert.Equal(3, ExplorationWalls.PoliceZombieSpots.Count(s => !ExplorationWalls.PoliceSpotBehindHoldingDoor(s)));
     }
 }

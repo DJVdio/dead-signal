@@ -28,8 +28,10 @@ public sealed partial class TestExploration : ExplorationLevel
     public const string LookoutTelescopeDiscoveryId = "discovery_lookout_telescope";
 
     /// <summary>望远镜占位在瞭望关内的世界坐标（贴北墙，朝正北）。anim-lookout 据此放演出节点/镜头锚点。
-    /// <b>静态字段</b>钉在默认画布宽（城市之巅当前＝默认 2400×1600）；若该关日后被 per-map 覆盖成更大画布，此锚点须同步（见 ExplorationLevelSize）。</summary>
-    public static readonly Vector2 LookoutTelescopePosition = new(ExplorationLevelSize.DefaultWidth / 2f, 260f);
+    /// <b>静态字段</b>随城市之巅画布同步：读 <see cref="ExplorationLevelSize.SizeFor"/>(城市之巅) 的宽取半 ⇒ 恒为北缘正中，
+    /// 该关适度放大到 2800×1900 后 X 自动变 1400（不再是旧 DefaultWidth/2＝1200）。日后调档只改 Overrides，此锚点自动跟随。</summary>
+    public static readonly Vector2 LookoutTelescopePosition =
+        new(ExplorationLevelSize.SizeFor(ExplorationCache.CityRooftopLookoutName).Width / 2f, 260f);
 
     // ——广播台：发出设备定点投放契约（RadioMainline 主线消费）——
     /// <summary>
@@ -57,6 +59,10 @@ public sealed partial class TestExploration : ExplorationLevel
 
     private CameraController _camera = null!;
     private readonly List<Zombie> _zombies = new();
+
+    // [SPEC-T60] 门后特殊丧尸登记：门名 → 锁在其后的丧尸（该门被打开时逐个 Activate）。
+    //   一只可挂多扇门（教堂墓地那群锁在后院门/北耳门后，推开任一即唤醒）。开门入口＝ToggleLevelDoor(推)/UnlockLevelDoor(撬)。
+    private readonly Dictionary<string, List<Zombie>> _doorLockedZombies = new();
     // [SPEC-B13] 超市骗局：关内敌对幸存者（Raider 阵营）。轻信被诱入内圈伏击、或拒绝后闯内圈时按需生成（见 SpawnSupermarketRaiders）。
     private readonly List<Raider> _levelRaiders = new();
     private readonly Dictionary<Actor, Node2D> _markers = new();
@@ -585,6 +591,7 @@ public sealed partial class TestExploration : ExplorationLevel
                 return false;
             d.State = DoorState.Open;
             SetLevelDoorBlocking(d, false);
+            ActivateDoorLockedZombies(d.Name); // [SPEC-T60] 撬开锁门＝唤醒门后特殊丧尸（警察拘留区那只）
             return true;
         }
         return false;
@@ -625,6 +632,7 @@ public sealed partial class TestExploration : ExplorationLevel
         {
             door.State = DoorState.Open;
             SetLevelDoorBlocking(door, false);
+            ActivateDoorLockedZombies(door.Name); // [SPEC-T60] 推开门＝唤醒门后特殊丧尸
             message = $"推开了{door.Name}。";
             return true;
         }
@@ -843,10 +851,15 @@ public sealed partial class TestExploration : ExplorationLevel
         //    不是同时更多（2 只围攻 16.6%、3 只 0.8%＝断崖）。「室内多拐角」靠房间门洞遮挡，不靠人海。**要挪/要加先跑 PoliceStationTests。**
         if (DestinationName == ExplorationCache.PoliceStationName)
         {
-            var policeSpots = new List<Vector2>(ExplorationWalls.PoliceZombieSpots.Count);
+            // [SPEC-T60] 拘留区那只（守着两件甲）＝门后特殊丧尸：冻结在拘留区铁门后，撬开铁门才唤醒。
+            //   另 3 间无门开放侧房的那 3 只＝普通丧尸（靠近/视野唤醒）。
             foreach ((float x, float y) in ExplorationWalls.PoliceZombieSpots)
-                policeSpots.Add(new Vector2(x, y));
-            SpawnZombiesAt(policeSpots);
+            {
+                bool locked = ExplorationWalls.PoliceSpotBehindHoldingDoor((x, y));
+                Zombie z = SpawnZombieAt(new Vector2(x, y), LevelWanderRect(), doorLocked: locked);
+                if (locked)
+                    RegisterDoorLocked(z, new[] { ExplorationWalls.PoliceHoldingDoorName });
+            }
             return;
         }
 
@@ -873,17 +886,25 @@ public sealed partial class TestExploration : ExplorationLevel
         // 🔴 **不是让你清完的**（2 只围攻＝16.6%，3 只＝0.8%，4 只起＝0%）——**是让你转身跑、并把门关上。**
         if (DestinationName == RuinedChurch.DestinationName)
         {
+            // 教堂本体 3 只＝普通丧尸（视野/靠近唤醒）。
             foreach ((float x, float y) in RuinedChurch.ChurchZombieSpots)
                 SpawnZombieAt(new Vector2(x, y), LevelWanderRect());
+            // [SPEC-T60] 墓地那 12 只＝门后特殊丧尸：冻结在墓地边界两扇门后，推开后院门/北耳门任一即整片唤醒涌来。
             foreach ((float x, float y) in RuinedChurch.GraveyardZombieSpots)
-                SpawnZombieAt(new Vector2(x, y), LevelWanderRect());
+            {
+                Zombie z = SpawnZombieAt(new Vector2(x, y), LevelWanderRect(), doorLocked: true);
+                RegisterDoorLocked(z, RuinedChurch.GraveyardWakeDoors);
+            }
             return;
         }
 
-        // [SPEC-T60] 难民营地：10 只**开门跳脸**（各锁在一间房里，就贴在门后 ≤90px）+ 4 只过道游荡。
+        // [SPEC-T60] 难民营地：10 只**开门跳脸**（各锁在一间房的门后）+ 4 只过道游荡。
         // 跳脸的那 10 只徘徊区**只有它自己那间房**：它必须待在门后——它就是那扇门的全部意义。
+        // ⚠️ Phase2 起它们**不再要求贴门 ≤90px**：唤醒绑门实体、与像素距离无关（贴门/房中央/最深角落都有）。
         if (DestinationName == RefugeeCamp.DestinationName)
         {
+            // [SPEC-T60] 每只伏击丧尸＝门后特殊丧尸：冻结在自己那间房的门后，推开那扇房门才唤醒它（一门唤醒一只）。
+            //   徘徊区仍限本房（唤醒后在房内/追出门都由导航说了算）。
             foreach (AmbushZombie a in RefugeeCamp.AmbushZombies)
             {
                 WallRect room = RefugeeCamp.Room(a.RoomNumber).Rect;
@@ -891,8 +912,10 @@ public sealed partial class TestExploration : ExplorationLevel
                 var box = new Rect2(
                     room.X + pad, room.Y + pad,
                     Mathf.Max(1f, room.Width - pad * 2f), Mathf.Max(1f, room.Height - pad * 2f));
-                SpawnZombieAt(new Vector2(a.X, a.Y), box);
+                Zombie z = SpawnZombieAt(new Vector2(a.X, a.Y), box, doorLocked: true);
+                RegisterDoorLocked(z, new[] { RefugeeCamp.WakeDoorFor(a) });
             }
+            // 过道 4 只＝普通丧尸（视野/噪音/靠近唤醒）。
             foreach ((float x, float y) in RefugeeCamp.CorridorZombieSpots)
                 SpawnZombieAt(new Vector2(x, y), LevelWanderRect());
             return;
@@ -942,15 +965,42 @@ public sealed partial class TestExploration : ExplorationLevel
     /// （当前两套是 IsDraft 样板，等用户定稿）。**本 agent 未在任何关卡实际摆放精英丧尸**——那是 authored 工作。
     /// </para>
     /// </summary>
-    private void SpawnZombieAt(Vector2 pos, Rect2 wander)
+    private Zombie SpawnZombieAt(Vector2 pos, Rect2 wander, bool doorLocked = false)
     {
         var z = Zombie.Create(wander, LevelTargets); // 目标池含随队布鲁斯（可被关内丧尸攻击/杀）
         z.Inject(Combat, Clock); // 与营地单位相同的 combat+clock，务必在入树/首个物理帧 Think 前完成
         z.ConfigurePerception(localLightAt: SampleLevelLight); // 固定光源→局部光照喂给（暴露走目标 CarriedLightIntensity 回落）
         z.Position = pos;
+        // [SPEC-T60] 探索关丧尸走威胁模型：普通(doorLocked=false，视野/噪音/靠近唤醒) / 门后特殊(true，冻结待其门被开)。
+        //   营地丧尸不经此路（走 SpawnCampZombies），保原昼夜休眠零回归。
+        z.MarkExploration(doorLocked);
         _actorLayer.AddChild(z);
         _zombies.Add(z);
         _markers[z] = CreateActorMarker(z, new Color(0.45f, 0.6f, 0.35f));
+        return z;
+    }
+
+    /// <summary>[SPEC-T60] 把一只门后特殊丧尸登记到它的**唤醒门集**下（推开其一即唤醒它）。</summary>
+    private void RegisterDoorLocked(Zombie z, IEnumerable<string> wakeDoors)
+    {
+        foreach (string door in wakeDoors)
+        {
+            if (!_doorLockedZombies.TryGetValue(door, out List<Zombie>? list))
+                _doorLockedZombies[door] = list = new List<Zombie>();
+            list.Add(z);
+        }
+    }
+
+    /// <summary>[SPEC-T60] 某扇门被打开（推开/撬开）时，唤醒锁在其后的门后特殊丧尸（转为普通丧尸，此后照常感知追击）。</summary>
+    private void ActivateDoorLockedZombies(string doorName)
+    {
+        if (!_doorLockedZombies.TryGetValue(doorName, out List<Zombie>? list))
+            return;
+        foreach (Zombie z in list)
+        {
+            if (IsInstanceValid(z))
+                z.Activate();
+        }
     }
 
 

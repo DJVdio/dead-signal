@@ -18,9 +18,9 @@ public sealed partial class TestExploration
     /// </summary>
     private static readonly Vector2[] FireStationZombieSpots =
     {
-        new(1120f, 940f),  // 器材间门外（挡在急救柜那条路上）
-        new(1700f, 1130f), // 值班室附近
-        new(1880f, 640f),  // 后院·训练塔下（最深）
+        new(1240f, 1120f), // 器材间门外（挡在急救柜那条路上）
+        new(1780f, 1520f), // 值班室附近
+        new(2280f, 700f),  // 后院·训练塔下（最深）
     };
 
     /// <summary>
@@ -40,18 +40,21 @@ public sealed partial class TestExploration
     /// </summary>
     private void SetupFireStation()
     {
+        // [小图适度放大] 画布 2800×1900（<see cref="ExplorationLevelSize"/>）。身份＝车库 + 器材间 + 宿舍(值班室) + 后院训练场。
+        //   放大后车库占南半场（队伍出生点 200,LevelH-200 就在它西南）、两间小屋与后院往纵深铺开；搜刮点/丧尸点随空间重排，
+        //   **入口车库区仍一只丧尸都没有**（开局友好）。搜刮 id 不动（5 处 ⇒ FireStationCacheTests 恒绿），坐标拟定待调。
         // 分区占位地台（纯视觉）：车库(南/近·水泥灰)、后院训练场(东北/最深·土黄)。
-        AddZonePad(new Vector2(360, 1060), new Vector2(900, 420), new Color(0.26f, 0.27f, 0.29f, 0.6f));  // 车库（卷帘门大开）
-        AddZonePad(new Vector2(1500, 400), new Vector2(700, 460), new Color(0.30f, 0.28f, 0.22f, 0.55f)); // 后院·训练场
+        AddZonePad(new Vector2(360, 1240), new Vector2(1040, 520), new Color(0.26f, 0.27f, 0.29f, 0.6f));  // 车库（卷帘门大开）
+        AddZonePad(new Vector2(1720, 460), new Vector2(840, 560), new Color(0.30f, 0.28f, 0.22f, 0.55f)); // 后院·训练场
 
         // 两间小屋（实体墙，门洞都朝南＝正对车库开阔地，见类注）。
-        AddRoomOutline(new Rect2(1420, 1080, 380, 300), new Color(0.30f, 0.32f, 0.34f, 0.95f), "值班室", RoomEdge.Bottom);
-        AddRoomOutline(new Rect2(900, 620, 420, 300), new Color(0.28f, 0.30f, 0.32f, 0.95f), "器材间", RoomEdge.Bottom);
+        AddRoomOutline(new Rect2(1560, 1260, 420, 340), new Color(0.30f, 0.32f, 0.34f, 0.95f), "值班室", RoomEdge.Bottom);
+        AddRoomOutline(new Rect2(980, 700, 460, 340), new Color(0.28f, 0.30f, 0.32f, 0.95f), "器材间", RoomEdge.Bottom);
 
         // 消防车（纯视觉占位）：车头朝外停在车库里，器材箱那一侧就是搜刮点。
         AddChild(new Polygon2D
         {
-            Polygon = Quad(new Vector2(560, 1240), new Vector2(300, 110)),
+            Polygon = Quad(new Vector2(600, 1480), new Vector2(320, 120)),
             Color = new Color(0.46f, 0.16f, 0.14f, 0.95f), // 消防红（褪色）
             ZIndex = 5,
         });
@@ -62,13 +65,13 @@ public sealed partial class TestExploration
         var medC = new Color(0.42f, 0.62f, 0.44f);  // 急救柜（药绿，与药店/医院同色语义）
 
         // 车库（南/近，2）
-        AddDiscoveryPoint(ExplorationCache.FireStationEngineBayId, new Vector2(700, 1300), markerColor: bayC, label: "消防车器材箱");
-        AddDiscoveryPoint(ExplorationCache.FireStationGearWallId, new Vector2(1120, 1150), markerColor: gearC, label: "器材墙");
+        AddDiscoveryPoint(ExplorationCache.FireStationEngineBayId, new Vector2(760, 1520), markerColor: bayC, label: "消防车器材箱");
+        AddDiscoveryPoint(ExplorationCache.FireStationGearWallId, new Vector2(1240, 1360), markerColor: gearC, label: "器材墙");
         // 值班室（东/中，1）
-        AddDiscoveryPoint(ExplorationCache.FireStationDutyRoomId, new Vector2(1600, 1250), markerColor: roomC, label: "值班室铺位");
+        AddDiscoveryPoint(ExplorationCache.FireStationDutyRoomId, new Vector2(1760, 1420), markerColor: roomC, label: "值班室铺位");
         // 器材间（北/深，1·唯一急救包）
-        AddDiscoveryPoint(ExplorationCache.FireStationMedCabinetId, new Vector2(1110, 790), markerColor: medC, label: "急救柜");
+        AddDiscoveryPoint(ExplorationCache.FireStationMedCabinetId, new Vector2(1200, 880), markerColor: medC, label: "急救柜");
         // 后院（东北/最深，1）
-        AddDiscoveryPoint(ExplorationCache.FireStationBackyardShedId, new Vector2(1900, 620), markerColor: roomC, label: "杂物棚");
+        AddDiscoveryPoint(ExplorationCache.FireStationBackyardShedId, new Vector2(2200, 720), markerColor: roomC, label: "杂物棚");
     }
 }

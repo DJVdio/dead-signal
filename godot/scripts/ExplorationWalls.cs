@@ -809,32 +809,43 @@ public static class ExplorationWalls
     /// 警察局的**可行走区域**：中央脊廊（门厅 → 连廊 → 主走廊 → 拘留区）+ 三间侧向 loot 房间（办公区/证物室/更衣室）。
     /// 墙 = 这些矩形的**补集**（<see cref="PoliceWalls"/> 自动推出）⇒ 房间与墙不可能对不上（既不漏洞、也不堵路）。
     /// 相邻矩形**真重叠**的那一小段就是门洞/junction。近→深：门厅(入口) → 办公区/证物室/更衣室 → 拘留区(禁闭室·最深)。
+    /// <para>
+    /// 🔴 <b>[SPEC-T60·Phase2] 已随画布放大到 2800×1900 铺开</b>（<see cref="ExplorationLevelSize"/> 登记，小图档）。
+    /// 放大的前提是 Phase1 把威胁从"几何摆位 + 固定像素感知"改成**绑门实体的开门激活**（拘留区那只）＋普通丧尸感知唤醒
+    /// ⇒ 触发与尺度无关。放大**只重排坐标、不改 authored 拓扑语义**：中央脊廊 + 三间侧房 + 最深禁闭区、4 只各藏一房、
+    /// 拘留区唯一入口那道锁门，全部照旧。<b>走廊宽 140 / 墙厚 40 刻意不缩放</b>——门板铺满走廊穿墙口 ⇒ 门宽随之恒为 140
+    /// （同本文件医院几何「门宽刻意不缩放」先例）。放大出来的是脊廊纵深与房间进深（＝步行/搜刮工作量），不是门洞。
+    /// 坐标「拟定待调」，精调归实机校准。
+    /// </para>
     /// </summary>
     public static readonly IReadOnlyList<PoliceRoom> PoliceRooms = new[]
     {
-        new PoliceRoom("门厅",   new WallRect(300f, 1180f, 420f, 280f)),  // 入口接待厅（SW）
-        new PoliceRoom("连廊",   new WallRect(600f, 1200f, 440f, 140f)),  // 门厅 → 主走廊
-        new PoliceRoom("主走廊", new WallRect(900f, 300f, 140f, 1040f)),  // 纵贯中央走廊
-        new PoliceRoom("拘留区", new WallRect(760f, 180f, 420f, 220f)),   // 禁闭区（最深·两件甲）
-        new PoliceRoom("办公区", new WallRect(980f, 1080f, 440f, 260f)),  // 侧房·东（近）
-        new PoliceRoom("证物室", new WallRect(500f, 760f, 440f, 260f)),   // 侧房·西（中）
-        new PoliceRoom("更衣室", new WallRect(980f, 560f, 400f, 240f)),   // 侧房·东（深）
+        new PoliceRoom("门厅",   new WallRect(300f, 1380f, 560f, 360f)),   // 入口接待厅（SW）
+        new PoliceRoom("连廊",   new WallRect(740f, 1450f, 1000f, 140f)),  // 门厅 → 主走廊（宽 140·不缩放）
+        new PoliceRoom("主走廊", new WallRect(1600f, 340f, 140f, 1250f)),  // 纵贯中央走廊（宽 140·不缩放）
+        new PoliceRoom("拘留区", new WallRect(1440f, 200f, 560f, 240f)),   // 禁闭区（最深·两件甲）
+        new PoliceRoom("办公区", new WallRect(1680f, 1240f, 660f, 350f)),  // 侧房·东（近）
+        new PoliceRoom("证物室", new WallRect(980f, 880f, 660f, 340f)),    // 侧房·西（中）
+        new PoliceRoom("更衣室", new WallRect(1680f, 560f, 600f, 280f)),   // 侧房·东（深）
     };
 
     /// <summary>探索队进关的落点（门厅内），也是回营的返回区。</summary>
-    public static readonly (float X, float Y) PoliceEntry = (420f, 1400f);
+    public static readonly (float X, float Y) PoliceEntry = (440f, 1660f);
 
     /// <summary>**最深处** —— 禁闭区核心（拘留区）。用于连通性护栏（从入口必须走得到两件甲）。</summary>
-    public static readonly (float X, float Y) PoliceDeepest = (820f, 240f);
+    public static readonly (float X, float Y) PoliceDeepest = (1520f, 270f);
 
-    /// <summary>警察局 5 处搜刮点（id 与 <c>ExplorationCache</c> 一一对应）。由近到深：前台 → 办公桌 → 证物柜 → 更衣柜 → 囚室(两件甲)。</summary>
+    /// <summary>
+    /// 警察局 5 处搜刮点（id 与 <c>ExplorationCache</c> 一一对应）。由近到深：前台 → 办公桌 → 证物柜 → 更衣柜 → 囚室(两件甲)。
+    /// 放大**只重排坐标、不新增 id**（新搜刮点须先有 authored 叙事）⇒ <c>PoliceStationCacheTests</c> 计数恒绿。
+    /// </summary>
     public static readonly IReadOnlyList<PoliceCacheSpot> PoliceCacheSpots = new[]
     {
-        new PoliceCacheSpot(ExplorationCache.PoliceFrontDeskId,    420f, 1250f, "前台"),
-        new PoliceCacheSpot(ExplorationCache.PoliceBullpenId,     1200f, 1150f, "办公桌"),
-        new PoliceCacheSpot(ExplorationCache.PoliceEvidenceId,     700f,  880f, "证物柜"),
-        new PoliceCacheSpot(ExplorationCache.PoliceLockerRoomId,  1150f,  650f, "更衣柜"),
-        new PoliceCacheSpot(ExplorationCache.PoliceHoldingCellId,  850f,  300f, "囚室"),
+        new PoliceCacheSpot(ExplorationCache.PoliceFrontDeskId,    420f, 1500f, "前台"),
+        new PoliceCacheSpot(ExplorationCache.PoliceBullpenId,     2140f, 1400f, "办公桌"),
+        new PoliceCacheSpot(ExplorationCache.PoliceEvidenceId,    1120f, 1040f, "证物柜"),
+        new PoliceCacheSpot(ExplorationCache.PoliceLockerRoomId,  2080f,  700f, "更衣柜"),
+        new PoliceCacheSpot(ExplorationCache.PoliceHoldingCellId, 1540f,  320f, "囚室"),
     };
 
     /// <summary>
@@ -846,19 +857,19 @@ public static class ExplorationWalls
     /// </summary>
     public static readonly IReadOnlyList<(float X, float Y)> PoliceZombieSpots = new[]
     {
-        (1380f, 1300f),  // 办公区深处（远 SE 角）
-        (540f,  800f),   // 证物室深处（远 NW 角）
-        (1340f, 760f),   // 更衣室深处（远 SE 角）
-        (1120f, 220f),   // 拘留区深处（远 NE 角·守着两件甲）
+        (2300f, 1550f),  // 办公区深处（远 SE 角）
+        (1020f, 920f),   // 证物室深处（远 NW 角）
+        (2240f, 800f),   // 更衣室深处（远 SE 角）
+        (1960f, 240f),   // 拘留区深处（远 NE 角·守着两件甲·门后特殊丧尸）
     };
 
     // ==================================================================================
     // 🔴 拘留区那道**锁死的门** —— 全项目第一扇真锁门（撬锁首次接进探索关）。
     //
-    //   几何：主走廊(900,300,140,1040) 与 拘留区(760,180,420,220) 在 x[900,1040] y[300,400] 处**真重叠**（junction），
-    //   而它俩的补集把「拘留区南墙」在 x[900,1040] 处开了个洞（主走廊穿墙上去）——**那个洞就是禁闭区的唯一入口**。
-    //   门板恰好填满这个洞：x[900,1040] y[400,440]（=拘留区南墙缺口，厚度=墙厚）。
-    //   ⇒ 门锁着 ⇒ 禁闭区（囚室两件甲 + 守甲那只丧尸）**够不着**；撬开才可达。无旁路（更衣室 y560-800 不接拘留区 y180-400，
+    //   几何：主走廊(1600,340,140,1250) 与 拘留区(1440,200,560,240) 在 x[1600,1740] y[340,440] 处**真重叠**（junction），
+    //   而它俩的补集把「拘留区南墙」在 x[1600,1740] 处开了个洞（主走廊穿墙上去）——**那个洞就是禁闭区的唯一入口**。
+    //   门板恰好填满这个洞：x[1600,1740] y[440,480]（=拘留区南墙缺口，厚度=墙厚）。**门宽＝走廊宽 140，放大时刻意不缩放。**
+    //   ⇒ 门锁着 ⇒ 禁闭区（囚室两件甲 + 守甲那只丧尸）**够不着**；撬开才可达。无旁路（更衣室 y560-840 不接拘留区 y200-440，
     //   拘留区只与主走廊相邻）——这条「唯一入口」由 PoliceStationTests 的可达性护栏钉死。
     //
     //   LockTier=Standard（普通锁·0.45/次·期望 ~13 秒 / ~1.2 根丝）：数值「拟定待调」。取普通档而非坚固档的理由——
@@ -868,6 +879,18 @@ public static class ExplorationWalls
 
     /// <summary>禁闭区那道锁死的门的名字（玩家可见 + 容器登记键）。</summary>
     public const string PoliceHoldingDoorName = "拘留区铁门";
+
+    /// <summary>拘留区（禁闭区）矩形——唯一有门的房。<see cref="PoliceSpotBehindHoldingDoor"/> 据此判某丧尸/点是否锁在铁门后。</summary>
+    private static readonly WallRect PoliceHoldingCell = new(1440f, 200f, 560f, 240f);
+
+    /// <summary>
+    /// [SPEC-T60·探索威胁模型] 某点是否落在拘留区内（＝锁在拘留区铁门后）。
+    /// 🔴 警察局唯一有门的房是拘留区：守着两件甲的那只丧尸是**门后特殊丧尸**（冻结、免疫视野/噪音/靠近），
+    /// **撬开拘留区铁门才唤醒**（<see cref="ZombieActivation"/>）。另 3 间无门开放侧房的丧尸是普通丧尸（靠近/视野唤醒）。
+    /// </summary>
+    public static bool PoliceSpotBehindHoldingDoor((float X, float Y) spot)
+        => spot.X >= PoliceHoldingCell.X && spot.X <= PoliceHoldingCell.Right
+        && spot.Y >= PoliceHoldingCell.Y && spot.Y <= PoliceHoldingCell.Bottom;
 
     /// <summary>禁闭区那道门的锁档 —— 普通锁（拟定待调，见上方块注释）。</summary>
     public const LockTier PoliceHoldingLockTier = LockTier.Standard;
@@ -879,12 +902,13 @@ public static class ExplorationWalls
     public static IReadOnlyList<ExplorationDoor> PoliceDoors()
     {
         const float t = PoliceWallThickness; // 40：门板厚度＝墙厚，恰好填满南墙缺口
-        // 拘留区(760,180,420,220) 底边 y=400；主走廊在此开洞 x[900,1040]。门板铺满这个洞。
+        // 拘留区(1440,200,560,240) 底边 y=440；主走廊在此开洞 x[1600,1740]。门板铺满这个洞。
+        // 🔴 门宽 140 ＝走廊宽，**放大时刻意不缩放**（同本文件医院几何先例）。
         return new[]
         {
             new ExplorationDoor(
                 PoliceHoldingDoorName,
-                new WallRect(900f, 400f, 140f, t),
+                new WallRect(1600f, 440f, 140f, t),
                 DoorState.Locked,
                 PoliceHoldingLockTier),
         };

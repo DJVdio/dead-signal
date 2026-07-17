@@ -21,11 +21,45 @@ public sealed partial class Zombie : Actor
     // 噪音侧的单测要拿它当护栏断言，故不能两处各写一个字面量（此前正是如此，连 NoiseTests 里都还硬编码着第三个 70）。
     private const float SmellSenseRadius = (float)NoiseLogic.ZombieSmellRadius;
 
-    /// <summary>丧尸嗅觉兜底半径（覆盖基类 0）。见 <see cref="SmellSenseRadius"/>。</summary>
-    protected override float SmellRadius => SmellSenseRadius;
+    /// <summary>丧尸嗅觉兜底半径（覆盖基类 0）。见 <see cref="SmellSenseRadius"/>。
+    /// [SPEC-T60] 探索期**冻结的门后特殊丧尸**嗅觉归零（对"靠近"免疫，有且仅有开门唤醒）；其余照常。</summary>
+    protected override float SmellRadius
+        => ZombieActivation.RespondsToPerception(_explorationMode, _doorLocked, _activated) ? SmellSenseRadius : 0f;
 
-    /// <summary>丧尸是 AI，听得见动静就会挪过去看看（用户拍板：「丧尸和劫掠者都听得到」）。</summary>
-    protected override bool RespondsToNoise => true;
+    /// <summary>丧尸是 AI，听得见动静就会挪过去看看（用户拍板：「丧尸和劫掠者都听得到」）。
+    /// [SPEC-T60] 探索期**冻结的门后特殊丧尸不响应噪音**（不被普通丧尸的动静连锁唤醒）；普通/已激活/营地丧尸照常。</summary>
+    protected override bool RespondsToNoise
+        => ZombieActivation.RespondsToNoise(_explorationMode, _doorLocked, _activated);
+
+    // [SPEC-T60] 探索期威胁模型（见 ZombieActivation）。营地丧尸三者恒 false ⇒ 走原昼夜 Think，零回归。
+    private bool _explorationMode; // true=本只在探索关（走感知唤醒/门后激活；false=营地丧尸，走原昼夜休眠）
+    private bool _doorLocked;      // true=门后特殊丧尸（冻结、免疫视野/噪音/靠近，仅其门被开才唤醒）
+    private bool _activated;       // 门后特殊丧尸是否已被开门唤醒（唤醒后转普通）
+
+    /// <summary>休眠/冻结偏暗色（表现只映射真实状态：站着的休眠布景）。</summary>
+    private static readonly Color DormantColor = new(0.4f, 0.5f, 0.32f);
+    /// <summary>活跃/已唤醒偏亮色。</summary>
+    private static readonly Color ActiveColor = new(0.5f, 0.68f, 0.38f);
+
+    /// <summary>
+    /// [SPEC-T60] 标记本只为**探索关丧尸**并给定类别。<paramref name="doorLocked"/>=true ⇒ 门后特殊丧尸
+    /// （冻结待其门被开）；false ⇒ 普通丧尸（视野/噪音/靠近唤醒）。两类开局都取休眠偏暗色。
+    /// </summary>
+    public void MarkExploration(bool doorLocked)
+    {
+        _explorationMode = true;
+        _doorLocked = doorLocked;
+        BodyColor = DormantColor;
+    }
+
+    /// <summary>[SPEC-T60] 唤醒（门后特殊丧尸的门被开、或普通丧尸感知/听见玩家时调用）：转入活跃、变亮色。幂等。</summary>
+    public void Activate()
+    {
+        if (_activated)
+            return;
+        _activated = true;
+        BodyColor = ActiveColor;
+    }
 
     private Rect2 _wanderBounds;
     private Func<IEnumerable<Actor>>? _survivorProvider;
@@ -111,6 +145,18 @@ public sealed partial class Zombie : Actor
 
     protected override void Think(double delta)
     {
+        // [SPEC-T60] 探索关走威胁模型（普通丧尸感知唤醒 / 门后特殊丧尸开门激活）；营地丧尸走原昼夜休眠（零回归）。
+        if (_explorationMode)
+        {
+            ThinkExploration(delta);
+            return;
+        }
+        ThinkCamp(delta);
+    }
+
+    /// <summary>营地丧尸（含袭营）：白天原地休眠、夜晚游荡+感知追击。<b>本方法一字未改行为</b>（探索轴不接管此路）。</summary>
+    private void ThinkCamp(double delta)
+    {
         bool night = Clock.IsNight;
 
         // 昼夜切换的边沿处理。
@@ -121,11 +167,11 @@ public sealed partial class Zombie : Actor
             {
                 // 入昼：休眠，站住不动。
                 CancelOrders();
-                BodyColor = new Color(0.4f, 0.5f, 0.32f); // 休眠偏暗（ActorSprite 每帧取 BodyTint 自动跟随）
+                BodyColor = DormantColor; // 休眠偏暗（ActorSprite 每帧取 BodyTint 自动跟随）
             }
             else
             {
-                BodyColor = new Color(0.5f, 0.68f, 0.38f); // 夜间活跃偏亮
+                BodyColor = ActiveColor; // 夜间活跃偏亮
             }
         }
 
@@ -153,7 +199,59 @@ public sealed partial class Zombie : Actor
             return;
         }
 
-        // 无目标：游荡（含丢失视野后走向最后目击点的一次侦查 move——由 UpdatePerception 下达，到点/超时后此处恢复随机游荡）。
+        WanderStep(delta);
+    }
+
+    /// <summary>
+    /// [SPEC-T60] 探索关丧尸（探索期恒为白天 DayExplore）：
+    ///   · **门后特殊丧尸**门未开 ⇒ 完全冻结（免疫视野/噪音/靠近），站着不动。
+    ///   · **普通丧尸**休眠时也扫描（视野锥/嗅觉），感知到玩家即唤醒（转入追击）；未感知到则站桩不游荡（保住 authored 站位）。
+    ///   · **已唤醒**（普通感知到 / 门后被开门激活）：有目标则交基类逼近+攻击，无目标则游荡（含丢失视野后侦查）。
+    /// </summary>
+    private void ThinkExploration(double delta)
+    {
+        // 门后特殊丧尸：门未开 ⇒ 冻结。表现＝休眠偏暗（MarkExploration 已置），站住不动。
+        if (ZombieActivation.IsFrozen(_doorLocked, _activated))
+        {
+            return;
+        }
+
+        // 感知：普通丧尸休眠期也扫描；已激活者刷新/丢失目标。（冻结的门后特殊丧尸走不到这里。）
+        if (PerceptionDue(delta))
+        {
+            UpdatePerception(_survivorProvider?.Invoke() ?? Array.Empty<Actor>(), BaseSightRange);
+        }
+
+        // 普通丧尸一旦靠视野/靠近感知到玩家 ⇒ 唤醒（转入追击、变亮色）。
+        if (!_activated && CurrentAttackTarget is { Alive: true })
+        {
+            Activate();
+        }
+
+        // 仍未唤醒的普通丧尸：站桩继续扫描、不游荡（保住"各藏一房"/authored 站位；表现仍是休眠布景）。
+        if (!_activated)
+        {
+            return;
+        }
+
+        // 破防（探索关未注入 BreachController ⇒ 恒 no-op，harmless）。
+        if (_breach != null && _breach.TryBreach(this, delta, CurrentAttackTarget?.GlobalPosition))
+        {
+            return;
+        }
+
+        // 已唤醒：有目标交基类逼近+攻击，无目标游荡。
+        if (CurrentAttackTarget is { Alive: true })
+        {
+            return;
+        }
+
+        WanderStep(delta);
+    }
+
+    /// <summary>无目标时的随机游荡（含丢失视野后走向最后目击点的一次侦查 move，到点/超时后恢复随机游荡）。</summary>
+    private void WanderStep(double delta)
+    {
         _wanderTimer -= delta;
         if (!HasMoveOrder || _wanderTimer <= 0)
         {
@@ -163,5 +261,19 @@ public sealed partial class Zombie : Actor
                 _rng.RandfRange(_wanderBounds.Position.Y, _wanderBounds.End.Y));
             CommandMoveTo(p);
         }
+    }
+
+    /// <summary>
+    /// [SPEC-T60] 听见噪音：探索期**普通丧尸**据此唤醒（并循基类走过去侦查）——"根据噪音唤醒"。
+    /// 冻结的门后特殊丧尸 <see cref="RespondsToNoise"/>=false ⇒ <c>EmitNoiseAt</c> 已挡、根本走不到这里（免疫噪音）。
+    /// 营地丧尸（非探索）行为不变。
+    /// </summary>
+    protected override void HearNoise(Vector2 pos)
+    {
+        if (_explorationMode && !_activated)
+        {
+            Activate();
+        }
+        base.HearNoise(pos);
     }
 }

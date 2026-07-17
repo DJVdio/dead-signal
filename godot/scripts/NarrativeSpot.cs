@@ -524,7 +524,7 @@ public static class NarrativeSpotRegistry
         {
             Id = StuartManor.GateHangedSpotId,
             Destination = StuartManor.DestinationName,
-            X = 700f, Y = 1300f,           // 大门内侧（入口就在南边——**一进关就撞见**；避开门前板车搜刮点 900,1350）
+            X = 850f, Y = 1850f,           // 大门内侧（放大 3200×2200 后：入口在南缘，Y>LevelH*0.75=1650 一进关就撞见；避开门前板车搜刮点 1000,1780）
             Trigger = NarrativeTrigger.Proximity,
             Label = "门口",
             Title = "门口的横梁",
@@ -544,7 +544,7 @@ public static class NarrativeSpotRegistry
         {
             Id = StuartManor.TakenInSpotId,
             Destination = StuartManor.DestinationName,
-            X = 900f, Y = 620f,            // 主屋堂屋（避开堂屋碗柜 1080,700 / 灶间 640,760）
+            X = 1150f, Y = 1050f,          // 主屋堂屋（放大后：避开堂屋碗柜 1250,980 / 灶间 950,1080）
             Trigger = NarrativeTrigger.Click,   // 翻看地铺——Click 意图，渲染暂 Proximity（见关卡层 [HANDOFF]）
             Label = "地铺",
             Title = "堂屋里多出来的地铺",
@@ -567,7 +567,7 @@ public static class NarrativeSpotRegistry
         {
             Id = StuartManor.InnerRoomSpotId,
             Destination = StuartManor.DestinationName,
-            X = 1000f, Y = 440f,           // 主屋里屋（避开卧室衣柜 860,470 / 储藏间 1200,560）
+            X = 1000f, Y = 780f,           // 主屋里屋（放大后：主屋更深处，避开卧室衣柜 980,850 / 储藏间 1350,880）
             Trigger = NarrativeTrigger.Proximity,
             Label = "里屋",
             Title = "里屋",
@@ -588,7 +588,7 @@ public static class NarrativeSpotRegistry
         {
             Id = StuartManor.DryWellSpotId,
             Destination = StuartManor.DestinationName,
-            X = 2050f, Y = 330f,           // 后院枯井（避开菜窖搜刮点 2020,600；后院最深处）
+            X = 2300f, Y = 680f,           // 后院枯井（放大后：后院最深处 NE，避开菜窖搜刮点 2200,950）
             Trigger = NarrativeTrigger.Proximity,
             Label = "枯井",
             Title = "后院的枯井",
@@ -708,7 +708,8 @@ public static class NarrativeSpotRegistry
         {
             Id = RuinedChurchConfessionSpotId,
             Destination = RuinedChurch.DestinationName,
-            X = 500f, Y = 1340f,           // 门厅·西侧告解亭内（封闭小间：不迈进去，你不知道里头有什么）
+            X = 600f, Y = 1860f,           // 门厅·西侧告解亭内（封闭小间：不迈进去，你不知道里头有什么）
+                                           // [Phase2] 随教堂放大到 3200×2200 重排坐标（仍在西侧告解亭内）；**正文一字未动**。
             Trigger = NarrativeTrigger.Proximity,
             Label = "告解亭",
             Title = "告解亭里的本子",
@@ -730,7 +731,8 @@ public static class NarrativeSpotRegistry
         {
             Id = RuinedChurchBloodWallSpotId,
             Destination = RuinedChurch.DestinationName,
-            X = 350f, Y = 1120f,           // 中殿·西侧廊（长椅切出来的窄廊：你是挤进来才看见它的）
+            X = 448f, Y = 1540f,           // 中殿·西侧廊（长椅切出来的窄廊：你是挤进来才看见它的）
+                                           // [Phase2] 随教堂放大重排（侧廊净宽 64 不缩放 ⇒ 仍是"挤进来才看见"）；**正文一字未动**。
             Trigger = NarrativeTrigger.Proximity,
             Label = "侧廊的墙",
             Title = "侧廊墙上的字",
@@ -755,7 +757,7 @@ public static class NarrativeSpotRegistry
         {
             Id = "narrative_refugee_notice_wall",
             Destination = RefugeeCamp.DestinationName,
-            X = 720f, Y = 300f,            // 14 号房（北排·最深；该房无搜刮点、无伏击丧尸）
+            X = 900f, Y = 330f,            // 14 号房（北排·最深；该房无搜刮点、无伏击丧尸）·随 Phase2 放大重排
             Trigger = NarrativeTrigger.Proximity,
             Label = "字条墙",
             Title = "贴满字条的那面墙",
@@ -775,7 +777,7 @@ public static class NarrativeSpotRegistry
         {
             Id = "narrative_refugee_last_room",
             Destination = RefugeeCamp.DestinationName,
-            X = 1976f, Y = 300f,           // 18 号房（北排·东端，排屋的尽头；该房无搜刮点、无伏击丧尸）
+            X = 2700f, Y = 340f,           // 18 号房（北排·东端，排屋的尽头；该房无搜刮点、无伏击丧尸）·随 Phase2 放大重排
             Trigger = NarrativeTrigger.Proximity,
             Label = "尽头那间",
             Title = "排屋尽头的那一间",

@@ -15,17 +15,23 @@ public sealed partial class TestExploration
     /// </summary>
     private void SetupNightingalePharmacy()
     {
-        // —— 小店面（临街）+ 后屋药房（暗间）+ 阁楼：小而有层次 ——
-        // 小店面须开**两处**门洞：南＝临街外门，北＝通后屋药房。后屋药房的南门正对小店面的北墙，
-        // 墙实体化后若北墙不开洞，后屋药房就三面实心 + 一门顶死＝玩家永远进不去（既有布局的通行性缺陷）。
-        AddRoomOutline(new Rect2(900, 700, 500, 340), new Color(0.30f, 0.32f, 0.34f, 0.95f), "南丁格尔的小药店", RoomEdge.Bottom, RoomEdge.Top);
-        AddRoomOutline(new Rect2(1000, 480, 320, 220), new Color(0.26f, 0.28f, 0.30f, 0.95f), "后屋药房", RoomEdge.Bottom);
-        AddRoomOutline(new Rect2(1440, 500, 240, 200), new Color(0.24f, 0.25f, 0.27f, 0.95f), "阁楼", RoomEdge.Left);
+        // [小图适度放大] 画布 2800×1900（<see cref="ExplorationLevelSize"/>）。身份＝小店铺面 + 后屋药房 + 库房 + 阁楼，小而有层次。
+        //   放大后铺开四间：临街店面(近) → 后屋药房(深) → 东侧库房(中) → 阁楼(最深)。危险度仍走默认散布（不动其设定）。
+        // —— 临街街面占位地台（纯视觉，示意店门临街）——
+        AddZonePad(new Vector2(0, 1560), new Vector2(2800, 340), new Color(0.22f, 0.22f, 0.24f, 0.5f));
 
-        // 柜台（纯视觉占位）：护士就守在它后头。
+        // —— 小店面（临街）+ 后屋药房（暗间）+ 东侧库房 + 阁楼 ——
+        // 小店面须开**两处**门洞：南＝临街外门，北＝通后屋药房。后屋药房的南门正对小店面的北墙，
+        // 墙实体化后若北墙不开洞，后屋药房就三面实心 + 一门顶死＝玩家永远进不去（既有布局的通行性缺陷，见类注）。
+        AddRoomOutline(new Rect2(900, 1100, 620, 420), new Color(0.30f, 0.32f, 0.34f, 0.95f), "南丁格尔的小药店", RoomEdge.Bottom, RoomEdge.Top);
+        AddRoomOutline(new Rect2(980, 760, 360, 300), new Color(0.26f, 0.28f, 0.30f, 0.95f), "后屋药房", RoomEdge.Bottom);
+        AddRoomOutline(new Rect2(1560, 1080, 380, 340), new Color(0.27f, 0.26f, 0.24f, 0.95f), "库房", RoomEdge.Left);
+        AddRoomOutline(new Rect2(1420, 700, 280, 240), new Color(0.24f, 0.25f, 0.27f, 0.95f), "阁楼", RoomEdge.Bottom);
+
+        // 柜台（纯视觉占位）：护士就守在它后头（店面内）。
         AddChild(new Polygon2D
         {
-            Polygon = Quad(new Vector2(980, 820), new Vector2(320, 24)),
+            Polygon = Quad(new Vector2(980, 1360), new Vector2(360, 24)),
             Color = new Color(0.35f, 0.30f, 0.24f, 0.95f),
             ZIndex = 5,
         });
@@ -33,20 +39,20 @@ public sealed partial class TestExploration
         // —— 护士相遇招募点（柜台后，NPC 非物资；踏入弹招募对话）——
         AddDiscoveryPoint(
             NurseRecruit.MeetDiscoveryId,
-            new Vector2(1150, 850),
+            new Vector2(1150, 1450),
             markerColor: new Color(0.40f, 0.72f, 0.66f), // 青绿＝友方 NPC，与褐色搜刮点区分
             label: "护士");
 
-        // —— 5 物资搜刮点：小店面(近) → 后屋药房(深) → 阁楼(最深)。量薄（小药店） ——
-        AddDiscoveryPoint(ExplorationCache.PharmacyCounterId, new Vector2(1000, 950),
+        // —— 5 物资搜刮点：店面(近) → 后屋药房(深) → 库房(中) → 阁楼(最深)。量薄（小药店） ——
+        AddDiscoveryPoint(ExplorationCache.PharmacyCounterId, new Vector2(1050, 1400),
             markerColor: new Color(0.55f, 0.5f, 0.42f), label: "收银台");
-        AddDiscoveryPoint(ExplorationCache.PharmacyShelfId, new Vector2(1330, 950),
+        AddDiscoveryPoint(ExplorationCache.PharmacyShelfId, new Vector2(1720, 1240),
             markerColor: new Color(0.55f, 0.5f, 0.42f), label: "货架");
-        AddDiscoveryPoint(ExplorationCache.PharmacyDispensaryId, new Vector2(1080, 560),
+        AddDiscoveryPoint(ExplorationCache.PharmacyDispensaryId, new Vector2(1080, 900),
             markerColor: new Color(0.5f, 0.46f, 0.38f), label: "处方柜");
-        AddDiscoveryPoint(ExplorationCache.PharmacyColdBoxId, new Vector2(1240, 560),
+        AddDiscoveryPoint(ExplorationCache.PharmacyColdBoxId, new Vector2(1250, 900),
             markerColor: new Color(0.5f, 0.46f, 0.38f), label: "冷藏箱");
-        AddDiscoveryPoint(ExplorationCache.PharmacyAtticId, new Vector2(1560, 590),
+        AddDiscoveryPoint(ExplorationCache.PharmacyAtticId, new Vector2(1560, 820),
             markerColor: new Color(0.5f, 0.44f, 0.36f), label: "阁楼杂物");
     }
 }

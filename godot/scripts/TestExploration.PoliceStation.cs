@@ -22,8 +22,9 @@ public sealed partial class TestExploration
     private void SetupPoliceStation()
     {
         // 地台（纯视觉）：室内水泥灰。禁闭区那一片压一层冷蓝——最深、也是两件甲所在。
-        AddZonePad(new Vector2(280, 160), new Vector2(1180, 1320), new Color(0.24f, 0.25f, 0.27f, 0.55f));
-        AddZonePad(new Vector2(740, 160), new Vector2(460, 260), new Color(0.20f, 0.24f, 0.30f, 0.55f)); // 禁闭区
+        // [SPEC-T60·Phase2] 随画布 2800×1900 重排：铺满放大后的建筑 bbox（房间 x[300,2340] y[200,1740] + 20 边距）。
+        AddZonePad(new Vector2(280, 180), new Vector2(2080, 1580), new Color(0.24f, 0.25f, 0.27f, 0.55f));
+        AddZonePad(new Vector2(1420, 180), new Vector2(600, 280), new Color(0.20f, 0.24f, 0.30f, 0.55f)); // 禁闭区
 
         // ——墙：由可行走矩形的**补集**自动推出（ExplorationWalls.PoliceWalls）⇒ 房间与墙不可能对不上。
         //   同一批矩形三用：碰撞（挡人）/ 导航 obstruction（阻断寻路）/ 墙层射线（**挡视线** —— 多拐角的盲区就是靠它成立的）。

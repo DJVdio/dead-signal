@@ -20,19 +20,30 @@ namespace DeadSignal.Combat.Tests;
 ///     ⚠️ 这条常量（<c>VisionLogic.IndoorsDarkAmbient</c>）写好很久了，却<b>从来没有任何一关用过</b>。这是第一次。
 ///   · <b>过道狭窄</b> ⇒ 门 48px &lt; 2×丧尸直径(26) ⇒ <b>门口一次只过得来一只</b>
 ///     ⇒ 卡门口＝把围攻打成 1v1（胜率 82.6% vs 2 只围攻的 16.6%）。<b>「窄」是玩家的朋友。</b>
-///   · <b>开门跳脸</b> ⇒ 门＝墙层 ⇒ 挡视线 ⇒ 门关着时可见数 <b>0</b>；门一开，它已在 ≤90px。
+///   · <b>开门跳脸</b> ⇒ 门＝墙层 ⇒ 挡视线 ⇒ 门关着时可见数 <b>0</b>；<b>门一开，锁在里面那只当场醒过来扑上来</b>
+///     （<see cref="ZombieActivation"/> 的门后特殊丧尸，一门唤醒一只）。
+/// </para>
+/// <para>
+/// ⚠️ <b>[SPEC-T60·Phase2] 已放大到中档 3200×2200。</b>跳脸曾经靠"丧尸贴在门后 ≤90px（&lt; 暗视距 124）"这条
+/// <b>固定像素</b>撑着——那正是用户不满的"门卡住丧尸"，也正是它把这一关钉死在 2400×1600。Phase1 把触发改成
+/// <b>绑门实体</b>后与尺度无关 ⇒ 约束解绑 ⇒ 房间放得大了。<b>门宽 48／过道宽 72 刻意不缩放</b>：卡门口打 1v1
+/// 的战术漏斗仍然有效且要保住。
 /// </para>
 /// </summary>
 public class RefugeeCampTests
 {
-    private static readonly WallRect Level = new(0f, 0f, 2400f, 1600f);
-    private static readonly (float X, float Y) ReturnZone = (1200f, 1500f);
+    /// <summary>
+    /// 关卡画布＝<see cref="ExplorationLevelSize"/> 的登记值（**唯一事实源**，不再在测试里抄一份字面量）。
+    /// Phase2 放大后＝中档 3200×2200；改档位只动 <c>ExplorationLevelSize.Overrides</c> 那一行，这里自动跟。
+    /// </summary>
+    private static readonly (float W, float H) Canvas = ExplorationLevelSize.SizeFor(RefugeeCamp.DestinationName);
+    private static readonly WallRect Level = new(0f, 0f, Canvas.W, Canvas.H);
 
-    /// <summary>丧尸碰撞直径（<c>Zombie.cs</c>：Radius = 13f）。<b>这一关所有"过得来几只"的话都压在这个数上。</b></summary>
+    /// <summary>返回区中心（与运行时 <c>TestExploration.SetupReturnZone</c> 的默认落点同源：画布正下方居中）。</summary>
+    private static readonly (float X, float Y) ReturnZone = (Canvas.W / 2f, Canvas.H - 80f);
+
+    /// <summary>丧尸碰撞直径（<c>Zombie.cs</c>：Radius = 13f）。过道能并排几只仍看它。</summary>
     private const float ZombieDiameter = 26f;
-
-    /// <summary>丧尸的攻击距离（<c>Zombie.cs</c>：AttackRange 24 + 双方半径 13+13）。</summary>
-    private const float ZombieReach = 50f;
 
     private static List<WallRect> WallsWithAllDoorsClosed()
         => LevelReachability.WithDoorsClosed(RefugeeCamp.Walls(), RefugeeCamp.Doors());
@@ -65,8 +76,9 @@ public class RefugeeCampTests
     }
 
     /// <summary>
-    /// 🔴 <b>「视野受限」是算出来的：你的视野只剩一个约 124px 的窄锥，而一条过道有 1000px 长。</b>
+    /// 🔴 <b>「视野受限」是算出来的：你的视野只剩一个约 124px 的窄锥，而一条过道有 1600px 长。</b>
     /// ⇒ <b>你看不见过道的另一头，更看不见门后有什么。</b>
+    /// <para>Phase2 放大后竖脊 1248 → <b>1664</b>，这条只更狠、不更松（脊长取自几何，不再抄字面量）。</para>
     /// </summary>
     [Fact]
     public void InTheDark_YourSightIsAHundredAndTwentyPixels_AndACorridorIsTenTimesThat()
@@ -78,9 +90,9 @@ public class RefugeeCampTests
         Assert.InRange(dark.HalfAngleDeg, 30f, 36f);     // ≈33°
         Assert.True(dark.Range < day.Range * 0.5f, "恒暗关的视距应当不到白天的一半，否则「昏暗」没有代价。");
 
-        // 竖脊过道长逾 1200px ⇒ 视距连它的 1/8 都不到。
-        const float spineLength = 1248f;
-        Assert.True(dark.Range * 8f < spineLength,
+        // 竖脊过道长逾 1600px ⇒ 视距连它的 1/13 都不到。
+        Assert.Equal(1664f, RefugeeCamp.SpineLength);
+        Assert.True(dark.Range * 8f < RefugeeCamp.SpineLength,
             "视距相对过道长度不够小 —— 玩家能一眼望穿整条过道，「视野受限」就没了。");
     }
 
@@ -119,19 +131,17 @@ public class RefugeeCampTests
     // ══════════════════════ 🔴 「过道狭窄」——这是玩家的朋友，不是难度旋钮 ══════════════════════
 
     /// <summary>
-    /// 🔴 <b>门口一次只过得来一只丧尸 ⇒ 卡门口＝把围攻打成 1v1。</b>
+    /// 🔴 <b>门宽不再是"卡住丧尸"的物理机制（用户口径：不该门卡住丧尸，而是开门激活门后丧尸）。</b>
+    /// 门只需**过得去人**（&gt; 2×导航体半径，否则寻路判此路不通、门成墙）；威胁来自"推开门＝唤醒门后那只"，
+    /// 不再靠 48&lt;52 的像素卡位。
     /// <para>
-    /// <c>docs/research/2026-07-14-lanchester.md</c>：丧尸与幸存者<b>零碰撞</b>，旷野几何上能围 <b>16 只</b>；
-    /// 而围攻是<b>断崖不是斜坡</b>——1 只＝胜率 <b>82.6%</b>，2 只＝<b>16.6%</b>，3 只＝<b>0.8%</b>，4 只起＝<b>0%</b>。
-    /// ⇒ 门宽 48 &lt; 2×26＝52 ⇒ <b>门口塞不下第二只</b> ⇒ 这是这一关唯一正确的战术，而且**几何上有保证**。
+    /// 这条<b>去掉了旧的"门宽 &lt; 2×丧尸直径"物理 bottleneck 依赖</b>——它正是用户不满的"门卡住丧尸"，
+    /// 也正是它把这关钉死在固定像素上、放不大（Phase2 放大靠 <see cref="ZombieActivation"/> 的开门触发解绑此约束）。
     /// </para>
-    /// 下限则是导航体：48 &gt; 2×14＝28 ⇒ 人过得去（否则寻路判此路不通，门就成了墙）。
     /// </summary>
     [Fact]
-    public void TheDoorwayIsAChokepoint_ExactlyOneZombieAtATime()
+    public void TheDoorwayOnlyNeedsToBeWalkable_NotAPhysicalChokepoint()
     {
-        Assert.True(RefugeeCamp.DoorwayWidth < 2f * ZombieDiameter,
-            $"门宽 {RefugeeCamp.DoorwayWidth} ≥ 两只丧尸并排（{2f * ZombieDiameter}）—— 卡门口失效，围攻回到 16.6% 的死局。");
         Assert.True(RefugeeCamp.DoorwayWidth > 2f * ExplorationWalls.NavAgentRadius,
             "门太窄，导航体过不去 —— 门成了墙。");
     }
@@ -179,37 +189,35 @@ public class RefugeeCampTests
     }
 
     /// <summary>
-    /// 🔴 <b>门一开，它已经在你脸上。</b>
-    /// 每只伏击丧尸都在 ≤<see cref="RefugeeCamp.AmbushDistance"/>（90px）之内 ——
-    /// 比暗视距（124px）近 ⇒ <b>门一开它当场就在你视野里</b>；
-    /// 比它自己的攻击距离（50px）只远 40px ⇒ <b>它一步就够着你</b>。这就是"跳脸"。
+    /// 🔴 <b>"开门跳脸"重定义（用户口径）：不靠"丧尸贴在门后 ≤90px"，靠"推开这扇房门＝唤醒锁在里面那只"。</b>
+    /// 每只伏击丧尸是**门后特殊丧尸**（<see cref="ZombieActivation"/>）：门未开时**完全冻结**——免疫视野/噪音/靠近
+    /// （你贴在关着的门外它也不动、也不闻你），有且仅有**推开它那扇房门**才唤醒它、转普通扑上来。**一门唤醒一只**。
+    /// <para>
+    /// 这条<b>去掉了旧的"跳脸距离 90 &lt; 暗视距 124"像素约束</b>——威胁绑门实体、与尺度无关，Phase2 才能把房间放大。
+    /// </para>
     /// </summary>
     [Fact]
-    public void TheInstantTheDoorOpens_ItIsAlreadyInYourFace()
+    public void OpeningARoomDoor_WakesThatRoomsFrozenAmbusher_AndOnlyThatOne()
     {
-        VisionLogic.VisionCone cone = DarkCone();
-        Assert.True(RefugeeCamp.AmbushDistance < cone.Range,
-            "跳脸距离比暗视距还远 —— 门开了你还是看不见它，那就不是跳脸，是慢慢摸。");
-        Assert.True(RefugeeCamp.AmbushDistance > ZombieReach,
-            "跳脸距离比丧尸的攻击距离还近 —— 那是开门即挨打，不是跳脸。");
+        // 门未开：伏击丧尸是冻结的门后特殊丧尸（对视野/噪音/靠近全免疫）。
+        Assert.True(ZombieActivation.IsFrozen(doorLocked: true, activated: false));
+        Assert.False(ZombieActivation.RespondsToPerception(explorationMode: true, doorLocked: true, activated: false));
+        Assert.False(ZombieActivation.RespondsToNoise(explorationMode: true, doorLocked: true, activated: false));
 
         foreach (AmbushZombie a in RefugeeCamp.AmbushZombies)
         {
-            RefugeeRoom room = RefugeeCamp.Room(a.RoomNumber);
-            (float X, float Y) eye = RefugeeCamp.OutsideDoorPoint(room);
-            (float X, float Y) f = RefugeeCamp.FacingIntoRoom(room);
-
-            float d = MathF.Sqrt((a.X - eye.X) * (a.X - eye.X) + (a.Y - eye.Y) * (a.Y - eye.Y));
-            Assert.True(d <= RefugeeCamp.AmbushDistance,
-                $"{a.RoomNumber} 号房的丧尸离门 {d:F0}px（上限 {RefugeeCamp.AmbushDistance}）—— 太远，跳不了脸。");
-
-            // 门开了（门板不在障碍里）⇒ 它当场进锥
-            List<WallRect> opened = LevelReachability.WithOneDoorOpen(
-                RefugeeCamp.Walls(), RefugeeCamp.Doors(), room.DoorName);
-            bool occluded = ExplorationWalls.SegmentHitsAnyWall(opened, eye.X, eye.Y, a.X, a.Y);
-            Assert.True(VisionLogic.CanSee(V(eye), V(f), V((a.X, a.Y)), cone, occluded),
-                $"{a.RoomNumber} 号房：门推开了，那只丧尸却还是不在你的视野锥里。");
+            string myDoor = RefugeeCamp.WakeDoorFor(a);
+            Assert.Equal(RefugeeCamp.DoorNameOf(a.RoomNumber), myDoor);   // 唤醒门＝它那间房的门
+            // 推开自己那扇房门 ⇒ 唤醒它；推开别人的房门 ⇒ 不唤醒它。
+            Assert.True(ZombieActivation.DoorOpenActivates(new[] { myDoor }, myDoor, activated: false));
+            int other = a.RoomNumber == 1 ? 2 : 1;
+            Assert.False(ZombieActivation.DoorOpenActivates(new[] { myDoor }, RefugeeCamp.DoorNameOf(other), activated: false));
         }
+
+        // 一门唤醒一只：房号互不相同 ⇒ 唤醒门互不相同（拓扑一一对应）。
+        Assert.Equal(
+            RefugeeCamp.AmbushZombies.Count,
+            RefugeeCamp.AmbushZombies.Select(a => RefugeeCamp.WakeDoorFor(a)).Distinct().Count());
     }
 
     /// <summary>
@@ -308,6 +316,56 @@ public class RefugeeCampTests
 
     // ══════════════════════ 几何硬不变量 ══════════════════════
 
+    /// <summary>
+    /// 🔴 <b>[SPEC-T60·Phase2] 难民营地放大到中档 3200×2200（≈3天探索量级，数值拟定待调）。</b>
+    /// <para>
+    /// 这一关此前被<b>固定像素</b>钉死在 2400×1600：跳脸要求"丧尸贴在门后 ≤90px"、而暗视距只有 124px
+    /// ⇒ 房间不能大过这几十像素的窗口。Phase1 把威胁改成<b>绑门实体的开门唤醒</b>（<see cref="ZombieActivation"/>）后，
+    /// 触发<b>与尺度无关</b> ⇒ 像素约束解绑 ⇒ 房间可以任意大。<b>这才是这一关能放大的唯一理由。</b>
+    /// </para>
+    /// <para>
+    /// 🔴 <b>门宽 48 / 过道宽 72 刻意不缩放</b>（同 <c>ExplorationWalls.cs:231</c> 医院先例）：
+    /// 门口一次只过得来一只的**战术漏斗仍然有效且要保住**——它不再是"跳脸"的承载物，但它仍是玩家的正解。
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void Phase2_TheCampWasEnlargedToTheMidTier_AndTheDoorwayWasNot()
+    {
+        Assert.Equal(3200f, Canvas.W);
+        Assert.Equal(2200f, Canvas.H);
+
+        // 门宽/过道宽是**不缩放**的：放大的是纵深，不是漏斗。
+        Assert.Equal(48f, RefugeeCamp.DoorwayWidth);
+        Assert.Equal(72f, RefugeeCamp.CorridorWidth);
+        Assert.True(RefugeeCamp.DoorwayWidth < 2f * ZombieDiameter,
+            "门宽放大到能并排两只 ⇒ 卡门口的 1v1 保证没了 —— 战术漏斗是要保住的，不是要拆的。");
+
+        // 竖脊仍正对营门；西侧豁口仍正对北横道（放大后两个入口的对位关系不变）。
+        Assert.Equal(RefugeeCamp.SpineLeft + RefugeeCamp.CorridorWidth / 2f, RefugeeCamp.GateX);
+        Assert.Equal(RefugeeCamp.CorridorNorthY + RefugeeCamp.CorridorWidth / 2f, RefugeeCamp.WestBreachY);
+        Assert.Equal(RefugeeCamp.CorridorWidth, RefugeeCamp.SpineRight - RefugeeCamp.SpineLeft);
+
+        // 整片营区（含外墙）落在画布内，且没有贴边（返回区要在营门正南的空地上）。
+        WallRect interior = RefugeeCamp.Interior;
+        Assert.All(RefugeeCamp.Walls(), w =>
+        {
+            Assert.InRange(w.X, 0f, Canvas.W);
+            Assert.InRange(w.Right, 0f, Canvas.W);
+            Assert.InRange(w.Y, 0f, Canvas.H);
+            Assert.InRange(w.Bottom, 0f, Canvas.H);
+        });
+        Assert.True(interior.Bottom < ReturnZone.Y, "营区压到返回区上了 —— 出口会被砌进排屋里。");
+
+        // 三排 × 六列的房间全在 Interior 里（Interior 是给视觉地台用的**同一个**事实源，不许两头对数）。
+        Assert.All(RefugeeCamp.Rooms, r =>
+        {
+            Assert.InRange(r.Rect.X, interior.X, interior.Right);
+            Assert.InRange(r.Rect.Right, interior.X, interior.Right);
+            Assert.InRange(r.Rect.Y, interior.Y, interior.Bottom);
+            Assert.InRange(r.Rect.Bottom, interior.Y, interior.Bottom);
+        });
+    }
+
     /// <summary>「大量的小房间」＋每间<b>恰好一扇门</b>（房间是死胡同 —— 这正是"卡门口"成立的前提）。</summary>
     [Fact]
     public void EighteenRooms_EachWithExactlyOneDoor()
@@ -335,9 +393,9 @@ public class RefugeeCampTests
         (float X, float Y)[] inCorridors =
         {
             RefugeeCamp.GatePoint,                                             // 营门内侧
-            (620f, RefugeeCamp.CorridorNorthY + RefugeeCamp.CorridorWidth / 2f), // 北横道
-            (1900f, RefugeeCamp.CorridorSouthY + RefugeeCamp.CorridorWidth / 2f),// 南横道
-            (1200f, 320f),                                                     // 竖脊·最深
+            (700f, RefugeeCamp.CorridorNorthY + RefugeeCamp.CorridorWidth / 2f), // 北横道
+            (2500f, RefugeeCamp.CorridorSouthY + RefugeeCamp.CorridorWidth / 2f),// 南横道
+            (RefugeeCamp.GateX, 420f),                                         // 竖脊·最深
         };
         foreach ((float X, float Y) p in inCorridors)
         {

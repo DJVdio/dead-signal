@@ -31,8 +31,8 @@ public sealed partial class TestExploration
     private Vector2 StuartGate => new(
         (float)(StuartManor.Entrance.X * LevelW), (float)(StuartManor.Entrance.Y * LevelH));
 
-    /// <summary>门口吊尸的位置（叙事点锚点；丧尸就聚在这一小片）。与 <c>NarrativeSpotRegistry</c> 里那处 (700,1300) 一致。</summary>
-    private static readonly Vector2 StuartGallows = new(700f, 1300f);
+    /// <summary>门口吊尸的位置（叙事点锚点；丧尸就聚在这一小片）。放大 3200×2200 后与 <c>NarrativeSpotRegistry</c> 里那处 (850,1850) 一致。</summary>
+    private static readonly Vector2 StuartGallows = new(850f, 1850f);
 
     /// <summary>
     /// [SPEC-T51] 斯图尔特家族庄园：一座被劫掠者盘踞的<b>穷农庄</b>。
@@ -42,20 +42,23 @@ public sealed partial class TestExploration
     /// </summary>
     private void SetupStuartManor()
     {
-        // 分区占位地台（纯视觉）：前院/晒场(南)、谷仓/畜栏(东中)、主屋(西北)、后院(东北·枯井)。
-        AddZonePad(new Vector2(420, 1080), new Vector2(1160, 400), new Color(0.26f, 0.24f, 0.18f, 0.55f)); // 前院/晒谷场（土黄）
-        AddZonePad(new Vector2(1380, 840), new Vector2(560, 380), new Color(0.24f, 0.21f, 0.16f, 0.58f));  // 谷仓/畜栏
-        AddZonePad(new Vector2(1780, 220), new Vector2(500, 520), new Color(0.20f, 0.22f, 0.19f, 0.55f));  // 后院（枯井在此）
+        // 🔴 放大到 3200×2200（中·高危）：庄园防御核心（劫掠者/哨位）因噪音几何逆缩放仍是一块紧凑区域
+        //    （见 StuartManor.Posts 注释），放大出来的空间＝周围田地/院外进路——更多步行、更多潜行绕哨的空间。
+        //    地形/点位随缩放后的哨位铺开（主屋≈1040,940 / 谷仓≈1700,1400 / 后院枯井≈2200,800 / 大门≈920,1676）。
+        //    分区占位地台（纯视觉）：前院/晒场(南)、谷仓/畜栏(东中)、主屋(中西)、后院(东北·枯井)。
+        AddZonePad(new Vector2(650, 1400), new Vector2(1100, 500), new Color(0.26f, 0.24f, 0.18f, 0.55f)); // 前院/晒谷场（土黄）
+        AddZonePad(new Vector2(1500, 1240), new Vector2(620, 440), new Color(0.24f, 0.21f, 0.16f, 0.58f));  // 谷仓/畜栏
+        AddZonePad(new Vector2(2050, 580), new Vector2(560, 520), new Color(0.20f, 0.22f, 0.19f, 0.55f));   // 后院（枯井在此）
 
         // 主屋（含**里屋**——那扇从外头钉了闩的门在最里头）：占位墙体，南墙留门。
-        AddRoomOutline(new Rect2(560, 380, 720, 440), new Color(0.34f, 0.30f, 0.24f, 0.95f), "主屋", RoomEdge.Bottom);
-        AddRoomOutline(new Rect2(920, 380, 300, 180), new Color(0.28f, 0.25f, 0.21f, 0.95f), "里屋", RoomEdge.Bottom);
+        AddRoomOutline(new Rect2(820, 720, 760, 520), new Color(0.34f, 0.30f, 0.24f, 0.95f), "主屋", RoomEdge.Bottom);
+        AddRoomOutline(new Rect2(900, 720, 320, 200), new Color(0.28f, 0.25f, 0.21f, 0.95f), "里屋", RoomEdge.Bottom);
         // 谷仓：占位墙体，西墙留门（从晒场那侧进）。
-        AddRoomOutline(new Rect2(1440, 880, 420, 300), new Color(0.32f, 0.27f, 0.20f, 0.95f), "谷仓", RoomEdge.Left);
+        AddRoomOutline(new Rect2(1520, 1280, 460, 360), new Color(0.32f, 0.27f, 0.20f, 0.95f), "谷仓", RoomEdge.Left);
 
-        // 后院的枯井（占位视觉；authored 叙事点「枯井」由注册表铺在 2050,330）。
-        DrawWellPlaceholder(new Vector2(2050f, 330f));
-        // 门口的横梁（占位视觉：两根门柱 + 一道横梁；authored 叙事点「门口」由注册表铺在 700,1300）。
+        // 后院的枯井（占位视觉；authored 叙事点「枯井」由注册表铺在 2300,680）。
+        DrawWellPlaceholder(new Vector2(2300f, 680f));
+        // 门口的横梁（占位视觉：两根门柱 + 一道横梁；authored 叙事点「门口」由注册表铺在 850,1850）。
         DrawStuartGallowsPlaceholder();
 
         var yardC = new Color(0.55f, 0.48f, 0.36f);   // 前院/晒场（棕黄，物资）
@@ -63,27 +66,27 @@ public sealed partial class TestExploration
         var barnC = new Color(0.50f, 0.44f, 0.32f);   // 谷仓/农具
 
         // 前院/晒场（近，3）
-        AddDiscoveryPoint(ExplorationCache.StuartGateCartId, new Vector2(900, 1350), markerColor: yardC, label: "门前板车");
-        AddDiscoveryPoint(ExplorationCache.StuartThreshingYardId, new Vector2(980, 1150), markerColor: yardC, label: "晒谷场");
-        AddDiscoveryPoint(ExplorationCache.StuartChickenCoopId, new Vector2(1250, 1300), markerColor: yardC, label: "鸡舍");
+        AddDiscoveryPoint(ExplorationCache.StuartGateCartId, new Vector2(1000, 1780), markerColor: yardC, label: "门前板车");
+        AddDiscoveryPoint(ExplorationCache.StuartThreshingYardId, new Vector2(1300, 1600), markerColor: yardC, label: "晒谷场");
+        AddDiscoveryPoint(ExplorationCache.StuartChickenCoopId, new Vector2(750, 1550), markerColor: yardC, label: "鸡舍");
 
         // 主屋（中，4）
-        AddDiscoveryPoint(ExplorationCache.StuartKitchenId, new Vector2(640, 760), markerColor: houseC, label: "灶间");
-        AddDiscoveryPoint(ExplorationCache.StuartHallCupboardId, new Vector2(1080, 700), markerColor: houseC, label: "堂屋碗柜");
-        AddDiscoveryPoint(ExplorationCache.StuartWardrobeId, new Vector2(860, 470), markerColor: houseC, label: "卧室衣柜");
-        AddDiscoveryPoint(ExplorationCache.StuartPantryId, new Vector2(1200, 560), markerColor: houseC, label: "储藏间");
+        AddDiscoveryPoint(ExplorationCache.StuartKitchenId, new Vector2(950, 1080), markerColor: houseC, label: "灶间");
+        AddDiscoveryPoint(ExplorationCache.StuartHallCupboardId, new Vector2(1250, 980), markerColor: houseC, label: "堂屋碗柜");
+        AddDiscoveryPoint(ExplorationCache.StuartWardrobeId, new Vector2(980, 850), markerColor: houseC, label: "卧室衣柜");
+        AddDiscoveryPoint(ExplorationCache.StuartPantryId, new Vector2(1350, 880), markerColor: houseC, label: "储藏间");
 
         // 谷仓/农具（中，2）
-        AddDiscoveryPoint(ExplorationCache.StuartHayLoftId, new Vector2(1560, 980), markerColor: barnC, label: "草料阁");
-        AddDiscoveryPoint(ExplorationCache.StuartToolShedId, new Vector2(1750, 1120), markerColor: barnC, label: "农具棚");
+        AddDiscoveryPoint(ExplorationCache.StuartHayLoftId, new Vector2(1650, 1450), markerColor: barnC, label: "草料阁");
+        AddDiscoveryPoint(ExplorationCache.StuartToolShedId, new Vector2(1880, 1560), markerColor: barnC, label: "农具棚");
 
         // 后院菜窖（最深，1）——翻到底，也不过是一窖发芽的土豆和一卷绷带。
-        AddDiscoveryPoint(ExplorationCache.StuartRootCellarId, new Vector2(2020, 600), markerColor: barnC, label: "后院菜窖");
+        AddDiscoveryPoint(ExplorationCache.StuartRootCellarId, new Vector2(2200, 950), markerColor: barnC, label: "后院菜窖");
 
         // [T67] 两处**采集点**：那家人的菜地还在，只是没人回来收了（在地上刨土豆，走 ForageLogic）。
         var forageC = new Color(0.42f, 0.62f, 0.36f);
-        AddDiscoveryPoint(ForageLogic.StuartGardenPotatoId, new Vector2(1900, 720), markerColor: forageC, label: "菜地土豆");
-        AddDiscoveryPoint(ForageLogic.StuartFurrowPotatoId, new Vector2(1980, 840), markerColor: forageC, label: "垄尾漏刨");
+        AddDiscoveryPoint(ForageLogic.StuartGardenPotatoId, new Vector2(2400, 800), markerColor: forageC, label: "菜地土豆");
+        AddDiscoveryPoint(ForageLogic.StuartFurrowPotatoId, new Vector2(2500, 920), markerColor: forageC, label: "垄尾漏刨");
     }
 
     /// <summary>门口横梁的占位视觉（两根门柱 + 一道横梁 + 几条垂下的绳）：纯 Polygon2D，无碰撞。</summary>

@@ -23,7 +23,9 @@ public sealed partial class TestExploration
     private void SetupRefugeeCamp()
     {
         // 地台（纯视觉）：整片营区一块暗地台。这一关不靠地台分区——**它靠门**。
-        AddZonePad(new Vector2(276, 156), new Vector2(1848, 1248), new Color(0.17f, 0.16f, 0.15f, 0.60f));
+        // 范围读 RefugeeCamp.Interior（**同一个事实源**）：Phase2 放大到 3200×2200 时这里自动跟，不用两头对数。
+        WallRect pad = RefugeeCamp.Interior;
+        AddZonePad(new Vector2(pad.X, pad.Y), new Vector2(pad.Width, pad.Height), new Color(0.17f, 0.16f, 0.15f, 0.60f));
 
         // ——墙体：营区外墙（两个**关不上**的入口）+ 18 间平房的轮廓（各一处 48px 门洞）——
         var shackC = new Color(0.30f, 0.27f, 0.23f, 0.95f);

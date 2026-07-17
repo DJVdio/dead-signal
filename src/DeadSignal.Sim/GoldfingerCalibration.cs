@@ -221,7 +221,13 @@ public static class GoldfingerCalibration
         // 把噪音接上（纯几何：GoldfingerGang.AlertedBy）才看得见真正的取舍。
         sb.AppendLine("## 🔴 枪的代价：在据点中央弄出一次动静，会叫醒几个人");
         sb.AppendLine();
-        sb.AppendLine("   关卡 2400×1600；下表＝以**中段**（0.55, 0.40，玩家推进必经）为噪音源，半径罩住的守备数。");
+        // 🔴 画布尺寸与探针位置一律读 GoldfingerGang 的单一事实源，**不写硬编码字面量**——
+        //    此前这里硬写 2400×1600 / 0.55,0.40，与 ExplorationLevelSize（真源）之间零保障：
+        //    画布一改，游戏里的招怪变了、这份报告还在印旧数，且不会有任何测试红。
+        //    GoldfingerGang.LevelW/LevelH 由 GoldfingerGangTests 焊死在 ExplorationLevelSize 上。
+        sb.AppendLine(
+            $"   关卡 {GoldfingerGang.LevelW:0}×{GoldfingerGang.LevelH:0}；下表＝以**中段**"
+            + $"（{GoldfingerGang.NoiseProbeX:0.00}, {GoldfingerGang.NoiseProbeY:0.00}，玩家推进必经）为噪音源，半径罩住的守备数。");
         sb.AppendLine("   ⇒ 把它和上面的胜率表**一起读**：叫醒的人越多，场景就越往「惊动全据点」那一行塌。");
         sb.AppendLine();
         (string name, double noise)[] noises =
@@ -231,7 +237,9 @@ public static class GoldfingerCalibration
         };
         foreach ((string name, double noise) in noises)
         {
-            int alerted = GoldfingerGang.AlertedBy(0.55, 0.40, noise, 2400, 1600);
+            int alerted = GoldfingerGang.AlertedBy(
+                GoldfingerGang.NoiseProbeX, GoldfingerGang.NoiseProbeY,
+                noise, GoldfingerGang.LevelW, GoldfingerGang.LevelH);
             string verdict = alerted <= 1 ? "只惊动交手的那个" : alerted <= 3 ? "招来一小撮" : "半个据点扑上来";
             sb.AppendLine($"  {name,-10} 噪音 {noise,4:0} px → 叫醒 {alerted}/8 人　{verdict}");
         }
