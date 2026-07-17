@@ -1712,6 +1712,24 @@ public class HealthConditionsTests
     private const double Pawn_RosehipBonus = 9.0;
 
     [Fact]
+    public void Bed_and_rosehip_tea_stack_multiplicatively_not_additively()
+    {
+        // [效率点数池·并入乘算通则] 睡床 +10pp 与玫瑰果茶 +9pp 是两条百分比加成，同池叠加**连乘**（1.10×1.09=1.199），
+        // 不是加算（1+0.10+0.09=1.19）。单来源逐比特不变，仅多来源产生 +0.9pp 的乘算增益。
+        // RE=100、睡床(bf=1→+10pp)、玫瑰果茶(+9pp)、休养(RestHealBonus=1.5)：
+        //   乘算 effPct = 100 + 100×(1.10×1.09 − 1) = 119.9 → heal = 0.20×1.199×1.5 = 0.3597 → 0.9 − 0.3597 = 0.5403
+        //   旧加算 effPct = 119 → heal = 0.20×1.19×1.5 = 0.357 → 0.543（本测试在旧实现下红）
+        var set = new HealthConditionSet();
+        var c = Bleed(0.9);
+        set.Add(c);
+        c.SetRecoveryEfficiency(100);
+
+        set.TickDay(NoInfection(), resting: true, restedInBed: true, infectionChanceMultiplier: 1.0, extraHealBonusPct: Pawn_RosehipBonus);
+
+        Assert.Equal(0.5403, c.Severity, 4);
+    }
+
+    [Fact]
     public void Rosehip_tea_material_and_recipe_exist()
     {
         Assert.True(Materials.Has("rosehip_tea"));

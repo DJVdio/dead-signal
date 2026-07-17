@@ -453,7 +453,7 @@ public sealed class HealthConditionSet
 
     /// <summary>手术成功即刻恢复量：任何成功手术（含擦边低效率成功）当场对该伤 severity 立减此值（值→health.json）。</summary>
     public static double ImmediateHealOnSuccess => Cfg.ImmediateHealOnSuccess;
-    /// <summary>睡床加算恢复速度（**百分点**，加算非乘算）：术后愈合当昼夜在床上睡觉休息 → 恢复效率 +此值再折愈合速度（如 33%→43%；值→health.json）。</summary>
+    /// <summary>睡床恢复速度加成（**百分点**）：术后愈合当昼夜在床上睡觉休息 → 恢复效率点数池 +此值（作为一条百分比加成，与玫瑰果茶等来源**连乘**，见 <see cref="EfficiencyPoolBonusPct"/>）再折愈合速度（单独睡床＝+10pp，与旧加算等价；值→health.json）。</summary>
     public static double BedSleepHealBonusPct => Cfg.BedSleepHealBonusPct;
     /// <summary>重做手术冷却（昼夜）：距上次手术 &gt; 此值才可重做（当前=1 → "超过一天"；值→health.json）。</summary>
     public static int RedoSurgeryCooldownDays => Cfg.RedoSurgeryCooldownDays;
@@ -954,25 +954,41 @@ public sealed class HealthConditionSet
     }
 
     /// <summary>
+    /// 恢复效率「点数池」的**乘算合成**（通则「百分比加成一律乘算」）：睡床/玫瑰果茶等来源各是一条百分比加成（+pp），
+    /// 同池叠加时**来源之间连乘** ×(1+pp/100)，合成后折成加到恢复效率上的百分点：<c>100×(Π(1+pp/100) − 1)</c>。
+    /// 单来源与旧加算逐比特等价（睡床 1.10 → +10pp）；多来源才产生乘算增益（睡床×玫瑰果茶 1.10×1.09=1.199 → +19.9pp，旧加算为 +19pp）。
+    /// 负值来源按 0 夹取（不引入意外惩罚）。追加新来源只需在此连乘一项。
+    /// </summary>
+    private static double EfficiencyPoolBonusPct(params double[] sourcesPct)
+    {
+        double factor = 1.0;
+        foreach (double pp in sourcesPct)
+        {
+            factor *= 1.0 + Math.Max(0.0, pp) / 100.0;
+        }
+        return 100.0 * (factor - 1.0);
+    }
+
+    /// <summary>
     /// 推进一昼夜：已手术(RecoveryEfficiency&gt;0)的流血/骨折按 恢复效率% 逐日愈合（severity 归 0 移除）；未手术逐日恶化
     /// （出血加重/按几率感染/致命伤封顶失血死；骨折畸形化封顶致残）；感染/疾病未用药按规则恶化。返回本昼夜事件汇总；已死空转。
     /// </summary>
     /// <param name="rng">未手术开放伤口感染 roll 用（<see cref="IRandomSource.Range"/>(0,1)）。</param>
     /// <param name="resting">本昼夜是否卧床休养（减缓感染/疾病恶化、×<see cref="RestHealBonus"/> 加速术后愈合）。</param>
-    /// <param name="restedInBed">本昼夜是否**在床上睡觉休息**（而非地铺）：术后愈合恢复效率**加算 +<see cref="BedSleepHealBonusPct"/> 个百分点**。默认 false，接入层按睡眠处是床/地铺传入。</param>
+    /// <param name="restedInBed">本昼夜是否**在床上睡觉休息**（而非地铺）：术后愈合恢复效率点数池 +<see cref="BedSleepHealBonusPct"/> 个百分点（作为一条百分比加成进 <see cref="EfficiencyPoolBonusPct"/>，与玫瑰果茶等来源连乘）。默认 false，接入层按睡眠处是床/地铺传入。</param>
     /// <param name="infectionChanceMultiplier">
     /// 全营感染率乘子（默认 1.0＝无影响）：[SPEC-B13-补] 南丁格尔三级特长的营地卫生减免（她 L2 在营 ×0.85 / L3 遗产叠加至 ×0.75 等），
     /// 由调用方经 <c>NightingalePerk.CampInfectionMultiplier</c> 算好传入；只缩放本昼夜的开放伤口感染几率，不改其余恶化/愈合。
     /// </param>
     /// <param name="extraHealBonusPct">
-    /// [SPEC-B14-补2] 额外恢复效率加成（**百分点**，加算，默认 0）：与睡床加算 <see cref="BedSleepHealBonusPct"/> **同族叠加**，只作用术后流血/骨折的逐日愈合速度。
+    /// [SPEC-B14-补2] 额外恢复效率加成（**百分点**，默认 0）：与睡床 <see cref="BedSleepHealBonusPct"/> 同为恢复效率点数池的一条百分比加成，**来源之间连乘**（见 <see cref="EfficiencyPoolBonusPct"/>），只作用术后流血/骨折的逐日愈合速度。
     /// 玫瑰果茶 buff 生效时由调用方传 <c>+9</c>（Pawn 上 24 游戏小时计时）；不改感染/疾病恶化。
     /// </param>
     /// <param name="healSpeedMultiplier">
     /// 全营**身体恢复速度**乘子（<b>默认 1.0＝无影响</b>，既有调用零回归）：承载 authored 专属效果对愈合**速度**的百分比加成——
     /// 现阶段唯一来源是**山姆 L3 光环 +3%**（×1.03，见 <c>SamPerk.CampHealSpeedMultiplier</c>）。
     /// 只作用术后流血/骨折的逐日愈合量，不改恶化/感染几率。
-    /// 与 <paramref name="restedInBed"/>/<paramref name="extraHealBonusPct"/> 那条**加算百分点**的轴（改的是恢复效率点数）
+    /// 与 <paramref name="restedInBed"/>/<paramref name="extraHealBonusPct"/> 那条**恢复效率点数池**的轴（连乘合成后加到恢复效率点数上）
     /// 是**正交两轴**：本条是最终愈合量的**乘子**（用户口径"恢复速度 +3%"＝速度的百分比，非效率 +3 点）。
     /// </param>
     /// <param name="restFraction">
@@ -1025,9 +1041,10 @@ public sealed class HealthConditionSet
                 case HealthConditionType.Bleeding:
                     if (c.IsOperated)
                     {
-                        // 已手术：按恢复效率愈合（睡床 +BedSleepHealBonusPct 与玫瑰果茶 +extraHealBonusPct 同族加算，非乘算）。
-                        // healSpeedMultiplier（山姆 L3 光环 ×1.03）是**另一轴**：最终愈合量的乘子，与上面的加算点数正交。
-                        double effPct = c.RecoveryEfficiency + bedBonusPct + Math.Max(0.0, extraHealBonusPct);
+                        // 已手术：按恢复效率愈合。睡床与玫瑰果茶是同池的两条百分比加成 → **来源之间连乘**（通则「百分比加成一律乘算」）：
+                        // 池贡献折成点数 EfficiencyPoolBonusPct(睡床,玫瑰果茶)=100×((1+10%)(1+9%)−1)，加到恢复效率上。单来源逐比特等价旧加算、多来源才乘算增益。
+                        // healSpeedMultiplier（山姆 L3 光环 ×1.03）是**另一轴**：最终愈合量的乘子，与上面的点数池正交。
+                        double effPct = c.RecoveryEfficiency + EfficiencyPoolBonusPct(bedBonusPct, extraHealBonusPct);
                         double heal = BleedHealPerDay * (effPct / 100.0) * restHealMult * Math.Max(0.0, healSpeedMultiplier);
                         c.AddSeverity(-heal);
                     }
@@ -1077,8 +1094,8 @@ public sealed class HealthConditionSet
                 case HealthConditionType.Fracture:
                     if (c.IsOperated)
                     {
-                        // 睡床 +BedSleepHealBonusPct 与玫瑰果茶 +extraHealBonusPct 同族加算（非乘算）；山姆 L3 光环走 healSpeedMultiplier 乘子轴。
-                        double effPct = c.RecoveryEfficiency + bedBonusPct + Math.Max(0.0, extraHealBonusPct);
+                        // 睡床与玫瑰果茶同池的两条百分比加成 → **来源之间连乘**（见 EfficiencyPoolBonusPct）；山姆 L3 光环走 healSpeedMultiplier 乘子轴。
+                        double effPct = c.RecoveryEfficiency + EfficiencyPoolBonusPct(bedBonusPct, extraHealBonusPct);
                         double heal = FractureHealPerDay * (effPct / 100.0) * restHealMult * Math.Max(0.0, healSpeedMultiplier);
                         c.AddSeverity(-heal);
                     }
