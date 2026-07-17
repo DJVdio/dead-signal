@@ -389,7 +389,9 @@ public sealed partial class Pawn : Actor
 
         foreach (string part in result.MaimedParts)
         {
-            Body.Sever(part); // 坏疽/畸形封顶致残：切除该肢
+            // [SPEC-FRAC-LIMB] 骨折畸形封顶致残 = 截除**整肢**（近端手臂/大腿，连带远端全失）；
+            // MaimFractureLimb 兼容肢显示名（"右上肢"）与肢内部位名，非肢标识回落为按名截除。
+            Body.MaimFractureLimb(part);
         }
 
         // 出血条目闭合 → 从 Body 止血，保持战斗层一致。**单一同步路径**（基于"条目是否存在"，与闭合成因无关）：
@@ -429,12 +431,13 @@ public sealed partial class Pawn : Actor
                 Body.MarkFractureTreated(c.BodyPart);
             }
         }
-        //  · 康复清除/畸形封顶等使该部位不再有活跃骨折条目 → HealFracture：归零（同出血的存在性同步）。
-        foreach (string part in Body.FracturedParts.ToList())
+        //  · 康复清除/畸形封顶等使该肢不再有活跃骨折条目 → HealFracture：归零（同出血的存在性同步）。
+        //    [SPEC-FRAC-LIMB] 骨折以肢为单位：这里的 part 是肢显示名（"右上肢"…），与 SeedFromBody 建档的 BodyPart 键同源。
+        foreach (string limb in Body.FracturedLimbs.ToList())
         {
-            if (!Health.Conditions.Any(c => c.Type == HealthConditionType.Fracture && c.BodyPart == part))
+            if (!Health.Conditions.Any(c => c.Type == HealthConditionType.Fracture && c.BodyPart == limb))
             {
-                Body.HealFracture(part);
+                Body.HealFracture(limb);
             }
         }
 

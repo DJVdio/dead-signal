@@ -350,21 +350,25 @@ public sealed class CombatEffectResolver
             }
         }
 
-        // 5. 骨折（天然钝器、造成伤害、任意部位）
+        // 5. 骨折（天然钝器、造成伤害、**仅四肢**——[SPEC-FRAC-LIMB]）
         //
+        // 🔴 部位门（`part.FractureProne`）：用户拍板「软组织不会骨折，只有四肢会」。命中软组织（胸/腹/头/眼/面/耳）
+        //    **直接不掷骨折 roll**（形似震荡的 `ConcussionProne` 门）；命中四肢任一部位（含手指/脚趾）才掷。
+        //    命中则标记**所属肢**骨折（手指→上肢、脚趾→下肢；同一肢重复命中幂等 ⇒ 全身最多 4 处）。
         // 🔴 `nativeBlunt` ⇒ **只有天然钝器能打断骨头；锐器降解出来的钝伤不算**（同 §切除 的对称口径）。
         //    这是**已查明的设计事实，不是待修的 bug**——别"顺手"把它放宽成 FinalDamageType==Blunt。
         //    它的后果是具体且刻意的：[T57] 撤掉手枪后守备清一色利器 ⇒ 战斗代价**从骨折换成永久残缺**
         //    （骨折要愈合 7 昼夜、占床、不能干活不能站岗；切除是**永久**断手，不可逆）。
         //    换句话说"这一轮没人骨折"不代表变轻松了，只代表**账单换了一种货币**。
         //    （对照 2b：MaxHp 磨损**收**降解钝伤，用的是 FinalDamageType==Blunt —— 两处判据不同是有意的。）
-        if (nativeBlunt && dmg > 0)
+        if (nativeBlunt && dmg > 0 && part.FractureLimb is Limb fractureLimb)
         {
             double p = Clamp01Cap(_cfg.FractureK * dmg / maxHp, _cfg.FractureCap);
             if (_rng.Range(0, 1) < p)
             {
-                effects.Add(new DamageEffect { Kind = DamageEffectKind.Fracture, PartName = partName, Severity = p });
-                body.MarkFractured(partName); // 落到 Body 持久态，供健康页签查询
+                // 战报/UI 用**所属肢**显示名（"骨折:右上肢"），而非命中的细部位名——整肢裁定。
+                effects.Add(new DamageEffect { Kind = DamageEffectKind.Fracture, PartName = fractureLimb.DisplayName(), Severity = p });
+                body.MarkFractured(partName); // 落到 Body 持久态（内部归并到所属肢），供健康页签查询
             }
         }
 

@@ -170,8 +170,8 @@ public class EffectTests
         // 击穿/无甲命中（dmg>0）触发的震荡走 2~5s 时长 roll。
         var body = HumanBody.NewBody();
         var res = Hit(body, HumanBody.Head, dmg: 10, DamageType.Blunt, initialRoll: 20);
-        // 击穿头部(dmg>0)：震荡触发 roll → 时长 roll → 骨折 roll（dmg>0 天然钝器仍 roll 骨折，喂 0.99 不触发）。
-        var rng = new SequenceRandomSource(0.5, 3.7, 0.99);
+        // 击穿头部(dmg>0)：震荡触发 roll → 时长 roll。[SPEC-FRAC-LIMB] 头是**软组织** ⇒ 不掷骨折 roll（此前尾部的 0.99 骨折 roll 已移除）。
+        var rng = new SequenceRandomSource(0.5, 3.7);
         var outcome = new CombatEffectResolver(rng).Apply(body, BluntW, res);
         var conc = Assert.Single(outcome.Effects, e => e.Kind == DamageEffectKind.Concussion);
         Assert.Equal(3.7, conc.DurationSeconds, 9);
@@ -265,7 +265,7 @@ public class EffectTests
         body.HealFracture(HumanBody.LeftLeg);
 
         Assert.False(body.IsFractured(HumanBody.LeftLeg));
-        Assert.DoesNotContain(HumanBody.LeftLeg, body.FracturedParts);
+        Assert.DoesNotContain("左下肢", body.FracturedLimbs);
     }
 
     [Fact]
@@ -275,7 +275,7 @@ public class EffectTests
         var body = HumanBody.NewBody();
         body.HealFracture(HumanBody.LeftLeg);
         Assert.False(body.IsFractured(HumanBody.LeftLeg));
-        Assert.Empty(body.FracturedParts);
+        Assert.Empty(body.FracturedLimbs);
     }
 
     [Fact]

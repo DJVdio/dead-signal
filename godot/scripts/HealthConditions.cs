@@ -1298,7 +1298,7 @@ public sealed class HealthTickResult
 public static class HealthMapping
 {
     /// <summary>
-    /// 从一具 <see cref="Body"/> 的当前出血伤口(<see cref="Body.BleedingWounds"/>)与骨折部位(<see cref="Body.FracturedParts"/>)
+    /// 从一具 <see cref="Body"/> 的当前出血伤口(<see cref="Body.BleedingWounds"/>)与骨折肢(<see cref="Body.FracturedLimbs"/>)
     /// 播种一份伤病集（只读 Body，不改其状态）。初始严重度 draft。
     /// </summary>
     /// <param name="bleedingSeverity">
@@ -1332,9 +1332,11 @@ public static class HealthMapping
                 HealthConditionType.Bleeding, severity, part, IsLimb(body, part),
                 lethal, selfHealing, level));
         }
-        foreach (string part in body.FracturedParts)
+        // [SPEC-FRAC-LIMB] 骨折以**肢**为单位：一条肢一条 Fracture 伤病（BodyPart = 肢显示名"右上肢"…，最多 4 条）。
+        // OnLimb 恒 true —— 骨折的肢本就是肢体（不再走 IsLimb 部位表查询，"右上肢"不是真实部位名）。
+        foreach (string limb in body.FracturedLimbs)
         {
-            set.Add(new HealthCondition(HealthConditionType.Fracture, fractureSeverity, part, IsLimb(body, part)));
+            set.Add(new HealthCondition(HealthConditionType.Fracture, fractureSeverity, limb, onLimb: true));
         }
         return set;
     }

@@ -88,7 +88,7 @@ public class GoldfingerGangTests
         foreach (GangGuard g in GoldfingerGang.Roster)
         {
             Body body = GoldfingerGang.NewInjuredBody(g.Injury);
-            bool hurt = VitalHp(body) < VitalMaxHp(body) || body.FracturedParts.Count > 0;
+            bool hurt = VitalHp(body) < VitalMaxHp(body) || body.FracturedLimbs.Count > 0;
             Assert.True(hurt, $"{g.Injury.Name} 竟是满状态");
         }
     }
@@ -107,7 +107,7 @@ public class GoldfingerGangTests
     [Fact]
     public void 多数守备带着真降战力的骨折()
     {
-        // 骨折是唯一"直接降战力"的轴（手 ×0.70 操作 / 腿 ×0.70 移动），运行时与 Sim 都真消费。
+        // 骨折是唯一"直接降战力"的轴（上肢 ×0.70 操作 / 下肢 ×0.70 移动），运行时与 Sim 都真消费。
         int fractured = GoldfingerGang.Roster.Count(g => g.Injury.Fractures.Count > 0);
         Assert.True(fractured >= 5, $"只有 {fractured} 人骨折——「大家的状态都不是巅峰」没落到实处");
     }
@@ -117,9 +117,9 @@ public class GoldfingerGangTests
     {
         Body body = GoldfingerGang.NewInjuredBody(GoldfingerGang.ModerateHand);
         EffectConfig cfg = EffectConfig.Default();
-        double factor = body.HandFractureOperationFactor(
+        double factor = body.UpperLimbFractureOperationFactor(
             cfg.HandFractureOperationMult, cfg.HandFractureHealedOperationMult, cfg.FractureCapabilityFloor);
-        Assert.True(factor < 1.0, "手骨折没降操作能力＝这处伤白带了");
+        Assert.True(factor < 1.0, "上肢骨折没降操作能力＝这处伤白带了");
     }
 
     [Fact]
@@ -127,9 +127,9 @@ public class GoldfingerGangTests
     {
         Body body = GoldfingerGang.NewInjuredBody(GoldfingerGang.ModerateLeg);
         EffectConfig cfg = EffectConfig.Default();
-        double factor = body.LegFractureMobilityFactor(
+        double factor = body.LowerLimbFractureMobilityFactor(
             cfg.LegFractureMobilityMult, cfg.LegFractureHealedMobilityMult, cfg.FractureCapabilityFloor);
-        Assert.True(factor < 1.0, "腿骨折没降移动能力＝这处伤白带了");
+        Assert.True(factor < 1.0, "下肢骨折没降移动能力＝这处伤白带了");
     }
 
     // ── 三、但别把他们调成白送 ──────────────────────────────────────────────
@@ -205,8 +205,8 @@ public class GoldfingerGangTests
                 Assert.Equal(viaFactory.HpOf(part), viaApply.HpOf(part), 6);
             }
             Assert.Equal(
-                viaFactory.FracturedParts.OrderBy(p => p),
-                viaApply.FracturedParts.OrderBy(p => p));
+                viaFactory.FracturedLimbs.OrderBy(p => p),
+                viaApply.FracturedLimbs.OrderBy(p => p));
         }
     }
 

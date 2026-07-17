@@ -204,8 +204,8 @@ public static class Arena
         double operation = 1.0 - u.Body.DisabilityModifiers.OperationPenalty;
         if (operation <= 0) return double.PositiveInfinity;
 
-        // 手部骨折的持久操作/攻速惩罚（与 DuelEngine.EffectiveInterval 同一套口径）。
-        double fractureOp = u.Body.HandFractureOperationFactor(
+        // 上肢骨折的持久操作/攻速惩罚（与 DuelEngine.EffectiveInterval 同一套口径）。
+        double fractureOp = u.Body.UpperLimbFractureOperationFactor(
             cfg.Effects.HandFractureOperationMult, cfg.Effects.HandFractureHealedOperationMult,
             cfg.Effects.FractureCapabilityFloor);
 

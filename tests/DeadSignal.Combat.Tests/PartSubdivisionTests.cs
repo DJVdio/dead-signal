@@ -117,21 +117,21 @@ public class PartSubdivisionTests
         Assert.Equal(0.5, body.DisabilityModifiers.MobilityPenalty, 9);
     }
 
-    // ---- 骨折同档：大腿/小腿骨折都计入腿部移动惩罚（Region.Leg）----
+    // ---- 骨折同档：大腿/小腿骨折都归并到同一条**下肢**移动惩罚（[SPEC-FRAC-LIMB]）----
 
     [Fact]
-    public void CalfFracture_CountsAsLegMobilityPenalty_SameAsThigh()
+    public void CalfFracture_CountsAsLowerLimbMobilityPenalty_SameAsThigh()
     {
         var thighBody = HumanBody.NewBody();
         thighBody.MarkFractured(HumanBody.LeftLeg);
-        double thighFactor = thighBody.LegFractureMobilityFactor(0.7, 0.85, 0.1);
+        double thighFactor = thighBody.LowerLimbFractureMobilityFactor(0.7, 0.85, 0.1);
 
         var calfBody = HumanBody.NewBody();
         calfBody.MarkFractured(HumanBody.LeftCalf);
-        double calfFactor = calfBody.LegFractureMobilityFactor(0.7, 0.85, 0.1);
+        double calfFactor = calfBody.LowerLimbFractureMobilityFactor(0.7, 0.85, 0.1);
 
-        Assert.Equal(thighFactor, calfFactor, 9); // 大小腿骨折同档：同一乘算系数
-        Assert.Equal(0.7, calfFactor, 9);         // 单处未治疗腿骨折 ×0.7
+        Assert.Equal(thighFactor, calfFactor, 9); // 大小腿骨折同属左下肢：同一乘算系数
+        Assert.Equal(0.7, calfFactor, 9);         // 单条未治疗下肢骨折 ×0.7
     }
 
     // ---- 覆盖任意子集（[SPEC-B17-补] 装备取舍）：护甲可只覆盖胸、不覆盖腹 ----

@@ -900,11 +900,11 @@ public class HealthConditionsTests
                 body.MarkFractureTreated(c.BodyPart);
             }
         }
-        foreach (string part in body.FracturedParts.ToList())
+        foreach (string limb in body.FracturedLimbs.ToList())
         {
-            if (!set.Conditions.Any(c => c.Type == HealthConditionType.Fracture && c.BodyPart == part))
+            if (!set.Conditions.Any(c => c.Type == HealthConditionType.Fracture && c.BodyPart == limb))
             {
-                body.HealFracture(part);
+                body.HealFracture(limb);
             }
         }
     }
@@ -913,23 +913,24 @@ public class HealthConditionsTests
     public void Fracture_treatment_tristate_flows_to_body_capability()
     {
         // untreatedMult 0.7(-30%) / treatedMult 0.85(-15%) / floor 0.1；愈合后无骨折 = 1.0(0%)。
+        // [SPEC-FRAC-LIMB] 手骨折归并到**右上肢** ⇒ 建档 BodyPart="右上肢"；整肢裁定下 IsFractured("右手") 仍为真。
         Body body = HumanBody.NewBody();
-        body.MarkFractured("右手"); // 手骨折（Region==Hand 计入操作能力系数）
+        body.MarkFractured("右手"); // 右上肢骨折（计入操作能力系数）
         HealthConditionSet set = HealthMapping.SeedFromBody(body);
-        HealthCondition frac = set.Conditions.Single(c => c.Type == HealthConditionType.Fracture && c.BodyPart == "右手");
+        HealthCondition frac = set.Conditions.Single(c => c.Type == HealthConditionType.Fracture && c.BodyPart == "右上肢");
 
         // ① 未治：-30%
         SyncFractureToBody(set, body);
         Assert.True(body.IsFractured("右手"));
         Assert.False(body.IsFractureTreated("右手"));
-        Assert.Equal(0.7, body.HandFractureOperationFactor(0.7, 0.85, 0.1), 3);
+        Assert.Equal(0.7, body.UpperLimbFractureOperationFactor(0.7, 0.85, 0.1), 3);
 
         // ② 手术成功 → 接入波 MarkFractureTreated：-15%
         SurgeryResult r = set.PerformSurgery(frac, new[] { "splint" }, onBed: true, Roll(30));
         Assert.True(r.Success);
         SyncFractureToBody(set, body);
         Assert.True(body.IsFractureTreated("右手"));
-        Assert.Equal(0.85, body.HandFractureOperationFactor(0.7, 0.85, 0.1), 3);
+        Assert.Equal(0.85, body.UpperLimbFractureOperationFactor(0.7, 0.85, 0.1), 3);
 
         // ③ 康复完成 → 接入波 HealFracture：0%
         for (int day = 0; day < 40 && set.Conditions.Contains(frac); day++)
@@ -938,7 +939,7 @@ public class HealthConditionsTests
             SyncFractureToBody(set, body);
         }
         Assert.False(body.IsFractured("右手"));
-        Assert.Equal(1.0, body.HandFractureOperationFactor(0.7, 0.85, 0.1), 3);
+        Assert.Equal(1.0, body.UpperLimbFractureOperationFactor(0.7, 0.85, 0.1), 3);
     }
 
     [Fact]
@@ -1749,14 +1750,14 @@ public class HealthConditionsTests
     {
         Body body = HumanBody.NewBody();
         body.RegisterBleed("左手臂", BleedModel.BleedSeverity.Medium);
-        body.MarkFractured("右大腿");
+        body.MarkFractured("右大腿"); // [SPEC-FRAC-LIMB] 归并到右下肢
 
         HealthConditionSet set = HealthMapping.SeedFromBody(body);
 
         Assert.Contains(set.Conditions, c => c.Type == HealthConditionType.Bleeding && c.BodyPart == "左手臂" && c.OnLimb);
-        Assert.Contains(set.Conditions, c => c.Type == HealthConditionType.Fracture && c.BodyPart == "右大腿" && c.OnLimb);
+        Assert.Contains(set.Conditions, c => c.Type == HealthConditionType.Fracture && c.BodyPart == "右下肢" && c.OnLimb);
         Assert.Contains("左手臂", body.BleedingWounds);
-        Assert.True(body.IsFractured("右大腿"));
+        Assert.True(body.IsFractured("右大腿")); // 整肢裁定：大腿属右下肢
     }
 
     [Fact]

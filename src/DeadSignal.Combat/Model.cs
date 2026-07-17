@@ -380,6 +380,61 @@ public sealed class ArmorLayer
         type == DamageType.Sharp ? SharpDefense : BluntDefense;
 }
 
+/// <summary>
+/// 四肢（骨折以**肢**为单位，[SPEC-FRAC-LIMB]）。用户拍板：「软组织不会骨折，只有四肢会」；
+/// 「手指脚趾也算，但会直接视作上肢骨折或下肢骨折，因此一个人身上最多有四处骨折」。
+/// 手臂/手/手指 → 上肢；大腿/小腿/脚/脚趾 → 下肢；左右由部位名前缀「左/右」判定。
+/// 软组织（胸/腹/头/眼/面/耳/颈）无所属肢 ⇒ 永不骨折。
+/// </summary>
+public enum Limb
+{
+    LeftUpperLimb,
+    RightUpperLimb,
+    LeftLowerLimb,
+    RightLowerLimb,
+}
+
+/// <summary>肢的显示名/侧别/近端代表部位等辅助（骨折走肢级判定与展示）。</summary>
+public static class Limbs
+{
+    /// <summary>肢的中文显示名（战报「骨折:右上肢」、健康档 BodyPart 键、存档均用它）。</summary>
+    public static string DisplayName(this Limb limb) => limb switch
+    {
+        Limb.LeftUpperLimb => "左上肢",
+        Limb.RightUpperLimb => "右上肢",
+        Limb.LeftLowerLimb => "左下肢",
+        Limb.RightLowerLimb => "右下肢",
+        _ => limb.ToString(),
+    };
+
+    public static bool IsUpper(this Limb limb) => limb is Limb.LeftUpperLimb or Limb.RightUpperLimb;
+
+    public static bool IsLower(this Limb limb) => limb is Limb.LeftLowerLimb or Limb.RightLowerLimb;
+
+    /// <summary>
+    /// 该肢的**近端代表部位名**（上肢=手臂、下肢=大腿）：既是健康档/角色面板展示锚，
+    /// 也是「整肢畸形封顶致残」的截除落点（截近端 ⇒ 树形连带远端全失）。
+    /// </summary>
+    public static string RepresentativePart(this Limb limb) => limb switch
+    {
+        Limb.LeftUpperLimb => HumanBody.LeftArm,
+        Limb.RightUpperLimb => HumanBody.RightArm,
+        Limb.LeftLowerLimb => HumanBody.LeftLeg,
+        Limb.RightLowerLimb => HumanBody.RightLeg,
+        _ => "",
+    };
+
+    /// <summary>把肢的显示名解析回枚举；非肢名返回 null。</summary>
+    public static Limb? FromDisplayName(string name) => name switch
+    {
+        "左上肢" => Limb.LeftUpperLimb,
+        "右上肢" => Limb.RightUpperLimb,
+        "左下肢" => Limb.LeftLowerLimb,
+        "右下肢" => Limb.RightLowerLimb,
+        _ => null,
+    };
+}
+
 /// <summary>身体区域，用于效果适用范围判定（如震荡仅头/躯干）。</summary>
 public enum BodyRegion
 {
@@ -528,4 +583,39 @@ public sealed class BodyPart
 
     /// <summary>震荡可作用于此部位（脑部相关：头/眼/面/颈上部 + 躯干）。</summary>
     public bool ConcussionProne => Region is BodyRegion.Head or BodyRegion.Eye or BodyRegion.Face or BodyRegion.Torso;
+
+    /// <summary>
+    /// 本部位所属的**四肢**（骨折以肢为单位，[SPEC-FRAC-LIMB]）：手臂/手/手指 → 上肢，
+    /// 大腿/小腿/脚/脚趾 → 下肢；左右由部位名前缀「左/右」判定（四肢部位名恒带侧别前缀）。
+    /// 软组织（胸/腹/头/眼/面/耳/颈等非四肢部位）无所属肢 ⇒ <c>null</c> ⇒ **永不骨折**。
+    /// </summary>
+    public Limb? FractureLimb
+    {
+        get
+        {
+            bool upper = Region is BodyRegion.Arm or BodyRegion.Hand or BodyRegion.Finger;
+            bool lower = Region is BodyRegion.Leg or BodyRegion.Foot or BodyRegion.Toe;
+            if (!upper && !lower)
+            {
+                return null;
+            }
+
+            bool left = Name.StartsWith('左');
+            bool right = Name.StartsWith('右');
+            if (left == right)
+            {
+                return null; // 四肢部位名恒带「左/右」前缀；无侧别者视作无肢（防御，正常不发生）
+            }
+
+            if (upper)
+            {
+                return left ? Limb.LeftUpperLimb : Limb.RightUpperLimb;
+            }
+
+            return left ? Limb.LeftLowerLimb : Limb.RightLowerLimb;
+        }
+    }
+
+    /// <summary>骨折可作用于此部位（＝有所属肢；软组织不可骨折）。形似 <see cref="ConcussionProne"/> 的部位门。</summary>
+    public bool FractureProne => FractureLimb is not null;
 }

@@ -74,8 +74,9 @@ public sealed class Body
     /// </para>
     /// </summary>
     private readonly Dictionary<string, BleedWound> _bleeding = new();
-    private readonly HashSet<string> _fractured = new();
-    private readonly HashSet<string> _treatedFractures = new();
+    // [SPEC-FRAC-LIMB] 骨折以**肢**为单位（软组织免疫、手指脚趾归并到所属上/下肢，全身最多 4 处）。
+    private readonly HashSet<Limb> _fractured = new();
+    private readonly HashSet<Limb> _treatedFractures = new();
 
     /// <param name="bloodMax">
     /// 储血上限。默认读 <see cref="BleedModel.DefaultBloodMax"/> —— **与 Sim 的 `DuelConfig` 同一个事实源**
@@ -312,73 +313,125 @@ public sealed class Body
     /// <summary>非致命伤口的失血下限（绝对储血量）。</summary>
     private double BloodBleedFloor => BleedModel.NonLethalBloodFloorRatio * BloodMax;
 
-    // ---- 骨折持久态（供角色面板"健康页签"查询；第一版只进不出、不做治疗/时间恢复）----
-
-    public IReadOnlyCollection<string> FracturedParts => _fractured;
-
-    /// <summary>标记某部位已骨折（由效果结算在触发骨折时调用）。持久保留。</summary>
-    public void MarkFractured(string part) => _fractured.Add(part);
-
-    /// <summary>消骨折/痊愈接口：清除某部位的骨折标记（含已治疗标记）。幂等：未骨折/部位名不存在均无副作用。
-    /// <para><b>已接线</b>：由治疗系统的接入波 <c>Pawn.AdvanceHealthDay</c> 在康复完成/畸形封顶等
-    /// 使该部位不再有活跃骨折条目时调用（与 <see cref="StopBleed"/> 同一条存在性同步）。
-    /// 手术成功但仍愈合中的走 <see cref="MarkFractureTreated"/>（惩罚减半），不是本方法。</para></summary>
-    public void HealFracture(string part)
-    {
-        _fractured.Remove(part);
-        _treatedFractures.Remove(part);
-    }
+    // ---- 骨折持久态（[SPEC-FRAC-LIMB] 以**肢**为单位；供角色面板"健康页签"查询）----
+    //
+    // 🔴 骨折从**部位级**改为**肢级**（用户拍板：软组织不骨折、手指脚趾归并到所属上/下肢、全身最多 4 处）。
+    //    以下字符串 API **同时接受**「真实部位名」（如"右手拇指"，来自效果结算/authored 伤情）
+    //    与「肢显示名」（如"右上肢"，来自健康档回写），一律经 <see cref="ResolveFractureLimb"/> 归一到肢。
 
     /// <summary>
-    /// 标记某部位骨折**已治疗**（手术成功、进入愈合中）：能力惩罚由未治疗档减半（−30%→−15%，用户口径）。
-    /// 由 Godot 医疗层在骨折手术成功时调用（愈合完成再调 <see cref="HealFracture"/> 归零）。幂等；仅对已骨折部位有意义。
+    /// 把「部位名或肢显示名」解析成所属肢；软组织/未知部位返回 null。
+    /// 先按肢显示名认（健康档/存档回写走这条），再退回按真实部位查其 <see cref="BodyPart.FractureLimb"/>。
     /// </summary>
-    public void MarkFractureTreated(string part)
+    private Limb? ResolveFractureLimb(string nameOrLimb)
     {
-        if (_fractured.Contains(part))
+        if (Limbs.FromDisplayName(nameOrLimb) is Limb byName)
         {
-            _treatedFractures.Add(part);
+            return byName;
+        }
+
+        return _parts.TryGetValue(nameOrLimb, out var bp) ? bp.FractureLimb : null;
+    }
+
+    /// <summary>当前处于骨折状态的**肢**（显示名，如"右上肢"）。最多 4 条。</summary>
+    public IReadOnlyCollection<string> FracturedLimbs => _fractured.Select(l => l.DisplayName()).ToList();
+
+    /// <summary>
+    /// 标记命中部位**所属肢**骨折（由效果结算在触发骨折时调用）。软组织部位无所属肢 ⇒ 无副作用。
+    /// 幂等：同一肢重复命中不叠加（故全身最多 4 处）。持久保留。
+    /// </summary>
+    public void MarkFractured(string part)
+    {
+        if (ResolveFractureLimb(part) is Limb limb)
+        {
+            _fractured.Add(limb);
         }
     }
 
-    /// <summary>某部位骨折是否已治疗（愈合中，惩罚减半）。</summary>
-    public bool IsFractureTreated(string partName) => _treatedFractures.Contains(partName);
-
-    /// <summary>某部位当前是否处于骨折状态（持久，供健康页签展示）。</summary>
-    public bool IsFractured(string partName) => _fractured.Contains(partName);
+    /// <summary>消骨折/痊愈接口：清除某肢的骨折标记（含已治疗标记）。幂等：未骨折/软组织/未知名均无副作用。
+    /// <para><b>已接线</b>：由治疗系统的接入波 <c>Pawn.AdvanceHealthDay</c> 在康复完成/畸形封顶等
+    /// 使该肢不再有活跃骨折条目时调用（与 <see cref="StopBleed"/> 同一条存在性同步）。
+    /// 手术成功但仍愈合中的走 <see cref="MarkFractureTreated"/>（惩罚减半），不是本方法。</para></summary>
+    public void HealFracture(string part)
+    {
+        if (ResolveFractureLimb(part) is Limb limb)
+        {
+            _fractured.Remove(limb);
+            _treatedFractures.Remove(limb);
+        }
+    }
 
     /// <summary>
-    /// 手部骨折对操作能力的乘算系数（用户口径：单处手骨折 −30% 操作/含攻速；已治疗减半为 −15%）。
-    /// 每处**尚存的手部**（Region==Hand）骨折乘一次系数（未治疗 <paramref name="untreatedMult"/> / 已治疗 <paramref name="treatedMult"/>），
-    /// 多处乘算叠加，结果锁下限 <paramref name="floor"/>。不含手指/手臂骨折（仅 Region==Hand 计入，其余骨折为持久状态标记、无能力效果，待确认）。
+    /// 标记某肢骨折**已治疗**（手术成功、进入愈合中）：能力惩罚由未治疗档减半（−30%→−15%，用户口径）。
+    /// 由 Godot 医疗层在骨折手术成功时调用（愈合完成再调 <see cref="HealFracture"/> 归零）。幂等；仅对已骨折的肢有意义。
+    /// </summary>
+    public void MarkFractureTreated(string part)
+    {
+        if (ResolveFractureLimb(part) is Limb limb && _fractured.Contains(limb))
+        {
+            _treatedFractures.Add(limb);
+        }
+    }
+
+    /// <summary>某部位/肢的骨折是否已治疗（愈合中，惩罚减半）。</summary>
+    public bool IsFractureTreated(string partName)
+        => ResolveFractureLimb(partName) is Limb limb && _treatedFractures.Contains(limb);
+
+    /// <summary>
+    /// 某部位/肢当前是否处于骨折状态（持久，供健康页签展示）。**整肢裁定**：肢内任一部位
+    /// （手臂/手/手指或大腿/小腿/脚/脚趾）与肢显示名查询结果一致——该肢折了则其所有部位都读作骨折。
+    /// </summary>
+    public bool IsFractured(string partName)
+        => ResolveFractureLimb(partName) is Limb limb && _fractured.Contains(limb);
+
+    /// <summary>
+    /// 「整肢畸形封顶致残」的截除落点：把骨折标识（肢显示名或肢内部位名）落成对该肢**近端**（手臂/大腿）的
+    /// <see cref="Sever"/>（连带远端全失）。非肢标识回落为按名直接截除。由 <c>Pawn.AdvanceHealthDay</c> 消费畸形致残。
+    /// </summary>
+    public SeverResult MaimFractureLimb(string fractureIdentity)
+        => ResolveFractureLimb(fractureIdentity) is Limb limb
+            ? Sever(limb.RepresentativePart())
+            : Sever(fractureIdentity);
+
+    /// <summary>
+    /// **上肢**骨折对操作能力的乘算系数（用户口径：单处上肢骨折 −30% 操作/含攻速；已治疗减半为 −15%）。
+    /// 每条**尚存的上肢**（左/右）骨折乘一次系数（未治疗 <paramref name="untreatedMult"/> / 已治疗 <paramref name="treatedMult"/>），
+    /// 两上肢都折则乘算叠加，结果锁下限 <paramref name="floor"/>。
+    /// <para>
+    /// 🔴 **语义变化（[SPEC-FRAC-LIMB]）**：此前只有 <c>Region==Hand</c>（手掌本体）计操作惩罚；改为**整条上肢**后，
+    /// 手臂/手/手指任一命中导致的上肢骨折都计入——这是「整肢骨折」裁定的**自然结果，非 bug**。
     /// 与残疾净惩罚（断手/断指）相互独立叠乘，不改那套加性数学。
+    /// </para>
     /// </summary>
-    public double HandFractureOperationFactor(double untreatedMult, double treatedMult, double floor)
-        => FractureCapabilityFactor(untreatedMult, treatedMult, floor, BodyRegion.Hand);
+    public double UpperLimbFractureOperationFactor(double untreatedMult, double treatedMult, double floor)
+        => FractureCapabilityFactor(untreatedMult, treatedMult, floor, upper: true);
 
     /// <summary>
-    /// 腿/脚骨折对移动能力的乘算系数（用户口径：单处腿骨折 −30% 移速；已治疗减半为 −15%）。
-    /// 每处尚存的腿（Region==Leg）或脚（Region==Foot）骨折乘一次系数（未治疗/已治疗），
-    /// 多处乘算叠加，锁下限 <paramref name="floor"/>（脚归入腿部移动，待确认）。
+    /// **下肢**骨折对移动能力的乘算系数（用户口径：单处下肢骨折 −30% 移速；已治疗减半为 −15%）。
+    /// 每条尚存的下肢（左/右）骨折乘一次系数（未治疗/已治疗），两下肢都折乘算叠加，锁下限 <paramref name="floor"/>。
+    /// 大腿/小腿/脚/脚趾任一命中导致的下肢骨折均计入（整肢裁定）。
     /// </summary>
-    public double LegFractureMobilityFactor(double untreatedMult, double treatedMult, double floor)
-        => FractureCapabilityFactor(untreatedMult, treatedMult, floor, BodyRegion.Leg, BodyRegion.Foot);
+    public double LowerLimbFractureMobilityFactor(double untreatedMult, double treatedMult, double floor)
+        => FractureCapabilityFactor(untreatedMult, treatedMult, floor, upper: false);
 
-    private double FractureCapabilityFactor(double untreatedMult, double treatedMult, double floor, params BodyRegion[] regions)
+    private double FractureCapabilityFactor(double untreatedMult, double treatedMult, double floor, bool upper)
     {
         double factor = 1.0;
-        foreach (var partName in _fractured)
+        foreach (Limb limb in _fractured)
         {
-            if (IsGone(partName) || !_parts.TryGetValue(partName, out var bp))
+            if (upper ? !limb.IsUpper() : !limb.IsLower())
             {
-                continue; // 已切除/损毁的部位骨折不再计能力（部位已不在）。
+                continue;
             }
 
-            if (Array.IndexOf(regions, bp.Region) >= 0)
+            // 整肢已被截除（近端手臂/大腿 gone ⇒ 全肢连带失去）⇒ 骨折不再计能力，改由截肢净惩罚承担。
+            if (IsGone(limb.RepresentativePart()))
             {
-                // 已治疗（愈合中）惩罚减半；未治疗满惩罚。
-                factor *= _treatedFractures.Contains(partName) ? treatedMult : untreatedMult;
+                continue;
             }
+
+            // 已治疗（愈合中）惩罚减半；未治疗满惩罚。
+            factor *= _treatedFractures.Contains(limb) ? treatedMult : untreatedMult;
         }
 
         return Math.Max(floor, factor);
@@ -646,8 +699,9 @@ public sealed class Body
         Bleeding = _bleeding.Keys.ToList(),
         BleedingRates = _bleeding.Keys.Select(k => _bleeding[k].RateMultiplier).ToList(),
         BleedingLevels = _bleeding.Keys.Select(k => (int)_bleeding[k].Severity).ToList(),
-        Fractured = _fractured.ToList(),
-        TreatedFractures = _treatedFractures.ToList(),
+        // [SPEC-FRAC-LIMB] 骨折以肢为单位 ⇒ 存**肢显示名**（"右上肢"…），最多 4 条。
+        Fractured = _fractured.Select(l => l.DisplayName()).ToList(),
+        TreatedFractures = _treatedFractures.Select(l => l.DisplayName()).ToList(),
         Blood = Blood,
         BloodMax = BloodMax,
         BleedRatePerWound = BleedRatePerWound,
@@ -703,8 +757,28 @@ public sealed class Body
             RegisterBleed(s.Bleeding[i], level, rate);
         }
 
-        RefillSet(_fractured, s.Fractured);
-        RefillSet(_treatedFractures, s.TreatedFractures);
+        // [SPEC-FRAC-LIMB] 骨折读档 = **迁移入口**（走真实读档路径 <see cref="Restore"/>）：
+        //   · 新档存的是肢显示名（"右上肢"…）⇒ 直接认；
+        //   · 旧档存的是 part 级骨折名（"右手拇指"/"左小腿"…）⇒ 经 ResolveFractureLimb 归并到所属肢；
+        //   · 旧档里的**软组织骨折**（旧规则允许任意部位骨折，如"胸"）⇒ 解析为 null ⇒ **丢弃**（新规则软组织免疫，有意）。
+        _fractured.Clear();
+        foreach (string name in s.Fractured)
+        {
+            if (ResolveFractureLimb(name) is Limb limb)
+            {
+                _fractured.Add(limb);
+            }
+        }
+
+        _treatedFractures.Clear();
+        foreach (string name in s.TreatedFractures)
+        {
+            // 治疗档必须是已骨折肢的子集（同 MarkFractureTreated 语义）。
+            if (ResolveFractureLimb(name) is Limb limb && _fractured.Contains(limb))
+            {
+                _treatedFractures.Add(limb);
+            }
+        }
 
         BloodMax = s.BloodMax;
         Blood = s.Blood;

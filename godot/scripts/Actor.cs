@@ -510,8 +510,8 @@ public abstract partial class Actor : CharacterBody2D
         // 再乘饥饿因子：有效能力 = (1−残疾) × (1−饥饿)，饿越狠移动越慢（丧尸 HungerAbilityPenalty=0，等价原样）。
         double mobility = HungerState.CombineCapability(
             Body.DisabilityModifiers.MobilityPenalty, HungerAbilityPenalty);
-        // 腿/脚骨折 → 移动能力×0.7（未治疗）/×0.85（已治疗，用户口径）；多处乘算叠加、锁下限。与残疾/饥饿相互独立叠乘。
-        mobility *= Body.LegFractureMobilityFactor(
+        // 下肢骨折 → 移动能力×0.7（未治疗）/×0.85（已治疗，用户口径）；两下肢乘算叠加、锁下限。与残疾/饥饿相互独立叠乘。
+        mobility *= Body.LowerLimbFractureMobilityFactor(
             CombatEffectCfg.LegFractureMobilityMult, CombatEffectCfg.LegFractureHealedMobilityMult,
             CombatEffectCfg.FractureCapabilityFloor);
         // 战斗移动减速：震荡硬打断 ×0.1（−90%，重）与命中减速 ×0.6（−40%，通用/RimWorld stagger 式）。
@@ -636,8 +636,8 @@ public abstract partial class Actor : CharacterBody2D
     {
         double operation = HungerState.CombineCapability(
             Body.DisabilityModifiers.OperationPenalty, HungerAbilityPenalty);
-        // 手部骨折 → 操作能力×0.7（未治疗）/×0.85（已治疗，含攻速，持久，用户口径）；多处乘算叠加、锁下限。对齐 Duel.EffectiveInterval。
-        operation *= Body.HandFractureOperationFactor(
+        // 上肢骨折 → 操作能力×0.7（未治疗）/×0.85（已治疗，含攻速，持久，用户口径）；两上肢乘算叠加、锁下限。对齐 Duel.EffectiveInterval。
+        operation *= Body.UpperLimbFractureOperationFactor(
             CombatEffectCfg.HandFractureOperationMult, CombatEffectCfg.HandFractureHealedOperationMult,
             CombatEffectCfg.FractureCapabilityFloor);
         double interval = GripCombat.EffectiveInterval(baseCooldown ?? AttackCooldown, operation, ActiveGrip);

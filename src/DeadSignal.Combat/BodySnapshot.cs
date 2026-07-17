@@ -58,10 +58,17 @@ public sealed class BodySnapshot
     /// </summary>
     public List<int> BleedingLevels { get; set; } = new();
 
-    /// <summary>骨折的部位。</summary>
+    /// <summary>
+    /// 骨折的**肢**（[SPEC-FRAC-LIMB] 肢显示名："左上肢/右上肢/左下肢/右下肢"，最多 4 条）。
+    /// <para>
+    /// 🔴 **迁移**：旧存档（部位级骨折）存的是 part 名（"右手拇指"/"左小腿"…）——<see cref="Body.Restore"/>
+    /// 会把它们**归并到所属肢**；旧档里的软组织骨折（如"胸"）解析为无肢 ⇒ **丢弃**（新规则软组织免疫，有意）。
+    /// 走真实读档路径，无需版本闸门。
+    /// </para>
+    /// </summary>
     public List<string> Fractured { get; set; } = new();
 
-    /// <summary>已接受处理（上夹板）的骨折部位。</summary>
+    /// <summary>已接受处理（上夹板）的骨折**肢**（肢显示名；迁移同 <see cref="Fractured"/>）。</summary>
     public List<string> TreatedFractures { get; set; } = new();
 
     /// <summary>当前储血量。</summary>

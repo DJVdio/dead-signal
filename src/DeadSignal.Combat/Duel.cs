@@ -366,9 +366,9 @@ public sealed class DuelEngine
             return double.PositiveInfinity;
         }
 
-        // 手部骨折另作乘算系数（用户口径：单处手骨折 −30% 操作/攻速，多处乘算叠加、锁下限）——
+        // 上肢骨折另作乘算系数（用户口径：单处上肢骨折 −30% 操作/攻速，两上肢乘算叠加、锁下限）——
         // 与断手/断指的加性残疾惩罚相互独立叠乘，不改那套数学。
-        double fractureOp = rt.Body.HandFractureOperationFactor(
+        double fractureOp = rt.Body.UpperLimbFractureOperationFactor(
             _cfg.Effects.HandFractureOperationMult, _cfg.Effects.HandFractureHealedOperationMult,
             _cfg.Effects.FractureCapabilityFloor);
 
@@ -529,8 +529,9 @@ public sealed class DuelEngine
                     tags.Add("震荡:" + e.PartName);
                     break;
                 case DamageEffectKind.Fracture:
-                    // 手部骨折的攻速惩罚已由 EffectiveInterval 读 Body 骨折态（持久）实时叠乘，此处只出战报标签；
-                    // 腿/脚骨折的移速惩罚归 Godot 实时层（对决无位移）。不再用一次性 SpeedMult 永久叠乘（旧机制已删）。
+                    // 上肢骨折的攻速惩罚已由 EffectiveInterval 读 Body 骨折态（持久）实时叠乘，此处只出战报标签；
+                    // 下肢骨折的移速惩罚归 Godot 实时层（对决无位移）。不再用一次性 SpeedMult 永久叠乘（旧机制已删）。
+                    // [SPEC-FRAC-LIMB] e.PartName 现在是**所属肢**显示名 ⇒ 标签即"骨折:左上肢/右上肢/左下肢/右下肢"。
                     tags.Add("骨折:" + e.PartName);
                     break;
             }
