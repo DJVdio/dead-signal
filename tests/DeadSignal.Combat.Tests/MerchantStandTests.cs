@@ -22,9 +22,15 @@ namespace DeadSignal.Combat.Tests;
 /// </summary>
 public class MerchantStandTests
 {
-    // camp.json 的营地布局（围栏围成的闭合矩形；南北大门是唯二缺口）
+    // camp.json 的营地布局（围栏围成的闭合矩形；南北大门是唯二缺口）。
+    // ⚠️ 这是【手抄副本，没有焊缝】——本文件从头到尾没有读过 godot/data/camp.json。
+    //    核对时点 2026-07-17：与 camp.json `_layoutComment`「外沿 x∈[300,2100]、y∈[300,1500]、围栏厚 22、
+    //    南北在 x∈[1100,1300] 各留 200px 缺口」一致（内沿 = 外沿 ∓ 22；营心 = 两轴中点）。
+    // 🔴 但"当前一致"靠的是人手核对，不是机器：改了 camp.json 而不改这里，**下面的护栏一条都不会红**，
+    //    却已经在量一个不存在的营地（同 StuartManor / GoldfingerGang 的画布副本脱焊陷阱）。
+    //    正解是照 RealCampCoverTests.CampJsonPath() 补一条"副本 == 真源"的焊缝测试。见 journal [HANDOFF]。
     private const double CampMinX = 322, CampMaxX = 2078, CampMinY = 322, CampMaxY = 1478;
-    private const double CampCx = 1200, CampCy = 900;                       // 营心
+    private const double CampCx = 1200, CampCy = 900;                       // 营心 = ([300,2100],[300,1500]) 两轴中点
     private static readonly (double x, double y, double w, double h) SouthGate = (1100, 1478, 200, 22);
     private static readonly (double x, double y, double w, double h) NorthGate = (1100, 300, 200, 22);
 

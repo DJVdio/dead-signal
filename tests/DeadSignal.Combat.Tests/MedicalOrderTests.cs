@@ -8,7 +8,7 @@ namespace DeadSignal.Combat.Tests;
 
 /// <summary>
 /// [批次21·impl-medicine] 「给谁用什么医疗物资」的可用性判定（<see cref="MedicalOrderLogic"/>）。
-/// 这条规则原先散在 MedicalPanel 的按钮 Disabled 表达式里（MedicalPanel.cs:348/453/571/624）且零单测；
+/// 这条规则原先散在 <c>MedicalPanel</c> 各按钮的 Disabled 表达式里且零单测；
 /// 角色侧「选中角色 → 给他用药」的下令入口必须先能回答"能不能用、为什么不能用"，否则会给一个没病没伤的人开空面板。
 /// 药效数值不在此（单一事实源仍是 MedicineCatalog / SurgeryCatalog），本层只出"能不能用 + 用途 + 拒绝理由"。
 /// </summary>
@@ -112,7 +112,8 @@ public sealed class MedicalOrderTests
     [Fact]
     public void 草药原料不是可用医疗物资_只是配方输入()
     {
-        // Materials.cs:104-106 蒲公英/玫瑰果/老君须虽在 Medical 类目下，但它们是草药膏/茶的**配料**，不能直接往人身上用。
+        // Materials.cs 的 MaterialDef 表里，蒲公英/玫瑰果/老君须虽在 MaterialCategory.Medical 类目下，
+        // 但它们是草药膏/茶的**配料**，不能直接往人身上用。
         foreach (string k in new[] { "dandelion", "rosehip", "laojunxu" })
         {
             Assert.Null(MedicalOrderLogic.KindOf(k));
@@ -198,7 +199,7 @@ public sealed class MedicalOrderTests
     [Fact]
     public void 玫瑰果茶_无伤无病时无意义()
     {
-        // 补剂只加速"术后流血/骨折的逐日愈合"（HealthConditions.cs:903/950 的 extraHealBonusPct 轴）。
+        // 补剂只加速"术后流血/骨折的逐日愈合"（HealthConditions.TickDay 的 extraHealBonusPct 轴 → EfficiencyPoolBonusPct）。
         // 一个没伤的人喝了什么也不会发生 ⇒ 不给这个下令入口，别让玩家白扔一份茶。
         MedicalUseOption o = MedicalOrderLogic.Evaluate("rosehip_tea", Set(Infection()), 1, false, null);
         Assert.Equal(MedicalRefusal.NoTarget, o.Refusal);
@@ -224,7 +225,8 @@ public sealed class MedicalOrderTests
     [Fact]
     public void 感染的肢体也算止血耗材的目标_截肢要关合残端()
     {
-        // MedicalPanel.cs:597 截肢复用止血耗材关合残端 ⇒ 只有感染的肢体时，绷带仍该是"能用"的。
+        // [SPEC-B14-补7] MedicalPanel 的截肢入口复用止血耗材关合残端（supplyType 走 Bleeding）
+        // ⇒ 只有感染的肢体时，绷带仍该是"能用"的。
         Assert.True(MedicalOrderLogic.Evaluate("bandage", Set(Infection()), 1, false, null).Usable);
     }
 
@@ -281,7 +283,8 @@ public sealed class MedicalOrderTests
     [Fact]
     public void 缺肢者即使无伤病也需要进医务_可装假肢()
     {
-        // MedicalPanel.cs:255 已有这条口径（无伤病但有可装假肢的空槽 → 面板照开），此处把它固化成可测规则。
+        // [SPEC-B14-补8] MedicalPanel.AddProstheticInstallSection 已有这条口径
+        // （无伤病但有可装假肢的空槽 → 面板照开），此处把它固化成可测规则。
         Assert.True(MedicalOrderLogic.NeedsMedicalAttention(Set(), hasEquippableProstheticSlot: true));
     }
 }

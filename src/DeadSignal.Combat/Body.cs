@@ -204,8 +204,9 @@ public sealed class Body
         _bleeding[part] = new BleedWound(severity, rate);
     }
 
-    /// <summary>止血/治疗接口：清除某部位的持续出血（包扎一处 = 该部位所有伤口一起止住）。</summary>
-    /// TODO(治疗): 由治疗系统调用。
+    /// <summary>止血/治疗接口：清除某部位的持续出血（包扎一处 = 该部位所有伤口一起止住）。
+    /// <para><b>已接线</b>：由治疗系统的接入波 <c>Pawn.AdvanceHealthDay</c> 调用 —— 手术养好 / 微小伤新鲜期自愈 /
+    /// 截肢连带清理，任一使该部位不再有活跃出血条目，都在那里统一 StopBleed 同步。</para></summary>
     public void StopBleed(string part) => _bleeding.Remove(part);
 
     /// <summary>
@@ -318,8 +319,10 @@ public sealed class Body
     /// <summary>标记某部位已骨折（由效果结算在触发骨折时调用）。持久保留。</summary>
     public void MarkFractured(string part) => _fractured.Add(part);
 
-    /// <summary>消骨折/痊愈接口：清除某部位的骨折标记（含已治疗标记）。幂等：未骨折/部位名不存在均无副作用。</summary>
-    /// TODO(治疗): 由骨折康复完成（痊愈）时调用。
+    /// <summary>消骨折/痊愈接口：清除某部位的骨折标记（含已治疗标记）。幂等：未骨折/部位名不存在均无副作用。
+    /// <para><b>已接线</b>：由治疗系统的接入波 <c>Pawn.AdvanceHealthDay</c> 在康复完成/畸形封顶等
+    /// 使该部位不再有活跃骨折条目时调用（与 <see cref="StopBleed"/> 同一条存在性同步）。
+    /// 手术成功但仍愈合中的走 <see cref="MarkFractureTreated"/>（惩罚减半），不是本方法。</para></summary>
     public void HealFracture(string part)
     {
         _fractured.Remove(part);

@@ -7,10 +7,29 @@ using DeadSignal.Combat;
 // 数值均为原型期拟定（标注"待调"），供数值微调用。
 // 远程武器的期望伤害口径：假设弹道命中（几何 miss 不在模拟范围）。
 //
-// 模式（命令行开关）：
-//   duel [outPath]   → 对决战报模式（1v1 到死叙事）
-//   zombiecloth [p]  → 丧尸穿「生前的破衣服」前后对比（挡下率 0% → ?、玩家胜率变化）
-//   [outPath]        → 聚合蒙特卡洛模式（默认）
+// 模式（命令行开关）—— 🔴 **加一个分支就补一行，别让这张表再落后于 dispatch**：
+// 这张表此前只登记了 duel / zombiecloth / 默认三个，而下面实际注册了 18 个。`cost` 模式当年能以死代码状态
+// 长期没人发现（见下方 [T53] 注释），根因之一就是**从这里根本看不见它存在**。
+//
+//   [outPath]           → 聚合蒙特卡洛模式（默认）
+//   duel [outPath]      → 对决战报模式（1v1 到死叙事）
+//   cost [outPath]      → 打赢之后还剩什么：阵亡/永久残缺/骨折的代价表（🔴 胜率不是成本）
+//   lanchester [p]      → N 只丧尸围攻的平方律断崖
+//   weaponsweep [p]     → 武器 × 甲组失衡诊断 + what-if 敏感度扫描
+//   userplan [p]        → [批次18补] 锐器降下限/钝器提伤 what-if（⚠️ **追加**写入，默认与 weaponsweep 同路径）
+//   bleedcal [p]        → 流血轴复验（锯齿剑刃梯度）
+//   shotgun [p]         → 自制霰弹枪多弹丸校准
+//   archery [p]         → 弓弩 8×4 组合校准
+//   zombiecloth [p]     → 丧尸穿「生前的破衣服」前后对比（挡下率 0% → ?、玩家胜率变化）
+//   wallcal [p]         → 围墙/大门破防校准
+//   goldfinger          → 金手指帮之战（胜率 + 代价）
+//   dogcal [outPath]    → 布鲁斯（狗）战斗单元校准
+//   dogsweep            → 布鲁斯参数扫描（控制台）
+//   baselinecal         → 战斗基线复核（控制台）
+//   visioncal           → 视野曲线 & 光照解析校准（控制台）
+//   watchcal            → 夜防发现率矩阵（控制台）
+//   watchsweep          → 夜防覆盖假设扫描（控制台）
+//   endgamecal          → 尸潮终局节奏解析校准（控制台）
 
 if (args.Length > 0 && args[0] == "duel")
 {
@@ -109,6 +128,10 @@ if (args.Length > 0 && args[0] == "wallcal")
     return;
 }
 
+// ⚠️ **`userplan` 与 `weaponsweep` 默认写同一个文件**，且两者写法相反：`userplan` 是**追加**
+//    （`UserPlanCalibration.Run` 尾部 existing + sb），`weaponsweep` 是**整篇覆盖**。后果：
+//    跑 weaponsweep 会抹掉 userplan 追加的章节；连跑两次 userplan 会把自己的章节叠两份。
+//    ⇒ 复跑任一个之前先想清楚要哪份，或显式传 outPath 分开落盘。（默认路径要不要拆是 docs/research 侧的决定，未擅改。）
 if (args.Length > 0 && args[0] == "userplan")
 {
     string upOut = args.Length > 1 ? args[1] : "docs/research/2026-07-13-weapon-recalib.md";
@@ -302,8 +325,7 @@ sb.AppendLine();
 sb.AppendLine("> 效果概率系数（流血 k=1.0/cap0.9、骨折 k=0.8/cap0.6、震荡头 k=0.9/cap0.85、震荡躯干 k=0.25/cap0.4）与部位 HP 均拟定待调；上表用于校准方向，非终值。");
 
 var report = sb.ToString();
-Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(outPath))!);
-File.WriteAllText(outPath, report);
+SimReport.Write(outPath, report); // 出处戳 + 落盘（含建目录）
 
 Console.WriteLine($"已写出 {outPath}（{weapons.Count} 武器 × {combos.Count} 组合，各 {Iterations:N0} 次）。");
 Console.WriteLine();

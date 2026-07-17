@@ -106,9 +106,10 @@ public class NoiseTests
     [Fact]
     public void 弓的噪音_传不出丧尸嗅觉半径_故放箭不额外招怪()
     {
-        // 梯度锚点①：丧尸嗅觉兜底半径 = 70px（Zombie.SmellSenseRadius）。
-        // 弓 ≤ 70 ⇒ 听得见你放箭的丧尸，本来就已经闻得到你 —— 放箭不多招一只。
-        const double ZombieSmellRadius = 70;
+        // 梯度锚点①：丧尸嗅觉兜底半径。**读单一真源 NoiseLogic.ZombieSmellRadius，不手抄字面量**
+        // （Zombie.SmellSenseRadius 亦转发到它；此前这里硬编码着第三个 70，改锚点时不会红＝护栏失效）。
+        // 弓 ≤ 该半径 ⇒ 听得见你放箭的丧尸，本来就已经闻得到你 —— 放箭不多招一只。
+        const double ZombieSmellRadius = NoiseLogic.ZombieSmellRadius;
 
         foreach (Weapon w in WeaponTable.Arsenal().Where(w => w.IsRanged && Archery.UsesArrows(w)))
         {

@@ -154,7 +154,8 @@ public class PlacementRulesTests
     /// <item>&gt; <b>32px</b>：导航烘焙 <c>AgentRadius=14</c> + 障碍外扩 2px ⇒ 人能挤过去的最窄走廊 = 2×(14+2)。
     ///       缓冲带若窄于此，家具与围栏之间的缝**根本走不了人** —— 那就等于砌了一堵墙，本规则也就白写了。</item>
     /// <item>&gt; <b>40px</b>：砌墙工要站进 <c>seg.Rect.Grow(Pawn.Radius 12 + PendingArriveMargin 28)</c> 才算"到位"
-    ///       （CampMain.cs:3280）。缓冲带必须把这条**施工站位带**整个让出来，否则玩家会把自己的围栏
+    ///       （<c>CampMain</c> 里砌墙工的到位判定，搜 <c>PendingArriveMargin</c>）。
+    ///       缓冲带必须把这条**施工站位带**整个让出来，否则玩家会把自己的围栏
     ///       升级/修复入口用家具堵死 —— 一个远比 kill box 更难查的坑。</item>
     /// </list>
     /// </summary>

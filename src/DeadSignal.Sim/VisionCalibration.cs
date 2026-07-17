@@ -76,7 +76,7 @@ public static class VisionCalibration
         sb.AppendLine();
 
         var report = sb.ToString();
-        System.IO.File.WriteAllText("docs/research/2026-07-12-vision-calibration.md", report);
+        SimReport.Write("docs/research/2026-07-12-vision-calibration.md", report); // 出处戳 + 落盘（含建目录）
         Console.Write(report);
     }
 }

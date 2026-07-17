@@ -6,17 +6,30 @@ using Godot;
 namespace DeadSignal.Godot;
 
 /// <summary>
-/// 丧尸：白天原地休眠不动；夜晚游荡，发现幸存者后追击并近战爪击（钝器）。
-/// AI 全在 <see cref="Think"/> 内，靠 <see cref="GameClock.IsNight"/> 切换行为。
+/// 丧尸：发现幸存者后追击并近战爪击（钝器）。AI 全在 <see cref="Think"/> 内，**按所处场景分两条路**：
+/// <para>· <b>营地丧尸</b>（含袭营）：靠 <see cref="GameClock.IsNight"/> 切换——白天原地休眠不动、夜晚游荡+感知追击。</para>
+/// <para>· <b>探索关丧尸</b>（<see cref="MarkExploration"/> 标记，[SPEC-T60] 威胁模型 <see cref="ZombieActivation"/>）：
+/// <b>与昼夜无关</b>（探索发生在白天，它照样杀你）——普通丧尸靠视野/噪音/靠近唤醒；门后特殊丧尸完全冻结，
+/// 有且仅有开对应门才唤醒、唤醒后转普通。</para>
 /// </summary>
 public sealed partial class Zombie : Actor
 {
-    // 白昼满档视距 R0。丧尸仅夜间活动（环境光≈NightAmbient 0.15 → ConeFor 视距系数≈0.4475、半角≈34.5°）：
+    // 白昼满档视距 R0（喂 VisionLogic.ConeFor 的 baseRange，实际视距＝R0×光照系数）。
+    //
+    // 490 的来历＝**按营地夜晚反推**：夜间环境光 NightAmbient 0.15 → 视距系数 0.4475、半角 34.5°，
     // 490×0.4475≈219 使**夜间前向视距≈旧半径 220**，即由"半径雷达"变"等距但有朝向+可被墙/暗处遮挡"的锥形——
-    // 保留正面威胁、潜行从侧后/掩体/暗处自然涌现，而非单纯削弱。数值拟定待调，交 Sim/用户校准。
+    // 保留正面威胁、潜行从侧后/掩体/暗处自然涌现，而非单纯削弱。
+    //
+    // ⚠ [SPEC-T60] 起**别再按"丧尸仅夜间活动"读这个数**：探索关丧尸不看昼夜（见类注释 / ThinkExploration），
+    //   而探索恒在 DayExplore＝白天段（DayPhaseSegments→PhaseBlock.Day），故同一个 R0 在探索期吃的是白昼光照：
+    //     · 非暗关：环境光 1.0 → 视距**满档 490**、半角 60°（≈夜间 219 的 2.2 倍）。
+    //     · 暗关（ExplorationLighting.IsIndoorsDark → IndoorsDarkAmbient 0.10）：490×0.415≈203、半角 33°。
+    //   即"219"只是营地夜晚这一档的表现，不是全局有效视距。数值拟定待调，交 Sim/用户校准。
     private const float BaseSightRange = 490f;
-    // 嗅觉兜底（用户拍板）：短程全向感知半径，补锥形"侧后死角"被无脑绕过。夜间贴到 70px 内且同房间（未被墙隔）即闻到，
-    // 无视朝向/半角/光照（气味不吃暗）。半径拟定待调（用户口径 60~80px 取中）；穿墙=否（复用遮挡判定，待用户确认）。
+    // 嗅觉兜底（用户拍板）：短程全向感知半径，补锥形"侧后死角"被无脑绕过。贴到 70px 内且同房间（未被墙隔）即闻到，
+    // 无视朝向/半角/光照（气味不吃暗），**也无视昼夜**——营地夜晚与探索期白天同样生效（唯一例外：[SPEC-T60]
+    // 探索期冻结的门后特殊丧尸嗅觉归零，见下方 SmellRadius）。半径拟定待调（用户口径 60~80px 取中）；
+    // 穿墙=否（复用遮挡判定，待用户确认）。
     // 单一真源在 NoiseLogic：这个 70 是**整张噪音表的锚点**（走路 40 / 撬锁 30 都是"必须压在它以下"才定出来的），
     // 噪音侧的单测要拿它当护栏断言，故不能两处各写一个字面量（此前正是如此，连 NoiseTests 里都还硬编码着第三个 70）。
     private const float SmellSenseRadius = (float)NoiseLogic.ZombieSmellRadius;

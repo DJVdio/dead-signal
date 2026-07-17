@@ -118,8 +118,7 @@ public static class WeaponCalibration
         Render(sb, weapons, combos, cells.ToList(), winRates, pairs, ab);
         RenderWhatIf(sb, parts);
 
-        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(outPath))!);
-        File.WriteAllText(outPath, sb.ToString());
+        SimReport.Write(outPath, sb.ToString()); // 出处戳 + 落盘（含建目录）
         Console.WriteLine($"已写出 {outPath}（{weapons.Count} 武器 × {combos.Count} 甲组；命中样本 {HitSamples:N0}/单元，TTK 种子 {TtkSeeds:N0}/单元）。");
         Console.WriteLine();
         Console.Write(sb.ToString());
@@ -519,7 +518,7 @@ public static class WeaponCalibration
     {
         sb.AppendLine("## 表 10：what-if 敏感度扫描（找调整幅度区间）");
         sb.AppendLine();
-        sb.AppendLine("每行 = 把该武器的伤害/穿透改成这个值之后重跑。「打丧尸胜率」是最硬的锚（匕首现值 90%）。");
+        sb.AppendLine("每行 = 把该武器的伤害/穿透改成这个值之后重跑。「打丧尸胜率」是最硬的锚——现值见本节末尾的实测参照锚。");
         sb.AppendLine();
 
         var rows = new List<(string Group, string Label, Weapon V)>();
@@ -545,7 +544,7 @@ public static class WeaponCalibration
         }
         rows.Add(("尖头锤", "伤害 ×1.5 + 穿透 12%", Variant(WeaponTable.SpikeHammer(), dmgMul: 1.5, pen: 0.12)));
 
-        // 匕首抬穿透（伤害不动，守住打丧尸 90% 锚）
+        // 匕首抬穿透（伤害不动）。扫描档位含 9%（匕首的历史穿透值，留作回溯对照；现值见 WeaponTable.Dagger）。
         foreach (double p in new[] { 0.09, 0.18, 0.25, 0.35 })
         {
             rows.Add(("匕首", string.Create(CultureInfo.InvariantCulture, $"穿透 {p:P0}（伤害不动）"),
@@ -581,8 +580,34 @@ public static class WeaponCalibration
                 $"| {g} | {label} | {r.Dps:F2} | {r.VsZombie:P1} | {r.VsMid:P1} | {Sec(r.HeavyTtk)} | {r.HeavyBlocked:P1} |");
         }
         sb.AppendLine();
-        sb.AppendLine("> 参照锚（现值）：匕首 打丧尸 90.2%、长剑 92.8%、重剑 96.0%；**打重甲每秒伤害** 长剑 2.86、重剑 3.87、破甲锤 3.31。");
+        RenderAnchors(sb, parts);
         sb.AppendLine();
+    }
+
+    /// <summary>
+    /// 参照锚（现值）。🔴 <b>这一行的数字必须从实测里长出来，不能手写</b>——[T63] 已在
+    /// <see cref="CombatCostCalibration"/> 判过同一宗罪：手写的正文与它正上方那张自己生成的表互相矛盾。
+    /// 此处此前写死「匕首 打丧尸 90.2%、长剑 92.8%、重剑 96.0%；打重甲每秒伤害 长剑 2.86、重剑 3.87、破甲锤 3.31」，
+    /// 而同一次运行的表 7 实测已是 99.6% / 99.7% / 99.9% —— 引擎迭代把数带走了，正文没人复核。
+    /// </summary>
+    private static void RenderAnchors(StringBuilder sb, IReadOnlyList<BodyPart> parts)
+    {
+        var anchors = new (string Name, Weapon W)[]
+        {
+            ("匕首", WeaponTable.Dagger()),
+            ("长剑", WeaponTable.Longsword()),
+            ("重剑", WeaponTable.Greatsword()),
+            ("破甲锤", WeaponTable.Warhammer()),
+        };
+        // Probe 每次调用自带确定性种子（见 Duel），不吃共享随机流 ⇒ 加这几次探测对上表既有行零漂移。
+        var r = new (double VsZombie, double VsMid, double HeavyTtk, double HeavyBlocked, double Dps)[anchors.Length];
+        Parallel.For(0, anchors.Length, i => r[i] = Probe(anchors[i].W, parts));
+
+        string zombie = string.Join("、", anchors.Take(3).Select((a, i) =>
+            string.Create(CultureInfo.InvariantCulture, $"{a.Name} {r[i].VsZombie:P1}")));
+        string dps = string.Join("、", anchors.Skip(1).Select((a, i) =>
+            string.Create(CultureInfo.InvariantCulture, $"{a.Name} {r[i + 1].Dps:F2}")));
+        sb.AppendLine($"> 参照锚（现值·本次实测）：**打丧尸胜率** {zombie}；**打重甲每秒伤害** {dps}。");
     }
 
     private static string TypeOf(Weapon w) =>

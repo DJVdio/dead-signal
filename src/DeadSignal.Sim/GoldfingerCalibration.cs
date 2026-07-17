@@ -137,9 +137,20 @@ public static class GoldfingerCalibration
             Duration: dur);
     }
 
-    private static void Scenario(
-        StringBuilder sb, string title, Weapon kit,
-        IReadOnlyList<IReadOnlyList<GangGuard>> waves, bool injured)
+    /// <summary>
+    /// 一个场景跑完 <see cref="Seeds"/> 次之后的<b>账</b>（不是只有胜率——§2 通则③「胜率不是成本」）。
+    /// <para>🔴 <b>报告排版与护栏测试共用这一条码路</b>（<c>GoldfingerCalibrationDocTests</c> 拿它跟 research 文档对账）——
+    /// 谁再抄一份就会像 991b777 那份 born-stale 报告一样悄悄漂掉。</para>
+    /// </summary>
+    public readonly record struct ScenarioStat(
+        double WinRate, int WonCount, double AvgDead, double AvgSevered,
+        double AvgFractured, double PyrrhicRate, double FlawlessRate, double AvgWavesCleared);
+
+    /// <summary>
+    /// 跑一个场景 <see cref="Seeds"/> 次，出账。<b>纯计算、不排版、不写文件</b> ⇒ 可被单测直接调。
+    /// </summary>
+    public static ScenarioStat Measure(
+        Weapon kit, IReadOnlyList<IReadOnlyList<GangGuard>> waves, bool injured)
     {
         var tolls = new List<Toll>(Seeds);
         for (int seed = 0; seed < Seeds; seed++)
@@ -148,37 +159,71 @@ public static class GoldfingerCalibration
         }
 
         var won = tolls.Where(t => t.Won).ToList();
-        double winRate = (double)won.Count / Seeds;
-
-        sb.Append($"  {title,-14} 胜率 {winRate,6:P1}");
-        if (won.Count == 0)
-        {
-            sb.AppendLine($" │ 平均推进 {tolls.Average(t => t.WavesCleared),4:0.0}/{waves.Count} 波后团灭");
-            return;
-        }
 
         // 「惨胜」= 赢了，但有人死了 / 永久少了一块 / 骨折了。赢，不等于没付代价。
-        int pyrrhic = won.Count(t => t.Dead > 0 || t.Severed > 0 || t.Fractured > 0);
-        int flawless = won.Count(t => t.Dead == 0 && t.Severed == 0 && t.Fractured == 0 && t.Disabled == 0);
-        sb.AppendLine(
-            $" │ 阵亡 {won.Average(t => t.Dead),4:0.00} │ 永久残缺 {won.Average(t => t.Severed),4:0.00} │ " +
-            $"骨折 {won.Average(t => t.Fractured),4:0.00} │ 惨胜 {(double)pyrrhic / won.Count,5:P0} │ " +
-            $"全身而退 {(double)flawless / won.Count,5:P0}");
+        return new ScenarioStat(
+            WinRate: (double)won.Count / Seeds,
+            WonCount: won.Count,
+            AvgDead: won.Count == 0 ? 0 : won.Average(t => t.Dead),
+            AvgSevered: won.Count == 0 ? 0 : won.Average(t => t.Severed),
+            AvgFractured: won.Count == 0 ? 0 : won.Average(t => t.Fractured),
+            PyrrhicRate: won.Count == 0
+                ? 0
+                : (double)won.Count(t => t.Dead > 0 || t.Severed > 0 || t.Fractured > 0) / won.Count,
+            FlawlessRate: won.Count == 0
+                ? 0
+                : (double)won.Count(t => t.Dead == 0 && t.Severed == 0 && t.Fractured == 0 && t.Disabled == 0) / won.Count,
+            AvgWavesCleared: tolls.Average(t => t.WavesCleared));
     }
+
+    /// <summary>
+    /// 把一个场景的账排成 research 文档里的<b>那一行</b>。
+    /// <para>🔴 <b>排版也是单一源</b>：报告与 <c>GoldfingerCalibrationDocTests</c> 都用这个函数 ⇒
+    /// 测试拿它跟文档里的行<b>逐字比对</b>，数变了或排版变了都当场红。</para>
+    /// </summary>
+    public static string Row(string title, int waveCount, ScenarioStat s) =>
+        s.WonCount == 0
+            ? $"  {title,-14} 胜率 {s.WinRate,6:P1} │ 平均推进 {s.AvgWavesCleared,4:0.0}/{waveCount} 波后团灭"
+            : $"  {title,-14} 胜率 {s.WinRate,6:P1}"
+              + $" │ 阵亡 {s.AvgDead,4:0.00} │ 永久残缺 {s.AvgSevered,4:0.00} │ "
+              + $"骨折 {s.AvgFractured,4:0.00} │ 惨胜 {s.PyrrhicRate,5:P0} │ "
+              + $"全身而退 {s.FlawlessRate,5:P0}";
+
+    private static void Scenario(
+        StringBuilder sb, string title, Weapon kit,
+        IReadOnlyList<IReadOnlyList<GangGuard>> waves, bool injured)
+    {
+        sb.AppendLine(Row(title, waves.Count, Measure(kit, waves, injured)));
+    }
+
+    // ── 三种打法的波次分组（公开＝报告与护栏测试共用单一源，别各写各的）──────────────
+    // 分组 = SpawnGoldfingerGuards 的空间布点（roster 顺序即编制：0-2 深处 / 3-5 中段 / 6-7 近入口）。
+    // 玩家从南边入口进 ⇒ 先撞近入口，再中段，最后深处（军械柜/银库就在那三个人背后）。
+
+    /// <summary>逐波推进 2→3→3：正常推进，按纵深一波波撞上去（伤在波间累积）。</summary>
+    public static IReadOnlyList<IReadOnlyList<GangGuard>> PushWaves { get; } =
+        new IReadOnlyList<GangGuard>[]
+        {
+            new[] { GoldfingerGang.Roster[6], GoldfingerGang.Roster[7] },                            // 近入口
+            new[] { GoldfingerGang.Roster[3], GoldfingerGang.Roster[4], GoldfingerGang.Roster[5] },  // 中段
+            new[] { GoldfingerGang.Roster[0], GoldfingerGang.Roster[1], GoldfingerGang.Roster[2] },  // 深处
+        };
+
+    /// <summary>惊动全据点 8：一次性 3v8 ——<b>开枪的后果</b>（噪音招怪见 <see cref="GoldfingerGang.AlertedBy"/>）。</summary>
+    public static IReadOnlyList<IReadOnlyList<GangGuard>> AllAtOnce { get; } =
+        new IReadOnlyList<GangGuard>[] { GoldfingerGang.Roster.ToList() };
+
+    /// <summary>逐个清哨 1×8：弓/匕首潜行，绕开哨兵扫视一个个摸掉（伤累积）。</summary>
+    public static IReadOnlyList<IReadOnlyList<GangGuard>> OneByOne { get; } =
+        GoldfingerGang.Roster.Select(g => (IReadOnlyList<GangGuard>)new[] { g }).ToArray();
 
     public static void Run()
     {
         IReadOnlyList<GangGuard> r = GoldfingerGang.Roster;
 
-        // 波次分组 = SpawnGoldfingerGuards 的空间布点（roster 顺序即编制：0-2 深处 / 3-5 中段 / 6-7 近入口）。
-        // 玩家从南边入口进 ⇒ 先撞近入口，再中段，最后深处（军械柜/银库就在那三个人背后）。
-        var entrance = new[] { r[6], r[7] };
-        var middle = new[] { r[3], r[4], r[5] };
-        var deep = new[] { r[0], r[1], r[2] };
-
-        var pushWaves = new IReadOnlyList<GangGuard>[] { entrance, middle, deep };
-        var allAtOnce = new IReadOnlyList<GangGuard>[] { r.ToList() };
-        var oneByOne = r.Select(g => (IReadOnlyList<GangGuard>)new[] { g }).ToArray();
+        IReadOnlyList<IReadOnlyList<GangGuard>> pushWaves = PushWaves;
+        IReadOnlyList<IReadOnlyList<GangGuard>> allAtOnce = AllAtOnce;
+        IReadOnlyList<IReadOnlyList<GangGuard>> oneByOne = OneByOne;
 
         var sb = new StringBuilder();
         sb.AppendLine("# 金手指帮之战（Arena·无空间下界）");
@@ -258,8 +303,7 @@ public static class GoldfingerCalibration
 
         string report = sb.ToString();
         Console.Write(report);
-        Directory.CreateDirectory("docs/research");
-        File.WriteAllText("docs/research/2026-07-14-goldfinger-calibration.md", report);
+        SimReport.Write("docs/research/2026-07-14-goldfinger-calibration.md", report); // 出处戳 + 落盘（单一入口）
         Console.WriteLine("\n已写出 docs/research/2026-07-14-goldfinger-calibration.md");
     }
 }

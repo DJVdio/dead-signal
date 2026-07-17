@@ -338,9 +338,11 @@ public static class BleedCalibration
 
         var weapons = new (string Label, Weapon W)[]
         {
-            ("匕首", WeaponTable.Dagger()),      // 低穿透极端（6%）
-            ("长剑", WeaponTable.Longsword()),   // 中穿透（24%）
-            ("重剑", WeaponTable.Greatsword()),  // 高穿透极端（40%）
+            // 取穿透轴的低/中/高三极。**别在这里抄穿透数字**——真值由下面的小节标题直接从武器读出来渲染
+            // （此处曾抄成「匕首 6%」，而 WeaponTable.Dagger() 实为 7.5%，抄的那天起就对不上）。
+            ("匕首", WeaponTable.Dagger()),      // 低穿透极端
+            ("长剑", WeaponTable.Longsword()),   // 中穿透
+            ("重剑", WeaponTable.Greatsword()),  // 高穿透极端
         };
 
         foreach (var (label, baseW) in weapons)
@@ -561,7 +563,7 @@ public static class BleedCalibration
 
         WoundTriggerDiagnosis(sb, ci);
 
-        File.WriteAllText(outPath, sb.ToString());
+        SimReport.Write(outPath, sb.ToString()); // 出处戳 + 落盘（含建目录）
         Console.WriteLine($"流血轴复验报告 → {outPath}");
     }
 }

@@ -320,7 +320,7 @@ public static class WallCalibration
 
         AppendPerimeter(sb, inv, claw, clawHit, clawInterval);
 
-        File.WriteAllText(outPath, sb.ToString());
+        SimReport.Write(outPath, sb.ToString()); // 出处戳 + 落盘（含建目录）
         Console.WriteLine(sb.ToString());
         Console.WriteLine($"[已写出] {outPath}");
     }

@@ -23,8 +23,9 @@ namespace DeadSignal.Godot;
 /// </para>
 ///
 /// <para>═══ <b>乘算，禁止加算</b>（项目铁律，见 CLAUDE.md）═══
-/// <see cref="MultiplierFor"/> 把每一条加成 <c>*=</c> 连乘。将来若《进阶木匠技术》也给 5%，
-/// 两本都读过 = <c>0.95 × 0.95 = 0.9025</c>，<b>不是</b>加算的 <c>1 − 0.05 − 0.05 = 0.90</c>。
+/// <see cref="MultiplierFor"/> 把每一条加成 <c>*=</c> 连乘。<b>《进阶木匠技术》那 5% 已经落地</b>
+/// （见 <see cref="AdvancedCarpentryFurnitureMultiplier"/>）⇒ 两本都读过 = <c>0.95 × 0.95 = 0.9025</c>，
+/// <b>不是</b>加算的 <c>1 − 0.05 − 0.05 = 0.90</c>。
 /// 新加一条加成 = 在 <see cref="MultiplierFor"/> 里再乘一行，<b>绝不允许写成 <c>return</c> 覆盖前一条</b>。
 /// </para>
 /// </summary>
@@ -32,8 +33,10 @@ public static class CraftWorkTime
 {
     /// <summary>
     /// 《木匠入门》做<b>家具</b>时的工时乘子（+5% 速度 ⇒ 工时 ×0.95）。
-    /// 只对 <see cref="FurnitureRecipeIds"/> 那几张生效 —— 门槛与加成是两回事：这本书<b>同时</b>解锁自制弓，
-    /// 但弓不是家具，木匠削弓并不更快。
+    /// 只对 <see cref="FurnitureRecipeIds"/> 那几张生效 —— 门槛与加成是两回事：这本书还解锁<b>回收木料</b>，
+    /// 但那不是家具，木匠拆木头并不更快。
+    /// <para>⚠️ [SPEC-B21·T26] 本书<b>名下已无任何弓弩</b>（用户把它清成纯家具书，见 <c>RecipeBook.CarpentryBasicsBookId</c>）
+    /// —— 旧注释拿"这本书同时解锁自制弓"举例，那个例子已不存在。</para>
     /// </summary>
     public const double CarpentryFurnitureMultiplier = 0.95;
 

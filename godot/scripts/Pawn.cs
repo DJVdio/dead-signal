@@ -159,7 +159,9 @@ public sealed partial class Pawn : Actor
     /// </summary>
     private readonly Dictionary<string, ArmorLayer> _apparelLayers = new();
 
-    /// <summary>持握态（只读，供战斗层后续消费攻速/误差角系数；本轮只暴露不消费）。</summary>
+    /// <summary>持握态（只读，由左右手持械推导）。<b>已被战斗层消费</b>：<see cref="Actor.ActiveGrip"/> 就地取本属性，
+    /// 喂 <c>GripCombat.EffectiveInterval</c>（攻速，Actor.cs:643）与 <c>GripCombat.EffectiveSpreadDegrees</c>
+    /// （误差角，Actor.cs:924）。系数本身在 <c>DualWield</c>（双持攻速 0.70×、散布放大；单手/双手 ×1.0）。</summary>
     public GripMode Grip => _loadout.Grip;
 
     // ———————————— 🔴 [T45·负重激活] 这个人这一趟背了多少 ————————————

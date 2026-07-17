@@ -1367,9 +1367,13 @@ public abstract partial class Actor : CharacterBody2D
 
     /// <summary>
     /// [T69] 护手挡格保护的"持械手"部位集（手掌 + 五指）。
-    /// <para>🔴 <b>拟定：惯用手＝右手</b>——引擎/装备层当前不区分某把单手武器握在左手还是右手，
-    /// 故按惯用手（右）取一套。日后装备层若落实左右手，此处改读实际持械手即可（纯逻辑
-    /// <see cref="WeaponModDefense.HandGuardNegates"/> 只认"命中是不是持械手"，不关心哪只，故无需改动）。</para>
+    /// <para>🔴 <b>拟定：惯用手＝右手</b>——零依赖战斗引擎（<c>CombatResolver</c>）不带"哪只手"这条轴，
+    /// 而本集合是 <see cref="Actor"/> 基类的 <b>static</b>（丧尸/劫掠者等非 <see cref="Pawn"/> 单位根本没有持械模型），
+    /// 故统一按惯用手（右）取一套。</para>
+    /// <para>⚠ <b>别按"装备层还没落实左右手"理解</b>：装备层早已区分——<c>WeaponLoadout.LeftHand/RightHand</c>
+    /// （WeaponLoadout.cs:22-26），且 <c>Pawn.WeaponInHand(Hand)</c>（Pawn.cs:232）已公开可读。要改成读实际持械手，
+    /// 缺的只是"把这个 static 集合换成按 Pawn 实例查 loadout"，不是去造左右手模型。
+    /// （纯逻辑 <see cref="WeaponModDefense.HandGuardNegates"/> 只认"命中是不是持械手"、不关心哪只，故它无需改动。）</para>
     /// </summary>
     private static readonly System.Collections.Generic.HashSet<string> WeaponHandParts = new()
     {

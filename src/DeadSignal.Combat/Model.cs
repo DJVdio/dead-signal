@@ -235,8 +235,9 @@ public sealed class Weapon
     /// </para>
     /// <para>
     /// <c>null</c> = 未填，按伤害类型兜底（钝器/锐器各一档缺省值，见 <c>StructureDamage.DefaultBluntFactor</c>）——
-    /// 新武器忘填不会变成"砸墙零伤害"。数值拟定待调，用户在 <c>docs/weapons-calc.xlsx</c>『武器表』的
-    /// 「砸墙系数」列调。
+    /// 新武器忘填不会变成"砸墙零伤害"。数值拟定待调，用户在 <b>本地 wiki 数值表</b>（<c>docs/wiki</c>）
+    /// 『武器表』的「砸墙系数」列调 —— <b>wiki 是数值唯一设计源，代码向它看齐</b>
+    /// （旧的 <c>docs/weapons-calc.xlsx</c> 已删除退役，见 <c>Archery</c> 的 [DECISION] impl-archery-redo）。
     /// </para>
     /// </summary>
     public double? StructureFactor { get; init; }
@@ -344,8 +345,13 @@ public sealed class ArmorLayer
     /// <summary>对钝器的防御值。</summary>
     public double BluntDefense { get; init; }
 
-    /// <summary>重量。重量惩罚（攻速/移速）本期不结算，字段留给后续。</summary>
-    /// TODO(重量): 结算攻速/移速惩罚。
+    /// <summary>
+    /// 重量。<b>已接线</b>：消费层 <c>ItemRegistry.ArmorRoster</c> 从本字段投影出护甲重量（不复制数值），
+    /// 经 <c>CarryWeight</c> 汇总进负重，由 <see cref="Loadout"/> 的 debuff 曲线出攻速/移速乘子
+    /// （<c>Loadout.AttackSpeedMultiplier</c> / <c>SpeedMultiplier</c>），最终落到 <c>Pawn</c>/<c>Actor</c>。
+    /// <para>引擎本身<b>不</b>在 <see cref="CombatResolver"/> 里读它 —— 负重惩罚属消费层的实时能力轴，
+    /// 引擎只出数值。故本字段不参与 Sim 结算路径（结构性零漂移）。</para>
+    /// </summary>
     public double Weight { get; init; }
 
     public ArmorSlot Slot { get; init; }

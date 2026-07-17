@@ -37,8 +37,7 @@ public static class ShotgunCalibration
         DistanceTable(sb, sg);
         Sweep(sb);
 
-        Directory.CreateDirectory(Path.GetDirectoryName(outPath)!);
-        File.WriteAllText(outPath, sb.ToString());
+        SimReport.Write(outPath, sb.ToString()); // 出处戳 + 落盘（含建目录）
         Console.WriteLine(sb.ToString());
         Console.WriteLine($"已写出 {outPath}");
     }
@@ -134,6 +133,10 @@ public static class ShotgunCalibration
         BodyFactory = HumanBody.NewZombieBody, // 失血 1/3
         ArmorFactory = ZombieOutfit.RollArmor, // 每场现抽一套生前装束（含腐皮）
     };
+
+    /// <summary>重甲组（板甲 + 粗布外套 + 长袖布衣）——与 weaponsweep 的重甲口径同款。</summary>
+    private static ArmorLayer[] HeavyArmor() =>
+        new[] { ArmorTable.Plate(), ArmorTable.CoarseClothCoat(), ArmorTable.LongSleeveShirt() };
 
     private static DuelFighter RaiderDef(string name, IReadOnlyList<ArmorLayer> armor) => new()
     {
@@ -294,16 +297,23 @@ public static class ShotgunCalibration
     // ---- ④ 参数 sweep：找"清丧尸强 / 打披甲弱"这条定位真正成立的数值 ----
 
     /// <summary>
-    /// 定位校准的张力：8 颗弹丸的**总量**会补偿挡下率——即便板甲挡下 69% 的弹丸，剩下 2.5 颗仍能凑出可观伤害，
+    /// 定位校准的张力：8 颗弹丸的**总量**会补偿挡下率——挡下率再高，剩下几颗仍能凑出可观伤害，
     /// 使它对重甲的胜率反而高过长剑。要坐实"对披甲极差"，得压低单颗上限（让更多弹丸落到挡下门槛之下）
     /// 并放慢冷却（土制单管装填慢）。本 sweep 扫单颗伤害区间 × 冷却，看哪一组同时满足：
-    /// vs 丧尸高（清群强） ∧ vs 重甲显著低于长剑 24.5%（打披甲差）。
+    /// vs 丧尸高（清群强） ∧ vs 重甲显著低于长剑（打披甲差）。
+    /// <para>🔴 <b>长剑参照值一律现测，不写死</b>——此处此前把它抄成 24.5%（连同 ③ 的
+    /// 「破甲锤 38.6%、匕首 12.6%、自制猎枪 19.0%」一整行），而这批数是引擎多轮迭代前的旧值，
+    /// 没有任何机制保证它们还成立，却被当成**验收判据**在用。</para>
     /// </summary>
     private static void Sweep(StringBuilder sb)
     {
+        // 参照系（本 harness 口径：玩家中甲 vs 持长剑的重甲劫掠者）——现测，不抄。
+        double swordVsHeavy = WinRate(WeaponTable.Longsword(), RaiderDef("重甲", HeavyArmor()), 1500);
+
         sb.AppendLine("## ④ 定位校准 sweep（单颗伤害 × 冷却）");
         sb.AppendLine();
-        sb.AppendLine("目标：vs 丧尸尽量高（清群），vs 重甲**显著低于长剑 24.5%**（打披甲差=有意的短板）。");
+        sb.AppendLine(string.Create(CultureInfo.InvariantCulture,
+            $"目标：vs 丧尸尽量高（清群），vs 重甲**显著低于长剑 {swordVsHeavy:P1}**（打披甲差=有意的短板）。"));
         sb.AppendLine();
         sb.AppendLine("| 单颗伤害 | 冷却 | 齐射期望(无甲) | vs 丧尸 | vs 中甲 | vs 重甲 | 定位达标? |");
         sb.AppendLine("|---|---|---|---|---|---|---|");
@@ -318,18 +328,28 @@ public static class ShotgunCalibration
                 Weapon w = Variant(min, max, cd);
                 double vsZombie = WinRate(w, ZombieDef(), 1500);
                 double vsMid = WinRate(w, RaiderDef("中甲", ArmorTable.SurvivorArmor()), 1500);
-                double vsHeavy = WinRate(w, RaiderDef("重甲",
-                    new[] { ArmorTable.Plate(), ArmorTable.CoarseClothCoat(), ArmorTable.LongSleeveShirt() }), 1500);
+                double vsHeavy = WinRate(w, RaiderDef("重甲", HeavyArmor()), 1500);
 
-                // 达标：清丧尸仍强（≥88%）且对重甲明显弱于长剑（<20%）。
-                string ok = vsZombie >= 0.88 && vsHeavy < 0.20 ? "**✓**" : "";
+                // 达标：清丧尸仍强（≥88%，authored 判据）且对重甲明显弱于长剑——后者按**现测**的长剑参照值
+                // 打八折，而不是写死一个会随引擎漂走的常数（此前写死 <20%，配的是早已失效的「长剑 24.5%」）。
+                string ok = vsZombie >= 0.88 && vsHeavy < swordVsHeavy * 0.8 ? "**✓**" : "";
                 sb.AppendLine(CultureInfo.InvariantCulture,
                     $"| {min}~{max} | {cd}s | {(min + max) / 2 * 8:0.0} | {vsZombie:P1} | {vsMid:P1} | {vsHeavy:P1} | {ok} |");
             }
         }
 
         sb.AppendLine();
-        sb.AppendLine("> 对照：长剑 vs 重甲 24.5%、破甲锤 38.6%、匕首 12.6%、自制猎枪 19.0%。");
+        // 对照行现测生成（同一口径、同一次运行）——不再手写，免得再出现"正文与正上方自己的表互相矛盾"。
+        var refs = new (string Name, Weapon W)[]
+        {
+            ("长剑", WeaponTable.Longsword()),
+            ("破甲锤", WeaponTable.Warhammer()),
+            ("匕首", WeaponTable.Dagger()),
+            ("自制猎枪", WeaponTable.ImprovisedHuntingGun()),
+        };
+        string cmp = string.Join("、", refs.Select(r => string.Create(CultureInfo.InvariantCulture,
+            $"{r.Name} {WinRate(r.W, RaiderDef("重甲", HeavyArmor()), 1500):P1}")));
+        sb.AppendLine($"> 对照（本次实测·同口径）：各武器 vs 重甲 —— {cmp}。");
         sb.AppendLine();
     }
 

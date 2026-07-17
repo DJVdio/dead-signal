@@ -109,9 +109,10 @@ public static class NarrativeSpotRegistry
         return new NarrativeSpotResult(spot.StoryFlag, spot.Title, spot.Pages, spot.Repeatable);
     }
 
-    // ---------------- 样例点位（各图铺设，文本 draft 待用户细化） ----------------
-    // 数量拟定待调（[SPEC-B12]"分散有不少的调查点"）：南林村庄 4 / 守林人小屋 2 / 瞭望台 1 / 广播台 2。
-    // 坐标避开既有物资/主线触发点的 Area2D（关卡尺寸 2400×1600）。
+    // ---------------- 点位（各图铺设，文本 draft 待用户细化） ----------------
+    // 数量拟定待调（[SPEC-B12]"分散有不少的调查点"）：**分布以下表为准，别在此手抄逐关计数**（抄了必腐）。
+    // 坐标避开既有物资/主线触发点的 Area2D。🔴 各关画布尺寸见 ExplorationLevelSize（多数已放大，
+    // 已不是历史上那个统一的 2400×1600）⇒ 新增/重排点位一律按该关**当前**画布布点。
     private static List<NarrativeSpot> BuildSpots() => new()
     {
         // ===== 南林村庄（大点，VillageRescue.DestinationName）：4 处 =====

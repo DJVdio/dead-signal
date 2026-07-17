@@ -47,8 +47,7 @@ public static class ArcheryCalibration
         LogisticsTable(sb);
         ArcheryBookTable(sb);
 
-        Directory.CreateDirectory(Path.GetDirectoryName(outPath)!);
-        File.WriteAllText(outPath, sb.ToString());
+        SimReport.Write(outPath, sb.ToString()); // 出处戳 + 落盘（含建目录）
         Console.WriteLine(sb.ToString());
         Console.WriteLine($"已写出 {outPath}");
     }

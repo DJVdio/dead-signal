@@ -102,7 +102,7 @@ public static class WatchCalibration
             $"- **疲劳劣化达标（Δ={(fullCov - fullCovFat) * 100:F0}pp，落 15~25pp）**：视锥 ×0.85/0.90 单路径饱和(~4pp) → night-response 修复补一道听力项 ×{NightRaidLogic.FatigueHearingMult}（NightRaidLogic.FatigueAdjustedAlertness，运行时与本 Sim 同调单一真源）。听力是满配检测大头，削之即打破地板饱和。[DECISION-RESOLVED]"));
 
         var report = sb.ToString();
-        System.IO.File.WriteAllText("docs/research/2026-07-12-watch-calibration.md", report);
+        SimReport.Write("docs/research/2026-07-12-watch-calibration.md", report); // 出处戳 + 落盘（含建目录）
         Console.Write(report);
     }
 

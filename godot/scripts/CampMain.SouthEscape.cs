@@ -40,6 +40,12 @@ public sealed partial class CampMain
     /// <summary>尸潮演出丧尸数量（占位纯演出体，无限丧尸屠营 → 比军袭更多具压场，不走战斗结算）。</summary>
     private const int MassacreZombieCount = 8;
 
+    /// <summary>CG-A 开场字幕每段停留时长（秒，真实时基；拟定待调，GUI 目视校准）。</summary>
+    private const float OpeningNarrationSecondsPerSegment = 3.2f;
+
+    /// <summary>CG-A 开场字幕每段淡入占比（0→此比例内 alpha 拉满，其后保持）。</summary>
+    private const float OpeningNarrationFadeInPortion = 0.28f;
+
     /// <summary>
     /// 🔴 REUSABLE 入口：启动「南逃谢幕」强制终局序列。调用方选好 <paramref name="escapee"/>（军袭=随机存活者、
     /// 将来 40 天尸潮结局同）并传 <paramref name="trigger"/> 决定屠营演出/旁白语气。幂等（进行中再调无效）。
@@ -55,8 +61,15 @@ public sealed partial class CampMain
         SouthEscapeEnding.RecordEscapee(_storyFlags, escapee.DisplayName, escapee.Id.ToString(), trigger);
         GD.Print($"[南逃谢幕] 触发（{trigger}）：南逃者 = {escapee.DisplayName}（id {escapee.Id}）。播 CG-A 屠营演出。");
 
-        // CG-A 屠营演出 → 演完载入南逃走廊（玩家操作段）。
-        PlayMassacreCinematic(escapee, trigger, onComplete: () => LoadEscapeCorridor(escapee));
+        // CG-A：先播 authored 开场字幕（叠层旁白）→ 屠营演出 → 演完载入南逃走廊（玩家操作段）。
+        // 🔴 字幕文本按触发源分叉：军袭＝EndingCg.MilitaryRaidMassacre（6 段用户手写旁白，此前从无展示路径，本单接线）。
+        //    尸潮版 CG-A 开场旁白＝authored 缺口（EndingCg 无"丧尸屠营"专用段；HordeSiege 语气偏"守住到最后一人"的全员战死，
+        //    与新"随机一人半残南逃"结局未必吻合）⇒ 暂传空，PlayOpeningNarration 空即跳过、直接演出（零回归）。见 [DECISION]。
+        IReadOnlyList<string> openingNarration = trigger == SouthEscapeTrigger.MilitaryRaid
+            ? EndingCg.MilitaryRaidMassacre
+            : Array.Empty<string>();
+        PlayOpeningNarration(openingNarration, onComplete: () =>
+            PlayMassacreCinematic(escapee, trigger, onComplete: () => LoadEscapeCorridor(escapee)));
     }
 
     /// <summary>
@@ -79,6 +92,64 @@ public sealed partial class CampMain
 
         _storyFlags.Set(HordeTimeline.ArrivedFlag, "true"); // 保留"尸潮已抵达"旗标语义（HUD/存档识别本局尸潮终局）
         BeginSouthEscapeEnding(escapee, SouthEscapeTrigger.HordeSiege);
+    }
+
+    // ============ CG-A 开场字幕：authored 旁白逐屏叠层（EndingCg.cs 注"本段作开场字幕叠层"） ============
+
+    /// <summary>
+    /// 屠营演出**前置**的开场字幕：把 <paramref name="segments"/>（如 <see cref="EndingCg.MilitaryRaidMassacre"/> 6 段
+    /// authored 旁白）在全屏黑底上**逐段渐显**，定时推进（过场性质，非玩家逐段按键），播完淡出 → 调 <paramref name="onComplete"/>
+    /// 接屠营演出。忠实 <c>EndingCg.cs</c> 注「CG-A 主体是冻结脚本演出，本段作开场字幕叠层」+ wiki endings.json「逐屏文本」。
+    /// <para>🔴 **不用 <see cref="EndingPanel"/>**：EndingPanel 是**终局载体**（播完浮出「重开/退出」、TimeScale=0 不恢复），
+    /// 而 CG-A **不是终局**（后接南逃走廊玩家操作段 + CG-B 才终局）——照抄会截断南逃流程。故此处自建非终局字幕层，
+    /// 复用 <see cref="CinematicSequence"/> 真实时基（TimeScale=0 下照走，仿 <see cref="PlayMassacreCinematic"/>）。</para>
+    /// <paramref name="segments"/> 为空 → 直接 <paramref name="onComplete"/>（零回归：尸潮版文本待 author，见 BeginSouthEscapeEnding 注）。
+    /// </summary>
+    private void PlayOpeningNarration(IReadOnlyList<string> segments, Action onComplete)
+    {
+        if (segments == null || segments.Count == 0)
+        {
+            onComplete();
+            return;
+        }
+
+        _cinematicActive = true;
+        Engine.TimeScale = 0;
+
+        var layer = new CanvasLayer { Layer = 190, ProcessMode = Node.ProcessModeEnum.Always }; // 高于 HUD、低于 EndingPanel(200)
+        var overlay = new ColorRect { Color = new Color(0.02f, 0.02f, 0.03f) }; // 近纯黑，同 EndingPanel 底色
+        overlay.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
+        overlay.MouseFilter = Control.MouseFilterEnum.Stop; // 吃掉点击，独占（开场段无交互）
+        layer.AddChild(overlay);
+
+        var label = new Label();
+        label.AnchorLeft = 0.5f; label.AnchorRight = 0.5f; label.AnchorTop = 0.5f; label.AnchorBottom = 0.5f;
+        label.OffsetLeft = -420; label.OffsetRight = 420; label.OffsetTop = -120; label.OffsetBottom = 160;
+        label.HorizontalAlignment = HorizontalAlignment.Center;
+        label.VerticalAlignment = VerticalAlignment.Center;
+        label.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        label.AddThemeFontSizeOverride("font_size", 20);
+        label.AddThemeColorOverride("font_color", new Color(0.86f, 0.83f, 0.77f)); // 同 EndingPanel 正文色
+        label.Modulate = new Color(1, 1, 1, 0);
+        overlay.AddChild(label);
+        AddChild(layer);
+
+        var seq = new CinematicSequence();
+        AddChild(seq);
+        foreach (string seg in segments)
+        {
+            string text = seg; // 闭包捕获逐段快照
+            seq.Then(OpeningNarrationSecondsPerSegment,
+                onEnter: () => label.Text = text,
+                onTick: t => label.Modulate = new Color(1, 1, 1, Mathf.Clamp(t / OpeningNarrationFadeInPortion, 0f, 1f)));
+        }
+        seq.Play(() =>
+        {
+            if (IsInstanceValid(layer))
+                layer.QueueFree();
+            _cinematicActive = false;
+            onComplete();
+        });
     }
 
     // ============ CG-A：屠营演出（冻结-脚本CG-恢复，仿 PlayDeathCinematic） ============

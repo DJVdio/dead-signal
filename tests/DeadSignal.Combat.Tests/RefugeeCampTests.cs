@@ -19,7 +19,11 @@ namespace DeadSignal.Combat.Tests;
 ///     ⇒ 视距 300 → <b>约 124</b>、半角 60° → <b>33°</b>（<see cref="VisionLogic.ConeFor"/>）。
 ///     ⚠️ 这条常量（<c>VisionLogic.IndoorsDarkAmbient</c>）写好很久了，却<b>从来没有任何一关用过</b>。这是第一次。
 ///   · <b>过道狭窄</b> ⇒ 门 48px &lt; 2×丧尸直径(26) ⇒ <b>门口一次只过得来一只</b>
-///     ⇒ 卡门口＝把围攻打成 1v1（胜率 82.6% vs 2 只围攻的 16.6%）。<b>「窄」是玩家的朋友。</b>
+///     ⇒ 卡门口＝把围攻打成 1v1（胜率 <b>100%</b> vs 2 只围攻的 <b>84.5%</b>）。<b>「窄」是玩家的朋友。</b>
+///     ⚠️ 旧注释此处写的"82.6% vs 16.6%"是<b>陈旧数已作废</b>：出自 [T53] 被用户否决并回退掉的 70/1.5 热流血口径
+///     （现值 <c>BleedModel.DefaultBleedRatePerWound = 0.55</c>）。现值取自
+///     <c>docs/research/2026-07-14-lanchester.md</c>（机器生成·**2026-07-17 全仓重跑值**）。
+///     🔴 <b>胜率不是成本</b>：84.5% 的 2 只仍留 <b>1.14 处永久残缺</b>，卡门口依然是这一关唯一正解。
 ///   · <b>开门跳脸</b> ⇒ 门＝墙层 ⇒ 挡视线 ⇒ 门关着时可见数 <b>0</b>；<b>门一开，锁在里面那只当场醒过来扑上来</b>
 ///     （<see cref="ZombieActivation"/> 的门后特殊丧尸，一门唤醒一只）。
 /// </para>
@@ -147,9 +151,13 @@ public class RefugeeCampTests
     }
 
     /// <summary>
-    /// 🔴 <b>过道里最多两只并排（旷野是 16 只）—— 但两只仍是 16.6% 的死局。</b>
-    /// ⇒ <b>过道只是比旷野强，不是安全。真正的正解是退到门口去打。</b>
+    /// 🔴 <b>过道里最多两只并排（旷野是 16 只）—— 而两只＝胜率 84.5%，但打赢时平均留下 1.14 处永久残缺。</b>
+    /// ⇒ <b>过道只是比旷野强，不是安全。真正的正解是退到门口去打（1 只＝100%）。</b>
     /// 这两条数字合起来，才是这一关的战术空间。
+    /// <para>⚠️ 旧注释写的"两只＝16.6% 的死局"是<b>陈旧数已作废</b>（[T53] 已回退的 70/1.5 热流血口径）。
+    /// 但<b>结论一个字没变</b>——按 <b>胜率不是成本</b>（CLAUDE.md 通则）：84.5% 从来就不是"安全"，
+    /// 它是"你会活着出去，但少一根手指"。现值见
+    /// <c>docs/research/2026-07-14-lanchester.md</c>（机器生成·**2026-07-17 全仓重跑值**）。</para>
     /// </summary>
     [Fact]
     public void TheCorridorIsBetterThanTheOpen_ButItIsNotSafe_TheDoorwayIs()
@@ -157,7 +165,7 @@ public class RefugeeCampTests
         Assert.True(RefugeeCamp.CorridorWidth >= 2f * ZombieDiameter,
             "过道连两只都并排不下，那它就是门，不是过道。");
         Assert.True(RefugeeCamp.CorridorWidth < 3f * ZombieDiameter,
-            $"过道宽 {RefugeeCamp.CorridorWidth} 能并排三只（≥{3f * ZombieDiameter}）—— 3 只围攻胜率 0.8%，那不叫窄过道。");
+            $"过道宽 {RefugeeCamp.CorridorWidth} 能并排三只（≥{3f * ZombieDiameter}）—— 3 只围攻胜率 22.0%＝断崖，那不叫窄过道。");
 
         // 门口（1 只）严格优于过道（2 只）：这正是玩家该学会的那一步。
         Assert.True(RefugeeCamp.DoorwayWidth < RefugeeCamp.CorridorWidth);
@@ -324,7 +332,7 @@ public class RefugeeCampTests
     /// 触发<b>与尺度无关</b> ⇒ 像素约束解绑 ⇒ 房间可以任意大。<b>这才是这一关能放大的唯一理由。</b>
     /// </para>
     /// <para>
-    /// 🔴 <b>门宽 48 / 过道宽 72 刻意不缩放</b>（同 <c>ExplorationWalls.cs:231</c> 医院先例）：
+    /// 🔴 <b>门宽 48 / 过道宽 72 刻意不缩放</b>（同 <c>ExplorationWalls</c> 医院几何「门宽刻意不缩放」先例）：
     /// 门口一次只过得来一只的**战术漏斗仍然有效且要保住**——它不再是"跳脸"的承载物，但它仍是玩家的正解。
     /// </para>
     /// </summary>

@@ -11,9 +11,13 @@ namespace DeadSignal.Godot;
 //     → (终态分岔) 已回复军方 | 已呼叫南方营地
 //
 // 结局衔接（结局矩阵 RESOLVED，见 journal §3 用户总纲；本类只落机制骨架，事件本体/CG/南方营地/考验皆 authored 待用户）：
-//   · 已回复军方 → 记录回复日；回复日 +2 天期满触发**军方白天来袭**（结局②，非即时终局：白天屠杀留守者，
-//     外出探险队幸存归来见营地覆灭，游戏不强制结束，续走结局①尸潮或③南逃）。本类只在期满置**事件钩子 flag**，
-//     军袭事件本体不实装（CampMain 留 TODO 挂点 + 安全 no-op）。
+//   · 已回复军方 → 记录回复日；回复日 +2 天期满触发**军方白天来袭**（结局②）。本类只在期满置**事件钩子 flag**。
+//     ★上面这条 [SPEC-B8] 原文曾写「非即时终局：白天屠杀留守者，外出探险队幸存归来见营地覆灭，游戏不强制结束，
+//       续走结局①尸潮或③南逃」——该条款已被用户后续 authored 裁定**推翻**：现为**无条件强制终局**（军人屠尽全营 →
+//       随机一名幸存者半残南逃 → 南逃谢幕两幕 CG）。权威描述见 EndingCg.cs 顶注 CG② 与 CampMain.SouthEscape.cs，勿照旧条款接线。
+//     ★「军袭事件本体不实装（CampMain 留 TODO 挂点 + 安全 no-op）」**亦已失效**：本体已实装并接线——
+//       CampMain.TryTriggerMilitaryRaid（CampMain.cs:7077，每日黎明经 CampMain.cs:5162 调）消费本类
+//       TryFireMilitaryRaidHook → SouthEscapeEnding.SelectEscapee → CampMain.BeginSouthEscapeEnding(…, MilitaryRaid)。
 //     ★回复军方后尸潮时限**不冻结**：回复日+2 军袭先到、40 天尸潮更晚，无需 EndgameFreezeFlag（此处不置，仅注明）。
 //   · 已呼叫南方 → 置**南逃线 flag**（结局③，唯一生路：南方求救→临时开放"前往峡谷的路"→考验→带少量物资南逃，
 //     后续 authored）。南逃线亦**不冻结**尸潮时限：南逃须抢在第 40 天尸潮前完成（紧迫感即卖点，用户拍板）。
@@ -206,8 +210,11 @@ public static class RadioMainline
 
     /// <summary>
     /// 一次性触发军方来袭事件钩子：到期（<see cref="IsMilitaryRaidDue"/>）且钩子未触发过则置
-    /// <see cref="MilitaryRaidFiredKey"/> 并返回 true（首次），此后恒 false。军袭事件本体不实装——
-    /// CampMain 在 true 分支留 TODO 挂点 + 安全 no-op（authored 待用户）。
+    /// <see cref="MilitaryRaidFiredKey"/> 并返回 true（首次），此后恒 false。
+    /// <para>军袭事件本体**已实装**（旧注「不实装／CampMain 留 TODO 挂点 + 安全 no-op」已失效）：true 分支由
+    /// <c>CampMain.TryTriggerMilitaryRaid</c>（CampMain.cs:7077，每日黎明经 CampMain.cs:5162 调）接管——
+    /// <c>SouthEscapeEnding.SelectEscapee</c> 掷出随机幸存者 → <c>CampMain.BeginSouthEscapeEnding(…, MilitaryRaid)</c>
+    /// 进强制终局南逃谢幕序列。</para>
     /// </summary>
     public static bool TryFireMilitaryRaidHook(StoryFlags flags, int currentDay)
     {

@@ -7,11 +7,13 @@ namespace DeadSignal.Godot;
 
 public sealed partial class TestExploration : ExplorationLevel
 {
-    // 画布尺寸 per-destination：Initialize 时按 DestinationName 查 ExplorationLevelSize 取值；未登记的目的地回退默认 2400×1600。
+    // 画布尺寸 per-destination：Initialize 时按 DestinationName 查 ExplorationLevelSize 取值；未登记的目的地回退默认 2400×1600
+    // （当前仍走回退的只剩下水道与金手指帮据点，见 ExplorationLevelSize.Overrides）。
     // 🔴 改造前这两个是写死的 const 2400f/1600f。现在是**实例字段** ⇒ 所有实例方法对 LevelW/LevelH 的引用一字不改，
     //    只是从"编译期常量"变成"本关运行时尺寸"。静态上下文只有 3 处（LookoutTelescopePosition/BroadcastTransmitterPosition
-    //    两处占位坐标 + LevelWanderRect），它们读不到实例字段：前二者钉在 ExplorationLevelSize.DefaultWidth（默认尺寸，零漂移），
-    //    后者已改为实例方法。覆盖表为空时 SizeFor 恒返回 (2400,1600) ⇒ 与改造前逐字节一致。
+    //    两处占位坐标 + LevelWanderRect），它们读不到实例字段：LevelWanderRect 已改为实例方法；两处锚点方向**刻意相反**——
+    //    LookoutTelescopePosition 读 SizeFor(城市之巅) 跟随放大，BroadcastTransmitterPosition 是 authored 定点、钉死 (1200,300)
+    //    不跟随（各自 summary 有详述）。
     private float LevelW = ExplorationLevelSize.DefaultWidth;
     private float LevelH = ExplorationLevelSize.DefaultHeight;
     private const float WallT = 20f;
@@ -42,7 +44,11 @@ public sealed partial class TestExploration : ExplorationLevel
     public const string BroadcastTransmitterDiscoveryId = RadioMainline.TransmitterDiscoveryId;
 
     /// <summary>发射机占位在广播台关内的世界坐标（机房内，贴发射塔基座）。
-    /// <b>静态字段</b>钉在默认画布宽（广播台当前＝默认 2400×1600）；若该关日后被 per-map 覆盖成更大画布，此锚点须同步（见 ExplorationLevelSize）。</summary>
+    /// 🔴 <b>authored 定点，刻意不跟随画布缩放</b>——广播台已放大到 3200×2200（见 <see cref="ExplorationLevelSize"/> 覆盖行），
+    /// 但本锚点仍取 <see cref="ExplorationLevelSize.DefaultWidth"/>/2 ＝ <b>(1200,300) 一字不动</b>：它是 authored 坐标，
+    /// 放大时反过来让**机房去框住它**（<c>SetupBroadcastStation</c> 的机房大厅 x[600,1884] 已含此点）。
+    /// ⇒ <b>不要</b>把它改成读 <c>SizeFor(广播台).Width/2</c>（那会推到 1600、离开 authored 位）——
+    /// 与 <see cref="LookoutTelescopePosition"/>（演出锚点，可同步、已改为跟随）**方向相反**，勿照抄。</summary>
     public static readonly Vector2 BroadcastTransmitterPosition = new(ExplorationLevelSize.DefaultWidth / 2f, 300f);
 
     // ——南林村庄：上锁的屋子 / 围困 / 吠叫锚点（[SPEC-B11]，见 VillageRescue）——
@@ -108,7 +114,7 @@ public sealed partial class TestExploration : ExplorationLevel
 
     public override void Initialize()
     {
-        // 画布尺寸按目的地取（覆盖表为空时恒为默认 2400×1600 ⇒ 零漂移）。须在任何用到 LevelW/LevelH 的 Setup* 之前。
+        // 画布尺寸按目的地取（未登记覆盖的目的地回退默认 2400×1600）。须在任何用到 LevelW/LevelH 的 Setup* 之前。
         (LevelW, LevelH) = ExplorationLevelSize.SizeFor(DestinationName);
 
         BuildTerrain();
@@ -834,8 +840,10 @@ public sealed partial class TestExploration : ExplorationLevel
         }
 
         // [T61] 下水道：**3 只，各蹲一个拐角**（用户原话「除了某几个拐角可能有**一只**丧尸，**基本没有危险**」）。
-        // 🔴 布点被硬不变量钉死（SewerTests：**任何位置最多被 1 只感知**）——依据 sim-lanchester：
-        //    2 只围攻胜率 16.6%、3 只 0.8% ⇒ **围攻是断崖**。这地方要的是"吓人"，不是"危险"，两者必须焊开。
+        // 🔴 布点被硬不变量钉死（SewerTests：**任何位置最多被 1 只感知**）——依据 sim-lanchester（2026-07-17 全仓重跑值）：
+        //    1 只 100%、2 只 84.5%（但已要付 1.14 处永久残缺）、**3 只 22.0%** ⇒ **围攻是断崖**（拐点在 2→3）。
+        //    "最多被 1 只感知"这条护栏**不因真值放宽而松动**：1v1 才是唯一无伤的档。
+        //    这地方要的是"吓人"，不是"危险"，两者必须焊开。
         //    **要挪/要加，先跑 SewerTests。**
         if (DestinationName == ExplorationCache.SewerName)
         {
@@ -848,7 +856,8 @@ public sealed partial class TestExploration : ExplorationLevel
 
         // [警察局] Medium：**4 只，各藏一间房的深角**（比下水道低危的 3 只多一只）。
         // 🔴 布点被硬不变量钉死（PoliceStationTests：**任一可行走点最多被 1 只感知**）——「Medium」是总量更多，
-        //    不是同时更多（2 只围攻 16.6%、3 只 0.8%＝断崖）。「室内多拐角」靠房间门洞遮挡，不靠人海。**要挪/要加先跑 PoliceStationTests。**
+        //    不是同时更多（2 只 84.5% 但付 1.14 处永久残缺、**3 只 22.0%＝断崖**；lanchester.md·2026-07-17 全仓重跑值）。
+        //    「室内多拐角」靠房间门洞遮挡，不靠人海。**要挪/要加先跑 PoliceStationTests。**
         if (DestinationName == ExplorationCache.PoliceStationName)
         {
             // [SPEC-T60] 拘留区那只（守着两件甲）＝门后特殊丧尸：冻结在拘留区铁门后，撬开铁门才唤醒。
@@ -883,7 +892,7 @@ public sealed partial class TestExploration : ExplorationLevel
 
         // [SPEC-T60] 破败教堂：教堂本体 3 只（稀——进关不会当场被淹）+ **后院墓地 12 只**（「大量」）。
         // 墓地那 12 只在关着的门后：它们看不见你，你也看不见它们。推开门的那一刻，一片同时进你的视野。
-        // 🔴 **不是让你清完的**（2 只围攻＝16.6%，3 只＝0.8%，4 只起＝0%）——**是让你转身跑、并把门关上。**
+        // 🔴 **不是让你清完的**（2 只 84.5%，**3 只 22.0%**，4 只 1.6%，5 只起 0%；lanchester.md·2026-07-17 全仓重跑值）——**是让你转身跑、并把门关上。**
         if (DestinationName == RuinedChurch.DestinationName)
         {
             // 教堂本体 3 只＝普通丧尸（视野/靠近唤醒）。

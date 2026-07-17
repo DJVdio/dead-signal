@@ -402,4 +402,46 @@ public class StuartManorTests
         Assert.True(gate.Y > StuartManor.LevelH * 0.75, "吊尸没落在入口侧——玩家不会一进来就看见");
         Assert.Equal(NarrativeTrigger.Proximity, gate.Trigger); // 走到跟前就撞见，不需要点它
     }
+
+    // ══════════════════ 🔴 §④ 焊死画布副本 —— 这一条护住的是上面所有噪音断言本身 ══════════════════
+
+    /// <summary>
+    /// 🔴 <b>把 <see cref="StuartManor.LevelW"/>/<see cref="StuartManor.LevelH"/> 这份"脱 Godot 副本"焊死在真源上。</b>
+    ///
+    /// <para><b>真源只有一个</b>：<see cref="ExplorationLevelSize.SizeFor"/>(斯图尔特家族庄园)。运行时就是照它铺哨位的
+    /// （<c>TestExploration.StuartManor.cs</c>：<c>pos = Posts[i] × LevelW</c>，而那个 <c>LevelW</c> 是实例字段＝<c>SizeFor</c> 的值）。
+    /// <c>StuartManor</c> 里这两个 const 只是一份**副本**，存在的理由是这个类<b>不引 Godot 类型</b>、要能被纯逻辑单测算噪音几何。</para>
+    ///
+    /// <para>
+    /// 🔴 <b>不焊死会怎样 —— 这不是"报告印错数"，是"护栏自己跟着一起漂"。</b>
+    /// 上面 §③ 那三条噪音护栏（<see cref="GunshotWakesTheFarm_ArrowDoesNot"/> 的 弓0/匕首1/手枪3/步枪6、
+    /// <see cref="PostSpacing_MakesNoiseRadiiMeaningful"/>、<see cref="LouderAlwaysWakesAtLeastAsMany"/>）
+    /// <b>全都拿这份副本把归一化的 <see cref="StuartManor.Posts"/> 换算成像素</b>。
+    /// 一旦有人改了真源画布却没同步这两个 const：<b>游戏里的哨位像素间距真的变了、开一枪招几个人真的变了，
+    /// 而这些护栏拿旧副本算，一条都不会红</b> —— 绿得理直气壮，红线已经断了。
+    /// 「跑绿不等于测到了东西」：没有这条焊缝，斯图这一侧<b>从来没有任何一个测试读过真源</b>（改造前 grep <c>SizeFor</c> 命中 0）。
+    /// </para>
+    ///
+    /// <para>
+    /// <b>为什么用"副本 + 焊缝测试"，而不是让 <see cref="StuartManor"/> 直接读 <see cref="ExplorationLevelSize"/>？</b>
+    /// 同 <c>GoldfingerGang</c> 的先例（impl-rooftop-seal 焊死 <c>GoldfingerCalibration</c> 硬编码那单）：
+    /// 副本靠**测试**焊死、不靠注释提醒；而焊缝跑在<b>同时链接两者的本测试工程</b>里 ⇒ 真源一改就当场红，
+    /// 且**不需要把 <see cref="ExplorationLevelSize"/> 拖进任何别的工程**。
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void TheCanvasCopyIsWeldedToItsSingleSourceOfTruth()
+    {
+        (float w, float h) = ExplorationLevelSize.SizeFor(StuartManor.DestinationName);
+
+        // 刻意用 Assert.True 而不是 Assert.Equal：这里两侧**都是"值"、没有一侧是"期望常量"**
+        // （Assert.Equal 会被 xUnit2000 要求把 const 摆到 expected 位 ⇒ 失败信息读成"期望副本、实得真源"，正好说反）。
+        // 脱焊时最该出现在屏幕上的不是两个数，是**"哪份是真源、漂了会死在哪"**。
+        Assert.True(
+            (float)StuartManor.LevelW == w && (float)StuartManor.LevelH == h,
+            $"画布副本与真源脱焊：StuartManor.LevelW/LevelH = {StuartManor.LevelW}×{StuartManor.LevelH}，" +
+            $"真源 ExplorationLevelSize.SizeFor(\"{StuartManor.DestinationName}\") = {w}×{h}。" +
+            "⇒ 游戏里哨位的像素间距已经变了（**开一枪招几个人真的变了**），而本文件所有噪音护栏拿旧副本算、" +
+            "一条都不会红——绿得理直气壮，红线已经断了。把 StuartManor.cs 那两个 const 同步到真源。");
+    }
 }

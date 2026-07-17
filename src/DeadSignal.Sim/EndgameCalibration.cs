@@ -95,7 +95,7 @@ public static class EndgameCalibration
             $"- 首波规模 {HordeTimeline.WaveSize(0, camp)}（4 人营地）。对照上表清波率判：首波即压垮=秒崩；能清前几波但逐波损人=戏剧性坚守。"));
 
         var report = sb.ToString();
-        System.IO.File.WriteAllText("docs/research/2026-07-12-endgame-calibration.md", report);
+        SimReport.Write("docs/research/2026-07-12-endgame-calibration.md", report); // 出处戳 + 落盘（含建目录）
         Console.Write(report);
     }
 }

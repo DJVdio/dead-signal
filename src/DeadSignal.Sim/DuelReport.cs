@@ -95,8 +95,7 @@ public static class DuelReport
             }
         }
 
-        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(outPath))!);
-        File.WriteAllText(outPath, sb.ToString());
+        SimReport.Write(outPath, sb.ToString()); // 出处戳 + 落盘（含建目录）
         Console.WriteLine($"已写出 {outPath}（{matchups.Length} 组 × {runsPerMatchup} 场）。");
     }
 

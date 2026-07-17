@@ -5,9 +5,13 @@ namespace DeadSignal.Combat.Tests;
 /// <summary>
 /// 探索关画布尺寸 per-destination 查表（<see cref="ExplorationLevelSize"/>）的护栏。
 /// <para>
-/// 本任务是纯使能重构：把 <c>TestExploration</c> 写死的 2400×1600 画布改成按目的地取值，但
-/// <b>覆盖表为空 ⇒ 每一关仍取默认 2400×1600</b>（零漂移基线）。这些测试把"默认 = 历史固定尺寸"
-/// 与"未登记的目的地一律回退默认"钉死——将来 per-map impl 往覆盖表加行时，这里能挡住误改默认值/误破回退。
+/// 起源是一次纯使能重构：把 <c>TestExploration</c> 写死的 2400×1600 画布改成按目的地取值，落地时
+/// 覆盖表为空 ⇒ 每一关仍取默认（零漂移基线）。<b>该基线已随 [SPEC-T60] 地图放大退场</b>——覆盖表现已
+/// 装满（大图 4200×2800 / 中图 3200×2200 / 小图 2800×1900），<b>仍回退默认的只剩金手指帮根据地与下水道</b>。
+/// </para>
+/// <para>
+/// 故本文件钉三件事：① 默认值 = 历史固定尺寸；② 每一档的登记值；③ 未登记者一律回退默认。
+/// 往覆盖表加行/调档时，这里能挡住误改默认值、误破回退、以及漏改本文件的档位断言。
 /// </para>
 /// </summary>
 public class ExplorationLevelSizeTests
@@ -21,21 +25,19 @@ public class ExplorationLevelSizeTests
     }
 
     /// <summary>
-    /// 零漂移核心断言：当前**所有**探索目的地都没登记覆盖尺寸 ⇒ 逐一 SizeFor 都必须回退到默认 2400×1600。
-    /// 覆盖了 TestExploration.Initialize 那串 if-else 里出现的每一个目的地名。
+    /// **未登记覆盖的目的地**回退默认 2400×1600。[SPEC-T60] 放大后只剩这两关走这条路（不是"所有目的地"，
+    /// 其余各关的档位由下方 Hospital/SouthForestVillage/MidMaps/SmallMaps 四条专测分别钉死）：
+    /// <list type="bullet">
+    /// <item><b>金手指帮根据地</b>＝policy A + 用户裁决 A 维持原尺寸零改动（均匀放大会破"开一枪招几人"的
+    /// authored 噪音招怪，正确放大须重校，已另立 follow-on 单）。</item>
+    /// <item><b>下水道</b>＝无门关，"开门激活"解绑不了它的像素约束 ⇒ 维持小图。</item>
+    /// </list>
+    /// 谁把这两关登记进覆盖表，这条当场红。
     /// </summary>
     [Theory]
-    // 超市/加油站/东部新村/联合收割机仓库/广播台/难民营地/破败教堂已登记放大覆盖（3200×2200，中图·≈3天）——
-    //   从"回退默认"用例移出，尺寸由下方 MidMaps 专测钉。（难民营地＝Phase2：开门激活解绑"跳脸≤90px"像素约束后才放得大；
-    //   破败教堂＝Phase2：开门唤醒解绑"12 只须同时挤进 300px 白昼锥"像素约束后才放得大。）
-    // 医院/南林村庄已登记放大覆盖（4200×2800，大图·≈5天）——从"回退默认"用例移出，其尺寸由下方大图专测钉。
-    // 河边小屋/守林人小屋/消防站/药店/城市之巅/警察局已登记适度放大覆盖（2800×1900，小图·≈1.17×/1.19×）——
-    //   从"回退默认"用例移出，尺寸由下方 SmallMaps 专测钉。（城市之巅＝占位地台图无固定像素不变量，望远镜瞭望为 flag 式，故随小图放大。）
-    // 🔴 policy A + 用户裁决 A：金手指帮根据地维持原尺寸零改动（均匀放大会破"开一枪招几人"噪音招怪，须另立单校准）
-    //   ⇒ 仍在此回退默认 2400×1600。（斯图尔特改用绕庭院中心逆缩放放大，已移入下方 MidMaps 专测。）
-    [InlineData(WorldMapPanel_GoldfingerBaseName)]
+    [InlineData(ExplorationCache.GoldfingerBaseName)]
     [InlineData(ExplorationCache.SewerName)]
-    public void Every_Destination_FallsBack_To_Default(string destination)
+    public void Unregistered_Destinations_FallBack_To_Default(string destination)
     {
         (float w, float h) = ExplorationLevelSize.SizeFor(destination);
         Assert.Equal(ExplorationLevelSize.DefaultWidth, w);
@@ -90,7 +92,7 @@ public class ExplorationLevelSizeTests
     [InlineData(ExplorationCache.EastNewVillageName)]
     [InlineData(ExplorationCache.HarvesterWarehouseName)]
     [InlineData(StuartManor.DestinationName)]          // 斯图尔特：逆缩放放大，噪音几何逐字节不变
-    [InlineData(WorldMapPanel_BroadcastStationName)]   // [SPEC-T60] 广播台：占位地台⇒真广播站结构，3200×2200
+    [InlineData(ExplorationCache.BroadcastStationName)] // [SPEC-T60] 广播台：占位地台⇒真广播站结构，3200×2200
     [InlineData(RefugeeCamp.DestinationName)]          // 🔴 [SPEC-T60] 难民营地（Phase2·开门激活解绑像素约束后放大）
     [InlineData(RuinedChurch.DestinationName)]         // 🔴 [SPEC-T60] 破败教堂（Phase2·开门唤醒解绑 300px 锥约束后放大，policy A 裁定作废）
     public void MidMaps_Enlarged_To_3200x2200(string destination)
@@ -141,10 +143,4 @@ public class ExplorationLevelSizeTests
         Assert.Equal(2400f, w);
         Assert.Equal(1600f, h);
     }
-
-    // WorldMapPanel 是 Godot 类型、未 Link 进本工程，其目的地名以字面量镜像（与 WorldMapPanel.*Name 逐字一致）。
-    private const string WorldMapPanel_GoldfingerBaseName = "金手指帮根据地";
-    private const string WorldMapPanel_WatchersCabinName = "守望者森林小屋";
-    private const string WorldMapPanel_CityRooftopLookoutName = "城市之巅瞭望观景台";
-    private const string WorldMapPanel_BroadcastStationName = "广播台";
 }

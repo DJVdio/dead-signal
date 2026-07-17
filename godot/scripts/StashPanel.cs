@@ -8,7 +8,9 @@ namespace DeadSignal.Godot;
 /// <summary>
 /// 营地共享库存面板（模态）：按类别列出 <see cref="InventoryStore"/> 的武器/护甲/书/食物，
 /// 顶部显示食物份数与可选的一行通知（搜刮反馈）。书行有「阅读」按钮（触发 <see cref="BookOpenRequested"/>）；
-/// 可装备项（武器/护甲）列出并留一个**禁用态**「装备」按钮作 W3b 占位（装备逻辑不在本面板做）。
+/// 可装备项（武器/护甲）每行一个**可用**的「装备」按钮 → <see cref="EquipRequested"/>；
+/// 狗装备（键∈<see cref="DogGearCatalog"/>）同一按钮改写为「给布鲁斯穿」，由 CampMain 分流。
+/// <b>面板只 emit 事件，不自己装备</b>——实扣实穿由持有 Pawn 的 CampMain 做。
 /// 骨架照 <see cref="ChoicePanel"/>/<see cref="ExpeditionPanel"/>：CanvasLayer + <see cref="UiStyle.BuildModalShell"/>。
 /// 冻结/恢复时标由 CampMain 管（弹出前 TimeScale=0，关闭恢复）。
 /// </summary>

@@ -2,7 +2,8 @@ namespace DeadSignal.Combat;
 
 /// <summary>
 /// 部位命中分配接口。命中部位按体积权重随机分配；瞄准指令通过 aimWeights 覆盖/放大权重。
-/// 本期实现体积加权随机；细部位表后续填数据即可复用。
+/// 现有实现为体积加权随机（<see cref="VolumeWeightedHitSelector"/>，两级采样）。
+/// 细部位表<b>已填齐</b>（<see cref="HumanBody"/>：眼/耳/胸腹/大腿小腿/手指/脚趾），采样逻辑无须再改。
 /// </summary>
 public interface IHitLocationSelector
 {

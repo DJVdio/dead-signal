@@ -8,9 +8,13 @@ using DeadSignal.Combat;
 /// 用户原话：「1.锐器降低下限，例如匕首伤害改为1-7　2.钝器提高基础伤害」
 ///
 /// 核心待验证命题（来自 weaponsweep 的诊断）：单层护甲要能挡下一击，必须
-/// **护甲值×(1−穿透)/2 &gt; 武器伤害下限**。长袖布衣锐防 6、匕首穿透 9% → 门槛 2.73；
+/// **护甲值×(1−穿透)/2 &gt; 武器伤害下限**。长袖布衣锐防 6、当时的匕首穿透 9% → 门槛约 2.73；
 /// 旧匕首下限 4 &gt; 2.73 → **恒挡不下（实测 0.0%）**。下限压到 1 后 1 &lt; 2.73 → 布衣应重新有非零阻挡。
 /// 本 harness 实测该命题，并把"降下限"推广到全部锐器，给出多套上限方案的代价对比。
+///
+/// ⚠️ <b>时效</b>：以上是 [批次18补] <b>当时</b>的诊断快照，保留作立项依据，<b>不是现值</b>。
+/// 该方案<b>已被采纳落地</b>（设计文档 §5：近战锐器下限统一压到 1，匕首 <b>1~7</b>），
+/// 匕首穿透其后也已改为 <b>7.5%</b>（门槛随之约 2.78）。报告正文里的门槛/军火库读数一律现算，别照抄本段。
 ///
 /// 只读 <see cref="WeaponTable"/>/<see cref="ArmorTable"/> 构造**变体武器**，不改任何游戏数值。
 /// </summary>
@@ -209,9 +213,10 @@ public static class UserPlanCalibration
         RenderBlunt(sb, plans, parts);
         RenderClaw(sb, parts);
 
-        // 追加到既有报告（不重写原有章节）
+        // 追加到既有报告（不重写原有章节）。基底是**手写散文**，只有 --- 以下这一节是机器生成，
+        // 故出处戳只盖在**追加的这一节**头上（不走 SimReport.Write 给整份盖头——那会谎称手写正文也是机器跑的）。
         string existing = File.Exists(outPath) ? File.ReadAllText(outPath) : "";
-        File.WriteAllText(outPath, existing + "\n---\n\n" + sb);
+        File.WriteAllText(outPath, existing + "\n---\n\n" + SimReport.Stamp() + sb);
         Console.WriteLine($"已追加到 {outPath}");
         Console.WriteLine();
         Console.Write(sb.ToString());
@@ -260,7 +265,11 @@ public static class UserPlanCalibration
         sb.AppendLine("### 2. 各件护甲的「下限门槛」——武器下限必须压到这个数以下，这件甲才开始有效");
         sb.AppendLine();
         sb.AppendLine("门槛 = 护甲防御值 ×(1−武器穿透) ÷ 2。武器伤害下限只要 ≥ 门槛，这件甲就**一次也挡不下**（数学上恒为零，不是概率低）。");
-        sb.AppendLine("下表按穿透 10%（匕首量级）算；穿透越高门槛越低（越难被挡）。");  // 原写"匕首/土制枪量级"——自制猎枪已重定位到穿透 25%，不再是 10% 量级
+        // 🔴 别把这里的穿透抄成裸常数——它必须跟着 WeaponTable 走（此处曾写死 10%「匕首量级」，
+        //    而匕首现值是 7.5%，土制枪早已重定位到 25%，两头都对不上）。
+        double pen = WeaponTable.Dagger().Penetration;
+        sb.AppendLine(CultureInfo.InvariantCulture,
+            $"下表按匕首现值穿透 {pen:P1} 算；穿透越高门槛越低（越难被挡）。");
         sb.AppendLine();
         sb.AppendLine("| 护甲 | 对锐器防御 | 锐器下限门槛 | 对钝器防御 | 钝器下限门槛 |");
         sb.AppendLine("|------|-----------:|-------------:|-----------:|-------------:|");
@@ -275,10 +284,18 @@ public static class UserPlanCalibration
         foreach (var (n, s, b) in rows)
         {
             sb.AppendLine(CultureInfo.InvariantCulture,
-                $"| {n} | {s:0.#} | **{s * 0.9 / 2:F2}** | {b:0.#} | **{b * 0.9 / 2:F2}** |");
+                $"| {n} | {s:0.#} | **{s * (1 - pen) / 2:F2}** | {b:0.#} | **{b * (1 - pen) / 2:F2}** |");
         }
         sb.AppendLine();
-        sb.AppendLine("> 现有全部 15 把武器的伤害下限（最低是匕首 4）都在布衣门槛 2.7 之上——这就是布衣挡下率恒为 0% 的全部原因。");
+        // 🔴 这一行必须从实测里长出来。它此前写死「现有全部 15 把武器的伤害下限（最低是匕首 4）都在布衣门槛 2.7
+        //    之上——这就是布衣挡下率恒为 0% 的全部原因」，而本 harness 论证的「锐器降下限」方案**早已被采纳落地**
+        //    （设计文档 §5：匕首 1~7），军火库也从 15 把长到 25 把 ⇒ 那句话的三个数全错，结论正好反了。
+        var arsenal = WeaponTable.Arsenal();
+        double clothThreshold = 6 * (1 - pen) / 2;
+        var lowest = arsenal.MinBy(w => w.DamageMin)!;
+        int below = arsenal.Count(w => w.DamageMin < clothThreshold);
+        sb.AppendLine(string.Create(CultureInfo.InvariantCulture,
+            $"> 现有 {arsenal.Count} 把武器里，有 **{below}** 把的伤害下限低于布衣门槛 {clothThreshold:F2}（最低是{lowest.Name} {lowest.DamageMin:0.#}）——下限低于门槛的那些，布衣才可能挡得下；下限压不下去的，布衣对它恒为 0%。"));
         sb.AppendLine();
     }
 

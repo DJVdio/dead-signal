@@ -95,8 +95,7 @@ public static class LanchesterCalibration
         Table4(sb);
         Table5(sb);
 
-        Directory.CreateDirectory(Path.GetDirectoryName(outPath)!);
-        File.WriteAllText(outPath, sb.ToString());
+        SimReport.Write(outPath, sb.ToString()); // 出处戳 + 落盘（含建目录）
         Console.WriteLine(sb.ToString());
         Console.WriteLine($"已写入 {outPath}");
     }
@@ -235,11 +234,14 @@ public static class LanchesterCalibration
         sb.AppendLine();
         sb.AppendLine("| 项 | 值 | 出处 |");
         sb.AppendLine("|---|---|---|");
-        sb.AppendLine("| 丧尸攻击距离 `AttackRange` | 24 px | `Zombie.cs:68` |");
-        sb.AppendLine("| 实际攻击判定（圆心距，**纯距离比较，不需碰撞接触**） | 24 + 13 + 12 = **49 px** | `Actor.cs:450` |");
-        sb.AppendLine("| 丧尸碰撞半径 | 13 px | `Zombie.cs:64` |");
-        sb.AppendLine("| 幸存者碰撞半径 | 12 px | `Pawn.cs:476` |");
-        sb.AppendLine("| 🔴 丧尸 ↔ 幸存者 | **不碰撞，可完全重叠**（mask 只含 墙/围栏/同阵营） | `Actor.cs:285` |");
+        // ⚠️ 下面这批是 **Godot 消费层**的值，Sim 零依赖 Godot ⇒ 只能抄，抄了就会腐烂。
+        //    行号尤其易漂（2026-07-17 复核：值全部仍成立，但行号已从 Zombie.cs:64/68 漂到 111/115，
+        //    Pawn.cs:476 漂到 535，攻击判定其实在 Pawn.cs 不在 Actor.cs）⇒ **只给文件名 + 符号，不给行号**。
+        sb.AppendLine("| 丧尸攻击距离 `AttackRange` | 24 px | `Zombie.cs` → `z.AttackRange` |");
+        sb.AppendLine("| 实际攻击判定（圆心距，**纯距离比较，不需碰撞接触**） | 24 + 13 + 12 = **49 px** | `Pawn.cs` → `dist > AttackRange + Radius + tgt.Radius` |");
+        sb.AppendLine("| 丧尸碰撞半径 | 13 px | `Zombie.cs` → `z.Radius` |");
+        sb.AppendLine("| 幸存者碰撞半径 | 12 px | `Pawn.cs` → `p.Radius` |");
+        sb.AppendLine("| 🔴 丧尸 ↔ 幸存者 | **不碰撞，可完全重叠**（mask 只含 墙/围栏/同阵营） | `Actor.cs` → `ApplyFactionCollision` |");
         sb.AppendLine("| 丧尸 ↔ 丧尸 | 碰撞（圆心最小间距 26 px） | `Actor.cs:285` |");
         // [T63] 此前这一格把冷却**硬编码**成 "1.2 s"，而表里早已是 1.4（用户在 wiki 上改的）。
         // 一行标着"读表，非硬编码"的字，自己却是硬编码的 ⇒ 真·读表。

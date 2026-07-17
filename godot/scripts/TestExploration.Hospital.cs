@@ -52,7 +52,8 @@ public sealed partial class TestExploration
         foreach (ExplorationDoor d in ExplorationWalls.HospitalDoors())
             AddLevelDoor(d, doorC);
 
-        // ——30 处搜刮点（坐标/文案/分区皆取自纯逻辑，与墙体同源，故不会有点被砌进墙里——单测钉死）——
+        // ——搜刮点（坐标/文案/分区皆取自纯逻辑 ExplorationWalls.HospitalCacheSpots，与墙体同源，
+        //   故不会有点被砌进墙里——单测钉死）。点数以该表为准，别在此手抄数字。——
         foreach (HospitalCacheSpot s in ExplorationWalls.HospitalCacheSpots)
         {
             AddDiscoveryPoint(

@@ -55,7 +55,9 @@ public sealed record ArrowDef(
     double SpreadMult);
 
 /// <summary>
-/// 箭矢目录（4 种，**拟定待调**——用户会在 <c>docs/weapons-calc.xlsx</c>『箭矢表』里改）。
+/// 箭矢目录（4 种，**拟定待调**——用户在<b>本地 wiki 数值表</b>（<c>docs/wiki</c>）『箭矢表』里改；
+/// <b>wiki 是数值唯一设计源</b>，旧的 <c>docs/weapons-calc.xlsx</c> 已删除退役，见下方
+/// [DECISION] impl-archery-redo）。
 /// <para>
 /// 设计意图（方向自洽，数值待调）：
 /// <list type="bullet">

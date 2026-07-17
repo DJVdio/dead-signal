@@ -10,9 +10,9 @@ namespace DeadSignal.Godot;
 // 语义（主 agent 拍板，见 journal [SPEC]）：
 //   · 望远镜瞭望到正北方黑压压上百万尸潮向南移动 → 置 HordeTimeline.SightedFlag("horde_sighted") → 解锁尸潮倒计时 HUD 显示。
 //   · 时限本身从第 1 天起隐性计时、不依赖发现；本发现点只解锁"知情/显示"（发现与否时限照走）。
-//   · 演出（望远镜瞭望动画，anim-lookout 负责）先播、播完落到本判定弹叙事+置旗标——
-//     演出插在 CampMain.OnExplorationDiscovery 本分支之前（见 TestExploration.LookoutTelescopeDiscoveryId 注释）；
-//     若演出尚未接入，本分支单独亦是完整可跑路径（踏入望远镜→弹叙事+置旗标，无演出的安全兜底）。
+//   · 演出（望远镜瞭望动画）先播、播完落到本判定弹叙事+置旗标——演出**已接线**：
+//     CampMain.OnExplorationDiscovery 的本分支先 HordeLookoutCinematic.Show(...)，其回调里才走本 Resolve。
+//     本类不认识演出这回事（不碰 Godot），故单独调用亦是完整可跑路径——那正是它可脱 Godot 单测的原因。
 // 叙事为 draft 草稿，最终由用户优化；本类只保证"读值→判定→出叙事+旗标"可跑、可测，不碰 Godot、不写 flag。
 
 /// <summary>

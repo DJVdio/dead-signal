@@ -112,6 +112,45 @@ public sealed class WeaponModTests
         Assert.True(r.Weapon.Penetration > baseClub.Penetration, "钉尖必须真的能破一点甲");
     }
 
+    /// <summary>
+    /// 🔴 <b>钉子强化与铁丝强化占的是<b>两个不同部位</b>，可以一起装。</b>
+    ///
+    /// <para><b>用户在 wiki 上定的（wiki＝唯一设计源，代码向它看齐）</b>：
+    /// 铁丝强化 part＝<b>棍棒上部</b>（缠在棍身那一段）、钉子强化 part＝<b>棍棒顶端</b>（砸在棍头那一圈）——
+    /// 一个缠杆、一个钉头，物理上本来就不打架。用户原话：「钉子和铁丝强化<b>不占用同一个槽，可以一起安装</b>」。</para>
+    ///
+    /// <para>
+    /// ⚠️ <b>旧代码把两者都塞在 <c>WeaponPart.Shaft</c>（"杆/头强化"）里 ⇒ 二选一</b>，
+    /// 那是**已作废的设计**。它的后果不是"少一个选项"：铁丝（伤害 +15%）会把钉子（穿透 +0.03 + 25% 小流血）
+    /// <b>完全支配</b> —— 实测打长剑手 +15.4pp vs +0.1pp（＝噪声）⇒ 钉子成了永远不会有人选的死配方。
+    /// 分槽之后两者不再互相排挤，钉子买的是**流血与破甲**、铁丝买的是**伤害**，各自成立。
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void 钉子与铁丝不占同一个槽_可以一起装在同一根棍棒上()
+    {
+        Weapon baseClub = WeaponTable.Club();
+
+        WeaponMod nails = WeaponModCatalog.NailStuds();
+        WeaponMod wire = WeaponModCatalog.WireWrap();
+
+        // ① 两者部位不同 —— 这就是"能一起装"的全部依据（冲突判据走 Part 枚举相等）
+        Assert.NotEqual(nails.Part, wire.Part);
+
+        // ② 同时装不抛（旧设计在这里抛 WeaponModException「部位『杆』已有改装」）
+        ModdedWeapon r = WeaponMods.ApplyMods(baseClub, new[] { nails, wire });
+
+        // ③ 两者的效果都真的落到了武器上：钉子的穿透（加算·零陷阱）+ 铁丝的伤害（乘算）
+        Assert.Equal(0.03, r.Weapon.Penetration, 9);
+        Assert.True(r.Weapon.DamageMin > baseClub.DamageMin, "铁丝的伤害加成没落上");
+        Assert.True(r.Weapon.BleedOnHitChance > 0.0, "钉子的小流血没落上");
+
+        // ④ 再加防滑缠手（缠手＝第三个部位）⇒ 满改装棍棒＝三件全上，一样不冲突
+        Weapon full = WeaponMods.ApplyMods(baseClub, new[] { nails, wire, WeaponModCatalog.GripWrapBlade() }).Weapon;
+        Assert.True(full.AttackInterval < baseClub.AttackInterval, "防滑缠手的攻速没落上");
+        Assert.Equal(0.03, full.Penetration, 9);
+    }
+
     // ---- 多部位叠加 ----
 
     [Fact]

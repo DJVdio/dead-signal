@@ -308,8 +308,9 @@ public sealed partial class CampMain
     /// 保证下一次正常新开局不会误触。默认 <c>null</c> ⇒ 分支不入 ⇒ 既有新开局路径逐字节不变。
     /// </para>
     /// <para>
-    /// ⚠️ <b>当前无生产者</b>：游戏直接以 CampMain 为 <c>main_scene</c> 启动，尚无主菜单场景写入此槽。
-    /// 接口 + 消费侧（_Ready 分支）已就绪，等主菜单 UI（遗留 21②/GUI）落地后由它写入。
+    /// <b>生产者＝主菜单</b>（<c>MainMenu.cs</c>，已落地）：<c>project.godot</c> 的 <c>main_scene</c> 现在是
+    /// <c>MainMenu.tscn</c>，「新开局」<b>不</b>设此槽直接切场景；「读取存档」点某槽 ⇒ 设本槽再切场景 ⇒ 走冷启动读档。
+    /// 消费侧＝<c>_Ready</c> 的 <see cref="TakeColdLoadRequest"/> 分支 → <see cref="StartFromColdLoad"/>。
     /// </para>
     /// </summary>
     public static string? PendingColdLoadSlot;

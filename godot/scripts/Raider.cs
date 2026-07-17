@@ -408,8 +408,12 @@ public sealed partial class Raider : Actor
 
         // 战斗态掏/收火把：有存活目标=已开战→点火把（自照亮回视野+成暴露信标）；脱战→收火把归 0。每帧据现目标切，幂等便宜。
         // ⚠️ 撤退时**收火把**：逃跑还举着火把＝在黑地图上当活靶子（暴露代价 ExposedCone 会放大别人对你的视距）。
-        // TODO（待 light-items LightField 就绪）：火把还应作为 PlacedLight 并入场光源，照亮劫掠者周边（利于它与友军看清，也被玩家看见）；
-        //   现仅实现"照亮自身位置"（本体视野+暴露），周边照明留待 ConfigurePerception 光源场接线时补。
+        // TODO：火把还应作为 PlacedLight 并入场光源，照亮劫掠者周边（利于它与友军看清，也被玩家看见）。
+        //   现仅实现"照亮自身位置"（本体视野+暴露）。
+        //   ⚠ 别再按"等 LightField 就绪"理解：LightField 早已建成并接线（CampMain.cs:271 _campLights、
+        //   :954 SampleCampLight 已在消费，探索关同理 TestExploration.cs:99/271）。真正的缺口只有一处——
+        //   CampMain.CurrentHandheldLights（CampMain.cs:957）只遍历 _survivors，故只有幸存者的手持光源进得了光照场；
+        //   要补就是把持光的劫掠者/丧尸一并纳入该快照（顺带：其 localLightAt 已由 :6138/:6744 注入，读得到场）。
         bool wantsTorch = _enemy is { Alive: true } && _stance != RaiderStance.Retreat;
         SetCarriedLight(wantsTorch ? TorchLightIntensity : 0f);
 

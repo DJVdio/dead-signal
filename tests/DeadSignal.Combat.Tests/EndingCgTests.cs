@@ -4,30 +4,17 @@ using Xunit;
 namespace DeadSignal.Combat.Tests;
 
 /// <summary>
-/// 三结局 CG 定稿（<see cref="EndingCg"/>）+ 全灭结局路由（<see cref="EndingCg.ForGameOver"/>）。
-/// CG 文本非空、分段承载；路由：军袭全灭上下文 &gt; 尸潮围攻 &gt; 普通全灭。
+/// 正史结局 CG 文本定稿守护（<see cref="EndingCg"/>）：CG 文本非空、分段承载。
+/// <para>🔴 曾有 3 条路由测试（<c>ForGameOver_PlainWipe_IsNormal</c> / <c>ForGameOver_SiegeActive_IsHordeSiege</c> /
+/// <c>ForKind_MapsToCorrectCg</c>）随 <c>EndingKind</c>/<c>ForGameOver</c>/<c>ForKind</c> 全灭结局路由**整条退役**
+/// （[用户裁决·选项B]）：那条路由生产不可达（军袭/尸潮均走南逃谢幕、不经全灭判定；<c>_siegeActive</c>/<c>_militaryRaidWipeContext</c>
+/// 恒 false），测试靠**手喂生产达不到的入参**才绿 —— 典型"死路由测绿"幻觉，连路由带测试一并删除。</para>
+/// <para>**authored CG 文案零受影响**：下方 <see cref="AllCgs_AreNonEmpty_AndSegmentsNonBlank"/> 仍逐段守护
+/// CG①(HordeSiege 7 段) / CG-A(MilitaryRaidMassacre 6 段) 等全部正文非空——路由删了，文案守护留着。</para>
 /// </summary>
 public class EndingCgTests
 {
-    // —— 结局路由 ——
-
-    [Fact]
-    public void ForGameOver_PlainWipe_IsNormal()
-        => Assert.Equal(EndingKind.Normal, EndingCg.ForGameOver(siegeActive: false, militaryRaidWipe: false));
-
-    [Fact]
-    public void ForGameOver_SiegeActive_IsHordeSiege()
-        => Assert.Equal(EndingKind.HordeSiege, EndingCg.ForGameOver(siegeActive: true, militaryRaidWipe: false));
-
-    [Fact]
-    public void ForGameOver_MilitaryWipe_IsMilitaryWipe()
-        => Assert.Equal(EndingKind.MilitaryWipe, EndingCg.ForGameOver(siegeActive: false, militaryRaidWipe: true));
-
-    [Fact]
-    public void ForGameOver_MilitaryWipe_TakesPrecedenceOverSiege()
-        => Assert.Equal(EndingKind.MilitaryWipe, EndingCg.ForGameOver(siegeActive: true, militaryRaidWipe: true));
-
-    // —— CG 文本非空 ——
+    // —— CG 文本非空（authored 正文守护：路由退役后，这是 CG① / CG-A 文案仍在册的护栏）——
 
     [Fact]
     public void AllCgs_AreNonEmpty_AndSegmentsNonBlank()
@@ -47,13 +34,6 @@ public class EndingCgTests
     [Fact]
     public void MilitaryWipe_IsAliasOf_MilitaryRaidMassacre()
         // 旧名 MilitaryWipe 已重写为 CG-A 屠营文本（军人屠营+半残南逃），与新名同引用。
+        // 路由退役后本别名仅剩单测引用，保留待 CG-A 文案接线的 [DECISION] 裁完再定去留。
         => Assert.Same(EndingCg.MilitaryRaidMassacre, EndingCg.MilitaryWipe);
-
-    [Fact]
-    public void ForKind_MapsToCorrectCg_NormalIsEmpty()
-    {
-        Assert.Same(EndingCg.HordeSiege, EndingCg.ForKind(EndingKind.HordeSiege));
-        Assert.Same(EndingCg.MilitaryWipe, EndingCg.ForKind(EndingKind.MilitaryWipe));
-        Assert.Empty(EndingCg.ForKind(EndingKind.Normal));
-    }
 }

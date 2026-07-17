@@ -7,8 +7,8 @@ namespace DeadSignal.Godot;
 /// <para>
 /// 历史上所有探索关共用写死的 2400×1600（<c>TestExploration</c> 的 const）。本表把尺寸变成
 /// 「按目的地取值」：<see cref="SizeFor"/> 按 <c>DestinationName</c> 查 <see cref="Overrides"/>，
-/// <b>查不到就回退默认 2400×1600</b> —— 所以在没有任何目的地登记覆盖尺寸之前，每一关都仍是
-/// 2400×1600，与改造前逐字节一致（零漂移基线）。
+/// <b>查不到就回退默认 2400×1600</b>（当年覆盖表为空 ⇒ 每关都走回退 ⇒ 与改造前逐字节一致，那是当时的零漂移基线；
+/// 如今 16 关已登记覆盖，回退只剩下水道与金手指帮据点）。
 /// </para>
 /// <para>
 /// 🔴 <b>给某目的地设更大画布 = 往 <see cref="Overrides"/> 加一行</b>（后续 per-map impl 的唯一入口）。
@@ -27,12 +27,9 @@ public static class ExplorationLevelSize
     public const float DefaultHeight = 1600f;
 
     /// <summary>
-    /// 目的地 → (宽,高) 覆盖表。<b>当前为空 = 所有目的地一律走默认</b>（这是零漂移基线的保证）。
-    /// per-map impl 在此按目的地填目标尺寸，例如：
-    /// <code>
-    /// { ExplorationCache.HospitalName, (4200f, 2800f) },   // 大·约5天
-    /// { "watchers_forest_cabin",       (2400f, 1600f) },   // 小·维持（WorldMapPanel.*Name 用字面量）
-    /// </code>
+    /// 目的地 → (宽,高) 覆盖表。**放大已铺完**：18 个探索目的地里 16 个在此登记，
+    /// <b>只剩下水道与金手指帮据点走回退 2400×1600</b>（二者都是有意裁决，非遗漏——各见下方注释）。
+    /// 给某目的地改档 = 改这里一行（唯一入口）；各关几何/测试多已改为读 <see cref="SizeFor"/> 自动跟档。
     /// </summary>
     private static readonly IReadOnlyDictionary<string, (float Width, float Height)> Overrides =
         new Dictionary<string, (float Width, float Height)>
@@ -56,9 +53,10 @@ public static class ExplorationLevelSize
             //   · **斯图尔特家族庄园＝放大 3200×2200**（下方登记）——用**绕庭院中心逆缩放**：StuartManor.cs 的 const 同步 3200×2200、
             //     Posts 逐轴逆缩放 ⇒ 哨位间/庭院噪音的**像素距离逐字节不变**（StuartManorTests 噪音带 弓0/匕首1/手枪3/步枪6 恒绿），
             //     防御核心保持紧凑、放大出来的是周围田地/院外进路。**不是硬缩放**，故不违 policy A。
-            //   · **金手指帮根据地＝维持原尺寸 2400×1600 零改动**（不登记覆盖）——均匀放大会把 GoldfingerGang.Posts（归一化）
-            //     守备间距×4/3、改变"开一枪招几人"的 authored 噪音招怪（docs/research/2026-07-14-goldfinger-calibration.md）；
-            //     正确放大须重新校准该噪音招怪，另立 follow-on 单（见 docs/TODO.md）。
+            //   · **金手指帮根据地＝维持原尺寸 2400×1600**（不登记覆盖）——🔴 **用户明示裁决，不是遗漏、不是待办**：
+            //     均匀放大会把 GoldfingerGang.Posts（归一化）守备间距×4/3、改掉"开一枪招几人"的 authored 噪音招怪
+            //     （docs/research/2026-07-14-goldfinger-calibration.md）⇒ **那条 authored 红线优先于放大**，本关就此定档。
+            //     ⚠️ 不要因为"别的关都放大了"就来补这一行。
             { StuartManor.DestinationName, (3200f, 2200f) },       // 斯图尔特家族庄园（中·高危·逆缩放保噪音几何）
             // 广播台（中·主线关键地点）：占位地台 ⇒ 建真广播站结构（播音楼/北端机房/中央脊廊房间/院内五外屋/东北天线塔）。
             //   🔴 authored 调查点（播音台/照片墙 NarrativeSpot）与发射机锚点 (1200,300) 坐标一字不动，本次只放大机制层地形/物资/点位。

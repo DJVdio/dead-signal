@@ -76,8 +76,7 @@ public static class ZombieClothCalibration
         Distribution(sb);
 
         var report = sb.ToString();
-        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(outPath))!);
-        File.WriteAllText(outPath, report);
+        SimReport.Write(outPath, report); // 出处戳 + 落盘（含建目录）
         Console.WriteLine($"已写出 {outPath}");
         Console.WriteLine();
         Console.Write(report);

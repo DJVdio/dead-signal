@@ -118,8 +118,16 @@ public static class StuartManor
     /// </summary>
     public const string RaiderName = "庄园劫掠者";
 
-    // ── 关卡尺寸（脱 Godot 副本；🔴 须与 TestExploration 的 LevelW/LevelH 一致）──────────────
-    //    放大到中图 ≈3 天量级：与 ExplorationLevelSize.Overrides["斯图尔特家族庄园"]=(3200,2200) 同步。
+    // ── 关卡尺寸（脱 Godot 副本）────────────────────────────────────────────────────────────
+    //    🔴 **真源只有一个：ExplorationLevelSize.SizeFor("斯图尔特家族庄园") = (3200,2200)。**
+    //       运行时就是照它铺哨位的（TestExploration.StuartManor.cs：pos = Posts[i] × LevelW，那个 LevelW＝SizeFor 的值）。
+    //       下面这两个 const 只是一份**副本**——存在的理由是本类**不引 Godot 类型**、要能被纯逻辑单测算噪音几何。
+    //    🔴 **副本靠测试焊死，不靠这段注释提醒**：StuartManorTests.TheCanvasCopyIsWeldedToItsSingleSourceOfTruth
+    //       断言"副本 == 真源"，跑在同时链接两者的 Combat.Tests 里 ⇒ **真源一改、这里不同步，当场红**。
+    //       （焊法照抄 GoldfingerGang.cs 的先例：不把 ExplorationLevelSize 拖进别的工程，只在测试里对上账。）
+    //    🔴 **为什么非焊不可**：噪音护栏（弓0/匕首1/手枪3/步枪6、PostSpacing）**全部拿这份副本**把归一化的 Posts
+    //       换算成像素。副本一旦漂了，**游戏里"开一枪招几个人"真的变了，而那些护栏拿旧副本算、一条都不会红**
+    //       ——这不是"报告印错数"，是**护栏自己跟着一起漂**。
     //    ⚠️ Posts 已配套绕庭院中心逆缩放（见下）——哨位间/庭院噪音的**像素距离逐字节不变**，噪音几何护栏恒绿。
     /// <summary>关卡宽（px）。</summary>
     public const double LevelW = 3200.0;

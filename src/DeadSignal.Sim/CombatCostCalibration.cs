@@ -321,7 +321,7 @@ public static class CombatCostCalibration
 
         AppendWeaponCostSweep(sb);
 
-        File.WriteAllText(outPath, sb.ToString());
+        SimReport.Write(outPath, sb.ToString()); // 出处戳 + 落盘（含建目录）
         Console.WriteLine($"已写出 {outPath}");
     }
 }

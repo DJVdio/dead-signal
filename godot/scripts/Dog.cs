@@ -45,9 +45,19 @@ public sealed partial class Dog : Actor
     /// <summary>
     /// 闪避概率 [0,1]（高闪避）：每次来袭（近战/远程皆吃）以此概率整次躲开。配合极低伤害构成
     /// "难独自击杀、难被速杀"的缠斗定位。
-    /// 校准依据（param-calibration，dogcal 4000 种子）：保留"高闪避"身份取 0.45，配 DogBite 1-4/2.3s →
-    /// 布鲁斯 solo vs 丧尸胜率 39%（目标 30~45% 中位）、平均时长 33s（≫匕首基线 14.5s，缠斗感成立）；
-    /// 道格(棍棒布衣)+布鲁斯 2v1 稳赢（全胜率≈100%）。
+    /// 校准依据（param-calibration，dogcal 4000 种子）：保留"高闪避"身份取 0.45。
+    /// <para>
+    /// 🔴 <b>数字一律以真源报告为准，别在这里抄快照</b>：<c>docs/research/2026-07-12-dog-calibration.md</c>
+    /// （harness＝<c>src/DeadSignal.Sim/DogCalibration.cs</c>，重跑：<c>dotnet run --project src/DeadSignal.Sim -- dogcal</c>）。
+    /// 此前这段内联抄着「DogBite 1-4 → 胜率 39%、时长 33s、匕首基线 14.5s」，四个数**全部失效**
+    /// （"1-4" 更是 born-stale：初版 9bba641 就是 2-6，min 从来没到过 1；现 2-4 见 weapons.json dog_bite）。
+    /// </para>
+    /// <para>
+    /// ⚠ <b>已知偏离，待用户拍板</b>（2026-07-17 重跑复现，与报告 56.4% 一致）：布鲁斯 solo vs 丧尸胜率
+    /// <b>56.6%，已高出"目标 30~45%"区间</b>（dogcal 的判定行自己也在这么报）。缠斗感本身仍成立
+    /// （solo 时长 85.8s ≫ 匕首基线 55.0s），2v1 稳赢≈100% 亦未变。
+    /// <b>是否回调 0.45 / 还是重标目标区间＝数值决策，未自裁</b>——改这个数会动感知/Sim 基线，须走 [DECISION]。
+    /// </para>
     /// </summary>
     private const float DodgeChance = 0.45f;
 
@@ -118,7 +128,14 @@ public sealed partial class Dog : Actor
 
     /// <summary>
     /// 口袋狗衣提供的携带容量（探索出队负重加成，<see cref="Loadout"/> 体系）。无口袋狗衣＝0。
-    /// 布鲁斯随队出探索已落地（CampMain.ExpeditionDogCarryBonus 读此）；实际叠加到探险队负重上限待探索负重系统建立。
+    /// <para>
+    /// <b>已全链接线</b>（别再按"待负重系统建立"理解——系统早已建成，见 <c>CarryWeight.cs</c>）：
+    /// <c>CampMain.ExpeditionDogCarryBonus</c>（CampMain.cs:2367，仅随队且活着才计）读本属性
+    /// → <c>PartyCarryLimit()</c>（CampMain.cs:2532「每个队员的上限之和 <b>+ 随队布鲁斯口袋狗衣的驮运容量</b>」）
+    /// → <c>_bag.SetCapacity(...)</c>（CampMain.cs:2580）抬高这一趟的硬上限，
+    /// 并经 <c>dogCapacityKg</c> 喂进逐人分档 <c>ExpeditionLoad.For</c>（CampMain.cs:2597）。
+    /// ⇒ 布鲁斯驮的那几 kg 真的抬高上限、真的改变每个人的负重档。
+    /// </para>
     /// </summary>
     public float CarryCapacity => Apparel.TotalCarryCapacity();
 

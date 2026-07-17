@@ -371,9 +371,9 @@ public sealed partial class CampMain : Node2D
     private bool _siegeActive;
     private int _siegeWaveIndex;        // 已投放波次序号（0=首波）
     private double _siegeWaveElapsed;    // 距上一波投放已过秒（逐帧累积，喂 HordeTimeline.NextWave）
-    // 【遗留】旧结局②"全员在营被军袭屠尽 → 全灭走 CG②"上下文。已推翻：军袭改为**强制终局南逃谢幕序列**
-    // （BeginSouthEscapeEnding，不经全灭判定、序列内先置 _gameOver）。此位恒 false、不再被置位，仅为 EndingCg.ForGameOver 遗留签名保留。
-    private bool _militaryRaidWipeContext;
+    // 【已删】旧 _militaryRaidWipeContext（结局②"全员在营被军袭屠尽 → 全灭走 CG②"上下文）：该设计已推翻——
+    // 军袭走强制终局南逃谢幕序列（BeginSouthEscapeEnding，不经全灭判定）。该字段全仓零赋值、恒 false，
+    // 连同整个全灭结局路由（EndingKind/ForGameOver/ForKind）一并退役（[用户裁决·选项B]）。
     private GuardPostKind _debugPlaceKind = GuardPostKind.Watchtower; // 调试放置轮换类型
     private const float BreachRadius = 420f;  // 破防线：丧尸摸进营心此半径内 = 破防（随 2400×1800 地图放大调，拟定待调）
 
@@ -659,7 +659,7 @@ public sealed partial class CampMain : Node2D
         // [TODO 21①] 冷启动读档：上层（主菜单）在切场景前把要读的存档槽写进 CampMain.PendingColdLoadSlot。
         // 读成功 ⇒ **跳过开局物资与商人起步白银**（ApplySave 会把存档物资灌回来；不跳会在其上再叠一份，
         //          见 ApplySave 的调用前提），并在 _Ready 末尾走 StartFromColdLoad 而非 StartFirstDay。
-        // 读失败 / 无请求（含当前无主菜单 producer 的默认情形）⇒ _coldLoadData 为 null，照常新开局，路径逐字节不变。
+        // 读失败 / 无请求（主菜单点「新开局」⇒ 不设槽）⇒ _coldLoadData 为 null，照常新开局，路径逐字节不变。
         _coldLoadData = TakeColdLoadRequest();
         bool coldLoad = _coldLoadData is not null;
 
@@ -2358,8 +2358,11 @@ public sealed partial class CampMain : Node2D
     /// <summary>
     /// 口袋狗衣负重接缝（③）：本次探索若带上布鲁斯，其穿戴的口袋狗衣提供的额外携带容量（无则 0）。
     /// 容量数据/查询由 dog-gear 落定（<see cref="Dog.CarryCapacity"/>＝DogApparelSlots.TotalCarryCapacity）。
-    /// TODO：探索搜刮的负重上限系统（Loadout 体系的探索消费方）尚未建立——此值为**已就位的留口**，
-    /// 待该负重系统落地后由其叠加到队伍装载上限（届时调本访问器即可，无需再动布鲁斯侧）。
+    /// <para>
+    /// <b>已接线</b>（[T45] 探索负重系统落地时接上）：本值经 <see cref="PartyCarryLimit"/> 喂给
+    /// <c>ExpeditionBag.PartyCapacity(队员上限, 狗容量)</c> ⇒ 进 <c>_bag.SetCapacity</c>；并作为
+    /// <c>dogCapacityKg</c> 喂进逐人分档的 <c>ExpeditionLoad.For</c>。⇒ 布鲁斯驮的那几 kg 真的抬高了这一趟的硬上限。
+    /// </para>
     /// </summary>
     public float ExpeditionDogCarryBonus =>
         _bruceExpedition && _bruce is { Alive: true } b ? b.CarryCapacity : 0f;
@@ -2925,7 +2928,12 @@ public sealed partial class CampMain : Node2D
     /// <summary>
     /// 调试：把库存里的狗装备（Item.Armor，RefKey∈<see cref="DogGearCatalog"/>）穿到布鲁斯身上，验证护甲进受击结算
     /// （<see cref="Dog.RefreshArmor"/> 喂 DefenderArmor）+ 口袋狗衣携带容量。每槽单件，顶替下来的旧件退回库存。
-    /// 遗留（TODO dog-gear）：正式穿戴入口＝布鲁斯检视/角色面板（重 UI，待道格布鲁斯正式入队剧情落地一并做）。
+    /// <para>
+    /// <b>正式穿戴入口已落地</b>＝<b>库存面板的「布鲁斯装备」区</b>（<c>StashPanel</c>）：穿走 <c>OnStashEquipRequested</c>
+    /// 按 <see cref="DogGearCatalog.IsDogGear"/> 分流到布鲁斯，脱走 <c>DogGearUnequipRequested</c> →
+    /// <see cref="OnStashDogGearUnequipRequested"/>，穿戴态由 <c>DogGearProvider</c> 实时喂回面板。
+    /// ⇒ 本调试键<b>只剩"一键塞满快速验收"</b>的用途，不再是唯一入口。
+    /// </para>
     /// </summary>
     private void DebugEquipDogGearOnBruce()
     {
@@ -3256,14 +3264,11 @@ public sealed partial class CampMain : Node2D
             if (!_gameOver && GameOverCondition.AllSurvivorsDead(_survivors.Count(s => s.Alive)))
             {
                 _gameOver = true;
-                // 全灭结局路由（[SPEC-B11] 三结局 CG）：尸潮围攻全灭→CG①；军袭致全员在营全灭→CG②（预留，军袭本体待实装）；
-                // 其余普通全灭→保留原 GameOverPanel「营地无人生还」行为。
-                var kind = EndingCg.ForGameOver(_siegeActive, _militaryRaidWipeContext);
-                if (kind == EndingKind.Normal)
-                    GameOverPanel.Show(_hud);
-                else
-                    EndingPanel.Show(_hud, EndingCg.ForKind(kind),
-                        kind == EndingKind.HordeSiege ? EndingCg.HordeSiegeTitle : EndingCg.MilitaryWipeTitle);
+                // 全灭 → 普通全灭面板「营地无人生还」。
+                // 🔴 两条"全灭走 CG"路由（CG② 军袭 / CG① 尸潮）均**不经此判定**：它们各走强制终局南逃谢幕序列
+                // （TryTriggerMilitaryRaid / TryTriggerHordeSiegeEnding → BeginSouthEscapeEnding，序列内先置 _gameOver）。
+                // 旧 EndingCg.ForGameOver/ForKind/EndingKind 全灭结局路由已整条退役（[用户裁决·选项B]）——它生产不可达却被单测测绿。
+                GameOverPanel.Show(_hud);
             }
         }
     }
@@ -4874,7 +4879,8 @@ public sealed partial class CampMain : Node2D
         var toKill = new List<Pawn>();
         var notes = new List<string>();
 
-        // 南丁格尔护士三级特长（[SPEC-B13-补]）：营地卫生减免全营感染率——2级(她在营存活,−15%)+3级(永续遗产,−10%,合计−25%)。
+        // 南丁格尔护士三级特长（[SPEC-B13-补]）：营地卫生减免全营感染率——2级(她在营存活,−15%) 与 3级(永续遗产,−10%)
+        // **乘算**（CLAUDE.md 铁律，禁加算）：存活 L3 = ×(1−0.15)×(1−0.10) = ×0.765，不是加算的"合计 −25%"。判据见 NightingalePerk.CampInfectionMultiplier。
         // 默认只营地内休养的伤口吃减免（本处即营地每昼夜健康推进；探索关实时层伤口不经此，故天然满足"只营地伤口吃"，标待确认）。
         Pawn? nightingale = _survivors.FirstOrDefault(s => s.Perks.IsNightingale);
         int nurseLevel = NightingalePerk.LevelOf(_storyFlags); // 等级由持久化台数派生（她死后仍在，但下方 aliveInCamp 门控 L2）
@@ -6492,8 +6498,10 @@ public sealed partial class CampMain : Node2D
     /// <summary>
     /// 【遗留·不再从 day-40 可达】旧"尸潮抵达＝可玩无限围攻直至全灭"路由。已被 <see cref="TryTriggerHordeSiegeEnding"/>
     /// （无限丧尸屠营 CG → 单角色南逃谢幕）**推翻**——day-40 到期改走南逃谢幕，本方法不再被 NightAct 调用。
-    /// 保留本体 + 其 <c>_siegeActive</c> 围攻运行时（<see cref="UpdateRaid"/> 分支）+ <see cref="EndingCg.ForGameOver"/>
-    /// 的 HordeSiege 遗留签名，避免大范围删除（同 military-impl-core 保留 <c>_militaryRaidWipeContext</c> 先例）。
+    /// <para>🔴 <b>本方法零调用者，<c>_siegeActive = true</c> 只在此方法体内</b> ⇒ <c>_siegeActive</c> 生产恒 false。
+    /// 其配套的全灭结局路由（旧 <c>EndingCg.ForGameOver</c>/<c>ForKind</c>/<c>EndingKind.HordeSiege</c>）已随军袭路由一并**整条退役**
+    /// （[用户裁决·选项B]，因生产不可达却被单测测绿）。<b>本方法体与 <c>_siegeActive</c> 字段仍保留</b>：字段被
+    /// <see cref="UpdateRaid"/>/聚餐·相位·自动存档抑制等多处运行时守卫读取（恒 false 下仍是有效的短路条件），删字段牵连过广，非本次范围。</para>
     /// 复用袭营执行层：置 <c>_raidActive</c> 借守卫锁敌 + 破防统计，走 <c>_siegeActive</c> 分支不做胜负结算。
     /// </summary>
     private void TriggerHordeSiege()
@@ -7057,7 +7065,7 @@ public sealed partial class CampMain : Node2D
             if (isReply)
             {
                 RadioMainline.ReplyToMilitary(_storyFlags, _clock.Day);
-                GD.Print($"[电台] 已回复军方（第 {_clock.Day} 天）。第 {_clock.Day + RadioMainline.MilitaryRaidDelayDays} 天白天军袭到期（结局②，事件本体待实装）。");
+                GD.Print($"[电台] 已回复军方（第 {_clock.Day} 天）。第 {_clock.Day + RadioMainline.MilitaryRaidDelayDays} 天白天军袭到期（结局② → 屠营 + 单角色南逃谢幕，见 TryTriggerMilitaryRaid）。");
             }
             else
             {

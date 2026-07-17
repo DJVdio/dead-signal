@@ -7,7 +7,14 @@ namespace DeadSignal.Godot;
 /// 「游戏结束」模态（最小版）：全体幸存者死亡时弹出。
 /// 显示结束提示 + 「重新开始」（重载场景开新一局）+「退出游戏」（<see cref="GetTree"/>.Quit()）。
 /// 弹出即 <c>Engine.TimeScale = 0</c> 暂停——游戏已结束。重开前必须先把 TimeScale 复位回 1，
-/// 否则新场景一起步就被冻住。回标题/存档等菜单系统本轮不做（以后另做）。
+/// 否则新场景一起步就被冻住。
+/// <para>
+/// <b>出口只有这两个</b>：重开 = <c>ReloadCurrentScene</c>（就地重来，不回主菜单）、退出 = <c>Quit</c>。
+/// 主菜单（<see cref="MainMenu"/>，<c>project.godot</c> 的 <c>main_scene</c>）与存档系统
+/// （<see cref="SavePanel"/>/<see cref="SaveManager"/> 的相位轮转自动存档）都已建成，
+/// 但本面板<b>没有</b>接「回主菜单」入口——要加的话是往这里接一个
+/// <c>ChangeSceneToFile("res://scenes/MainMenu.tscn")</c>（记得同样先复位 TimeScale）。
+/// </para>
 /// 骨架照 <see cref="ChoicePanel"/>：CanvasLayer + <see cref="UiStyle.BuildModalShell"/>。
 /// </summary>
 public sealed partial class GameOverPanel : CanvasLayer

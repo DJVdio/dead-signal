@@ -129,9 +129,12 @@ public static class DisplayNames
         WeaponPart.Barrel => "枪管",
         WeaponPart.Muzzle => "枪口",
         WeaponPart.Blade => "刃",
-        WeaponPart.Handle => "柄",
+        WeaponPart.Handle => "剑柄",
         WeaponPart.Grip => "缠手",
-        WeaponPart.Shaft => "杆",
+        // [wiki→代码同步] 棍棒的两个槽：上部（铁丝缠的那段杆）/ 顶端（钉子砸的那圈钉）——
+        //   用户在 wiki 上把它们拆成两个部位（「不占用同一个槽，可以一起安装」），显示名照 wiki 的写法。
+        WeaponPart.Shaft => "棍棒上部",
+        WeaponPart.ClubHead => "棍棒顶端",
         // [T69] 弓弩专属部位。LimbWrap 与 Grip 同显示名"缠手"——两者从不同现于一把武器，无碍（见 WeaponPart.LimbWrap）。
         WeaponPart.Bow => "弓",
         WeaponPart.String => "弦",

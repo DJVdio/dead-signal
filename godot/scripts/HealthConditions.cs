@@ -9,7 +9,14 @@ namespace DeadSignal.Godot;
 // （与 HungerState.cs 一样被 DeadSignal.Combat.Tests 以 Link 方式编入单测）。
 // 只 **只读引用** 战斗引擎（DeadSignal.Combat）的出血/骨折状态语义，绝不改战斗引擎定稿。
 //
-// 承载"伤病随时间恶化 + 手术治疗"的全部规则（模型层，不接 Body/CampMain 每帧推进——接入后续波）：
+// 承载"伤病随时间恶化 + 手术治疗"的全部规则（规则层；本文件只出纯判定，实扣实产/推进在消费层）。
+// 消费层**已全部接线**（勿再按"待接入"理解本文件）：
+//   · 建档：Pawn.ArchiveWounds（Pawn.cs）→ HealthMapping.SeedFromBody(Body)，战斗态出血/骨折入伤病集。
+//   · 推进：CampMain.AdvanceSurvivorsHealthDay（CampMain.cs:4871，黎明每昼夜一次，CampMain.cs:5158 调）
+//     → Pawn.AdvanceHealthDay → 本文件 TickDay。**是每昼夜推进，不是每帧**。
+//   · 手术/用药：医疗面板（MedicalPanel.cs）→ CampMain.cs:9590 PerformSurgery / :9720 TreatIllness。
+//   · 存档：SaveMapper.cs:230。
+// 规则要点：
 //   · 一个幸存者持一份 HealthConditionSet（若干病状 HealthCondition，各带严重度 severity 0..1）。
 //   · 每昼夜 TickDay：未处置病状按规则恶化——出血拖久失血过多致死；开放伤口按几率感染；
 //     感染恶化→肢体坏疽截肢(致残)/躯干败血症(致死)；骨折未手术→畸形愈合致残。

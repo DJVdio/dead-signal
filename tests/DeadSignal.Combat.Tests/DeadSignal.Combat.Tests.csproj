@@ -291,6 +291,16 @@
     <!-- Sim 的 N vs M 竞技场（纯 C#、只依赖 Combat）。Link 进来是为了给"它确实消费了震荡/骨折"上护栏——
          此前它悄悄省掉震荡，把钝器的胜率系统性低估了一半，而没有任何测试能发现。 -->
     <Compile Include="..\..\src\DeadSignal.Sim\Arena.cs" Link="Consumed\Arena.cs" />
+    <!-- 🔴 金手指校准 harness（纯 C#、只依赖 Combat + GoldfingerGang）。Link 进来是为了把
+         docs/research/2026-07-14-goldfinger-calibration.md **焊死在引擎上**（GoldfingerCalibrationDocTests）——
+         此前该报告不在任何门禁覆盖内：991b777 同一个 commit 里重写 WeaponTable(163 行)+重跑报告，报告在改完之前生成、
+         之后没再重跑就一起提交 ⇒ 报告**出生即错**（自己的代码跑 85.3%、自己提交的报告写 60.9%），
+         而 GoldfingerGang.cs 的 [T57]/[T63] 拍板注释照抄了那组假数、没有任何测试能发现。
+         ⚠️ 只调 Measure（纯计算），不调 Run()（那个会写文件）。 -->
+    <Compile Include="..\..\src\DeadSignal.Sim\GoldfingerCalibration.cs" Link="Consumed\GoldfingerCalibration.cs" />
+    <!-- 报告落盘的出处戳入口。GoldfingerCalibration.Run() 引用它（虽然 DocTests 只调 Measure/Row，
+         但整文件编译需 SimReport 可解析）；且它无 Godot/文件系统外依赖，Link 进来零负担。 -->
+    <Compile Include="..\..\src\DeadSignal.Sim\SimReport.cs" Link="Consumed\SimReport.cs" />
   </ItemGroup>
 
   <!-- 消费层数值外置·godot 侧配置范式（纯 C#、无 Godot 依赖）：消费层纯逻辑（NightWatchContest 等）以 Link 编入本工程，

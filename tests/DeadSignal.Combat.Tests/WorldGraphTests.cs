@@ -194,19 +194,17 @@ public class WorldGraphTests
     // ═══════════════════════ 真数据（godot/data/world_graph.json）═══════════════════════
 
     /// <summary>
-    /// 🔴 <b>关卡本体还没落地的点</b>（<c>ExplorationCache</c> 里还没有它们的搜刮点 ⇒ 探索度恒为 0/0 ⇒
+    /// <b>关卡本体还没落地的点</b>的豁免清单（<c>ExplorationCache</c> 里还没有它们的搜刮点 ⇒ 探索度恒为 0/0 ⇒
     /// <b>永远过不了 50% 门槛</b> ⇒ 它后面的整片图锁死）。
     ///
-    /// <para><b>这是一个真实存在的、已知的临时死锁</b>，不是被容忍的技术债：
-    /// 难民营地 → 破败教堂 → 广播台（终局）这条链现在<b>走不通</b>，游戏此刻通不了关。
-    /// 三个点的关卡本体正由 <c>impl-lategame</c>（破败教堂/难民营地）与 <c>impl-sewer</c>（下水道）在做。</para>
+    /// <para>✅ <b>当前为空 —— 没有任何已知死锁</b>：下水道 / 难民营地 / 破败教堂的搜刮点均已接进
+    /// <c>ExplorationCache.CacheIdsFor</c>，难民营地 → 破败教堂 → 广播台（终局）这条链是通的。
+    /// 清单为空 ⇒ <see cref="AssumedPointCount"/> 退化成与 <see cref="RegisteredPointCount"/> 完全等价 ⇒
+    /// <see cref="真数据_图结构健康_无环无孤岛无死锁"/> 是**不打折的硬门**。</para>
     ///
-    /// <para>⚠️ <b>这份清单只许缩短，不许变长</b>：往图里加一个没有关卡内容的点，就是往玩家路上埋一堵墙。</para>
-    ///
-    /// <para>✅ <b>已清空</b>：下水道（impl-sewer）/ 难民营地 · 破败教堂（impl-lategame）的搜刮点都已接进
-    /// <c>ExplorationCache.CacheIdsFor</c> ⇒ 那条临时死锁已经不存在，
-    /// <see cref="真数据_图结构健康_无环无孤岛无死锁"/> 现在是**不打折的硬门**。
-    /// 这条清单留着当闸：以后谁再往图里加一个没有关卡内容的点，当场红。</para>
+    /// <para>⚠️ <b>这份清单只许缩短，不许变长</b>：往图里加一个没有关卡内容的点，就是往玩家路上埋一堵墙。
+    /// 空清单留着当闸——以后谁再往图里加一个没有关卡内容的点，
+    /// <see cref="真数据_关卡本体待接线清单_只许缩短不许变长"/> 当场红。</para>
     /// </summary>
     private static readonly string[] PendingLevelContent = System.Array.Empty<string>();
 
@@ -239,9 +237,10 @@ public class WorldGraphTests
     {
         var graph = RealGraph();
 
-        // 拓扑校验：把"关卡本体还没落地"那几个点**当作已经有内容**（假设 5 处搜刮点）来跑——
+        // 拓扑校验：把 PendingLevelContent 里的点**当作已经有内容**（假设 5 处搜刮点）来跑——
         // 这样测的是**这张图本身对不对**（环 / 孤岛 / 死锁），而不是"别人的活干完没有"。
         // 真正的待接线死锁由 真数据_关卡本体待接线清单 单独看着，两件事分开报，谁都不遮谁。
+        // （该清单当前为空 ⇒ 这里跑的就是真实点数，无豁免。）
         var problems = graph.Validate(AssumedPointCount);
         Assert.True(problems.Count == 0, "world_graph.json 有问题：\n  " + string.Join("\n  ", problems));
     }
@@ -415,7 +414,7 @@ public class WorldGraphTests
     /// <para>⚠️ 这里走的是**图层级**的级联（前置在 visited 里 ⇒ 满足），刻意**不**过 StoryFlags 那一层：
     /// 「探索度真的到得了 50% 吗」是**另一个**问题，由 <see cref="真数据_关卡本体待接线清单_只许缩短不许变长"/> 和
     /// <see cref="真数据_每个前置点的探索度都真能超过五成_不会把玩家永久锁死"/> 单独盯着。
-    /// 两件事分开测，谁都不遮谁——否则三个还没接线的新点会把"这张图通不通"这个问题一起淹掉。</para>
+    /// 两件事分开测，谁都不遮谁——否则还没接线的新点会把"这张图通不通"这个问题一起淹掉。</para>
     /// </summary>
     private static HashSet<string> Playthrough(WorldGraph graph, string startName, bool ignoreOtherStarts = false)
     {
@@ -489,7 +488,8 @@ public class WorldGraphTests
             Assert.True(graph.Contains(name), $"world_graph.json 里没有目的地「{name}」——解锁门会挂空");
         }
 
-        // 三个新点（关卡本体在建）：路由键先在图里定死，impl-lategame / impl-sewer 照它建 ExplorationCache 常量。
+        // 关卡本体还没落地的点：路由键得先在图里定死，建关卡的人才有常量可照着接 ExplorationCache。
+        // （该清单当前为空 ⇒ 本循环不跑；下水道/难民营地/破败教堂的关卡本体都已落地。）
         foreach (string name in PendingLevelContent)
             Assert.True(graph.Contains(name), $"world_graph.json 里没有新点「{name}」");
 
@@ -551,9 +551,10 @@ public class WorldGraphTests
         => ExplorationProgress.PointFlagsFor(name, christineLeftForRevenge: false).Count;
 
     /// <summary>
-    /// 同上，但把**关卡本体还没落地**的那几个点当成"已经有 5 处搜刮点"。
+    /// 同上，但把 <see cref="PendingLevelContent"/> 里的点当成"已经有 5 处搜刮点"。
     /// 用于**拓扑**校验（环/孤岛/死锁）——测的是「这张图本身对不对」，不是「别人的活干完没有」。
     /// 真正的"还没接线"由 <see cref="真数据_关卡本体待接线清单_只许缩短不许变长"/> 单独报。
+    /// <para>该清单当前为空 ⇒ 本方法等价于 <see cref="RegisteredPointCount"/>。</para>
     /// </summary>
     private static int AssumedPointCount(string name)
     {

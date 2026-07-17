@@ -145,8 +145,7 @@ public static class DogCalibration
         sb.AppendLine(CultureInfo.InvariantCulture, $"- 2v1 己方全胜率 {twoVsOne.TeamAWinRate:P1}（目标：稳赢≈≥90%）");
 
         var report = sb.ToString();
-        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(outPath))!);
-        File.WriteAllText(outPath, report);
+        SimReport.Write(outPath, report); // 出处戳 + 落盘（含建目录）
         Console.WriteLine($"已写出 {outPath}");
         Console.WriteLine();
         Console.Write(report);

@@ -199,10 +199,12 @@ public static class ArmorTable
     /// <summary>
     /// <b>平光眼镜</b>（眼镜槽，护双眼）—— 1 / 1、0.1kg。与<see cref="Sunglasses"/> 同槽互斥、同数值。
     /// <para>
-    /// ⚠️ 用户写的效果「<b>+5% 阅读速度</b>」<b>同样未做</b>（挂起）。
-    /// 📌 但记一句：<b>这条是全部挂起新轴里最容易接的一条</b> —— `ReadingSpeed` 已经有 `CampWideReadingSpeedBonus`
-    /// 这个现成的乘算入口，接它几乎不需要新轴，只需要"穿戴品能给营地系数供数"这一根线。
-    /// <b>新轴统一立项时，优先做它。</b>
+    /// ✅ 用户写的效果「<b>+5% 阅读速度</b>」<b>已落地</b>（它当年就是"最容易接的一条"，也确实是第一条被接上的）：
+    /// 效果挂在消费层 <c>ApparelCatalog.ApparelDef.Effects</c>（<c>EquipEffect.ReadingSpeed(0.05)</c>，
+    /// <b>不进本引擎的 <see cref="ArmorLayer"/></b>），经 <c>ApparelCatalog.ApparelEffectMultiplier</c>
+    /// 从真实穿戴品名乘算汇总，由 <c>Pawn</c> 喂进 <c>ReadingSpeed.Effective</c> 的 apparelMult（×1.05，乘算）。
+    /// <b>它是本作第一件"穿戴 → 能力"供数的装备</b>。
+    /// <para>⚠️ 与 <see cref="Sunglasses"/> 的「白天视野」不同 —— <b>那条仍未做</b>（视野是另一条链，待单独立项）。</para>
     /// </para>
     /// </summary>
     public static ArmorLayer PlainGlasses() => Cfg("plain_glasses");
