@@ -1664,7 +1664,9 @@ async function save() {
       });
       const j = await res.json().catch(() => ({}));
       if (!res.ok || !j.ok) throw new Error(j.error || `HTTP ${res.status}`);
-      S.orig[id] = deepClone(S.cats[id]);   // 存住了才推进基线
+      // 服务端投影写回 config 后重算的乐观锁版本号：更新内存，否则下次带 config 改动的保存假 409。
+      if (j.configVersion != null) S.cats[id]._configVersion = j.configVersion;
+      S.orig[id] = deepClone(S.cats[id]);   // 存住了才推进基线（带上刚回刷的版本号）
       saved++;
     } catch (e) {
       failed.push(`${id}: ${e.message}`);

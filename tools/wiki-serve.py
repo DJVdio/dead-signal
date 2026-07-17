@@ -146,9 +146,12 @@ class WikiHandler(SimpleHTTPRequestHandler):
             return self._fail(409, "config json 已被其它改动更新——请刷新页面(reload)后再存，避免覆盖对方的改动。")
 
         try:
-            _write_atomic(target, json.dumps(payload, ensure_ascii=False, indent=2) + "\n")
+            # 顺序要紧：先把数值投影写回 config（cfgs 就地更新到新值），再用新 cfgs 重算版本号盖回
+            # 展示 json 才落盘 —— 否则展示表的 _configVersion 仍是旧值，下次保存必假 409。
             if plan["pending"]:
                 apply_projection(cfgs, plan["pending"])
+            _stamp_config_version(payload, cfgs)
+            _write_atomic(target, json.dumps(payload, ensure_ascii=False, indent=2) + "\n")
             regenerate_bundle()
         except OSError as e:
             return self._fail(500, f"落盘失败：{e}")
@@ -161,7 +164,9 @@ class WikiHandler(SimpleHTTPRequestHandler):
         if plan["unsupported"]:
             print(f"  [双向] ⚠ 有 config 文件缺失或坏损，部分 config-backed 改动未投影"
                   f"（仅落了 wiki 展示 json）", file=sys.stderr)
-        self._ok({"ok": True, "file": str(rel), "rows": len(payload["rows"]), "projected": n_proj})
+        # 回传回刷后的版本号，让前端更新内存 _configVersion，下次保存不假 409（config-backed 表才有）。
+        self._ok({"ok": True, "file": str(rel), "rows": len(payload["rows"]), "projected": n_proj,
+                  "configVersion": payload.get("_configVersion")})
 
     # ---------- 杂项 ----------
 
@@ -562,6 +567,17 @@ def plan_projection(payload: dict, cfgs: dict):
     return {"pending": pending, "conflict": conflict, "unsupported": unsupported}
 
 
+def _stamp_config_version(payload: dict, cfgs: dict) -> None:
+    """config-backed 展示表：用（apply_projection 之后的）cfgs 重算合并版本号盖回 payload。
+
+    保存链的收尾一步：apply_projection 已把 config 哈希从 A 推到 B，展示 json 落盘前必须带上 B，
+    否则下次带 config 改动的保存会拿旧 base-version(A) 与当前 config(B) 相撞 ⇒ 假 409。
+    pending 空/只改文案时 cfgs 未变 ⇒ 盖回的就是当前合并版本（让前端对齐）。非 config-backed 表不碰。
+    """
+    if _is_config_backed(payload):
+        payload["_configVersion"] = _combined_version(payload, cfgs)
+
+
 def apply_projection(cfgs: dict, pending: dict) -> None:
     """把 pending 写进各 cfg 并逐文件原子落盘（调用方须已确保 cfg 来自纯 JSON 文件）。"""
     for file, items in pending.items():
@@ -935,6 +951,38 @@ def _selftest() -> bool:
     apply_inmem(rr_apply, rr_plan["pending"])
     check(rr_apply["body.json"]["Disability"]["SingleLimbPenalty"] == 0.6, "行级 configRoot apply：落进 Disability 嵌套子对象")
     check(rr_apply["body.json"]["SomeTopLevel"] == 3, "行级 configRoot apply：顶层字段未误动")
+
+    # ── 回归：保存后必须回刷 _configVersion，否则下次带 config 改动的保存假 409 ──
+    # 复现 bug：do_PUT 落盘展示 json 时 _configVersion 还是保存前的旧值，而 apply_projection
+    # 已把 config 哈希从 A 推到 B ⇒ 下次保存 base-version(A) 与当前 config(B) 不符 ⇒ 假冲突 409。
+    # 修复：apply 后用新 cfgs 重算合并版本盖回展示 json（_stamp_config_version），并在响应回传。
+    save_cfg = {"dagger": {"DamageMin": 7, "TwoHanded": True, "Description": "config里的文案"}}
+    save_cfgs = {"weapons.json": save_cfg}
+    disp = fresh()
+    reconcile_from_config(disp, save_cfgs)        # 页面加载：展示表带上当前合并版本
+    v0 = disp["_configVersion"]
+    disp["rows"][0]["damageMin"] = 9              # 第一次保存：改数值
+    plan1 = plan_projection(disp, save_cfgs)
+    check(not plan1["conflict"], "回刷回归：第一次保存版本一致不冲突")
+    apply_inmem(save_cfgs, plan1["pending"])      # 投影写回 config（哈希 A→B）
+    _stamp_config_version(disp, save_cfgs)        # 修复点：用 apply 后的 cfgs 重算版本盖回展示 json
+    check(disp["_configVersion"] == _combined_version(disp, save_cfgs),
+          "回刷回归①：保存后展示表 _configVersion == apply 后 cfgs 的合并版本")
+    check(disp["_configVersion"] != v0, "回刷回归：config 改了 ⇒ 版本号确实推进")
+    disp["rows"][0]["damageMin"] = 11             # 第二次保存：再改数值，带回刷后的版本
+    plan2 = plan_projection(disp, save_cfgs)
+    check(not plan2["conflict"], "回刷回归②：带回刷后的版本再存 ⇒ 不再假 409（bug 修复）")
+    # 边界：只改文案（pending 空）也回传当前版本对齐；config-backed 表版本恒等当前合并版本。
+    txt = fresh()
+    reconcile_from_config(txt, save_cfgs)
+    txt["rows"][0]["description"] = "只改文案"
+    _stamp_config_version(txt, save_cfgs)
+    check(txt["_configVersion"] == _combined_version(txt, save_cfgs),
+          "回刷回归：只改文案（pending 空）版本仍对齐当前合并版本")
+    # 非 config-backed 表：不凭空塞 _configVersion。
+    plain_stamp = {"columns": [{"key": "x", "type": "text"}], "rows": [{"x": "y", "_id": "A"}]}
+    _stamp_config_version(plain_stamp, {})
+    check("_configVersion" not in plain_stamp, "回刷回归：非 config-backed 表不加 _configVersion")
 
     # ── 真文件冒烟（抽取器已带 configFile 时才跑，否则跳过）──
     for name in ("weapons", "armor", "materials", "recipes", "furniture", "ammo",
