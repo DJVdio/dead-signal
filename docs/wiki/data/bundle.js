@@ -1,8 +1,8 @@
-// 自动生成，勿手改（tools/WikiExtract 重跑，或本地服务保存时刷新）。
+// 自动生成，勿手改（`dotnet run --project tools/WikiExtract` 重跑，或本地服务保存时刷新）。
 // 用途：以 file:// 直接打开 index.html 时的降级数据源（浏览器不允许 fetch 本地文件）。
 window.WIKI_BUNDLE = {
   index: {
-  "generatedAt": "2026-07-16 16:18:05",
+  "generatedAt": "2026-07-18 09:42:05",
   "iconDir": "godot/assets/items",
   "multiselectOptions": {
     "fitsWeapons": [
@@ -50,7 +50,7 @@ window.WIKI_BUNDLE = {
       "id": "armor",
       "label": "护甲服装",
       "file": "armor.json",
-      "count": 27,
+      "count": 30,
       "source": "src/DeadSignal.Combat/ArmorTable.cs（防护数值）+ godot/scripts/ApparelSlots.cs（穿在哪、护到哪）"
     },
     {
@@ -71,7 +71,7 @@ window.WIKI_BUNDLE = {
       "id": "materials",
       "label": "材料",
       "file": "materials.json",
-      "count": 26,
+      "count": 27,
       "source": "godot/scripts/Materials.cs"
     },
     {
@@ -85,8 +85,15 @@ window.WIKI_BUNDLE = {
       "id": "recipes",
       "label": "配方",
       "file": "recipes.json",
-      "count": 57,
+      "count": 59,
       "source": "godot/scripts/Recipe.cs"
+    },
+    {
+      "id": "butchery",
+      "label": "宰杀配方",
+      "file": "butchery.json",
+      "count": 5,
+      "source": "godot/scripts/Butchery.cs"
     },
     {
       "id": "lights",
@@ -99,7 +106,7 @@ window.WIKI_BUNDLE = {
       "id": "books",
       "label": "书籍与日记",
       "file": "books.json",
-      "count": 12,
+      "count": 14,
       "source": "godot/scripts/BookData.cs · godot/scripts/BookData.cs"
     },
     {
@@ -120,7 +127,7 @@ window.WIKI_BUNDLE = {
       "id": "food",
       "label": "食物与烹饪",
       "file": "food.json",
-      "count": 14,
+      "count": 16,
       "source": "godot/scripts/CookingLogic.cs + godot/scripts/Materials.cs · godot/scripts/CookingLogic.cs"
     },
     {
@@ -217,34 +224,6 @@ window.WIKI_BUNDLE = {
       "hint": "无视多少护甲。25% = 这一击当对方的甲只有 75%。"
     },
     {
-      "key": "attackInterval",
-      "label": "攻击间隔(秒)",
-      "type": "number",
-      "configKey": "AttackInterval",
-      "hint": "越小出手越快"
-    },
-    {
-      "key": "dps",
-      "label": "每秒伤害",
-      "type": "number",
-      "readonly": true,
-      "hint": "自动算的（引擎公式，手填会算错）：无甲/贴脸/无限弹药/单挑下的杀伤力天花板。改「伤害」「攻击间隔」「连发数」，它会立刻跟着变。"
-    },
-    {
-      "key": "dualDps",
-      "label": "双持每秒伤害",
-      "type": "number",
-      "readonly": true,
-      "hint": "自动算的。两把同款一起打；不可双持的武器这里是「—」（要改 ⇒ 改「可双持」）。注意它不是「每秒伤害 *1.4」——双持的惩罚只落在冷却上，连发那一段不受罚。"
-    },
-    {
-      "key": "dpsVsLeather",
-      "label": "对皮甲每秒伤害",
-      "type": "number",
-      "readonly": true,
-      "hint": "自动算的：打一个穿着「皮甲 + 长袖布衣」的人。**含**护甲三段判定、部位覆盖（头/手/脚是裸的，打到那儿等于打无甲）、穿透、霰弹逐颗独立被挡。**不含**距离衰减、噪音、弹药、清群。⚠️ 裸 DPS 是无甲天花板，这一列才看得出「打不打得动甲」。"
-    },
-    {
       "key": "bleedRate",
       "label": "流血速度",
       "type": "mult",
@@ -257,6 +236,13 @@ window.WIKI_BUNDLE = {
       "type": "percent",
       "configKey": "BleedOnHitChance",
       "hint": "每次命中额外开一道流血伤口的几率（0 = 不额外流血）。"
+    },
+    {
+      "key": "attackInterval",
+      "label": "攻击间隔(秒)",
+      "type": "number",
+      "configKey": "AttackInterval",
+      "hint": "越小出手越快"
     },
     {
       "key": "burstCount",
@@ -342,6 +328,27 @@ window.WIKI_BUNDLE = {
       "type": "number",
       "configKey": "FlightSpeed",
       "hint": "远程弹丸/箭矢的飞行速度（像素/秒）；近战武器用不上。"
+    },
+    {
+      "key": "dps",
+      "label": "每秒伤害",
+      "type": "number",
+      "readonly": true,
+      "hint": "自动算的（引擎公式，手填会算错）：无甲/贴脸/无限弹药/单挑下的杀伤力天花板。改「伤害」「攻击间隔」「连发数」，它会立刻跟着变。"
+    },
+    {
+      "key": "dpsVsLeather",
+      "label": "对皮甲每秒伤害",
+      "type": "number",
+      "readonly": true,
+      "hint": "自动算的：打一个穿着「皮甲 + 长袖布衣」的人。**含**护甲三段判定、部位覆盖（头/手/脚是裸的，打到那儿等于打无甲）、穿透、霰弹逐颗独立被挡。**不含**距离衰减、噪音、弹药、清群。⚠️ 裸 DPS 是无甲天花板，这一列才看得出「打不打得动甲」。"
+    },
+    {
+      "key": "dualDps",
+      "label": "双持每秒伤害",
+      "type": "number",
+      "readonly": true,
+      "hint": "自动算的。两把同款一起打；不可双持的武器这里是「—」（要改 ⇒ 改「可双持」）。注意它不是「每秒伤害 *1.4」——双持的惩罚只落在冷却上，连发那一段不受罚。"
     },
     {
       "key": "weight",
@@ -1620,8 +1627,7 @@ window.WIKI_BUNDLE = {
       "sync": "",
       "_icon": "weapons/fists"
     }
-  ],
-  "_configVersion": "6a9cc88316cd"
+  ]
 },
     "armor": {
   "id": "armor",
@@ -1770,7 +1776,7 @@ window.WIKI_BUNDLE = {
     {
       "name": "运动鞋",
       "equipSlot": "脚",
-      "covers": "脚(含趾)（穿哪只护哪只，需两件护全）",
+      "covers": "双脚",
       "paired": true,
       "sharpDefense": 6,
       "bluntDefense": 3,
@@ -1779,7 +1785,7 @@ window.WIKI_BUNDLE = {
       "_id": "Sneakers",
       "_configId": "sneakers",
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.Sneakers()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
-      "userNote": "",
+      "userNote": "+3%移动速度",
       "sync": "",
       "_icon": "armor/sneakers"
     },
@@ -1923,7 +1929,7 @@ window.WIKI_BUNDLE = {
       "_id": "Plate",
       "_configId": "plate",
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.Plate()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
-      "userNote": "移动速度-10%",
+      "userNote": "移动速度-30%",
       "sync": "",
       "_icon": "armor/plate_armor"
     },
@@ -2131,7 +2137,7 @@ window.WIKI_BUNDLE = {
       "_id": "AnkleGuard",
       "_configId": "ankle_guard",
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.AnkleGuard()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
-      "userNote": "",
+      "userNote": "-2.5%移动速度",
       "sync": "",
       "_icon": "armor/ankle_guard"
     },
@@ -2140,19 +2146,66 @@ window.WIKI_BUNDLE = {
       "equipSlot": "贴身层",
       "covers": "胸、腹",
       "paired": false,
-      "sharpDefense": 20,
-      "bluntDefense": 30,
+      "sharpDefense": 24,
+      "bluntDefense": 6,
       "weight": 2.5,
       "description": "它挡得下子弹——前提是那颗子弹讲道理，正对着胸口飞来。",
       "_id": "BallisticVest",
       "_configId": "ballistic_vest",
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.BallisticVest()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
-      "userNote": "",
+      "userNote": "对于子弹，获得额外30锐器防御",
       "sync": "",
       "_icon": "armor/ballistic_vest"
+    },
+    {
+      "name": "厚重裤子",
+      "equipSlot": "裤子",
+      "covers": "双大腿、双小腿",
+      "paired": false,
+      "sharpDefense": 20,
+      "bluntDefense": 4,
+      "weight": 1.5,
+      "description": "双层加绒裤子，让你远离老寒腿。",
+      "_id": "HeavyTrousers",
+      "_configId": "heavy_trousers",
+      "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.HeavyTrousers()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
+      "userNote": "移动速度-3%",
+      "sync": "",
+      "_icon": "armor/heavy_trousers"
+    },
+    {
+      "name": "厚重披风",
+      "equipSlot": "装甲层",
+      "covers": "胸、腹、双手臂、双大腿",
+      "paired": false,
+      "sharpDefense": 20,
+      "bluntDefense": 4,
+      "weight": 2.5,
+      "description": "帅气的披风不只属于超人，更属于冻死鬼。",
+      "_id": "HeavyCape",
+      "_configId": "heavy_cape",
+      "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.HeavyCape()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
+      "userNote": "移动速度-3%",
+      "sync": "",
+      "_icon": "armor/heavy_cape"
+    },
+    {
+      "name": "雪地靴",
+      "equipSlot": "左脚、右脚",
+      "covers": "双脚",
+      "paired": true,
+      "sharpDefense": 10,
+      "bluntDefense": 3,
+      "weight": 0.4,
+      "description": "保护你的脚趾免死于严寒，而非牙齿。",
+      "_id": "SnowBoots",
+      "_configId": "snow_boots",
+      "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.SnowBoots()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
+      "userNote": "",
+      "sync": "",
+      "_icon": "armor/snow_boots"
     }
-  ],
-  "_configVersion": "227b054414ff"
+  ]
 },
     "dog-gear": {
   "id": "dog-gear",
@@ -2587,8 +2640,7 @@ window.WIKI_BUNDLE = {
       "sync": "",
       "_icon": "materials/ammo_arrow_carbon"
     }
-  ],
-  "_configVersion": "e4d5d75b2010"
+  ]
 },
     "materials": {
   "id": "materials",
@@ -2952,6 +3004,18 @@ window.WIKI_BUNDLE = {
       "_icon": "food/pigeon"
     },
     {
+      "name": "兔子",
+      "category": "猎物",
+      "weight": 1.5,
+      "description": "兔兔这么可爱！",
+      "_id": "rabbit",
+      "_configId": "rabbit",
+      "_anchor": "godot/scripts/Materials.cs :: Materials（重量在 godot/scripts/CarryWeight.cs :: ItemWeights）",
+      "userNote": "",
+      "sync": "",
+      "_icon": "food/rabbit"
+    },
+    {
       "name": "羽毛",
       "category": "有机杂料",
       "weight": 0.02,
@@ -2975,8 +3039,7 @@ window.WIKI_BUNDLE = {
       "sync": "",
       "_icon": "materials/leather_scrap"
     }
-  ],
-  "_configVersion": "3a61898eeef3"
+  ]
 },
     "medical": {
   "id": "medical",
@@ -3306,8 +3369,7 @@ window.WIKI_BUNDLE = {
       "sync": "",
       "_icon": "materials/rosehip_tea"
     }
-  ],
-  "_configVersion": "6439121f76a7"
+  ]
 },
     "recipes": {
   "id": "recipes",
@@ -3363,17 +3425,17 @@ window.WIKI_BUNDLE = {
         "燃料": "fuel",
         "绳子": "rope",
         "铁": "iron",
+        "武器零件": "weapon_parts",
         "机械零件": "components",
         "子弹零件": "bullet_parts",
         "火药": "gunpowder",
         "羽毛": "feather",
-        "皮革": "leather",
-        "武器零件": "weapon_parts",
         "铁丝": "wire",
         "蒲公英": "dandelion",
         "玫瑰果": "rosehip",
         "老君须": "laojunxu",
         "绷带": "bandage",
+        "皮革": "leather",
         "碎皮革": "leather_scrap",
         "生皮": "rawhide",
         "鞣制药水": "tanning_solution"
@@ -3691,7 +3753,7 @@ window.WIKI_BUNDLE = {
       "group": "材料",
       "output": "gunpowder",
       "outputQty": 2,
-      "materials": "石料*1、燃料*1、木炭*1",
+      "materials": "石料*1、燃料*1",
       "tools": "烧杯",
       "craftLocation": "工作台（烧杯）",
       "books": "《土法化学笔记》",
@@ -3783,7 +3845,7 @@ window.WIKI_BUNDLE = {
       "tools": "卡尺",
       "craftLocation": "工作台（卡尺）",
       "books": "《土法化学笔记》",
-      "workMinutes": 150,
+      "workMinutes": 210,
       "crafterGate": "",
       "_id": "improvised_shotgun",
       "_configId": "improvised_shotgun",
@@ -3815,28 +3877,6 @@ window.WIKI_BUNDLE = {
       "userNote": "",
       "sync": "",
       "_icon": "furniture/mod_bench"
-    },
-    {
-      "name": "子弹零件",
-      "category": "精工/弓弩",
-      "productType": "材料",
-      "group": "材料",
-      "output": "bullet_parts",
-      "outputQty": 1,
-      "materials": "铁*2、机械零件*1",
-      "tools": "卡尺",
-      "craftLocation": "工作台（卡尺）",
-      "books": "《土法化学笔记》",
-      "workMinutes": 60,
-      "crafterGate": "",
-      "_id": "bullet_parts",
-      "_configId": "bullet_parts",
-      "_crafterGateIds": "",
-      "_anchor": "godot/scripts/Recipe.cs :: RecipeBook（Id = \"bullet_parts\"）",
-      "description": "",
-      "userNote": "",
-      "sync": "删除·待同步进代码",
-      "_icon": "materials/bullet_parts"
     },
     {
       "name": "短子弹",
@@ -4047,7 +4087,7 @@ window.WIKI_BUNDLE = {
       "tools": "卡尺",
       "craftLocation": "工作台（卡尺）",
       "books": "《机械之美》",
-      "workMinutes": 200,
+      "workMinutes": 180,
       "crafterGate": "",
       "_id": "light_crossbow",
       "_configId": "light_crossbow",
@@ -4069,7 +4109,7 @@ window.WIKI_BUNDLE = {
       "tools": "卡尺",
       "craftLocation": "工作台（卡尺）",
       "books": "《机械之美》",
-      "workMinutes": 320,
+      "workMinutes": 480,
       "crafterGate": "",
       "_id": "heavy_crossbow",
       "_configId": "heavy_crossbow",
@@ -4717,9 +4757,231 @@ window.WIKI_BUNDLE = {
       "userNote": "",
       "sync": "",
       "_icon": "armor/ankle_guard"
+    },
+    {
+      "name": "厚重裤子",
+      "category": "缝纫",
+      "productType": "护甲/服装",
+      "group": "护甲/服装",
+      "output": "heavy_trousers",
+      "outputQty": 1,
+      "materials": "布*5",
+      "tools": "",
+      "craftLocation": "工作台（徒手）",
+      "books": "《尖峰时刻·二》",
+      "workMinutes": 120,
+      "crafterGate": "",
+      "_id": "heavy_trousers",
+      "_configId": "heavy_trousers",
+      "_crafterGateIds": "",
+      "_anchor": "godot/scripts/Recipe.cs :: RecipeBook（Id = \"heavy_trousers\"）",
+      "description": "",
+      "userNote": "",
+      "sync": "",
+      "_icon": "armor/heavy_trousers"
+    },
+    {
+      "name": "厚重披风",
+      "category": "缝纫",
+      "productType": "护甲/服装",
+      "group": "护甲/服装",
+      "output": "heavy_cape",
+      "outputQty": 1,
+      "materials": "布*5、绳子*2",
+      "tools": "",
+      "craftLocation": "工作台（徒手）",
+      "books": "《尖峰时刻·二》",
+      "workMinutes": 150,
+      "crafterGate": "",
+      "_id": "heavy_cape",
+      "_configId": "heavy_cape",
+      "_crafterGateIds": "",
+      "_anchor": "godot/scripts/Recipe.cs :: RecipeBook（Id = \"heavy_cape\"）",
+      "description": "",
+      "userNote": "",
+      "sync": "",
+      "_icon": "armor/heavy_cape"
+    },
+    {
+      "name": "雪地靴",
+      "category": "杂项",
+      "productType": "护甲/服装",
+      "group": "护甲/服装",
+      "output": "snow_boots",
+      "outputQty": 1,
+      "materials": "皮革*2、绳子*1",
+      "tools": "",
+      "craftLocation": "工作台（徒手）",
+      "books": "《尖峰时刻·三》",
+      "workMinutes": 90,
+      "crafterGate": "",
+      "_id": "snow_boots",
+      "_configId": "snow_boots",
+      "_crafterGateIds": "",
+      "_anchor": "godot/scripts/Recipe.cs :: RecipeBook（Id = \"snow_boots\"）",
+      "description": "",
+      "userNote": "",
+      "sync": "",
+      "_icon": "armor/snow_boots"
+    }
+  ]
+},
+    "butchery": {
+  "id": "butchery",
+  "label": "宰杀配方",
+  "source": "godot/scripts/Butchery.cs",
+  "note": "宰杀不是普通单产物制作：一只猎物上案板后，同时产出肉和副产物。简易宰杀点处理老鼠/鸟；宰杀台按 Wiki 的三条基础产出处理老鼠、兔子、鸟，并保留 20% 双倍产出判定。",
+  "columns": [
+    {
+      "key": "name",
+      "label": "名称",
+      "type": "text",
+      "primary": true
+    },
+    {
+      "key": "facility",
+      "label": "设施",
+      "type": "chip",
+      "readonly": true
+    },
+    {
+      "key": "input",
+      "label": "原料",
+      "type": "chip",
+      "readonly": true
+    },
+    {
+      "key": "outputs",
+      "label": "产出",
+      "type": "text",
+      "readonly": true
+    },
+    {
+      "key": "baseWorkMinutes",
+      "label": "基础工时",
+      "type": "number",
+      "readonly": true,
+      "hint": "这是未计算刀具/设施加速前的基础工时；实际工时会按刀具和设施速度缩短。"
+    },
+    {
+      "key": "doubleYieldChance",
+      "label": "双倍产出概率",
+      "type": "number",
+      "readonly": true,
+      "hint": "只有宰杀台有这条额外判定；简易宰杀点为 0。"
+    },
+    {
+      "key": "description",
+      "label": "简介",
+      "type": "longtext",
+      "hint": "**玩家在游戏里看到的描述**。改了它，agent 会把新文案同步进代码。（有几个分区代码里还没有描述字段——你照样可以写，写了就是在告诉 agent「这里该有一个」。）"
+    },
+    {
+      "key": "userNote",
+      "label": "备注",
+      "type": "note",
+      "usernote": true,
+      "hint": "**你的设计笔记，不进游戏**——想到什么特殊效果就写在这（比如「这把锤子应该能砸开保险箱」）。它不会被同步成游戏文案，但 agent 每次跑抽取器都会看到你新写的备注。"
+    },
+    {
+      "key": "_id",
+      "label": "内部 id",
+      "type": "text",
+      "internal": true
+    },
+    {
+      "key": "_anchor",
+      "label": "代码位置",
+      "type": "text",
+      "internal": true
+    },
+    {
+      "key": "sync",
+      "label": "同步状态",
+      "type": "chip",
+      "readonly": true,
+      "hint": "空 = 已在代码里。「新增/删除·待同步进代码」= 你在网页上的改动还没进游戏，需要 agent 同步到 C#。"
+    },
+    {
+      "key": "_icon",
+      "label": "图标",
+      "type": "text",
+      "internal": true,
+      "hint": "godot/assets/items/<这个>.png（映射表在 godot/scripts/ItemIcons.cs）"
     }
   ],
-  "_configVersion": "5c6c26af2667"
+  "rows": [
+    {
+      "name": "简易宰杀点：老鼠",
+      "facility": "简易宰杀点",
+      "input": "老鼠",
+      "outputs": "碎皮革*1、老鼠肉*1",
+      "baseWorkMinutes": 60,
+      "doubleYieldChance": 0,
+      "description": "简易宰杀点基础产出，不触发双倍判定。",
+      "_id": "simple_rat",
+      "_anchor": "godot/scripts/Butchery.cs :: ButcheryLogic（Id = \"simple_rat\"）",
+      "userNote": "",
+      "sync": "",
+      "_icon": "butchery/simple_rat"
+    },
+    {
+      "name": "简易宰杀点：鸟",
+      "facility": "简易宰杀点",
+      "input": "鸟",
+      "outputs": "羽毛*1、鸟肉*1",
+      "baseWorkMinutes": 60,
+      "doubleYieldChance": 0,
+      "description": "简易宰杀点基础产出，不触发双倍判定。",
+      "_id": "simple_pigeon",
+      "_anchor": "godot/scripts/Butchery.cs :: ButcheryLogic（Id = \"simple_pigeon\"）",
+      "userNote": "",
+      "sync": "",
+      "_icon": "butchery/simple_pigeon"
+    },
+    {
+      "name": "宰杀台：老鼠",
+      "facility": "宰杀台",
+      "input": "老鼠",
+      "outputs": "碎皮革*2、老鼠肉*1",
+      "baseWorkMinutes": 60,
+      "doubleYieldChance": 20,
+      "description": "宰杀台基础产出；命中双倍判定时，肉和副产物一起翻倍。",
+      "_id": "table_rat",
+      "_anchor": "godot/scripts/Butchery.cs :: ButcheryLogic（Id = \"table_rat\"）",
+      "userNote": "",
+      "sync": "",
+      "_icon": "butchery/table_rat"
+    },
+    {
+      "name": "宰杀台：兔子",
+      "facility": "宰杀台",
+      "input": "兔子",
+      "outputs": "碎皮革*3、兔子肉*1",
+      "baseWorkMinutes": 60,
+      "doubleYieldChance": 20,
+      "description": "宰杀台基础产出；命中双倍判定时，肉和副产物一起翻倍。",
+      "_id": "table_rabbit",
+      "_anchor": "godot/scripts/Butchery.cs :: ButcheryLogic（Id = \"table_rabbit\"）",
+      "userNote": "",
+      "sync": "",
+      "_icon": "butchery/table_rabbit"
+    },
+    {
+      "name": "宰杀台：鸟",
+      "facility": "宰杀台",
+      "input": "鸟",
+      "outputs": "羽毛*1、鸟肉*1",
+      "baseWorkMinutes": 60,
+      "doubleYieldChance": 20,
+      "description": "宰杀台基础产出；命中双倍判定时，肉和副产物一起翻倍。",
+      "_id": "table_pigeon",
+      "_anchor": "godot/scripts/Butchery.cs :: ButcheryLogic（Id = \"table_pigeon\"）",
+      "userNote": "",
+      "sync": "",
+      "_icon": "butchery/table_pigeon"
+    }
+  ]
 },
     "lights": {
   "id": "lights",
@@ -5021,7 +5283,7 @@ window.WIKI_BUNDLE = {
       "title": "机械之美",
       "readHours": 8,
       "unlocks": "解锁配方：单手轻弩、双手重弩",
-      "body": "（正文待补）一本讲机括与传动的书。读完它的人能用零件装出单手轻弩与双手重弩。",
+      "body": "机括不是魔法，是一连串互相咬合、彼此借力的零件。\n\n先把弩臂固定，再让弦经过滑轮与卡扣；每一处松动，都会把力送回你的手指。武器零件不是越多越好，关键是让它们在扣下扳机的那一刻同时到位。\n\n照着图装，你能做出单手轻弩，也能做出需要双手稳住的重弩。",
       "description": "一本讲机括与传动的书。文明留下的最后一点巧劲，如今刚好够你用零件扣响一次扳机。",
       "_id": "mechanical_beauty",
       "_surgeryPoints": null,
@@ -5035,7 +5297,7 @@ window.WIKI_BUNDLE = {
       "title": "弓制作指南",
       "readHours": 8,
       "unlocks": "解锁短工、反曲弓、长弓、自制箭。解锁弓改装。",
-      "body": "一本讲怎么把一根木头变成一张弓的手册：选材、开背、上弦、调力。\n读完它，你就能自己做反曲弓和长弓了。\n（正文待补。）",
+      "body": "一本讲怎么把一根木头变成一张弓的手册：选材、开背、上弦、调力。\n弓背要顺着木纹开，弦槽不能伤到木芯；拉力不是越大越好，能稳定回到原位才算一张能用的弓。\n\n读完它，你就能自己做反曲弓和长弓了。",
       "description": "选材、开背、上弦、调力——把一根木头变成一张弓。做弓的人从不问你拿它打猎，还是打人。",
       "_id": "bow_crafting_guide",
       "_surgeryPoints": null,
@@ -5058,6 +5320,34 @@ window.WIKI_BUNDLE = {
       "userNote": "",
       "sync": "",
       "_icon": "books/book_peak_hour"
+    },
+    {
+      "title": "尖峰时刻·二",
+      "readHours": 6,
+      "unlocks": "解锁厚重裤子和厚重披风。",
+      "body": "第二次上山，我带的是一条厚裤子和一块能挡风的旧布。\n\n雪不会因为你穿得像个英雄就少落一片，但它会从裤脚、腰背和袖口一点点把热量拿走。保暖不是舒服，是让你的腿在下一次迈步时还听你的话。\n\n我把几层布料叠起来，用绳结把重量分散到腰上和肩上。披风挡不住牙，却能让你在风里多站一会儿。山上没有观众，能走回来就是唯一的奖牌。",
+      "description": "卧槽，他还敢去第二次！",
+      "_id": "peak_hour_2",
+      "_surgeryPoints": null,
+      "_anchor": "godot/scripts/BookData.cs :: BookLibrary",
+      "group": "书籍",
+      "userNote": "",
+      "sync": "",
+      "_icon": "books/book_peak_hour_2"
+    },
+    {
+      "title": "尖峰时刻·三",
+      "readHours": 6,
+      "unlocks": "你认得葛根和大黄了，你能够交互采集。解锁雪地靴。",
+      "body": "雪线以下也有东西活着，只是它们不肯把名字写在叶子上。\n\n葛根的藤和大黄的叶子，各有各的样子。认错一株，最轻的后果是白费力气，更糟的后果不会在书里替你负责。先看形，再看生长的位置，最后才伸手。\n\n至于靴子，先护住脚趾。脚趾冻僵以后，最短的路也会变成一场远征。",
+      "description": "红牛赞助，他出钱，你出命。",
+      "_id": "peak_hour_3",
+      "_surgeryPoints": null,
+      "_anchor": "godot/scripts/BookData.cs :: BookLibrary",
+      "group": "书籍",
+      "userNote": "",
+      "sync": "",
+      "_icon": "books/book_peak_hour_3"
     },
     {
       "title": "一本卷边的日记（其一）",
@@ -5085,7 +5375,7 @@ window.WIKI_BUNDLE = {
   "id": "weapon-mods",
   "label": "武器改装",
   "source": "godot/scripts/WeaponModCatalog.cs",
-  "note": "给武器加零件。一个部位只装得下一件，装不下的会被拒绝。「可装于哪些武器」是**引擎真读的装配约束**——勾掉一把枪，它当场就装不上了，不是摆设。⚠️「数值改动」这一列你写的是**人话**，而代码那边是结构化字段（比如你写「攻击速度+5%」，引擎里是「攻击间隔 *0.95」）⇒ 这一列**几乎永远会显示成「待同步」，那只是两种写法的差异，不代表真的没落地**。要确认，看代码注释或问 agent。🔴 **一把枪只能装一种近战改装**（刺刀型 / 利爪型 / 创伤型 **三选一**）——它们各自把这把枪的近战打法整个换掉，同时装两个就等于给同一把枪写了两套互相打架的近战定义。装第二个时会被当场拒绝，并告诉你跟哪一个冲突。⚠️ 弓弩**已经不能装枪械改装了**（它们曾因一个 bug 被引擎当成「枪」）。消防斧已按「和长剑同档」勾进锐器改装（6 条里的 5 条）——**唯独「镂空剑刃」没勾**：斧子靠的就是那颗沉头，镂空把它挖空了，就成了一把很差的剑。",
+  "note": "给武器加零件。一个部位只装得下一件，装不下的会被拒绝。「可装于哪些武器」是**引擎真读的装配约束**——勾掉一把枪，它当场就装不上了，不是摆设。⚠️「数值改动」这一列你写的是**人话**，而代码那边是结构化字段（比如你写「攻击速度+5%」，引擎里是「攻击间隔 *0.95」）⇒ 这一列**几乎永远会显示成「待同步」，那只是两种写法的差异，不代表真的没落地**。要确认，看代码注释或问 agent。\uD83D\uDD34 **一把枪只能装一种近战改装**（刺刀型 / 利爪型 / 创伤型 **三选一**）——它们各自把这把枪的近战打法整个换掉，同时装两个就等于给同一把枪写了两套互相打架的近战定义。装第二个时会被当场拒绝，并告诉你跟哪一个冲突。⚠️ 弓弩**已经不能装枪械改装了**（它们曾因一个 bug 被引擎当成「枪」）。消防斧已按「和长剑同档」勾进锐器改装（6 条里的 5 条）——**唯独「镂空剑刃」没勾**：斧子靠的就是那颗沉头，镂空把它挖空了，就成了一把很差的剑。",
   "columns": [
     {
       "key": "name",
@@ -5130,15 +5420,15 @@ window.WIKI_BUNDLE = {
       "hint": "有人站在改装台前干这么久（游戏内时间）。"
     },
     {
+      "key": "note",
+      "label": "说明",
+      "type": "longtext"
+    },
+    {
       "key": "description",
       "label": "简介",
       "type": "longtext",
       "hint": "**玩家在游戏里看到的描述**。改了它，agent 会把新文案同步进代码。（有几个分区代码里还没有描述字段——你照样可以写，写了就是在告诉 agent「这里该有一个」。）"
-    },
-    {
-      "key": "note",
-      "label": "说明",
-      "type": "longtext"
     },
     {
       "key": "userNote",
@@ -5771,8 +6061,7 @@ window.WIKI_BUNDLE = {
       "sync": "",
       "_icon": ""
     }
-  ],
-  "_configVersion": "0a02ea7eece2"
+  ]
 },
     "food": {
   "id": "food",
@@ -5873,13 +6162,13 @@ window.WIKI_BUNDLE = {
       "name": "兔子肉",
       "calories": 11,
       "portions": 2,
-      "description": "兔兔这么可爱！",
-      "_id": "rabbit",
+      "description": "剥下来的兔肉。兔兔这么可爱，吃起来倒是很顶饱。",
+      "_id": "rabbit_meat",
       "_anchor": "godot/scripts/CookingLogic.cs :: FoodCalories（热量点）+ godot/scripts/Materials.cs（名称/说明）",
       "group": "食材",
       "userNote": "",
       "sync": "",
-      "_icon": "food/rabbit"
+      "_icon": "food/rabbit_meat"
     },
     {
       "name": "鱼",
@@ -5952,6 +6241,36 @@ window.WIKI_BUNDLE = {
       "userNote": "",
       "sync": "",
       "_icon": "food/mushroom"
+    },
+    {
+      "name": "葛根",
+      "calories": 6,
+      "portions": 3,
+      "description": "埋在土里的根，挖出来时沾着一股清苦的土腥味。",
+      "_id": "kudzu_root",
+      "_anchor": "godot/scripts/CookingLogic.cs :: FoodCalories（热量点）+ godot/scripts/Materials.cs（名称/说明）",
+      "group": "食材",
+      "userNote": "",
+      "label": "",
+      "unit": "",
+      "note": "",
+      "sync": "",
+      "_icon": "materials/kudzu_root"
+    },
+    {
+      "name": "大黄",
+      "calories": 3,
+      "portions": 6,
+      "description": "叶子比想象中宽，根比想象中苦。至少这次你认对了。",
+      "_id": "rhubarb",
+      "_anchor": "godot/scripts/CookingLogic.cs :: FoodCalories（热量点）+ godot/scripts/Materials.cs（名称/说明）",
+      "group": "食材",
+      "userNote": "",
+      "label": "",
+      "unit": "",
+      "note": "",
+      "sync": "",
+      "_icon": "materials/rhubarb"
     },
     {
       "name": "老鼠肉",
@@ -6325,8 +6644,7 @@ window.WIKI_BUNDLE = {
       "userNote": "",
       "sync": ""
     }
-  ],
-  "_configVersion": "3712d47e46bb"
+  ]
 },
     "global-rules": {
   "id": "global-rules",
@@ -7177,8 +7495,7 @@ window.WIKI_BUNDLE = {
       "userNote": "",
       "sync": ""
     }
-  ],
-  "_configVersion": "c9ea51eaab9e"
+  ]
 },
     "characters": {
   "id": "characters",
@@ -7469,7 +7786,7 @@ window.WIKI_BUNDLE = {
       "perkL3": "累计搜出 250 件。黑暗带来的隐匿点 +50%；破隐先手攻击额外再造成 +35% 伤害。\n⚠️ 这两条是引擎里还没有的新轴（玩家探索关没有「隐匿分」、CombatResolver 没有攻方伤害乘子也没有「未被发现」概念）——常量已落但**尚未接线**，目前只展示、不生效，等后续统一立项。",
       "join": "探索到「下水道」最深处遇到她，弹招募对话。婉拒不关门（可再来谈，直到她答应）；答应后回营时正式入队（出行队伍名单已定，不在关内临时增员，同护士/村庄救援口径）。",
       "gear": "刺剑+开局三件套",
-      "backstory": "🔴 用户只给了四条事实：浑身恶臭、穿着潮湿破布夹克、是个女人、没有名字叫「耗子」、可招募。\n\n她的前史 / 性格 / 为什么在下水道 / 和谁认识——用户一个字都没写，代码不许编造，一律留白等你手写。",
+      "backstory": "\uD83D\uDD34 用户只给了四条事实：浑身恶臭、穿着潮湿破布夹克、是个女人、没有名字叫「耗子」、可招募。\n\n她的前史 / 性格 / 为什么在下水道 / 和谁认识——用户一个字都没写，代码不许编造，一律留白等你手写。",
       "relations": "（待你手写。）",
       "storyline": "搜刮速度加成、动作噪音减免（L1/L2）已生效；L3 的黑暗隐匿点 +40% 与破隐先手 +35% 伤害是引擎新轴，未接线（护栏测试钉死其「未接线」状态）。",
       "notes": "数值为用户原话·非拟定（75/250 件、−40% 噪音、+50% 搜刮、再 +100%）。L2 搜刮速度 2.50 倍 是用户明确指定的**加算例外**（同一 perk 自己的两级台阶按总量口述），不是漏网的加算残留，别顺手改成乘算。L3 两条效果未接线。数字在隔壁「角色数值」分区。",
@@ -8147,6 +8464,20 @@ window.WIKI_BUNDLE = {
       "sync": ""
     },
     {
+      "group": "生存",
+      "label": "3 级光环 受伤减免",
+      "who": "道格",
+      "value": 10,
+      "unit": "%",
+      "settled": false,
+      "_id": "bond_aura_damage",
+      "_anchor": "godot/scripts/DougBruceBond.cs :: DougBruceBond.AuraDamageTakenMult",
+      "_icon": "",
+      "description": "",
+      "userNote": "",
+      "sync": ""
+    },
+    {
       "group": "战斗",
       "label": "2 级 攻击速度加成",
       "who": "布鲁斯",
@@ -8169,20 +8500,6 @@ window.WIKI_BUNDLE = {
       "settled": false,
       "_id": "bruce_move_speed",
       "_anchor": "godot/scripts/DougBruceBond.cs :: DougBruceBond.BruceMoveSpeedMult",
-      "_icon": "",
-      "description": "",
-      "userNote": "",
-      "sync": ""
-    },
-    {
-      "group": "生存",
-      "label": "3 级光环 受伤减免",
-      "who": "道格",
-      "value": 10,
-      "unit": "%",
-      "settled": false,
-      "_id": "bond_aura_damage",
-      "_anchor": "godot/scripts/DougBruceBond.cs :: DougBruceBond.AuraDamageTakenMult",
       "_icon": "",
       "description": "",
       "userNote": "",
@@ -8963,14 +9280,13 @@ window.WIKI_BUNDLE = {
       "userNote": "",
       "sync": ""
     }
-  ],
-  "_configVersion": "a8fc76894eb2"
+  ]
 },
     "world-graph": {
   "id": "world-graph",
   "label": "调查点路线",
   "source": "godot/data/world_graph.json",
-  "note": "调查点是**网状**的：要先**去过**前置的点、并且把它**探索到 50% 以上**，才走得到后面的点（两个条件缺一不可——去过但只翻了两成，不算数）。开局只有两个简单的点开着，一个在营地**东边**、一个在**西北**，从这两条路往外铺开，中途多次交汇，最后在**金手指帮根据地**收口（那是全图唯一要求「全部前置」的点——两条路都得走完）。\n\n🔴 **这张表就是那张图**：改「前置调查点」就等于重排路线，改完 agent 同步回 godot/data/world_graph.json 即可，**不用改任何代码**。\n⚠️ 别把一个点的前置排成环（甲要乙、乙要甲），也别让某个点谁都到不了——游戏启动时的自检会当场报出来。",
+  "note": "调查点是**网状**的：要先**去过**前置的点、并且把它**探索到 50% 以上**，才走得到后面的点（两个条件缺一不可——去过但只翻了两成，不算数）。开局只有两个简单的点开着，一个在营地**东边**、一个在**西北**，从这两条路往外铺开，中途多次交汇，最后在**金手指帮根据地**收口（那是全图唯一要求「全部前置」的点——两条路都得走完）。\n\n\uD83D\uDD34 **这张表就是那张图**：改「前置调查点」就等于重排路线，改完 agent 同步回 godot/data/world_graph.json 即可，**不用改任何代码**。\n⚠️ 别把一个点的前置排成环（甲要乙、乙要甲），也别让某个点谁都到不了——游戏启动时的自检会当场报出来。",
   "columns": [
     {
       "key": "place",
@@ -9170,7 +9486,7 @@ window.WIKI_BUNDLE = {
       "size": "小",
       "travelMinutes": 5,
       "description": "镇子底下的排水系统。手电照不了多远，每个拐角后面都可能有东西——但大多数时候什么都没有。水声一直在响。",
-      "userNote": "🔴 汇合点·前中期（用户新增）。小 + 低危 + 几乎没有战斗 —— 恐怖靠黑暗/拐角/视野受限，不靠敌人数量。最深处有可招募的幸存者「耗子」。前置给了超市（西北）和东部新村（东），两条路都能到。关卡本体由 impl-sewer 做。",
+      "userNote": "\uD83D\uDD34 汇合点·前中期（用户新增）。小 + 低危 + 几乎没有战斗 —— 恐怖靠黑暗/拐角/视野受限，不靠敌人数量。最深处有可招募的幸存者「耗子」。前置给了超市（西北）和东部新村（东），两条路都能到。关卡本体由 impl-sewer 做。",
       "_id": "下水道",
       "_anchor": "godot/data/world_graph.json :: nodes[]",
       "sync": "",
@@ -9185,7 +9501,7 @@ window.WIKI_BUNDLE = {
       "size": "小",
       "travelMinutes": 6,
       "description": "镇里的一座小警局。防弹玻璃碎了，登记簿停在某个再没人翻的日期。室内一间套一间，每道门后头都看不清里面有什么。",
-      "userNote": "🔴 前中期·汇合点（用户拍板）。小 + 危险 Medium + 室内多拐角 —— 靠房间门洞的盲区吓人，不靠人海（4 只丧尸各藏一间房，同时最多撞见一只）。最值钱的东西是禁闭室里那套防暴头盔 + 防弹背心；其余是少量手枪弹 + 杂项 + 一两只死老鼠。前置给了消防站（西北）和河边小屋（东）两个开局起点，任一走过即解锁。关卡本体由 police-level 做，真锁门（禁闭室撬开才可达）留 police-doorlock。",
+      "userNote": "\uD83D\uDD34 前中期·汇合点（用户拍板）。小 + 危险 Medium + 室内多拐角 —— 靠房间门洞的盲区吓人，不靠人海（4 只丧尸各藏一间房，同时最多撞见一只）。最值钱的东西是禁闭室里那套防暴头盔 + 防弹背心；其余是少量手枪弹 + 杂项 + 一两只死老鼠。前置给了消防站（西北）和河边小屋（东）两个开局起点，任一走过即解锁。关卡本体由 police-level 做，真锁门（禁闭室撬开才可达）留 police-doorlock。",
       "_id": "警察局",
       "_anchor": "godot/data/world_graph.json :: nodes[]",
       "sync": "",
@@ -9200,7 +9516,7 @@ window.WIKI_BUNDLE = {
       "size": "小",
       "travelMinutes": 8,
       "description": "城里的高层观景台。天台上那架望远镜还能转 —— 从这儿能看见很远的北边。",
-      "userNote": "🔴 汇合点·中期。望远镜 = 尸潮目击 ⇒ 开启尸潮倒计时，所以它必须排在中段：太早玩家还没立住，太晚就来不及了。",
+      "userNote": "\uD83D\uDD34 汇合点·中期。望远镜 = 尸潮目击 ⇒ 开启尸潮倒计时，所以它必须排在中段：太早玩家还没立住，太晚就来不及了。",
       "_id": "城市之巅瞭望观景台",
       "_anchor": "godot/data/world_graph.json :: nodes[]",
       "sync": "",
@@ -9215,7 +9531,7 @@ window.WIKI_BUNDLE = {
       "size": "大",
       "travelMinutes": 7,
       "description": "南边林带里的一个村子，被丧尸围着。村里有间上锁的屋子，里面传出狗叫。",
-      "userNote": "🔴 汇合点·中期。道格与布鲁斯的正史入队地。村中心的铁匠铺是全游戏铁的主要来源（铸铁大门要 48 铁）⇒ 资源线的关键节点。30 处搜刮点的大点。",
+      "userNote": "\uD83D\uDD34 汇合点·中期。道格与布鲁斯的正史入队地。村中心的铁匠铺是全游戏铁的主要来源（铸铁大门要 48 铁）⇒ 资源线的关键节点。30 处搜刮点的大点。",
       "_id": "南林村庄",
       "_anchor": "godot/data/world_graph.json :: nodes[]",
       "sync": "",
@@ -9230,7 +9546,7 @@ window.WIKI_BUNDLE = {
       "size": "小",
       "travelMinutes": 10,
       "description": "森林深处的一间小屋，远离城镇。屋里没什么东西，后院的树上吊着一个人。",
-      "userNote": "🔴 汇合点·中期（用户拍板后移）。行程最长（10 分钟）。哥顿的上吊尸 + 日记 B —— 【金手指帮那条线索链的起点】，所以它必须排在金手指帮之前。",
+      "userNote": "\uD83D\uDD34 汇合点·中期（用户拍板后移）。行程最长（10 分钟）。哥顿的上吊尸 + 日记 B —— 【金手指帮那条线索链的起点】，所以它必须排在金手指帮之前。",
       "_id": "守望者森林小屋",
       "_anchor": "godot/data/world_graph.json :: nodes[]",
       "sync": "",
@@ -9245,7 +9561,7 @@ window.WIKI_BUNDLE = {
       "size": "大",
       "travelMinutes": 8,
       "description": "城北的废弃医院。全城最多的丧尸都在里面，但它是栋建筑——有门、有分区、有能关上的防火门。药房和手术层在最深处。",
-      "userNote": "🔴 汇合点·中期。全游戏手术与治疗的补给来源 ⇒ 排在中段：太早玩家还用不上，太晚人已经死了。大地图 + 中危（能绕、能关门、能选择不打）。【它是西北链的门户】—— 两个前置（药店/加油站）都只长在西北路上。",
+      "userNote": "\uD83D\uDD34 汇合点·中期。全游戏手术与治疗的补给来源 ⇒ 排在中段：太早玩家还用不上，太晚人已经死了。大地图 + 中危（能绕、能关门、能选择不打）。【它是西北链的门户】—— 两个前置（药店/加油站）都只长在西北路上。",
       "_id": "医院",
       "_anchor": "godot/data/world_graph.json :: nodes[]",
       "sync": "",
@@ -9260,7 +9576,7 @@ window.WIKI_BUNDLE = {
       "size": "中",
       "travelMinutes": 9,
       "description": "他们的据点。八个人守着，个个带伤 —— 像是刚打完一场恶战。",
-      "userNote": "🔴 中期（用户拍板下沉，原为终局）。【单前置＝线索链】：只能从守林人小屋进来 —— 先在后院那棵树上看见哥顿的尸体、读到日记 B，才知道这伙人是谁、在哪。给它加任何 OR 前置都会让玩家绕开那具尸体，线索白挂。网状性由守林人小屋本身承担（它是两路可达的汇合点）。【东链的起点】。用户拍板把守备的手枪全撤了（4 短剑 + 4 匕首）：中期该打得动，但枪一响仍然是死。",
+      "userNote": "\uD83D\uDD34 中期（用户拍板下沉，原为终局）。【单前置＝线索链】：只能从守林人小屋进来 —— 先在后院那棵树上看见哥顿的尸体、读到日记 B，才知道这伙人是谁、在哪。给它加任何 OR 前置都会让玩家绕开那具尸体，线索白挂。网状性由守林人小屋本身承担（它是两路可达的汇合点）。【东链的起点】。用户拍板把守备的手枪全撤了（4 短剑 + 4 匕首）：中期该打得动，但枪一响仍然是死。",
       "_id": "金手指帮根据地",
       "_anchor": "godot/data/world_graph.json :: nodes[]",
       "sync": "",
@@ -9275,7 +9591,7 @@ window.WIKI_BUNDLE = {
       "size": "中",
       "travelMinutes": 8,
       "description": "临时搭起的一片平房，一间挨着一间。过道窄得只容一人，灯早就没了。物资散落在每一个小房间里——门后面也是。",
-      "userNote": "🔴 后期·【西北链】（用户新增）。纯玩法关：视野受限 + 过道狭窄 + 开门跳脸的丧尸。它是【军方做了什么】这条链的中段 —— 人去楼空的平房区，你还不知道他们去哪了。关卡本体由 impl-lategame 做。",
+      "userNote": "\uD83D\uDD34 后期·【西北链】（用户新增）。纯玩法关：视野受限 + 过道狭窄 + 开门跳脸的丧尸。它是【军方做了什么】这条链的中段 —— 人去楼空的平房区，你还不知道他们去哪了。关卡本体由 impl-lategame 做。",
       "_id": "难民营地",
       "_anchor": "godot/data/world_graph.json :: nodes[]",
       "sync": "",
@@ -9290,7 +9606,7 @@ window.WIKI_BUNDLE = {
       "size": "中",
       "travelMinutes": 8,
       "description": "镇西的农庄，如今盘踞着一伙持械的劫掠者，门口还立着岗哨。农庄本身并不富裕。",
-      "userNote": "🔴 后期·【东链】末端，终局的直接前置。全图唯一高危点：7 个健全的持械劫掠者 + 3 个岗哨。高危不换来高回报——点位本身穷，回报只长在劫掠者身上，先打赢才有得扒。authored 剧情（收留流浪者被背刺）= 【人做了什么】。",
+      "userNote": "\uD83D\uDD34 后期·【东链】末端，终局的直接前置。全图唯一高危点：7 个健全的持械劫掠者 + 3 个岗哨。高危不换来高回报——点位本身穷，回报只长在劫掠者身上，先打赢才有得扒。authored 剧情（收留流浪者被背刺）= 【人做了什么】。",
       "_id": "斯图尔特家族庄园",
       "_anchor": "godot/data/world_graph.json :: nodes[]",
       "sync": "",
@@ -9305,7 +9621,7 @@ window.WIKI_BUNDLE = {
       "size": "中",
       "travelMinutes": 9,
       "description": "教堂里空得能听见自己的脚步。穿过中殿的盲区，推开后门——后院的墓地里，站满了丧尸。墙上是用血写的字。",
-      "userNote": "🔴 后期·【西北链】末端，终局的直接前置（用户新增）。剧情核心：军方留下的、烧了一半的忏悔录 + 被军方屠杀的人用血写在墙上的辱骂。【它是广播台的强制前置】—— 在你决定要不要回复军方之前，先让你看到军方干了什么。关卡本体由 impl-lategame 做。",
+      "userNote": "\uD83D\uDD34 后期·【西北链】末端，终局的直接前置（用户新增）。剧情核心：军方留下的、烧了一半的忏悔录 + 被军方屠杀的人用血写在墙上的辱骂。【它是广播台的强制前置】—— 在你决定要不要回复军方之前，先让你看到军方干了什么。关卡本体由 impl-lategame 做。",
       "_id": "破败教堂",
       "_anchor": "godot/data/world_graph.json :: nodes[]",
       "sync": "",
@@ -9320,7 +9636,7 @@ window.WIKI_BUNDLE = {
       "size": "中",
       "travelMinutes": 11,
       "description": "北面山脊上的通讯发射塔。机房里那台发射机也许还能说话。",
-      "userNote": "🔴 终局（用户拍板上升，原为中后期）。全图【唯一】的「全部前置」：破败教堂【且】斯图尔特家族庄园 —— 两条证据链都得走完。取得「发出设备」⇒ 电台解锁抉择：回复军方（结局②：军方来屠杀你的营地）／呼叫南方（结局③：唯一生路）。这是全游戏最重的一次道德抉择，它需要证据：西北链让你看见【军方做了什么】，东链让你看见【人做了什么】。行程最远（11 分钟）。",
+      "userNote": "\uD83D\uDD34 终局（用户拍板上升，原为中后期）。全图【唯一】的「全部前置」：破败教堂【且】斯图尔特家族庄园 —— 两条证据链都得走完。取得「发出设备」⇒ 电台解锁抉择：回复军方（结局②：军方来屠杀你的营地）／呼叫南方（结局③：唯一生路）。这是全游戏最重的一次道德抉择，它需要证据：西北链让你看见【军方做了什么】，东链让你看见【人做了什么】。行程最远（11 分钟）。",
       "_id": "广播台",
       "_anchor": "godot/data/world_graph.json :: nodes[]",
       "sync": "",
@@ -9332,7 +9648,7 @@ window.WIKI_BUNDLE = {
   "id": "endings",
   "label": "结局",
   "source": "godot/scripts/EndingCg.cs · FamilyEscapeWin.cs · SouthEscapeEnding.cs · SouthTrial.cs · RadioMainline.cs",
-  "note": "⚠️ **内部设计参考 · 含全作最大剧透** —— 按 README 禁剧透纪律，本表**只进内部 wiki**，不得以任何形式对外/进 README。\n\n全作四条结局的骨架总览：一条好结局 WIN（举家南逃）、两条坏结局（军袭南逃 / 第 40 天尸潮南逃，复用同一「南逃谢幕」序列）、一条失败路由（南方没过 → 把玩家推向坏结局）。**CG 摘要逐屏抄自代码 EndingCg 的分段文本，全部为 draft 占位草稿，待 author 润色**；触发条件里的数值（南境通过分数/军队延迟天数/尸潮总攻天数）已在「全局规则」表，这里只作文字描述、不重复外置。",
+  "note": "⚠️ **内部设计参考 · 含全作最大剧透** —— 按 README 禁剧透纪律，本表**只进内部 wiki**，不得以任何形式对外/进 README。\n\n全作四条结局的骨架总览：一条好结局 WIN（举家南逃）、两条坏结局（军袭南逃 / 第 40 天尸潮南逃，复用同一「南逃谢幕」序列）、一条失败路由（南方没过 → 把玩家推向坏结局）。**CG 摘要逐屏抄自代码 EndingCg 的分段文本，全部为 draft 占位草稿，待 author 润色**；触发条件里的数值（南境通过票数/军队延迟天数/尸潮总攻天数）已在「全局规则」表，这里只作文字描述、不重复外置。",
   "columns": [
     {
       "key": "name",
@@ -9350,7 +9666,7 @@ window.WIKI_BUNDLE = {
       "key": "trigger",
       "label": "触发条件",
       "type": "longtext",
-      "hint": "怎么走到这条结局（文字描述）。具体数值（南境通过分数/军队延迟天数/尸潮总攻天数）见「全局规则」表，这里不重复。"
+      "hint": "怎么走到这条结局（文字描述）。具体数值（南境通过票数/军队延迟天数/尸潮总攻天数）见「全局规则」表，这里不重复。"
     },
     {
       "key": "cg",
@@ -9403,7 +9719,7 @@ window.WIKI_BUNDLE = {
       "name": "举家南逃（好结局 WIN）",
       "kind": "好结局 WIN",
       "trigger": "联系南方 → 南境审判三问全部答满、总分达到通过线 → 回营电台确认启程 → 全营列队南逃 → 抵达峡谷前，对方大桥**落下**、有人迎接，全员过桥无一落下 → 过渡到第二幕「峡谷营地」（很久远排期）。（通过所需分数见「全局规则·南境审判」。）",
-      "cg": "【draft·逐屏文本待 author 润色】南方给你们开了路。这一次，是所有人一起走。 / 该带的都捆上了，队伍在营门前列成一行——没有谁被留下。 / 身后是守了这么久的城，和它身后追来的东西。你们头也不回，朝着南边。 / 一路上没人掉队。倒计时还在走，可这一次，你们赶在了它前面。　‖　一整队人，一路向南，走到了密林尽头那道峡谷前。 / 对岸就是活路。这一次，那座桥，缓缓地落了下来。 / 桥头有人在等你们。他们朝这边挥手，喊着「过来吧，都过来」。 / 你们一个接一个走过桥去，没有落下任何一个人。 / 身后的城，连同倒计时，一起沉进了暮色里。前面是峡谷营地——你们，全都活着到了这里。",
+      "cg": "【draft·逐屏文本待 author 润色】南方给你们开了路。这一次，是所有人一起走。 / 该带的都捆上了，队伍在营门前列成一行——没有谁被留下。 / 身后是守了这么久的城，和它身后追来的东西。你们头也不回，朝着南边。 / 一路上没人掉队。倒计时还在走，可这一次，你们赶在了它前面。\u3000‖\u3000一整队人，一路向南，走到了密林尽头那道峡谷前。 / 对岸就是活路。这一次，那座桥，缓缓地落了下来。 / 桥头有人在等你们。他们朝这边挥手，喊着「过来吧，都过来」。 / 你们一个接一个走过桥去，没有落下任何一个人。 / 身后的城，连同倒计时，一起沉进了暮色里。前面是峡谷营地——你们，全都活着到了这里。",
       "_id": "family-escape-win",
       "_anchor": "godot/scripts/FamilyEscapeWin.cs :: FamilyEscapeWin.WinCg（EndingCg.FamilyDepartureNarration + FamilyEscapeWin）",
       "_icon": "",
@@ -9415,7 +9731,7 @@ window.WIKI_BUNDLE = {
       "name": "军袭·单角色南逃（坏结局）",
       "kind": "坏结局",
       "trigger": "回复军方求救 → 延迟数天后（第 n+2 天）白天，军人带顶级装备屠尽全营 → 随机一名半残幸存者向南逃 → 峡谷前谢幕（大桥**未落**、两哨兵冷眼看着）。军方为何屠杀全篇不解释（留白）。（军队袭营延迟天数见「全局规则·军队」。）",
-      "cg": "【draft·逐屏文本待 author 润色】你按响了求救的信号。 / 他们真的来了——成队的军人，武装到牙齿。 / （收音机还在一遍遍地循环：「……请保持冷静，就地固守……等待接应……」） / 枪声很短，很整齐。一个接一个，他们伏在自己的位子上，再没有起身。 / 你等来的，是你亲手呼叫的那一方。 / 混乱里，只有一个人还在动——朝着南边，一步一拐地跑了出去。　‖　一路向南，密林尽头是那道峡谷。 / 对岸就是活路。可是那座桥，没有落下来。 / 桥头站着两个哨兵。他们看着你，冷冷地，没有一个人动。 / 他们不会放下那座桥。你也过不去。 / 风从峡谷里灌上来。你停在原地，退无可退，也进无可进。",
+      "cg": "【draft·逐屏文本待 author 润色】你按响了求救的信号。 / 他们真的来了——成队的军人，武装到牙齿。 / （收音机还在一遍遍地循环：「……请保持冷静，就地固守……等待接应……」） / 枪声很短，很整齐。一个接一个，他们伏在自己的位子上，再没有起身。 / 你等来的，是你亲手呼叫的那一方。 / 混乱里，只有一个人还在动——朝着南边，一步一拐地跑了出去。\u3000‖\u3000一路向南，密林尽头是那道峡谷。 / 对岸就是活路。可是那座桥，没有落下来。 / 桥头站着两个哨兵。他们看着你，冷冷地，没有一个人动。 / 他们不会放下那座桥。你也过不去。 / 风从峡谷里灌上来。你停在原地，退无可退，也进无可进。",
       "_id": "military-raid-south-escape",
       "_anchor": "godot/scripts/EndingCg.cs :: MilitaryRaidMassacre（CG-A）+ SouthEscapeFarewell（CG-B）；序列 SouthEscapeEnding（MilitaryRaid）",
       "_icon": "",
@@ -9427,7 +9743,7 @@ window.WIKI_BUNDLE = {
       "name": "第 40 天尸潮·单角色南逃（坏结局）",
       "kind": "坏结局",
       "trigger": "撑到第 40 天仍未南逃 → 无限尸潮踏平营地 → 随机一名幸存者半残向南逃 → 同款峡谷前谢幕。与军袭结局**复用同一条「南逃谢幕」序列**（SouthEscapeEnding），只是施暴方换成尸潮。（尸潮总攻天数见「全局规则·尸潮」。）",
-      "cg": "【draft·逐屏文本待 author 润色】CG-A＝尸潮屠营的冻结演出（无独立旁白定稿）　‖　CG-B（峡谷谢幕·与军袭复用）：一路向南，密林尽头是那道峡谷。 / 对岸就是活路。可是那座桥，没有落下来。 / 桥头站着两个哨兵。他们看着你，冷冷地，没有一个人动。 / 他们不会放下那座桥。你也过不去。 / 风从峡谷里灌上来。你停在原地，退无可退，也进无可进。　‖　〔遗留〕旧 CG①（可玩全灭路线·第 40 天已不再命中）：望远镜里的那片阴云，终于漫到了脚下。 / 它不是云。你们早就知道。 / 一波，又一波。你们把门顶了一次又一次，把还能开火的人一个个补到缺口上。 / 没有援军。从来没有。 / 一个接一个，名字从你心里的那份名单上划去，再没能添回来。 / 你守住了这里，直到最后一个人。 / 这样做，是对的吗？",
+      "cg": "【draft·逐屏文本待 author 润色】CG-A＝尸潮屠营的冻结演出（无独立旁白定稿）\u3000‖\u3000CG-B（峡谷谢幕·与军袭复用）：一路向南，密林尽头是那道峡谷。 / 对岸就是活路。可是那座桥，没有落下来。 / 桥头站着两个哨兵。他们看着你，冷冷地，没有一个人动。 / 他们不会放下那座桥。你也过不去。 / 风从峡谷里灌上来。你停在原地，退无可退，也进无可进。\u3000‖\u3000〔遗留〕旧 CG①（可玩全灭路线·第 40 天已不再命中）：望远镜里的那片阴云，终于漫到了脚下。 / 它不是云。你们早就知道。 / 一波，又一波。你们把门顶了一次又一次，把还能开火的人一个个补到缺口上。 / 没有援军。从来没有。 / 一个接一个，名字从你心里的那份名单上划去，再没能添回来。 / 你守住了这里，直到最后一个人。 / 这样做，是对的吗？",
       "_id": "horde-siege-south-escape",
       "_anchor": "godot/scripts/SouthEscapeEnding.cs :: SouthEscapeTrigger.HordeSiege；CG-B EndingCg.SouthEscapeFarewell；遗留 EndingCg.HordeSiege",
       "_icon": "",

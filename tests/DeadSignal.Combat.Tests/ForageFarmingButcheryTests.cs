@@ -75,21 +75,23 @@ public sealed class ForageFarmingButcheryTests
         Assert.Contains(Materials.All, m => m.Key == "pigeon");
     }
 
-    /// <summary>热量点<b>一点没蒸发</b>：老鼠的 6（用户给定的定值）搬到了老鼠肉上，鸟的 5 搬到了鸟肉上。</summary>
+    /// <summary>热量点<b>一点没蒸发</b>：老鼠的 6（用户给定的定值）搬到了老鼠肉上，鸟的 5 搬到了鸟肉上，兔子的 11 搬到了兔子肉上。</summary>
     [Fact]
     public void 热量点原样继承_宰杀不创造也不毁灭热量()
     {
         Assert.Equal(6, FoodCalories.Of(Materials.RatMeatKey));    // ← 老鼠原来的 6 点
         Assert.Equal(5, FoodCalories.Of(Materials.BirdMeatKey));   // ← 鸟原来的 5 点
+        Assert.Equal(11, FoodCalories.Of(Materials.RabbitMeatKey)); // ← 兔子原来的 11 点
     }
 
-    /// <summary>⚠️ <b>兔子刻意没动</b>：用户只点名了"老鼠和鸟"。别顺手统一成"所有猎物都要宰杀"——那是引申。</summary>
+    /// <summary>⚠️ <b>兔子改为宰杀台专属工序</b>：简易宰杀点仍只处理老鼠和鸟；兔子必须交给宰杀台。</summary>
     [Fact]
-    public void 兔子仍可直接下锅_用户没点它的名()
+    public void 兔子先宰杀再下锅_仅宰杀台可处理()
     {
-        Assert.True(FoodCalories.Has("rabbit"));
-        Assert.Equal(11, FoodCalories.Of("rabbit"));
-        Assert.False(ButcheryLogic.IsButcherable("rabbit"), "兔子不在宰杀白名单——用户没提它");
+        Assert.False(FoodCalories.Has("rabbit"));
+        Assert.True(FoodCalories.Has(Materials.RabbitMeatKey));
+        Assert.False(ButcheryLogic.IsButcherable("rabbit"), "简易宰杀点不接兔子");
+        Assert.True(ButcheryLogic.IsButcherable(ButcherTier.Table, "rabbit"), "宰杀台必须接兔子");
     }
 
     /// <summary>「鸽子」→「鸟」是<b>改显示名</b>，<b>键仍是 pigeon</b>（改键要迁存档，改显示名一行都不用迁）。</summary>
@@ -200,6 +202,46 @@ public sealed class ForageFarmingButcheryTests
             ButcherTier.Table, ButcherKnife.Dagger, "pigeon", new SequenceRandomSource(0.50));
         Assert.False(miss!.Value.Doubled);
         Assert.Equal(1, miss.Value.MeatQuantity);
+    }
+
+    [Fact]
+    public void 宰杀台三条配方_老鼠兔子鸟产出按Wiki落地()
+    {
+        ButcherYield? rat = ButcheryLogic.Resolve(
+            ButcherTier.Table, ButcherKnife.BoneKnife, "rat", new SequenceRandomSource(0.99));
+        Assert.Equal(Materials.RatMeatKey, rat!.Value.MeatKey);
+        Assert.Equal(1, rat.Value.MeatQuantity);
+        Assert.Equal(Materials.LeatherScrapKey, rat.Value.ByproductKey);
+        Assert.Equal(2, rat.Value.ByproductQuantity);
+
+        ButcherYield? rabbit = ButcheryLogic.Resolve(
+            ButcherTier.Table, ButcherKnife.BoneKnife, "rabbit", new SequenceRandomSource(0.99));
+        Assert.Equal(Materials.RabbitMeatKey, rabbit!.Value.MeatKey);
+        Assert.Equal(1, rabbit.Value.MeatQuantity);
+        Assert.Equal(Materials.LeatherScrapKey, rabbit.Value.ByproductKey);
+        Assert.Equal(3, rabbit.Value.ByproductQuantity);
+
+        ButcherYield? bird = ButcheryLogic.Resolve(
+            ButcherTier.Table, ButcherKnife.BoneKnife, "pigeon", new SequenceRandomSource(0.99));
+        Assert.Equal(Materials.BirdMeatKey, bird!.Value.MeatKey);
+        Assert.Equal(1, bird.Value.MeatQuantity);
+        Assert.Equal(Materials.FeatherKey, bird.Value.ByproductKey);
+        Assert.Equal(1, bird.Value.ByproductQuantity);
+    }
+
+    [Fact]
+    public void 宰杀台运行时_兔子转成兔子肉和碎皮革()
+    {
+        var inv = new InventoryStore();
+        inv.Add(Materials.Find("rabbit")!.Value.ToItem(1));
+
+        ButcherYield? y = ButcheryRuntime.Butcher(
+            ButcherTier.Table, ButcherKnife.BoneKnife, "rabbit", inv, new SequenceRandomSource(0.99));
+
+        Assert.NotNull(y);
+        Assert.Equal(0, inv.MaterialCount("rabbit"));
+        Assert.Equal(1, inv.MaterialCount(Materials.RabbitMeatKey));
+        Assert.Equal(3, inv.MaterialCount(Materials.LeatherScrapKey));
     }
 
     /// <summary>简易宰杀点<b>不掷双倍产出的点</b>（随机流干净——喂一个"必中"的随机源它也不该翻倍）。</summary>
@@ -696,5 +738,37 @@ public sealed class ForageFarmingButcheryTests
         readBooks.MarkRead(ForageLogic.GuideBookId);
         var after = ForageLogic.Resolve(ForageLogic.RangersCabinMushroomId, readBooks);
         Assert.True(after.Quantity > before.Quantity);
+    }
+
+    [Fact]
+    public void 尖峰时刻三_解锁葛根大黄识别并限制交互采集()
+    {
+        Assert.Equal(6, FoodCalories.Of(Materials.KudzuRootKey));
+        Assert.Equal(3, FoodCalories.Of(Materials.RhubarbKey));
+
+        var kudzu = ForageLogic.Resolve(ForageLogic.RangersKudzuRootId, _ => false);
+        var rhubarb = ForageLogic.Resolve(ForageLogic.StuartRhubarbId, _ => false);
+        Assert.Equal(0, kudzu.Quantity);
+        Assert.Equal(0, rhubarb.Quantity);
+
+        Func<string, bool> readPeakHourThree = id => id == RecipeBook.PeakHourThreeBookId;
+        kudzu = ForageLogic.Resolve(ForageLogic.RangersKudzuRootId, readPeakHourThree);
+        rhubarb = ForageLogic.Resolve(ForageLogic.StuartRhubarbId, readPeakHourThree);
+        Assert.Equal(Materials.KudzuRootKey, kudzu.MaterialKey);
+        Assert.Equal(Materials.RhubarbKey, rhubarb.MaterialKey);
+        Assert.Equal(2, kudzu.Quantity);
+        Assert.Equal(2, rhubarb.Quantity);
+    }
+
+    [Fact]
+    public void 尖峰时刻二三_书正文与配方门槛完整()
+    {
+        Assert.DoesNotContain("正文待补", BookLibrary.MechanicalBeauty().Body);
+        Assert.DoesNotContain("正文待补", BookLibrary.BowCraftingGuide().Body);
+        Assert.DoesNotContain("正文待补", BookLibrary.PeakHourTwo().Body);
+        Assert.DoesNotContain("正文待补", BookLibrary.PeakHourThree().Body);
+        Assert.Contains(BookLibrary.PeakHourTwoId, RecipeBook.Find("heavy_trousers")!.RequiredBookIds);
+        Assert.Contains(BookLibrary.PeakHourTwoId, RecipeBook.Find("heavy_cape")!.RequiredBookIds);
+        Assert.Contains(BookLibrary.PeakHourThreeId, RecipeBook.Find("snow_boots")!.RequiredBookIds);
     }
 }

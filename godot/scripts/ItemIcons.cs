@@ -138,6 +138,9 @@ public static class ItemIcons
         ["自制简易墨镜"] = new(Armor, "snow_goggles", "delapouite/goggles"),
         // [A2/T72] 护踝鞋具（高帮硬底，护脚踝到小腿）——护胫/护腿剪影
         ["护踝鞋具"] = new(Armor, "ankle_guard", "delapouite/leg-armor"),
+        ["厚重裤子"] = new(Armor, "heavy_trousers", "irongamer/armored-pants"),
+        ["厚重披风"] = new(Armor, "heavy_cape", "lorc/hooded-cloak"),
+        ["雪地靴"] = new(Armor, "snow_boots", "delapouite/winter-boot"),
 
         // —— 护甲：布鲁斯的狗装五件套（DogGearCatalog；口袋狗衣不提供防护，只加负重）——
         ["布制狗衣"] = new(Armor, "dog_cloth_vest", "lorc/armor-vest"),
@@ -178,6 +181,8 @@ public static class ItemIcons
         ["medicine"] = new(Mats, "medicine", "delapouite/medicines"),
         ["dandelion"] = new(Mats, "dandelion", "delapouite/dandelion-flower"),
         ["rosehip"] = new(Mats, "rosehip", "delapouite/raspberry"),
+        ["kudzu_root"] = new(Mats, "kudzu_root", "delapouite/roots"),
+        ["rhubarb"] = new(Mats, "rhubarb", "delapouite/herbs-bundle"),
         ["laojunxu"] = new(Mats, "laojunxu", "delapouite/herbs-bundle"),
         ["herbal_salve"] = new(Mats, "herbal_salve", "delapouite/covered-jar"),
         ["dandelion_tea"] = new(Mats, "dandelion_tea", "delapouite/coffee-cup"),
@@ -215,6 +220,8 @@ public static class ItemIcons
         ["mechanical_beauty"] = new(Books, "book_mechanics", "lorc/gears"),   // [批次21·T26] 《机械之美》（弩的解锁书）
         ["bow_crafting_guide"] = new(Books, "book_bowcraft", "lorc/high-shot"),   // [T59] 《弓制作指南》（反曲弓/长弓的解锁书）
         ["peak_hour"] = new(Books, "book_peak_hour", "lorc/mountains"),   // [T71] 《尖峰时刻》（滑雪极限运动书，解锁自制简易墨镜）——群山剪影
+        ["peak_hour_2"] = new(Books, "book_peak_hour_2", "lorc/mountains"),
+        ["peak_hour_3"] = new(Books, "book_peak_hour_3", "lorc/mountains"),
         ["goldfinger_diary_a"] = new(Books, "book_diary_a", "delapouite/book-pile"),
         ["goldfinger_diary_b"] = new(Books, "book_diary_b", "lorc/papers"),
 
@@ -254,6 +261,7 @@ public static class ItemIcons
         // 「鸟」（键仍是 pigeon）图标不变：它还是那只鸽子，只是换了个名字。
         ["rat_meat"] = new(Food, "rat_meat", "delapouite/meat"),                 // 老鼠肉
         ["bird_meat"] = new(Food, "bird_meat", "delapouite/chicken-leg"),        // 鸟肉
+        ["rabbit_meat"] = new(Food, "rabbit_meat", "delapouite/meat"),           // 兔子肉
         ["feather"] = new(Mats, "feather", "lorc/feather"),                      // 羽毛（三种箭的共同料）
         ["leather_scrap"] = new(Mats, "leather_scrap", "delapouite/rolled-cloth"), // 碎皮革（缝合成生皮）
 

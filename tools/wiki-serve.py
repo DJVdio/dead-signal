@@ -29,6 +29,7 @@ import re
 import sys
 import tempfile
 from http.server import HTTPServer, SimpleHTTPRequestHandler
+from socketserver import ThreadingMixIn
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -43,6 +44,13 @@ CONFIG_DIR = REPO_ROOT / "godot" / "data" / "config"
 SAFE_NAME = re.compile(r"^[a-z0-9_-]+$")
 
 MAX_BODY_BYTES = 8 * 1024 * 1024  # 8MB：最大的分区表也就几十 KB，超了必是有鬼
+
+
+class WikiHTTPServer(ThreadingMixIn, HTTPServer):
+    """每个浏览器连接独立处理，避免一条未完成请求卡住整个 Wiki。"""
+
+    daemon_threads = True
+    allow_reuse_address = True
 
 
 class WikiHandler(SimpleHTTPRequestHandler):
@@ -1072,7 +1080,7 @@ def main() -> int:
     regenerate_bundle()  # 起服务时先对齐一次，免得 bundle.js 是旧的
 
     try:
-        httpd = HTTPServer((args.host, args.port), WikiHandler)
+        httpd = WikiHTTPServer((args.host, args.port), WikiHandler)
     except OSError as e:
         print(f"端口 {args.port} 起不来：{e}\n换一个：python3 tools/wiki-serve.py --port 8788", file=sys.stderr)
         return 1

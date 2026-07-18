@@ -286,15 +286,15 @@ public class NewEquipmentDataTests
         Assert.Equal("防弹背心", v.Name);
         // 🔴 贴身层，不是装甲层——占贴身层槽才能与皮甲/板甲叠穿。
         Assert.Equal(ArmorSlot.Skin, v.Slot);
-        Assert.Equal(20, v.SharpDefense);
-        Assert.Equal(30, v.BluntDefense);
+        Assert.Equal(24, v.SharpDefense);
+        Assert.Equal(6, v.BluntDefense);
         Assert.Equal(2.5, v.Weight);
         // 覆盖：胸 + 腹（护胸腹），不碰双臂/双腿/头。
         Assert.NotNull(v.CoversParts);
         Assert.Equal(new HashSet<string> { HumanBody.Chest, HumanBody.Abdomen }, v.CoversParts!);
         Assert.DoesNotContain(HumanBody.LeftArm, v.CoversParts!);
-        // 抗弹形态：钝防偏高于锐防（硬板吃冲击、对集中穿刺相对弱）。
-        Assert.True(v.BluntDefense > v.SharpDefense, "防弹背心钝防应高于锐防（抗弹形态）");
+        // 当前 Wiki 数值是锐防高于钝防；“对子弹额外锐防 30”仍是备注，不在统一规则层生效。
+        Assert.True(v.SharpDefense > v.BluntDefense, "防弹背心当前 Wiki 数值应为锐防高于钝防");
     }
 
     [Fact]

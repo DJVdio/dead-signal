@@ -210,6 +210,9 @@ public static class Materials
         new MaterialDef("flour", "面粉", "一袋面粉。", MaterialCategory.Food),
         new MaterialDef("potato", "土豆", "他妈的！土在哪！！！", MaterialCategory.Food),
         new MaterialDef("mushroom", "蘑菇", "你认得这一种，你最好确定你认得这一种。", MaterialCategory.Food),
+        // [Wiki 新增·尖峰时刻·三] 读书后才能认出的野外食材；描述不透露热量。
+        new MaterialDef("kudzu_root", "葛根", "埋在土里的根，挖出来时沾着一股清苦的土腥味。", MaterialCategory.Food),
+        new MaterialDef("rhubarb", "大黄", "叶子比想象中宽，根比想象中苦。至少这次你认对了。", MaterialCategory.Food),
 
         // ════════════════ [T67] 宰杀链的四样新材料（**追加末尾不插队**，Sim 随机流纪律）════════════════
         //
@@ -224,6 +227,9 @@ public static class Materials
 
         // 鸟肉：热量点 **5**，同样原样继承自「鸟」（原「鸽子」）。
         new MaterialDef("bird_meat", "鸟肉", "两条细腿，一小块胸脯。", MaterialCategory.Food),
+
+        // 兔子肉：宰杀台的产物，热量点原样继承自整只兔子（11 点）。
+        new MaterialDef("rabbit_meat", "兔子肉", "剥下来的兔肉。兔兔这么可爱，吃起来倒是很顶饱。", MaterialCategory.Food),
 
         // 羽毛：**箭的尾羽**。三种箭全都吃它（用户在 wiki 上亲手改的），也就是说——
         // **没有鸟，就没有箭**。弓不是靠木头喂活的，是靠一张网和一把刀。
@@ -248,6 +254,15 @@ public static class Materials
 
     /// <summary>鸟肉的材料标识键 —— 宰杀鸟的主产物（5 热量点，继承自鸟）。</summary>
     public const string BirdMeatKey = "bird_meat";
+
+    /// <summary>兔子肉的材料标识键 —— 宰杀台宰杀兔子的主产物（11 热量点，继承自兔子）。</summary>
+    public const string RabbitMeatKey = "rabbit_meat";
+
+    /// <summary>葛根的材料标识键——读《尖峰时刻·三》后可在野外交互采集。</summary>
+    public const string KudzuRootKey = "kudzu_root";
+
+    /// <summary>大黄的材料标识键——读《尖峰时刻·三》后可在野外交互采集。</summary>
+    public const string RhubarbKey = "rhubarb";
 
     /// <summary>
     /// [T46] 铁的材料标识键 —— 金属加工的**唯一**原料（钉子/铁丝/武器零件是另算的成品件，不由它派生）。

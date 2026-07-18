@@ -90,6 +90,8 @@ public class AnkleGuardRecipeTests
             .SingleOrDefault(r => r.GetProperty("_id").GetString() == "ankle_guard");
 
         Assert.NotEqual(JsonValueKind.Undefined, row.ValueKind);
+        Assert.DoesNotContain(recipes.RootElement.GetProperty("rows").EnumerateArray(),
+            r => r.GetProperty("_id").GetString() == "bullet_parts");
         Assert.Equal("护踝鞋具", row.GetProperty("name").GetString());
         Assert.Equal("杂项", row.GetProperty("category").GetString());
         Assert.Equal("护甲/服装", row.GetProperty("productType").GetString());
@@ -106,19 +108,19 @@ public class AnkleGuardRecipeTests
             .EnumerateArray()
             .Single(c => c.GetProperty("id").GetString() == "recipes");
         int rowCount = recipes.RootElement.GetProperty("rows").GetArrayLength();
-        Assert.Equal(57, rowCount);
+        Assert.Equal(59, rowCount);
         Assert.Equal(rowCount, indexCategory.GetProperty("count").GetInt32());
 
         string bundleText = File.ReadAllText(Path.Combine(dataDir, "bundle.js"));
         const string recipesMarker = "    \"recipes\": ";
         int recipesStart = bundleText.IndexOf(recipesMarker, StringComparison.Ordinal);
-        int recipesEnd = bundleText.IndexOf(",\n    \"lights\":", recipesStart, StringComparison.Ordinal);
+        int recipesEnd = bundleText.IndexOf(",\n    \"butchery\":", recipesStart, StringComparison.Ordinal);
         Assert.True(recipesStart >= 0 && recipesEnd > recipesStart, "bundle.js 应包含可提取的 recipes 分区");
         using JsonDocument bundleRecipes = JsonDocument.Parse(
             bundleText[(recipesStart + recipesMarker.Length)..recipesEnd]);
         Assert.Equal(rowCount, bundleRecipes.RootElement.GetProperty("rows").GetArrayLength());
         Assert.True(JsonNode.DeepEquals(JsonNode.Parse(recipesText), JsonNode.Parse(bundleRecipes.RootElement.GetRawText())));
-        Assert.Contains("\"id\": \"recipes\",\n      \"label\": \"配方\",\n      \"file\": \"recipes.json\",\n      \"count\": 57,", bundleText);
+        Assert.Contains("\"id\": \"recipes\",\n      \"label\": \"配方\",\n      \"file\": \"recipes.json\",\n      \"count\": 59,", bundleText);
     }
 
     private static string RepoRoot([CallerFilePath] string thisFile = "")

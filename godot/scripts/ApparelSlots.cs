@@ -450,6 +450,12 @@ public static class ApparelCatalog
         // 🔴 它是贴身层、**不是装甲层**：抗弹背心贴身穿 ⇒ **能与皮甲/板甲叠穿**（打底 + 装甲层罩外），
         // 不与装甲层三件(皮革胸甲/皮甲/板甲)互斥。护胸+腹，数值见 ArmorTable.BallisticVest（拟定待 Sim 校准）。
         Add(ArmorTable.BallisticVest(), EquipSlot.SkinLayer);
+
+        // [Wiki 新增] 厚重裤子 / 厚重披风 / 雪地靴。userNote 中的移动速度效果暂作备注，不在本轮接线。
+        Add(ArmorTable.HeavyTrousers(), EquipSlot.Pants);
+        // 披风只占装甲层；即使保护部位显示包含双大腿，也不抢裤装槽。
+        Add(ArmorTable.HeavyCape(), EquipSlot.PlateLayer);
+        AddPaired(ArmorTable.SnowBoots(), EquipSlot.LeftFoot, EquipSlot.RightFoot, HumanBody.LeftFoot, HumanBody.RightFoot);
         return d;
     }
 

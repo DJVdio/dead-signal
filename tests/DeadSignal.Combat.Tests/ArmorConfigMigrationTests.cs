@@ -21,7 +21,7 @@ namespace DeadSignal.Combat.Tests;
 ///     <b>double 用位级相等</b>（12.5 → "12.5" → 12.5 一位不差）；集合用 <c>SetEquals</c>。</item>
 ///   <item><b>往返保真</b>：catalog 里每件护甲再序列化→反序列化，逐字段位级相等（<see cref="ArmorLayer.CoversParts"/>
 ///     是 <c>IReadOnlySet&lt;string&gt;</c>，经 <see cref="ReadOnlyStringSetJsonConverter"/> 往返）⇒ 加载器不丢精度、不掉部位。</item>
-///   <item><b>完整性/顺序</b>：33 件 id 全可取；ZombieHide 单层组表、SurvivorArmor 组合、DescriptionOf 风味表全对。</item>
+///   <item><b>完整性/顺序</b>：36 件 id 全可取；ZombieHide 单层组表、SurvivorArmor 组合、DescriptionOf 风味表全对。</item>
 ///   <item><b>枚举出字符串</b>：<see cref="ArmorSlot"/> 序列化为 "Skin"/"Plate"（非序号 0/1/2）。</item>
 /// </list>
 /// <para>
@@ -50,7 +50,7 @@ public sealed class ArmorConfigMigrationTests
             var a = section.Get(id);
             Assert.False(string.IsNullOrEmpty(a.Name), $"{id} 名字不应为空");
         }
-        Assert.Equal(33, section.ById.Count);
+        Assert.Equal(36, section.ById.Count);
     }
 
     [Fact]
@@ -172,6 +172,7 @@ public sealed class ArmorConfigMigrationTests
         "leather", "plate", "military_helmet", "riot_helmet", "work_gloves", "war_mask", "cotton_hat",
         "coarse_cloth_shirt", "coarse_shorts", "coarse_trousers", "horror_armor", "sunglasses",
         "plain_glasses", "self_made_snow_goggles", "ankle_guard", "ballistic_vest",
+        "heavy_trousers", "heavy_cape", "snow_boots",
         "dog_cloth_vest", "dog_leather_vest", "dog_pocket_vest", "dog_iron_helmet", "dog_wire_helmet",
         "zombie_hide",
     };

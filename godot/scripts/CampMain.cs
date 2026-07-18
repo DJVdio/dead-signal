@@ -5641,8 +5641,9 @@ public sealed partial class CampMain : Node2D
                 _campToast.Show("这儿已经薅干净了。", CampToast.Bad);
                 return;
             }
-            bool guided = finder?.HasReadBook(ForageLogic.GuideBookId) ?? false;
-            (string matKey, int qty) = ForageLogic.Resolve(discoveryId, guided);
+            (string matKey, int qty) = ForageLogic.Resolve(
+                discoveryId,
+                finder is null ? null : new Func<string, bool>(finder.HasReadBook));
             if (qty <= 0 || string.IsNullOrEmpty(matKey))
                 return;
             _storyFlags.Set(forageFlag, "true");   // 薅过就没了

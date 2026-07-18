@@ -398,6 +398,20 @@
       "sync": ""
     },
     {
+      "group": "生存",
+      "label": "3 级光环 受伤减免",
+      "who": "道格",
+      "value": 10,
+      "unit": "%",
+      "settled": false,
+      "_id": "bond_aura_damage",
+      "_anchor": "godot/scripts/DougBruceBond.cs :: DougBruceBond.AuraDamageTakenMult",
+      "_icon": "",
+      "description": "",
+      "userNote": "",
+      "sync": ""
+    },
+    {
       "group": "战斗",
       "label": "2 级 攻击速度加成",
       "who": "布鲁斯",
@@ -420,20 +434,6 @@
       "settled": false,
       "_id": "bruce_move_speed",
       "_anchor": "godot/scripts/DougBruceBond.cs :: DougBruceBond.BruceMoveSpeedMult",
-      "_icon": "",
-      "description": "",
-      "userNote": "",
-      "sync": ""
-    },
-    {
-      "group": "生存",
-      "label": "3 级光环 受伤减免",
-      "who": "道格",
-      "value": 10,
-      "unit": "%",
-      "settled": false,
-      "_id": "bond_aura_damage",
-      "_anchor": "godot/scripts/DougBruceBond.cs :: DougBruceBond.AuraDamageTakenMult",
       "_icon": "",
       "description": "",
       "userNote": "",
@@ -1214,6 +1214,5 @@
       "userNote": "",
       "sync": ""
     }
-  ],
-  "_configVersion": "a8fc76894eb2"
+  ]
 }

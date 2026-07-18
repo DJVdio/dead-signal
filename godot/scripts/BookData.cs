@@ -321,8 +321,8 @@ public static class BookLibrary
     // 🔴 **占位正文 —— 待用户 authored，别替他写。**（同 MechanicalBeautyBody 的口径）
     private const string BowCraftingGuideBody =
         "一本讲怎么把一根木头变成一张弓的手册：选材、开背、上弦、调力。\n"
-        + "读完它，你就能自己做反曲弓和长弓了。\n"
-        + "（正文待补。）";
+        + "弓背要顺着木纹开，弦槽不能伤到木芯；拉力不是越大越好，能稳定回到原位才算一张能用的弓。\n\n"
+        + "读完它，你就能自己做反曲弓和长弓了。";
 
     /// <summary>《尖峰时刻》书 id（稳定键）。它是一本滑雪极限运动书，读完解锁「自制简易墨镜」。</summary>
     public const string PeakHourId = "peak_hour";
@@ -353,6 +353,28 @@ public static class BookLibrary
         readHours: 6,                             // [T71] 用户在 wiki 上定的
         description: "一个滑雪的人，写他怎么在崩塌的雪坡上让自己不慌。他管这叫全世界最没用的本事——直到世界真的开始崩塌。");
 
+    /// <summary>《尖峰时刻·二》——读完解锁厚重裤子与厚重披风。</summary>
+    public const string PeakHourTwoId = "peak_hour_2";
+
+    public static BookData PeakHourTwo() => new(
+        id: PeakHourTwoId,
+        title: "尖峰时刻·二",
+        body: PeakHourTwoBody,
+        grantsRecipeStub: "recipe:heavy_trousers,heavy_cape",
+        readHours: 6,
+        description: "卧槽，他还敢去第二次！");
+
+    /// <summary>《尖峰时刻·三》——读完辨认葛根、大黄，并解锁雪地靴。</summary>
+    public const string PeakHourThreeId = "peak_hour_3";
+
+    public static BookData PeakHourThree() => new(
+        id: PeakHourThreeId,
+        title: "尖峰时刻·三",
+        body: PeakHourThreeBody,
+        grantsRecipeStub: "recipe:snow_boots",
+        readHours: 6,
+        description: "红牛赞助，他出钱，你出命。");
+
     // [T71] 用户明确授权代笔的正文（滑雪极限运动·末世基调）。末句「那时候我以为这是全世界最没用的本事」
     // 是刻意的钩子——把极限运动接向末世求生，不点破，保留"发现现场自己体会"的处理。
     private const string PeakHourBody =
@@ -363,6 +385,19 @@ public static class BookLibrary
         "可开春我又站在了索道顶端。\n\n" +
         "后来我才想明白：我不是在跟山较劲。我是在练一件事——当脚下的一切都开始失控，怎么让自己不慌。\n\n" +
         "那时候我以为这是全世界最没用的本事。";
+
+    private const string PeakHourTwoBody =
+        "第二次上山，我带的是一条厚裤子和一块能挡风的旧布。\n\n" +
+        "雪不会因为你穿得像个英雄就少落一片，但它会从裤脚、腰背和袖口一点点把热量拿走。" +
+        "保暖不是舒服，是让你的腿在下一次迈步时还听你的话。\n\n" +
+        "我把几层布料叠起来，用绳结把重量分散到腰上和肩上。披风挡不住牙，" +
+        "却能让你在风里多站一会儿。山上没有观众，能走回来就是唯一的奖牌。";
+
+    private const string PeakHourThreeBody =
+        "雪线以下也有东西活着，只是它们不肯把名字写在叶子上。\n\n" +
+        "葛根的藤和大黄的叶子，各有各的样子。认错一株，最轻的后果是白费力气，" +
+        "更糟的后果不会在书里替你负责。先看形，再看生长的位置，最后才伸手。\n\n" +
+        "至于靴子，先护住脚趾。脚趾冻僵以后，最短的路也会变成一场远征。";
 
     public static IReadOnlyList<BookData> All() => new[]
     {
@@ -376,6 +411,8 @@ public static class BookLibrary
         MechanicalBeauty(),
         BowCraftingGuide(),   // [T59] 用户新加
         PeakHour(),           // [T71] 用户新加（滑雪极限运动·解锁自制简易墨镜）
+        PeakHourTwo(),        // Wiki 新增：厚重裤子 / 厚重披风
+        PeakHourThree(),      // Wiki 新增：葛根 / 大黄识别与雪地靴
         GoldfingerDiaryA(),
         GoldfingerDiaryB(),
     };
@@ -397,12 +434,11 @@ public static class BookLibrary
     public static IReadOnlyList<BookData> Diaries()
         => All().Where(b => b.IsDiary).ToList();
 
-    // 🔴 **占位正文 —— 待用户 authored，别替他写。**
-    // 用户只给了书名《机械之美》和一句「用武器零件造」。这里只陈述这本书**在机制上是什么**
-    // （读完解锁两把弩），不编作者、不编来历、不编世界观 —— 那些是 authored 内容，只有用户能写。
-    // 别的书的正文都是有文风的散文；这一段刻意保持干巴巴，正是为了让人一眼看出"它还没写"。
     private const string MechanicalBeautyBody =
-        "（正文待补）一本讲机括与传动的书。读完它的人能用零件装出单手轻弩与双手重弩。";
+        "机括不是魔法，是一连串互相咬合、彼此借力的零件。\n\n" +
+        "先把弩臂固定，再让弦经过滑轮与卡扣；每一处松动，都会把力送回你的手指。" +
+        "武器零件不是越多越好，关键是让它们在扣下扳机的那一刻同时到位。\n\n" +
+        "照着图装，你能做出单手轻弩，也能做出需要双手稳住的重弩。";
 
     // draft 待用户改 —— 技艺书《弓与箭之道》：不解锁配方，读完把箭矢回收率 25% → 50%
     private const string WayOfBowAndArrowBody =

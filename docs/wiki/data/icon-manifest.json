@@ -58,7 +58,10 @@
       "armor/plain_glasses",
       "armor/snow_goggles",
       "armor/ankle_guard",
-      "armor/ballistic_vest"
+      "armor/ballistic_vest",
+      "armor/heavy_trousers",
+      "armor/heavy_cape",
+      "armor/snow_boots"
     ],
     "dog-gear": [
       "armor/dog_cloth_vest",
@@ -102,6 +105,7 @@
       "materials/weapon_parts",
       "food/rat",
       "food/pigeon",
+      "food/rabbit",
       "materials/feather",
       "materials/leather_scrap"
     ],
@@ -134,7 +138,6 @@
       "weapons/improvised_hunting_gun",
       "weapons/improvised_shotgun",
       "furniture/mod_bench",
-      "materials/bullet_parts",
       "materials/ammo_short",
       "materials/ammo_medium",
       "materials/ammo_buck",
@@ -173,7 +176,18 @@
       "furniture/butcher_point",
       "furniture/butcher_table",
       "materials/rawhide",
-      "materials/leather"
+      "materials/leather",
+      "armor/ankle_guard",
+      "armor/heavy_trousers",
+      "armor/heavy_cape",
+      "armor/snow_boots"
+    ],
+    "butchery": [
+      "butchery/simple_rat",
+      "butchery/simple_pigeon",
+      "butchery/table_rat",
+      "butchery/table_rabbit",
+      "butchery/table_pigeon"
     ],
     "lights": [
       "lights/flashlight",
@@ -192,6 +206,8 @@
       "books/book_mechanics",
       "books/book_bowcraft",
       "books/book_peak_hour",
+      "books/book_peak_hour_2",
+      "books/book_peak_hour_3",
       "books/book_diary_a",
       "books/book_diary_b"
     ],
@@ -218,13 +234,15 @@
       "weapon-mods/crossbow_shield"
     ],
     "food": [
-      "food/rabbit",
+      "food/rabbit_meat",
       "food/fish",
       "food/ration_military",
       "food/canned_food",
       "food/flour",
       "food/potato",
       "food/mushroom",
+      "materials/kudzu_root",
+      "materials/rhubarb",
       "food/rat_meat",
       "food/bird_meat",
       "materials/rosehip",

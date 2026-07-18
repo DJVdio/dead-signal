@@ -723,8 +723,9 @@ public static class ForageLogic
     /// <summary>《野外生存指南》书 id（对齐 <see cref="RecipeBook.WildernessSurvivalGuideBookId"/>，不抄字符串）。</summary>
     public const string GuideBookId = RecipeBook.WildernessSurvivalGuideBookId;
 
-    /// <summary>一处采集点：id（踏入触发用）、产什么、基准产多少、面板/地图上的中文标签。</summary>
-    public readonly record struct ForageSpot(string Id, string MaterialKey, int BaseQuantity, string Label);
+    /// <summary>一处采集点：id、产物、基准产量、地图标签；RequiredBookId 非空时需先读该书才能交互。</summary>
+    public readonly record struct ForageSpot(
+        string Id, string MaterialKey, int BaseQuantity, string Label, string RequiredBookId = "");
 
     // ── 采集点清单（**追加末尾不插队**：新点一律加在最后，别打乱既有随机流/测试算例）──
     //
@@ -747,6 +748,12 @@ public static class ForageLogic
     /// <summary>斯图尔特庄园·地头垄尾（土豆，刨剩下的）。</summary>
     public const string StuartFurrowPotatoId = "forage_stuart_furrow_potato";
 
+    /// <summary>守林人小屋·后山坡（葛根；读《尖峰时刻·三》后识别）。</summary>
+    public const string RangersKudzuRootId = "forage_rangers_kudzu_root";
+
+    /// <summary>斯图尔特庄园·菜地边缘（大黄；读《尖峰时刻·三》后识别）。</summary>
+    public const string StuartRhubarbId = "forage_stuart_rhubarb";
+
     /// <summary>全部采集点（<b>按声明顺序，新点追加末尾</b>）。</summary>
     public static readonly IReadOnlyList<ForageSpot> All = new[]
     {
@@ -754,6 +761,8 @@ public static class ForageLogic
         new ForageSpot(RangersCabinWoodpileMushroomId, "mushroom", 2, "柴堆背阴的蘑菇"),
         new ForageSpot(StuartGardenPotatoId,           "potato",   3, "菜地里的土豆"),
         new ForageSpot(StuartFurrowPotatoId,           "potato",   2, "垄尾漏刨的土豆"),
+        new ForageSpot(RangersKudzuRootId,             Materials.KudzuRootKey, 2, "后山坡的葛根", RecipeBook.PeakHourThreeBookId),
+        new ForageSpot(StuartRhubarbId,                Materials.RhubarbKey,   2, "菜地边的大黄", RecipeBook.PeakHourThreeBookId),
     };
 
     /// <summary>这个 id 是不是一处采集点（消费层用它把踏入事件路由过来）。</summary>
@@ -788,6 +797,11 @@ public static class ForageLogic
             return (string.Empty, 0);
         }
 
+        if (!string.IsNullOrEmpty(spot.Value.RequiredBookId))
+        {
+            return (string.Empty, 0);
+        }
+
         int qty = spot.Value.BaseQuantity;
         if (hasWildernessGuide)
         {
@@ -798,5 +812,28 @@ public static class ForageLogic
 
     /// <summary>同上，但直接吃一份"读过的书"集合（消费层手里就是这个）。</summary>
     public static (string MaterialKey, int Quantity) Resolve(string? spotId, ReadBookSet? readBooks)
-        => Resolve(spotId, readBooks is not null && readBooks.HasRead(GuideBookId));
+        => Resolve(spotId, readBooks is null ? null : readBooks.HasRead);
+
+    /// <summary>按书籍查询函数解析采集点；新植物的 RequiredBookId 在这里真正成为交互门槛。</summary>
+    public static (string MaterialKey, int Quantity) Resolve(string? spotId, Func<string, bool>? hasReadBook)
+    {
+        var spot = Find(spotId);
+        if (spot is null)
+        {
+            return (string.Empty, 0);
+        }
+
+        bool Has(string id) => hasReadBook?.Invoke(id) ?? false;
+        if (!string.IsNullOrEmpty(spot.Value.RequiredBookId) && !Has(spot.Value.RequiredBookId))
+        {
+            return (string.Empty, 0);
+        }
+
+        int qty = spot.Value.BaseQuantity;
+        if (Has(GuideBookId))
+        {
+            qty = (int)Math.Floor(qty * GuideYieldMultiplier);
+        }
+        return (spot.Value.MaterialKey, Math.Max(0, qty));
+    }
 }

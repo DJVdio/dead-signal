@@ -37,6 +37,9 @@ public sealed class ArmorConsumerWiringTests
             "SelfMadeSnowGoggles",
             "AnkleGuard",
             "BallisticVest",
+            "HeavyTrousers",
+            "HeavyCape",
+            "SnowBoots",
         };
 
         string[] missing = newlyAddedArmorFactories

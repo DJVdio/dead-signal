@@ -96,8 +96,8 @@ public static class FoodCalories
         //    走法与 [T59] 蒲公英**完全同源**（那次是"从食物表删、材料保留"），判据也是同一句：
         //    **「是不是食材」问的是 FoodCalories.Has，不是 MaterialCategory。**
         //    ⚠️ 热量点**一点没蒸发**：老鼠的 6 点（**用户给定的定值**）原样搬到了 rat_meat 上，鸟的 5 点搬到了 bird_meat 上。
-        //    ⚠️ **兔子（rabbit）刻意没动** —— 用户只点名了"老鼠和鸟"。别顺手"统一"成"所有猎物都要宰杀"，那是引申。
-        new FoodDef("rabbit", 11),           // 兔子（[T67] **仍可直接下锅**：用户没提它 ⇒ 一个字没动）
+        //    ⚠️ 兔子现在也进入宰杀链：宰杀台把 rabbit 变成 rabbit_meat，11 点原样继承。
+        new FoodDef("rabbit_meat", 11),      // 兔子肉（宰杀台产物，继承整只兔子的 11 点）
         new FoodDef("fish", 8),              // 鱼
 
         // ——— 存粮 / 罐头 ———
@@ -108,6 +108,8 @@ public static class FoodCalories
         // ——— 野菜 / 采集（与医疗原料共用同一批材料键，见类注）———
         new FoodDef("potato", 4),            // 土豆（[T67] 菜畦种出来的也是它——同一个键，不新造"自种土豆"）
         new FoodDef("mushroom", 3),          // 蘑菇
+        new FoodDef("kudzu_root", 6),        // 葛根（《尖峰时刻·三》识别后可采）
+        new FoodDef("rhubarb", 3),           // 大黄（《尖峰时刻·三》识别后可采）
 
         // ——— [T67] 宰杀出来的肉（**追加末尾不插队**）———
         // 热量点是从被宰的那只动物身上**原样继承**的，宰杀不创造也不毁灭热量（它只是把肉从骨头和皮上取下来）。

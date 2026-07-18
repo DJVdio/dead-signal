@@ -231,6 +231,7 @@ internal static class Program
             Materials(),
             Medical(),
             Recipes(),
+            Butchery(),
             Lights(),
             // [波2 合页] 书籍 + 日记 → 一页（沿用 id "books"；旧 diaries.json 成孤儿，重跑后删）。
             // 页内两分块：书籍（要角色整夜读、有工时/效果）与 日记（道具，无工时，只讲故事）。
@@ -1318,6 +1319,59 @@ internal static class Program
             cols, rows, ConfigFile: "recipes.json");
     }
 
+    // ─────────────────────────── 宰杀配方 ───────────────────────────
+
+    /// <summary>
+    /// 宰杀是多产物工序，不塞进 RecipeData（RecipeData 只有一个 OutputKey）。
+    /// 这里直接从 ButcheryLogic 的配方清单抽取，避免 Wiki 把「一刀出肉+副产物」拆成两条互相独立的假配方。
+    /// </summary>
+    private static Category Butchery()
+    {
+        var cols = new List<Col>
+        {
+            new("name", "名称", Primary: true),
+            new("facility", "设施", "chip", ReadOnly: true),
+            new("input", "原料", "chip", ReadOnly: true),
+            new("outputs", "产出", "text", ReadOnly: true),
+            new("baseWorkMinutes", "基础工时", "number", ReadOnly: true,
+                Hint: "这是未计算刀具/设施加速前的基础工时；实际工时会按刀具和设施速度缩短。"),
+            new("doubleYieldChance", "双倍产出概率", "number", ReadOnly: true,
+                Hint: "只有宰杀台有这条额外判定；简易宰杀点为 0。"),
+            new("description", "简介", "longtext"),
+            new("_id", "内部 id", Internal: true),
+            new("_anchor", "代码位置", Internal: true),
+        };
+
+        var rows = new List<Dictionary<string, object?>>();
+        foreach (ButcherRecipe r in ButcheryLogic.Recipes)
+        {
+            string facility = r.Tier == ButcherTier.Table ? "宰杀台" : "简易宰杀点";
+            string outputs = $"{MaterialName(r.ByproductKey)}*{r.ByproductQuantity}、{MaterialName(r.MeatKey)}*{r.MeatQuantity}";
+            rows.Add(new Dictionary<string, object?>
+            {
+                ["name"] = $"{facility}：{r.QuarryName}",
+                ["facility"] = facility,
+                ["input"] = r.QuarryName,
+                ["outputs"] = outputs,
+                ["baseWorkMinutes"] = ButcheryLogic.BaseMinutes,
+                ["doubleYieldChance"] = r.Tier == ButcherTier.Table
+                    ? ButcheryLogic.TableDoubleYieldChance * 100
+                    : 0,
+                ["description"] = r.Tier == ButcherTier.Table
+                    ? "宰杀台基础产出；命中双倍判定时，肉和副产物一起翻倍。"
+                    : "简易宰杀点基础产出，不触发双倍判定。",
+                ["_id"] = r.Id,
+                ["_anchor"] = $"godot/scripts/Butchery.cs :: ButcheryLogic（Id = \"{r.Id}\"）",
+            });
+        }
+
+        return new Category("butchery", "宰杀配方",
+            "godot/scripts/Butchery.cs",
+            "宰杀不是普通单产物制作：一只猎物上案板后，同时产出肉和副产物。"
+            + "简易宰杀点处理老鼠/鸟；宰杀台按 Wiki 的三条基础产出处理老鼠、兔子、鸟，并保留 20% 双倍产出判定。",
+            cols, rows);
+    }
+
     /// <summary>
     /// 「造→摆」的野外设施配方 id —— 无工具、无站点门槛，在营地空地上徒手搭出来的东西
     /// （陷阱 / 菜园 / 沙袋）。列在这里才把它们和「工作台徒手活」区分开。
@@ -1636,6 +1690,17 @@ internal static class Program
             parts.Add(MedicalBookPoints.RequiresNoSupplies(bookId)
                 ? $"被动：不使用任何手术材料时，手术加成点数 +{surgeryPoints}（教的是没器械时的土办法；一旦投了正规耗材就不加）"
                 : $"被动：读过它的人做手术更有把握（手术点数 +{surgeryPoints}）");
+        }
+
+        // 书籍被动不全是配方或手术点：尖峰时刻的骨折恢复、尖峰时刻·三的野外识别也要进入同一列，
+        // 否则 Wiki 会把已经接线的能力误报成“只有配方”。
+        if (bookId == BookLibrary.PeakHourId)
+        {
+            parts.Add("被动：骨折恢复速度 +15%");
+        }
+        if (bookId == BookLibrary.PeakHourThreeId)
+        {
+            parts.Add("被动：认得葛根和大黄，可在野外交互采集");
         }
 
         return string.Join("；", parts);

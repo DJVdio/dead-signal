@@ -360,6 +360,18 @@
       "_icon": "food/pigeon"
     },
     {
+      "name": "兔子",
+      "category": "猎物",
+      "weight": 1.5,
+      "description": "兔兔这么可爱！",
+      "_id": "rabbit",
+      "_configId": "rabbit",
+      "_anchor": "godot/scripts/Materials.cs :: Materials（重量在 godot/scripts/CarryWeight.cs :: ItemWeights）",
+      "userNote": "",
+      "sync": "",
+      "_icon": "food/rabbit"
+    },
+    {
       "name": "羽毛",
       "category": "有机杂料",
       "weight": 0.02,
@@ -383,6 +395,5 @@
       "sync": "",
       "_icon": "materials/leather_scrap"
     }
-  ],
-  "_configVersion": "3a61898eeef3"
+  ]
 }

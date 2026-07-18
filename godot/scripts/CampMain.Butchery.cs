@@ -267,7 +267,8 @@ public sealed partial class CampMain : Node2D
             RefreshButchery();
             return;
         }
-        if (!ButcheryLogic.CanButcher(_butcherStation.Slotted, quarryKey) || _inventory.MaterialCount(quarryKey) <= 0)
+        if (!ButcheryLogic.CanButcher(CurrentButcherTier, _butcherStation.Slotted, quarryKey)
+            || _inventory.MaterialCount(quarryKey) <= 0)
         {
             _campToast.Show("库里没有这只猎物可宰。", CampToast.Bad);
             RefreshButchery();

@@ -376,13 +376,65 @@
   "ballistic_vest": {
     "Name": "防弹背心",
     "Description": "它挡得下子弹——前提是那颗子弹讲道理，正对着胸口飞来。",
-    "SharpDefense": 20,
-    "BluntDefense": 30,
+    "SharpDefense": 24,
+    "BluntDefense": 6,
     "Weight": 2.5,
     "Slot": "Skin",
     "CoversParts": [
       "胸",
       "腹"
+    ]
+  },
+  "heavy_trousers": {
+    "Name": "厚重裤子",
+    "Description": "双层加绒裤子，让你远离老寒腿。",
+    "SharpDefense": 20,
+    "BluntDefense": 4,
+    "Weight": 1.5,
+    "Slot": "Skin",
+    "CoversParts": [
+      "左大腿",
+      "右大腿",
+      "左小腿",
+      "右小腿"
+    ]
+  },
+  "heavy_cape": {
+    "Name": "厚重披风",
+    "Description": "帅气的披风不只属于超人，更属于冻死鬼。",
+    "SharpDefense": 20,
+    "BluntDefense": 4,
+    "Weight": 2.5,
+    "Slot": "Plate",
+    "CoversParts": [
+      "胸",
+      "腹",
+      "左手臂",
+      "右手臂",
+      "左大腿",
+      "右大腿"
+    ]
+  },
+  "snow_boots": {
+    "Name": "雪地靴",
+    "Description": "保护你的脚趾免死于严寒，而非牙齿。",
+    "SharpDefense": 10,
+    "BluntDefense": 3,
+    "Weight": 0.4,
+    "Slot": "Skin",
+    "CoversParts": [
+      "右脚",
+      "右脚大拇指",
+      "右脚二趾",
+      "右脚中趾",
+      "右脚四趾",
+      "右脚五趾",
+      "左脚",
+      "左脚大拇指",
+      "左脚二趾",
+      "左脚中趾",
+      "左脚四趾",
+      "左脚五趾"
     ]
   },
   "dog_cloth_vest": {

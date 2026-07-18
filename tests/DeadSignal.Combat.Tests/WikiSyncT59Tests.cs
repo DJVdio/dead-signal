@@ -66,18 +66,21 @@ public class WikiSyncT59Tests
     /// ⇒ 全表现值 = 64 + 8 + 6 = <b>78h</b>。</para>
     /// </summary>
     [Fact]
-    public void 书籍阅读时长_用户那8本合计64小时_加两本新书后78小时()
+    public void 书籍阅读时长_用户那8本合计64小时_加现有三本新书后90小时()
     {
         // ⚠️ [T59·二次澄清] **日记不计入** —— 它不是书，没有阅读工时（用户：书给角色读、日记给玩家读）。
-        //    故这里只数**真正的书**（Manuals）：用户手上那 8 本 = 64h（把两本 agent 新加的书剔掉再数）。
+        //    故这里只数**真正的书**（Manuals）：用户手上那 8 本 = 64h（把三本新增书剔掉再数）。
         double userEight = BookLibrary.Manuals()
-            .Where(b => b.Id != BookLibrary.BowCraftingGuideId && b.Id != BookLibrary.PeakHourId)
+            .Where(b => b.Id != BookLibrary.BowCraftingGuideId
+                     && b.Id != BookLibrary.PeakHourId
+                     && b.Id != BookLibrary.PeakHourTwoId
+                     && b.Id != BookLibrary.PeakHourThreeId)
             .Sum(b => b.ReadHours);
         Assert.Equal(64.0, userEight, 6);
 
         Assert.Equal(8.0, BookLibrary.BowCraftingGuide().ReadHours, 6);   // 拟定值（用户没给）
         Assert.Equal(6.0, BookLibrary.PeakHour().ReadHours, 6);           // [T71] 用户在 wiki 定的
-        Assert.Equal(78.0, BookLibrary.Manuals().Sum(b => b.ReadHours), 6);
+        Assert.Equal(90.0, BookLibrary.Manuals().Sum(b => b.ReadHours), 6);
 
         // 日记一小时都不该贡献。
         Assert.Equal(0.0, BookLibrary.Diaries().Sum(b => b.ReadHours), 6);
@@ -255,7 +258,8 @@ public class WikiSyncT59Tests
             // 之所以第四条兜不住它们，是因为**宰杀不是一条 RecipeData**（RecipeData 只有单一 OutputKey，
             // 表达不了"一刀出两样东西"）⇒ 它自成一套（<see cref="ButcheryLogic"/>）。
             // ⇒ 护栏的**判据本身**要跟着世界的形状走：出路多了一条，就得在这里认它一条。
-            if (ButcheryLogic.IsButcherable(m.Key)) continue;                            // 上得了案板
+            if (ButcheryLogic.IsButcherable(m.Key)
+                || ButcheryLogic.IsButcherable(ButcherTier.Table, m.Key)) continue;      // 上得了案板
 
             deadItems.Add($"{m.DisplayName}（{m.Key}）");
         }
@@ -288,7 +292,7 @@ public class WikiSyncT59Tests
     {
         // 《土法化学笔记》的效果列已被用户改成只剩三样，但这些解锁**一个都不许少**。
         foreach (string recipeId in new[]
-                 { "improvised_hunting_gun", "improvised_shotgun", "bullet_parts", "ammo_short", "ammo_medium" })
+                 { "improvised_hunting_gun", "improvised_shotgun", "ammo_short", "ammo_medium" })
         {
             RecipeData r = RecipeBook.All.Single(x => x.Id == recipeId);
             Assert.Contains(RecipeBook.FolkChemistryNotesBookId, r.RequiredBookIds);

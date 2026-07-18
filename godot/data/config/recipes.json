@@ -112,7 +112,7 @@
   },
   "improvised_shotgun": {
     "OutputQuantity": 1,
-    "WorkMinutes": 150,
+    "WorkMinutes": 210,
     "MaterialCosts": {
       "iron": 3,
       "wood": 2,
@@ -127,14 +127,6 @@
       "iron": 4,
       "components": 2,
       "nails": 6
-    }
-  },
-  "bullet_parts": {
-    "OutputQuantity": 1,
-    "WorkMinutes": 60,
-    "MaterialCosts": {
-      "iron": 2,
-      "components": 1
     }
   },
   "ammo_short": {
@@ -213,7 +205,7 @@
   },
   "light_crossbow": {
     "OutputQuantity": 1,
-    "WorkMinutes": 200,
+    "WorkMinutes": 180,
     "MaterialCosts": {
       "wood": 2,
       "iron": 2,
@@ -223,7 +215,7 @@
   },
   "heavy_crossbow": {
     "OutputQuantity": 1,
-    "WorkMinutes": 320,
+    "WorkMinutes": 480,
     "MaterialCosts": {
       "wood": 6,
       "iron": 3,
@@ -409,6 +401,29 @@
   "ankle_guard": {
     "OutputQuantity": 1,
     "WorkMinutes": 80,
+    "MaterialCosts": {
+      "leather": 2,
+      "rope": 1
+    }
+  },
+  "heavy_trousers": {
+    "OutputQuantity": 1,
+    "WorkMinutes": 120,
+    "MaterialCosts": {
+      "cloth": 5
+    }
+  },
+  "heavy_cape": {
+    "OutputQuantity": 1,
+    "WorkMinutes": 150,
+    "MaterialCosts": {
+      "cloth": 5,
+      "rope": 2
+    }
+  },
+  "snow_boots": {
+    "OutputQuantity": 1,
+    "WorkMinutes": 90,
     "MaterialCosts": {
       "leather": 2,
       "rope": 1

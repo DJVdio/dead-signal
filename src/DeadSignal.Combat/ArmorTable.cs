@@ -239,15 +239,14 @@ public static class ArmorTable
     public static ArmorLayer AnkleGuard() => Cfg("ankle_guard");
 
     /// <summary>
-    /// [警察局] <b>防弹背心</b>（<b>贴身层</b>·护胸 + 腹）—— 锐 20 / 钝 30、2.5kg。用户 authored（新探索关「警察局」掉落）。
+    /// [警察局] <b>防弹背心</b>（<b>贴身层</b>·护胸 + 腹）—— 锐 24 / 钝 6、2.5kg。用户 authored（新探索关「警察局」掉落）。
     /// <para>
     /// 🔴 <b>它是贴身层（<see cref="ArmorSlot.Skin"/>），不是装甲层</b>——这一点是刻意的：抗弹背心贴身穿，
     /// 占的是<b>贴身层槽</b>（EquipSlot.SkinLayer，与长袖布衣/花衬衫/粗布衬衫互斥），因此<b>能与皮甲/板甲等
     /// 装甲层护甲叠穿</b>（防弹背心打底 + 板甲罩外）。它<b>不</b>与装甲层三件互斥——别把它当成"再抢一个装甲层名额"。
     /// </para>
     /// <para>
-    /// 防护形态贴"抗弹"：<b>钝防偏高</b>（30，全表贴身层最高，钢/凯夫拉板吃冲击）、<b>锐防中等</b>（20，硬板挡不住
-    /// 集中穿刺一如现实防弹衣对刀的短板）。<b>数值拟定待 Sim 校准</b>（钝30/锐20/2.5kg 是与现有护甲量级协调的拟定值）。
+    /// Wiki 当前数值是锐 24 / 钝 6；另有「对子弹获得额外 30 锐器防御」备注，后者仍是 Wiki 备注，未接入统一伤害类型规则。
     /// </para>
     /// <para>
     /// ⚠️ 对 Sim <b>结构性零漂移</b>：Sim 的护甲套是 <c>Program.cs</c> 里逐条点名的具名组合，<b>按名点菜、不遍历本表</b>
@@ -255,6 +254,15 @@ public static class ArmorTable
     /// </para>
     /// </summary>
     public static ArmorLayer BallisticVest() => Cfg("ballistic_vest");
+
+    /// <summary>厚重裤子（裤装槽，护双大腿+双小腿）：双层加绒，数值来自 Wiki。</summary>
+    public static ArmorLayer HeavyTrousers() => Cfg("heavy_trousers");
+
+    /// <summary>厚重披风（只占装甲层，不占裤装槽；护胸腹、双臂、双大腿）：数值来自 Wiki。</summary>
+    public static ArmorLayer HeavyCape() => Cfg("heavy_cape");
+
+    /// <summary>雪地靴（成对·脚槽，护双脚及脚趾）：数值来自 Wiki。</summary>
+    public static ArmorLayer SnowBoots() => Cfg("snow_boots");
 
     // ---- 生物·天生（不可穿戴）----
 

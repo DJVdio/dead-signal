@@ -454,11 +454,11 @@ public class CarryCapacityTests
         Assert.Same(ItemRegistry.Materials, Field("_materialKg"));
         Assert.Same(ItemRegistry.Armor, Field("_armorKg"));
 
-        // 分区规模钉桩（武器 25 / 材料 53[审计补齐 6 个弹药与茶] / 护甲 32 = 全表 110）——防止别处误插/误删一整类。
+        // 分区规模钉桩（武器 25 / 材料 56 / 护甲 35 = 全表 116）——防止别处误插/误删一整类。
         Assert.Equal(25, ItemRegistry.Weapons.Count);
-        Assert.Equal(53, ItemRegistry.Materials.Count);
-        Assert.Equal(32, ItemRegistry.Armor.Count);
-        Assert.Equal(110, ItemRegistry.All.Count());
+        Assert.Equal(56, ItemRegistry.Materials.Count);
+        Assert.Equal(35, ItemRegistry.Armor.Count);
+        Assert.Equal(116, ItemRegistry.All.Count());
     }
 
     /// <summary>

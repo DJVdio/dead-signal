@@ -124,6 +124,12 @@ public static class RecipeBook
     /// <summary>[T71]《尖峰时刻》书 id（对齐 <see cref="BookLibrary.PeakHourId"/>）——解锁 <c>snow_goggles</c>（自制简易墨镜）。</summary>
     public const string PeakHourBookId = BookLibrary.PeakHourId;
 
+    /// <summary>《尖峰时刻·二》书 id——解锁厚重裤子与厚重披风。</summary>
+    public const string PeakHourTwoBookId = BookLibrary.PeakHourTwoId;
+
+    /// <summary>《尖峰时刻·三》书 id——解锁雪地靴与葛根/大黄的野外识别。</summary>
+    public const string PeakHourThreeBookId = BookLibrary.PeakHourThreeId;
+
     /// <summary>
     /// 《弓与箭之道》书 id（对齐 <see cref="BookLibrary.WayOfBowAndArrowId"/>）。<b>只能搜刮</b>（<c>ExplorationCache</c>）。
     /// <para>
@@ -366,18 +372,14 @@ public static class RecipeBook
         // 喂狙击枪 2 次。**越强的枪，同一份料能打的次数越少** —— 这就是"强，但打不起"的算式。
         //
         // 【后勤代价的两条腿】
-        //  ① 子弹零件：弹壳/底火/弹头坯——**没法用土办法糊弄的精密件**，主要靠搜刮（见下方那条配方：
-        //     能造，但吃机械零件，贵）。它是四种子弹的**唯一共同瓶颈**。
+        //  ① 子弹零件：弹壳/底火/弹头坯——**没法用土办法糊弄的精密件**，只能靠搜刮。
+        //     它是四种子弹的**唯一共同瓶颈**，不提供制作兜底。
         //  ② 火药：每炉弹药还要 1 包火药，而火药 = 石料1 + **燃料1**（见上面 gunpowder 那条）。
         //     燃料同时是火把/发电机的命根子 → **「多打两枪」和「今晚有没有灯」落进同一个预算。**
         //     这正是用户要的：**不削枪的数值，用后勤代价平衡。**
         //
         // 工具/书门槛四条统一：烧杯类化学 + 《土法化学笔记》（该书本就解锁火药与自制猎枪——
         // 懂土法化学 → 能攒枪、也能攒弹，这条链最自然，不必新造一本枪匠书）。数值皆拟定待调。
-
-        // 子弹零件：**唯一允许新增的材料**（用户点名）。能造，但刻意贵——机械零件是拆精密装置才有的东西。
-        // 定位：搜刮为主、制作兜底。搜刮断供时你还能造，但每造一个都在啃别的系统的料。
-        R("bullet_parts", "子弹零件", RecipeCategory.Precision, "bullet_parts", Tools(ToolSlot.Calipers), Books(FolkChemistryNotesBookId)),
 
         // 短子弹（手枪/冲锋枪）：1 零件 + 1 火药 → **8 发**。最便宜的枪弹。
         R("ammo_short", "短子弹", RecipeCategory.Chemistry, "ammo_short", Tools(ToolSlot.Beaker), Books(FolkChemistryNotesBookId)),
@@ -703,6 +705,13 @@ public static class RecipeBook
         //    比恐怖装甲 3kg 轻得多 ⇒ 量级取其零头：皮革做鞋body、绳做绑带高帮）。追加表尾不插队（配方序不进 Sim 战斗随机流）。
         //    产物走 CraftOutputFactory 的 ArmorOutputs 落成 Item.Armor(护踝鞋具)，穿戴登记见 ApparelSlots(脚槽·成对)。
         R("ankle_guard", "护踝鞋具", RecipeCategory.Misc, "ankle_guard", Tools(), Books(PeakHourBookId)),
+
+        // Wiki 新增：尖峰时刻·二的两件保暖护甲。材料/工时是暂定值，等 Wiki 数值表继续校准。
+        R("heavy_trousers", "厚重裤子", RecipeCategory.Tailoring, "heavy_trousers", Tools(), Books(PeakHourTwoBookId)),
+        R("heavy_cape", "厚重披风", RecipeCategory.Tailoring, "heavy_cape", Tools(), Books(PeakHourTwoBookId)),
+
+        // Wiki 新增：尖峰时刻·三解锁的雪地靴。
+        R("snow_boots", "雪地靴", RecipeCategory.Misc, "snow_boots", Tools(), Books(PeakHourThreeBookId)),
     };
 
     private static readonly IReadOnlyDictionary<string, RecipeData> _byId = ToMap(_all);

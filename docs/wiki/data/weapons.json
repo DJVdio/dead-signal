@@ -47,34 +47,6 @@
       "hint": "无视多少护甲。25% = 这一击当对方的甲只有 75%。"
     },
     {
-      "key": "attackInterval",
-      "label": "攻击间隔(秒)",
-      "type": "number",
-      "configKey": "AttackInterval",
-      "hint": "越小出手越快"
-    },
-    {
-      "key": "dps",
-      "label": "每秒伤害",
-      "type": "number",
-      "readonly": true,
-      "hint": "自动算的（引擎公式，手填会算错）：无甲/贴脸/无限弹药/单挑下的杀伤力天花板。改「伤害」「攻击间隔」「连发数」，它会立刻跟着变。"
-    },
-    {
-      "key": "dualDps",
-      "label": "双持每秒伤害",
-      "type": "number",
-      "readonly": true,
-      "hint": "自动算的。两把同款一起打；不可双持的武器这里是「—」（要改 ⇒ 改「可双持」）。注意它不是「每秒伤害 *1.4」——双持的惩罚只落在冷却上，连发那一段不受罚。"
-    },
-    {
-      "key": "dpsVsLeather",
-      "label": "对皮甲每秒伤害",
-      "type": "number",
-      "readonly": true,
-      "hint": "自动算的：打一个穿着「皮甲 + 长袖布衣」的人。**含**护甲三段判定、部位覆盖（头/手/脚是裸的，打到那儿等于打无甲）、穿透、霰弹逐颗独立被挡。**不含**距离衰减、噪音、弹药、清群。⚠️ 裸 DPS 是无甲天花板，这一列才看得出「打不打得动甲」。"
-    },
-    {
       "key": "bleedRate",
       "label": "流血速度",
       "type": "mult",
@@ -87,6 +59,13 @@
       "type": "percent",
       "configKey": "BleedOnHitChance",
       "hint": "每次命中额外开一道流血伤口的几率（0 = 不额外流血）。"
+    },
+    {
+      "key": "attackInterval",
+      "label": "攻击间隔(秒)",
+      "type": "number",
+      "configKey": "AttackInterval",
+      "hint": "越小出手越快"
     },
     {
       "key": "burstCount",
@@ -172,6 +151,27 @@
       "type": "number",
       "configKey": "FlightSpeed",
       "hint": "远程弹丸/箭矢的飞行速度（像素/秒）；近战武器用不上。"
+    },
+    {
+      "key": "dps",
+      "label": "每秒伤害",
+      "type": "number",
+      "readonly": true,
+      "hint": "自动算的（引擎公式，手填会算错）：无甲/贴脸/无限弹药/单挑下的杀伤力天花板。改「伤害」「攻击间隔」「连发数」，它会立刻跟着变。"
+    },
+    {
+      "key": "dpsVsLeather",
+      "label": "对皮甲每秒伤害",
+      "type": "number",
+      "readonly": true,
+      "hint": "自动算的：打一个穿着「皮甲 + 长袖布衣」的人。**含**护甲三段判定、部位覆盖（头/手/脚是裸的，打到那儿等于打无甲）、穿透、霰弹逐颗独立被挡。**不含**距离衰减、噪音、弹药、清群。⚠️ 裸 DPS 是无甲天花板，这一列才看得出「打不打得动甲」。"
+    },
+    {
+      "key": "dualDps",
+      "label": "双持每秒伤害",
+      "type": "number",
+      "readonly": true,
+      "hint": "自动算的。两把同款一起打；不可双持的武器这里是「—」（要改 ⇒ 改「可双持」）。注意它不是「每秒伤害 *1.4」——双持的惩罚只落在冷却上，连发那一段不受罚。"
     },
     {
       "key": "weight",
