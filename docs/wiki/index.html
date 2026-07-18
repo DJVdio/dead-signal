@@ -190,6 +190,13 @@
   th.stick0 { position: sticky; left: 0; z-index: 3; }
   th.stick1 { position: sticky; left: 34px; z-index: 3; }
 
+  /* 表头拖拽重排列顺序：可拖的列给抓握手势；拖动中的源列淡出；落点用侧边高亮示意插到前/后。 */
+  th.col-draggable { cursor: grab; }
+  th.col-draggable:active { cursor: grabbing; }
+  th.col-dragging { opacity: 0.4; }
+  th.col-drop-before { box-shadow: inset 2px 0 0 var(--accent); }
+  th.col-drop-after  { box-shadow: inset -2px 0 0 var(--accent); }
+
   .chip {
     display: inline-block; padding: 1px 7px; border-radius: 3px;
     font-size: 11px; border: 1px solid transparent;
@@ -857,6 +864,34 @@ function visibleRows(noSort) {
   return rows;
 }
 
+// ── 表头拖拽重排列顺序 ──────────────────────────────────────────
+// 只重排「可见、非 internal、非主键(primary)」列的相对顺序：图标列与主键列靠写死像素做左侧粘性冻结，
+// 一旦被挪走粘性偏移就错位 ⇒ 它们锁死在最左、不参与拖拽。internal 列(_id/_configId/_anchor/_icon)是
+// 双向联动锚点，绝不动它们在数组里的位置。重排直接改 S.cats[id].columns 的元素顺序 → 走既有 save 链
+// PUT 回 data/<file>，wiki-serve.py 原样落盘 ⇒ 列序永久写回；config 投影按 configKey 认字段、与列序无关。
+let _dragColKey = null;   // 当前被拖起的列 key
+
+/** 清掉所有表头上的落点高亮（拖动过程中会在多个 th 间移动，收尾统一抹掉）。 */
+function clearDropMarks() {
+  document.querySelectorAll("th.col-drop-before, th.col-drop-after")
+    .forEach((el) => el.classList.remove("col-drop-before", "col-drop-after"));
+}
+
+/** 把 cat.columns 里 srcKey 那一列移到 tgtKey 之前(after=false)或之后(after=true)。
+ *  只搬动被拖的这一个元素；主键/internal 列的数组位置全部保持不变（splice 单元素移动不会丢锚点）。*/
+function reorderColumn(cat, srcKey, tgtKey, after) {
+  if (srcKey === tgtKey) return false;
+  const cols = cat.columns;
+  const srcIdx = cols.findIndex((c) => c.key === srcKey);
+  if (srcIdx < 0) return false;
+  const [moved] = cols.splice(srcIdx, 1);
+  let tgtIdx = cols.findIndex((c) => c.key === tgtKey);   // splice 后重新定位目标
+  if (tgtIdx < 0) { cols.splice(srcIdx, 0, moved); return false; }  // 目标没了：还原
+  const at = after ? tgtIdx + 1 : tgtIdx;
+  cols.splice(at, 0, moved);
+  return true;
+}
+
 function renderTable() {
   const c = S.cats[S.current];
   const cfg = GROUP_VIEWS[S.current];
@@ -913,13 +948,58 @@ function renderTable() {
       a.textContent = s.dir === "asc" ? "▲" : "▼";
       th.appendChild(a);
     }
+    let suppressClick = false;   // 真拖过一次就吞掉紧跟的 sort click（区分点击=排序 vs 拖动=重排）
     th.onclick = () => {
+      if (suppressClick) { suppressClick = false; return; }
       const cur = S.sort[S.current];
       if (!cur || cur.key !== col.key) S.sort[S.current] = { key: col.key, dir: "asc" };
       else if (cur.dir === "asc") S.sort[S.current] = { key: col.key, dir: "desc" };
       else delete S.sort[S.current];
       renderTable();
     };
+
+    // 冻结列(图标/主键)与 internal 列锁死，不可拖；其余可见列表头可拖拽重排。
+    if (!col.primary && !col.internal) {
+      th.classList.add("col-draggable");
+      th.draggable = true;
+      th.dataset.colKey = col.key;
+      th.ondragstart = (e) => {
+        _dragColKey = col.key;
+        suppressClick = true;
+        th.classList.add("col-dragging");
+        e.dataTransfer.effectAllowed = "move";
+        try { e.dataTransfer.setData("text/plain", col.key); } catch (_) {}
+      };
+      th.ondragend = () => {
+        _dragColKey = null;
+        th.classList.remove("col-dragging");
+        clearDropMarks();
+      };
+      th.ondragover = (e) => {
+        if (_dragColKey === null || _dragColKey === col.key) return;
+        e.preventDefault();                       // 允许 drop
+        e.dataTransfer.dropEffect = "move";
+        const rect = th.getBoundingClientRect();
+        const after = (e.clientX - rect.left) > rect.width / 2;
+        clearDropMarks();
+        th.classList.add(after ? "col-drop-after" : "col-drop-before");
+      };
+      th.ondragleave = () => {
+        th.classList.remove("col-drop-before", "col-drop-after");
+      };
+      th.ondrop = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        clearDropMarks();
+        if (_dragColKey === null || _dragColKey === col.key) return;
+        const rect = th.getBoundingClientRect();
+        const after = (e.clientX - rect.left) > rect.width / 2;
+        if (reorderColumn(S.cats[S.current], _dragColKey, col.key, after)) {
+          renderTable();      // 重排后 columns 与快照的列序不同 ⇒ isDirty 判脏、保存钮点亮
+        }
+        _dragColKey = null;
+      };
+    }
     tr.appendChild(th);
   });
 
@@ -1602,9 +1682,13 @@ function rowDirty(i) {
   return Object.keys(b).some((k) => norm(a[k]) !== norm(b[k]));
 }
 
+// 列 key 的顺序签名——用于把「纯列序重排」也纳入判脏（isDirty 原来只比 rows，列序改了不会标脏、存不回）。
+const colOrderSig = (cat) => (cat && cat.columns ? cat.columns.map((c) => c.key).join("") : "");
+
 function isDirty(id) {
   if (!S.cats[id] || !S.orig[id]) return false;
-  return JSON.stringify(S.cats[id].rows) !== JSON.stringify(S.orig[id].rows);
+  if (JSON.stringify(S.cats[id].rows) !== JSON.stringify(S.orig[id].rows)) return true;
+  return colOrderSig(S.cats[id]) !== colOrderSig(S.orig[id]);   // 列顺序变了也算脏
 }
 const norm = (v) => (v === null || v === undefined ? "" : String(v));
 
@@ -1630,10 +1714,13 @@ function countDirtyCells() {
 function updateDirtyUi() {
   const cats = dirtyCats();
   const cells = countDirtyCells();
-  $("#dirty-summary").textContent = cells ? `${cells} 处改动 · ${cats.length} 个分区` : "";
-  $("#btn-save").disabled = !cells || !S.online;
-  $("#btn-revert").disabled = !cells;
-  $("#btn-save").title = !S.online && cells ? "没连上本地服务，存不了 —— 用「导出 JSON」" : "";
+  // cells 只数「行/单元格」改动；纯列序重排 cells=0 但 cats 非空 ⇒ 也得点亮保存并给出提示。
+  $("#dirty-summary").textContent = cells
+    ? `${cells} 处改动 · ${cats.length} 个分区`
+    : (cats.length ? `列顺序已改 · ${cats.length} 个分区` : "");
+  $("#btn-save").disabled = !cats.length || !S.online;
+  $("#btn-revert").disabled = !cats.length;
+  $("#btn-save").title = !S.online && cats.length ? "没连上本地服务，存不了 —— 用「导出 JSON」" : "";
 }
 
 // ═══════════════════════════════════════════════════════════════════
