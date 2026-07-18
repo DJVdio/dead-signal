@@ -4691,6 +4691,28 @@ window.WIKI_BUNDLE = {
       "userNote": "",
       "sync": "",
       "_icon": "materials/leather"
+    },
+    {
+      "name": "护踝鞋具",
+      "category": "杂项",
+      "productType": "护甲/服装",
+      "group": "护甲/服装",
+      "output": "ankle_guard",
+      "outputQty": 1,
+      "materials": "皮革*2、绳子*1",
+      "tools": "",
+      "craftLocation": "工作台（徒手）",
+      "books": "《尖峰时刻》",
+      "workMinutes": 80,
+      "crafterGate": "",
+      "_id": "ankle_guard",
+      "_configId": "ankle_guard",
+      "_crafterGateIds": "",
+      "_anchor": "godot/scripts/Recipe.cs :: RecipeBook（Id = \"ankle_guard\"）",
+      "description": "",
+      "userNote": "",
+      "sync": "",
+      "_icon": "armor/ankle_guard"
     }
   ]
 },

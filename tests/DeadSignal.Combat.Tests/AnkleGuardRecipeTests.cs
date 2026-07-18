@@ -1,5 +1,9 @@
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Runtime.CompilerServices;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using DeadSignal.Combat;
 using DeadSignal.Godot;
 using Xunit;
@@ -73,5 +77,59 @@ public class AnkleGuardRecipeTests
         Assert.True(def.Paired);
         Assert.Contains(EquipSlot.LeftFoot, def.Slots);
         Assert.Contains(EquipSlot.RightFoot, def.Slots);
+    }
+
+    [Fact]
+    public void Wiki数据_index和bundle_收录护踝鞋具并保持一致()
+    {
+        string dataDir = Path.Combine(RepoRoot(), "docs", "wiki", "data");
+        string recipesText = File.ReadAllText(Path.Combine(dataDir, "recipes.json"));
+        using JsonDocument recipes = JsonDocument.Parse(recipesText);
+        JsonElement row = recipes.RootElement.GetProperty("rows")
+            .EnumerateArray()
+            .SingleOrDefault(r => r.GetProperty("_id").GetString() == "ankle_guard");
+
+        Assert.NotEqual(JsonValueKind.Undefined, row.ValueKind);
+        Assert.Equal("护踝鞋具", row.GetProperty("name").GetString());
+        Assert.Equal("杂项", row.GetProperty("category").GetString());
+        Assert.Equal("护甲/服装", row.GetProperty("productType").GetString());
+        Assert.Equal("ankle_guard", row.GetProperty("output").GetString());
+        Assert.Equal(1, row.GetProperty("outputQty").GetInt32());
+        Assert.Equal("皮革*2、绳子*1", row.GetProperty("materials").GetString());
+        Assert.Equal("工作台（徒手）", row.GetProperty("craftLocation").GetString());
+        Assert.Equal("《尖峰时刻》", row.GetProperty("books").GetString());
+        Assert.Equal(80, row.GetProperty("workMinutes").GetInt32());
+        Assert.Equal("armor/ankle_guard", row.GetProperty("_icon").GetString());
+
+        using JsonDocument index = JsonDocument.Parse(File.ReadAllText(Path.Combine(dataDir, "index.json")));
+        JsonElement indexCategory = index.RootElement.GetProperty("categories")
+            .EnumerateArray()
+            .Single(c => c.GetProperty("id").GetString() == "recipes");
+        int rowCount = recipes.RootElement.GetProperty("rows").GetArrayLength();
+        Assert.Equal(57, rowCount);
+        Assert.Equal(rowCount, indexCategory.GetProperty("count").GetInt32());
+
+        string bundleText = File.ReadAllText(Path.Combine(dataDir, "bundle.js"));
+        const string recipesMarker = "    \"recipes\": ";
+        int recipesStart = bundleText.IndexOf(recipesMarker, StringComparison.Ordinal);
+        int recipesEnd = bundleText.IndexOf(",\n    \"lights\":", recipesStart, StringComparison.Ordinal);
+        Assert.True(recipesStart >= 0 && recipesEnd > recipesStart, "bundle.js 应包含可提取的 recipes 分区");
+        using JsonDocument bundleRecipes = JsonDocument.Parse(
+            bundleText[(recipesStart + recipesMarker.Length)..recipesEnd]);
+        Assert.Equal(rowCount, bundleRecipes.RootElement.GetProperty("rows").GetArrayLength());
+        Assert.True(JsonNode.DeepEquals(JsonNode.Parse(recipesText), JsonNode.Parse(bundleRecipes.RootElement.GetRawText())));
+        Assert.Contains("\"id\": \"recipes\",\n      \"label\": \"配方\",\n      \"file\": \"recipes.json\",\n      \"count\": 57,", bundleText);
+    }
+
+    private static string RepoRoot([CallerFilePath] string thisFile = "")
+    {
+        for (DirectoryInfo? d = new(File.Exists(thisFile) ? Path.GetDirectoryName(thisFile)! : thisFile);
+             d is not null;
+             d = d.Parent)
+        {
+            if (Directory.Exists(Path.Combine(d.FullName, "docs", "wiki", "data"))) return d.FullName;
+        }
+
+        throw new DirectoryNotFoundException("从测试文件位置向上未找到仓库根（docs/wiki/data）");
     }
 }

@@ -11,7 +11,7 @@ namespace DeadSignal.Combat.Tests;
 /// <summary>
 /// 【消费层数值外置 · 材料重量的零漂移 A/B 焊死】config-materials 单。
 /// <para>
-/// <c>ItemRegistry.Materials</c>（原 47 条 <c>Dictionary&lt;string,double&gt;</c> 字面表）的<b>重量数值</b>已搬到
+/// <c>ItemRegistry.Materials</c>（原 47 条、现 53 条 <c>Dictionary&lt;string,double&gt;</c> 字面表）的<b>重量数值</b>已搬到
 /// <c>godot/data/config/materials.json</c>；<c>ItemRegistry.Materials</c> 现在启动时从
 /// <c>GameConfigCatalog.Section&lt;MaterialConfig&gt;().Weights</c> <b>拷贝</b>成一份独立 <c>Dictionary</c>
 /// （字段类型/引用语义保持不变——<c>CarryWeight._materialKg</c> 仍以别名引同一实例，见 <see cref="CarryCapacityTests"/>）。
@@ -19,7 +19,7 @@ namespace DeadSignal.Combat.Tests;
 /// </para>
 /// <list type="number">
 ///   <item><b>接线活着</b>：首次访问 <c>ItemRegistry.Materials</c> 触发 catalog 懒加载成功。</item>
-///   <item><b>字面值锚定（A/B）</b>：47 条重量逐条位级断言 == 迁移前原始字面（double 用 <see cref="BitConverter.DoubleToInt64Bits"/>），且键集与条数完全一致。</item>
+///   <item><b>字面值锚定（A/B）</b>：53 条重量逐条位级断言 == 已确认配置值（double 用 <see cref="BitConverter.DoubleToInt64Bits"/>），且键集与条数完全一致。</item>
 ///   <item><b>取用点确实读 catalog</b>：<c>ItemRegistry.Materials</c> 每条 == catalog 段值（证明委托到配置、非残留字面）。</item>
 ///   <item><b>往返保真</b>：段序列化→反序列化，逐条位级相等 ⇒ 加载器不丢精度（值无关，永久护栏）。</item>
 ///   <item><b>反射加载盘上文件</b>：GameConfigFiles 定位的 materials.json 经 FromJson 解析 == golden。</item>
@@ -81,7 +81,13 @@ public sealed class MaterialConfigMigrationTests
         { "ammo_short", 0.01 },
         { "ammo_medium", 0.02 },
         { "ammo_buck", 0.05 },
+        { "ammo_long", 0.03 },
         { "ammo_arrow_heavy", 0.05 },
+        { "ammo_arrow_stick", 0.03 },
+        { "ammo_arrow_handmade", 0.03 },
+        { "ammo_arrow_carbon", 0.03 },
+        { "dandelion_tea", 0.5 },
+        { "rosehip_tea", 0.5 },
         { "silver", 0.01 },
     };
 
@@ -93,7 +99,7 @@ public sealed class MaterialConfigMigrationTests
         Assert.NotEmpty(mats);
     }
 
-    // ── 字面值锚定（A/B）：47 条 × 位级 == 迁移前原始字面，键集/条数完全一致 ────────────────
+    // ── 字面值锚定（A/B）：53 条 × 位级 == 已确认配置值，键集/条数完全一致 ────────────────
     [Fact]
     public void Weights_match_original_literals()
     {
@@ -179,7 +185,8 @@ public sealed class MaterialConfigMigrationTests
         BitEqual(Golden["iron"], ItemWeights.MaterialKg("iron"));       // 1.5：const 键解析后的登记值
         BitEqual(Golden["feather"], ItemWeights.MaterialKg("feather")); // 0.02：全表最轻
         BitEqual(ItemWeights.DefaultMaterialKg, ItemWeights.MaterialKg("__unregistered__")); // 未登记回落 0.5
-        BitEqual(ItemWeights.AmmoPerRoundKg, ItemWeights.MaterialKg("ammo_long"));           // 未登记 ammo_ 兜底 0.03
+        BitEqual(Golden["ammo_long"], ItemWeights.MaterialKg("ammo_long"));                 // 审计项：显式登记 0.03
+        BitEqual(ItemWeights.AmmoPerRoundKg, ItemWeights.MaterialKg("ammo_unregistered"));   // 未登记 ammo_ 仍走兜底 0.03
     }
 
     // ── helpers ──────────────────────────────────────────────────────────────

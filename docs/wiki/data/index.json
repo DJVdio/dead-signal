@@ -82,7 +82,7 @@
       "id": "recipes",
       "label": "配方",
       "file": "recipes.json",
-      "count": 56,
+      "count": 57,
       "source": "godot/scripts/Recipe.cs"
     },
     {

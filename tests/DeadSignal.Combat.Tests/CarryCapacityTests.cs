@@ -147,7 +147,7 @@ public class CarryCapacityTests
     }
 
     [Fact]
-    public void ItemWeight_Ammo_PerCaliberWeightsMatchUserTable()
+    public void ItemWeight_AuditedAmmoAndTea_HaveExplicitWeights()
     {
         // 用户在 wiki 弹药表上逐口径改了重量：短 0.01 / 中 0.02 / 鹿 0.05。
         Assert.Equal(0.01, ItemWeights.MaterialKg("ammo_short"), 6);
@@ -158,11 +158,24 @@ public class CarryCapacityTests
         Assert.Equal(0.05, ItemWeights.MaterialKg("ammo_arrow_heavy"), 6);
         Assert.NotEqual(ItemWeights.AmmoPerRoundKg, ItemWeights.MaterialKg("ammo_arrow_heavy"));
 
-        // 其余三种箭仍无单独登记 ⇒ 走 AmmoPerRoundKg(=0.03) 兜底（与 wiki 的 0.03 一致）。
-        Assert.Equal(ItemWeights.AmmoPerRoundKg, ItemWeights.MaterialKg("ammo_arrow_stick"), 6);
-        Assert.Equal(ItemWeights.AmmoPerRoundKg, ItemWeights.MaterialKg("ammo_arrow_handmade"), 6);
-        Assert.Equal(ItemWeights.AmmoPerRoundKg, ItemWeights.MaterialKg("ammo_arrow_carbon"), 6);
-        Assert.Equal(ItemWeights.AmmoPerRoundKg, ItemWeights.MaterialKg("ammo_long"), 6);
+        // 审计确认的弹药与茶必须有显式登记；即使弹药值恰好等于旧兜底，也不能靠返回值判断登记是否存在。
+        var expected = new Dictionary<string, double>
+        {
+            ["ammo_long"] = 0.03,
+            ["ammo_arrow_stick"] = 0.03,
+            ["ammo_arrow_handmade"] = 0.03,
+            ["ammo_arrow_carbon"] = 0.03,
+            ["dandelion_tea"] = 0.5,
+            ["rosehip_tea"] = 0.5,
+        };
+
+        foreach (var (key, expectedKg) in expected)
+        {
+            Assert.True(ItemRegistry.Materials.TryGetValue(key, out double registeredKg),
+                $"{key} 未显式登记进 ItemRegistry.Materials（会静默走默认/弹药兜底）");
+            Assert.Equal(expectedKg, registeredKg, 6);
+            Assert.Equal(expectedKg, ItemWeights.MaterialKg(key), 6);
+        }
     }
 
     /// <summary>
@@ -442,11 +455,11 @@ public class CarryCapacityTests
         Assert.Same(ItemRegistry.Materials, Field("_materialKg"));
         Assert.Same(ItemRegistry.Armor, Field("_armorKg"));
 
-        // 分区规模钉桩（武器 25 / 材料 47[干豆删除后 48→47] / 护甲 32[+护踝鞋具 T72 +防弹背心·警察局] = 全表 104）——防止别处误插/误删一整类。
+        // 分区规模钉桩（武器 25 / 材料 53[审计补齐 6 个弹药与茶] / 护甲 32 = 全表 110）——防止别处误插/误删一整类。
         Assert.Equal(25, ItemRegistry.Weapons.Count);
-        Assert.Equal(47, ItemRegistry.Materials.Count);
+        Assert.Equal(53, ItemRegistry.Materials.Count);
         Assert.Equal(32, ItemRegistry.Armor.Count);
-        Assert.Equal(104, ItemRegistry.All.Count());
+        Assert.Equal(110, ItemRegistry.All.Count());
     }
 
     /// <summary>

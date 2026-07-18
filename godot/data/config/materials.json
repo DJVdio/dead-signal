@@ -21,6 +21,8 @@
   "bandage": 0.1,
   "herbal_bandage": 0.1,
   "herbal_salve": 0.1,
+  "dandelion_tea": 0.5,
+  "rosehip_tea": 0.5,
   "needle_thread": 0.05,
   "antibiotics": 0.05,
   "medicine": 0.05,
@@ -45,5 +47,9 @@
   "ammo_medium": 0.02,
   "ammo_buck": 0.05,
   "ammo_arrow_heavy": 0.05,
+  "ammo_long": 0.03,
+  "ammo_arrow_stick": 0.03,
+  "ammo_arrow_handmade": 0.03,
+  "ammo_arrow_carbon": 0.03,
   "silver": 0.01
 }

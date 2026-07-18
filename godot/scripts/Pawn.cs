@@ -675,6 +675,10 @@ public sealed partial class Pawn : Actor
             ArmorTable.ClothJacket(), ArmorTable.DenimJacket(), ArmorTable.LeatherJacket(),
             ArmorTable.ChestPlate(), ArmorTable.Leather(), ArmorTable.Plate(),
             ArmorTable.MilitaryHelmet(), ArmorTable.RiotHelmet(), ArmorTable.WorkGloves(),
+            ArmorTable.WarMask(), ArmorTable.CottonHat(),
+            ArmorTable.CoarseClothShirt(), ArmorTable.CoarseShorts(), ArmorTable.CoarseTrousers(),
+            ArmorTable.HorrorArmor(), ArmorTable.Sunglasses(), ArmorTable.PlainGlasses(),
+            ArmorTable.SelfMadeSnowGoggles(), ArmorTable.AnkleGuard(), ArmorTable.BallisticVest(),
         })
         {
             d[l.Name] = l;
