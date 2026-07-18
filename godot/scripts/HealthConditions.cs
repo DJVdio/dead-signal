@@ -1022,7 +1022,7 @@ public sealed class HealthConditionSet
     /// </param>
     /// <param name="healSpeedMultiplier">
     /// 全营**身体恢复速度**乘子（<b>默认 1.0＝无影响</b>，既有调用零回归）：承载 authored 专属效果对愈合**速度**的百分比加成——
-    /// 现阶段唯一来源是**山姆 L3 光环 +3%**（×1.03，见 <c>SamPerk.CampHealSpeedMultiplier</c>）。
+    /// 当前山姆 authored 效果是本人 L2 ×1.30（见 <c>SamPerk.PersonalHealSpeedMultiplier</c>），由调用方按人传入。
     /// 只作用术后流血/骨折的逐日愈合量，不改恶化/感染几率。
     /// 与 <paramref name="restedInBed"/>/<paramref name="extraHealBonusPct"/> 那条**恢复效率点数池**的轴（连乘合成后加到恢复效率点数上）
     /// 是**正交两轴**：本条是最终愈合量的**乘子**（用户口径"恢复速度 +3%"＝速度的百分比，非效率 +3 点）。
@@ -1045,7 +1045,7 @@ public sealed class HealthConditionSet
     /// 对骨折两轴**连乘**（用户 wiki 字面写「骨折恢复」，非全身恢复，故出血不吃本轴）。
     /// </param>
     public HealthTickResult TickDay(IRandomSource rng, bool resting, bool restedInBed = false, double infectionChanceMultiplier = 1.0, double extraHealBonusPct = 0.0, double healSpeedMultiplier = 1.0,
-        double? restFraction = null, double? bedFraction = null, double fractureHealSpeedMultiplier = 1.0)
+        double? restFraction = null, double? bedFraction = null, double fractureHealSpeedMultiplier = 1.0, double? bedSleepHealBonusPct = null)
     {
         if (IsDead)
         {
@@ -1062,8 +1062,8 @@ public sealed class HealthConditionSet
         double restHealMult = 1.0 + (RestHealBonus - 1.0) * rf;
         // 端点校验：rf=1 → RestWorsenFactor(0.5)；rf=0 → 1.0。与旧 `(resting ? RestWorsenFactor : 1.0)` 同值。
         double restWorsenMult = 1.0 - (1.0 - RestWorsenFactor) * rf;
-        // 端点校验：bf=1 → BedSleepHealBonusPct(10)；bf=0 → 0。与旧 `(restedInBed ? BedSleepHealBonusPct : 0.0)` 同值。
-        double bedBonusPct = BedSleepHealBonusPct * bf;
+        // 端点校验：bf=1 → 默认 BedSleepHealBonusPct(10)；调用方可用 bedSleepHealBonusPct 覆盖（南丁格尔 L2=20）；bf=0 → 0。
+        double bedBonusPct = (bedSleepHealBonusPct ?? BedSleepHealBonusPct) * bf;
 
         var events = new List<HealthTickEvent>();
         var maimed = new List<string>();
@@ -1085,7 +1085,7 @@ public sealed class HealthConditionSet
                     {
                         // 已手术：按恢复效率愈合。睡床与玫瑰果茶是同池的两条百分比加成 → **来源之间连乘**（通则「百分比加成一律乘算」）：
                         // 池贡献折成点数 EfficiencyPoolBonusPct(睡床,玫瑰果茶)=100×((1+10%)(1+9%)−1)，加到恢复效率上。单来源逐比特等价旧加算、多来源才乘算增益。
-                        // healSpeedMultiplier（山姆 L3 光环 ×1.03）是**另一轴**：最终愈合量的乘子，与上面的点数池正交。
+                        // healSpeedMultiplier（例如山姆本人 L2 ×1.30）是**另一轴**：最终愈合量的乘子，与上面的点数池正交。
                         double effPct = c.RecoveryEfficiency + EfficiencyPoolBonusPct(bedBonusPct, extraHealBonusPct);
                         double heal = BleedHealPerDay * (effPct / 100.0) * restHealMult * Math.Max(0.0, healSpeedMultiplier);
                         c.AddSeverity(-heal);
@@ -1380,7 +1380,7 @@ public static class BloodRecovery
     /// 本昼夜应回复的血量。
     ///
     /// <para>量 = <see cref="BleedModel.BloodRegenPerRestDay"/>(10) × 休养占比 × 睡床加成
-    /// （复用既有 <see cref="HealthConditionSet.BedSleepHealBonusPct"/>=10 个百分点，**加算、同族**，不另起炉灶）。
+    /// （默认复用既有 <see cref="HealthConditionSet.BedSleepHealBonusPct"/>=10 个百分点；调用方可传入南丁格尔 L2 的 20，**加算、同族**，不另起炉灶）。
     /// 70 储血 ÷ 10 = **7 昼夜从零回满**，与「骨折愈合 7 昼夜」同量级（占床、不能干活、不能站岗）。</para>
     /// </summary>
     /// <param name="restFraction">本昼夜休养占比 0..1（来自 <c>RestLedger</c>）。0 = 没休养 ⇒ 不回血。</param>
@@ -1390,7 +1390,7 @@ public static class BloodRecovery
     /// 🔴 <b>还在流就不回血</b>：边流边补是自欺欺人，也会架空用户「任何时候只要伤口没被手术治疗就会流血」这条规则。
     /// ⇒ **必须先手术缝合，才谈得上养回来。**
     /// </param>
-    public static double PerRestDay(double restFraction, double bedFraction, bool hasOpenWound)
+    public static double PerRestDay(double restFraction, double bedFraction, bool hasOpenWound, double? bedSleepHealBonusPct = null)
     {
         if (hasOpenWound)
         {
@@ -1403,7 +1403,7 @@ public static class BloodRecovery
             return 0; // 没休养就没有回血——干活/站岗的人不回血
         }
 
-        double bedBonus = 1.0 + (HealthConditionSet.BedSleepHealBonusPct / 100.0) * Math.Clamp(bedFraction, 0, 1);
+        double bedBonus = 1.0 + ((bedSleepHealBonusPct ?? HealthConditionSet.BedSleepHealBonusPct) / 100.0) * Math.Clamp(bedFraction, 0, 1);
         return BleedModel.BloodRegenPerRestDay * rest * bedBonus;
     }
 }

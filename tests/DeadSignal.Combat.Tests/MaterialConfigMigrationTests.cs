@@ -57,7 +57,7 @@ public sealed class MaterialConfigMigrationTests
         { "nails", 0.05 },
         { "bandage", 0.1 },
         { "herbal_bandage", 0.1 },
-        { "herbal_salve", 0.1 },
+        { "herbal_salve", 0.15 },
         { "needle_thread", 0.05 },
         { "antibiotics", 0.05 },
         { "medicine", 0.05 },
@@ -86,8 +86,8 @@ public sealed class MaterialConfigMigrationTests
         { "ammo_arrow_stick", 0.03 },
         { "ammo_arrow_handmade", 0.03 },
         { "ammo_arrow_carbon", 0.03 },
-        { "dandelion_tea", 0.5 },
-        { "rosehip_tea", 0.5 },
+        { "dandelion_tea", 0.25 },
+        { "rosehip_tea", 0.25 },
         { "silver", 0.01 },
     };
 

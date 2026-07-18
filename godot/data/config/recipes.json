@@ -11,7 +11,7 @@
     "OutputQuantity": 1,
     "WorkMinutes": 90,
     "MaterialCosts": {
-      "cloth": 4
+      "cloth": 2
     }
   },
   "cloth_jacket": {
@@ -90,7 +90,7 @@
     "WorkMinutes": 60,
     "MaterialCosts": {
       "fuel": 1,
-      "stone": 1
+      "glue": 1
     }
   },
   "handmade_bow": {
@@ -107,7 +107,7 @@
     "MaterialCosts": {
       "iron": 4,
       "wood": 2,
-      "components": 2
+      "weapon_parts": 3
     }
   },
   "improvised_shotgun": {
@@ -116,7 +116,7 @@
     "MaterialCosts": {
       "iron": 3,
       "wood": 2,
-      "components": 1
+      "weapon_parts": 3
     }
   },
   "mod_bench": {
@@ -200,13 +200,12 @@
     "WorkMinutes": 180,
     "MaterialCosts": {
       "wood": 3,
-      "rope": 1,
-      "leather": 1
+      "rope": 2
     }
   },
   "longbow": {
     "OutputQuantity": 1,
-    "WorkMinutes": 240,
+    "WorkMinutes": 300,
     "MaterialCosts": {
       "wood": 5,
       "rope": 2
@@ -219,15 +218,15 @@
       "wood": 2,
       "iron": 2,
       "rope": 1,
-      "weapon_parts": 2
+      "weapon_parts": 1
     }
   },
   "heavy_crossbow": {
     "OutputQuantity": 1,
     "WorkMinutes": 320,
     "MaterialCosts": {
-      "wood": 4,
-      "iron": 4,
+      "wood": 6,
+      "iron": 3,
       "rope": 2,
       "weapon_parts": 3
     }
@@ -301,7 +300,7 @@
     "OutputQuantity": 1,
     "WorkMinutes": 50,
     "MaterialCosts": {
-      "cloth": 3
+      "cloth": 2
     }
   },
   "dog_leather_vest": {
@@ -357,7 +356,7 @@
     "OutputQuantity": 1,
     "WorkMinutes": 60,
     "MaterialCosts": {
-      "cloth": 3
+      "cloth": 4
     }
   },
   "cotton_hat": {
@@ -378,7 +377,7 @@
     "OutputQuantity": 1,
     "WorkMinutes": 70,
     "MaterialCosts": {
-      "cloth": 3
+      "cloth": 4
     }
   },
   "axe": {
@@ -386,7 +385,8 @@
     "WorkMinutes": 180,
     "MaterialCosts": {
       "iron": 3,
-      "wood": 2
+      "wood": 3,
+      "nails": 3
     }
   },
   "horror_armor": {

@@ -322,7 +322,7 @@ public class ArcheryTests
     {
         var expected = new Dictionary<string, double>
         {
-            ["短弓"] = 2, ["反曲弓"] = 3, ["长弓"] = 4, ["竞技复合弓"] = 4, ["狩猎弓"] = 3,
+            ["短弓"] = 2, ["反曲弓"] = 3, ["长弓"] = 4, ["竞技复合弓"] = 4, ["狩猎弓"] = 3.5,
             ["单手轻弩"] = 4, ["双手重弩"] = 6, ["复合弩"] = 12,
         };
 
@@ -366,15 +366,15 @@ public class ArcheryTests
     }
 
     [Fact]
-    public void 生态位_长弓是射程之王_复合弩是精度之王()
+    public void 生态位_复合弩是射程与精度之王()
     {
         // 🔴 用户拍板（[DECISION] impl-archery-redo, journal 2026-07-15）：以 wiki 为准。
-        // wiki 新值下**复合弩散布 1.8° 全表最小**，「精度之王」由竞技复合弓（现 2.5°）易主为复合弩
-        // ——复合弩「精度之王 + 最慢」的 authored 生态位以 wiki 新值为新事实源（用户接受重洗）。
-        // 「射程之王」仍是长弓（480px）。
+        // wiki 接受值下复合弩同时拥有全表最远射程 550px 与最小散布 1.8°。
         Weapon[] bows = AllArchery();
 
-        Assert.Equal("长弓", bows.OrderByDescending(w => w.MaxRange!.Value).First().Name);
+        double maxRange = bows.Max(w => w.MaxRange!.Value);
+        Assert.Equal(550, maxRange);
+        Assert.Equal("复合弩", bows.OrderByDescending(w => w.MaxRange!.Value).First().Name);
         Assert.Equal("复合弩", bows.OrderBy(w => w.BaseSpreadDegrees).First().Name);
     }
 
@@ -383,7 +383,7 @@ public class ArcheryTests
     /// <para>
     /// 用户重设了两把弓的生态位（原话）：「竞技复合弓和狩猎弓是<b>同级别武器</b>，区别是
     /// <b>竞技复合弓远而准，狩猎弓快</b>」——狩猎弓从"慢、重、狠的伤害之王"改成了
-    /// <b>全表最快的弓</b>（冷却 1.6s、伤害仅 3~9）。它<b>不再</b>是伤害之王，这是<b>设计意图</b>，不是回归。
+    /// <b>全表最快的弓</b>（冷却 1.6s、伤害仅 3.5~9.75）。它<b>不再</b>是伤害之王，这是<b>设计意图</b>，不是回归。
     /// 狩猎弓的新人设（最快 + 近而糙）由 <c>BoneKnifeAndHuntingBowTests</c> 钉死。
     /// </para>
     /// <para>「复合弩是破甲之王」不受影响，保留。</para>

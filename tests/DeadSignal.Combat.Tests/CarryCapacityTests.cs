@@ -76,22 +76,21 @@ public class CarryCapacityTests
     }
 
     [Fact]
-    public void Limit_SamLevel3_SamHimself_ChainsMultiplicatively_Not_Additively()
+    public void Limit_SamLevel3_SamHimself_UsesPersonalCarryBonusOnly()
     {
-        // 用户拍板的乘算通则：山姆自己 = 二级 ×1.15 × 三级全营 ×1.03 **连乘**，不是加算的 ×1.18
+        // 当前 authored 语义：山姆 L1 起只有本人负重 ×1.15；L3 不再叠加退役的全营 +3% 光环。
         double mult = SamPerk.CarryCapacityMultiplier(3, isSam: true);
         double limit = CarryCapacity.For(1.0, mult);
 
-        Assert.Equal(80.0 * 1.15 * 1.03, limit, 6);
-        Assert.Equal(94.76, limit, 2);
-        Assert.NotEqual(80.0 * 1.18, limit, 6); // 防加算回潮（94.4 ≠ 94.76）
+        Assert.Equal(92.0, limit, 6); // 80 × 1.15
+        Assert.Equal(80.0 * 1.15, limit, 6);
     }
 
     [Fact]
-    public void Limit_SamLevel3_OtherSurvivors_OnlyGetCampAura()
+    public void Limit_SamLevel3_OtherSurvivors_DoNotGetRetiredCampAura()
     {
         double mult = SamPerk.CarryCapacityMultiplier(3, isSam: false);
-        Assert.Equal(82.4, CarryCapacity.For(1.0, mult), 6); // 80 × 1.03
+        Assert.Equal(80.0, CarryCapacity.For(1.0, mult), 6); // 当前页面没有全营负重效果
     }
 
     [Fact]
@@ -165,8 +164,8 @@ public class CarryCapacityTests
             ["ammo_arrow_stick"] = 0.03,
             ["ammo_arrow_handmade"] = 0.03,
             ["ammo_arrow_carbon"] = 0.03,
-            ["dandelion_tea"] = 0.5,
-            ["rosehip_tea"] = 0.5,
+            ["dandelion_tea"] = 0.25,
+            ["rosehip_tea"] = 0.25,
         };
 
         foreach (var (key, expectedKg) in expected)

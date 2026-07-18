@@ -91,6 +91,11 @@ public abstract partial class Actor : CharacterBody2D
     /// <summary>注入 authored 移速乘子 lambda（皮特按等级现算）。null 清除（＝1.0，零回归）。</summary>
     public void SetAuthoredMoveSpeedMult(System.Func<double>? f) => _authoredMoveSpeedMult = f;
 
+    /// <summary>authored 攻击速度乘子（1.0 = 无影响）：有效间隔除以该值。空值=1.0。</summary>
+    private System.Func<double>? _authoredAttackSpeedMult;
+
+    public void SetAuthoredAttackSpeedMult(System.Func<double>? f) => _authoredAttackSpeedMult = f;
+
     /// <summary>
     /// 当前持握态，供攻速/误差角消费（<see cref="GripCombat"/>）。<see cref="Pawn"/> 走其 <see cref="Pawn.Grip"/>
     /// （左右手持械推导）；其余单位（丧尸/劫掠者等无持械模型）恒 <see cref="GripMode.OneHanded"/>（系数 ×1.0，零回归）。
@@ -167,6 +172,22 @@ public abstract partial class Actor : CharacterBody2D
 
     /// <summary>震荡抗性剩余时长（秒，覆盖打断+首轮重走冷却）；&gt;0 时再次被震荡的触发概率×ConcussionResistFactor（防死锁）。</summary>
     private double _concussionResistTimer;
+
+    /// <summary>角色专属震荡触发概率乘子（Sam L3 等）；null=1.0。</summary>
+    private System.Func<double>? _concussionChanceMultProvider;
+
+    /// <summary>角色专属大流血降级开关（Sam L3）；null=false。</summary>
+    private System.Func<bool>? _downgradeLargeBleedProvider;
+
+    /// <summary>角色专属骨折惩罚减轻值（Sam L3）；null=0，不改变基础骨折系数。</summary>
+    private System.Func<double>? _fracturePenaltyReductionProvider;
+
+    public void SetConcussionChanceMultiplier(System.Func<double>? f) => _concussionChanceMultProvider = f;
+
+    public void SetLargeBleedDowngradeProvider(System.Func<bool>? f) => _downgradeLargeBleedProvider = f;
+
+    public void SetFracturePenaltyReductionProvider(System.Func<double>? f) =>
+        _fracturePenaltyReductionProvider = f;
 
     /// <summary>
     /// 命中减速剩余时长（秒，通用/RimWorld stagger 式）；&gt;0 时移速×StaggerSpeedMult。
@@ -510,9 +531,11 @@ public abstract partial class Actor : CharacterBody2D
         // 再乘饥饿因子：有效能力 = (1−残疾) × (1−饥饿)，饿越狠移动越慢（丧尸 HungerAbilityPenalty=0，等价原样）。
         double mobility = HungerState.CombineCapability(
             Body.DisabilityModifiers.MobilityPenalty, HungerAbilityPenalty);
-        // 下肢骨折 → 移动能力×0.7（未治疗）/×0.85（已治疗，用户口径）；两下肢乘算叠加、锁下限。与残疾/饥饿相互独立叠乘。
+        double fracturePenaltyReduction = _fracturePenaltyReductionProvider?.Invoke() ?? 0.0;
+        // 下肢骨折 → 移动能力×0.7（未治疗）/×0.85（已治疗，用户口径）；Sam L3 按惩罚缺口减轻 30%，两下肢乘算叠加、锁下限。
         mobility *= Body.LowerLimbFractureMobilityFactor(
-            CombatEffectCfg.LegFractureMobilityMult, CombatEffectCfg.LegFractureHealedMobilityMult,
+            SamPerk.ApplyFracturePenaltyReduction(CombatEffectCfg.LegFractureMobilityMult, fracturePenaltyReduction),
+            SamPerk.ApplyFracturePenaltyReduction(CombatEffectCfg.LegFractureHealedMobilityMult, fracturePenaltyReduction),
             CombatEffectCfg.FractureCapabilityFloor);
         // 战斗移动减速：震荡硬打断 ×0.1（−90%，重）与命中减速 ×0.6（−40%，通用/RimWorld stagger 式）。
         // 二者并存则乘算，但整体封底 ConcussionMoveSlowFactor（0.1）——命中减速不再把已处震荡的移速进一步压低
@@ -636,9 +659,12 @@ public abstract partial class Actor : CharacterBody2D
     {
         double operation = HungerState.CombineCapability(
             Body.DisabilityModifiers.OperationPenalty, HungerAbilityPenalty);
-        // 上肢骨折 → 操作能力×0.7（未治疗）/×0.85（已治疗，含攻速，持久，用户口径）；两上肢乘算叠加、锁下限。对齐 Duel.EffectiveInterval。
+        double fracturePenaltyReduction = _fracturePenaltyReductionProvider?.Invoke() ?? 0.0;
+        // 上肢骨折 → 操作能力×0.7（未治疗）/×0.85（已治疗，含攻速，持久，用户口径）；Sam L3 按惩罚缺口减轻 30%。
+        // 两上肢乘算叠加、锁下限。对齐 Duel.EffectiveInterval。
         operation *= Body.UpperLimbFractureOperationFactor(
-            CombatEffectCfg.HandFractureOperationMult, CombatEffectCfg.HandFractureHealedOperationMult,
+            SamPerk.ApplyFracturePenaltyReduction(CombatEffectCfg.HandFractureOperationMult, fracturePenaltyReduction),
+            SamPerk.ApplyFracturePenaltyReduction(CombatEffectCfg.HandFractureHealedOperationMult, fracturePenaltyReduction),
             CombatEffectCfg.FractureCapabilityFloor);
         double interval = GripCombat.EffectiveInterval(baseCooldown ?? AttackCooldown, operation, ActiveGrip);
 
@@ -651,6 +677,9 @@ public abstract partial class Actor : CharacterBody2D
         // 刻意**不**并进上面的 operation 乘法——`Loadout` 明确写了负重不碰操作能力（那是残缺与饥饿的地盘，
         // 且负重上限本身已经乘过一遍操作能力，再扣一次就是双重惩罚）。故独立除在最后一层。
         // 修复前这一层不存在 ⇒ Loadout.AttackSpeedMultiplier 是死代码。基类恒 1.0 ⇒ 非 Pawn 单位零回归。
+        // authored 攻速同样是独立乘算轴（Bruce L2 等）：速度乘子 m ⇒ 间隔 ÷ m；未注入回落 1.0。
+        double authoredAttackSpeed = _authoredAttackSpeedMult is { } authoredAttack ? authoredAttack() : 1.0;
+        interval /= System.Math.Max(authoredAttackSpeed, Loadout.MinMultiplier);
         return interval / System.Math.Max(CarryLoadAttackSpeedMult, Loadout.MinMultiplier);
     }
 
@@ -1443,6 +1472,8 @@ public abstract partial class Actor : CharacterBody2D
             damageFactor *= inMult();
         // 震荡抗性：本单位处抗性窗内（吃过震荡、打断+首轮冷却未走完）→ 再次震荡触发概率打折（防死锁）。
         double concResist = _concussionResistTimer > 0 ? CombatEffectCfg.ConcussionResistFactor : 1.0;
+        if (_concussionChanceMultProvider is { } concussionMult)
+            concResist *= Math.Max(0.0, concussionMult());
         // 护甲后减伤（山姆 1 级"比常人耐揍"）：不折进 damageFactor（那是护甲前），单独喂进结算，甲吃完才乘。null → 0（零回归）。
         double postArmorReduction = _incomingDamageReduction is { } red ? red() : 0.0;
         // [T69] 护手挡格：持械手（含手指）被选为受击部位时，按几率整发否决。几率来自防御方（this）手里那把改装武器；
@@ -1451,6 +1482,10 @@ public abstract partial class Actor : CharacterBody2D
         double handGuardChance = AttackWeapon is null ? 0.0 : ModdedWeaponRegistry.HandGuardNegateChanceOf(AttackWeapon.Name);
         AttackOutcome hit = combat.ResolveHit(weapon, DefenderArmor, Body, damageFactor, concResist, postArmorReduction,
             handGuardChance, handGuardChance > 0 ? WeaponHandParts : null);
+        if (hit.Bled && _downgradeLargeBleedProvider?.Invoke() == true)
+        {
+            Body.DowngradeLargeBleed(hit.PartName);
+        }
         if (hit.Concussed)
         {
             ApplyConcussion(hit.ConcussionSeconds);

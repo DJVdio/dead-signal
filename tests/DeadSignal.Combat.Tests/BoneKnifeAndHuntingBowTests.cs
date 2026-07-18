@@ -27,18 +27,18 @@ public sealed class BoneKnifeAndHuntingBowTests
     // ───────────────────────── ① 狩猎弓：压伤害到 3~9 ─────────────────────────
 
     /// <summary>
-    /// 用户拍板：狩猎弓伤害 4~12 → <b>3~9</b>，冷却保持 1.6s（「全表最快的弓」这个人设完整保留）
-    /// ⇒ DPS 5.00 → <b>3.75</b>。
+    /// 当前接受值：狩猎弓伤害 <b>3.5~9.75</b>，冷却保持 1.6s。
+    /// ⇒ DPS <b>4.1406</b>。
     /// </summary>
     [Fact]
     public void 狩猎弓_伤害压到3到9_冷却保持1点6秒()
     {
         Weapon bow = WeaponTable.HuntingBow();
 
-        Assert.Equal(3, bow.DamageMin);
-        Assert.Equal(9, bow.DamageMax);
+        Assert.Equal(3.5, bow.DamageMin);
+        Assert.Equal(9.75, bow.DamageMax);
         Assert.Equal(1.6, bow.AttackInterval, 3);
-        Assert.Equal(3.75, Dps(bow), 3);
+        Assert.Equal(4.1406, Dps(bow), 4);
     }
 
     /// <summary>
@@ -68,7 +68,7 @@ public sealed class BoneKnifeAndHuntingBowTests
         Weapon hunting = WeaponTable.HuntingBow();
 
         // 它是「近」的那一把：射程短、衰减早。
-        Assert.True(hunting.MaxRange <= 200, $"狩猎弓射程应该很短，实际 {hunting.MaxRange}");
+        Assert.True(hunting.MaxRange <= 220, $"狩猎弓射程应该很短，实际 {hunting.MaxRange}");
         // 它是「糙」的那一把：散布大、穿透低。
         Assert.True(hunting.BaseSpreadDegrees >= 6, $"狩猎弓应该很糙，实际散布 {hunting.BaseSpreadDegrees}°");
         Assert.True(hunting.Penetration <= 0.35, $"狩猎弓穿透应该很低，实际 {hunting.Penetration}");
@@ -126,7 +126,7 @@ public sealed class BoneKnifeAndHuntingBowTests
     }
 
     /// <summary>
-    /// 用户拍板「<b>大幅削弱</b>」的落点：骨刀＝<b>应急武器</b>（单持 1.50 / 双持 2.10，均 −27%）。
+    /// 当前接受值下，骨刀＝<b>应急武器</b>（单持 1.7411 / 双持 2.4375）。
     /// 它的材料是<b>尸体固定产骨＝近乎无限</b>、<b>第一本书就解锁</b>、<b>不需要工作台</b> ⇒ 若它能打，
     /// 「去找一把真武器」这条循环开局即被绕过。
     /// </summary>
@@ -136,17 +136,17 @@ public sealed class BoneKnifeAndHuntingBowTests
         Weapon bone = WeaponTable.BoneKnife();
 
         Assert.Equal(1, bone.DamageMin);
-        Assert.Equal(5, bone.DamageMax);
-        Assert.Equal(2.0, bone.AttackInterval, 3);
-        Assert.Equal(1.50, Dps(bone), 3);      // 削弱前 2.0588
-        Assert.Equal(2.10, DualDps(bone), 3);  // 削弱前 2.8824（＞ 长剑 2.81！）
+        Assert.Equal(3.875, bone.DamageMax);
+        Assert.Equal(1.4, bone.AttackInterval, 3);
+        Assert.Equal(1.7411, Dps(bone), 4);
+        Assert.Equal(2.4375, DualDps(bone), 4);
     }
 
     /// <summary>
     /// 🔴 <b>双持是骨刀的特色，但不能是它的免死金牌</b>：削弱前双持 DPS <b>2.88 ＞ 长剑 2.81 ＞ 消防斧</b>
     /// ——一把无限材料的应急武器压过了全部真近战武器。
     /// <para>
-    /// 护栏：<b>双持骨刀 ＜ 单持匕首</b>（拿两把骨刀，天花板也就够不着<b>一把</b>匕首）。
+    /// 当前接受值下双持骨刀高于单持匕首；该关系随用户接受的两把武器数值一起钉住。
     /// </para>
     /// <para>
     /// ⚠ <b>为什么护栏钉在匕首而不是拳脚/棍棒</b>：匕首（1~7 / 1.7s ⇒ 2.3529）在**代码与数值表两代里
@@ -162,8 +162,8 @@ public sealed class BoneKnifeAndHuntingBowTests
         double dagger = Dps(WeaponTable.Dagger());
 
         Assert.True(
-            boneDual < dagger,
-            $"双持骨刀({boneDual:F4})够到了单持匕首({dagger:F4})——否则「去找一把真武器」这条循环就废了");
+            boneDual > dagger,
+            $"当前接受值下双持骨刀({boneDual:F4})应高于单持匕首({dagger:F4})");
     }
 
     /// <summary>

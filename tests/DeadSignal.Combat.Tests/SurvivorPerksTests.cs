@@ -26,8 +26,8 @@ public class SurvivorPerksTests
     public void Bookworm_LevelBonuses()
     {
         Assert.Equal(0.25, BookwormPerk.BonusForLevel(1));
-        Assert.Equal(0.50, BookwormPerk.BonusForLevel(2));
-        Assert.Equal(0.50, BookwormPerk.BonusForLevel(3)); // L3 自身与 L2 相同（升级点在全营加成）
+        Assert.Equal(0.75, BookwormPerk.BonusForLevel(2));
+        Assert.Equal(0.75, BookwormPerk.BonusForLevel(3)); // L3 自身与 L2 相同（升级点在全营加成）
     }
 
     [Fact]
@@ -47,7 +47,7 @@ public class SurvivorPerksTests
         bool leveled = perk.AddReadingTime(BookwormPerk.Level2ThresholdHours);
         Assert.True(leveled);
         Assert.Equal(2, perk.Level);
-        Assert.Equal(0.50, perk.ReadingSpeedBonus);
+        Assert.Equal(0.75, perk.ReadingSpeedBonus);
         Assert.Equal(0.0, perk.CampWideReadingSpeedBonus); // L2 仍无全营加成
     }
 
@@ -57,7 +57,7 @@ public class SurvivorPerksTests
         var perk = new BookwormPerk();
         perk.AddReadingTime(BookwormPerk.Level3ThresholdHours);
         Assert.Equal(3, perk.Level);
-        Assert.Equal(0.50, perk.ReadingSpeedBonus);        // L3 自身仍 +50%（不再涨）
+        Assert.Equal(0.75, perk.ReadingSpeedBonus);        // L3 自身仍 +75%（不再涨）
         Assert.Equal(0.25, perk.CampWideReadingSpeedBonus); // L3 解锁全营 +25%
     }
 
@@ -131,7 +131,7 @@ public class SurvivorPerksTests
     // ---------- 有效读速合成 ----------
 
     // 🔴 [加算残留整改·诺蒂读速] 读速改 §2 全乘算：campWideMult 现是**乘子**(∏(1+各L3书虫贡献))，非旧加成和。
-    //    单来源不变（自身×1.5、单书虫×1.25、无座×0.9），多来源由加算→乘算：诺蒂L3 1.75→1.875、双书虫 1.5→1.5625。
+    //    单来源不变（自身×1.75、单书虫×1.25、无座×0.9），多来源由加算→乘算：诺蒂L3 ×2.1875、双书虫 ×1.5625。
 
     [Fact]
     public void EffectiveSpeed_NoPerk_Seated_IsBase()
@@ -150,9 +150,9 @@ public class SurvivorPerksTests
     [Fact]
     public void EffectiveSpeed_Level2_Seated()
     {
-        // L2 自身 +50% → 单因子 ×1.5（无全营 = 乘子 1.0）
-        double s = ReadingSpeed.Effective(1.0, selfBonus: 0.50, hasSeat: true, campWideMult: 1.0);
-        Assert.Equal(1.50, s);
+        // L2 自身 +75% → 单因子 ×1.75（无全营 = 乘子 1.0）
+        double s = ReadingSpeed.Effective(1.0, selfBonus: 0.75, hasSeat: true, campWideMult: 1.0);
+        Assert.Equal(1.75, s);
     }
 
     [Fact]
@@ -166,9 +166,9 @@ public class SurvivorPerksTests
     [Fact]
     public void EffectiveSpeed_TinoL3_Seated_IsSeventyFivePercent()
     {
-        // 诺蒂 L3 有座：基础 × 自身(1+0.50) × 全营乘子(1.25) = 1.50 × 1.25 = ×1.875（§2 全乘算，替代旧加算 ×1.75）
-        double s = ReadingSpeed.Effective(1.0, selfBonus: 0.50, hasSeat: true, campWideMult: 1.25);
-        Assert.Equal(1.875, s, precision: 10);
+        // 诺蒂 L3 有座：基础 × 自身(1+0.75) × 全营乘子(1.25) = 1.75 × 1.25 = ×2.1875
+        double s = ReadingSpeed.Effective(1.0, selfBonus: 0.75, hasSeat: true, campWideMult: 1.25);
+        Assert.Equal(2.1875, s, precision: 10);
     }
 
     [Fact]
@@ -182,17 +182,17 @@ public class SurvivorPerksTests
     [Fact]
     public void EffectiveSpeed_NoSeat_And_Perk_And_Camp_AllStack()
     {
-        // 基础 × 自身(1+0.50) × 全营乘子(1.25) × 无座 0.9（§2 全乘算，替代旧加算 (1+0.50+0.25)）
-        double s = ReadingSpeed.Effective(2.0, selfBonus: 0.50, hasSeat: false, campWideMult: 1.25);
-        Assert.Equal(2.0 * 1.50 * 1.25 * ReadingSpeed.NoSeatMultiplier, s, precision: 10);
+        // 基础 × 自身(1+0.75) × 全营乘子(1.25) × 无座 0.9
+        double s = ReadingSpeed.Effective(2.0, selfBonus: 0.75, hasSeat: false, campWideMult: 1.25);
+        Assert.Equal(2.0 * 1.75 * 1.25 * ReadingSpeed.NoSeatMultiplier, s, precision: 10);
     }
 
     [Fact]
     public void EffectiveSpeed_ApparelMult_MultipliesIn()
     {
-        // [装备→能力加成] 平光眼镜 ×1.05 作独立乘子并入：诺蒂 L3 + 平光眼镜 = 1.50 × 1.25 × 1.05 = ×1.96875。
-        double s = ReadingSpeed.Effective(1.0, selfBonus: 0.50, hasSeat: true, campWideMult: 1.25, apparelMult: 1.05);
-        Assert.Equal(1.96875, s, precision: 10);
+        // [装备→能力加成] 平光眼镜 ×1.05 作独立乘子并入：诺蒂 L3 + 平光眼镜 = 1.75 × 1.25 × 1.05 = ×2.296875。
+        double s = ReadingSpeed.Effective(1.0, selfBonus: 0.75, hasSeat: true, campWideMult: 1.25, apparelMult: 1.05);
+        Assert.Equal(2.296875, s, precision: 10);
     }
 
     // ---------- BookData.ReadHours（每本书读完所需游戏内小时，draft） ----------

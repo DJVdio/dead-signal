@@ -31,18 +31,18 @@ namespace DeadSignal.Combat.Tests;
 /// </summary>
 public sealed class RecipeConfigMigrationTests
 {
-    // ── 迁移前 RecipeBook 里的原始字面量（golden）——A/B 的"旧硬编码"一侧。改 recipes.json 会让本表变红。──
+    // ── 当前 Wiki/配置认可值（golden）——A/B 的配置迁移锚点。改 recipes.json 会让本表变红。──
     // 代表集覆盖：单料 / 多料 / 产量>1 / 常量 id / 羽毛键 / 武器零件键 / 门槛配方。
     private static readonly (string Id, int Out, int Min, (string, int)[] Mats)[] Golden =
     {
         ("bone_knife", 1, 45, new[] { ("bone", 2), ("cloth", 1) }),
-        ("cloth_vest", 1, 90, new[] { ("cloth", 4) }),
+        ("cloth_vest", 1, 90, new[] { ("cloth", 2) }),
         ("horror_armor", 1, 240, new[] { ("bone", 6), ("leather", 3), ("rope", 2) }),
         ("glue", 2, 60, new[] { ("bone", 4), ("fuel", 1) }),
         ("wood_from_scrap", 4, 40, new[] { ("scrap_wood", 4), ("glue", 1) }),
         ("ammo_short", 8, 45, new[] { ("bullet_parts", 1), ("gunpowder", 1) }),
         ("ammo_arrow_stick", 4, 20, new[] { ("wood", 1), ("feather", 1) }),
-        ("heavy_crossbow", 1, 320, new[] { ("wood", 4), ("iron", 4), ("rope", 2), ("weapon_parts", 3) }),
+        ("heavy_crossbow", 1, 320, new[] { ("wood", 6), ("iron", 3), ("rope", 2), ("weapon_parts", 3) }),
         // 常量 id 配方（ButcherStation.TableRecipeId="butcher_table"）——[DECISION] 木板→木料落地值。
         ("butcher_table", 1, 60, new[] { ("wood", 3), ("nails", 4) }),
     };

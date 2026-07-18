@@ -69,10 +69,11 @@ public sealed class GuardDefenseTests
     [Fact]
     public void EffectiveRangeDistance_extends_firing_reach_via_ballistics()
     {
-        // +10% 岗位射程：原本超程（210>200）的距离在等效换算后落回射程内（190.9<=200）。
-        var pistol = WeaponTable.Pistol(); // MaxRange=200
-        Assert.False(Ballistics.InRange(210.0, pistol));
-        Assert.True(Ballistics.InRange(GuardPostMath.EffectiveRangeDistance(210.0, 1.10f), pistol));
+        // +10% 岗位射程：原本超程（235>225）的距离在等效换算后落回射程内（约213.6<=225）。
+        var pistol = WeaponTable.Pistol(); // MaxRange=225
+        Assert.Equal(225, pistol.MaxRange);
+        Assert.False(Ballistics.InRange(235.0, pistol));
+        Assert.True(Ballistics.InRange(GuardPostMath.EffectiveRangeDistance(235.0, 1.10f), pistol));
     }
 
     [Fact]

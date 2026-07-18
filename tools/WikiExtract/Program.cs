@@ -850,11 +850,11 @@ internal static class Program
             //    （引擎的 ArmorSlot 是**伤害层序**，与"占哪个槽"无关，代码里也写着"别混"。它不给用户看。）
             new("equipSlot", "装备槽", "chip",
                 Hint: "这件东西穿在哪（引擎真读它：决定能不能穿、和什么冲突）。上身有三个槽：贴身层／外套层／装甲层——它们是槽，不是层级，可以同时各穿一件。多个槽用「、」隔开。"),
-            // [波1·item1] 保护部位：**只读的显示折叠**。真源是引擎的 45 个部位常量（HumanBody）+ ArmorTable.CoversParts，
-            // 那套逐指逐趾的模型一点不动（断手/缺指致残全靠它）；这里只把「左X+右X」折成「双X」、把手/脚的
-            // 逐指逐趾折成「手(含指)/脚(含趾)」这类人话。因是纯显示派生、非用户可改字段，故只读（改覆盖去改 ArmorTable/ApparelCatalog）。
-            new("covers", "保护部位", ReadOnly: true,
-                Hint: "这件东西实际护到身上哪些地方（引擎真源，只读）。已折叠显示：「双X」= 左右都护；「手(含指)/脚(含趾)」= 连同该手指/脚趾一起护。没护到的部位命中时一点也不挡。"),
+            // [波1·item1] 保护部位：**Wiki 可编辑、但不自动投影代码**。
+            // 真正运行时仍由 ArmorTable/ApparelCatalog 消费；这列允许设计稿先改人话显示，agent 再按需落回代码。
+            // 不设置 ConfigKey/ConfigScalar，wiki-serve 不会把它写进 armor.json config 或任何运行时配置。
+            new("covers", "保护部位",
+                Hint: "这件东西实际护到身上哪些地方。可直接改 Wiki 里的显示稿；此列不会自动同步到代码/config，需 agent 另行核对后落地。已折叠显示：「双X」= 左右都护；「手(含指)/脚(含趾)」= 连同该手指/脚趾一起护。没护到的部位命中时一点也不挡。"),
             new("paired", "成对装备", "bool",
                 Hint: "手套/鞋子这种：物品本身不分左右，**一件只占一个槽、只护一只手（脚）——要护全得装两件**。「保护部位」列显示的是装在其中一侧时护的部位。"),
             new("sharpDefense", "锐防", "number", ConfigKey: "SharpDefense"),

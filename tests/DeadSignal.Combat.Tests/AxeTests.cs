@@ -12,8 +12,8 @@ namespace DeadSignal.Combat.Tests;
 /// 见 <c>WeaponModCatalog.MeleeFormSpeed</c> 与 docs/wiki/data/weapon-mods.json）。
 ///
 /// <para>
-/// <b>它的数值仍绑着利爪型</b>：利爪型 = 消防斧 × 0.85 DPS。<b>[weapon-finalize] 用户拍板把消防斧升到
-/// 6.5~14 / 3.4s ＝ DPS 3.01</b>（原 4~15＝2.79），利爪型随之从 2.24 升到 <b>2.56</b>。
+/// <b>它的数值仍绑着利爪型</b>：利爪型 = 消防斧 × 0.85 DPS。当前接受值为
+/// 6.6~13.3 / 3.3s ＝ DPS 3.0152，利爪型随之约为 <b>2.56</b>。
 /// 🔴 <b>这撞碎了旧的「利爪型必须弱于匕首(2.35)」上界 —— 用户原话「接受利爪型超匕首」</b>
 /// （同「创伤型超棍棒」：改装可以强过它所参照的近战武器）。故旧的 DPS 硬区间 [2.36, 2.94] <b>作废</b>，
 /// 只保留下界那条设计约束（利爪型必须强过原厂枪托，否则没人去改），上界不再钉。
@@ -58,14 +58,13 @@ public class AxeTests
     }
 
     [Fact]
-    public void 消防斧按用户拍板升到6点5到14_DPS约3点01()
+    public void 消防斧匹配当前接受值_DPS约3点02()
     {
-        // [weapon-finalize] 用户在数值表上把消防斧从 4~15 升到 6.5~14（冷却 3.4s 不动）。
-        // 这是**对账单**：用户手改的格子必须原样躺在代码里。DPS = (6.5+14)/2 / 3.4 = 3.0147。
+        // 这是**对账单**：用户手改的格子必须原样躺在代码里。
         Weapon axe = WeaponTable.Axe();
-        Assert.Equal(6.5, axe.DamageMin, 3);
-        Assert.Equal(14, axe.DamageMax, 3);
-        Assert.Equal(3.01, Dps(axe), 2);
+        Assert.Equal(6.6, axe.DamageMin, 3);
+        Assert.Equal(13.3, axe.DamageMax, 3);
+        Assert.Equal(3.0152, Dps(axe), 4);
     }
 
     [Fact]

@@ -145,7 +145,7 @@
       "id": "character-stats",
       "label": "角色数值",
       "file": "character-stats.json",
-      "count": 68,
+      "count": 76,
       "source": "godot/scripts/SurvivorPerks.cs 等（每行的「代码位置」列写明了各自的出处）"
     },
     {

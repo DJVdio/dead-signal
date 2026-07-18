@@ -361,16 +361,17 @@ public sealed partial class Pawn : Actor
     /// <param name="rng">感染 roll 随机源。</param>
     /// <param name="resting">本昼夜是否卧床休养（减缓感染/疾病恶化、加速术后愈合）。**已被 <paramref name="restFraction"/> 取代**，仅在不传占比时回落。</param>
     /// <param name="healSpeedMultiplier">
-    /// 全营恢复速度乘子（默认 1.0＝无光环，零回归）：山姆 3 级"英雄风范"光环 ×1.03（<c>SamPerk.CampHealSpeedMultiplier</c>），
-    /// 由 <c>CampMain</c> 按当前营地人数算好传入。作用于术后愈合量，与玫瑰果茶/睡床的加算百分点是正交两轴。
+    /// 恢复速度乘子（默认 1.0＝无影响，零回归）：由调用方按角色传入 authored 效果（例如山姆本人 L2 ×1.30）。
+    /// 作用于术后愈合量，与玫瑰果茶/睡床的加算百分点是正交两轴。
     /// </param>
     /// <param name="restFraction">
     /// [批次21·impl-bedrest] 本昼夜**休养占比** 0..1（默认 null → 回落布尔，零回归）：由 <see cref="RestLedger"/> 按相位累计。
     /// **白天在营地睡的相位自此计入** —— 旧模型整日只取一个布尔且在黎明读到昨夜的角色，白天睡整天等于白睡。
     /// </param>
     /// <param name="bedFraction">[批次21·impl-bedrest] 本昼夜**睡床占比** 0..1（默认 null → 回落布尔）：地铺不吃这一轴，床要造。</param>
+    /// <param name="bedSleepHealBonusPct">睡床恢复效率覆盖值（默认 null → 健康系统默认 10；南丁格尔 L2 在营时可传 20）。</param>
     public HealthTickResult AdvanceHealthDay(IRandomSource rng, bool resting, bool restedInBed = false, double infectionChanceMultiplier = 1.0, double healSpeedMultiplier = 1.0,
-        double? restFraction = null, double? bedFraction = null)
+        double? restFraction = null, double? bedFraction = null, double? bedSleepHealBonusPct = null)
     {
         ArchiveWounds();
         // [SPEC-B14-补2] 玫瑰果茶恢复加成：生效则本昼夜恢复效率 +RosehipTeaHealBonusPct 个百分点，随后自减一次计时。
@@ -385,7 +386,7 @@ public sealed partial class Pawn : Actor
         // 由 CampMain 统一传入）是正交两轴、对骨折连乘。非 Pawn 单位不经此路径 ⇒ 零回归。
         double fractureHealSpeedMultiplier = FractureRecoveryBooks.HealSpeedMultiplier(HasReadBook);
         HealthTickResult result = Health.TickDay(rng, resting, restedInBed, infectionChanceMultiplier, extraHealBonusPct, healSpeedMultiplier,
-            restFraction, bedFraction, fractureHealSpeedMultiplier);
+            restFraction, bedFraction, fractureHealSpeedMultiplier, bedSleepHealBonusPct);
 
         foreach (string part in result.MaimedParts)
         {
@@ -420,7 +421,8 @@ public sealed partial class Pawn : Actor
         Body.RecoverBlood(BloodRecovery.PerRestDay(
             restFraction ?? (resting ? 1.0 : 0.0),
             bedFraction ?? (restedInBed ? 1.0 : 0.0),
-            hasOpenWound: Body.BleedingWoundCount > 0));
+            hasOpenWound: Body.BleedingWoundCount > 0,
+            bedSleepHealBonusPct: bedSleepHealBonusPct));
 
         // 骨折治疗档回写 Body（能力系数三档：未治 -30% / 术后 -15% / 痊愈 0，见 Body.HandFractureOperationFactor/LegFractureMobilityFactor）：
         //  · 手术成功(IsOperated) → MarkFractureTreated：惩罚减半（-15%）。幂等，仅对 Body 仍骨折的部位生效。

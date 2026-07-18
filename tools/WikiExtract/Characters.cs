@@ -140,12 +140,12 @@ internal static class Characters
         const string samSrc = "godot/scripts/SurvivorPerks.cs :: SamPerk";
         Add("山姆", "升级门槛", "sam_l2_pop", "升 2 级所需营地人数", SamPerk.Level2CampPopulation, "人", samSrc + ".Level2CampPopulation", settled: true, cfgKey: "SamLevel2CampPopulation");
         Add("山姆", "升级门槛", "sam_l3_pop", "升 3 级所需营地人数", SamPerk.Level3CampPopulation, "人", samSrc + ".Level3CampPopulation", settled: true, cfgKey: "SamLevel3CampPopulation");
-        Add("山姆", "战斗", "sam_l1_damage_reduction", "1 级 自身减伤", Pct(SamPerk.Level1DamageReduction), "%", samSrc + ".Level1DamageReduction", settled: true, cfgKey: "SamLevel1DamageReduction", pct: true);
-        Add("山姆", "操作与生产", "sam_l2_carry", "2 级 自身负重上限加成", Pct(SamPerk.Level2CarryBonus), "%", samSrc + ".Level2CarryBonus", settled: true, cfgKey: "SamLevel2CarryBonus", pct: true);
-        Add("山姆", "操作与生产", "sam_aura_carry", "3 级光环 全营负重上限", Pct(SamPerk.AuraCarryBonus), "%", samSrc + ".AuraCarryBonus", settled: true, cfgKey: "SamAuraCarryBonus", pct: true);
-        Add("山姆", "操作与生产", "sam_aura_work", "3 级光环 全营干活效率", Pct(SamPerk.AuraWorkSpeedBonus), "%", samSrc + ".AuraWorkSpeedBonus", settled: true, cfgKey: "SamAuraWorkSpeedBonus", pct: true);
-        Add("山姆", "生存", "sam_aura_heal", "3 级光环 全营恢复速度", Pct(SamPerk.AuraHealSpeedBonus), "%", samSrc + ".AuraHealSpeedBonus", settled: true, cfgKey: "SamAuraHealSpeedBonus", pct: true);
-        Add("山姆", "生存", "sam_aura_infection", "3 级光环 全营感染恶化减缓", Pct(SamPerk.AuraInfectionWorsenReduction), "%", samSrc + ".AuraInfectionWorsenReduction", settled: true, cfgKey: "SamAuraInfectionWorsenReduction", pct: true);
+        Add("山姆", "战斗", "sam_l2_damage_reduction", "2 级 自身减伤", Pct(SamPerk.Level1DamageReduction), "%", samSrc + ".Level1DamageReduction", settled: true, cfgKey: "SamLevel1DamageReduction", pct: true);
+        Add("山姆", "操作与生产", "sam_l1_carry", "1 级 自身负重上限加成", Pct(SamPerk.Level2CarryBonus), "%", samSrc + ".Level2CarryBonus", settled: true, cfgKey: "SamLevel2CarryBonus", pct: true);
+        Add("山姆", "操作与生产", "sam_l1_operation_bonus", "1 级 自身操作能力加成", Pct(SamPerk.Level1OperationBonus), "%", samSrc + ".Level1OperationBonus", settled: true, cfgKey: "SamLevel1OperationBonus", pct: true);
+        Add("山姆", "生存", "sam_l2_heal_speed", "2 级 自身恢复速度加成", Pct(SamPerk.Level2HealSpeedBonus), "%", samSrc + ".Level2HealSpeedBonus", settled: true, cfgKey: "SamLevel2HealSpeedBonus", pct: true);
+        Add("山姆", "战斗", "sam_l3_concussion_reduction", "3 级 震荡概率降低", Pct(SamPerk.Level3ConcussionReduction), "%", samSrc + ".Level3ConcussionReduction", settled: true, cfgKey: "SamLevel3ConcussionReduction", pct: true);
+        Add("山姆", "战斗", "sam_l3_fracture_penalty_reduction", "3 级 骨折惩罚减轻", Pct(SamPerk.Level3FracturePenaltyReduction), "%", samSrc + ".Level3FracturePenaltyReduction", settled: true, cfgKey: "SamLevel3FracturePenaltyReduction", pct: true);
         Add("山姆", "操作与生产", "sam_operation", "开局操作能力（缺两指的代价）", Pct(SamOperationCapability()), "%",
             "src/DeadSignal.Combat/Body.cs :: FingerPenalty（−7%/指·该手累加）+ SurvivorBackstory.SeveredAtStart", settled: true);
 
@@ -171,8 +171,10 @@ internal static class Characters
         Add("道格", "感知", "doug_angle", "1 级 道格视野角加成", Pct(DougBruceBond.DougAngleBonusMult - 1), "%", bondSrc + ".DougAngleBonusMult");
         Add("道格", "感知", "bruce_angle", "1 级 布鲁斯视野角加成", Pct(DougBruceBond.BruceAngleBonusMult - 1), "%", bondSrc + ".BruceAngleBonusMult");
         Add("道格", "感知", "bruce_range", "2 级 布鲁斯视距加成", Pct(DougBruceBond.BruceRangeBonusMult - 1), "%", bondSrc + ".BruceRangeBonusMult");
-        Add("道格", "操作与生产", "bond_aura_production", "3 级光环 生产效率", Pct(DougBruceBond.AuraProductionMult - 1), "%", bondSrc + ".AuraProductionMult");
+        Add("道格", "操作与生产", "bond_aura_operation", "3 级光环 操作能力", Pct(DougBruceBond.AuraOperationMult - 1), "%", bondSrc + ".AuraOperationMult");
         Add("道格", "生存", "bond_aura_damage", "3 级光环 受伤减免", Pct(1 - DougBruceBond.AuraDamageTakenMult), "%", bondSrc + ".AuraDamageTakenMult");
+        Add("布鲁斯", "战斗", "bruce_attack_speed", "2 级 攻击速度加成", Pct(DougBruceBond.BruceAttackSpeedMult - 1), "%", bondSrc + ".BruceAttackSpeedMult");
+        Add("布鲁斯", "生存", "bruce_move_speed", "2 级 移动速度加成", Pct(DougBruceBond.BruceMoveSpeedMult - 1), "%", bondSrc + ".BruceMoveSpeedMult");
         Add("道格", "操作与生产", "bond_aura_radius", "3 级光环 生效半径", DougBruceBond.DefaultAuraRadius, "像素", bondSrc + ".DefaultAuraRadius");
         Add("道格", "生成配置", "village_siege_zombies", "救援点围困丧尸数", VillageRescue.SiegeZombieCount, "只", "godot/scripts/VillageRescue.cs :: SiegeZombieCount");
         Add("道格", "感知", "village_bark_radius", "布鲁斯吠叫引路半径", VillageRescue.BarkTriggerRadius, "像素", "godot/scripts/VillageRescue.cs :: BarkTriggerRadius");
@@ -194,12 +196,21 @@ internal static class Characters
         Add("南丁格尔", "生存", "surgery_base_nurse", "1 级 她本人的手术基础点数", NightingalePerk.NightingaleSurgeryBasePoints, "点", nurseSrc + ".NightingaleSurgeryBasePoints", settled: true, cfgKey: "NightingaleSurgeryBasePoints");
         Add("南丁格尔", "生存", "surgery_base_camp_bonus", "3 级 全营手术基础点加成（永续）", NightingalePerk.CampSurgeryBaseBonus, "点", nurseSrc + ".CampSurgeryBaseBonus", settled: true, cfgKey: "NightingaleCampSurgeryBaseBonus");
         Add("南丁格尔", "生存", "nurse_l2_infection", "2 级 全营感染率降低", Pct(NightingalePerk.Level2InfectionReduction), "%", nurseSrc + ".Level2InfectionReduction", settled: true, cfgKey: "NightingaleLevel2InfectionReduction", pct: true);
+        Add("南丁格尔", "生存", "nurse_l2_bed_heal", "2 级 干净床铺恢复速度加成", NightingalePerk.Level2BedSleepHealBonusPct, "%", nurseSrc + ".Level2BedSleepHealBonusPct", settled: true, cfgKey: "NightingaleBedSleepHealBonusPct", pct: true);
         Add("南丁格尔", "生存", "nurse_l3_infection", "3 级 全营感染率再降低（永续）", Pct(NightingalePerk.Level3InfectionReduction), "%", nurseSrc + ".Level3InfectionReduction", settled: true, cfgKey: "NightingaleLevel3InfectionReduction", pct: true);
 
         // —— 克莉丝汀 ——
         Add("克莉丝汀", "生成配置", "christine_declines", "累计几次「暂不」后她离开", ChristineRequestLogic.DeclinesToLeave, "次", "godot/scripts/ChristineRequestLogic.cs :: DeclinesToLeave");
         Add("克莉丝汀", "战斗", "christine_raider_wounded", "劫掠者掉血到多少触发她反水", Pct(TutorialRaidLogic.RaiderWoundedThreshold), "%血量", "godot/scripts/TutorialRaidLogic.cs :: RaiderWoundedThreshold");
         Add("克莉丝汀", "战斗", "christine_self_hurt", "她自己掉血到多少触发反水", Pct(TutorialRaidLogic.ChristineHurtThreshold), "%血量", "godot/scripts/TutorialRaidLogic.cs :: ChristineHurtThreshold");
+        const string christineSrc = "godot/scripts/ChristinePerk.cs :: ChristinePerk";
+        // WikiExtract 未 Link ChristinePerk.cs（它只为 CampMain/单测消费），这里直接读同一 perks.json 段，避免生成器另造常量。
+        var perkConfig = GameConfigCatalog.Section<PerkConfig>();
+        Add("克莉丝汀", "升级门槛", "christine_l2_days", "升 2 级所需存活天数", perkConfig.ChristineLevel2ThresholdDays, "天", christineSrc + ".Level2ThresholdDays", cfgKey: "ChristineLevel2ThresholdDays");
+        Add("克莉丝汀", "生存", "christine_l1_hunger_skip", "1 级 不掉饥饿概率", Pct(perkConfig.ChristineL1HungerSkipChance), "%", christineSrc + ".L1HungerSkipChance", settled: true, cfgKey: "ChristineL1HungerSkipChance", pct: true);
+        Add("克莉丝汀", "经济", "christine_l2_buy_discount", "2 级 买入折扣", Pct(perkConfig.ChristineLevel2BuyDiscount), "%", christineSrc + ".Level2BuyDiscount", settled: true, cfgKey: "ChristineLevel2BuyDiscount", pct: true);
+        Add("克莉丝汀", "生存", "christine_l3_hunger_skip", "3 级 额外不掉饥饿概率", Pct(perkConfig.ChristineL3ExtraHungerSkipChance), "%", christineSrc + ".L3ExtraHungerSkipChance", settled: true, cfgKey: "ChristineL3ExtraHungerSkipChance", pct: true);
+        Add("克莉丝汀", "经济", "christine_l3_sell_rate", "3 级 卖出价率", perkConfig.ChristineLevel3SellRatePercent, "%", christineSrc + ".Level3SellRatePercent", settled: true, cfgKey: "ChristineLevel3SellRatePercent");
 
         // —— 皮特·田径队大男孩（效果值用户拍板·非拟定；升级阈值拟定待调）——
         const string peteSrc = "godot/scripts/PetePerk.cs :: PetePerk";
@@ -276,15 +287,12 @@ internal static class Characters
             ["perkName"] = "英雄风范",
             ["perkAxis"] = "营地人数（花名册里活着的人，含当天出门探索的队员；狗不算人）。"
                            + "这是全系统唯一会倒退的效果——人少了，等级就掉回去。护得住多少人，就有多强。",
-            ["perkL1"] = $"入队即得。他从小身强体壮、性格坚韧，比常人耐揍——自身受到的伤害 −{Pct(SamPerk.Level1DamageReduction)}%"
-                         + "（在护甲挡完之后再减，被甲完全挡下时依然是 0）。",
-            ["perkL2"] = $"营地 {SamPerk.Level2CampPopulation} 人。从小吃苦耐劳帮祖母打理农庄——自身负重上限 *{1 + SamPerk.Level2CarryBonus:0.##}（1 级效果保留）。",
-            ["perkL3"] = $"营地 {SamPerk.Level3CampPopulation} 人。他散发英雄风范、影响周边的人——只要他还活着，全营（含他自己）四项："
-                         + $"干活效率 *{1 + SamPerk.AuraWorkSpeedBonus:0.##}、负重上限 *{1 + SamPerk.AuraCarryBonus:0.##}、"
-                         + $"恢复速度 *{1 + SamPerk.AuraHealSpeedBonus:0.##}、感染恶化 *{1 - SamPerk.AuraInfectionWorsenReduction:0.##}。"
-                         + "四项一律乘算——0 * 1.03 还是 0，断了双手的人，光环补不回来。",
+            ["perkL1"] = $"入队即得。山姆从小在农场帮奶奶干活，负重+{Pct(SamPerk.Level2CarryBonus)}%，操作能力+{Pct(SamPerk.Level1OperationBonus)}%。",
+            ["perkL2"] = $"营地 {SamPerk.Level2CampPopulation} 人。他从小身强体壮、性格坚韧，比常人耐揍——自身受到的伤害 −{Pct(SamPerk.Level1DamageReduction)}%"
+                         + $"（在护甲挡完之后再减，被甲完全挡下时依然是 0）。并且山姆的恢复速度*{1 + SamPerk.Level2HealSpeedBonus:0.##}。",
+            ["perkL3"] = $"营地 {SamPerk.Level3CampPopulation} 人。山姆将英雄气概与坚韧不拔展示的淋漓尽致，山姆的受到的所有大流血降级为中流血，被震荡的概率-{Pct(SamPerk.Level3ConcussionReduction)}%，受到骨折的负面影响-30%。",
             ["join"] = "开局就在营地（另一位是诺蒂）。",
-            ["gear"] = "手枪 + 开局三件套（长袖布衣 / 长裤 / 一双运动鞋）",
+            ["gear"] = "开局三件套（长袖布衣 / 长裤 / 一双运动鞋）",
             ["backstory"] =
                 "祖父牺牲于反叛战争，家里的庄园因此得名「英雄庄园」。后来父亲去守边疆，再也没有回来；母亲赶往疫情隔离区，"
                 + "也再也没有回来——于是他被称作英雄的后代。不久后，一个据说是父亲战友的儿子的同龄人（诺蒂）被祖母领了回来，"
@@ -313,12 +321,11 @@ internal static class Characters
         ["perkName"] = "书虫",
         ["perkAxis"] = "累计阅读时间（游戏内小时）。只增不减。",
         ["perkL1"] = $"入队即得。自身阅读速度 +{Pct(BookwormPerk.BonusForLevel(1))}%。",
-        ["perkL2"] = $"累计读满 {BookwormPerk.Level2ThresholdHours} 小时。自身阅读速度 +{Pct(BookwormPerk.BonusForLevel(2))}%。",
-        ["perkL3"] = $"累计读满 {BookwormPerk.Level3ThresholdHours} 小时。自身阅读速度 +{Pct(BookwormPerk.BonusForLevel(3))}%，"
-                     + $"且全营所有人阅读速度 +{Pct(BookwormPerk.CampWideBonusAtMax)}%（含他自己 ⇒ 他自己合计 +{Pct(BookwormPerk.BonusForLevel(3) + BookwormPerk.CampWideBonusAtMax)}%）。"
-                     + "3 级的升级点在全营加成，不是自身再涨。",
+        ["perkL2"] = $"累计读满 {BookwormPerk.Level2ThresholdHours} 小时。自身阅读速度加成变为{Pct(BookwormPerk.BonusForLevel(2))}%。",
+        ["perkL3"] = $"累计读满 {BookwormPerk.Level3ThresholdHours}小时。自身阅读速度加成为 {Pct(BookwormPerk.BonusForLevel(3))}%，"
+                     + $"且全营所有人阅读速度 +{Pct(BookwormPerk.CampWideBonusAtMax)}%（含他自己 ⇒ 他自己合计 +{Pct(BookwormPerk.BonusForLevel(3) + BookwormPerk.CampWideBonusAtMax)}%）。",
         ["join"] = "开局就在营地（另一位是山姆）。",
-        ["gear"] = "匕首 + 开局三件套（长袖布衣 / 长裤 / 一双运动鞋）",
+        ["gear"] = "开局三件套（长袖布衣 / 长裤 / 一双运动鞋）",
         ["backstory"] = "据说是山姆父亲战友的儿子，被山姆的祖母领了回来，与山姆同龄，两人亲如兄弟。"
                         + "九岁那年他被一条发疯的野狗扑倒撕咬，山姆冲上来救下了他——代价是山姆左手的两根手指。\n\n"
                         + "诺蒂是男的。",
@@ -342,14 +349,14 @@ internal static class Characters
                      + $"布鲁斯在他带领下视野角度也 +{Pct(DougBruceBond.BruceAngleBonusMult - 1)}%——"
                      + "布鲁斯这份是道格带出来的，道格一死就没了。",
         ["perkL2"] = $"共同活过 {DougBruceBond.Level2Days} 天。布鲁斯视野距离 +{Pct(DougBruceBond.BruceRangeBonusMult - 1)}%；"
-                     + "解锁道格给布鲁斯做狗装备（五件套）。",
+                     + "解锁道格给布鲁斯做狗装备（五件套）。布鲁斯的攻击速度和移动速度都+12%。",
         ["perkL3"] = $"共同活过 {DougBruceBond.Level3Days} 天。相依为命光环（两个在 {DougBruceBond.DefaultAuraRadius:0} 距离内时生效）："
-                     + $"生产效率 *{DougBruceBond.AuraProductionMult:0.##}、受到伤害 *{DougBruceBond.AuraDamageTakenMult:0.##}。"
+                     + $"操作能力*{DougBruceBond.AuraOperationMult:0.##}、受到伤害 *{DougBruceBond.AuraDamageTakenMult:0.##}。"
                      + "一方死亡即永久失去。",
         ["join"] = $"「{VillageRescue.DestinationName}」大调查点的一段救援：他和布鲁斯被困在一间上锁、被丧尸围困的屋子里，"
                    + "道格已经饿到昏迷。调查团靠近到中距离时，布鲁斯开始吠叫引路——清掉或绕开围困的丧尸、踏进去解救，"
                    + "回营时两个才正式入队（道格昏迷，当场没法作战）。入队时他饥饿被压到极低档，你得先把他喂回来。",
-        ["gear"] = "棍棒（开局武器）+ 手枪",
+        ["gear"] = "棍棒（开局武器）+墨镜+开局三件套",
         ["backstory"] = "（待你手写。道格昏迷的时候话极少。）",
         ["relations"] = "布鲁斯是他的狗，也是他的搭档。羁绊等级靠两个一起活下来的天数长出来。",
         ["storyline"] = "道格死 → 布鲁斯的视野加成失效。布鲁斯死 → 狗装备做不了了，3 级光环永久失去。",
@@ -370,13 +377,13 @@ internal static class Characters
         ["perkL1"] = $"入队即得。她本人的手术基础点数 {NightingalePerk.DefaultSurgeryBasePoints} → {NightingalePerk.NightingaleSurgeryBasePoints}"
                      + "（只有她主刀时才有，她死就没了）。",
         ["perkL2"] = $"她做满 {NightingalePerk.Level2ThresholdSurgeries} 台手术。卫生意识让床铺更干净——"
-                     + $"全营感染率 −{Pct(NightingalePerk.Level2InfectionReduction)}%（要她在营活着才维持，不在营/死了就失效）。",
+                     + $"全营感染率 −{Pct(NightingalePerk.Level2InfectionReduction)}%（要她在营活着才维持，不在营/死了就失效）。并且干净的床铺让睡在上面的人恢复速度加成从10%变到{Pct(NightingalePerk.Level2BedSleepHealBonusPct)}%。",
         ["perkL3"] = $"她做满 {NightingalePerk.Level3ThresholdSurgeries} 台手术。卫生意识深入人心——全营手术基础点 +{NightingalePerk.CampSurgeryBaseBonus}、"
                      + $"全营感染率再 −{Pct(NightingalePerk.Level3InfectionReduction)}%。"
                      + $"这是永续遗产：她死了、离开了，依旧生效（知识已经传下去了）。她还活着时与 2 级叠加，感染合计 −{Pct(NightingalePerk.Level2InfectionReduction + NightingalePerk.Level3InfectionReduction)}%。",
         ["join"] = $"在「{NurseRecruit.DisplayName}」探索时遇到她。她清醒、能说话（不像昏迷的道格）：弹一段招募对话。"
                    + "婉拒不会关门——你可以再来找她谈，直到她答应；答应后回营时正式入队。",
-        ["gear"] = "匕首 + 开局三件套",
+        ["gear"] = "开局三件套",
         ["backstory"] = "（待你手写。「南丁格尔」是占位名，等你改。）\n\n"
                         + "相遇时她说：「……你们不是那帮抢药的，也不是死人。」「这店我一个人守了快一个月了。」\n"
                         + "答应之后：「我叫南丁格尔——别笑，我妈起的。」「有伤员就交给我。我知道该怎么做。」",
@@ -395,16 +402,16 @@ internal static class Characters
         ["category"] = Survivor,
         ["faction"] = "劫掠者 → 幸存者",
         ["tagline"] = "混在劫掠者里的那个女人。「杀死这些劫掠者！我是好人！」",
-        ["perkName"] = "",
-        ["perkAxis"] = "",
-        ["perkL1"] = "",
-        ["perkL2"] = "",
-        ["perkL3"] = "",
+        ["perkName"] = "巧舌如簧",
+        ["perkAxis"] = "加入营地是一级，存活三天后升到二级，清剿金手指帮后升三级",
+        ["perkL1"] = "懂得挨饿，才能在流浪中活下来，每个相位变化时，有25%的几率不掉饥饿值。",
+        ["perkL2"] = "从商人处买东西时有6.25%的折扣。",
+        ["perkL3"] = "大仇得报！她回归了销售员的本质，卖出时的价格从60%上涨到了70%。并且她对热量的消耗似乎更少了，每个相位变化时，有额外10%的几率不掉饥饿值。",
         ["join"] = "教学关（第 2 夜）：一伙劫掠者袭营，她混在里头，起手和劫掠者同阵营。"
                    + "战斗中任一劫掠者受伤较重、或她自己挂彩（谁先到算谁）→ 她喊出那句台词、阵中反水，"
                    + "转为自动战斗的盟友——但此时你操控不了她。战斗结束后你可以选收留 / 放逐 / 处决："
                    + "只有收留，她才变成你能操控的营地幸存者。",
-        ["gear"] = "手枪",
+        ["gear"] = "匕首+开局三件套+皮革胸甲",
         ["backstory"] = "她曾被金手指帮轮奸，好不容易逃出来，后来加入一个劫掠者团伙勉强活命。",
         ["relations"] = "（待你手写。）",
         ["storyline"] = $"请求清剿金手指帮（有时限的支线）：收留后她在聚餐里用气泡反复请求出兵，共 {ChristineRequestLogic.DeclinesToLeave} 次，"
@@ -424,21 +431,20 @@ internal static class Characters
         ["category"] = Survivor,
         ["faction"] = "幸存者",
         ["tagline"] = "十来岁的大男孩，曾是学校田径队。深夜连滚带爬扑到大门外求救的那个。",
-        ["perkName"] = "田径队大男孩",
+        ["perkName"] = "疾行如风",
         ["perkAxis"] = "两条不同形态的轴（升级不倒退）：\n"
                        + $"· L1→L2「连续饿着」：相位级查——每相位饥饿 ≥{PetePerk.HungerThresholdForStreak} 连续计数 +1，任一相位 小于 {PetePerk.HungerThresholdForStreak} 清零重记；"
                        + $"连续 {PetePerk.Level2ConsecutivePhases} 相位（= 5 天·每天 2 相位）不断 → 永久升 L2（latch，此后再饿一顿也不掉回去）。\n"
                        + $"· L2→L3「饿着还出门」：出发瞬间饥饿 ≤{PetePerk.DepartureHungerCeiling} 计一次（单调累计只增不减），累计 {PetePerk.Level3DepartureCount} 次 → L3。",
         ["perkL1"] = $"入队即得。移速 {PetePerk.Level1MoveSpeedMultiplier:0.##} 倍。\n"
                      + $"且不论几级都常驻：大男孩代谢快，每相位 {Pct(PetePerk.ExtraHungerDropChance)}% 概率额外掉 1 饥饿（合计一相位掉 2）。",
-        ["perkL2"] = $"连续 5 天饥饿 ≥{PetePerk.HungerThresholdForStreak}。移速升到 {PetePerk.Level2MoveSpeedMultiplier:0.##} 倍；"
-                     + $"操作能力 *{1 + PetePerk.OperationCapabilityBonus:0.##}（+{Pct(PetePerk.OperationCapabilityBonus)}%，乘算不截断——没有手的人 0*1.05 还是 0）。",
+        ["perkL2"] = $"连续 5 天饥饿 ≥{PetePerk.HungerThresholdForStreak}。移速升到 {PetePerk.Level2MoveSpeedMultiplier:0.##} 倍；他的动作快到能躲子弹，被攻击击中时，有{Pct(PetePerk.DodgeChanceValue)}%的几率判定为闪避使该次攻击失效。",
         ["perkL3"] = $"达 L2 后饥饿 ≤{PetePerk.DepartureHungerCeiling} 出发累计 {PetePerk.Level3DepartureCount} 次。移速升到 {PetePerk.Level3MoveSpeedMultiplier:0.##} 倍；"
-                     + $"负重 小于 {PetePerk.DodgeMaxCarriedKg:0}kg 时受击 {Pct(PetePerk.DodgeChanceValue)}% 概率闪避（整次攻击无效，背太重就闪不动）。累进保留下级。",
+                     + $"负重 小于 {PetePerk.DodgeMaxCarriedKg:0}kg 时受击额外 {Pct(PetePerk.DodgeChanceValue)}% 概率闪避（整次攻击无效，背太重就闪不动）。",
         ["join"] = $"第 7 天夜一开局，一个男孩跑到大门外拍门大喊求救，弹三选一：开门救援 / 置之不理 / 攻击他。\n"
                    + $"· 开门救援 → 追在他身后的三只普通丧尸（非精英）一起涌到门口；三尸全歼且男孩存活 → 他作为「{PetePerk.PeteName}」入营；男孩战死 → 救援失败（不入营）。\n"
                    + "· 置之不理 / 攻击他 → 男孩死亡、事件结束（整条招募不再触发）。",
-        ["gear"] = "空手入队（获救时是个手无寸铁的男孩，不自带武器）。⚠️ 拟定待定。",
+        ["gear"] = "开局三件套",
         ["backstory"] = "青春期大男孩，曾是学校田径队。\n\n（其余前史/性格待你手写——代码只给了「田径队大男孩」这一条 authored 事实，不引申。）",
         ["relations"] = "（待你手写。）",
         ["storyline"] = "移速/操作/闪避全按等级自动接通。L3 闪避只在负重 小于 30kg 时生效——背得太重就闪不动。",
@@ -455,7 +461,7 @@ internal static class Characters
         ["category"] = Survivor,
         ["faction"] = "幸存者",
         ["tagline"] = "下水道最深处那个浑身恶臭、穿着潮湿破布夹克的女人。没有名字，叫「耗子」。",
-        ["perkName"] = "下水道拾荒",
+        ["perkName"] = "拾荒智慧",
         ["perkAxis"] = "她本人累计搜出的物品件数（一件 = 藏物清单里的一个条目，不按数量/重量/价值——8 发子弹是一堆、一次转出算一件）。只增不减。",
         ["perkL1"] = $"入队即得。脚步和动作（脚步 / 开门 / 撬锁 / 静默拆除）噪音 *{RatPerk.Level1ActionNoiseMultiplier:0.##}（减 {Pct(1 - RatPerk.Level1ActionNoiseMultiplier)}%）——"
                      + "战斗、开枪、破坏这些不减；翻找搜刮速度 +" + Pct(RatPerk.Level1LootSpeedBonus) + "%。",
@@ -465,11 +471,11 @@ internal static class Characters
                      + "⚠️ 这两条是引擎里还没有的新轴（玩家探索关没有「隐匿分」、CombatResolver 没有攻方伤害乘子也没有「未被发现」概念）——常量已落但**尚未接线**，目前只展示、不生效，等后续统一立项。",
         ["join"] = $"探索到「{RatRecruit.DestinationName}」最深处遇到她，弹招募对话。婉拒不关门（可再来谈，直到她答应）；"
                    + "答应后回营时正式入队（出行队伍名单已定，不在关内临时增员，同护士/村庄救援口径）。",
-        ["gear"] = "（待你手写。）",
+        ["gear"] = "刺剑+开局三件套",
         ["backstory"] = "🔴 用户只给了四条事实：浑身恶臭、穿着潮湿破布夹克、是个女人、没有名字叫「耗子」、可招募。\n\n"
                         + "她的前史 / 性格 / 为什么在下水道 / 和谁认识——用户一个字都没写，代码不许编造，一律留白等你手写。",
         ["relations"] = "（待你手写。）",
-        ["storyline"] = "搜刮速度加成、动作噪音减免（L1/L2）已生效；L3 的黑暗隐匿点 +40% 与破隐先手 +35% 伤害是引擎新轴，未接线（护栏测试钉死其「未接线」状态）。",
+        ["storyline"] = "搜刮速度加成、动作噪音减免（L1/L2）已生效；L3 的黑暗隐匿点 +50% 与破隐先手 +35% 伤害是引擎新轴，未接线（护栏测试钉死其「未接线」状态）。",
         ["notes"] = "数值为用户原话·非拟定（75/250 件、−40% 噪音、+50% 搜刮、再 +100%）。"
                     + "L2 搜刮速度 2.50 倍 是用户明确指定的**加算例外**（同一 perk 自己的两级台阶按总量口述），不是漏网的加算残留，别顺手改成乘算。"
                     + "L3 两条效果未接线。数字在隔壁「角色数值」分区。",

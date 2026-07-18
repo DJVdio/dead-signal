@@ -2,7 +2,7 @@
   "id": "weapon-mods",
   "label": "武器改装",
   "source": "godot/scripts/WeaponModCatalog.cs",
-  "note": "给武器加零件。一个部位只装得下一件，装不下的会被拒绝。「可装于哪些武器」是**引擎真读的装配约束**——勾掉一把枪，它当场就装不上了，不是摆设。⚠️「数值改动」这一列你写的是**人话**，而代码那边是结构化字段（比如你写「攻击速度+5%」，引擎里是「攻击间隔 *0.95」）⇒ 这一列**几乎永远会显示成「待同步」，那只是两种写法的差异，不代表真的没落地**。要确认，看代码注释或问 agent。\uD83D\uDD34 **一把枪只能装一种近战改装**（刺刀型 / 利爪型 / 创伤型 **三选一**）——它们各自把这把枪的近战打法整个换掉，同时装两个就等于给同一把枪写了两套互相打架的近战定义。装第二个时会被当场拒绝，并告诉你跟哪一个冲突。⚠️ 弓弩**已经不能装枪械改装了**（它们曾因一个 bug 被引擎当成「枪」）。消防斧已按「和长剑同档」勾进锐器改装（6 条里的 5 条）——**唯独「镂空剑刃」没勾**：斧子靠的就是那颗沉头，镂空把它挖空了，就成了一把很差的剑。",
+  "note": "给武器加零件。一个部位只装得下一件，装不下的会被拒绝。「可装于哪些武器」是**引擎真读的装配约束**——勾掉一把枪，它当场就装不上了，不是摆设。⚠️「数值改动」这一列你写的是**人话**，而代码那边是结构化字段（比如你写「攻击速度+5%」，引擎里是「攻击间隔 *0.95」）⇒ 这一列**几乎永远会显示成「待同步」，那只是两种写法的差异，不代表真的没落地**。要确认，看代码注释或问 agent。🔴 **一把枪只能装一种近战改装**（刺刀型 / 利爪型 / 创伤型 **三选一**）——它们各自把这把枪的近战打法整个换掉，同时装两个就等于给同一把枪写了两套互相打架的近战定义。装第二个时会被当场拒绝，并告诉你跟哪一个冲突。⚠️ 弓弩**已经不能装枪械改装了**（它们曾因一个 bug 被引擎当成「枪」）。消防斧已按「和长剑同档」勾进锐器改装（6 条里的 5 条）——**唯独「镂空剑刃」没勾**：斧子靠的就是那颗沉头，镂空把它挖空了，就成了一把很差的剑。",
   "columns": [
     {
       "key": "name",
@@ -47,15 +47,15 @@
       "hint": "有人站在改装台前干这么久（游戏内时间）。"
     },
     {
-      "key": "note",
-      "label": "说明",
-      "type": "longtext"
-    },
-    {
       "key": "description",
       "label": "简介",
       "type": "longtext",
       "hint": "**玩家在游戏里看到的描述**。改了它，agent 会把新文案同步进代码。（有几个分区代码里还没有描述字段——你照样可以写，写了就是在告诉 agent「这里该有一个」。）"
+    },
+    {
+      "key": "note",
+      "label": "说明",
+      "type": "longtext"
     },
     {
       "key": "userNote",
@@ -103,7 +103,7 @@
       "note": "掏空枪托：整枪减重 15%，代价是握持变虚、散布变大。",
       "_id": "lightened_stock",
       "_anchor": "godot/scripts/WeaponModCatalog.cs :: WeaponModCatalog（Id = \"lightened_stock\"）",
-      "description": "枪轻了，你举得更久，也晃得更凶。跑起来时它谢你，瞄准时它记恨你。",
+      "description": "枪轻了，你举得更久，也晃得更凶。",
       "userNote": "",
       "sync": "",
       "_icon": "weapon-mods/lightened_stock"
@@ -135,7 +135,7 @@
       "note": "接一截长管：打得远、打得准、打得透——代价是它沉，而且抬枪慢半拍。",
       "_id": "extended_barrel",
       "_anchor": "godot/scripts/WeaponModCatalog.cs :: WeaponModCatalog（Id = \"extended_barrel\"）",
-      "description": "粗俗的东西，总是秉持着一个简单的道理——长就是好。",
+      "description": "男人对于粗俗的东西，总是秉持着一个简单的道理——长就是好。",
       "userNote": "",
       "sync": "",
       "_icon": "weapon-mods/extended_barrel"
@@ -151,7 +151,7 @@
       "note": "枪口挂一把刺剑：捅得快、捅得透、捅得安静——就是不太痛。",
       "_id": "bayonet",
       "_anchor": "godot/scripts/WeaponModCatalog.cs :: WeaponModCatalog（Id = \"bayonet\"）",
-      "description": "子弹会引来一整条街，这一下不会。它安静得像一句没说出口的话。",
+      "description": "用尖的那头。",
       "userNote": "",
       "sync": "",
       "_icon": "weapon-mods/bayonet"
@@ -167,7 +167,7 @@
       "note": "枪托绑一把斧子：一下砍开的口子，比这把枪打出的洞还大。",
       "_id": "claw_stock",
       "_anchor": "godot/scripts/WeaponModCatalog.cs :: WeaponModCatalog（Id = \"claw_stock\"）",
-      "description": "打不响的时候它还能砍。末日里一把枪最该学会的，是别只把自己当枪用。",
+      "description": "也许是你在耗尽子弹时的最后一丝希望。",
       "userNote": "",
       "sync": "",
       "_icon": "weapon-mods/claw_stock"
@@ -183,7 +183,7 @@
       "note": "枪托焊成一柄尖头锤：抡起来像铁疙瘩，砸下去也像。压枪倒是更稳了。",
       "_id": "trauma_stock",
       "_anchor": "godot/scripts/WeaponModCatalog.cs :: WeaponModCatalog（Id = \"trauma_stock\"）",
-      "description": "子弹留个洞，这头铁疙瘩留个印子——凹进去的那种。压枪稳了，是顺带的。",
+      "description": "给我砸！",
       "userNote": "",
       "sync": "",
       "_icon": "weapon-mods/trauma_stock"
@@ -199,7 +199,7 @@
       "note": "将利刃固定在握把上，在近身时出其不意。",
       "_id": "blade_stock",
       "_anchor": "godot/scripts/WeaponModCatalog.cs :: WeaponModCatalog（Id = \"blade_stock\"）",
-      "description": "握手的地方藏了刀，问候语就变了。等他伸手推开你的枪口，才发现推错了地方。",
+      "description": "将阴险贯彻到底。",
       "userNote": "",
       "sync": "",
       "_icon": "weapon-mods/blade_stock"

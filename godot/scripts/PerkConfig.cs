@@ -23,21 +23,21 @@ namespace DeadSignal.Godot;
 /// </para>
 /// <para>
 /// init 默认值＝迁移前的原始常量（proto 只用于反射报出 <see cref="FileName"/>；运行时总被 <see cref="FromJson"/> 覆盖）。
-/// 数值分「拟定待调」（诺蒂/皮特升级阈值、读速座位/前置系数等 draft）与「用户拍板·非拟定」（南丁格尔感染减免、山姆光环、
+/// 数值分「拟定待调」（皮特升级阈值、读速座位/前置系数等 draft）与「用户拍板·非拟定」（南丁格尔感染减免、山姆个人效果、
 /// 耗子/皮特/山姆各效果数值）两类——形态已锁，数值口径以 wiki 表为准（表赢代码）。
 /// </para>
 /// </summary>
 public sealed class PerkConfig : IGameConfigSection
 {
     // ── 诺蒂·书虫（BookwormPerk / ReadingSpeed）─────────────────────────────────
-    /// <summary>书虫升到 L2 所需累计阅读小时（draft）。</summary>
-    public double BookwormLevel2ThresholdHours { get; init; } = 48;
-    /// <summary>书虫升到 L3 所需累计阅读小时（draft）。</summary>
-    public double BookwormLevel3ThresholdHours { get; init; } = 120;
+    /// <summary>书虫升到 L2 所需累计阅读小时（24 小时）。</summary>
+    public double BookwormLevel2ThresholdHours { get; init; } = 24;
+    /// <summary>书虫升到 L3 所需累计阅读小时（72 小时）。</summary>
+    public double BookwormLevel3ThresholdHours { get; init; } = 72;
     /// <summary>书虫 L1 自身读速加成（加法：+25%）。</summary>
     public double BookwormSelfBonusL1 { get; init; } = 0.25;
-    /// <summary>书虫 L2/L3 自身读速加成（加法：+50%；L3 与 L2 同，L3 升级点在全营加成）。</summary>
-    public double BookwormSelfBonusL2Plus { get; init; } = 0.50;
+    /// <summary>书虫 L2/L3 自身读速加成（加法：+75%；L3 与 L2 同，L3 升级点在全营加成）。</summary>
+    public double BookwormSelfBonusL2Plus { get; init; } = 0.75;
     /// <summary>书虫 L3 满级贡献给全营的读速加成幅度（+25%）。</summary>
     public double BookwormCampWideBonusAtMax { get; init; } = 0.25;
     /// <summary>无座位阅读读速乘子（draft，整体 -10%）。</summary>
@@ -60,23 +60,33 @@ public sealed class PerkConfig : IGameConfigSection
     public double NightingaleLevel2InfectionReduction { get; init; } = 0.15;
     /// <summary>3级：全营感染率再 −10%（永续遗产；来回改过两轮，以表为准）。</summary>
     public double NightingaleLevel3InfectionReduction { get; init; } = 0.10;
+    /// <summary>南丁格尔 L2：干净床铺恢复效率加成（百分点，10 → 20）。</summary>
+    public double NightingaleBedSleepHealBonusPct { get; init; } = 20.0;
 
     // ── 山姆·英雄风范（SamPerk）——数值用户拍板·非拟定 ─────────────────────────────
     /// <summary>山姆升到 L2 所需营地人数（活着的在营人类，含山姆）。</summary>
     public int SamLevel2CampPopulation { get; init; } = 3;
     /// <summary>山姆升到 L3 所需营地人数（活着的在营人类，含山姆）。</summary>
     public int SamLevel3CampPopulation { get; init; } = 6;
-    /// <summary>1级：他收到的伤害 −10%（护甲结算后乘算）。</summary>
+    /// <summary>2级：他收到的伤害 −10%（护甲结算后乘算）。</summary>
     public double SamLevel1DamageReduction { get; init; } = 0.10;
-    /// <summary>2级：他的负重 +15%。</summary>
+    /// <summary>1级：他的负重 +15%。</summary>
     public double SamLevel2CarryBonus { get; init; } = 0.15;
-    /// <summary>3级光环：全营负重 +3%。</summary>
+    /// <summary>1级：山姆操作能力 +10%。</summary>
+    public double SamLevel1OperationBonus { get; init; } = 0.10;
+    /// <summary>2级：山姆身体恢复速度 +30%。</summary>
+    public double SamLevel2HealSpeedBonus { get; init; } = 0.30;
+    /// <summary>3级：被震荡概率降低 75%。</summary>
+    public double SamLevel3ConcussionReduction { get; init; } = 0.75;
+    /// <summary>3级：上肢操作、下肢移动两种骨折惩罚的负面缺口减轻 30%。</summary>
+    public double SamLevel3FracturePenaltyReduction { get; init; } = 0.30;
+    /// <summary>旧版 Sam 光环兼容字段：当前 authored 页面未启用。</summary>
     public double SamAuraCarryBonus { get; init; } = 0.03;
-    /// <summary>3级光环：全营干活效率 +3%。</summary>
+    /// <summary>旧版 Sam 光环兼容字段：当前 authored 页面未启用。</summary>
     public double SamAuraWorkSpeedBonus { get; init; } = 0.03;
-    /// <summary>3级光环：全营身体恢复速度 +3%。</summary>
+    /// <summary>旧版 Sam 光环兼容字段：当前 authored 页面未启用。</summary>
     public double SamAuraHealSpeedBonus { get; init; } = 0.03;
-    /// <summary>3级光环：全营感染条上升速度 −3%。</summary>
+    /// <summary>旧版 Sam 光环兼容字段：当前 authored 页面未启用。</summary>
     public double SamAuraInfectionWorsenReduction { get; init; } = 0.03;
 
     // ── 耗子（RatPerk）——数值用户原话·非拟定 ────────────────────────────────────
@@ -90,8 +100,8 @@ public sealed class PerkConfig : IGameConfigSection
     public double RatLevel1LootSpeedBonus { get; init; } = 0.50;
     /// <summary>L2：翻找搜刮速度再 +100%（同 perk 两级台阶按总量加算 ⇒ L2 合计 2.50）。</summary>
     public double RatLevel2LootSpeedBonus { get; init; } = 1.00;
-    /// <summary>L3：黑暗隐匿点 +40%（未接线）。</summary>
-    public double RatLevel3DarknessStealthBonus { get; init; } = 0.40;
+    /// <summary>L3：黑暗隐匿点 +50%（未接线）。</summary>
+    public double RatLevel3DarknessStealthBonus { get; init; } = 0.50;
     /// <summary>L3：破隐先手攻击额外 +35% 伤害（未接线）。</summary>
     public double RatLevel3AmbushDamageBonus { get; init; } = 0.35;
 

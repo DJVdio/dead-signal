@@ -162,6 +162,19 @@ public sealed class Body
     public BleedModel.BleedSeverity? BleedSeverityOn(string part)
         => _bleeding.TryGetValue(part, out BleedWound w) ? w.Severity : null;
 
+    /// <summary>把指定部位当前的大流血降为中流血；无伤口或本来不是大流血时幂等无效。</summary>
+    public bool DowngradeLargeBleed(string part)
+    {
+        if (!_bleeding.TryGetValue(part, out BleedWound wound)
+            || wound.Severity != BleedModel.BleedSeverity.Large)
+        {
+            return false;
+        }
+
+        _bleeding[part] = wound with { Severity = BleedModel.BleedSeverity.Medium };
+        return true;
+    }
+
     /// <summary>该部位那处出血的**流血速率乘数**（武器侧的轴，如锯齿剑刃 1.4）；无出血则 0。</summary>
     public double BleedRateMultiplierOn(string part)
         => _bleeding.TryGetValue(part, out BleedWound w) ? w.RateMultiplier : 0;

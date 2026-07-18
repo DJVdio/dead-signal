@@ -3,7 +3,7 @@ namespace DeadSignal.Godot;
 // 注意：本文件为**纯 C# 逻辑**，不得引入任何 Godot 类型
 // （与 ReadBookSet.cs / HungerState.cs 一样被 DeadSignal.Combat.Tests 以 Link 方式编入单测）。
 // 角色**专属效果（authored perk）** 地基：不做通用技能系统，每角色一套手写 perk（升级条件/效果各不同）。
-// 本轮落地首个样板——**诺蒂·书虫**：读得快，读得越多越快，满级还带动全营。数值皆 draft，待 Sim/用户调。
+// 本轮落地首个样板——**诺蒂·书虫**：读得快，读得越多越快，满级还带动全营。
 
 /// <summary>
 /// 单个幸存者的专属效果状态容器（纯逻辑，无 Godot 依赖）。**可扩展**：未来别的角色挂别的 perk，
@@ -29,7 +29,7 @@ public sealed class SurvivorPerks
     public void GrantNightingale() => IsNightingale = true;
 
     /// <summary>
-    /// 本 pawn 作为读者的**自身**读速加成（加法，非倍率）：持有书虫按其等级取（0.25/0.50/0.50），否则 0（无 perk 零影响）。
+    /// 本 pawn 作为读者的**自身**读速加成（加法，非倍率）：持有书虫按其等级取（0.25/0.75/0.75），否则 0（无 perk 零影响）。
     /// 丧尸/非诺蒂无 perk → 0。全营加成不含在此，另由 <see cref="ReadingSpeed.Effective"/> 汇总加进来。
     /// </summary>
     public double SelfReadingSpeedBonus => Bookworm?.ReadingSpeedBonus ?? 0.0;
@@ -85,18 +85,18 @@ public sealed class SurvivorPerks
 
 /// <summary>
 /// **诺蒂·书虫**专属效果（纯逻辑）：靠累计阅读时间（游戏内小时）跨阈值升级 1→2→3。
-/// 各级自身读速加成 L1=+25% / L2=+50% / L3=+50%（L3 自身与 L2 相同——L3 的升级点是**多发一个全营 +25%**，不是自身再涨）；
+/// 各级自身读速加成 L1=+25% / L2=+75% / L3=+75%（L3 自身与 L2 相同——L3 的升级点是**多发一个全营 +25%**，不是自身再涨）；
 /// 满级(L3)额外贡献全营 +25% 读速，作用到全营所有人**含诺蒂自己**。
 /// 🔴 自身与全营两项**各作独立乘子连乘**（§2 通则①全乘算，禁加算）：诺蒂 L3 对自己 = 1.50 × 1.25 = **×1.875**，
 /// 不是加算的 50%+25%=75%。合成公式与整改始末见 <see cref="ReadingSpeed"/>。
-/// 所有阈值/加成均为 <c>draft</c>——形态已锁，绝对数值待 Sim 拉表与用户拍板。
+/// 阈值与加成数值由 <c>perks.json</c> 外置并与角色页保持一致。
 /// </summary>
 public sealed class BookwormPerk
 {
-    // draft：升级阈值（累计阅读小时，游戏内）。参考文档 48h 量级，L2→L3 再翻倍余量。数值外置 perks.json。
-    /// <summary>升到 L2 所需累计阅读小时（draft）。</summary>
+    // 升级阈值（累计阅读小时，游戏内）。数值外置 perks.json。
+    /// <summary>升到 L2 所需累计阅读小时（24 小时）。</summary>
     public static double Level2ThresholdHours => GameConfigCatalog.Section<PerkConfig>().BookwormLevel2ThresholdHours;
-    /// <summary>升到 L3 所需累计阅读小时（draft）。</summary>
+    /// <summary>升到 L3 所需累计阅读小时（72 小时）。</summary>
     public static double Level3ThresholdHours => GameConfigCatalog.Section<PerkConfig>().BookwormLevel3ThresholdHours;
 
     /// <summary>当前等级（1..3；持有者天生至少 L1）。</summary>
@@ -105,17 +105,17 @@ public sealed class BookwormPerk
     /// <summary>当前累计阅读时间（游戏内小时）。跨夜持久，只增不减。</summary>
     public double AccumulatedReadingHours { get; private set; }
 
-    /// <summary>本人当前自身读速加成（加法，按等级；draft）。</summary>
+    /// <summary>本人当前自身读速加成（加法，按等级）。</summary>
     public double ReadingSpeedBonus => BonusForLevel(Level);
 
-    /// <summary>满级(L3)时贡献给全营的读速加成，否则 0（draft）。</summary>
+    /// <summary>满级(L3)时贡献给全营的读速加成，否则 0。</summary>
     public double CampWideReadingSpeedBonus => Level >= 3 ? CampWideBonusAtMax : 0.0;
 
-    // draft：L3 满级全营读速加成幅度。数值外置 perks.json。
-    /// <summary>L3 满级贡献给全营的读速加成幅度（draft）。</summary>
+    // L3 满级全营读速加成幅度。数值外置 perks.json。
+    /// <summary>L3 满级贡献给全营的读速加成幅度。</summary>
     public static double CampWideBonusAtMax => GameConfigCatalog.Section<PerkConfig>().BookwormCampWideBonusAtMax;
 
-    /// <summary>某等级的自身读速加成（加法：L1=+0.25 / L2=+0.50 / L3=+0.50，L3 与 L2 同；越界按最近级钳制）。draft，数值外置 perks.json。</summary>
+    /// <summary>某等级的自身读速加成（加法：L1=+0.25 / L2=+0.75 / L3=+0.75，L3 与 L2 同；越界按最近级钳制）。</summary>
     public static double BonusForLevel(int level) => level switch
     {
         <= 1 => GameConfigCatalog.Section<PerkConfig>().BookwormSelfBonusL1,
@@ -194,6 +194,15 @@ public static class NightingalePerk
     /// </summary>
     public static double Level3InfectionReduction => GameConfigCatalog.Section<PerkConfig>().NightingaleLevel3InfectionReduction;
 
+    /// <summary>2级：干净床铺的恢复效率加成从默认 10 个百分点提高到 20 个百分点（她在营存活时）。</summary>
+    public static double Level2BedSleepHealBonusPct => GameConfigCatalog.Section<PerkConfig>().NightingaleBedSleepHealBonusPct;
+
+    /// <summary>当前床铺恢复效率加成：南丁格尔 L2 且本人仍在营时为 20，否则回落健康系统默认值。</summary>
+    public static double BedSleepHealBonusPct(int nurseLevel, bool nurseAliveInCamp)
+        => nurseAliveInCamp && nurseLevel >= 2
+            ? Level2BedSleepHealBonusPct
+            : HealthConditionSet.BedSleepHealBonusPct;
+
     /// <summary>她本人累计手术台数的持久化旗标 key（字符串承载整数，RadioMainline 回复日先例）。</summary>
     public const string SurgeryCountFlag = "nightingale_surgery_count";
 
@@ -268,7 +277,7 @@ public static class NightingalePerk
 /// 诺蒂靠累计阅读时长、道格靠共同存活天数 —— 二者的升级轴都是**单调累计量**，只增不减；
 /// 南丁格尔靠累计手术台数，同样单调（她死后计数天然冻结）。
 /// 山姆的升级轴是**营地当前人数**（3 人 → L2、6 人 → L3）——这是个**会跌的实时量**：死了人，
-/// 光环就退回去（用户原话："如果营地人数减少，山姆的技能会倒退"）。
+/// 技能就退回去（用户原话："如果营地人数减少，山姆的技能会倒退"）。
 ///
 /// **倒退是怎么"免费"得到的**：本类**无实例状态**（与 <see cref="NightingalePerk"/> 同为静态类），
 /// 等级不是"存下来再推进"的字段，而是每次查询时由当前人数**当场派生**（<see cref="EvaluateLevel"/> 是纯函数）。
@@ -279,14 +288,12 @@ public static class NightingalePerk
 ///
 /// **营地人数口径**：**活着的、在营地的人类**——**狗（布鲁斯）不算人**（主 agent 裁决；本类 API 只收一个
 /// 人数 int，无从得知狗的存在，口径由调用方保证）。山姆本人计入这个人数（"营地 3 人时到达二级"含他）。
-/// **山姆死 → 等级归 0**（<see cref="EvaluateLevel"/> 的 <c>samAlive</c>），一切效果含全营光环即刻消失。
+/// **山姆死 → 等级归 0**（<see cref="EvaluateLevel"/> 的 <c>samAlive</c>），一切效果即刻消失。
 ///
 /// <para><b>⚠ [通则·用户拍板] 所有百分比加成一律「乘算」，作用于当前实际值，绝不加算。</b>
-/// 即 <c>最终值 = 当前实际值 × 1.03</c>，而非 <c>当前实际值 + 基准值 × 0.03</c>。
-/// <b>理由（用户原话）</b>：加算会导致"**没手的人也有 3% 操作能力**"的怪事——手全没了的人操作能力应该是 0，
-/// 加算会让他凭空有 3%。乘算下 <c>0 × 1.03 = 0</c>，**残疾就是残疾**，加成不会把残缺的代价凭空补偿掉。
-/// 本类六项加成全部照此：伤害 ×0.90、负重 ×1.15 / ×1.03、操作能力 ×1.03、恢复 ×1.03、感染恶化 ×0.97；
-/// **多项并存时连乘**（山姆自己的负重 = 1.15 × 1.03 = ×1.1845，不是加算的 ×1.18）。</para>
+/// 当前 authored 效果是：L1 山姆本人负重 ×1.15、操作能力 ×1.10；L2（营地至少 3 人）本人承伤 ×0.90、恢复 ×1.30；
+/// L3（营地至少 6 人）本人震荡触发概率 ×0.25，并把命中的大流血降为中流血。
+/// 旧版全营光环 API 保留为中性兼容入口，不再产生旧的 +3% 效果。</para>
 /// </summary>
 public static class SamPerk
 {
@@ -300,17 +307,30 @@ public static class SamPerk
     public static int Level3CampPopulation => GameConfigCatalog.Section<PerkConfig>().SamLevel3CampPopulation;
 
     // —— 三级效果数值（用户原话，**非拟定，勿标待调**）。数值外置 perks.json ——
-    /// <summary>1级：他收到的伤害 −10%（乘算减伤，作用在**护甲结算之后**，见 <c>CombatResolver.Resolve</c> 的 incomingDamageReduction）。</summary>
-    public static double Level1DamageReduction => GameConfigCatalog.Section<PerkConfig>().SamLevel1DamageReduction;
-    /// <summary>2级：他的负重 +15%（作用于负重上限，见 <c>Loadout.CapacityFromStrength</c> 的 capacityMultiplier）。</summary>
-    public static double Level2CarryBonus => GameConfigCatalog.Section<PerkConfig>().SamLevel2CarryBonus;
-    /// <summary>3级光环：全营负重 +3%。</summary>
+    /// <summary>2级：他收到的伤害 −10%（乘算减伤，作用在**护甲结算之后**，见 <c>CombatResolver.Resolve</c> 的 incomingDamageReduction）。</summary>
+    public static double Level2DamageReduction => GameConfigCatalog.Section<PerkConfig>().SamLevel1DamageReduction;
+    /// <summary>旧属性名兼容入口；当前数值语义是 L2 承伤减免。</summary>
+    public static double Level1DamageReduction => Level2DamageReduction;
+    /// <summary>1级：他的负重 +15%（作用于负重上限，见 <c>Loadout.CapacityFromStrength</c> 的 capacityMultiplier）。</summary>
+    public static double Level1CarryBonus => GameConfigCatalog.Section<PerkConfig>().SamLevel2CarryBonus;
+    /// <summary>旧属性名兼容入口；当前数值语义是 L1 负重加成。</summary>
+    public static double Level2CarryBonus => Level1CarryBonus;
+    /// <summary>1级：他的操作能力 +10%，乘在当前实际操作能力上。</summary>
+    public static double Level1OperationBonus => GameConfigCatalog.Section<PerkConfig>().SamLevel1OperationBonus;
+    /// <summary>2级：他的身体恢复速度 +30%。</summary>
+    public static double Level2HealSpeedBonus => GameConfigCatalog.Section<PerkConfig>().SamLevel2HealSpeedBonus;
+    /// <summary>3级：被震荡概率降低 75%，即震荡触发概率乘 0.25。</summary>
+    public static double Level3ConcussionReduction => GameConfigCatalog.Section<PerkConfig>().SamLevel3ConcussionReduction;
+    /// <summary>3级：上肢操作、下肢移动两种骨折惩罚的负面缺口减轻 30%。</summary>
+    public static double Level3FracturePenaltyReduction =>
+        GameConfigCatalog.Section<PerkConfig>().SamLevel3FracturePenaltyReduction;
+    /// <summary>旧版全营负重光环的兼容配置值；当前 authored 页面未启用。</summary>
     public static double AuraCarryBonus => GameConfigCatalog.Section<PerkConfig>().SamAuraCarryBonus;
-    /// <summary>3级光环：全营干活效率 +3%（＝耗时缩短——制作 / 建造 / 搜刮等一切花时间的行为，见 <c>CraftingJob</c>/<c>RubbleSite</c>）。</summary>
+    /// <summary>旧版全营操作光环的兼容配置值；当前 authored 页面未启用。</summary>
     public static double AuraWorkSpeedBonus => GameConfigCatalog.Section<PerkConfig>().SamAuraWorkSpeedBonus;
-    /// <summary>3级光环：全营身体恢复速度 +3%（术后流血/骨折的逐日愈合，见 <c>HealthConditionSet.TickDay</c> 的 healSpeedMultiplier）。</summary>
+    /// <summary>旧版全营恢复光环的兼容配置值；当前 authored 页面未启用。</summary>
     public static double AuraHealSpeedBonus => GameConfigCatalog.Section<PerkConfig>().SamAuraHealSpeedBonus;
-    /// <summary>3级光环：全营感染条上升速度 −3%（感染恶化速率，见 <c>HealthConditionSet.AdvanceInfectionRace</c> 的 campWorsenMultiplier）。</summary>
+    /// <summary>旧版全营感染速率光环的兼容配置值；当前 authored 页面未启用。</summary>
     public static double AuraInfectionWorsenReduction => GameConfigCatalog.Section<PerkConfig>().SamAuraInfectionWorsenReduction;
 
     /// <summary>
@@ -320,7 +340,7 @@ public static class SamPerk
     /// 人数跌回阈值以下时本函数直接返回更低的级——**这就是"倒退"的全部实现**，无需回滚任何存量。
     /// </summary>
     /// <param name="campPopulation">当前营地**活着的、在营的人类**数（含山姆本人；狗不计入，由调用方保证口径）。</param>
-    /// <param name="samAlive">山姆当前是否还活着且在营（光环的硬前提，用户原话"只要山姆还活着"）。</param>
+    /// <param name="samAlive">山姆当前是否还活着且在营（其个人效果的硬前提）。</param>
     public static int EvaluateLevel(int campPopulation, bool samAlive)
     {
         if (!samAlive) return 0;
@@ -330,49 +350,58 @@ public static class SamPerk
     }
 
     /// <summary>
-    /// 某角色**受到伤害**的减免比例（0=无减免）：仅山姆本人、且他有等级（≥L1，即活着）→ <see cref="Level1DamageReduction"/>。
-    /// 1级效果**在 2/3 级依然保留**（等级累进）。喂给 <c>CombatResolver.Resolve(…, incomingDamageReduction:)</c>，
+    /// 某角色**受到伤害**的减免比例（0=无减免）：仅山姆本人、且达到 L2 → <see cref="Level2DamageReduction"/>。
+    /// 2级效果**在 L3 依然保留**（等级累进）。喂给 <c>CombatResolver.Resolve(…, incomingDamageReduction:)</c>，
     /// 在**护甲结算之后**乘算（护甲先吃，剩下的伤害再 ×0.9）。其余角色恒 0 → 引擎行为与既有完全一致。
     /// </summary>
     public static double IncomingDamageReduction(int samLevel, bool isSam)
-        => isSam && samLevel >= 1 ? Level1DamageReduction : 0.0;
+        => isSam && samLevel >= 2 ? Level2DamageReduction : 0.0;
 
     /// <summary>
     /// 某角色的**负重上限乘子**（1.0=无加成）：多项加成**连乘**（[通则] 百分比加成一律乘算，见类注释）——
-    ///   · 山姆自己、L2 起：×(1+<see cref="Level2CarryBonus"/>)＝×1.15（他自己的体格）；
-    ///   · 全营（含山姆）、L3 起：×(1+<see cref="AuraCarryBonus"/>)＝×1.03（他给全营的光环）。
-    /// 故**山姆在 L3 两者连乘** = 1.15 × 1.03 = **×1.1845**（~~旧加算口径 ×1.18 已作废~~）；其他人 L3 = ×1.03。
+    ///   · 山姆自己、L1 起：×(1+<see cref="Level1CarryBonus"/>)＝×1.15（他自己的体格）；
+    ///   · 当前页面没有全营负重效果，其他人恒为 ×1.0。
     /// 喂给 <c>Loadout.CapacityFromStrength(strength, capacityMultiplier:)</c>，在那里再乘上他的基础负重能力
     /// —— 所以负重能力本身为 0 的人（若日后有此状态）加成后仍是 0。
     /// </summary>
     public static double CarryCapacityMultiplier(int samLevel, bool isSam)
     {
         double mult = 1.0;
-        if (isSam && samLevel >= 2) mult *= 1.0 + Level2CarryBonus;
-        if (samLevel >= 3) mult *= 1.0 + AuraCarryBonus; // 光环及于全营，含山姆本人
+        if (isSam && samLevel >= 1) mult *= 1.0 + Level1CarryBonus;
         return mult;
     }
 
-    /// <summary>
-    /// 全营**干活效率（操作能力）乘子**（1.0=无光环）：L3 → ×(1+<see cref="AuraWorkSpeedBonus"/>)＝×1.03。
-    /// "干活"＝**一切需要花时间的行为**（用户澄清：制作 + 搜刮 + 建造全算）。
-    /// 这是个**纯乘子**，必须乘到**当前实际的操作能力**上（见 <see cref="OperationCapabilityWithAura"/>），
-    /// 而不是加到基准值上。山姆一死 → 等级 0 → 乘子回 1.0。
-    /// </summary>
-    public static double CampWorkSpeedMultiplier(int samLevel)
-        => samLevel >= 3 ? 1.0 + AuraWorkSpeedBonus : 1.0;
+    /// <summary>山姆本人操作能力乘子：L1 起 ×1.10。</summary>
+    public static double PersonalOperationCapabilityMultiplier(int samLevel, bool isSam)
+        => isSam && samLevel >= 1 ? 1.0 + Level1OperationBonus : 1.0;
+
+    /// <summary>山姆 L3 的震荡触发概率乘子：本人 ×0.25，其他人或未到 L3 为 ×1.0。</summary>
+    public static double ConcussionChanceMultiplier(int samLevel, bool isSam)
+        => isSam && samLevel >= 3 ? 1.0 - Level3ConcussionReduction : 1.0;
+
+    /// <summary>山姆 L3 命中后是否把大流血降为中流血；只返回判定，不直接改 Body。</summary>
+    public static bool DowngradesLargeBleed(int samLevel, bool isSam)
+        => isSam && samLevel >= 3;
 
     /// <summary>
-    /// **[通则·乘算] 把 3 级光环施加到某人当前的操作能力上**：<c>当前实际操作能力 × 1.03</c>。
-    ///
-    /// <para><b>为什么必须是乘算（用户原话）</b>：加算会导致"**没手的人也有 3% 操作能力**"的怪事——
-    /// 一个手全没了的人操作能力应该是 <b>0</b>，加算 <c>0 + 3%</c> 会让他凭空能干活，荒谬。
-    /// 乘算下 <c>0 × 1.03 = 0</c>，**残疾就是残疾**，百分比加成不会凭空补偿残缺的代价。</para>
-    ///
-    /// <para>这条尤其咬合山姆自己：他**左手缺小拇指与无名指**（authored 设定），基础操作能力已被
-    /// <c>Body.DisabilityModifiers.OperationPenalty</c>（−7%/指）打到 0.86。他给全营的 3% 光环，
-    /// 对他自己也只能在**这个折损后的基数**上乘（0.86 × 1.03 = 0.8858，而非加算的 0.89）——
-    /// **英雄有代价，代价不该被自己的光环抹掉**。</para>
+    /// 把基础骨折能力系数按“负面影响减轻百分比”换算。
+    /// 例如 ×0.70 的惩罚缺口为 0.30，减轻 30% 后为 ×0.79；不直接把结果乘 1.30，避免能力超过正常值。
+    /// </summary>
+    public static double ApplyFracturePenaltyReduction(double baseCapabilityFactor, double penaltyReduction)
+        => 1.0 - (1.0 - baseCapabilityFactor) * (1.0 - penaltyReduction);
+
+    /// <summary>山姆 L3 的骨折惩罚减轻值；非山姆或未到 L3 恒为 0。</summary>
+    public static double FracturePenaltyReduction(int samLevel, bool isSam)
+        => isSam && samLevel >= 3 ? Level3FracturePenaltyReduction : 0.0;
+
+    /// <summary>
+    /// 旧版全营操作光环兼容入口；当前 authored 页面只给山姆本人 L1 操作 ×1.10，
+    /// 由 <see cref="PersonalOperationCapabilityMultiplier"/> 提供，本方法保持中性。
+    /// </summary>
+    public static double CampWorkSpeedMultiplier(int samLevel) => 1.0;
+
+    /// <summary>
+    /// 旧版全营操作光环兼容入口：保持乘算形式但当前返回中性乘子，避免旧调用静默改变新 authored 语义。
     /// </summary>
     /// <param name="baseOperationCapability">该角色**当前实际**操作能力 0..1（残疾 × 饥饿 × 骨折已折算完，见 <c>Pawn.OperationCapability</c>）。</param>
     /// <param name="samLevel">山姆当前等级（<see cref="EvaluateLevel"/>；未到 L3 或山姆已死 → 原值返回）。</param>
@@ -380,22 +409,18 @@ public static class SamPerk
         => baseOperationCapability * CampWorkSpeedMultiplier(samLevel);
 
     /// <summary>
-    /// 全营**身体恢复速度乘子**（1.0=无光环）：L3 → ×(1+<see cref="AuraHealSpeedBonus"/>)。
-    /// 作用于术后流血/骨折的逐日愈合量，喂给 <c>HealthConditionSet.TickDay(…, healSpeedMultiplier:)</c>。
-    /// 与"睡床 / 玫瑰果茶"那条**加算百分点**的轴（extraHealBonusPct）是**正交两轴**：那条改恢复效率的点数，
-    /// 本条是最终愈合量的乘子（用户口径是"恢复速度 +3%"＝速度的百分比，不是效率点数 +3 点）。
+    /// 旧版全营恢复光环兼容入口，当前保持中性；山姆本人 L2 恢复 ×1.30 由 <see cref="PersonalHealSpeedMultiplier"/> 提供。
     /// </summary>
-    public static double CampHealSpeedMultiplier(int samLevel)
-        => samLevel >= 3 ? 1.0 + AuraHealSpeedBonus : 1.0;
+    public static double CampHealSpeedMultiplier(int samLevel) => 1.0;
+
+    /// <summary>山姆本人恢复速度乘子：L2 起 ×1.30。</summary>
+    public static double PersonalHealSpeedMultiplier(int samLevel, bool isSam)
+        => isSam && samLevel >= 2 ? 1.0 + Level2HealSpeedBonus : 1.0;
 
     /// <summary>
-    /// 全营**感染条上升速度乘子**（1.0=无光环）：L3 → ×(1−<see cref="AuraInfectionWorsenReduction"/>)＝×0.97。
-    /// 喂给 <c>HealthConditionSet.AdvanceInfectionRace(…, campWorsenMultiplier:)</c>，与用药的
-    /// <c>Medicine.WorsenMultiplier</c> 是**两个独立乘子**（药压得多、光环再压一点，互不吞没）。
-    /// 与南丁格尔的 <c>CampInfectionMultiplier</c> 亦正交：那个压"会不会感染"(几率)，本条压"感染条涨多快"(速率)。
+    /// 旧版全营感染速率光环兼容入口，当前保持中性。
     /// </summary>
-    public static double CampInfectionWorsenMultiplier(int samLevel)
-        => samLevel >= 3 ? 1.0 - AuraInfectionWorsenReduction : 1.0;
+    public static double CampInfectionWorsenMultiplier(int samLevel) => 1.0;
 }
 
 /// <summary>

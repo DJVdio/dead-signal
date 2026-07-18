@@ -2329,6 +2329,13 @@ public sealed partial class CampMain : Node2D
         if (actor is Pawn { Perks.IsSam: true } sam)
         {
             sam.SetIncomingDamageReduction(() => SamPerk.IncomingDamageReduction(SamLevelNow(), isSam: true));
+            // 山姆·英雄风范 3 级：大流血降为中流血，震荡概率按 authored 乘子降低。
+            // 骨折两条惩罚链（上肢操作、下肢移动）按“惩罚缺口减轻 30%”由 Actor 消费。
+            sam.SetConcussionChanceMultiplier(() =>
+                SamLevelNow() >= 3 ? 1.0 - SamPerk.Level3ConcussionReduction : 1.0);
+            sam.SetLargeBleedDowngradeProvider(() => SamLevelNow() >= 3);
+            sam.SetFracturePenaltyReductionProvider(() =>
+                SamPerk.FracturePenaltyReduction(SamLevelNow(), isSam: true));
         }
         // 皮特·青春期田径队：移速 authored 乘子（L1 1.15/L2 1.25/L3 1.30×）+ 闪避等级提供者（L3 负重<30kg 15% 掷免）。
         // 都注入读实时等级的 lambda（同山姆减伤口径）：升级即时生效、无缓存可失效；非皮特不注入 → 移速槽 null=1.0、闪避恒 false，逐位零回归。
@@ -2480,8 +2487,11 @@ public sealed partial class CampMain : Node2D
         // 皮特 L2 操作 +5%（[通则·乘算]，见 <see cref="PetePerk.OperationCapabilityWithBonus"/>）：**乘在山姆光环折算后的实际操作能力上**，
         // 不 clamp 截断（满状态者 1.0×1.05 应能 >1，否则白给；断双手者 0×1.05 仍 0）。挂在**唯一的干活效率漏斗** WorkEfficiencyOf
         // ⇒ 及于制作/砌墙/挖废墟/搜刮全部走操作能力的消费点（＝山姆消费点集合，主 agent 拍板"仿山姆"）。非皮特/L1 恒 ×1.0 零回归。
-        => PetePerk.OperationCapabilityWithBonus(
-            SamPerk.OperationCapabilityWithAura(worker.OperationCapability, SamLevelNow()),
+        => BondOperationMultFor(worker)
+            * PetePerk.OperationCapabilityWithBonus(
+            SamPerk.OperationCapabilityWithAura(
+                worker.OperationCapability * SamPerk.PersonalOperationCapabilityMultiplier(SamLevelNow(), worker.Perks.IsSam),
+                SamLevelNow()),
             PeteLevelNow(), worker.Perks.IsPete);
 
     /// <summary>
@@ -2676,6 +2686,10 @@ public sealed partial class CampMain : Node2D
     public float BondProductionMultFor(Pawn crafter)
         => crafter == _doug ? BondAuraNow().ProductionMult : 1f;
 
+    /// <summary>道格 3 级相依为命光环的操作能力乘子；仅道格作为消费层工作者时生效。</summary>
+    public float BondOperationMultFor(Pawn worker)
+        => worker == _doug ? BondAuraNow().OperationMult : 1f;
+
     /// <summary>营地视野观察者：在营存活幸存者（含道格）＋布鲁斯（犬类，其机敏也向玩家揭示敌人）。</summary>
     private IEnumerable<Actor> CampViewers()
     {
@@ -2744,11 +2758,18 @@ public sealed partial class CampMain : Node2D
         // 注：2 级原「道格攻击布鲁斯目标 ×1.25 缠斗伤害」已被**用户 L2 修订**退役（doug-logic 改为
         // DougBruceBond.CanCraftDogGear 解锁狗装备制作，×1.25 条款移除，待确认可恢复）。新 2 级=狗装备门控，
         // 消费方在 dog-gear 制作系统落地后接 CanCraftDogGear，本批无该系统故 2 级伤害接线不再接（见 [DECISION]）。
-        // · 3 级光环减伤：道格/布鲁斯相依为命时受伤 ×AuraDamageTakenMult(0.90)。二者各挂承伤系数。
+        // · 3 级光环减伤：道格/布鲁斯相依为命时受伤 ×AuraDamageTakenMult(0.85)。二者各挂承伤系数。
         doug.SetIncomingDamageFactor(() => BondAuraNow().DamageTakenMult);
         bruce.SetIncomingDamageFactor(() => BondAuraNow().DamageTakenMult);
         // · 布鲁斯 2 级视距 +10%：自主缠斗侦测半径按 BruceRangeMult 缩放（依道格存活）。
         bruce.SetDetectRangeMultProvider(() => DougBruceBond.BruceRangeMult(BondLevel, _doug is { Alive: true }));
+        // · 布鲁斯 2 级狗装备效果：攻击速度、移动速度各 +12%，且随道格存活门控。
+        bruce.SetAuthoredAttackSpeedMult(() =>
+            DougBruceBond.CanCraftDogGear(BondLevel, _doug is { Alive: true })
+                ? DougBruceBond.BruceAttackSpeedMult : 1.0);
+        bruce.SetAuthoredMoveSpeedMult(() =>
+            DougBruceBond.CanCraftDogGear(BondLevel, _doug is { Alive: true })
+                ? DougBruceBond.BruceMoveSpeedMult : 1.0);
 
         // 入队饥饿设定（[SPEC-B11]）："饿昏迷"正史入队时把二人一狗压到低档（须靠聚餐喂回）；
         // 满档调用（DEBUG 键）时 DrainTo 仅降不升 → 无副作用。
@@ -2897,7 +2918,7 @@ public sealed partial class CampMain : Node2D
         if (_survivors.Any(s => s.Alive && s.DisplayName == RatPerk.RatName))
             return; // 幂等：已在场不重复
 
-        var rat = Pawn.Create(RatPerk.RatName, StartingWeapon.None, new Color(0.46f, 0.44f, 0.40f)); // 泥灰色·空手入队（wiki 占位）
+        var rat = Pawn.Create(RatPerk.RatName, StartingWeapon.Rapier, new Color(0.46f, 0.44f, 0.40f)); // 泥灰色·刺剑+开局三件套
         rat.Position = _cameraCenter + new Vector2(-40f, 0f);
         AddActor(rat);
         _survivors.Add(rat);
@@ -4888,8 +4909,8 @@ public sealed partial class CampMain : Node2D
         bool nurseL3Legacy = _storyFlags.Has(NurseRecruit.L3LegacyFlag);
         double infectionMult = NightingalePerk.CampInfectionMultiplier(nurseLevel, nurseAliveInCamp, nurseL3Legacy);
 
-        // 山姆 3 级光环·全营身体恢复速度 ×1.03（只要山姆还活着且营地 ≥6 人）。与南丁格尔的感染**几率**乘子正交：
-        // 那个压"会不会感染"，这个加"伤好得多快"。山姆一死/人数跌破 6 → SamLevelNow() 掉级 → 乘子当场回 1.0。
+        // 南丁格尔床铺恢复加成与山姆本人恢复速度加成分别在每个患者结算时门控：前者是南丁格尔 L2 且在营，
+        // 后者是山姆本人 L2 起。两者都只作用恢复，不改感染几率。
         double healSpeedMult = SamPerk.CampHealSpeedMultiplier(SamLevelNow());
 
         foreach (Pawn p in living)
@@ -4903,8 +4924,11 @@ public sealed partial class CampMain : Node2D
             //   ③ 出门探险的人和挑灯读书的人也被算作"卧床休养"。
             // 现在三处都由流水账据实记账：每过一个相位记一笔（谁在睡、睡的是床还是地铺），黎明结账。
             (double restFraction, double bedFraction) = RestArgsFor(p);
+            double personalHealSpeedMult = healSpeedMult
+                * SamPerk.PersonalHealSpeedMultiplier(SamLevelNow(), p.Perks.IsSam);
+            double bedHealBonusPct = NightingalePerk.BedSleepHealBonusPct(nurseLevel, nurseAliveInCamp);
             HealthTickResult r = p.AdvanceHealthDay(_healthRng, resting: false, restedInBed: false,
-                infectionMult, healSpeedMult, restFraction, bedFraction);
+                infectionMult, personalHealSpeedMult, restFraction, bedFraction, bedHealBonusPct);
             p.Rest.Reset(); // 结完账，开下一天的流水
 
             foreach (HealthTickEvent e in r.Events)
@@ -7374,7 +7398,11 @@ public sealed partial class CampMain : Node2D
         _christine.QueueFree();
         _christine = null;
 
-        var pawn = Pawn.Create(ChristineName, StartingWeapon.Pistol, new Color(0.85f, 0.55f, 0.75f)); // 克莉丝汀保留手枪（gear 未改）
+        var pawn = Pawn.Create(
+            ChristineName,
+            StartingWeapon.Dagger,
+            new Color(0.85f, 0.55f, 0.75f),
+            extraApparel: new[] { "皮革胸甲" }); // 克莉丝汀：匕首+开局三件套+皮革胸甲
         pawn.Position = pos; // cartesian，原地入营
         AddActor(pawn);
         _survivors.Add(pawn);

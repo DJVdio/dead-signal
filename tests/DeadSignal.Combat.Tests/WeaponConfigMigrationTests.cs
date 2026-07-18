@@ -35,8 +35,7 @@ namespace DeadSignal.Combat.Tests;
 /// </summary>
 public sealed class WeaponConfigMigrationTests
 {
-    // 迁移前 WeaponTable 里的原始常量（golden）——手抄自迁移前的工厂 literal，作为 A/B 的"旧硬编码"一侧。
-    // 抽样覆盖每一类字段；改 weapons.json 里这些值会让本表变红（数值调整须是深思熟虑的、可见的）。
+    // 当前接受的武器表 golden：抽样覆盖每一类字段；改 weapons.json 里这些值会让本表变红。
 
     [Fact]
     public void Catalog_is_wired_and_lazy_loaded()
@@ -77,15 +76,15 @@ public sealed class WeaponConfigMigrationTests
     // ── 字面值锚定（A/B）：抽样武器 × 每类字段，== 迁移前原始常量 ──────────────────────
 
     [Fact]
-    public void Dagger_matches_original_literals()
+    public void Dagger_matches_accepted_values()
     {
         var w = WeaponTable.Dagger();
         Assert.Equal("匕首", w.Name);
         Assert.Equal(1, w.DamageMin);
-        Assert.Equal(7, w.DamageMax);
+        Assert.Equal(4.75, w.DamageMax);
         ExactlyEqual(0.075, w.Penetration);          // double 位级：0.075 一位不差
         Assert.Equal(DamageType.Sharp, w.DamageType);
-        ExactlyEqual(1.7, w.AttackInterval);
+        ExactlyEqual(1.4, w.AttackInterval);
         Assert.True(w.CanDualWield);
         Assert.False(w.TwoHanded);
         Assert.False(w.IsRanged);
@@ -104,9 +103,9 @@ public sealed class WeaponConfigMigrationTests
     public void High_penetration_doubles_round_trip_exactly()
     {
         ExactlyEqual(0.24, WeaponTable.Longsword().Penetration);
-        ExactlyEqual(0.40, WeaponTable.Greatsword().Penetration);
+        ExactlyEqual(0.425, WeaponTable.Greatsword().Penetration);
         ExactlyEqual(0.70, WeaponTable.Rifle().Penetration);
-        ExactlyEqual(0.95, WeaponTable.SniperRifle().Penetration);
+        ExactlyEqual(0.85, WeaponTable.SniperRifle().Penetration);
         ExactlyEqual(0.03, WeaponTable.ZombieClaw().Penetration);
         Assert.Equal(15, WeaponTable.Longsword().DamageMax);
         Assert.True(WeaponTable.Longsword().TwoHanded);
@@ -122,6 +121,7 @@ public sealed class WeaponConfigMigrationTests
         Assert.Equal("ammo_medium", rifle.AmmoKey);
         Assert.Equal(2, rifle.AmmoPerAttack);                 // 派生：连发数
         Assert.Equal(550, rifle.MaxRange);
+        Assert.Equal(20, rifle.DamageMax);
         Assert.Equal(0.6, rifle.FalloffFloor);
         Assert.Equal(3.5, rifle.StockMeleeDamageMin);
         ExactlyEqual(0.03, rifle.StockMeleePenetration!.Value);

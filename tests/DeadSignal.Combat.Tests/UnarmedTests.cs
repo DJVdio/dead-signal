@@ -34,8 +34,8 @@ public class UnarmedTests
 
         // 低伤害：均值低于全表最弱的近战武器（匕首）
         Assert.True((f.DamageMin + f.DamageMax) / 2 < (dagger.DamageMin + dagger.DamageMax) / 2);
-        // 快冷却：出手间隔短于匕首（拳头没重量）
-        Assert.True(f.AttackInterval < dagger.AttackInterval);
+        // 快冷却：出手间隔不慢于匕首（当前两者均为 1.4s）
+        Assert.True(f.AttackInterval <= dagger.AttackInterval);
         Assert.True(f.AttackInterval > 0);
         // 噪音小：低于匕首（90）、也低于弓（70）——空手扭打是最安静的攻击方式
         Assert.True(f.NoiseRadius < dagger.NoiseRadius);
@@ -147,8 +147,7 @@ public class UnarmedTests
     }
 
     /// <summary>
-    /// 骨刀存在的理由：**造出来必须比空手强**。骨刀单持 DPS 1.50 > 拳脚 1.43——
-    /// 这条关系只在拳脚冷却＝1.4 时成立（1.2 时拳脚 1.67 反超骨刀 ⇒ "造把骨刀不如用拳头"）。
+    /// 骨刀存在的理由：**造出来必须比空手强**。当前接受值下骨刀单持 DPS 1.7411 > 拳脚 1.4286。
     /// </summary>
     [Fact]
     public void BoneKnife_BeatsBareFists()

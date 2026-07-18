@@ -14,7 +14,7 @@ namespace DeadSignal.Combat.Tests;
 /// 谁把某人的开局武器改回去、谁删了道格的墨镜，这里立刻红。纯逻辑侧（枚举/重量）则真跑。
 /// </para>
 /// <para>
-/// 🔴 玩法影响：除**道格**（棍棒+墨镜）与**克莉丝汀**（手枪）外，所有幸存者开局**无武器**——重大早期平衡变化，见汇报。
+/// 开局武器以角色 Wiki 为准：道格棍棒、克莉丝汀匕首、耗子刺剑，其余角色按各自 authored 配置。
 /// </para>
 /// </summary>
 public class StartingLoadoutTests
@@ -43,6 +43,7 @@ public class StartingLoadoutTests
         Assert.Equal(WeaponTable.Pistol().Name, StartingWeaponInfo.WeaponName(StartingWeapon.Pistol));
         Assert.Equal(WeaponTable.Dagger().Name, StartingWeaponInfo.WeaponName(StartingWeapon.Dagger));
         Assert.Equal(WeaponTable.Club().Name, StartingWeaponInfo.WeaponName(StartingWeapon.Club));
+        Assert.Equal(WeaponTable.Rapier().Name, StartingWeaponInfo.WeaponName(StartingWeapon.Rapier));
     }
 
     [Fact]
@@ -51,6 +52,7 @@ public class StartingLoadoutTests
         Assert.Equal(StartingWeapon.Pistol, StartingWeaponInfo.FromKey("pistol"));
         Assert.Equal(StartingWeapon.Dagger, StartingWeaponInfo.FromKey("Dagger"));
         Assert.Equal(StartingWeapon.Club, StartingWeaponInfo.FromKey("CLUB"));
+        Assert.Equal(StartingWeapon.Rapier, StartingWeaponInfo.FromKey("rapier"));
         Assert.Equal(StartingWeapon.None, StartingWeaponInfo.FromKey("none"));
         Assert.Equal(StartingWeapon.None, StartingWeaponInfo.FromKey(null));
         Assert.Equal(StartingWeapon.None, StartingWeaponInfo.FromKey("不认识"));
@@ -96,12 +98,11 @@ public class StartingLoadoutTests
     }
 
     [Fact]
-    public void UnarmedRecruits_StartWith_None()
+    public void NurseAndPete_StartWith_None()
     {
         string camp = Camp();
         string pete = Pete();
-        // 耗子 / 南丁格尔：无武器。
-        Assert.Contains("Pawn.Create(RatPerk.RatName, StartingWeapon.None", camp);
+        // 南丁格尔：无武器。
         Assert.Contains("Pawn.Create(NurseRecruit.NurseName, StartingWeapon.None", camp);
         // 男孩 / 皮特：空手入队。
         Assert.Contains("StartingWeapon.None", pete);
@@ -109,11 +110,19 @@ public class StartingLoadoutTests
     }
 
     [Fact]
-    public void Christine_KeepsHerPistol()
+    public void Rat_StartsWith_Rapier()
     {
         string camp = Camp();
-        // 克莉丝汀：用户没改她的 gear，保留手枪。
-        Assert.Contains("Pawn.Create(ChristineName, StartingWeapon.Pistol", camp);
+        Assert.Contains("Pawn.Create(RatPerk.RatName, StartingWeapon.Rapier", camp);
+    }
+
+    [Fact]
+    public void Christine_StartsWith_DaggerAndLeatherChest()
+    {
+        string camp = Camp();
+        // 克莉丝汀：匕首 + Pawn.Create 自动三件套 + 皮革胸甲。
+        Assert.Contains("StartingWeapon.Dagger", camp);
+        Assert.Contains("extraApparel: new[] { \"皮革胸甲\" }", camp);
     }
 
     [Fact]

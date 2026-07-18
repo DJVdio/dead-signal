@@ -265,6 +265,18 @@ public class HealthConditionsTests
     }
 
     [Fact]
+    public void CustomBedBonus_OverridesDefaultForNightingaleL2()
+    {
+        var (set, c) = SetWith(Bleed(0.5));
+        set.PerformSurgery(c, new[] { "bandage" }, onBed: false, Roll(30)); // 即刻5% → 0.45
+        set.TickDay(NoInfection(), resting: true, restedInBed: true,
+            bedSleepHealBonusPct: NightingalePerk.BedSleepHealBonusPct(nurseLevel: 2, nurseAliveInCamp: true));
+
+        // 0.45 - [0.20×((30+20)/100)×1.5=0.15] = 0.30
+        Assert.Equal(0.30, c.Severity, 3);
+    }
+
+    [Fact]
     public void Not_in_bed_gets_no_bonus_default_behavior_unchanged()
     {
         var (set, c) = SetWith(Bleed(0.5));

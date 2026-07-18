@@ -233,7 +233,7 @@ public static class GearWeight
 }
 
 /// <summary>
-/// 开局主手武器规格（取代旧的 <c>usePistol</c> 布尔——它只能表达"手枪 or 匕首"，撑不起 authored 的"空手/棍棒"）。
+/// 开局主手武器规格（取代旧的 <c>usePistol</c> 布尔——它只能表达"手枪 or 匕首"，撑不起 authored 的"空手/棍棒/刺剑"）。
 /// </summary>
 public enum StartingWeapon
 {
@@ -245,6 +245,8 @@ public enum StartingWeapon
     Dagger,
     /// <summary>棍棒（近战钝器·骨折工厂）。道格。</summary>
     Club,
+    /// <summary>刺剑（近战锐器）。耗子。</summary>
+    Rapier,
 }
 
 /// <summary>起始武器 → 武器显示名 / camp.json 键解析（纯逻辑，供重量核算与 spawn 读取共用）。</summary>
@@ -256,6 +258,7 @@ public static class StartingWeaponInfo
         StartingWeapon.Pistol => WeaponTable.Pistol().Name,
         StartingWeapon.Dagger => WeaponTable.Dagger().Name,
         StartingWeapon.Club => WeaponTable.Club().Name,
+        StartingWeapon.Rapier => WeaponTable.Rapier().Name,
         _ => null,
     };
 
@@ -265,6 +268,7 @@ public static class StartingWeaponInfo
         "pistol" => StartingWeapon.Pistol,
         "dagger" => StartingWeapon.Dagger,
         "club" => StartingWeapon.Club,
+        "rapier" => StartingWeapon.Rapier,
         _ => StartingWeapon.None,
     };
 }

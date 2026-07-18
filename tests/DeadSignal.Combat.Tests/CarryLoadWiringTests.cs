@@ -510,6 +510,38 @@ public class CarryLoadWiringTests
         Assert.Contains("interval / System.Math.Max(CarryLoadAttackSpeedMult", actor);
     }
 
+    [Fact]
+    public void Actor_AttackInterval_ActuallyConsumesAuthoredAttackSpeedProvider()
+    {
+        string actor = Source(Path.Combine("godot", "scripts", "Actor.cs"));
+        Assert.Contains("SetAuthoredAttackSpeedMult", actor);
+        Assert.Contains("_authoredAttackSpeedMult is { } authoredAttack", actor);
+        Assert.Contains("interval /= System.Math.Max(authoredAttackSpeed", actor);
+    }
+
+    [Fact]
+    public void Actor_ReceiveAttack_ConsumesConcussionAndLargeBleedProviders()
+    {
+        string actor = Source(Path.Combine("godot", "scripts", "Actor.cs"));
+        Assert.Contains("SetConcussionChanceMultiplier", actor);
+        Assert.Contains("_concussionChanceMultProvider", actor);
+        Assert.Contains("concussionMult()", actor);
+        Assert.Contains("SetLargeBleedDowngradeProvider", actor);
+        Assert.Contains("_downgradeLargeBleedProvider", actor);
+        Assert.Contains("Body.DowngradeLargeBleed(hit.PartName)", actor);
+    }
+
+    [Fact]
+    public void Actor_FractureChains_ConsumeSamPenaltyReductionProvider()
+    {
+        string actor = Source(Path.Combine("godot", "scripts", "Actor.cs"));
+        Assert.Contains("SetFracturePenaltyReductionProvider", actor);
+        Assert.Contains("_fracturePenaltyReductionProvider", actor);
+        Assert.Contains("ApplyFracturePenaltyReduction", actor);
+        Assert.Contains("LowerLimbFractureMobilityFactor", actor);
+        Assert.Contains("UpperLimbFractureOperationFactor", actor);
+    }
+
     /// <summary>🔴 <c>Pawn.SetCarryLoad</c> 必须把两个乘子落到 Actor 的那两个字段上（否则灌了也白灌）。</summary>
     [Fact]
     public void Pawn_SetCarryLoad_LandsBothMultipliersOnTheActor()

@@ -47,7 +47,7 @@ public class ShotgunPelletTests
     public void 单弹丸走齐射路径与单发路径随机流位级一致()
     {
         Weapon dagger = WeaponTable.Dagger(); // PelletCount=1
-        double[] rolls = { 5.0, 2.0 };        // 攻 roll、防 roll（布衣一层）
+        double[] rolls = { 3.5, 2.0 };        // 攻 roll、防 roll（布衣一层）
 
         var seqA = new SequenceRandomSource(rolls);
         CombatResult single = new CombatResolver(seqA).Resolve(dagger, Shirt(), Chest());
@@ -95,11 +95,11 @@ public class ShotgunPelletTests
     [Fact]
     public void 每颗弹丸独立过护甲三段判定()
     {
-        Weapon shotgun = WeaponTable.ImprovisedShotgun(); // 2~6 伤害（T21 用户手改，原 1~5）
+        Weapon shotgun = WeaponTable.ImprovisedShotgun(); // 2~10 伤害（当前接受值）
         BodyPart chest = Chest();
 
         // 三颗：①攻2 vs 防5.0 → 2 < 2.5 挡下；②攻3 vs 防5.0 → 2.5 ≤ 3 < 5 半伤；③攻6 vs 防2.0 → 全伤。
-        // 其余 5 颗喂全伤（攻6 vs 防0）。每颗 2 次 roll（攻、防）。攻击 roll 必须落在新区间 2~6 内。
+        // 其余 5 颗喂全伤（攻6 vs 防0）。每颗 2 次 roll（攻、防）。攻击 roll 必须落在当前区间 2~10 内。
         var rng = new SequenceRandomSource(
             2, 5.0,
             3, 5.0,
@@ -220,9 +220,8 @@ public class ShotgunPelletTests
     /// 涌现效果（用户预期的定位）：板甲挡下绝大多数、布衣几乎挡不住、丧尸腐皮更挡不住。
     /// 挡下门槛 = 护甲值×(1−穿透)/2 → 板甲 21.25 ≫ 弹丸上限 12；布衣 2.55 只夹得住最低那几档掷点。
     ///
-    /// ⚠ T29：用户把单颗弹丸 2~6 → <b>2~12</b>、穿透 10% → <b>15%</b>，霰弹对甲**变强了**：
-    /// 板甲挡下率从 ~86% 掉到 <b>73.6%</b>。"对板甲极差"这条定位仍然成立（三档序没变、板甲仍挡掉近四分之三），
-    /// 但<b>严苛程度是用户主动放宽的</b> ⇒ 阈值由 &gt;0.80 下调到 &gt;0.70，钉的是"板甲仍挡下绝大多数"这个立意本身。
+    /// 当前单颗弹丸为 <b>2~10</b>、穿透 <b>15%</b>；"对板甲极差"这条定位仍然成立，
+    /// 因为单颗上限仍远低于板甲挡下门槛。
     /// </summary>
     [Fact]
     public void 涌现效果_对板甲极差对无甲极强()

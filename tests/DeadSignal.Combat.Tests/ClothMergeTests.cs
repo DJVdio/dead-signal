@@ -36,17 +36,17 @@ public class ClothMergeTests
         Assert.Single(Materials.All.Where(m => m.Category == MaterialCategory.Cloth));
     }
 
-    // ---- 配方用量：同时吃两种布的配方按单位相加 ----
+    // ---- 配方用量：当前合并后的 Wiki 成本 ----
 
     [Theory]
     [InlineData("bone_knife", 1)]      // 旧 破布1               → 布1
-    [InlineData("cloth_vest", 4)]      // 旧 布料2 + 破布2       → 布4
+    [InlineData("cloth_vest", 2)]      // 当前 Wiki 值             → 布2
     [InlineData("cloth_jacket", 6)]    // 旧 布料3 + 破布3       → 布6
     [InlineData("torch", 1)]           // 旧 破布1               → 布1
-    [InlineData("dog_cloth_vest", 3)]  // 旧 布料2 + 破布1       → 布3
+    [InlineData("dog_cloth_vest", 2)]  // 当前 Wiki 值             → 布2
     [InlineData("dog_pocket_vest", 3)] // 旧 布料1 + 破布2       → 布3
     [InlineData("dog_wire_helmet", 1)] // 旧 破布1               → 布1
-    public void Recipe_ClothCost_IsSumOfOldTwoTextiles(string recipeId, int expectedCloth)
+    public void Recipe_ClothCost_MatchesAcceptedMergedValues(string recipeId, int expectedCloth)
     {
         RecipeData r = RecipeBook.Find(recipeId) ?? throw new InvalidOperationException($"缺少配方 {recipeId}");
         Assert.Equal(expectedCloth, r.MaterialCosts.TryGetValue("cloth", out int n) ? n : 0);

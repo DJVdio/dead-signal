@@ -277,7 +277,7 @@
       "potency": 0.5,
       "rosehipHealBonus": null,
       "worsenMult": 0.75,
-      "weight": 0.1,
+      "weight": 0.15,
       "description": "死马当活马医",
       "_id": "herbal_salve",
       "_configId": "herbal_salve",
@@ -297,7 +297,7 @@
       "potency": 0.5,
       "rosehipHealBonus": null,
       "worsenMult": 0.85,
-      "weight": 0.5,
+      "weight": 0.25,
       "description": "奶奶的最爱",
       "_id": "dandelion_tea",
       "_configId": "dandelion_tea",
@@ -317,7 +317,7 @@
       "potency": null,
       "rosehipHealBonus": 9,
       "worsenMult": null,
-      "weight": 0.5,
+      "weight": 0.25,
       "description": "酸酸甜甜，抚慰你受伤的身体。",
       "_id": "rosehip_tea",
       "_configId": "rosehip_tea",
@@ -326,5 +326,6 @@
       "sync": "",
       "_icon": "materials/rosehip_tea"
     }
-  ]
+  ],
+  "_configVersion": "6439121f76a7"
 }
