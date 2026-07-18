@@ -20,14 +20,14 @@ namespace DeadSignal.Godot;
 /// </summary>
 public sealed partial class Raider : Actor
 {
-    // 白昼满档视距 R0（作日间正面警觉，比丧尸略大：主动进攻方）。人类昼夜皆活动：白昼环境光满档→视距≈300、
-    // 半角 60°；夜间环境光≈0.15→视距≈134、半角≈34.5°，夜间对潜行明显收紧（与丧尸夜锥同规则）。数值拟定待调。
+    // 白昼满档视距 R0（作日间正面警觉，比丧尸略大：主动进攻方）。昼夜视锥与环境光参数以 Wiki 配置为准；
+    // 夜间仍沿用与丧尸相同的光照收紧规则。
     private const float BaseSightRange = 300f;
 
     /// <summary>劫掠者是 AI，听得见动静就会挪过去看看（用户拍板：「丧尸和劫掠者都听得到」）。</summary>
     protected override bool RespondsToNoise => true;
 
-    // 战斗时掏火把（用户口径：被发现正式开战后才拿出光源，潜行阶段不持光）。火把强度读 LightSource 目录（拟定待调，缺则 0.7）。
+    // 战斗时掏火把（用户口径：被发现正式开战后才拿出光源，潜行阶段不持光）。火把强度读 LightSource/Wiki 配置。
     // 效果：进入战斗态→SetCarriedLight(火把强度)：①自照亮提升本体局部光照→ConeFor 视锥变大（夜战视野恢复）；
     // ②成持光信标→他人 ExposedCone 读本体 CarriedLightIntensity 放大对己视距（暴露代价对己生效）。脱战即收火把归 0。
     private static readonly float TorchLightIntensity =
@@ -86,7 +86,7 @@ public sealed partial class Raider : Actor
         return r;
     }
 
-    /// <summary>交战距离：远程（中距离，略短于玩家手枪；拟定待调）。</summary>
+    /// <summary>交战距离：远程（空间交战参数，当前值以 Wiki 配置为准）。</summary>
     private const float RangedEngageRange = 240f;
 
     /// <summary>交战距离：近战。</summary>
@@ -94,9 +94,9 @@ public sealed partial class Raider : Actor
 
     /// <summary>
     /// 持械：射程 / 冷却 / 远程与否<b>全部由武器派生</b>，不再按"是不是手枪"分叉写两遍。
-    /// 冷却读 <c>WeaponTable</c> 的权威间隔（手枪 2.5s / 匕首 1.4s / 短剑…），敌我同一套节奏。
+    /// 冷却读 <c>WeaponTable</c> 的权威间隔，敌我同一套节奏；具体武器数值以 Wiki 配置为准。
     /// <para>⚠️ 远程一律按 <see cref="RangedEngageRange"/> 交战——够用是因为敌人手上只会有短枪。
-    /// 日后真要给敌人长枪（步枪/狙击），这里得改成按 <c>Weapon.MaxRange</c> 派生，否则拿着狙击枪贴到 240px 才开火。</para>
+    /// 日后真要给敌人长枪（步枪/狙击），这里得改成按 <c>Weapon.MaxRange</c> 派生，否则会沿用当前敌方交战距离。</para>
     /// </summary>
     private void Arm(Weapon w)
     {
@@ -137,11 +137,10 @@ public sealed partial class Raider : Actor
     /// 袭营时注入破防能力（门关闭后到不了营内目标→走到最近围栏/大门前砸墙）。委托由 CampMain 提供
     /// （找最近结构 / 对结构施伤，结构类型不外泄）；<paramref name="campCenter"/> 作无目标时的可达性探测点。
     /// <para>
-    /// 砸墙伤害与节奏<b>由他手上的武器派生</b>（<see cref="StructureDamage"/>），不再是写死的常数 25。
+    /// 砸墙伤害与节奏<b>由他手上的武器派生</b>（<see cref="StructureDamage"/>），不再是独立写死的伤害常数。
     /// <b>持枪者砸墙 = 抡枪托</b>（<see cref="Weapon.MeleeProfile"/>：伤害/节奏都取枪托 profile）——子弹打不穿承重墙，
     /// 但枪托是块钝的金属。这条同时修好了旧实现的不自洽：伤害同为常数、节奏却取自武器，导致
-    /// <b>持枪的劫掠者破墙比拿匕首的慢 43%</b>（一把匕首拆铁皮大门比手枪快）。现在手枪（枪托 4.5/击、1.2s）
-    /// 稳压匕首（1.6/击、1.4s）；真想破门，得带把锤子。
+    /// **历史/非配置源**：旧报告曾比较手枪、匕首的破墙伤害与节奏；当前武器与枪托数值统一以 Wiki 配置为准。
     /// </para>
     /// </summary>
     public void ConfigureBreach(
@@ -165,7 +164,7 @@ public sealed partial class Raider : Actor
     /// 注入「开门」能力（用户拍板：<b>劫掠者会正常开门</b>——不像丧尸只会砸）。
     /// <para>
     /// 委托由 <c>CampMain</c> 提供：<paramref name="findDoor"/> 找身边最近的**能开的门**（关着、没锁、够得着），
-    /// <paramref name="openDoor"/> 真去开（切碰撞层 + 摘导航洞 + 重烘焙 + 发开门噪音 100）。门的类型不外泄。
+    /// <paramref name="openDoor"/> 真去开（切碰撞层 + 摘导航洞 + 重烘焙 + 发开门噪音；噪音数值以 Wiki 配置为准）。门的类型不外泄。
     /// </para>
     /// </summary>
     public void ConfigureDoors(FindOpenableDoor findDoor, OpenDoor openDoor)
@@ -221,14 +220,14 @@ public sealed partial class Raider : Actor
         }
 
         CancelOrders();              // 到门口：站定推门
-        _openDoor(doorPos, this);    // 门开了 → 导航重烘焙 + 开门噪音（100，附近闲逛的丧尸听得见）
+        _openDoor(doorPos, this);    // 门开了 → 导航重烘焙 + 开门噪音（数值以 Wiki 配置为准，附近闲逛的丧尸听得见）
         return true;
     }
 
     // ════════════════════════════════════════════════════════════════════════
     //  安静入侵（用户口径：「劫掠者会花一段时间撬锁，或者轻声拆除围栏进入，
     //  以避免玩家不派任何岗哨只等着敌人砸门」）—— **反退化设计**。
-    //  判定全在纯逻辑 IntrusionLogic；这里只做空间执行：走过去、蹲下、计时、发 30 的噪音、完成时落地。
+    //  判定全在纯逻辑 IntrusionLogic；这里只做空间执行：走过去、蹲下、计时、发作业噪音、完成时落地；噪音数值以 Wiki 配置为准。
     // ════════════════════════════════════════════════════════════════════════
 
     /// <summary>找最近的可安静入侵目标（锁着的门 / 一格围栏）。<paramref name="isDoor"/>=false 即围栏格。</summary>
@@ -256,10 +255,10 @@ public sealed partial class Raider : Actor
     private bool _quietIsDoor;
     private int _failedPicks;
 
-    /// <summary>身上带的铁丝（撬锁工具）。撬断一根少一根；没了就只能拆围栏或砸。数量拟定待调。</summary>
+    /// <summary>身上带的铁丝（撬锁工具）。撬断一根少一根；没了就只能拆围栏或砸。数量以 Wiki 配置为准。</summary>
     public int Lockpicks { get; private set; } = 2;
 
-    /// <summary>入侵参数（拟定待调）。</summary>
+    /// <summary>入侵参数（当前值以 Wiki 配置为准）。</summary>
     private static IntrusionParams Intrusion => IntrusionParams.Default;
 
     /// <summary>
@@ -277,16 +276,14 @@ public sealed partial class Raider : Actor
 
     /// <summary>
     /// 抡锤子之前的全部文明解法，按<b>从安静到吵闹</b>的顺序试：
-    /// ① 能开的门就开 → ② <b>安静入侵</b>（撬锁 / 轻声拆围栏）→ ③ 都不行，返回 false 交回破防（砸，噪音 180）。
+    /// ① 能开的门就开 → ② <b>安静入侵</b>（撬锁 / 轻声拆围栏）→ ③ 都不行，返回 false 交回破防（砸，噪音以 Wiki 配置为准）。
     /// </summary>
     private bool TryCivilizedEntry() => TryOpenDoor() || TryQuietIntrusion();
 
     /// <summary>
     /// <b>安静入侵</b>：蹲在门口撬锁，或者蹲在围栏边上一点一点拆。
     /// <para>
-    /// <b>噪音只有 30</b>（<see cref="IntrusionLogic.QuietNoiseRadius"/>）——比走路（40）还轻，
-    /// <b>低于丧尸嗅觉（70）</b>，所以它<b>惊动不了任何东西</b>。他付的代价是<b>时间</b>：
-    /// 撬一把普通锁 6 秒、轻声拆一格基础围栏 <b>45 秒</b>（砸只要 15 秒）。
+    /// 噪音、丧尸听觉阈值与入侵耗时均以 Wiki 配置为准；安静入侵应比走路/砸墙更难被察觉，但会付出时间代价。
     /// <b>那段时间就是留给你的守夜人发现他的窗口</b> —— 你没派人，就没有窗口。
     /// </para>
     /// 接管本帧返回 true；不该/不能安静入侵返回 false（交回破防去砸）。
@@ -332,14 +329,14 @@ public sealed partial class Raider : Actor
         _quietPoint = point;
         _quietIsDoor = isDoor;
 
-        // 够不着：先走过去（这一路是走路噪音 40，比作业本身还响）
+        // 够不着：先走过去（走路噪音与作业噪音的相对关系以 Wiki 配置为准）
         if (GlobalPosition.DistanceTo(point) > DoorReach + Radius)
         {
             CommandMoveTo(point);
             return true;
         }
 
-        // 蹲下作业。⚠️ 每一"拍"发一次 30 的噪音——这是他唯一的破绽，也低到惊动不了任何东西。
+        // 蹲下作业。⚠️ 每一"拍"发一次作业噪音——这是他唯一的破绽，具体噪音数值以 Wiki 配置为准。
         CancelOrders();
         double needed = method == IntrusionMethod.PickLock
             ? DoorLogic.PickSeconds(lockTier)
@@ -380,7 +377,7 @@ public sealed partial class Raider : Actor
     private double QuietTickDelta => _quietTickDelta;
     private double _quietTickDelta;
 
-    /// <summary>每隔这么久发一次 30 的作业噪音（不必每帧发，省广播）。</summary>
+    /// <summary>按配置间隔发一次作业噪音（不必每帧发，省广播）。</summary>
     private const double QuietNoiseTick = 1.0;
 
     protected override void Think(double delta)
@@ -477,7 +474,7 @@ public sealed partial class Raider : Actor
     private Vector2? _investigate;      // 要去查看的点（噪音源 / 最后目击点）
     private double _investigateElapsed;
 
-    /// <summary>哨兵参数（暂用默认；与战术参数一并"拟定待调"）。</summary>
+    /// <summary>哨兵参数（暂用默认；与战术参数一并以 Wiki 配置为准）。</summary>
     private static SentryParams Sentry => SentryParams.Default;
 
     /// <summary>
@@ -1001,11 +998,11 @@ public sealed partial class Raider : Actor
 
     /// <summary>
     /// <b>呼叫增援</b>。⚠️ 大部分增援是<b>免费</b>的：战斗噪音<b>不分阵营</b>（<see cref="NoiseKind.Combat"/>），
-    /// 劫掠者一开枪（噪音半径 350~700），半径内所有<b>闲着的</b> AI 已经被噪音系统 <c>CommandMoveTo</c> 过来了——
+    /// 劫掠者一开枪（噪音半径以 Wiki 配置为准），半径内所有<b>闲着的</b> AI 已经被噪音系统 <c>CommandMoveTo</c> 过来了——
     /// <b>枪声本身就是呼叫</b>，不必也不该再造一套。
     /// <para>
     /// 显式呼叫只补噪音盖不住的两个缺口（判定见 <see cref="RaiderTactics.ShouldCallReinforcements"/>）：
-    /// <b>①拿匕首的</b>（砍人的动静 90~150 传不远）、<b>②还没开枪的</b>（潜行接近/包抄途中）。
+    /// <b>①拿匕首的</b>（近战噪音较小）、<b>②还没开枪的</b>（潜行接近/包抄途中）。
     /// </para>
     /// <para>
     /// 且它<b>不新造 AI 状态机</b>：走的就是既有的「最后目击点 + <c>CommandMoveTo</c>」通道，
@@ -1052,7 +1049,7 @@ public sealed partial class Raider : Actor
 
         _callCooldown = p.CallCooldown;
 
-        // 【呼喊 = 一次噪音，不是刷怪】走既有的 EmitNoise 通道发一个大半径战斗噪音（500）。
+        // 【呼喊 = 一次噪音，不是刷怪】走既有的 EmitNoise 通道发一个大半径战斗噪音；半径以 Wiki 配置为准。
         // 噪音系统（NoiseLogic + Actor.HearNoise）会把半径内**当前没有目标**的 AI CommandMoveTo 过来——
         // 它们**本来就在场上**。这里没有、也不可能有任何 new/Create/Spawn：
         //   ⚠️ 凭空刷敌人会毁掉噪音系统的全部意义（玩家控制噪音就白费了），本作绝不这么干。

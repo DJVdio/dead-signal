@@ -211,7 +211,7 @@ public class SamPerkTests
     private static Weapon Blade(double dmg = 10) =>
         new() { Name = "试刀", DamageMin = dmg, DamageMax = dmg, DamageType = DamageType.Sharp, Penetration = 0 };
 
-    private static BodyPart Chest() => new() { Name = "胸部", MaxHp = 40, VolumeWeight = 40 };
+    private static BodyPart Chest() => new() { Name = HumanBody.Chest, MaxHp = 40, VolumeWeight = 40 };
 
     [Fact]
     public void EngineDamageReduction_DefaultsToZero_NoRegression()
@@ -256,8 +256,8 @@ public class SamPerkTests
     public void EngineDamageReduction_BlockedByArmor_StaysZero()
     {
         // 被甲挡下（终止）→ 0 伤，减伤层不该把 0 抬成 MinLandedDamage。
-        var layer = new ArmorLayer { Name = "板甲", Slot = ArmorSlot.Plate, SharpDefense = 50, BluntDefense = 25 };
-        var rng = new SequenceRandomSource(10, 40); // 攻 10 < 防 40 的一半 → 挡下、结算终止
+        var layer = ArmorTable.Plate();
+        var rng = new SequenceRandomSource(10, 40); // 攻击 roll 低于防御 roll 的一半 → 挡下、结算终止
         CombatResult r = new CombatResolver(rng)
             .Resolve(Blade(), new[] { layer }, Chest(), incomingDamageReduction: 0.10);
         Assert.True(r.Terminated);

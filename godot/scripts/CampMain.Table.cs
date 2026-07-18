@@ -13,14 +13,14 @@ namespace DeadSignal.Godot;
 ///
 /// <para>
 /// <b>⚠️ 桌子没有任何玩法作用</b>（用户只说了要这个配方，没说它干什么用；营地里也没有"桌子"这个概念）——
-/// 它现在就是一件可造、可摆、<b>可跨越（跨过减速 25%）</b>、可拆的家具。真正的用处待用户定，见 <see cref="TableSpec"/> 类注。
+/// 它现在就是一件可造、可摆、<b>可跨越（跨过减速由 Wiki 配置提供）</b>、可拆的家具。真正的用处待用户定，见 <see cref="TableSpec"/> 类注。
 /// </para>
 ///
 /// <para>
 /// <b>交互范式零发明</b>：整条链照抄床/沙袋 —— 配方产出一件"桌子" → 库存点「摆放」→ 左键落位 → 右键作罢。
 /// 放置校验走 <see cref="CampMain.CheckFurniturePlacement"/>（不许贴大门/围栏的 64px 禁建带，含绿/红落位预览）。
 /// 减速<b>不在这儿登记</b>：<see cref="RebuildTraversalField"/> 从 <c>_furniture</c>（唯一真源）统一重建，
-/// 谁往里加家具都自动吃到 ×0.75（见 <c>CampMain.Traversal.cs</c> 的类注：逐点登记迟早漏一个）。
+/// 谁往里加家具都自动吃到 Wiki 配置减速（见 <c>CampMain.Traversal.cs</c> 的类注：逐点登记迟早漏一个）。
 /// </para>
 /// </summary>
 public sealed partial class CampMain
@@ -98,14 +98,14 @@ public sealed partial class CampMain
         var visuals = new List<Node2D>();
         AddOccluderVisual(rect, style, seed: 41, height: 12f, cell: 36f, visuals);
 
-        // 半身掩体登记（用户拍板：躲在桌子后挨远程有 25% 无伤）：贴着它的**双方**都吃这 25%；不拦近战（矮物）。
+        // 半身掩体登记（用户拍板：躲在桌子后挨远程有配置概率无伤）：贴着它的**双方**都吃同一配置效果；不拦近战（矮物）。
         _coverField.Add(rect.Position.X, rect.Position.Y, rect.Size.X, rect.Size.Y,
             TableSpec.CoverChance, TableSpec.BlocksMelee);
 
         _furniture[name] = new FurnitureInstance { Rect = rect, Body = null, Visuals = visuals };
         _containers.Add(new ContainerRef { Name = name, Rect = rect, Role = "table" });
         // 注销不必在这儿写：RemoveFurniture（拆除的唯一出口）已经通用地 _containers.RemoveAll(名字)
-        // + _coverField.RemoveRect(它的矩形) 了 —— 拆了桌子，那 25% 跟着没（不会对着一片空地白享掩体）。
+        // + _coverField.RemoveRect(它的矩形) 了 —— 拆了桌子，掩体概率跟着没（不会对着一片空地白享掩体）。
     }
 
     /// <summary>桌子实例名（"桌子#3"）里的序号；解不出来给 0。</summary>

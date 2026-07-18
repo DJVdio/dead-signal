@@ -303,7 +303,7 @@ public class ZombieOutfitTests
     [Fact]
     public void EliteZombie_IsMuchHarderToHurt_ThanDailyZombie()
     {
-        // 精英丧尸存在的意义：板甲（锐防 50）把挡下门槛抬到 25，寻常武器基本破不了躯干。
+        // 精英丧尸存在的意义：板甲把挡下门槛抬高，具体数值来自 Wiki 配置。
         var blade = new Weapon
         {
             Name = "测试锐器", DamageMin = 2.5, DamageMax = 2.5, Penetration = 0, DamageType = DamageType.Sharp,
@@ -319,7 +319,7 @@ public class ZombieOutfitTests
         Assert.Equal(
             "板甲",
             elite.First(l => l.CoversParts is null || l.CoversParts.Contains(HumanBody.Chest)).Name);
-        // 板甲最外层：def 掷 5.1 就已 > 2×2.5 → 挡下（日常布衣要掷到 6 才挡得下；板甲上限 50，几乎必挡）。
+        // 板甲最外层：本次防御 roll 高于攻击 roll 的两倍，命中被挡下。
         CombatResult r = new CombatResolver(new SequenceRandomSource(2.5, 5.1)).Resolve(blade, elite, chest);
         Assert.Equal(0, r.FinalDamage);
     }
@@ -329,8 +329,7 @@ public class ZombieOutfitTests
     {
         // 本机制的存在理由。逐层结算：atk ∈ [伤害下限,上限]、def ∈ [0, 护甲值×(1−穿透)]，atk < def/2 才算挡下
         // → **单层甲有可能挡下一击 ⟺ 护甲值×(1−穿透)/2 > 武器伤害下限**。
-        // 腐皮锐防 3 → 门槛 1.5；长袖布衣锐防 6 → 门槛 3.0。取一把伤害恒为 2.5 的锐器（不吃 WeaponTable
-        // 的在途改动）夹在两个门槛之间：腐皮**即使掷出满防也挡不下**，布衣则挡得下。
+        // 取一把固定伤害的锐器，落在腐皮与布衣当前门槛之间：腐皮挡不下，布衣则挡得下。
         var blade = new Weapon
         {
             Name = "测试锐器", DamageMin = 2.5, DamageMax = 2.5, Penetration = 0, DamageType = DamageType.Sharp,

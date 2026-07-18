@@ -16,7 +16,7 @@ public sealed partial class ReadingPanel : CanvasLayer
     {
         public string BookId;
         public string Title;
-        /// <summary>前置书 id（可空=无前置）。读者未读完它则读速极慢（引擎侧 ×0.2），预指派界面据此提示。</summary>
+        /// <summary>前置书 id（可空=无前置）。未读完前置时的读速效果见 Wiki 配置表，预指派界面据此提示。</summary>
         public string? PrerequisiteBookId;
         /// <summary>前置书标题（供提示文案「未读《X》」用；无前置时为 null）。</summary>
         public string? PrerequisiteTitle;
@@ -147,7 +147,7 @@ public sealed partial class ReadingPanel : CanvasLayer
             for (int b = 0; b < _books.Count; b++)
             {
                 BookOption book = _books[b];
-                // 前置未读 → 该读者读此书极慢，项名后缀提示（引擎侧 ×0.2，不禁止，仅耗时）。
+                // 前置未读 → 该读者读此书变慢，项名后缀提示（不禁止，仅耗时；系数见 Wiki 配置表）。
                 bool slow = book.PrerequisiteBookId is { } preId
                     && !(_readerHasReadBook?.Invoke(pawn.Id, preId) ?? false);
                 string label = slow

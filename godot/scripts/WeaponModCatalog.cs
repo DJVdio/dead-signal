@@ -15,23 +15,22 @@ namespace DeadSignal.Godot;
 /// <hr/>
 /// <b>一、重量 = 这套设计的核心代价轴</b>（用户原话：「我希望重量在改装中是一个重要的因素」）
 /// <para>
-/// 每条改装带一个 <see cref="WeaponMod.WeightMultiplier"/>（−25% ~ +50%），**真的进负重账**
+/// 每条改装带一个 <see cref="WeaponMod.WeightMultiplier"/>，**真的进负重账**；倍率以 Wiki 配置为准。
 /// （<c>ItemWeights.WeaponKg</c> → <c>ModdedWeaponRegistry.WeightMultiplierOf</c>）。
-/// 所以「轻质化枪托」那种**只减重、别的全是负面**的改装才成立：你买的就是那 15% 的重量。
+/// 所以「轻质化枪托」那种**只减重、别的全是负面**的改装才成立：重量收益本身就是它的代价轴。
 /// </para>
 ///
-/// <b>二、百分比一律乘算</b>（CLAUDE.md 铁律；用户复述过一遍：「穿透 −10% 指的是在原本数值上 −该数值的 10%，
-/// 例如 20% 变成 18%」⇒ ×0.9，不是减 10 个百分点）。
+/// <b>二、百分比一律乘算</b>（CLAUDE.md 铁律）：百分比改动作用于原值，不是减/加固定百分点。
 /// <para>
-/// **唯一例外 = 钉子强化的穿透 +0.03**（加算）。理由见 <see cref="NailStuds"/>：棍棒的穿透**本来就是 0**，
-/// 乘算在零上永远是零 —— 这是"零陷阱"，用户明确点名要在这里破例。
+/// **唯一例外 = 钉子强化的穿透加值**（加算）。理由见 <see cref="NailStuds"/>：棍棒的基础穿透为零，
+/// 乘算在零上永远是零 —— 这是"零陷阱"，用户明确点名要在这里破例；加值由 Wiki 配置。
 /// </para>
 /// <para>
-/// **攻速 ↔ 攻击间隔的换算**：本表沿用用户自己在表里给出的等式（「防滑缠手：攻速 +5% ＝ 攻击间隔 ×0.95」）
-/// ⇒ **攻速 +x% ⇒ 间隔 ×(1−x)**，攻速 −x% ⇒ 间隔 ×(1+x)。
+/// **攻速 ↔ 攻击间隔的换算**：沿用表中等式 ⇒ **攻速 +x% ⇒ 间隔 ×(1−x)**，
+/// 攻速 −x% ⇒ 间隔 ×(1+x)。具体 x 以 Wiki 配置为准。
 /// </para>
 ///
-/// <b>三、穿透 ≤ 100%</b>（用户拍板）。收口在 <c>WeaponMods.WeaponDraft.Build</c> 的 <c>Clamp(0,1)</c>，
+/// <b>三、穿透有上限</b>（用户拍板）。收口在 <c>WeaponMods.WeaponDraft.Build</c> 的 <c>Clamp(0,1)</c>，
 /// 护栏见 <c>WeaponModPenetrationCapTests</c>。
 ///
 /// <hr/>
@@ -40,24 +39,24 @@ namespace DeadSignal.Godot;
 /// ⚠️ <b>旧口径（已作废，别照着推理）</b>：型态是"在这把枪自己的枪托数值上乘一个系数" ⇒ 重枪改出来的更猛。
 /// </para>
 /// <para>
-/// <b>新口径（用户写在 wiki 上）</b>：「近战模式**等同于 85% 攻速的〈某把近战武器〉**」（[T68] 原 80%）——
+/// <b>新口径（用户写在 wiki 上）</b>：「近战模式**等同于 Wiki 配置攻速倍率的〈某把近战武器〉**」——
 /// 刺刀＝刺剑、利爪＝消防斧、创伤＝尖头锤、<b>[T68] 锋刃＝匕首</b>，一律 <b>覆盖（Set）</b>而非缩放。
 /// ⇒ <b>所有枪的同一型态，枪托数值完全一样</b>（<b>你捅人用的是那把刀，不是那把枪</b>）。
-/// 差异全部搬到**重量代价**上：刺刀 +10% / 利爪 +30% / 创伤 +50% / 锋刃 +5%。
+/// 差异全部搬到**重量代价**上，具体倍率以 Wiki 配置为准。
 /// </para>
 /// <para>
-/// [T68] 攻速 85% ⇒ 出手间隔 ÷0.85 ⇒ DPS ×0.85（原 80% 时为 ×0.8，四种型态一律提速）。
+/// [T68] 攻速倍率会按反比换算为出手间隔；四种型态统一遵循该规则，具体倍率以 Wiki 配置为准。
 /// DPS 排序仍与重量代价排序单调一致（刺刀 ＜ 利爪 ＜ 创伤），且全部**低于同源匕首本体**：
 /// 改装能让你"打空了还能打"，但**不能让你不必带近战武器**。
 /// 🔴 具体 DPS 数不在此钉死（刺剑/消防斧/尖头锤/匕首的数值另有 agent 在同步，钉了就会过时）——
 /// 它们从 <see cref="WeaponTable"/> 实读，用户调基准武器时四型态自动跟着变。
 /// </para>
 /// <para>
-/// 🔴 <b>创伤型 2.286 ＞ 棍棒 2.04 = 用户有意为之</b>（它代价最大：重量 +50%、材料最贵、240 工时）。
+/// 🔴 <b>[历史仿真快照，非当前配置源] 创伤型曾高于棍棒</b>（它代价最大、材料最贵、工时最长）。
 /// 一把加装了铁锤头的步枪打不过一根木棍，那才荒唐。**这不是待修的平衡问题。**
 /// </para>
 /// <para>
-/// ⚠️ <b>当前的真实状态：改装后近战反而比原厂枪托弱</b>（4 把重枪的原厂枪托是 2.80~2.84 ＞ 型态的 1.90~2.29）。
+/// ⚠️ <b>[历史仿真快照，非当前配置源] 当时改装后近战反而比原厂枪托弱</b>。
 /// 根因**不在本表**：用户说过「枪械近战得到补足是应该的，但**我会对其做削弱**」「枪托先不管了，我后面自己调整」——
 /// 原厂枪托的下调**还没发生**。他压下去之后三型态自然重新成为升级。
 /// 见 <c>GunModBenchTests.ModdedStock_WeakerThanPlainStock_IsCurrentlyBroken_PendingUserStockNerf</c>（记录现状的测试）。
@@ -159,7 +158,7 @@ public static class WeaponModCatalog
     // ═══════════════════════════════════════════════════════════════════════════
     // 【T47 追加·用户拍板】消防斧按「**和长剑同档**」的口径勾进锐器改装。
     //
-    // 依据：消防斧 DPS 2.79 ≈ 长剑 2.81（同档）⇒ 长剑吃的那 6 条改装，消防斧原则上照搬一份。
+    // 依据：[历史仿真快照，非当前配置源] 消防斧与长剑曾处于同档 ⇒ 长剑吃的改装，消防斧原则上照搬一份。
     //
     // ⚠️ 但用户要的是「**同档的口径**」，不是"一个字不差照抄" ⇒ 逐条过了一遍语义，**跳掉 1 条**：
     //
@@ -169,7 +168,7 @@ public static class WeaponModCatalog
     //   ✅ 轻质化剑柄（换轻柄）  —— 换一副轻木柄，挥得快些。斧柄本来就是木头。
     //   ✅ 锯齿剑刃（刃上开齿）  —— 边缘案例但**不算荒谬**（消防斧/救援斧确有开齿的一段）。按"同档"默认勾上；
     //                             用户若嫌怪，在 wiki 上一键划掉即可。
-    //   ❌ **镂空剑刃（开血槽减重 −25%、攻速 +15%、伤害 −9%）—— 唯一跳过的一条。**
+    //   ❌ **镂空剑刃——唯一跳过的一条。** 当前效果以 Wiki 配置为准。
     //        理由不是"消防斧没有'剑刃'"（那 4 条也都叫"剑X"，按名字否决会把 4 条一起误杀），
     //        而是**功能上自相矛盾**：**消防斧的杀伤力就是它的头部质量**（头重杆轻，靠惯性劈开东西）。
     //        给消防斧开血槽/镂空 = 把它赖以成立的那个东西挖掉 ⇒ 换来的是"更快但更轻更软的消防斧"，
@@ -228,10 +227,10 @@ public static class WeaponModCatalog
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // 【近战型态的数值来源】"等同于 85% 攻速的〈某把武器〉" —— 直接从 WeaponTable **读那把武器**，
+    // 【近战型态的数值来源】"等同于 Wiki 配置攻速倍率的〈某把武器〉" —— 直接从 WeaponTable **读那把武器**，
     // 覆盖（Set）到枪托近战的五个字段上。**不抄数字**：用户日后调刺剑/消防斧/尖头锤/匕首，四个型态自动跟着变。
     //
-    // [T68·用户手改] 攻速 80% → **85%**（四种型态一律）：出手间隔 ÷ 0.85（≈ ×1.176）。伤害/穿透/噪音**原样照抄**那把武器。
+    // [T68·用户手改] 攻速倍率由 Wiki 配置（四种型态统一）：按反比换算出手间隔；伤害/穿透/噪音**原样照抄**那把武器。
     // ⚠ 砸墙系数不在此列（Weapon.MeleeProfile 不复制它，枪托砸墙恒为默认 1.0）——wiki 表也没写。
     // ═══════════════════════════════════════════════════════════════════════════
 
@@ -252,8 +251,8 @@ public static class WeaponModCatalog
     /// <summary>取某条改装的整条可调数值（重量/否决几率/半角等）；缺 id fail-fast。</summary>
     private static WeaponModTuning T(string id) => Cfg.Get(id);
 
-    /// <summary>攻速折扣：型态的枪托近战 = 该武器的 <see cref="MeleeFormSpeed"/> 倍攻速（0.85 ⇒ 间隔 ÷0.85 ≈ ×1.176）。</summary>
-    private static double MeleeFormSpeed => Cfg.MeleeFormSpeed;   // [T68] 用户手改原 0.8；[config] 外置 weaponmods.json
+    /// <summary>攻速折扣：型态的枪托近战按 <see cref="MeleeFormSpeed"/> 倍攻速换算出手间隔；具体倍率以 Wiki 配置为准。</summary>
+    private static double MeleeFormSpeed => Cfg.MeleeFormSpeed;   // [T68] 外置 weaponmods.json，表赢代码
 
     /// <summary>把一把近战武器**覆盖**成枪托近战的五条 Set（伤害下限/上限、穿透、间隔、噪音）。</summary>
     private static StatMod[] StockMeleeLike(Weapon melee) => new[]
@@ -268,11 +267,11 @@ public static class WeaponModCatalog
     // ============ 枪械改装（7 条）============
 
     /// <summary>
-    /// 轻质化枪托：<b>整把枪减重 15%</b>，代价是散布 +10%。
+    /// 轻质化枪托：整把枪减重，代价是散布变差；具体数值以 Wiki 配置为准。
     /// <para>
     /// ⚠️ 用户把它原有的"射速↑/伤害↓"**全部删了** —— 现在它**只做一件事：减重**。
-    /// 这在重量不进负重账的年代等于"付 180 工时换一把更差的枪"（纯负收益）；
-    /// 而 [T47] 把重量接进了负重账之后，**减重本身就是它的收益**——枪轻 15%，人跑得动。
+    /// 这在重量不进负重账的旧设计里等于"付工时换一把更差的枪"（纯负收益）；
+    /// 而 [T47] 把重量接进了负重账之后，**减重本身就是它的收益**——枪轻了，人跑得动。
     /// </para>
     /// </summary>
     public static WeaponMod LightenedStock() => new()
@@ -281,14 +280,14 @@ public static class WeaponModCatalog
         Name = "轻质化枪托",
         FitsWeapons = Guns6(),
         Part = WeaponPart.Stock,
-        Note = "掏空枪托：整枪减重 15%，代价是握持变虚、散布变大。",
+        Note = "掏空枪托：整枪变轻，代价是握持变虚、散布变大。",
         Description = "枪轻了，你举得更久，也晃得更凶。跑起来时它谢你，瞄准时它记恨你。",
         MaterialCosts = Cost(("wood", 1)),
         WorkMinutes = 180,
-        WeightMultiplier = T("lightened_stock").WeightMultiplier,   // 重量 −15%
+        WeightMultiplier = T("lightened_stock").WeightMultiplier,   // 重量倍率由 Wiki 配置
         Stats = new[]
         {
-            StatMod.Mul(WeaponStat.BaseSpreadDegrees, S("lightened_stock", WeaponStat.BaseSpreadDegrees)),   // 散布 +10%
+            StatMod.Mul(WeaponStat.BaseSpreadDegrees, S("lightened_stock", WeaponStat.BaseSpreadDegrees)),   // 散布倍率由 Wiki 配置
         },
     };
 
@@ -307,20 +306,20 @@ public static class WeaponModCatalog
         Description = "上次这么做的人是施瓦辛格。",
         MaterialCosts = Cost(),        // 用户清空：锯掉一截不消耗材料
         WorkMinutes = 60,
-        WeightMultiplier = T("sawn_off_barrel").WeightMultiplier,   // 重量 −20%
+        WeightMultiplier = T("sawn_off_barrel").WeightMultiplier,   // 重量倍率由 Wiki 配置
         AllowsOneHanded = true,                                   // 「允许单手持有」
         Stats = new[]
         {
-            StatMod.Mul(WeaponStat.MaxRange, S("sawn_off_barrel", WeaponStat.MaxRange)),               // 射程 −20%
-            StatMod.Mul(WeaponStat.FalloffStart, S("sawn_off_barrel", WeaponStat.FalloffStart)),       // 衰减起点 −20%
-            StatMod.Mul(WeaponStat.Penetration, S("sawn_off_barrel", WeaponStat.Penetration)),         // 穿透 −15%（乘算：40% → 34%，不是减 15 个点）
-            StatMod.Mul(WeaponStat.BaseSpreadDegrees, S("sawn_off_barrel", WeaponStat.BaseSpreadDegrees)), // 散布 +25%
-            StatMod.Mul(WeaponStat.DamageMin, S("sawn_off_barrel", WeaponStat.DamageMin)),             // 伤害 −10%
+            StatMod.Mul(WeaponStat.MaxRange, S("sawn_off_barrel", WeaponStat.MaxRange)),               // 射程倍率由 Wiki 配置
+            StatMod.Mul(WeaponStat.FalloffStart, S("sawn_off_barrel", WeaponStat.FalloffStart)),       // 衰减起点倍率由 Wiki 配置
+            StatMod.Mul(WeaponStat.Penetration, S("sawn_off_barrel", WeaponStat.Penetration)),         // 穿透倍率由 Wiki 配置（乘算）
+            StatMod.Mul(WeaponStat.BaseSpreadDegrees, S("sawn_off_barrel", WeaponStat.BaseSpreadDegrees)), // 散布倍率由 Wiki 配置
+            StatMod.Mul(WeaponStat.DamageMin, S("sawn_off_barrel", WeaponStat.DamageMin)),             // 伤害倍率由 Wiki 配置
             StatMod.Mul(WeaponStat.DamageMax, S("sawn_off_barrel", WeaponStat.DamageMax)),
         },
     };
 
-    /// <summary>加长枪管：射得更远更准更狠，代价是重了 35%、出手慢了 10%。</summary>
+    /// <summary>加长枪管：射得更远更准更狠，代价是更重、出手更慢；具体数值以 Wiki 配置为准。</summary>
     public static WeaponMod ExtendedBarrel() => new()
     {
         Id = "extended_barrel",
@@ -329,16 +328,16 @@ public static class WeaponModCatalog
         Part = WeaponPart.Barrel,
         Note = "接一截长管：打得远、打得准、打得透——代价是它沉，而且抬枪慢半拍。",
         Description = "粗俗的东西，总是秉持着一个简单的道理——长就是好。",
-        MaterialCosts = Cost(("iron", 3)),   // [T46] 铁 3（原：金属锭 1 + 废金属 1 = 2 + 1）。
+        MaterialCosts = Cost(("iron", 3)),   // 材料数量以 Wiki 配置为准
         WorkMinutes = 240,
-        WeightMultiplier = T("extended_barrel").WeightMultiplier,   // 重量 +35%
+        WeightMultiplier = T("extended_barrel").WeightMultiplier,   // 重量倍率由 Wiki 配置
         Stats = new[]
         {
-            StatMod.Mul(WeaponStat.MaxRange, S("extended_barrel", WeaponStat.MaxRange)),               // 射程 +20%
-            StatMod.Mul(WeaponStat.FalloffStart, S("extended_barrel", WeaponStat.FalloffStart)),       // 衰减起点 +20%
-            StatMod.Mul(WeaponStat.BaseSpreadDegrees, S("extended_barrel", WeaponStat.BaseSpreadDegrees)), // 散布 −20%
-            StatMod.Mul(WeaponStat.AttackInterval, S("extended_barrel", WeaponStat.AttackInterval)),   // 攻速 −10% ⇒ 间隔 ×1.10
-            StatMod.Mul(WeaponStat.Penetration, S("extended_barrel", WeaponStat.Penetration)),         // 穿透 +10%（乘算）
+            StatMod.Mul(WeaponStat.MaxRange, S("extended_barrel", WeaponStat.MaxRange)),               // 射程倍率由 Wiki 配置
+            StatMod.Mul(WeaponStat.FalloffStart, S("extended_barrel", WeaponStat.FalloffStart)),       // 衰减起点倍率由 Wiki 配置
+            StatMod.Mul(WeaponStat.BaseSpreadDegrees, S("extended_barrel", WeaponStat.BaseSpreadDegrees)), // 散布倍率由 Wiki 配置
+            StatMod.Mul(WeaponStat.AttackInterval, S("extended_barrel", WeaponStat.AttackInterval)),   // 攻速按间隔换算规则由 Wiki 配置
+            StatMod.Mul(WeaponStat.Penetration, S("extended_barrel", WeaponStat.Penetration)),         // 穿透倍率由 Wiki 配置（乘算）
         },
     };
 
@@ -347,11 +346,11 @@ public static class WeaponModCatalog
     // 与前两者不同部位，故还要靠 MeleeForm 的"至多一种型态"规则挡住（见 WeaponMods.ApplyMods）。
     //
     // 三者**都不再随枪身缩放**（用户改口径）：同一型态装在手枪还是狙击枪上，枪托数值一模一样。
-    // 差异全在**重量代价**：刺刀 +10% ＜ 利爪 +30% ＜ 创伤 +50%，与 DPS 排序单调一致。
+    // 差异全在**重量代价**，与 DPS 排序单调一致；具体倍率以 Wiki 配置为准。
 
     /// <summary>
-    /// 刺刀型（枪口）：近战 = <b>85% 攻速的刺剑</b>（[T68] 原 80%；数值从 <see cref="WeaponTable.Rapier"/> 实读）。
-    /// 重枪三型态里**最快、最安静、穿透最高、伤害最低**，重量代价也最小（+10%）。
+    /// 刺刀型（枪口）：近战按 Wiki 攻速倍率使用 <see cref="WeaponTable.Rapier"/>。
+    /// 重枪三型态里**最快、最安静、穿透最高、伤害最低**，重量代价也最小；具体数值以 Wiki 配置为准。
     /// </summary>
     public static WeaponMod Bayonet() => new()
     {
@@ -364,15 +363,15 @@ public static class WeaponModCatalog
         Description = "子弹会引来一整条街，这一下不会。它安静得像一句没说出口的话。",
         MaterialCosts = Cost(("iron", 4), ("rope", 1)),   // [T46] 铁 4（原：金属锭 1 + 废金属 2 = 2 + 2）。
         WorkMinutes = 240,
-        WeightMultiplier = T("bayonet").WeightMultiplier,        // 重量 +10%
+        WeightMultiplier = T("bayonet").WeightMultiplier,        // 重量倍率由 Wiki 配置
         Stats = StockMeleeLike(WeaponTable.Rapier())
-            .Append(StatMod.Mul(WeaponStat.BaseSpreadDegrees, S("bayonet", WeaponStat.BaseSpreadDegrees)))   // 散布 +3%
+            .Append(StatMod.Mul(WeaponStat.BaseSpreadDegrees, S("bayonet", WeaponStat.BaseSpreadDegrees)))   // 散布倍率由 Wiki 配置
             .ToArray(),
     };
 
     /// <summary>
-    /// 利爪型（枪托）：近战 = <b>85% 攻速的消防斧</b>（[T68] 原 80%；数值从 <see cref="WeaponTable.Axe"/> 实读）。
-    /// **单击最重**（消防斧伤害上限全型态最高），穿透中等，重量代价 +30%。
+    /// 利爪型（枪托）：近战按 Wiki 攻速倍率使用 <see cref="WeaponTable.Axe"/>。
+    /// **单击最重**（消防斧伤害上限全型态最高），穿透中等；重量代价以 Wiki 配置为准。
     /// </summary>
     public static WeaponMod ClawStock() => new()
     {
@@ -385,16 +384,16 @@ public static class WeaponModCatalog
         Description = "打不响的时候它还能砍。末日里一把枪最该学会的，是别只把自己当枪用。",
         MaterialCosts = Cost(("iron", 3), ("leather", 1), ("nails", 2)),
         WorkMinutes = 240,
-        WeightMultiplier = T("claw_stock").WeightMultiplier,     // 重量 +30%
+        WeightMultiplier = T("claw_stock").WeightMultiplier,     // 重量倍率由 Wiki 配置
         Stats = StockMeleeLike(WeaponTable.Axe())
-            .Append(StatMod.Mul(WeaponStat.BaseSpreadDegrees, S("claw_stock", WeaponStat.BaseSpreadDegrees)))   // 散布 +10%
+            .Append(StatMod.Mul(WeaponStat.BaseSpreadDegrees, S("claw_stock", WeaponStat.BaseSpreadDegrees)))   // 散布倍率由 Wiki 配置
             .ToArray(),
     };
 
     /// <summary>
-    /// 创伤型（枪托）：近战 = <b>85% 攻速的尖头锤</b>（[T68] 原 80%；数值从 <see cref="WeaponTable.SpikeHammer"/> 实读）。
-    /// 重枪三型态里 **DPS 最高**（<b>用户有意为之</b>：它代价最大），也**最重**（+50%）、最慢、最响。
-    /// 唯一一条**反向改善射击**的型态（散布 −3%：铁疙瘩压枪更稳）。
+    /// 创伤型（枪托）：近战按 Wiki 攻速倍率使用 <see cref="WeaponTable.SpikeHammer"/>。
+    /// 重枪三型态里 **DPS 最高**（<b>用户有意为之</b>：它代价最大），也**最重**、最慢、最响。
+    /// 唯一一条**反向改善射击**的型态（铁疙瘩压枪更稳）；具体数值以 Wiki 配置为准。
     /// </summary>
     public static WeaponMod TraumaStock() => new()
     {
@@ -405,19 +404,19 @@ public static class WeaponModCatalog
         Form = MeleeForm.Trauma,
         Note = "枪托焊成一柄尖头锤：抡起来像铁疙瘩，砸下去也像。压枪倒是更稳了。",
         Description = "子弹留个洞，这头铁疙瘩留个印子——凹进去的那种。压枪稳了，是顺带的。",
-        MaterialCosts = Cost(("iron", 4)),   // [T68·用户手改] 去掉「钉子*4」，只留铁 4（wiki 材料列 = 铁*4）。
+        MaterialCosts = Cost(("iron", 4)),   // 材料数量以 Wiki 配置为准
         WorkMinutes = 240,
-        WeightMultiplier = T("trauma_stock").WeightMultiplier,   // 重量 +50%（全表最重的代价）
+        WeightMultiplier = T("trauma_stock").WeightMultiplier,   // 重量倍率由 Wiki 配置
         Stats = StockMeleeLike(WeaponTable.SpikeHammer())
-            .Append(StatMod.Mul(WeaponStat.BaseSpreadDegrees, S("trauma_stock", WeaponStat.BaseSpreadDegrees)))   // 散布 −3%（用户手改：配重让枪更稳）
+            .Append(StatMod.Mul(WeaponStat.BaseSpreadDegrees, S("trauma_stock", WeaponStat.BaseSpreadDegrees)))   // 散布倍率由 Wiki 配置（配重让枪更稳）
             .ToArray(),
     };
 
     /// <summary>
-    /// [T68·用户在 wiki 上新加] 锋刃型（枪托）：近战 = <b>85% 攻速的匕首</b>（数值从 <see cref="WeaponTable.Dagger"/> 实读）。
+    /// [T68·用户在 wiki 上新加] 锋刃型（枪托）：近战按 Wiki 攻速倍率使用 <see cref="WeaponTable.Dagger"/>。
     /// <para>
     /// 🔴 <b>这是给短枪（手枪 / 冲锋枪）的近战型态 —— 重枪的刺刀/利爪/创伤它们一件都装不了</b>（白名单不相交）。
-    /// 手枪贴脸时枪托本就打不出什么，固定一把匕首至少能捅；代价极小（重量 +5%、铁 1 + 绳 1、90 工时），
+    /// 手枪贴脸时枪托本就打不出什么，固定一把匕首至少能捅；代价较小，材料与工时以 Wiki 配置为准，
     /// 换来的匕首本身也是全近战最弱的一档 —— 它补的是"短枪贴脸没有近战手段"这个洞，不是给短枪加一个强力近战。
     /// </para>
     /// <para>
@@ -437,33 +436,33 @@ public static class WeaponModCatalog
         Description = "握手的地方藏了刀，问候语就变了。等他伸手推开你的枪口，才发现推错了地方。",
         MaterialCosts = Cost(("iron", 1), ("rope", 1)),
         WorkMinutes = 90,
-        WeightMultiplier = T("blade_stock").WeightMultiplier,    // 重量 +5%
-        Stats = StockMeleeLike(WeaponTable.Dagger()),            // 无额外散布改动（wiki 只写了重量 +5%）
+        WeightMultiplier = T("blade_stock").WeightMultiplier,    // 重量倍率由 Wiki 配置
+        Stats = StockMeleeLike(WeaponTable.Dagger()),            // 无额外散布改动（具体改装数值由 Wiki 配置）
     };
 
     // ============ 近战锐器改装（6 条）============
 
     /// <summary>
-    /// 锯齿剑刃：穿透 −20%，**造成的流血速度 +40%**。✅ [T53] 流血轴已落地，两条效果都真了。
+    /// 锯齿剑刃：穿透受抑制、**造成的流血速度提高**；具体倍率以 Wiki 配置为准。✅ [T53] 流血轴已落地。
     ///
     /// <para>
     /// <b>用户的设计意图（事实源，一字不改）</b>：「**我的设计是，锯齿剑刃是用来对付无甲或者轻甲目标，边打边跑**」
     /// ⇒ 它**不是**通用上位替代，而是一把**挑食**的武器：对无甲/轻甲强，对重甲弱。
     /// </para>
     /// <para>
-    /// <b>穿透 −20% 是这条梯度的唯一来源</b>，而且它是一根**只对重甲有抓地力**的精准杠杆（Sim 实测，见
+    /// <b>穿透惩罚是这条梯度的唯一来源</b>，而且它是一根**只对重甲有抓地力**的精准杠杆（<b>[历史仿真快照，非当前配置源]</b>，见
     /// <c>docs/research/2026-07-14-bleed-axis.md</c> §4）：
     /// <list type="bullet">
     /// <item>**无甲**：身上一层护甲都没有 ⇒ 穿透**在结算里根本不被读取** ⇒ 穿透惩罚对它**完全免费**。</item>
-    /// <item>**丧尸**：腐皮太薄（锐防 1.5）⇒ 穿透对它**也没有抓地力**。丧尸＝轻目标＝设计正靶，本就该强。</item>
+    /// <item>**丧尸**：腐皮太薄 ⇒ 穿透对它**也没有抓地力**。丧尸＝轻目标＝设计正靶，本就该强；护甲数值以 Wiki 配置为准。</item>
     /// <item>**重甲**：唯一需要修、也是唯一修得动的一格。</item>
     /// </list>
     /// ⇒ 划不进甲 ⇒ 没有伤口 ⇒ 没有流血。**护甲正是它的克星**，所以 <c>BleedModel</c> 那条闸门注释
     /// 担心的"伤害与护甲失去意义"不会发生 —— 前提是穿透惩罚**够大**。
     /// </para>
     /// <para>
-    /// ⚠️ <b>穿透 −20% 是【乘算】</b>（用户口径：「在原本数值上 −该数值的 10%，例如 20% 变成 18%」）——
-    /// 长剑 24% → 19.2%，**不是** 24% − 20% = 4%。别手一贱改成 <c>Add(-0.20)</c>。
+    /// ⚠️ <b>穿透惩罚是【乘算】</b>（用户口径：百分比作用于原值，而不是减固定百分点）——
+    /// 不要改成 <c>Add</c>；具体倍率以 Wiki 配置为准。
     /// </para>
     /// </summary>
     public static WeaponMod SerratedBlade() => new()
@@ -478,21 +477,21 @@ public static class WeaponModCatalog
         WorkMinutes = 240,
         Stats = new[]
         {
-            StatMod.Mul(WeaponStat.Penetration, S("serrated_blade", WeaponStat.Penetration)),            // 穿透 −20%（**乘算**）
-            StatMod.Mul(WeaponStat.BleedRateMultiplier, S("serrated_blade", WeaponStat.BleedRateMultiplier)),    // 造成的流血速度 +40%（[T53] 引擎轴）
+            StatMod.Mul(WeaponStat.Penetration, S("serrated_blade", WeaponStat.Penetration)),            // 穿透倍率由 Wiki 配置（**乘算**）
+            StatMod.Mul(WeaponStat.BleedRateMultiplier, S("serrated_blade", WeaponStat.BleedRateMultiplier)),    // 流血速率倍率由 Wiki 配置（[T53] 引擎轴）
         },
     };
 
     /// <summary>
-    /// 锋刃研磨：<b>穿透 +75%，攻击三次后失去该改装</b> —— 全表**唯一的消耗型改装**（用户点名）。
+    /// 锋刃研磨：<b>提高穿透，达到配置的使用次数后失去该改装</b> —— 全表**唯一的消耗型改装**（用户点名）。
     ///
     /// <para>
-    /// <b>用光就脱落</b>：第 3 下砍完，刀刃就磨钝了，改装从武器上摘掉（回到没研磨的状态），玩家会收到提示。
+    /// <b>用光就脱落</b>：达到配置的使用次数后，改装从武器上摘掉（回到没研磨的状态），玩家会收到提示。
     /// 次数是**武器实例上的状态**（见 <c>ModdedWeaponRegistry</c> 的耐久层），不是目录数据，也不在
     /// <c>ModdedWeaponSpec</c> 里 —— 那样会污染 <c>Rebuild</c> 的纯函数语义。
     /// </para>
     /// <para>
-    /// 材料为空 + 只要 60 工时 = 它就该是**出门前磨一次刀**这种小事：便宜、快、可反复做，用完再磨。
+    /// 材料为空且工时较短 = 它就该是**出门前磨一次刀**这种小事：便宜、快、可反复做，用完再磨。
     /// </para>
     /// </summary>
     public static WeaponMod HonedEdge() => new()
@@ -501,38 +500,38 @@ public static class WeaponModCatalog
         Name = "锋刃研磨",
         FitsWeapons = Blades6WithAxe(),   // 六把锐器 + 消防斧都能磨；棍棒不行（钝器没有"刃"可开）
         Part = WeaponPart.Blade,
-        Note = "把刃口磨到能刮胡子。它能透甲——但也就三下的事。",
+        Note = "把刃口磨到能刮胡子。它能透甲——但用久会失效。",
         Description = "很锋利，仅此而已。",
         MaterialCosts = Cost(),    // 用户清空：一块磨刀石反复用，不算消耗
         WorkMinutes = 60,
-        UsesBeforeBreak = 3,       // 🔴 攻击三次后失去该改装（用户拍板）
+        UsesBeforeBreak = 3,       // 🔴 使用次数由 Wiki 配置（用户拍板为消耗型）
         Stats = new[]
         {
-            StatMod.Mul(WeaponStat.Penetration, S("honed_edge", WeaponStat.Penetration)),            // 穿透 +75%（乘算；上限 100% 由 Build 的 Clamp 兜住）
+            StatMod.Mul(WeaponStat.Penetration, S("honed_edge", WeaponStat.Penetration)),            // 穿透倍率由 Wiki 配置（乘算；上限由 Build 的 Clamp 兜住）
         },
     };
 
-    /// <summary>镂空剑刃：开血槽减重 25% → 攻速 +15%、伤害 −9%。</summary>
+    /// <summary>镂空剑刃：开血槽减重、提高攻速并降低伤害；具体数值以 Wiki 配置为准。</summary>
     public static WeaponMod FullerBlade() => new()
     {
         Id = "fuller_blade",
         Name = "镂空剑刃",
         FitsWeapons = FullerFits(),       // 用户划掉刺剑；**消防斧刻意不勾**（镂空会挖掉消防斧赖以成立的头部质量）
         Part = WeaponPart.Blade,
-        Note = "剑身上开一道血槽：轻了四分之一，挥得更快——砍得也更浅。",
+        Note = "剑身上开一道血槽：变轻、挥得更快——砍得也更浅。",
         Description = "瞧一瞧看一看啊，多么精美的血槽，多么轻盈的手感。",
         MaterialCosts = Cost(("iron", 1)),
         WorkMinutes = 240,
-        WeightMultiplier = T("fuller_blade").WeightMultiplier,    // 重量 −25%（全表减重最多）
+        WeightMultiplier = T("fuller_blade").WeightMultiplier,    // 重量倍率由 Wiki 配置
         Stats = new[]
         {
-            StatMod.Mul(WeaponStat.AttackInterval, S("fuller_blade", WeaponStat.AttackInterval)),         // 攻速 +15% ⇒ 间隔 ×0.85
-            StatMod.Mul(WeaponStat.DamageMin, S("fuller_blade", WeaponStat.DamageMin)),              // 伤害 −9%
+            StatMod.Mul(WeaponStat.AttackInterval, S("fuller_blade", WeaponStat.AttackInterval)),         // 攻速按间隔换算规则由 Wiki 配置
+            StatMod.Mul(WeaponStat.DamageMin, S("fuller_blade", WeaponStat.DamageMin)),              // 伤害倍率由 Wiki 配置
             StatMod.Mul(WeaponStat.DamageMax, S("fuller_blade", WeaponStat.DamageMax)),
         },
     };
 
-    /// <summary>加重剑柄：柄里灌铅 → 伤害 +6%，重量 +18%。（用户删掉了原有的攻速惩罚——重量就是它的代价。）</summary>
+    /// <summary>加重剑柄：柄里灌铅 → 提高伤害并增加重量。（用户删掉了原有的攻速惩罚——重量就是它的代价。）具体数值以 Wiki 配置为准。</summary>
     public static WeaponMod WeightedHandle() => new()
     {
         Id = "weighted_handle",
@@ -543,15 +542,15 @@ public static class WeaponModCatalog
         Description = "“手腕酸痛，还得练啊小伙子。”——军刀大师夏普斯",
         MaterialCosts = Cost(("iron", 1)),
         WorkMinutes = 120,
-        WeightMultiplier = T("weighted_handle").WeightMultiplier,  // 重量 +18%
+        WeightMultiplier = T("weighted_handle").WeightMultiplier,  // 重量倍率由 Wiki 配置
         Stats = new[]
         {
-            StatMod.Mul(WeaponStat.DamageMin, S("weighted_handle", WeaponStat.DamageMin)),              // 伤害 +6%
+            StatMod.Mul(WeaponStat.DamageMin, S("weighted_handle", WeaponStat.DamageMin)),              // 伤害倍率由 Wiki 配置
             StatMod.Mul(WeaponStat.DamageMax, S("weighted_handle", WeaponStat.DamageMax)),
         },
     };
 
-    /// <summary>轻质化剑柄：木柄换皮缠 → 攻速 +3%，重量 −12%。</summary>
+    /// <summary>轻质化剑柄：木柄换皮缠 → 提高攻速并降低重量；具体数值以 Wiki 配置为准。</summary>
     public static WeaponMod LightenedHandle() => new()
     {
         Id = "lightened_handle",
@@ -562,15 +561,15 @@ public static class WeaponModCatalog
         Description = "对手腕有好处。",
         MaterialCosts = Cost(("wood", 1), ("leather", 1)),
         WorkMinutes = 120,
-        WeightMultiplier = T("lightened_handle").WeightMultiplier, // 重量 −12%
+        WeightMultiplier = T("lightened_handle").WeightMultiplier, // 重量倍率由 Wiki 配置
         Stats = new[]
         {
-            StatMod.Mul(WeaponStat.AttackInterval, S("lightened_handle", WeaponStat.AttackInterval)),         // 攻速 +3% ⇒ 间隔 ×0.97
+            StatMod.Mul(WeaponStat.AttackInterval, S("lightened_handle", WeaponStat.AttackInterval)),         // 攻速按间隔换算规则由 Wiki 配置
         },
     };
 
     /// <summary>
-    /// 防滑缠手：攻速 +5%。<b>锐器 6 把 + 钝器 3 把共用这一条</b>（用户把原来同名的两条合并了）——
+    /// 防滑缠手：提高攻速。<b>锐器与钝器共用这一条</b>（用户把原来同名的两条合并了）——
     /// 历史包袱（"同名两条改装、按名索引会撞"）就此消除。
     /// </summary>
     public static WeaponMod GripWrapBlade() => new()
@@ -585,7 +584,7 @@ public static class WeaponModCatalog
         WorkMinutes = 60,
         Stats = new[]
         {
-            StatMod.Mul(WeaponStat.AttackInterval, S("grip_wrap_blade", WeaponStat.AttackInterval)),         // 攻速 +5% ⇒ 间隔 ×0.95（用户在表上写的就是这个等式）
+            StatMod.Mul(WeaponStat.AttackInterval, S("grip_wrap_blade", WeaponStat.AttackInterval)),         // 攻速按间隔换算规则由 Wiki 配置
         },
     };
 
@@ -598,10 +597,10 @@ public static class WeaponModCatalog
     // 🔴 [wiki→代码同步] **这两条彼此不互斥，可以一起装。**（用户原话：「钉子和铁丝强化不占用同一个槽，
     //    可以一起安装」；wiki 的部位列：铁丝＝棍棒上部、钉子＝棍棒顶端 ⇒ 一个缠杆、一个钉头。）
     //    曾经两者同占 WeaponPart.Shaft ⇒ 二选一，那是**已作废的设计**——它的后果不是"少一个选项"：
-    //    铁丝(伤害 +15%)会把钉子(穿透 +0.03 + 25% 小流血)**完全支配**（实测打长剑手 +15.4pp vs +0.1pp＝噪声），
+    //    [历史仿真快照，非当前配置源] 铁丝的伤害优势曾把钉子的破甲/流血效果**完全支配**，
     //    钉子成了永远没人选的死配方。护栏见 WeaponModTests.钉子与铁丝不占同一个槽_可以一起装在同一根棍棒上。
 
-    /// <summary>铁丝强化：棍身缠铁丝 → <b>伤害 +15%，重量 +12%</b>（数值外置 weaponmods.json，用户在 wiki 上调过）。</summary>
+    /// <summary>铁丝强化：棍身缠铁丝 → 提高伤害并增加重量（数值外置 weaponmods.json，用户在 Wiki 上调）。</summary>
     public static WeaponMod WireWrap() => new()
     {
         Id = "wire_wrap",
@@ -612,31 +611,31 @@ public static class WeaponModCatalog
         Description = "还是一根棍子，但它现在咬人。",
         MaterialCosts = Cost(("wire", 2)),
         WorkMinutes = 60,
-        WeightMultiplier = T("wire_wrap").WeightMultiplier,       // 重量 +12%（用户在 wiki 上又调过一次）
+        WeightMultiplier = T("wire_wrap").WeightMultiplier,       // 重量倍率由 Wiki 配置
         Stats = new[]
         {
-            StatMod.Mul(WeaponStat.DamageMin, S("wire_wrap", WeaponStat.DamageMin)),              // 伤害 +15%（用户在 wiki 上又调过一次）
+            StatMod.Mul(WeaponStat.DamageMin, S("wire_wrap", WeaponStat.DamageMin)),              // 伤害倍率由 Wiki 配置
             StatMod.Mul(WeaponStat.DamageMax, S("wire_wrap", WeaponStat.DamageMax)),
         },
     };
 
     /// <summary>
-    /// 钉子强化：棍头钉钉子 → <b>穿透 +0.03（加算）</b>。
+    /// 钉子强化：棍头钉钉子 → <b>穿透加值（加算）</b>，具体加值以 Wiki 配置为准。
     ///
     /// <para>
     /// 🔴🔴 <b>这是全项目"百分比一律乘算"铁律的【唯一例外】，而且是用户亲自点名的：</b>
-    /// 用户原话「**钉子强化：穿透 +0.03 是因为棍棒原本是 0 穿透**」。
+    /// 用户原话「钉子强化的穿透加值是因为棍棒原本没有基础穿透」。
     /// </para>
     /// <para>
     /// <b>为什么必须加算 —— "零陷阱"</b>：棍棒的 <c>Penetration</c> 是 <b>0</b>（一根木头，破甲为零）。
-    /// 乘算在零上**永远是零**：<c>0 × 1.75 = 0</c>、<c>0 × 100 = 0</c>。
+    /// 乘算在零上**永远是零**：<c>0 × 配置倍率 = 0</c>。
     /// 想让"钉尖能破一点甲"这件事成立，只能加算。别人手一贱把它改成 <c>Mul</c>，这条改装当场变成一件废件
     /// （护栏 <c>WeaponModTests.NailStuds_OnClub_AddsPenetration</c> 会红）。
     /// </para>
     /// <para>
-    /// ✅ <b>[T53]「造成伤害时 25% 几率造成小流血」已落地</b>（<see cref="WeaponStat.BleedOnHitChance"/>）。
+    /// ✅ <b>[T53]「造成伤害时按配置几率造成小流血」已落地</b>（<see cref="WeaponStat.BleedOnHitChance"/>）。
     /// 🔴 <b>[T58]「小流血」的语义已改</b>：它现在就是三级流血里最轻的那一级
-    /// （<c>BleedModel.BleedSeverity.Small</c>，流速 0.3；旧的 <c>SmallWoundRateMultiplier = 0.5</c>
+    /// （<c>BleedModel.BleedSeverity.Small</c>；旧的 <c>SmallWoundRateMultiplier</c>
     /// 「速率减半的普通伤口」**已退役**）。
     /// ⇒ 钉子扎出的口子和别的小流血**按同一套规则合并**：同一部位扎两下 ⇒ **中流血**、再来一下 ⇒ **大流血**（封顶）。
     /// 它仍按命中部位定致命性（躯干上的小流血照样能把人放干，只是很慢）。
@@ -661,23 +660,23 @@ public static class WeaponModCatalog
         Stats = new[]
         {
             // 🔴 加算，不是乘算 —— 见类注的"零陷阱"。这是 CLAUDE.md 乘算铁律的唯一例外，用户点名的。
-            //    运算方式 Add 留代码（结构），只有 +0.03 这个数外置。
+            //    运算方式 Add 留代码（结构），具体加值外置到 Wiki 配置。
             StatMod.Add(WeaponStat.Penetration, S("nail_studs", WeaponStat.Penetration)),
 
-            // [T53] 造成伤害时 25% 几率造成小流血。
+            // [T53] 造成伤害时按 Wiki 配置几率造成小流血。
             // 🔴 这里**也必须是 Set/Add 而非 Mul**：基础武器的 BleedOnHitChance 是 **0** ——
-            //    又一个"零陷阱"，乘算在零上永远是零（0 × 0.25 = 0），改装会静默变成废件。
+            //    又一个"零陷阱"，乘算在零上永远是零，改装会静默变成废件。
             StatMod.Set(WeaponStat.BleedOnHitChance, S("nail_studs", WeaponStat.BleedOnHitChance)),
         },
     };
 
     // ============ [T69] 近身锐器·防御型改装（1 条：护手挡格）============
     //
-    // 🔴 它带的不是 StatMod，而是**承伤入口的一次整发否决**（拿武器的手被选为受击部位 → 50% 无效）。
+    // 🔴 它带的不是 StatMod，而是**承伤入口的一次整发否决**（拿武器的手被选为受击部位 → 按配置几率无效）。
     //    落成 WeaponMod.HandGuardNegateChance，判定走 WeaponModDefense.HandGuardNegates，
     //    接线在 CombatEngine.ResolveHit（部位在那里选定、伤害其后施加，故否决必须落在选部位之后）。
 
-    /// <summary>护手挡格：拿武器的手（连同手指）被选为受击部位时 50% 整发无效；重量 +10%。适配匕首/短剑/刺剑。</summary>
+    /// <summary>护手挡格：拿武器的手（连同手指）被选为受击部位时按配置几率整发无效；重量倍率以 Wiki 配置为准。适配匕首/短剑/刺剑。</summary>
     public static WeaponMod Handguard() => new()
     {
         Id = "handguard",
@@ -688,8 +687,8 @@ public static class WeaponModCatalog
         Description = "不仅是装饰品，更能保护你脆弱的手。",
         MaterialCosts = Cost(("iron", 2), ("leather", 1)),
         WorkMinutes = 90,
-        WeightMultiplier = T("handguard").WeightMultiplier,        // 重量 +10%
-        HandGuardNegateChance = T("handguard").HandGuardNegateChance, // 武器手受击时 50% 整发否决（数值拟定待调）
+        WeightMultiplier = T("handguard").WeightMultiplier,        // 重量倍率由 Wiki 配置
+        HandGuardNegateChance = T("handguard").HandGuardNegateChance, // 武器手受击时按 Wiki 配置几率整发否决
     };
 
     // ============ [T69] 弓弩专属改装（4 条：弓臂缠手 / 复合弓臂 / 重磅弓弦 / 弩盾）============
@@ -699,7 +698,7 @@ public static class WeaponModCatalog
     // 部位：弓臂缠手=缠手(LimbWrap)、复合弓臂=弓(Bow)、重磅弓弦=弦(String)、弩盾=弩身(CrossbowBody)。
     // 🔴 用户拍板：弓臂缠手(缠手) 与 复合弓臂(弓) **不互斥、可同装一把弓**（两个不同部位）。
 
-    /// <summary>弓臂缠手：弓臂缠一层布，攻速 +4%（间隔 ×0.96）、散布 −4%（×0.96）。适配短弓/反曲弓/长弓/狩猎弓。</summary>
+    /// <summary>弓臂缠手：弓臂缠一层布，提高攻速并收窄散布；具体数值以 Wiki 配置为准。适配短弓/反曲弓/长弓/狩猎弓。</summary>
     public static WeaponMod LimbWrap() => new()
     {
         Id = "limb_wrap",
@@ -710,15 +709,15 @@ public static class WeaponModCatalog
         Description = "更加柔和的手感，更好把握弓臂。",
         MaterialCosts = Cost(("cloth", 2), ("leather", 1)),
         WorkMinutes = 60,
-        // wiki（唯一设计源）：攻击速度 +4%、散布 −4%。表赢代码对齐（原实现为攻速 +5%、无散布）。
+        // Wiki（唯一设计源）：攻击速度、散布等数值由配置提供；表赢代码对齐。
         Stats = new[]
         {
-            StatMod.Mul(WeaponStat.AttackInterval, S("limb_wrap", WeaponStat.AttackInterval)),         // 攻速 +4% ⇒ 间隔 ×0.96
-            StatMod.Mul(WeaponStat.BaseSpreadDegrees, S("limb_wrap", WeaponStat.BaseSpreadDegrees)),   // 散布 −4% ⇒ ×0.96
+            StatMod.Mul(WeaponStat.AttackInterval, S("limb_wrap", WeaponStat.AttackInterval)),         // 攻速按间隔换算规则由 Wiki 配置
+            StatMod.Mul(WeaponStat.BaseSpreadDegrees, S("limb_wrap", WeaponStat.BaseSpreadDegrees)),   // 散布倍率由 Wiki 配置
         },
     };
 
-    /// <summary>复合弓臂：重量 +15% / 攻速 −6% / 伤害 +8% / 穿透 +8% / 弹丸飞速 +12%。适配短弓/长弓。</summary>
+    /// <summary>复合弓臂：增加重量，并调整攻速、伤害、穿透、弹丸飞速；具体数值以 Wiki 配置为准。适配短弓/长弓。</summary>
     public static WeaponMod CompoundLimbs() => new()
     {
         Id = "compound_limbs",
@@ -729,25 +728,24 @@ public static class WeaponModCatalog
         Description = "拉开它可需要不小的力气，但相信我，辛苦是值得的。",
         MaterialCosts = Cost(("wood", 2), ("glue", 2)),
         WorkMinutes = 180,
-        WeightMultiplier = T("compound_limbs").WeightMultiplier,   // 重量 +15%
+        WeightMultiplier = T("compound_limbs").WeightMultiplier,   // 重量倍率由 Wiki 配置
         Stats = new[]
         {
-            StatMod.Mul(WeaponStat.AttackInterval, S("compound_limbs", WeaponStat.AttackInterval)),         // 攻速 −6% ⇒ 间隔 ×1.06
-            StatMod.Mul(WeaponStat.DamageMin, S("compound_limbs", WeaponStat.DamageMin)),              // 伤害 +8%
+            StatMod.Mul(WeaponStat.AttackInterval, S("compound_limbs", WeaponStat.AttackInterval)),         // 攻速按间隔换算规则由 Wiki 配置
+            StatMod.Mul(WeaponStat.DamageMin, S("compound_limbs", WeaponStat.DamageMin)),              // 伤害倍率由 Wiki 配置
             StatMod.Mul(WeaponStat.DamageMax, S("compound_limbs", WeaponStat.DamageMax)),
-            StatMod.Mul(WeaponStat.Penetration, S("compound_limbs", WeaponStat.Penetration)),            // 穿透 +8%
-            StatMod.Mul(WeaponStat.FlightSpeed, S("compound_limbs", WeaponStat.FlightSpeed)),            // 弹丸飞速 +12%（与《弓与箭之道》+20% 自动连乘）
+            StatMod.Mul(WeaponStat.Penetration, S("compound_limbs", WeaponStat.Penetration)),            // 穿透倍率由 Wiki 配置
+            StatMod.Mul(WeaponStat.FlightSpeed, S("compound_limbs", WeaponStat.FlightSpeed)),            // 弹丸飞速倍率由 Wiki 配置（与《弓与箭之道》自动连乘）
         },
     };
 
     /// <summary>
-    /// 重磅弓弦：攻速 −6% / 伤害 +4% / 散布 −8% / 弹丸飞速 +12% / **衰减率 −18%**（映射为末端伤害系数提高）。
+    /// 重磅弓弦：调整攻速、伤害、散布、弹丸飞速与**衰减率**（映射为末端伤害系数提高）；具体数值以 Wiki 配置为准。
     /// 适配 5 把弓（短弓/反曲弓/长弓/竞技复合弓/狩猎弓）。
     /// <para>
-    /// 🔴 「衰减率 −18%」的落点（用户拍板：映射为 FalloffFloor 末端保留比例提高）：以单条
-    /// <c>Mul(FalloffFloor, 1.18)</c> 近似——末端保留系数提高即"打远了伤害掉得更少"。
-    /// **数值拟定待 Sim 校准**：精确等价于"衰减率 −18%"需 Sim 拉表核对（末端保留的合适档位由 Build 的
-    /// Clamp(0.01,1) 兜住不越界）。
+    /// 🔴 「衰减率」的落点（用户拍板：映射为 FalloffFloor 末端保留比例提高）：以单条
+    /// <c>Mul(FalloffFloor, 配置倍率)</c> 近似——末端保留系数提高即"打远了伤害掉得更少"。
+    /// **数值以 Wiki 配置为准**，并由 Build 的 Clamp 兜住不越界。
     /// </para>
     /// </summary>
     public static WeaponMod HeavyBowstring() => new()
@@ -762,17 +760,17 @@ public static class WeaponModCatalog
         WorkMinutes = 90,
         Stats = new[]
         {
-            StatMod.Mul(WeaponStat.AttackInterval, S("heavy_bowstring", WeaponStat.AttackInterval)),         // 攻速 −6% ⇒ 间隔 ×1.06
-            StatMod.Mul(WeaponStat.DamageMin, S("heavy_bowstring", WeaponStat.DamageMin)),              // 伤害 +4%
+            StatMod.Mul(WeaponStat.AttackInterval, S("heavy_bowstring", WeaponStat.AttackInterval)),         // 攻速按间隔换算规则由 Wiki 配置
+            StatMod.Mul(WeaponStat.DamageMin, S("heavy_bowstring", WeaponStat.DamageMin)),              // 伤害倍率由 Wiki 配置
             StatMod.Mul(WeaponStat.DamageMax, S("heavy_bowstring", WeaponStat.DamageMax)),
-            StatMod.Mul(WeaponStat.BaseSpreadDegrees, S("heavy_bowstring", WeaponStat.BaseSpreadDegrees)),      // 散布 −8%
-            StatMod.Mul(WeaponStat.FlightSpeed, S("heavy_bowstring", WeaponStat.FlightSpeed)),            // 弹丸飞速 +12%
-            StatMod.Mul(WeaponStat.FalloffFloor, S("heavy_bowstring", WeaponStat.FalloffFloor)),           // 衰减率 −18% ≈ 末端保留提高（拟定待 Sim 校准）
+            StatMod.Mul(WeaponStat.BaseSpreadDegrees, S("heavy_bowstring", WeaponStat.BaseSpreadDegrees)),      // 散布倍率由 Wiki 配置
+            StatMod.Mul(WeaponStat.FlightSpeed, S("heavy_bowstring", WeaponStat.FlightSpeed)),            // 弹丸飞速倍率由 Wiki 配置
+            StatMod.Mul(WeaponStat.FalloffFloor, S("heavy_bowstring", WeaponStat.FalloffFloor)),           // 衰减映射倍率由 Wiki 配置
         },
     };
 
     /// <summary>
-    /// 弩盾：重量 +50%；举弩时来自**正面 120°**（半角 60°）的**远程**攻击 25% 整发无效。适配双手重弩/复合弩。
+    /// 弩盾：增加重量；举弩时来自**正面锥内**的**远程**攻击按配置几率整发无效。具体数值以 Wiki 配置为准。适配双手重弩/复合弩。
     /// <para>否决不是 StatMod —— 见 <see cref="WeaponMod.FrontalRangedNegateChance"/>，判定走
     /// <see cref="WeaponModDefense.FrontalRangedNegates"/>，接线在 <c>Actor.ReceiveAttack</c>（与半身掩体同层）。</para>
     /// </summary>
@@ -786,9 +784,9 @@ public static class WeaponModCatalog
         Description = "灵感来自意大利。",
         MaterialCosts = Cost(("iron", 4), ("leather", 2), ("nails", 4)),
         WorkMinutes = 180,
-        WeightMultiplier = T("crossbow_shield").WeightMultiplier,  // 重量 +50%
-        FrontalRangedNegateChance = T("crossbow_shield").FrontalRangedNegateChance, // 正面远程 25% 整发否决（数值拟定待调）
-        FrontalNegateHalfAngleDeg = T("crossbow_shield").FrontalNegateHalfAngleDeg, // 正面 120° ⇒ 半角 60°
+        WeightMultiplier = T("crossbow_shield").WeightMultiplier,  // 重量倍率由 Wiki 配置
+        FrontalRangedNegateChance = T("crossbow_shield").FrontalRangedNegateChance, // 正面远程否决几率由 Wiki 配置
+        FrontalNegateHalfAngleDeg = T("crossbow_shield").FrontalNegateHalfAngleDeg, // 正面锥半角由 Wiki 配置
     };
 
     /// <summary>弓弩专属改装（4 条）。归入 <see cref="All"/>，UI 单独分栏；不进 <see cref="LegacyClassOf"/> 的迁移三组（它们是收窄后新加的）。</summary>
@@ -820,7 +818,7 @@ public static class WeaponModCatalog
         WeaponClass.Blade => new[]
         {
             SerratedBlade(), HonedEdge(), FullerBlade(), WeightedHandle(), LightenedHandle(), GripWrapBlade(),
-            Handguard(),   // [T69] 护手挡格（匕首/短剑/刺剑）：武器手受击 50% 整发否决
+            Handguard(),   // [T69] 护手挡格：武器手受击时按 Wiki 配置几率整发否决
         },
         WeaponClass.Blunt => new[]
         {

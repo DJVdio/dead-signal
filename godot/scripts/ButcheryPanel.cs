@@ -12,7 +12,7 @@ namespace DeadSignal.Godot;
 ///
 /// <para>═══ <b>刀槽的取舍是这个面板的核心</b>（用户拍板）═══
 /// 装槽 = 把刀从库存里拿走钉在案板上（同烹饪台的锅/烤架）——今晚站岗的人就得换别的家伙。
-/// 匕首快（+50%）但也是最好的近战刀之一；骨刀慢一档（+25%）但你不心疼。<b>没刀不许宰</b>。</para>
+/// 匕首更快但也是最好的近战刀之一；骨刀慢一档但你不心疼。<b>没刀不许宰</b>，具体速度以 Wiki 配置为准。</para>
 /// </summary>
 public sealed partial class ButcheryPanel : CanvasLayer
 {
@@ -83,7 +83,9 @@ public sealed partial class ButcheryPanel : CanvasLayer
 
         // 刀槽区（一个槽：匕首 / 骨刀 二选一）。
         var slotCaption = new Label();
-        slotCaption.Text = "刀槽（匕首 +50% / 骨刀 +25%）";
+        int daggerPct = (int)Math.Round(ButcheryLogic.SpeedBonusOf(ButcherKnife.Dagger) * 100);
+        int boneKnifePct = (int)Math.Round(ButcheryLogic.SpeedBonusOf(ButcherKnife.BoneKnife) * 100);
+        slotCaption.Text = $"刀槽（匕首 +{daggerPct}% / 骨刀 +{boneKnifePct}%）";
         slotCaption.Position = new Vector2(24, 92);
         slotCaption.AddThemeFontSizeOverride("font_size", 15);
         slotCaption.AddThemeColorOverride("font_color", HeadColor);
@@ -258,7 +260,9 @@ public sealed partial class ButcheryPanel : CanvasLayer
         int minutes = ButcheryLogic.MinutesFor(_tier, _station.Slotted);
         head.Text = _station.HasKnife
             ? $"猎物（一刀 {CraftingPanelFormat.FormatWorkDuration(minutes)}"
-              + (_tier == ButcherTier.Table ? "、宰杀台 20% 双倍产出" : "") + "）"
+              + (_tier == ButcherTier.Table
+                  ? $"、宰杀台 {(int)Math.Round(ButcheryLogic.TableDoubleYieldChance * 100)}% 双倍产出"
+                  : "") + "）"
             : "猎物（先装刀才能宰）";
         head.AddThemeFontSizeOverride("font_size", 15);
         head.AddThemeColorOverride("font_color", HeadColor);

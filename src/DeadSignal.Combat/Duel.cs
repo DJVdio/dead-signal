@@ -20,7 +20,7 @@ public sealed class DuelFighter
     public IReadOnlyDictionary<string, string> Equipment { get; init; } = new Dictionary<string, string>();
 
     /// <summary>
-    /// 持握态（单手/双手/双持）。默认单手。表达攻速系数：双持 ×0.70（双手无加成，与单手同 1.0）。
+    /// 持握态（单手/双手/双持）。默认单手。攻速系数由 Wiki 配置表提供。
     /// 与旧字段 <see cref="DualWielding"/> 的关系见 <see cref="EffectiveGrip"/>。
     /// </summary>
     public GripMode Grip { get; init; } = GripMode.OneHanded;
@@ -106,7 +106,7 @@ public sealed class DuelConfig
     /// 对决用储血量上限。**读 <see cref="BleedModel.DefaultBloodMax"/>——与实机（`Body` 构造默认值）同一个事实源**。
     /// <para>
     /// [T53] 之前这里写死 70、而 `Body` 默认 100，注释还自陈"比默认 100 略低" ——
-    /// 那正是实机与 Sim 漂开 3.9 倍的一半原因。现在两边**物理上不可能再分叉**。
+    /// 那正是实机与 Sim 漂开的历史原因之一。现在两边**物理上不可能再分叉**。
     /// </para>
     /// </summary>
     public double BloodMax { get; init; } = BleedModel.DefaultBloodMax;
@@ -237,8 +237,8 @@ public sealed class DuelEngine
                     // 一次"射击"= BurstCount 发（默认 1）；每发独立命中/伤害 roll（DoAttack 内各自采样）。
                     // 连发内每弹间隔 BurstInterval（远小于 BleedStep，故不在连发中细分失血 tick）；
                     // 冷却在整轮连发之后才起算：下次出手 = 末发时刻 + 有效冷却。
-                    // 一"发"内还可能有多颗弹丸（霰弹 PelletCount=8，同时飞出、逐颗独立结算）→ DoAttack 返回多条事件；
-                    // actions 计的是"出手/发数"，不按弹丸数膨胀（8 颗弹丸仍是一发）。
+                    // 一"发"内还可能有多颗弹丸（按 PelletCount，同时飞出、逐颗独立结算）→ DoAttack 返回多条事件；
+                    // actions 计的是"出手/发数"，不按弹丸数膨胀（多颗弹丸仍是一发）。
                     var weapon = actor.Def.Weapons[mountIdx].Weapon;
                     int burst = Math.Max(1, weapon.BurstCount);
                     double burstGap = Math.Max(0, weapon.BurstInterval);
@@ -352,7 +352,7 @@ public sealed class DuelEngine
     private double EffectiveInterval(Runtime rt, WeaponMount mount)
     {
         double baseInterval = mount.Weapon.AttackInterval > 0 ? mount.Weapon.AttackInterval : 1.0;
-        // 持握态攻速系数：单手 1.0、双手 1.0（无加成）、双持 ×0.70（减速），互斥（单一枚举）。
+        // 持握态攻速系数由 Wiki 配置表提供，互斥（单一枚举）。
         double grip = DualWield.GripSpeedFactor(rt.Def.EffectiveGrip);
         double blood = BloodSpeedFactor(rt.Body.BloodTier);
         // 瞬态系数（持握/震荡/手骨折/失血）叠乘，锁下限 MinSpeedMult。
@@ -366,7 +366,7 @@ public sealed class DuelEngine
             return double.PositiveInfinity;
         }
 
-        // 上肢骨折另作乘算系数（用户口径：单处上肢骨折 −30% 操作/攻速，两上肢乘算叠加、锁下限）——
+        // 上肢骨折另作乘算系数（两上肢乘算叠加、锁下限），具体值见 Wiki 配置表——
         // 与断手/断指的加性残疾惩罚相互独立叠乘，不改那套数学。
         double fractureOp = rt.Body.UpperLimbFractureOperationFactor(
             _cfg.Effects.HandFractureOperationMult, _cfg.Effects.HandFractureHealedOperationMult,
@@ -419,10 +419,10 @@ public sealed class DuelEngine
     /// 随机流消耗与改造前<b>位级一致</b>（闪避 → 选部位 → 逐层结算 → 效果），既有基线零漂移。
     /// </para>
     /// <para>
-    /// 霰弹（PelletCount=8）→ 每颗弹丸<b>各自</b>选部位、各自逐层结算、各自触发效果，产生各自的事件
+    /// 多弹丸武器（PelletCount）→ 每颗弹丸<b>各自</b>选部位、各自逐层结算、各自触发效果，产生各自的事件
     /// （同一时刻 <paramref name="now"/>，因为它们是同时飞出去的）。故一枪的战报可能是
     /// "中头 4.2 / 中胸 3.1 / 左臂被长袖布衣挡下 / ..."。
-    /// 闪避是<b>整发</b>判定（躲开就是 8 颗全躲开，不逐颗掷点）。
+    /// 闪避是<b>整发</b>判定（躲开就是整发全躲开，不逐颗掷点）。
     /// 目标中途被打死则剩余弹丸不再结算（打尸体无意义，且存活部位可能已空）。
     /// </para>
     /// </summary>
@@ -459,7 +459,7 @@ public sealed class DuelEngine
 
     /// <summary>
     /// 结算<b>一颗</b>弹丸（单弹丸武器即"一次命中"）：独立选部位 → 独立逐层结算 → 独立触发效果 → 出一条战报事件。
-    /// 霰弹的 8 颗各自完整走一遍本方法，彼此不共享任何 roll——这就是用户口径「8 颗弹丸单独计算」。
+    /// 多弹丸武器的弹丸各自完整走一遍本方法，彼此不共享任何 roll——这就是用户口径「弹丸单独计算」。
     /// </summary>
     private DuelEvent ResolvePellet(Runtime actor, Runtime target, WeaponMount mount, double now)
     {
@@ -552,7 +552,7 @@ public sealed class DuelEngine
     /// 施加一次震荡（重制口径）：目标进入 <paramref name="durationSeconds"/> 秒硬打断（now→打断结束不能出手）；
     /// 已积累的冷却进度清零——打断结束后所有武器从零重走一次完整有效冷却；抗性窗覆盖「打断 + 首轮重走冷却」，
     /// 期间再次被震荡概率打折（防死锁）。取代旧的 SpeedMult 永久叠乘。
-    /// 例：3s 冷却武器冷却已推进 2.9s 时吃 2.5s 震荡 → 下次出手 = now + 2.5(打断) + 3.0(满冷却)。
+    /// 下次出手由打断结束时间与当前有效冷却共同决定。
     /// </summary>
     private void ApplyConcussion(Runtime target, double now, double durationSeconds)
     {

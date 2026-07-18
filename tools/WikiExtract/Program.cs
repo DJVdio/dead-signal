@@ -52,6 +52,16 @@ internal sealed record Col(
     bool UserNote = false,
 
     /// <summary>
+    /// **不在 config json、仍由 C# 持有的列级真源。**
+    /// <para>
+    /// 这类列不能伪造 <see cref="ConfigKey"/>（wiki-serve 只会把它投影进 json config），
+    /// 但 <see cref="TableMerge"/> 仍会拿 Wiki 旧值与代码种子逐格比较，并在漂移报告中把改动指向这里。
+    /// 序列化为 <c>codeSource</c>，也供 doc↔code 覆盖测试确认这列没有成为无主数据。
+    /// </para>
+    /// </summary>
+    string? CodeSource = null,
+
+    /// <summary>
     /// **这一列是 config json 的镜像——wiki↔config 双向联动的字段级 join。**
     /// <para>
     /// 非空 ⇒ 这一列的值就是 <c>godot/data/config/&lt;表&gt;.json</c> 里对应条目的
@@ -477,6 +487,7 @@ internal static class Program
                 if (col.Internal) jo["internal"] = true;
                 if (col.ReadOnly) jo["readonly"] = true;
                 if (col.UserNote) jo["usernote"] = true;
+                if (col.CodeSource is not null) jo["codeSource"] = col.CodeSource;
                 if (col.ConfigKey is not null) jo["configKey"] = col.ConfigKey;
                 if (col.ConfigFile is not null) jo["configFile"] = col.ConfigFile;
                 if (col.ConfigRoot is not null) jo["configRoot"] = col.ConfigRoot;
@@ -722,7 +733,8 @@ internal static class Program
                 Hint: "自动算的：打一个穿着「皮甲 + 长袖布衣」的人。**含**护甲三段判定、部位覆盖（头/手/脚是裸的，打到那儿等于打无甲）、穿透、霰弹逐颗独立被挡。**不含**距离衰减、噪音、弹药、清群。⚠️ 裸 DPS 是无甲天花板，这一列才看得出「打不打得动甲」。"),
             new("dualDps", "双持每秒伤害", "number", ReadOnly: true,
                 Hint: "自动算的。两把同款一起打；不可双持的武器这里是「—」（要改 ⇒ 改「可双持」）。注意它不是「每秒伤害 *1.4」——双持的惩罚只落在冷却上，连发那一段不受罚。"),
-            new("weight", "重量(公斤)", "number"),
+            new("weight", "重量(公斤)", "number",
+                CodeSource: "godot/scripts/ItemDef.cs :: ItemRegistry.Weapons"),
             new("stockMin", "枪托近战 伤害下限", "number", ConfigKey: "StockMeleeDamageMin"),
             new("stockMax", "枪托近战 伤害上限", "number", ConfigKey: "StockMeleeDamageMax"),
             new("stockInterval", "枪托近战 间隔(秒)", "number", ConfigKey: "StockMeleeInterval"),

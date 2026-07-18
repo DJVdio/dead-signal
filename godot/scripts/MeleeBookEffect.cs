@@ -11,8 +11,8 @@ namespace DeadSignal.Godot;
 /// <c>ApparelCatalog.ApparelEffectMultiplier</c>「穿戴乘子」：把每条"读过某书 → 持某武器 → 攻速%"的加成集中在**一处**
 /// 算成一个「出手间隔乘子」（&gt;1 更慢、&lt;1 更快），由消费层 <c>Actor.EffectiveAttackInterval</c> 乘上去。
 ///
-/// <para><b>现阶段唯一来源</b>：《进阶木匠技术》→ 持消防斧 → 攻速 <b>+8%</b>（出手间隔 ×(1/1.08)）。
-/// 该书原有的其它效果（解锁「造消防斧」= Recipe 书门槛、「制作家具 +5%」= <see cref="CraftWorkTime"/>）各在各的通路，本类不覆盖它们。</para>
+/// <para><b>现阶段唯一来源</b>：《进阶木匠技术》→ 持消防斧 → 攻速效果见 Wiki 配置表。
+/// 该书原有的其它效果（解锁配方、制作家具效果）各在各的通路，本类不覆盖它们。</para>
 ///
 /// <para><b>为什么在消费层而不在零依赖引擎</b>：本乘子的输入是"持械者读过什么书"——Sim 的 <c>Duel</c>/<c>Arena</c>
 /// 拿的是 base <c>Weapon</c>、根本没有"持械者已读书集"这个入参 ⇒ 结算路径读不到本乘子 ⇒ 既有武器×护甲基线**零漂移**。
@@ -23,7 +23,7 @@ namespace DeadSignal.Godot;
 /// </summary>
 public static class MeleeBookEffect
 {
-    /// <summary>《进阶木匠技术》持消防斧的攻速加成（+8% ⇒ 出手间隔 ×(1/1.08)）。乘算，禁加算。</summary>
+    /// <summary>《进阶木匠技术》持消防斧的攻速加成，具体值见 Wiki 配置表。乘算，禁加算。</summary>
     public const double AdvancedCarpentryAxeAttackSpeedMultiplier = 1.08;
 
     /// <summary>消防斧的**权威武器名**（不硬编码字面量，随 <see cref="WeaponTable"/>/config 走）。</summary>
@@ -31,7 +31,7 @@ public static class MeleeBookEffect
 
     /// <summary>
     /// 某持械者手持 <paramref name="weaponName"/> 时的**出手间隔乘子**（1.0=无加成 ⇒ 零回归）：
-    /// 读过《进阶木匠技术》且持消防斧 ⇒ ×(1/1.08)（攻速 +8%，间隔更短）。其余组合恒 1.0。
+    /// 读过《进阶木匠技术》且持消防斧 ⇒ 应用 Wiki 配置的间隔乘子。其余组合使用中性值。
     /// 多条来源在此连乘（当前仅一条）。
     /// </summary>
     /// <param name="weaponName">当前生效近战武器名（消费层传 <c>Actor.CurrentAttackWeapon.Name</c>）。</param>

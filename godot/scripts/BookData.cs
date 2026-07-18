@@ -141,7 +141,7 @@ public static class BookLibrary
     /// 🔴 <b>它是整条弓箭线的第一块砖</b>：捕鸟陷阱 → 鸟 →【宰杀】→ 鸟肉 + <b>羽毛</b> → <b>三种箭</b>。
     /// 没读这本书 ⇒ 拿不到鸟 ⇒ 拿不到羽毛 ⇒ <b>一支箭都造不出来</b>。
     /// 它<b>开局就在营地共享库存里</b>（<c>camp.json</c> 住宅·柜子），与《野外生存指南》同架——
-    /// 于是"开局先读哪一本"成了个真选择：<b>野外生存指南给你弓，农场主给你箭</b>，两本都读要 8 小时。
+    /// 于是"开局先读哪一本"成了个真选择：<b>野外生存指南给你弓，农场主给你箭</b>；阅读工时以 Wiki 配置为准。
     /// </para>
     /// </summary>
     public static BookData FarmerHundredQuestions() => new(
@@ -180,7 +180,7 @@ public static class BookLibrary
         description: "量两遍，锯一遍。做椅子的耐心和活下去的耐心，原来是同一种。");
 
     /// <summary>
-    /// 《进阶木匠技术》（木工进阶书，draft）——**前置**《木匠入门》：没读完前置照样能读，但读速极慢（×0.2）。
+    /// 《进阶木匠技术》（木工进阶书，draft）——**前置**《木匠入门》：没读完前置照样能读，但读速按配置衰减。
     /// 读完解锁什么**待用户指定**（暂作占位、不挂配方产出）。
     /// </summary>
     public static BookData AdvancedCarpentry() => new(
@@ -218,11 +218,7 @@ public static class BookLibrary
     /// <para>
     /// <b>效果</b>（用户写在数值表『书籍』页「效果」列）：
     /// <list type="bullet">
-    /// <item>箭矢回收率 <b>25% → 50%</b>（<see cref="Archery.ArrowRecoveryRate"/>）。</item>
-    /// <item>🔴 [T68] <b>弹道速度 +20%</b>（用户把原「射程 +10%」换成了这条）——<b>引擎新轴</b>（<c>Projectile.Speed</c> 常量），
-    ///       <b>未落地、已挂起统一立项</b>；原「射程 +10%」按用户意图删除（<see cref="Archery.BookRangeMult"/> 现为 1.0＝无效果）。</item>
-    /// <item>弓弩<b>锥形角 −10%</b>（散布收窄＝更准，<see cref="Archery.BookSpreadMult"/>）。</item>
-    /// <item>弓弩<b>攻速 +2%</b>（<see cref="Archery.BookAttackSpeedMult"/>；折到出手间隔上是 ×1/1.02）。</item>
+    /// <item>箭矢回收、弹道速度、散布与攻速效果以 Wiki 配置为准。</item>
     /// </list>
     /// 散布/攻速两项在 <see cref="Archery.Combine"/> 里与**箭的同轴系数连乘**（乘算不加算，CLAUDE.md 铁律），
     /// 且只碰弓弩——读了射艺书不会让你的步枪打得更远。
@@ -236,7 +232,7 @@ public static class BookLibrary
     /// 引擎只吃一个值，"读没读过"由调用方从读者的已读书集里取。本书照抄该模式。
     /// </para>
     /// <para>
-    /// <b>不可制作</b>（无配方，只能搜刮）：书就该是捡的。基础 25% 的回收率意味着弓弩养起来很吃力，
+    /// <b>不可制作</b>（无配方，只能搜刮）：书就该是捡的。基础回收率以 Wiki 配置为准，
     /// 而这本书正好把它减半——于是它是**弓弩流的硬前置**：找不到它，你就养不起一个弓手。
     /// </para>
     /// </summary>
@@ -332,7 +328,7 @@ public static class BookLibrary
     /// <para>
     /// <b>解锁「自制简易墨镜」</b>（木缝雪镜；门槛真源在 <c>RecipeBook</c> 的 <c>snow_goggles</c> 配方
     /// <c>RequiredBookIds</c>，<see cref="GrantsRecipeStub"/> 只是叙事标记）。用户既 authored 了这本书，
-    /// 又 authored 了它解锁的护甲（数值表『护甲表』new_armor_2：眼镜槽·护双眼·12/6·0.1kg），本条把两者接起来。
+    /// 又 authored 了它解锁的护甲，本条把书籍效果与该装备接起来；护甲数值以 Wiki 配置为准。
     /// </para>
     /// <para>
     /// 🔴 <b>正文＝用户明确授权代笔</b>（本会话罕见的 authored 授权：用户点名让我方补这一本的正文）。
@@ -440,7 +436,7 @@ public static class BookLibrary
         "武器零件不是越多越好，关键是让它们在扣下扳机的那一刻同时到位。\n\n" +
         "照着图装，你能做出单手轻弩，也能做出需要双手稳住的重弩。";
 
-    // draft 待用户改 —— 技艺书《弓与箭之道》：不解锁配方，读完把箭矢回收率 25% → 50%
+    // 技艺书《弓与箭之道》：不解锁配方，读完后的箭矢效果以 Wiki 配置为准。
     private const string WayOfBowAndArrowBody =
         "一本薄薄的射艺小册，封面上是一张画得极认真的弓。扉页题着一句话：\n\n" +
         "\"射出去的箭，一半的功夫在把它捡回来。\"\n\n" +

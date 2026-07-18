@@ -20,7 +20,7 @@ namespace DeadSignal.Combat;
 /// 第二层重掷 [2,12] 得 8 → min(8, 5) = 5；攻 5 vs 防 2 → 全伤 5。
 ///
 /// <b>旧口径（已废弃，是一个缺陷）</b>：「第二层起攻方在 [0, 上一层结算后的伤害值] 内 roll」
-/// ⇒ 期望伤害**每多一层就 ×0.5**，与该层防御力无关 ⇒ 三片**零防御**破布（25%）比板甲（41%）还抗揍。
+/// ⇒ 旧口径会让期望伤害随层数固定衰减，与该层防御力无关；现行口径由护甲配置与逐层重掷共同决定。
 /// 详见 <c>LayerRerollMinTests</c>。
 /// </summary>
 public sealed class CombatResolver
@@ -35,7 +35,7 @@ public sealed class CombatResolver
     /// <summary>
     /// 结算<b>一发</b>攻击——含霰弹的多弹丸（<see cref="Weapon.PelletCount"/> &gt; 1）。
     ///
-    /// <para><b>「8 颗弹丸单独计算」（用户原话）的落地方式</b>：循环 N 次，每颗弹丸
+    /// <para><b>「多颗弹丸单独计算」（用户原话）的落地方式</b>：循环 N 次，每颗弹丸
     /// ①<b>独立</b>调 <paramref name="selectPart"/> 选自己的命中部位（故一枪可同时中头、胸、左臂）；
     /// ②<b>独立</b>走一整条 <see cref="Resolve"/> 判定链（自己的攻 roll、自己的防 roll、自己的三段判定、
     /// 自己的穿透逐层生效）。**不是**"结算一次伤害再 ×N"——弹丸之间不共享任何 roll。</para>
@@ -80,8 +80,8 @@ public sealed class CombatResolver
     /// 体格又免了多少"），减伤只体现在 <see cref="CombatResult.FinalDamage"/>。</para>
     ///
     /// <para><b>零回归</b>：不传即 0 → 不乘任何东西、不消耗随机流，与既有路径**逐位一致**（既有 Sim 基线不漂移）。
-    /// 现阶段唯一的非零来源是**山姆 1 级"比常人耐揍"−10%**（<c>SamPerk.IncomingDamageReduction</c>）；
-    /// 其余角色恒 0。这是引擎里**第一层"按比例减伤"**——此前只有护甲的三段判定，没有乘算减伤。</para>
+    /// 现阶段非零来源由角色/装备 Wiki 配置决定；其余角色可为 0。这是引擎里**第一层"按比例减伤"**——
+    /// 此前只有护甲的三段判定，没有乘算减伤。</para>
     /// </param>
     public CombatResult Resolve(Weapon weapon, IReadOnlyList<ArmorLayer> layers, BodyPart part,
         double incomingDamageReduction = 0.0)
@@ -114,7 +114,7 @@ public sealed class CombatResolver
             //    ⇒ E[atk'] = carried / 2 ⇒ **每多一层伤害期望就 ×0.5**，且与该层的防御力、
             //    与武器、与伤害类型、与穿透**全部无关**。连一层**防御为 0** 的破布也照样砍半
             //    （防御 0 ⇒ defMax=0 ⇒ 必判 Full ⇒ carried 原样带下，但下一层仍在 [0,carried]
-            //    重掷 ⇒ 白送 50%）。实测：三片零防御布片＝裸身的 25%，比全表最强的板甲（41%）
+            //    重掷 ⇒ 白送固定衰减）。现行结算结果随护甲配置变化。
             //    还抗揍；两件破布让破甲锤减半，而一件皮甲对它**一点没减**。
             //
             // 新口径为什么对：掷高了 ⇒ 被 carried 卡住 ⇒ **伤害不会越穿越大**（carried 是上限）；

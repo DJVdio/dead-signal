@@ -15,13 +15,13 @@ namespace DeadSignal.Godot;
 /// 🔴 <b>只搬「可调数字」，不搬结构</b>：一条 StatMod 的<b>运算方式</b>（Mul/Add/Set）、它作用于<b>哪个</b>
 /// <c>WeaponStat</c>、以及每条改装的<b>适配武器白名单</b>/<c>WeaponPart</c> 归类/<c>Id</c> ——全是**结构**，
 /// 仍写死在 <see cref="WeaponModCatalog"/>。本段只承载那些「用户会在 wiki 上调」的**乘子/加值/几率/角度**。
-/// 例：轻质化枪托的「散布 ×1.10」——<c>StatMod.Mul(BaseSpreadDegrees, …)</c> 的 <c>Mul</c> 与
-/// <c>BaseSpreadDegrees</c> 留代码，<b>只有 1.10 这个数</b>进本段（<c>Stats["BaseSpreadDegrees"] = 1.10</c>）。
+    /// 例：轻质化枪托的散布乘子——<c>StatMod.Mul(BaseSpreadDegrees, …)</c> 的 <c>Mul</c> 与
+    /// <c>BaseSpreadDegrees</c> 留代码，具体乘子进本段。
 /// </para>
 /// <para>
 /// ⚠️ <b>近战型态（刺刀/利爪/创伤/锋刃）的枪托五段数值不在本段</b>：它们是从 <see cref="WeaponTable"/> 实读的
-/// 「85% 攻速的某把近战武器」（用户调那把刀，型态自动跟着变）——不是本 catalog 的字面量。本段只装那条链路上
-/// **唯一属于改装自己的可调数**：攻速折扣 <see cref="MeleeFormSpeed"/>（0.85）与各型态附带的散布乘子。
+    /// 「某个攻速档位的近战武器」（用户调那把刀，型态自动跟着变）——不是本 catalog 的字面量。本段只装那条链路上
+    /// **唯一属于改装自己的可调数**：攻速折扣 <see cref="MeleeFormSpeed"/> 与各型态附带的散布乘子。
 /// </para>
 /// <para>
 /// 📐 照 <see cref="NightWatchConfig"/> 的 godot 侧消费层范式（字典型子系统对齐纯库 <c>WeaponConfig</c>）：
@@ -33,8 +33,8 @@ namespace DeadSignal.Godot;
 public sealed class WeaponModConfig : IGameConfigSection
 {
     /// <summary>
-    /// 近战型态攻速折扣：型态的枪托近战 = 该基准武器的此倍攻速（0.85 ⇒ 出手间隔 ÷0.85 ≈ ×1.176）。
-    /// [T68] 用户手改，原 0.8。刺刀/利爪/创伤/锋刃四型态共用。
+    /// 近战型态攻速折扣：型态的枪托近战按该基准武器的倍速计算。具体值见 Wiki 配置表。
+    /// [T68] 用户手改，刺刀/利爪/创伤/锋刃型态共用。
     /// </summary>
     public double MeleeFormSpeed { get; init; } = 0.85;
 
@@ -71,7 +71,7 @@ public sealed class WeaponModConfig : IGameConfigSection
 /// </summary>
 public sealed class WeaponModTuning
 {
-    /// <summary>整把武器的重量倍率（1.0＝不改重量；0.75＝减重 25%；1.5＝增重 50%）。不改重量的改装省略此键。</summary>
+    /// <summary>整把武器的重量倍率，具体值见 Wiki 配置表。不改重量的改装省略此键。</summary>
     public double WeightMultiplier { get; init; } = 1.0;
 
     /// <summary>该改装带的 StatMod 数值：<c>WeaponStat</c> 枚举名 → 乘子/加值。运算方式(Mul/Add/Set)与作用字段皆结构、留代码。</summary>

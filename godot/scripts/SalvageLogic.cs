@@ -9,20 +9,20 @@ namespace DeadSignal.Godot;
 // **本块不碰库存**——实扣实产由 SalvageService 去 InventoryStore 做（同 CraftingLogic/CraftingService 的分工）。
 
 /// <summary>
-/// 拆除回收规则（用户拍板，三条）：
+/// 拆除回收规则（用户拍板，当前返还比例与配方产出以 Wiki 配置为准）：
 /// <list type="number">
-/// <item>拆除一件东西返还 <b>50% 的建造材料</b>。</item>
-/// <item><b>木材例外</b>：建造吃 16 木料 ⇒ 拆得 <b>4 木料 + 4 废木料</b>（各 25%）。</item>
-/// <item><b>4 废木料 + 1 胶水</b>，在装了锯片的工作台上 ⇒ 做回 <b>4 木料</b>（见 <see cref="ScrapWoodRecipeId"/>）。</item>
+/// <item>拆除一件东西按 Wiki 配置返还建造材料。</item>
+/// <item><b>木材例外</b>：返还拆分为木料与废木料两条产出，比例以 Wiki 配置为准。</item>
+/// <item>废木料与胶水在装了锯片的工作台上可按 Wiki 配方做回木料（见 <see cref="ScrapWoodRecipeId"/>）。</item>
 /// </list>
 /// <para>
-/// <b>三条合起来才是完整设计</b>：木材表面只回收 25%，但绕一趟"废木料 + 胶水"能补回另外 25%——
-/// 最终仍是 50%，<b>只是要额外付一份胶水</b>。⇒ 胶水是瓶颈资源，木材的完整回收要交「胶水税」：
+/// <b>三条合起来才是完整设计</b>：木材表面分流为木料与废木料，绕一趟"废木料 + 胶水"可补回部分木料——
+/// 但要额外付胶水。⇒ 胶水是瓶颈资源，木材的完整回收要交「胶水税」：
 /// 手里这点胶水，是拿去把废木料粘回木料，还是留着干别的（胶水吃燃料，而燃料同时是火把/发电机/火药/全部枪弹的命根子）？
 /// </para>
 /// <para>
-/// <b>取整一律向下</b>（<see cref="Refund"/>）：故任一材料的返还都严格 ≤ 成本的一半 ⇒
-/// 造→拆→造永远净亏，<b>不存在无限刷</b>。小件拆了归零（木料 2 的板凳拆出一地木屑）是有意的下限——拆小东西不划算。
+/// <b>取整一律向下</b>（<see cref="Refund"/>）：返还不会超过配置比例 ⇒ 造→拆→造永远净亏，
+/// <b>不存在无限刷</b>。小件拆了归零是有意的下限——拆小东西不划算。
 /// </para>
 /// </summary>
 public static class SalvageLogic
@@ -36,25 +36,25 @@ public static class SalvageLogic
     /// <summary>胶水材料键：粘废木料的唯一途径，木材完整回收的"税"。</summary>
     public const string GlueKey = "glue";
 
-    /// <summary>「回收木料」配方 id（4 废木料 + 1 胶水 → 4 木料，需锯片工作台）。</summary>
+    /// <summary>「回收木料」配方 id（投入、产出与工作台门槛以 Wiki 配置为准，需锯片工作台）。</summary>
     public const string ScrapWoodRecipeId = "wood_from_scrap";
 
     /// <summary>「胶水」配方 id（自己熬的和搜刮来的是同一样东西，见 <see cref="RecipeBook"/>）。</summary>
     public const string GlueRecipeId = "glue";
 
-    /// <summary>通用返还率：拆什么都还一半。</summary>
+    /// <summary>通用返还率：当前值以 Wiki 配置为准。</summary>
     public const double RefundRate = 0.50;
 
-    /// <summary>木材例外：直接还回的木料占 25%。</summary>
+    /// <summary>木材例外：直接还回木料的比例以 Wiki 配置为准。</summary>
     public const double WoodDirectRate = 0.25;
 
-    /// <summary>木材例外：变成废木料的那 25%（要花胶水才粘得回来）。</summary>
+    /// <summary>木材例外：转为废木料的比例以 Wiki 配置为准（要花胶水才粘得回来）。</summary>
     public const double ScrapWoodRate = 0.25;
 
-    /// <summary>拆解工时占建造工时的比例：拆比造快一半——但**不是白拆**。</summary>
+    /// <summary>拆解工时按建造工时比例计算；当前比例以 Wiki 配置为准——但**不是白拆**。</summary>
     public const double WorkMinutesRate = 0.50;
 
-    /// <summary>拆解工时下限（游戏分钟）：再小的东西也得动手拆一会儿，不许"点击即得"。</summary>
+    /// <summary>拆解工时有 Wiki 配置的下限：再小的东西也得动手拆一会儿，不许"点击即得"。</summary>
     public const int MinWorkMinutes = 5;
 
     /// <summary>按比例返还并**向下取整**（这是"绝不套利"的那把锁）。</summary>
@@ -62,7 +62,7 @@ public static class SalvageLogic
 
     /// <summary>
     /// 给定一份建造成本（材料键 → 数量），算出拆除的返还表。
-    /// 通用材料还 50%；<see cref="WoodKey"/> 走例外 → 25% 木料 + 25% <see cref="ScrapWoodKey"/>。
+    /// 通用材料按 Wiki 返还率处理；<see cref="WoodKey"/> 走例外，分流为木料与 <see cref="ScrapWoodKey"/>。
     /// 返还为 0 的材料**不出现在结果里**（一根钉子的一半是没有）。
     /// </summary>
     public static IReadOnlyDictionary<string, int> YieldOf(IReadOnlyDictionary<string, int> buildCost)
@@ -150,10 +150,10 @@ public static class SalvageLogic
     // ======================== 可拆判定 ========================
 
     /// <summary>
-    /// 这张配方的产物拆得动吗？<b>只有单件产物（<see cref="RecipeData.OutputQuantity"/> == 1）可拆。</b>
+    /// 这张配方的产物拆得动吗？<b>只有单件产物可拆，判定依据是 <see cref="RecipeData.OutputQuantity"/>。</b>
     /// <para>
-    /// 堆叠产物一律不可拆（子弹/箭/药茶）：1 个子弹零件出 8 发短子弹，若"拆 1 发"也按整份成本返还，
-    /// 把 8 发拆完就白赚 4 个零件——那是个无限刷的口子。单件产物没有这个问题（返还严格 ≤ 成本一半）。
+    /// 堆叠产物一律不可拆（子弹/箭/药茶）：若单件拆分仍按整份成本返还，
+    /// 反复拆解就会形成套利口子。单件产物没有这个问题（返还受 Wiki 配置与取整规则约束）。
     /// </para>
     /// </summary>
     public static bool CanSalvage(RecipeData recipe)
@@ -252,4 +252,3 @@ public static class SalvageLogic
             ? target.Substring(FurnitureTargetPrefix.Length)
             : null;
 }
-

@@ -75,9 +75,8 @@ public sealed record FenceWorkPlan(
 /// <para>
 /// <b>那升级凭什么值得？</b>两条硬收益（今天刚建立，别做丢）：
 /// <list type="number">
-/// <item><b>丧尸要啃更久</b>：围栏已切成一格 100px（<c>CampMain.FenceSegment</c>），每格独立血量 ——
-///       升一档 = <b>每一格</b>都更厚（150 → 250 → 400 → 750）。</item>
-/// <item><b>劫掠者要拆更久</b>：静默拆一格 45 秒起，<b>每升一档 +20 秒</b>（<see cref="SilentDismantleLogic"/>）
+/// <item><b>丧尸要啃更久</b>：围栏按格独立结算，档次数值以 Wiki 配置为准。</item>
+/// <item><b>劫掠者要拆更久</b>：静默拆除时长按 Wiki 配置随档次变化（<see cref="SilentDismantleLogic"/>）
 ///       ⇒ 直接换成<b>守夜人更多的发现机会</b>（<see cref="SilentDismantleLogic.DetectionRolls"/>）。</item>
 /// </list>
 /// 且有<b>硬顺序：先大门，后围栏</b>——大门是单独一处（不是 16 格），升起来又便宜又快，而它是敌人最先撞的地方。
@@ -139,9 +138,8 @@ public static class FenceUpgradeLogic
     /// <summary>
     /// 把<b>一格</b>墙按该档立起来要干多少<b>工作秒</b>（效率 1.0 的人；<b>拟定待调</b>）。
     /// <para>
-    /// 校准锚点（daynight：白天 720 实时秒）：一条 16 格的南墙升到<b>支柱加固</b> = 16 × 45 = <b>720 秒</b>
-    /// ＝ <b>一个人一整个白天</b>。这正是要的重量——升一面墙，就是一整天不去搜刮的机会成本。
-    /// 而<b>大门只有一处</b>：升到铁皮 150 秒。<b>先大门后围栏的硬顺序，在时间上也自动成立。</b>
+    /// 施工时长与日程校准值以 Wiki 配置为准；升级一面墙应产生明显机会成本。
+    /// 而<b>大门只有一处</b>，先大门后围栏的硬顺序由施工成本体现。
     /// </para>
     /// <para>实际耗时 = 本数 ÷ 干活人的工作效率（<c>CampMain.WorkEfficiencyOf</c>，与搜刮/制作同一条乘子链，<b>乘算通则</b>）。</para>
     /// </summary>

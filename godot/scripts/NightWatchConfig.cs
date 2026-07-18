@@ -51,7 +51,7 @@ public sealed class NightWatchConfig : IGameConfigSection
     /// <summary>听力基值半径（世界像素）：袭击者在此半径内可被"听见"，随距离线性衰减到 0。</summary>
     public float HearingBaseRange { get; init; } = 220f;
 
-    /// <summary>杀戮意图潜行先手伤害乘数（用户口径 1.5x）。</summary>
+    /// <summary>杀戮意图潜行先手伤害乘数（数值来自 Wiki 配置）。</summary>
     public float PreemptiveStrikeMultiplier { get; init; } = 1.5f;
 
     /// <summary>静默偷窃单位数下限（量级拟定）。</summary>

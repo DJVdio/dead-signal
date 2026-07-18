@@ -201,7 +201,7 @@ public static class SiteActions
         {
             double sec = DismantleSecondsFor(tier);
             // ⚠️ **不显示成功率** —— 静默拆除**不掷骰**（没有 IRandomSource）：花够时间就一定拆开。
-            // 它的取舍是「**时间 + 被撞见的风险**」，不是运气。写"约 45 秒"比写"70% 成功率"诚实得多，
+            // 它的取舍是「**时间 + 被撞见的风险**」，不是运气。菜单直接展示配置的耗时，不展示成功率，
             // 也正好和撬锁（会失败、会断铁丝）形成对照——两条安静路子，一条赌运气，一条赌时间。
             opts.Add(new SiteActionOption(SiteAction.SilentDismantle, "静默拆除",
                 $"安静（{NoiseOf(SiteAction.SilentDismantle):0} 半径，什么都惊动不了）· 需要 {sec:0} 秒 · 侧面开个洞，绕开正门",

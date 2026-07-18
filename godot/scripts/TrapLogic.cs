@@ -7,7 +7,8 @@ namespace DeadSignal.Godot;
 
 // 注意：本文件为**纯逻辑**，不得引入任何 Godot 类型
 //（与 SandbagSpec.cs / BedSpec.cs / PlacementRules.cs 一样被 DeadSignal.Combat.Tests 以 Link 方式编入单测）。
-// 空间执行（把陷阱立到场上 / 每相位掷点 / 把猎物塞进库存）归 Godot 消费层（CampMain.Traps.cs），本文件只出**规则 + 数值**。
+// 空间执行（把陷阱立到场上 / 每相位掷点 / 把猎物塞进库存）归 Godot 消费层（CampMain.Traps.cs），本文件只出**规则**；
+// 当前可调数值统一以 Wiki 配置为准。
 
 /// <summary>
 /// 玩家可建造、可自由摆放的<b>圈套陷阱</b>规格（批次21·T26）。<b>形态照抄 <see cref="SandbagSpec"/> / <see cref="BedSpec"/></b>
@@ -43,12 +44,12 @@ public static class TrapSpec
     public const string ItemDescription =
         "一圈铁丝，一根弹木，一个活结。它不问你饿不饿，也不问那只兔子做错了什么——它只是在那儿等着，日夜不休。";
 
-    /// <summary>一个陷阱的占地（世界像素，拟定待调）：比沙袋还小的一片贴地物，够绊住一只兔子，绊不住一个人。</summary>
+    /// <summary>一个陷阱的占地（空间几何参数）：比沙袋还小的一片贴地物，够绊住一只兔子，绊不住一个人；几何值以 Wiki 配置为准。</summary>
     public const float Width = 40f;
     public const float Height = 28f;
 
     /// <summary>
-    /// <b>恒 false。</b>不建碰撞体 ⇒ 人和丧尸都能直接走过去（跨过时减速 25%，走 <see cref="FurnitureTraversal"/> 的缺省档）。
+    /// <b>恒 false。</b>不建碰撞体 ⇒ 人和丧尸都能直接走过去（跨过时减速，具体数值以 Wiki 配置为准）。
     /// 改成 true 之前请先回去读本类的类注：kill box 就是这么来的。
     /// </summary>
     public const bool IsSolid = false;
@@ -82,79 +83,79 @@ public static class TrapSpec
 }
 
 /// <summary>
-/// <b>圈套陷阱的捕猎判定</b> —— 用户原话「<b>陷阱机制是每个相位都有 30% 的几率抓到老鼠或者兔子，
-/// 每多放置一个，多的那个几率就会减小 5%，最低到 5%。</b>」的唯一落点。
+/// <b>圈套陷阱的捕猎判定</b> —— 用户原话所定的“每相位捕获、随数量递减、设有最低值”规则的唯一落点；
+/// 当前基准、递减步长与最低值统一以 Wiki 配置为准。
 ///
 /// <para>═══ <b>规则形态（含糊处的落地口径，已上抛用户）</b> ═══
 /// <list type="number">
-/// <item><b>第 n 个陷阱的几率 = max(5%, 30% − 5%×(n−1))</b> ⇒ 30/25/20/15/10/5/5/5…（<see cref="ChanceOf"/>）。</item>
+/// <item><b>第 n 个陷阱的几率 = max(<see cref="MinChance"/>, <see cref="BaseChance"/> − <see cref="ChanceStep"/>×(n−1))</b>（<see cref="ChanceOf"/>）。</item>
 /// <item><b>每个陷阱每相位各掷一次，彼此独立</b>（不是"全营地一次判定"）——三个陷阱一个相位掷三次点。</item>
 /// <item><b>边际递减</b>：新加的那个吃最低的那档，已放好的不受影响。</item>
-/// <item>抓到的是<b>老鼠或兔子</b>（比例 <see cref="RabbitShare"/> <b>拟定待调</b>，用户未指定）。</item>
+    /// <item>抓到的是<b>老鼠或兔子</b>（比例 <see cref="RabbitShare"/> 以 Wiki 配置为准，用户只指定了物种范围）。</item>
 /// </list>
 /// </para>
 ///
 /// <para>═══ <b>为什么"第 n 个"不必绑定到具体某个陷阱</b>（一个省事的巧合，也是设计上的干净处）═══
 /// 一个相位的期望产出 = 前 n 项几率之和，<b>与"哪个陷阱排第几"无关</b>（加法可交换）。
 /// ⇒ 本模型只需要知道<b>场上有几个陷阱</b>，不需要给每个陷阱记住它的"出生序号"。
-/// 好处是<b>拆掉一个陷阱</b>时不会留下"幽灵档位"：拆到只剩 2 个，那 2 个就吃 30%+25%，
-/// 而不是"你拆的是第 1 个，所以剩下的还是 25%+20%"。存档也因此不必存序号——数一遍就有。
+/// 好处是<b>拆掉一个陷阱</b>时不会留下"幽灵档位"：剩余陷阱按当前数量重新套用公式，
+/// 而不是保留出生序号档位。存档也因此不必存序号——数一遍就有。
 /// </para>
 ///
 /// <para>═══ <b>陷阱是烹饪的稳定食材来源</b>（这条机制真正的经济位置）═══
-/// 抓到的老鼠（[T67] 已移出 <see cref="FoodCalories"/>，<b>要先宰杀成老鼠肉才下得了锅，肉值 6 热量点</b>）与
-/// 兔子（<b>11 热量点，未被点名，仍可直接下锅</b>）入库存
+/// 抓到的老鼠（[T67] 已移出 <see cref="FoodCalories"/>，<b>要先宰杀成老鼠肉才下得了锅</b>）与
+/// 兔子入库存；食材产出与热量以 Wiki 配置为准
 /// —— 陷阱因此成了营地<b>唯一不用出门、不担风险</b>的食物来源。它<b>喂不饱</b>一个营地（见 <see cref="ExpectedCatchesPerPhase"/>
-/// 的算式：满地板 6 个陷阱一天掷 2 次点也就约 <b>2.1 只 ≈ 16 热量点 ≈ 约 1 份饭</b>），但它把"今天没搜到吃的"从<b>死局</b>变成了<b>苦日子</b>。
+/// 的算式），但它把"今天没搜到吃的"从<b>死局</b>变成了<b>苦日子</b>。
 /// </para>
 /// </summary>
 public static class TrapLogic
 {
-    /// <summary>第 1 个陷阱的捕获几率（<b>用户给定</b>：30%）。数值真源＝<c>farming.json</c>（<see cref="FarmingConfig.SnareBaseChance"/>）。</summary>
+    /// <summary>第一个陷阱的捕获几率。数值真源＝Wiki 配置（<see cref="FarmingConfig.SnareBaseChance"/>）。</summary>
     public static double BaseChance => GameConfigCatalog.Section<FarmingConfig>().SnareBaseChance;
 
-    /// <summary>每多放一个陷阱，新加的那个比上一个低多少（<b>用户给定</b>：5 个百分点）。数值真源＝<c>farming.json</c>。</summary>
+    /// <summary>每多放一个陷阱的递减步长。数值真源＝Wiki 配置。</summary>
     public static double ChanceStep => GameConfigCatalog.Section<FarmingConfig>().SnareChanceStep;
 
-    /// <summary>几率地板（<b>用户给定</b>：最低 5%）。<b>递减撞到它就停</b>，绝不继续往下走成负数。数值真源＝<c>farming.json</c>。</summary>
+    /// <summary>几率地板。<b>递减撞到它就停</b>，绝不继续往下走成负数。数值真源＝Wiki 配置。</summary>
     public static double MinChance => GameConfigCatalog.Section<FarmingConfig>().SnareMinChance;
 
-    /// <summary>捕获物：老鼠（<see cref="Materials"/> 目录键；[T67] 已移出 <see cref="FoodCalories"/>，宰杀后出老鼠肉值 6 点热量）。</summary>
+    /// <summary>捕获物：老鼠（<see cref="Materials"/> 目录键；[T67] 已移出 <see cref="FoodCalories"/>，宰杀后产出由 Wiki 配置决定）。</summary>
     public const string RatKey = "rat";
 
-    /// <summary>捕获物：兔子（<see cref="Materials"/> 目录键；<see cref="FoodCalories"/> 里值 11 点热量）。</summary>
+    /// <summary>捕获物：兔子（<see cref="Materials"/> 目录键；产出与热量由 Wiki 配置决定）。</summary>
     public const string RabbitKey = "rabbit";
 
     /// <summary>
-    /// 抓到的是兔子的概率（其余是老鼠）。<b>拟定待调 —— 用户只说了"老鼠或者兔子"，没给比例。</b>
+    /// 抓到的是兔子的概率（其余是老鼠）。<b>当前比例以 Wiki 配置为准；用户只指定了物种范围。</b>
     /// <para>
-    /// 取 30% 的理由：兔子值 11 点热量、老鼠值 6 点（<b>用户给定的定值</b>），兔子近乎两只老鼠 ⇒ 它该是那个"走运"的结果，
-    /// 而不是常态。这也贴着材料表里兔子的那句 flavor：「抓到它的那天，你会想起从前『运气不错』是个多么轻飘飘的词」。
+    /// 当前比例与食材价值以 Wiki 配置为准；设计上兔子是较稀有、较幸运的结果，
+    /// 这也贴着材料表里兔子的那句 flavor：「抓到它的那天，你会想起从前『运气不错』是个多么轻飘飘的词」。
     /// </para>
-    /// <para>期望热量 = 0.3 × 11 + 0.7 × 6 = <b>7.5 点/只</b>。</para>
-    /// <para>数值真源＝<c>farming.json</c>（<see cref="FarmingConfig.SnareRabbitShare"/>）。</para>
+    /// <para>期望热量按物种概率与 Wiki 配置中的食材热量加权计算。</para>
+    /// <para>数值真源＝Wiki 配置（<see cref="FarmingConfig.SnareRabbitShare"/>）。</para>
     /// </summary>
     public static double RabbitShare => GameConfigCatalog.Section<FarmingConfig>().SnareRabbitShare;
 
     /// <summary>
     /// <b>陷阱在这个相位掷不掷点</b>——只在<b>两个昼夜段边界</b>各掷一次：白天段（<see cref="DayPhase.DawnMeal"/>）+
-    /// 夜晚段（<see cref="DayPhase.DuskMeal"/>）⇒ <b>一天 2 次</b>（用户拍板：白天 1 次 + 夜晚 1 次，与吃饭/饥饿同频）。
+    /// 夜晚段（<see cref="DayPhase.DuskMeal"/>）与白天段共同构成结算触发点（用户拍板：与吃饭/饥饿同频）。
     /// <para>🔴 <b>这是掷点频率的唯一事实源</b>：消费层（<c>CampMain.ResolveTrapsForPhase</c> / 捕鸟陷阱同款）
     /// 只在本谓词为真时才结算，<see cref="RollsPerDay"/> 也由它数出来 ⇒ <b>触发点 / 每日期望 / 常量三处焊死同一条规则</b>，
     /// 不会各写各的。谁改这行，一天掷几次点就跟着变，期望产出的算式不会悄悄失真。</para>
-    /// <para><b>为什么不是每个 <see cref="DayPhase"/> 都掷</b>：<see cref="DayPhase"/> 有 8 个值（含出行/探索/返程等中间相位），
-    /// 但用户口中的"相位"指的是<b>昼夜段</b>（一天 2 次，同两顿聚餐）。早期误按 8 个 <see cref="DayPhase"/> 逐个掷点，
-    /// 让陷阱产出<b>翻了 4 倍</b>（这正是"捕鸟陷阱太强"的根因）——已改回 2 次/天。</para>
+    /// <para><b>为什么不是每个 <see cref="DayPhase"/> 都掷</b>：<see cref="DayPhase"/> 还包含出行/探索/返程等中间相位，
+    /// 但用户口中的"相位"指的是<b>昼夜段</b>（与聚餐同频）。**历史/非配置源**：早期误按全部中间相位逐个掷点，
+    /// 曾造成产出过高；现由 <see cref="RollsOnPhase"/> 统一裁定。</para>
     /// </summary>
     public static bool RollsOnPhase(DayPhase phase) => DayPhaseSegments.IsMeal(phase);
 
-    /// <summary>陷阱一天掷几次点 = 满足 <see cref="RollsOnPhase"/> 的相位数 = <b>2</b>（白天 1 + 夜晚 1）。
+    /// <summary>陷阱一天掷几次点 = 满足 <see cref="RollsOnPhase"/> 的相位数。
     /// <b>每日期望</b>的换算系数（<c>ExpectedCatchesPerPhase(n) × RollsPerDay</c>）。<b>从谓词数出而非写死</b> ⇒ 与触发点焊死。</summary>
     public static int RollsPerDay => Enum.GetValues<DayPhase>().Count(RollsOnPhase);
 
     /// <summary>
-    /// <b>场上第 <paramref name="ordinal"/> 个陷阱的单次捕获几率</b>（1-based）= <c>max(5%, 30% − 5%×(n−1))</c>。
-    /// <para>30% / 25% / 20% / 15% / 10% / 5% / 5% / 5%… —— 第 6 个起撞到地板，此后<b>再多放也是 5%</b>。</para>
+    /// <b>场上第 <paramref name="ordinal"/> 个陷阱的单次捕获几率</b>（1-based）= <c>max(MinChance, BaseChance − ChanceStep×(n−1))</c>。
+    /// <para>具体档位与触底位置以 Wiki 配置为准；触底后<b>再多放也不再下降</b>。</para>
     /// <para><paramref name="ordinal"/> ≤ 0（没有这个陷阱）⇒ 0，<b>不白送基准几率</b>。</para>
     /// </summary>
     public static double ChanceOf(int ordinal)
@@ -168,7 +169,7 @@ public static class TrapLogic
 
     /// <summary>
     /// <paramref name="trapCount"/> 个陷阱在<b>一个相位</b>里的期望捕获数 = 前 n 项几率之和。
-    /// <para>1 个 → 0.30；3 个 → 0.75；6 个 → 1.05；此后每多一个只 +0.05（边际收益被摁在地板上）。</para>
+    /// <para>具体期望值由前 n 项几率求和；边际收益在几率触底后受 Wiki 配置约束。</para>
     /// </summary>
     public static double ExpectedCatchesPerPhase(int trapCount)
     {

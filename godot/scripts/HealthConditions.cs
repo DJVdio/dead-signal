@@ -21,7 +21,7 @@ namespace DeadSignal.Godot;
 //   · 每昼夜 TickDay：未处置病状按规则恶化——出血拖久失血过多致死；开放伤口按几率感染；
 //     感染恶化→肢体坏疽截肢(致残)/躯干败血症(致死)；骨折未手术→畸形愈合致残。
 //   · **流血/骨折不会自动痊愈，只能靠手术**（PerformSurgery）：未手术的出血仍按 TickDay 恶化/致死。
-//     手术 = 点数池(基础 15 + 床 +10 + 材料) → roll[0,池] = 恢复效率%；roll ≤ 10 失败需重做；
+//     手术 = 点数池（基础、床、材料贡献均由 Wiki 配置）→ roll[0,池] = 恢复效率%；失败阈值以 Wiki 配置为准；
 //     材料成功失败都消耗；医疗技能完全不参与（纯材料+床+运气）。成功后该伤按恢复效率%逐日愈合。
 //   · 感染/疾病**不在手术机制内**：仍走药品 TreatIllness（抗生素治感染 / 成药治疾病，疗效取固定基数——通用技能系统已删）。
 //   · 手术耗材（点数/适用伤类）在 SurgeryCatalog；药品语义在 MedicineCatalog；物品数据在 Materials.cs。
@@ -84,7 +84,7 @@ public sealed class HealthCondition
     /// <param name="lethalBleed">仅对 <see cref="HealthConditionType.Bleeding"/> 有意义：true=大伤口，拖久失血过多致死；
     /// false=小锐器/咬伤类，只会溃烂感染、**不会失血致死**（severity 封顶在 <see cref="HealthConditionSet.MinorBleedSeverityCap"/> 之下）。</param>
     /// <param name="selfHealing">仅"**很小的伤**"（微小部位 指/趾/眼/面/耳，或擦伤级低严重度）为真：新鲜期结束后**自行闭合**（无需手术）；中等非致命小伤(手/脚)与致命大伤均为 false（必须手术）。默认 false。</param>
-    /// <param name="bleedLevel">该出血伤口的**流血等级**（小/中/大，仅 <see cref="HealthConditionType.Bleeding"/> 有意义）：感染几率基数直接按等级离散查表（大 25% / 中 15% / 小 5%，见 <see cref="HealthConditionSet.TickDay"/>），**与受伤部位无关**。null=未知（旧档/直接构造）→ 从宽按小流血。</param>
+    /// <param name="bleedLevel">该出血伤口的**流血等级**（小/中/大，仅 <see cref="HealthConditionType.Bleeding"/> 有意义）：感染几率基数按 Wiki 配置离散查表，**与受伤部位无关**。null=未知（旧档/直接构造）→ 从宽按小流血。</param>
     public HealthCondition(HealthConditionType type, double severity, string? bodyPart = null, bool onLimb = false, bool lethalBleed = true, bool selfHealing = false, BleedModel.BleedSeverity? bleedLevel = null)
     {
         Type = type;
@@ -113,9 +113,9 @@ public sealed class HealthCondition
 
     /// <summary>
     /// 该出血伤口的**流血等级**（小/中/大，仅 <see cref="HealthConditionType.Bleeding"/> 有意义；其余类别恒 null）。
-    /// [感染重做] 每昼夜感染几率的**基数**直接按此等级离散查表（大 25% / 中 15% / 小 5%，见 <see cref="HealthConditionSet.TickDay"/>），
+    /// [感染重做] 每昼夜感染几率的**基数**直接按此等级离散查表（当前值以 Wiki 配置为准，见 <see cref="HealthConditionSet.TickDay"/>），
     /// **与受伤部位无关**（部位倾向系数已整条删除）。播种时由 <see cref="HealthMapping.SeedFromBody"/> 从 <see cref="Body.BleedSeverityOn"/> 摆入、存档持久化；
-    /// null（未知/旧档/直接构造）→ 感染基数从宽按小流血 5%。
+    /// null（未知/旧档/直接构造）→ 感染基数从宽按小流血。
     /// </summary>
     public BleedModel.BleedSeverity? BleedLevel { get; }
 
@@ -129,8 +129,8 @@ public sealed class HealthCondition
     public bool IsOperated => RecoveryEfficiency > 0;
 
     /// <summary>
-    /// [T72] 该伤口的**感染几率乘子**（默认 1.0＝无影响）：手术时敷了草药绷带一类耗材 → 置 0.75（该处感染几率 −25%）。
-    /// 乘进 <see cref="HealthConditionSet.TickDay"/> 的每昼夜感染几率（与已手术 ×0.5、营地卫生乘子等**连乘**，§2 通则①）。
+    /// [T72] 该伤口的**感染几率乘子**（默认值与草药耗材效果以 Wiki 配置为准）。
+    /// 乘进 <see cref="HealthConditionSet.TickDay"/> 的每昼夜感染几率（与已手术、营地卫生乘子等**连乘**，§2 通则①）。
     /// 每台手术按本台耗材**重算**（不跨台累乘）；存档持久化，随伤口一起摆回。非草药绷带治疗恒 1.0（零回归）。
     /// </summary>
     public double InfectionChanceMultiplier { get; private set; } = 1.0;
@@ -183,14 +183,14 @@ public sealed class HealthCondition
 /// <param name="Potency">药效基数 0..1（乘固定照护系数得该药"满效"下的单次降severity量）。</param>
 /// <param name="Efficacy">
 /// **治疗效率** 0..1（[SPEC-B14/终稿] 用户拍板值，非拟定）：
-///   · 感染（双进度竞速·三档双效）——**治疗进度积累速率乘子**：用药期间累加治疗进度 = <c>Efficacy × <see cref="HealthConditionSet.CureProgressBaseRate"/> × dt</c>，跨药累计、先到 1.0 清除。
-///     抗生素=1.00（通常 1~2 天痊愈）、草药膏=0.35（须趁早的次选）、蒲公英茶=0.15（只能延缓、单用赢不了、混合策略先垫进度再换药）。
-///   · 疾病——仍走 severity 消退模型，消退量 = <c>Potency × 照护系数 × Efficacy</c>（成药 Efficacy=1.00，行为不变）。
-/// 默认 1.00。与南丁格尔特长的"预防感染率乘子"(TickDay.infectionChanceMultiplier)是**正交两轴**：那个压"会不会感染"，本轴调"已感染治得多快"。
+///   · 感染（双进度竞速·三档双效）——**治疗进度积累速率乘子**：用药期间按 <c>Efficacy × <see cref="HealthConditionSet.CureProgressBaseRate"/> × dt</c> 累加，跨药累计、先到配置终点清除。
+///     各药品疗效与恶化减缓值读取 Wiki 配置。
+///   · 疾病——仍走 severity 消退模型，消退量 = <c>Potency × 照护系数 × Efficacy</c>。
+/// 药品默认值与具体疗效以 Wiki 配置为准。与南丁格尔特长的"预防感染率乘子"(TickDay.infectionChanceMultiplier)是**正交两轴**：那个压"会不会感染"，本轴调"已感染治得多快"。
 /// </param>
 /// <param name="WorsenMultiplier">
 /// **感染恶化减缓乘子** 0..1（[SPEC-B14/终稿] 用户拍板值，非拟定；仅感染用药有意义）：用药期间感染进度累积速率 ×此值。
-/// 抗生素=0.50、草药膏=0.75、蒲公英茶=0.85（越强的药越能压住恶化）。默认 1.00（不减缓/非感染药）。这是三档"双效"的第二效——与 <see cref="Efficacy"/> 同为用户终稿定值。
+/// 各药品恶化减缓值以 Wiki 配置为准（越强的药越能压住恶化）。这是三档"双效"的第二效——与 <see cref="Efficacy"/> 同为用户终稿定值。
 /// </param>
 public readonly record struct Medicine(string MaterialKey, HealthConditionType Treats, double Potency, double Efficacy = 1.0, double WorsenMultiplier = 1.0);
 
@@ -202,8 +202,7 @@ public readonly record struct Medicine(string MaterialKey, HealthConditionType T
 public static class MedicineCatalog
 {
     // authored 结构：材料标识名 → 主治病状类别（「治哪种病」是设计语义，留代码不外置）。
-    // [SPEC-B14/终稿·三档双效] 三档数字（Potency/Efficacy=治疗效率/WorsenMultiplier=恶化减缓）→ health.json：
-    //   抗生素 1.00/0.50（通常 1~2 天痊愈）、草药膏 0.35/0.75（须趁早的次选）、蒲公英茶 0.15/0.85（只能延缓）、成药满效。
+    // [SPEC-B14/终稿·三档双效] 各药品数字（Potency/Efficacy/WorsenMultiplier）→ Wiki 配置。
     private static readonly IReadOnlyDictionary<string, HealthConditionType> _treats = new Dictionary<string, HealthConditionType>
     {
         ["antibiotics"] = HealthConditionType.Infection,   // 抗生素 → 感染
@@ -233,7 +232,7 @@ public static class MedicineCatalog
 /// <param name="Exclusive">是否独占：独占耗材（急救包）不可与任何其他耗材同用于一台手术。</param>
 /// <param name="Treats">适用的伤类（可多种，如急救包兼治流血+骨折）。</param>
 /// <param name="InfectionChanceMultiplier">
-/// [T72] 敷用后给该伤口的**感染几率乘子**（默认 1.0＝不影响；草药绷带 0.75＝该处感染几率 −25%）。
+/// [T72] 敷用后给该伤口的**感染几率乘子**；默认值与耗材效果以 Wiki 配置为准。
 /// 与手术点数正交：一味耗材可以只降感染、不供止血点（草药绷带 Points 0 + 此项 0.75）。乘算通则（§2 通则①）。
 /// </param>
 public readonly record struct SurgerySupply(string MaterialKey, int Points, bool Exclusive, IReadOnlyList<HealthConditionType> Treats, double InfectionChanceMultiplier = 1.0)
@@ -245,15 +244,13 @@ public readonly record struct SurgerySupply(string MaterialKey, int Points, bool
 /// <summary>
 /// 手术耗材目录（**draft**）：材料标识名 → 手术点数/适用伤类/是否独占。与 <see cref="Materials"/> 里
 /// <see cref="MaterialCategory.Medical"/> 手术耗材一一对应，供 <see cref="HealthConditionSet.PerformSurgery"/> 消费。
-///   · 流血：绷带 +15 / 草药绷带 +20（绷带上位替代）/ 针线 +15（非独占可叠加）；或急救包 +60（独占）。
-///     [T72] 草药绷带**额外**再降该处感染几率 ×0.75（止血+消炎两效果并存，非替换）。
-///   · 骨折：夹板 +25；或急救包 +60（独占）。
+///   · 流血：绷带、草药绷带、针线或急救包；草药绷带同时承担止血与消炎效果。
+///   · 骨折：夹板或急救包。
 /// </summary>
 public static class SurgeryCatalog
 {
-    // authored 结构：材料标识名 → (是否独占, 适用伤类)（结构/语义留代码不外置）。数字（Points 供点 / InfectionChanceMultiplier）→ health.json：
-    //   流血：绷带 +15 / 草药绷带 +20（上位替代）/ 针线 +15（非独占可叠加）；骨折：夹板 +25；急救包 +60（独占，兼治流血+骨折）。
-    //   [T72·A2 叠加] 草药绷带 = 普通绷带上位替代，两效并存：① 止血供点 20；② 敷流血术口把该处感染几率 ×0.75(-25%)，与已手术 ×0.5、营地卫生连乘（§2 通则①）。
+    // authored 结构：材料标识名 → (是否独占, 适用伤类)（结构/语义留代码不外置）。Points 与 InfectionChanceMultiplier → Wiki 配置。
+    // [T72·A2 叠加] 草药绷带是普通绷带上位替代，两效并存；效果与其他感染乘子连乘（§2 通则①）。
     private static readonly IReadOnlyDictionary<string, (bool Exclusive, HealthConditionType[] Treats)> _structure =
         new Dictionary<string, (bool Exclusive, HealthConditionType[] Treats)>
     {
@@ -326,7 +323,7 @@ public static class MedicalBookPoints
 
 /// <summary>
 /// [A3] 书 → **骨折恢复速度**被动（纯逻辑，同 <see cref="MedicalBookPoints"/> 的 book-passive 模式）。
-/// 读过《尖峰时刻》(peak_hour) 的人，其术后**骨折**逐日愈合量 ×1.15（+15%，用户 wiki 字面「骨折恢复+15%」）。
+    /// 读过《尖峰时刻》(peak_hour) 的人，其术后**骨折**逐日愈合量按 Wiki 配置加成（用户 Wiki 字面「骨折恢复」）。
 ///
 /// <para><b>为什么只有骨折</b>：wiki 原文写的是「骨折恢复」，不是「全身恢复」——故只喂给 <see cref="HealthConditionSet.TickDay"/>
 /// 的 <c>fractureHealSpeedMultiplier</c> 轴（该轴只作用骨折分支，不碰出血/感染）。这与山姆 L3 光环那条
@@ -337,11 +334,11 @@ public static class MedicalBookPoints
 /// </summary>
 public static class FractureRecoveryBooks
 {
-    /// <summary>《尖峰时刻》骨折恢复加成：+15% ⇒ 逐日愈合量 ×1.15。乘算，禁加算。</summary>
+    /// <summary>《尖峰时刻》骨折恢复加成；当前值以 Wiki 配置为准。乘算，禁加算。</summary>
     public const double PeakHourFractureHealMultiplier = 1.15;
 
     /// <summary>
-    /// 某人的**骨折**逐日愈合乘子（1.0=无加成 ⇒ 零回归）：读过《尖峰时刻》⇒ ×1.15。其余书恒不加。
+    /// 某人的**骨折**逐日愈合乘子（无加成时为默认值）：读过《尖峰时刻》后按 Wiki 配置加成。其余书恒不加。
     /// 多来源在此连乘（当前仅一条）。喂给 <see cref="HealthConditionSet.TickDay"/> 的 <c>fractureHealSpeedMultiplier</c>。
     /// </summary>
     /// <param name="isBookRead">该人是否读过某 bookId（调用方＝其 <c>ReadBookSet.HasRead</c> / <c>Pawn.HasReadBook</c>）。</param>
@@ -434,10 +431,10 @@ public sealed class HealthConditionSet
     /// <summary>小流血伤口感染几率基数（未知等级/旧档也从宽按此；值→health.json）。</summary>
     private static double InfectionBaseChanceSmall => Cfg.InfectionBaseChanceSmall;
 
-    // ---- [感染重做] 全局免疫(治愈)条 + 免疫满后 24h 窗（set 级）----
-    /// <summary>免疫条满后清空所有感染并置一段免疫窗，窗时长（天）：24h＝1.0 天（值→health.json）。</summary>
+    // ---- [感染重做] 全局免疫(治愈)条 + 免疫满后免疫窗（set 级）----
+    /// <summary>免疫条满后清空所有感染并置一段免疫窗，时长由 Wiki 配置提供。</summary>
     private static double ImmuneWindowDays => Cfg.ImmuneWindowDays;
-    /// <summary>免疫窗激活期间的感染几率乘子（−95%；值→health.json），连乘进每昼夜感染几率。</summary>
+    /// <summary>免疫窗激活期间的感染几率乘子（值→Wiki 配置），连乘进每昼夜感染几率。</summary>
     private static double ImmuneWindowInfectionFactor => Cfg.ImmuneWindowInfectionFactor;
 
     /// <summary>[感染重做] 按流血等级取该伤口感染几率基数（大/中/小）；null（未知/旧档）→ 从宽按小流血。**与部位无关**。</summary>
@@ -448,10 +445,10 @@ public sealed class HealthConditionSet
         _ => InfectionBaseChanceSmall, // Small 及 null（未知/旧档）
     };
     // [SPEC-B14/终稿·三档双效] 感染双进度竞速：Severity 即"感染/死亡进度"，按 dt 天数累积；用药期间按档 ×WorsenMultiplier 减缓（非"不减速"）。封顶 1.0=坏疽/败血症。
-    // r_i = 1/6 天≈0.1667/日 → 未用药约第 6 昼夜封顶（与失血 7 天死线错开）。**全程 double 不取整**（[SPEC-B14-补4]；值→health.json）。
+    // 感染恶化速率、治疗窗口与失血死线均由 Wiki 配置调节。**全程 double 不取整**（[SPEC-B14-补4]）。
     private static double InfectionWorsenPerDay => Cfg.InfectionWorsenPerDay;
-    /// <summary>[SPEC-B14/终稿] 治疗进度基准积累速率（每日，效率 1.0 满效值）：用药期间累加治疗进度 = <see cref="Medicine.Efficacy"/> × 本值 × dt天数。
-    /// 锚点=抗生素(1.00)通常 1~2 天痊愈；草药膏(0.35)须趁早的次选；蒲公英茶(0.15)只能延缓、单用赢不了（值→health.json）。</summary>
+    /// <summary>[SPEC-B14/终稿] 治疗进度基准积累速率：用药期间累加治疗进度 = <see cref="Medicine.Efficacy"/> × 本值 × dt天数。
+    /// 具体数值与药品疗程以 Wiki 配置为准。</summary>
     public static double CureProgressBaseRate => Cfg.CureProgressBaseRate;
     private static double DiseaseWorsenPerDay => Cfg.DiseaseWorsenPerDay;     // 疾病逐日恶化
     private static double RestWorsenFactor => Cfg.RestWorsenFactor;           // 休养减缓感染/疾病恶化系数（抗生素才是正解、卧床只拖延）
@@ -465,12 +462,12 @@ public sealed class HealthConditionSet
     /// <summary>已手术（止血中）伤口的感染几率折减系数（相对未手术开放伤口）：止血降低但不清零感染风险（值→health.json）。</summary>
     private static double OperatedInfectionFactor => Cfg.OperatedInfectionFactor;
     /// <summary>伤口"新鲜期"感染窗口（昼夜数）：只有伤口存在的头几昼夜有感染风险；过后即使不闭口/不手术也不再新感染
-    /// （身体已把伤口壁垒化）。这让**放任小伤不再累积到 100% 坏疽**、感染成为"值得赌但会翻车"的有限概率事件（值→health.json）。</summary>
+    /// （身体已把伤口壁垒化）。这让**放任小伤不再累积到终态**、感染成为"值得赌但会翻车"的有限概率事件（值→health.json）。</summary>
     public static int InfectionWindowDays => Cfg.InfectionWindowDays;
     /// <summary>擦伤级严重度阈值：初始 severity ≤ 此值的出血视作"很小的伤"，可自行闭合（配合微小部位判定，见 <see cref="HealthMapping"/>；值→health.json）。</summary>
     public static double AbrasionSeverityThreshold => Cfg.AbrasionSeverityThreshold;
 
-    // ---- 愈合速率（每昼夜）：手术成功后按 恢复效率% 折算，100%=下述基速 ----
+    // ---- 愈合速率（每昼夜）：手术成功后按恢复效率折算，基速以 Wiki 配置为准 ----
     private static double BleedHealPerDay => Cfg.BleedHealPerDay;         // 已手术出血逐日愈合（× 效率/100）
     private static double FractureHealPerDay => Cfg.FractureHealPerDay;   // 已手术骨折逐日愈合（× 效率/100）
     private static double RestHealBonus => Cfg.RestHealBonus;             // 休养加速愈合系数
@@ -484,7 +481,7 @@ public sealed class HealthConditionSet
     public static int SurgeryFailThreshold => Cfg.SurgeryFailThreshold;
     /// <summary>手术门槛：有效池 P &lt; 此值 → 不允许手术（凑不出可行手术，零消耗零改动）。</summary>
     public static int SurgeryMinPoints => Cfg.SurgeryMinPoints;
-    /// <summary>自体手术能力系数：对自己动手，池 ×0.60。</summary>
+    /// <summary>自体手术能力系数；当前值以 Wiki 配置为准。</summary>
     public static double SelfSurgeryFactor => Cfg.SelfSurgeryFactor;
 
     /// <summary>手术成功即刻恢复量：任何成功手术（含擦边低效率成功）当场对该伤 severity 立减此值（值→health.json）。</summary>
@@ -502,7 +499,7 @@ public sealed class HealthConditionSet
     /// </summary>
     private double _immunityProgress;
 
-    /// <summary>[感染重做] 免疫满后 24h 免疫窗剩余时长（天）：>0 期间任何新伤口感染几率再 ×0.05。每昼夜 <see cref="TickDay"/> 递减 1 天。</summary>
+    /// <summary>[感染重做] 免疫满后免疫窗剩余时长：>0 期间任何新伤口感染几率再乘 Wiki 配置因子。每昼夜 <see cref="TickDay"/> 递减配置时长。</summary>
     private double _immuneWindowRemainingDays;
 
     public IReadOnlyList<HealthCondition> Conditions => _conditions;
@@ -516,7 +513,7 @@ public sealed class HealthConditionSet
     /// <summary>[感染重做] 免疫窗剩余时长（天，0=无窗）。存档持久化。</summary>
     public double ImmuneWindowRemainingDays => _immuneWindowRemainingDays;
 
-    /// <summary>[感染重做] 免疫窗是否激活（剩余>0）：激活期间新感染几率 ×0.05。</summary>
+    /// <summary>[感染重做] 免疫窗是否激活（剩余>0）：激活期间新感染几率按 Wiki 配置因子缩放。</summary>
     public bool ImmuneWindowActive => _immuneWindowRemainingDays > 0.0;
 
     /// <summary>是否含某类病状。</summary>
@@ -575,7 +572,7 @@ public sealed class HealthConditionSet
 
     /// <summary>
     /// [SPEC-B14-补3] 感染进度(Severity 0..1)的**显示分档**（"坏疽"降为高进度呈现层，非独立终态）：
-    /// 0–33% 初期 / 34–66% 扩散 / 67–99% 濒坏疽。供 UI 给感染条着色/措辞；100% 才是真终态（坏疽截肢/败血症死）。
+    /// 进度分档仅供 UI 给感染条着色/措辞；达到终点才是真终态（坏疽截肢/败血症死）。分档阈值以 Wiki 配置为准。
     /// </summary>
     public static string InfectionStageWord(double severity)
         => severity < 0.34 ? "初期" : severity < 0.67 ? "扩散" : "濒坏疽";
@@ -589,26 +586,26 @@ public sealed class HealthConditionSet
 
     /// <summary>
     /// 对一处**流血/骨折**做一台手术（<b>医疗技能不参与</b>，靠材料+床+医疗书+操作能力+运气）：
-    /// 有效池 <c>P = round( (基础15 + 床10 + 材料 + 施术者医疗书加点) × 操作能力 × (自体?0.60:1) )</c>；
-    /// <b>P &lt; 15 → 门槛未过</b>（<see cref="SurgeryStatus.NotAllowed"/>，不 roll/不消耗/不改病状，给玩家 <see cref="SurgeryResult.NotAllowedMessage"/>）；
+    /// 有效池按「基础点数 + 床 + 材料 + 施术者医疗书加点」乘操作能力与自体系数后取整；
+    /// 低于 Wiki 配置门槛 → 门槛未过（<see cref="SurgeryStatus.NotAllowed"/>，不 roll/不消耗/不改病状，给玩家 <see cref="SurgeryResult.NotAllowedMessage"/>）；
     /// 否则按 <see cref="RollRange"/>(P) 分段 roll 得效率值（**可 &gt;100**）；≤ <see cref="SurgeryFailThreshold"/>=失败需重做；
     /// 成功则给该伤记恢复效率%，<see cref="TickDay"/> 里逐日据此愈合。**材料成功失败都消耗（门槛未过零消耗）。**
     /// 医疗书点值/操作能力/池点数**均为内部数值，不对玩家展示**（UI 只给模糊描述）。
     /// </summary>
     /// <param name="condition">目标伤（必须在本集内、且为 Bleeding/Fracture，否则抛 <see cref="ArgumentException"/>）。</param>
     /// <param name="materials">投入的材料 Key 列表（非手术耗材/不适用该伤类的忽略、不消耗；急救包独占，与其他耗材同投则抛异常）。</param>
-    /// <param name="onBed">是否在床上操作（+10 点数）。</param>
+    /// <param name="onBed">是否在床上操作（床位加成读取 Wiki 配置）。</param>
     /// <param name="rng">分段 roll（<see cref="IRandomSource.Range"/>，区间由 <see cref="RollRange"/> 定）。</param>
     /// <param name="surgeonBookBonus">施术者已读医疗书里**无条件生效**的加点合计（调用方走 <see cref="MedicalBookPoints.SumAlways"/>）。</param>
     /// <param name="surgeonBookBonusNoSupplies">
     /// 施术者已读医疗书里**只在这台手术一件耗材都没投时**才生效的加点合计（调用方走 <see cref="MedicalBookPoints.SumWithoutSupplies"/>；
     /// 《野外生存指南》+3 即此档）。判据是**实际投入**的耗材——不适用该伤类的材料本就被忽略、不消耗，故也不剥夺此加成。
     /// </param>
-    /// <param name="selfSurgery">是否对自己手术（true → 池 ×0.60）。</param>
+    /// <param name="selfSurgery">是否对自己手术（true → 池乘自体手术系数）。</param>
     /// <param name="operationCapability">施术者操作能力 0..1（满=1.0，残疾&lt;1；接入波从 Pawn 操作能力映射；池 ×它）。</param>
     /// <param name="surgeryBasePoints">
-    /// 本台手术的**基础点数**（默认 null → 用常量 <see cref="SurgeryBasePoints"/>=15）。per-surgeon 可变入口
-    /// （[SPEC-B13-补] 南丁格尔三级特长：她本人 30、L3 后全营 +5，由调用方经 <c>NightingalePerk.SurgeryBasePoints</c> 算好传入）。
+    /// 本台手术的**基础点数**（默认 null → 用 <see cref="SurgeryBasePoints"/>）。per-surgeon 可变入口
+    /// （[SPEC-B13-补] 南丁格尔三级特长由调用方经 <c>NightingalePerk.SurgeryBasePoints</c> 算好传入）。
     /// </param>
     public SurgeryResult PerformSurgery(
         HealthCondition condition,
@@ -670,7 +667,7 @@ public sealed class HealthConditionSet
                         + BookPoints(surgeonBookBonus, surgeonBookBonusNoSupplies, supplies.Count);
         int pool = (int)Math.Round(rawPoints * cap * (selfSurgery ? SelfSurgeryFactor : 1.0), MidpointRounding.AwayFromZero);
 
-        // 门槛：P < 15 凑不出可行手术 → 不 roll、不消耗、不改病状。
+        // 门槛：低于 Wiki 配置的最小点数 → 不 roll、不消耗、不改病状。
         if (pool < SurgeryMinPoints)
         {
             return new SurgeryResult
@@ -695,13 +692,13 @@ public sealed class HealthConditionSet
         // 记录本次手术昼夜（成功/失败都算一次手术 → 重置重做冷却）。
         condition.MarkSurgeryDay();
 
-        // [T72] 本台耗材里的感染几率乘子 → 敷到该伤口（草药绷带 ×0.75）。成败都置（绷带物理敷上了，止血成没成是另一回事）；
-        // 按本台耗材**重算**（product，默认耗材 ×1.0 无影响）——不跨台累乘（重做手术不叠成 0.75²）。
+        // [T72] 本台耗材里的感染几率乘子 → 敷到该伤口。成败都置（绷带物理敷上了，止血成没成是另一回事）；
+        // 按本台耗材**重算**（product）——不跨台累乘。
         condition.SetInfectionChanceMultiplier(supplies.Aggregate(1.0, (m, s) => m * s.InfectionChanceMultiplier));
 
         if (success)
         {
-            // 成功（含擦边）→ 覆盖恢复效率（重做双向风险：高值也会被刷掉）+ 即刻恢复 5%。
+            // 成功（含擦边）→ 覆盖恢复效率（重做双向风险：高值也会被刷掉）+ 即刻恢复量（Wiki 配置）。
             condition.SetRecoveryEfficiency(roll); // 进入/刷新愈合态：TickDay 据此逐日愈合（效率可 >100）
             condition.AddSeverity(-ImmediateHealOnSuccess);
         }
@@ -746,17 +743,17 @@ public sealed class HealthConditionSet
     /// [感染重做·三档双效] 推进本人感染竞速一个时间片 <paramref name="dtDays"/>（天，可 &lt;1=相位级细分；全程 double 不取整）。
     /// **可同时持有多条感染条**（每处感染伤口一条，各自跑独立的死亡进度 Severity），但**只有一条全局免疫(治愈)条**（set 级，所有感染共享）：
     ///   · **全局免疫条** += <c>medicine.Efficacy × <see cref="CureProgressBaseRate"/> × dt</c>（仅用药时；跨药、跨伤口持续累计）；
-    ///   · 免疫条**先到 1.0** → **清空全部感染条** + 置 <see cref="ImmuneWindowRemainingDays"/> 免疫窗（<see cref="ImmuneWindowDays"/> 天）、归零免疫条（治疗抢先，返回 <see cref="InfectionRaceResult.Cured"/>）；
+    ///   · 免疫条先到 Wiki 配置终点 → **清空全部感染条** + 置 <see cref="ImmuneWindowRemainingDays"/> 免疫窗（<see cref="ImmuneWindowDays"/>）、归零免疫条（治疗抢先，返回 <see cref="InfectionRaceResult.Cured"/>）；
     ///   · 否则每条感染各自 Severity += <c><see cref="InfectionWorsenPerDay"/> × dt × (用药? WorsenMultiplier : 1) × campWorsenMultiplier</c>（**恶化速率统一**，不论伤口大小/部位）；
-    ///     **任一条**感染进度到 1.0 → 立刻死亡（无论肢体/非肢体，不再自动坏疽截肢；保命须玩家在到顶前主动 <see cref="PerformAmputation"/>）。
+    ///     任一条感染进度达到 Wiki 配置终点 → 立刻死亡（无论肢体/非肢体，不再自动坏疽截肢；保命须玩家在到顶前主动 <see cref="PerformAmputation"/>）。
     /// <paramref name="medicated"/>=false 表示本时间片未用药：只累积各感染、不推进免疫条。无感染条目 → 返回 <see cref="ConditionOutcome.None"/>。
     /// </summary>
     /// <param name="dtDays">本时间片天数（相位级传 1/相位数；整日传 1.0）。</param>
     /// <param name="medicated">本时间片是否在用药（疗程指派且有药）。</param>
     /// <param name="medicine">所用药（<paramref name="medicated"/> 为真时必给感染药，取其 Efficacy/WorsenMultiplier）。</param>
     /// <param name="campWorsenMultiplier">
-    /// 全营**感染条上升速度**乘子（<b>默认 1.0＝无影响</b>，既有调用零回归）：承载 authored 专属效果对恶化**速率**的加成——
-    /// 现阶段唯一来源是**山姆 L3 光环 −3%**（×0.97，见 <c>SamPerk.CampInfectionWorsenMultiplier</c>）。
+    /// 全营**感染条上升速度**乘子（默认值代表无影响，既有调用零回归）：承载 authored 专属效果对恶化**速率**的加成——
+    /// 现阶段唯一来源是**山姆 L3 光环**（见 <c>SamPerk.CampInfectionWorsenMultiplier</c>）。
     /// 与用药的 <see cref="Medicine.WorsenMultiplier"/> 是**两个独立乘子**（相乘，互不吞没：药压得多、光环再压一点）。
     /// 与南丁格尔的 <c>NightingalePerk.CampInfectionMultiplier</c>（喂 <see cref="TickDay"/> 的感染几率）**正交**：
     /// 那个压"会不会感染"(新生几率·预防轴)，本条压"已感染的条涨多快"(恶化速率轴)。只缩放恶化，不动免疫条。
@@ -778,7 +775,7 @@ public sealed class HealthConditionSet
             _immunityProgress = Math.Clamp(_immunityProgress + medicine!.Value.Efficacy * CureProgressBaseRate * dtDays, 0.0, 1.0);
         }
 
-        // 治疗抢先：免疫条先到顶 → 清空**全部**感染条 + 置 24h 免疫窗、归零免疫条（≥ 比较，不取整）。
+        // 治疗抢先：免疫条先到配置终点 → 清空**全部**感染条 + 置免疫窗、归零免疫条（≥ 比较，不取整）。
         if (_immunityProgress >= 1.0)
         {
             _conditions.RemoveAll(c => c.Type == HealthConditionType.Infection);
@@ -787,7 +784,7 @@ public sealed class HealthConditionSet
             return new InfectionRaceResult { Outcome = ConditionOutcome.None, Cured = true };
         }
 
-        // 每条感染各自推进死亡进度（恶化速率统一）；任一到顶(≥100%) → 当相位立刻死亡（不再自动坏疽截肢）。
+        // 每条感染各自推进死亡进度（恶化速率统一）；任一到配置终点 → 当相位立刻死亡（不再自动坏疽截肢）。
         double worsenMult = (useMed ? medicine!.Value.WorsenMultiplier : 1.0) * Math.Max(0.0, campWorsenMultiplier);
         foreach (HealthCondition inf in infections)
         {
@@ -990,9 +987,8 @@ public sealed class HealthConditionSet
     }
 
     /// <summary>
-    /// 恢复效率「点数池」的**乘算合成**（通则「百分比加成一律乘算」）：睡床/玫瑰果茶等来源各是一条百分比加成（+pp），
-    /// 同池叠加时**来源之间连乘** ×(1+pp/100)，合成后折成加到恢复效率上的百分点：<c>100×(Π(1+pp/100) − 1)</c>。
-    /// 单来源与旧加算逐比特等价（睡床 1.10 → +10pp）；多来源才产生乘算增益（睡床×玫瑰果茶 1.10×1.09=1.199 → +19.9pp，旧加算为 +19pp）。
+    /// 恢复效率「点数池」的**乘算合成**（通则「百分比加成一律乘算」）：睡床/玫瑰果茶等来源各是一条百分比加成，
+    /// 同池叠加时来源之间连乘，合成后折成加到恢复效率上的百分点。
     /// 负值来源按 0 夹取（不引入意外惩罚）。追加新来源只需在此连乘一项。
     /// </summary>
     private static double EfficiencyPoolBonusPct(params double[] sourcesPct)
@@ -1013,19 +1009,19 @@ public sealed class HealthConditionSet
     /// <param name="resting">本昼夜是否卧床休养（减缓感染/疾病恶化、×<see cref="RestHealBonus"/> 加速术后愈合）。</param>
     /// <param name="restedInBed">本昼夜是否**在床上睡觉休息**（而非地铺）：术后愈合恢复效率点数池 +<see cref="BedSleepHealBonusPct"/> 个百分点（作为一条百分比加成进 <see cref="EfficiencyPoolBonusPct"/>，与玫瑰果茶等来源连乘）。默认 false，接入层按睡眠处是床/地铺传入。</param>
     /// <param name="infectionChanceMultiplier">
-    /// 全营感染率乘子（默认 1.0＝无影响）：[SPEC-B13-补] 南丁格尔三级特长的营地卫生减免（她 L2 在营 ×0.85 / L3 遗产叠加至 ×0.75 等），
+    /// 全营感染率乘子（默认值代表无影响）：[SPEC-B13-补] 南丁格尔三级特长的营地卫生减免，
     /// 由调用方经 <c>NightingalePerk.CampInfectionMultiplier</c> 算好传入；只缩放本昼夜的开放伤口感染几率，不改其余恶化/愈合。
     /// </param>
     /// <param name="extraHealBonusPct">
     /// [SPEC-B14-补2] 额外恢复效率加成（**百分点**，默认 0）：与睡床 <see cref="BedSleepHealBonusPct"/> 同为恢复效率点数池的一条百分比加成，**来源之间连乘**（见 <see cref="EfficiencyPoolBonusPct"/>），只作用术后流血/骨折的逐日愈合速度。
-    /// 玫瑰果茶 buff 生效时由调用方传 <c>+9</c>（Pawn 上 24 游戏小时计时）；不改感染/疾病恶化。
+    /// 玫瑰果茶 buff 生效时由调用方传配置的恢复效率加成；不改感染/疾病恶化。
     /// </param>
     /// <param name="healSpeedMultiplier">
     /// 全营**身体恢复速度**乘子（<b>默认 1.0＝无影响</b>，既有调用零回归）：承载 authored 专属效果对愈合**速度**的百分比加成——
-    /// 当前山姆 authored 效果是本人 L2 ×1.30（见 <c>SamPerk.PersonalHealSpeedMultiplier</c>），由调用方按人传入。
+    /// 当前山姆 authored 效果由 <c>SamPerk.PersonalHealSpeedMultiplier</c> 按 Wiki 配置提供，由调用方按人传入。
     /// 只作用术后流血/骨折的逐日愈合量，不改恶化/感染几率。
     /// 与 <paramref name="restedInBed"/>/<paramref name="extraHealBonusPct"/> 那条**恢复效率点数池**的轴（连乘合成后加到恢复效率点数上）
-    /// 是**正交两轴**：本条是最终愈合量的**乘子**（用户口径"恢复速度 +3%"＝速度的百分比，非效率 +3 点）。
+    /// 是**正交两轴**：本条是最终愈合量的**乘子**（用户口径“恢复速度百分比加成”＝速度的百分比，非效率点数）。
     /// </param>
     /// <param name="restFraction">
     /// [批次21·impl-bedrest] 本昼夜的**休养占比** 0..1（默认 null → 回落到 <paramref name="resting"/> 布尔，零回归）：
@@ -1040,7 +1036,7 @@ public sealed class HealthConditionSet
     /// </param>
     /// <param name="fractureHealSpeedMultiplier">
     /// [A3] **仅骨折**的逐日愈合乘子（<b>默认 1.0＝无影响</b>，追加在参数表末尾 ⇒ 既有位置/命名调用零回归）：
-    /// 承载"读过《尖峰时刻》⇒ 骨折恢复 +15%"（×1.15，来源 <see cref="FractureRecoveryBooks.HealSpeedMultiplier"/>，由调用方按**该人**已读书集算好传入）。
+    /// 承载读过相关书籍后的骨折恢复加成（来源 <see cref="FractureRecoveryBooks.HealSpeedMultiplier"/>，由调用方按**该人**已读书集算好传入）；具体值以 Wiki 配置为准。
     /// 与 <paramref name="healSpeedMultiplier"/>（山姆 L3 光环，作用流血+骨折两者）是**正交两轴**：本轴只乘在骨折分支上、不碰出血/感染；
     /// 对骨折两轴**连乘**（用户 wiki 字面写「骨折恢复」，非全身恢复，故出血不吃本轴）。
     /// </param>
@@ -1084,8 +1080,8 @@ public sealed class HealthConditionSet
                     if (c.IsOperated)
                     {
                         // 已手术：按恢复效率愈合。睡床与玫瑰果茶是同池的两条百分比加成 → **来源之间连乘**（通则「百分比加成一律乘算」）：
-                        // 池贡献折成点数 EfficiencyPoolBonusPct(睡床,玫瑰果茶)=100×((1+10%)(1+9%)−1)，加到恢复效率上。单来源逐比特等价旧加算、多来源才乘算增益。
-                        // healSpeedMultiplier（例如山姆本人 L2 ×1.30）是**另一轴**：最终愈合量的乘子，与上面的点数池正交。
+                        // 池贡献由 EfficiencyPoolBonusPct(睡床,玫瑰果茶) 按配置连乘后折成点数，加到恢复效率上。
+                        // healSpeedMultiplier（角色 authored 效果）是**另一轴**：最终愈合量的乘子，与上面的点数池正交。
                         double effPct = c.RecoveryEfficiency + EfficiencyPoolBonusPct(bedBonusPct, extraHealBonusPct);
                         double heal = BleedHealPerDay * (effPct / 100.0) * restHealMult * Math.Max(0.0, healSpeedMultiplier);
                         c.AddSeverity(-heal);
@@ -1107,14 +1103,14 @@ public sealed class HealthConditionSet
 
                     // 统一感染窗：伤口在**新鲜期内(DaysElapsed<窗口)** 且尚未愈合闭口时按几率感染；窗口过后不再新感染。
                     // [感染重做] 每伤口感染几率连乘链（**与受伤部位无关**，§2 通则①乘算）：
-                    //   流血等级基数(大25%/中15%/小5%) × 处理过(已手术含敷草药绷带 ×0.5) × 该伤口敷过草药绷带(×0.75) × 南丁格尔预防(×0.765) × 免疫窗激活(×0.05)。
+                    //   流血等级基数 × 处理过 × 该伤口敷过草药绷带 × 南丁格尔预防 × 免疫窗激活；各系数以 Wiki 配置为准。
                     if (c.DaysElapsed < InfectionWindowDays && c.Severity >= WoundClosedThreshold)
                     {
                         double chance = InfectionBaseChanceFor(c.BleedLevel)
                             * (c.IsOperated ? OperatedInfectionFactor : 1.0)      // 处理过（已手术，含敷草药绷带成功）减半
-                            * c.InfectionChanceMultiplier                          // 该伤口敷过草药绷带 ×0.75
-                            * Math.Max(0.0, infectionChanceMultiplier)            // 南丁格尔预防轴 ×0.765
-                            * (ImmuneWindowActive ? ImmuneWindowInfectionFactor : 1.0); // 免疫满后 24h 窗 ×0.05
+                            * c.InfectionChanceMultiplier                          // 该伤口敷过草药绷带
+                            * Math.Max(0.0, infectionChanceMultiplier)            // 南丁格尔预防轴
+                            * (ImmuneWindowActive ? ImmuneWindowInfectionFactor : 1.0); // 免疫窗保护
                         if (TryContractInfection(c, chance, rng, newConditions))
                         {
                             contracted = true;
@@ -1137,7 +1133,7 @@ public sealed class HealthConditionSet
                     if (c.IsOperated)
                     {
                         // 睡床与玫瑰果茶同池的两条百分比加成 → **来源之间连乘**（见 EfficiencyPoolBonusPct）；山姆 L3 光环走 healSpeedMultiplier 乘子轴。
-                        // [A3] fractureHealSpeedMultiplier（《尖峰时刻》×1.15）**只**乘在骨折分支——出血分支不带此因子（用户 wiki 字面「骨折恢复」）。与山姆光环 healSpeedMultiplier 正交连乘。
+                        // [A3] fractureHealSpeedMultiplier（《尖峰时刻》）**只**乘在骨折分支——出血分支不带此因子（用户 wiki 字面「骨折恢复」）。与 authored healSpeedMultiplier 正交连乘，具体值以 Wiki 配置为准。
                         double effPct = c.RecoveryEfficiency + EfficiencyPoolBonusPct(bedBonusPct, extraHealBonusPct);
                         double heal = FractureHealPerDay * (effPct / 100.0) * restHealMult * Math.Max(0.0, healSpeedMultiplier) * Math.Max(0.0, fractureHealSpeedMultiplier);
                         c.AddSeverity(-heal);
@@ -1243,7 +1239,7 @@ public sealed class HealthConditionSet
             IsDead = true;
         }
 
-        // [感染重做] 免疫窗每昼夜递减 1 天：本日的感染几率已按窗口激活态折算过（见上），日末再消耗 1 天。
+        // [感染重做] 免疫窗按昼夜递减：本日的感染几率已按窗口激活态折算过（见上），日末再消耗窗口时长。
         if (_immuneWindowRemainingDays > 0.0)
         {
             _immuneWindowRemainingDays = Math.Max(0.0, _immuneWindowRemainingDays - 1.0);
@@ -1309,7 +1305,7 @@ public static class HealthMapping
     /// 这就是用户那句「防止过多的伤口浪费手术时间」在手术侧的落地：
     /// **手术台数按【部位】走（本来就是——每部位一条 Bleeding），而难度/剩余抢救时间按【等级】走。**
     /// 三个小口子在 <see cref="Body"/> 里已经合并成一个大口子 ⇒ 这里出的是**一台**手术，
-    /// 而且它是一台**大流血**的手术（0.70 ⇒ 不治只剩 3 昼夜），不是三台各自轻飘飘的小手术。
+    /// 而且它是一台**大流血**的手术（严重度与未治疗后果以 Wiki 配置为准），不是多台各自轻飘飘的小手术。
     /// </para>
     /// 只有当 <see cref="Body"/> 里查不到等级（理论上不会发生）时才回落到本参数。
     /// </param>
@@ -1379,9 +1375,9 @@ public static class BloodRecovery
     /// <summary>
     /// 本昼夜应回复的血量。
     ///
-    /// <para>量 = <see cref="BleedModel.BloodRegenPerRestDay"/>(10) × 休养占比 × 睡床加成
-    /// （默认复用既有 <see cref="HealthConditionSet.BedSleepHealBonusPct"/>=10 个百分点；调用方可传入南丁格尔 L2 的 20，**加算、同族**，不另起炉灶）。
-    /// 70 储血 ÷ 10 = **7 昼夜从零回满**，与「骨折愈合 7 昼夜」同量级（占床、不能干活、不能站岗）。</para>
+    /// <para>量 = <see cref="BleedModel.BloodRegenPerRestDay"/> × 休养占比 × 睡床加成
+    /// （默认复用既有 <see cref="HealthConditionSet.BedSleepHealBonusPct"/>；调用方可传入南丁格尔 authored 值，**同族**，不另起炉灶）。
+    /// 储血上限、恢复效率与预计恢复时长均以 Wiki 配置为准（占床、不能干活、不能站岗）。</para>
     /// </summary>
     /// <param name="restFraction">本昼夜休养占比 0..1（来自 <c>RestLedger</c>）。0 = 没休养 ⇒ 不回血。</param>
     /// <param name="bedFraction">本昼夜睡床占比 0..1。地铺不吃这一轴，床要造。</param>

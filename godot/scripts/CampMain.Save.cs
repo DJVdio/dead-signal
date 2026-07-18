@@ -344,10 +344,9 @@ public sealed partial class CampMain
     /// 把 <see cref="_coldLoadData"/> 灌回营地。走的是与「游戏内就地覆盖读档」完全相同的 <see cref="ApplySave"/>，
     /// 因此人/物资/结构/剧情等 <b>玩法状态全部正确</b>。
     /// <para>
-    /// 🔴 <b>遗留（GUI 目视验收，21②）</b>：<see cref="ApplySave"/> 的 <c>_clock.Restore</c> 刻意不发
-    /// <see cref="OnGamePhaseChanged"/>（那里含聚餐/健康日推进/关卡加载等重玩法副作用，绝不能为"刷视觉"而触发）。
-    /// 于是冷启动直读<b>夜晚档</b>时，视野遮暗层 / 环境光仍是 <c>_Ready</c> 的白天默认，要到下一次自然相位切换才更新。
-    /// 这是纯视觉的过渡瑕疵（玩法数据无误），需抽出「只刷相位视觉、不带玩法副作用」的再入点、且只能实机目视校准。
+    /// <see cref="ApplySave"/> 的 <c>_clock.Restore</c> 刻意不发 <see cref="OnGamePhaseChanged"/>，
+    /// 避免重复结算聚餐/健康日推进/关卡加载。恢复后只调用 <c>RefreshPhaseVisuals</c>，
+    /// 使冷启动直读夜晚档时的环境色与视野遮暗当帧对齐，不带玩法副作用。
     /// </para>
     /// </summary>
     private void StartFromColdLoad()
@@ -373,6 +372,10 @@ public sealed partial class CampMain
         //    发事件会让订阅方把一个已经结算过的相位再结算一遍。
         _clock.Restore(s.World.Day, s.World.Phase, s.World.PhaseElapsed,
                        s.World.TravelElapsed, s.World.WarningFired, s.World.SpeedIndex);
+        // Restore 刻意不发 OnPhaseChanged：读档不得重结算聚餐/健康日/关卡切换。
+        // 但冷启动的 VisionMask 仍是 _Ready 的白天默认，环境色也应在灌档当帧对齐；
+        // 因此只走纯表现再入点，不广播任何玩法事件。
+        RefreshPhaseVisuals(_clock.CurrentPhase);
 
         // 2) 剧情 flag（半个存档）。
         RestoreStoryFlags(s.StoryFlags);
@@ -582,7 +585,7 @@ public sealed partial class CampMain
         var visuals = new List<Node2D>();
         AddOccluderVisual(rect, style, seed: 19 + SandbagSeqOf(name), height: CoverPropHeight, cell: 48f, collect: visuals);
 
-        // 半身掩体登记：贴着它的双方都吃 25% 远程无效（读档后这份收益必须还在，否则玩家的工事白垒了）。
+        // 半身掩体登记：贴着它的双方都按 Wiki 配置获得远程无效概率（读档后这份收益必须还在，否则玩家的工事白垒了）。
         _coverField.Add(rect.Position.X, rect.Position.Y, rect.Size.X, rect.Size.Y,
             SandbagSpec.CoverChance, SandbagSpec.BlocksMelee);
 

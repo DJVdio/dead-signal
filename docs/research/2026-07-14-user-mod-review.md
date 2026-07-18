@@ -184,7 +184,7 @@ public void PenetrationBoostMods_OnZeroPenetrationWeapons_MustUseAdd_NotMul()
 
 护甲三段判定：`防御骰上限 defMax = 护甲值 × (1 − 穿透)`，`def ~ U(0, defMax)`。
 
-| 穿透 | 板甲（锐防 50）的 defMax |
+| 穿透 | 板甲当前防护值的 defMax（护甲值来自 Wiki） |
 |---|---|
 | 95% | **2.50** |
 | 100% | **0.00** |

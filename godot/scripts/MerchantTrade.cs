@@ -47,18 +47,18 @@ public static class MerchantTrade
 {
     // —— 价率（拟定待调；用户拍板原话：「玩家卖东西给商人是60%的价格，买东西是100%的价格。」）——
     // 基准价一律以**分**计（[SPEC-B14-补6]：白银 2dp，1 银=100 分，见 <see cref="Silver"/>）。
-    // 买入按 BuyRatePercent（100%=等于基准价），卖出按 SellRatePercent（60%）折算；
-    // 折算在**分**上做（如基准 3.00 银=300 分，卖出 300×60/100=180 分=1.80 银，不再被截成整银 1）。
+    // 买入按 BuyRatePercent，卖出按 SellRatePercent 折算；具体值以 Wiki 配置为准。
+    // 折算在**分**上做，避免小数银被截成整银。
     // 末端 /100 只在**分**这一最小刻度上取整（0.01 银缺口归商人=合规消费点），不再吞掉小数银。
 
     // 【数值外置】原两个 `public const int` 已搬到 merchant.json（消费层配置范式，见 MerchantConfig）。
     // 二者仅方法体内用（BuyPrice/SellPrice）+ cref + 运行时读，非默认参数值/const-expr 上下文 ⇒ 安全改静态属性。
     // ⚠️ MerchantSchedule 的到访间隔上下限（minGap=1/maxGap=5）是构造器**默认参数值**（编译期 const），
     //    且属到访调度状态机结构（用户口径：调度是结构留代码）⇒ 不外置。
-    /// <summary>玩家从商人**买入**的价率（基准价的百分比；用户拍板 100%）。</summary>
+    /// <summary>玩家从商人**买入**的价率（当前值以 Wiki 配置为准）。</summary>
     public static int BuyRatePercent => GameConfigCatalog.Section<MerchantConfig>().BuyRatePercent;
 
-    /// <summary>玩家**卖给**商人的价率（基准价的百分比；用户拍板 60%）。</summary>
+    /// <summary>玩家**卖给**商人的价率（当前值以 Wiki 配置为准）。</summary>
     public static int SellRatePercent => GameConfigCatalog.Section<MerchantConfig>().SellRatePercent;
 
     /// <summary>某基准价（**分**）的**买入价**（分）= 基准价 × <see cref="BuyRatePercent"/>%（≥0）。</summary>
@@ -128,7 +128,7 @@ public static class MerchantTrade
     }
 
     /// <summary>
-    /// 卖出一单位 <paramref name="unit"/> 给商人（用户拍板：白名单收购、按基准价 60% 计）：
+    /// 卖出一单位 <paramref name="unit"/> 给商人（用户拍板：白名单收购、按 Wiki 配置价率计）：
     /// 不在收购白名单 → <see cref="SellStatus.NotBuying"/>；白名单内但库存无此物 → <see cref="SellStatus.NoneOwned"/>；
     /// 成交则从 <paramref name="store"/> 实扣一单位（食物扣 1 份 / 材料扣 1 个）并把 <see cref="MerchantBuyList.SellUnitPrice"/> 白银入账，返回 <see cref="SellStatus.Ok"/>。
     /// 判定与实扣同源，不会半途扣物不给钱。<paramref name="currencyKey"/> 默认白银。

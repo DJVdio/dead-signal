@@ -6,7 +6,7 @@ using DeadSignal.Combat;
 namespace DeadSignal.Godot;
 
 /// <summary>
-/// <b>皮特·剧情事件（招募路径）</b>——第 7 天夜一开局，一个男孩跑来敲门大喊求救，弹三选一面板：
+/// <b>皮特·剧情事件（招募路径）</b>——在 authored 夜间触发，一个男孩跑来敲门大喊求救，弹三选一面板：
 /// <b>开门救援 / 置之不理 / 攻击他</b>（authored，用户拍板，原话，不引申）。
 ///
 /// <list type="bullet">

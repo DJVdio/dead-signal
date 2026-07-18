@@ -284,7 +284,7 @@ public sealed class WorldNodeLock
 {
     public bool Unlocked { get; init; }
 
-    /// <summary>锁着时给玩家的一句话（"需要先把「超市」探索到 50% 以上"）。解锁时为空。</summary>
+    /// <summary>锁着时给玩家的一句话（包含当前探索门槛）。解锁时为空。</summary>
     public string Reason { get; init; } = "";
 }
 
@@ -294,7 +294,7 @@ public sealed class WorldNodeLock
 /// </summary>
 public static class WorldGraphUnlock
 {
-    /// <summary>探索度门槛：**严格大于 50%**（用户原话"探索度大于50%"）。整数比较 done*2 &gt; total，不碰浮点。</summary>
+    /// <summary>探索度门槛：严格大于既定阈值。整数比较 done*2 &gt; total，不碰浮点。</summary>
     public static bool MeetsExplorationThreshold(int done, int total) => total > 0 && done * 2 > total;
 
     /// <summary>门槛文案（给 UI 与测试共用）。</summary>

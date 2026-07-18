@@ -101,8 +101,8 @@ public static class Materials
     private static readonly IReadOnlyList<MaterialDef> _all = new[]
     {
         new MaterialDef("wood", "木料", "树的尸体。", MaterialCategory.Wood),
-        // [批次20·拆除回收] 废木料：拆木结构掉出来的碎料（用户拍板：拆 16 木料的东西 → 4 木料 + 4 废木料）。
-        // 它**盖不了任何东西**——得先在锯片工作台上用胶水粘回木料（配方 wood_from_scrap）。木材那"另外 25%"就压在这堆碎料里。
+        // [批次20·拆除回收] 废木料：拆木结构掉出来的碎料；具体回收比例以 Wiki 配置为准。
+        // 它**盖不了任何东西**——得先在锯片工作台上用胶水粘回木料（配方 wood_from_scrap）。
         new MaterialDef("scrap_wood", "废木料", "拆下来的断料、劈裂的板子、带钉眼的短头。单看哪一块都不成器，可你手里也没别的了。", MaterialCategory.Wood),
         // 布：整幅好布与撕下的碎布不再区分（用户拍板）——末日里没人挑剔布的出身，能缝上就行。
         new MaterialDef("cloth", "布", "“扯一块好布，奶奶给你做新衣裳”——奶奶", MaterialCategory.Cloth),

@@ -85,7 +85,7 @@ public sealed class CombatResult
 /// （既有单弹丸武器语义不变）。
 ///
 /// 每个 <see cref="CombatResult"/> 是一颗弹丸的<b>完整独立</b>判定链结果（自己的命中部位、自己的逐层结算）——
-/// 「8 颗弹丸单独计算」（用户原话）在数据结构上就长这样：8 个彼此无关的 CombatResult，而不是一个乘了 8 的伤害。
+/// 「多颗弹丸单独计算」（用户原话）在数据结构上就长这样：每颗弹丸各有一个彼此独立的 CombatResult，而不是把伤害整体相乘。
 /// </summary>
 public sealed class VolleyResult
 {

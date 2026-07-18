@@ -11,9 +11,9 @@ namespace DeadSignal.Combat.Tests;
 public class ExplorationProgressTests
 {
     [Theory]
-    [InlineData(SizeTier.Small, "小·约1-2天")]
-    [InlineData(SizeTier.Medium, "中·约3-5天")]
-    [InlineData(SizeTier.Large, "大·约5天+")]
+    [InlineData(SizeTier.Small, "小")]
+    [InlineData(SizeTier.Medium, "中")]
+    [InlineData(SizeTier.Large, "大")]
     public void TierLabel_MapsEachTier(SizeTier tier, string expected)
     {
         Assert.Equal(expected, ExplorationProgress.TierLabel(tier));

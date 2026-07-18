@@ -7,7 +7,7 @@ namespace DeadSignal.Godot;
 
 /// <summary>
 /// 单个幸存者的专属效果状态容器（纯逻辑，无 Godot 依赖）。**可扩展**：未来别的角色挂别的 perk，
-/// 各自加一个可空成员即可（无 perk 者该成员为 <c>null</c>，读速合成时按 ×1.0 处理）。
+/// 各自加一个可空成员即可（无 perk 者该成员为 <c>null</c>，读速合成时按中性值处理）。
 /// 本轮只挂 <see cref="Bookworm"/>（诺蒂）。W3 由 Pawn 持有本对象并在阅读结算时喂时间。
 /// </summary>
 public sealed class SurvivorPerks
@@ -85,18 +85,16 @@ public sealed class SurvivorPerks
 
 /// <summary>
 /// **诺蒂·书虫**专属效果（纯逻辑）：靠累计阅读时间（游戏内小时）跨阈值升级 1→2→3。
-/// 各级自身读速加成 L1=+25% / L2=+75% / L3=+75%（L3 自身与 L2 相同——L3 的升级点是**多发一个全营 +25%**，不是自身再涨）；
-/// 满级(L3)额外贡献全营 +25% 读速，作用到全营所有人**含诺蒂自己**。
-/// 🔴 自身与全营两项**各作独立乘子连乘**（§2 通则①全乘算，禁加算）：诺蒂 L3 对自己 = 1.50 × 1.25 = **×1.875**，
-/// 不是加算的 50%+25%=75%。合成公式与整改始末见 <see cref="ReadingSpeed"/>。
+/// 各级自身读速加成与全营加成以 Wiki 配置表为准；两项**各作独立乘子连乘**（§2 通则①全乘算，禁加算）。
+/// 合成公式与整改始末见 <see cref="ReadingSpeed"/>。
 /// 阈值与加成数值由 <c>perks.json</c> 外置并与角色页保持一致。
 /// </summary>
 public sealed class BookwormPerk
 {
     // 升级阈值（累计阅读小时，游戏内）。数值外置 perks.json。
-    /// <summary>升到 L2 所需累计阅读小时（24 小时）。</summary>
+    /// <summary>升到 L2 所需累计阅读小时，见 Wiki 配置表。</summary>
     public static double Level2ThresholdHours => GameConfigCatalog.Section<PerkConfig>().BookwormLevel2ThresholdHours;
-    /// <summary>升到 L3 所需累计阅读小时（72 小时）。</summary>
+    /// <summary>升到 L3 所需累计阅读小时，见 Wiki 配置表。</summary>
     public static double Level3ThresholdHours => GameConfigCatalog.Section<PerkConfig>().BookwormLevel3ThresholdHours;
 
     /// <summary>当前等级（1..3；持有者天生至少 L1）。</summary>
@@ -145,12 +143,8 @@ public sealed class BookwormPerk
 }
 
 /// <summary>
-/// **南丁格尔·护士三级专属效果**（纯逻辑·authored perk，[SPEC-B13-补]/[SPEC-B13-补2] 用户拍板，替换早前"固定+15"草案）。
-/// 三级效果（用户原话，数值**非拟定**）：
-///   · 1级：她本人手术基础点数 15→30（仅她施术时生效，她死即失）；
-///   · 2级：卫生意识让床铺更干净，全营感染率 −15%（需她**在营存活**维持，不在营/死亡即失效）；
-///   · 3级：卫生意识深入人心，全营手术基础点 +5、全营感染率**再** −10%——**永续遗产**（她死/离营依旧生效，知识已传承）；
-///     3级在她存活时与 2级叠加（感染合计 −25%）。
+/// **南丁格尔·护士三级专属效果**（纯逻辑·authored perk，[SPEC-B13-补]/[SPEC-B13-补2] 用户拍板）。
+/// 手术基础点、床铺恢复与感染率效果均以 Wiki 配置表为准；营地遗产的持续条件见角色页。
 /// 升级轴（[SPEC-B13-补2] 用户拍板）＝她本人**执行过的手术台数**（成败都计、重做每次计）：入队即 L1，累计
 /// <see cref="Level2ThresholdSurgeries"/> 台→L2，累计 <see cref="Level3ThresholdSurgeries"/> 台→L3。**台数阈值拟定待调**。
 ///
@@ -175,29 +169,25 @@ public static class NightingalePerk
     // —— 三级效果数值（[SPEC-B13-补] 用户原话，**非拟定，勿标待调**）。数值外置 perks.json ——
     /// <summary>常人手术基础点数（原 <c>HealthConditionSet.SurgeryBasePoints</c>）。</summary>
     public static int DefaultSurgeryBasePoints => GameConfigCatalog.Section<PerkConfig>().NightingaleDefaultSurgeryBasePoints;
-    /// <summary>1级：南丁格尔本人手术基础点数（15→30）。</summary>
+    /// <summary>1级：南丁格尔本人手术基础点数，见 Wiki 配置表。</summary>
     public static int NightingaleSurgeryBasePoints => GameConfigCatalog.Section<PerkConfig>().NightingaleSurgeryBasePoints;
-    /// <summary>3级：全营手术基础点 +5（永续遗产）。</summary>
+    /// <summary>3级：全营手术基础点遗产，具体值见 Wiki 配置表。</summary>
     public static int CampSurgeryBaseBonus => GameConfigCatalog.Section<PerkConfig>().NightingaleCampSurgeryBaseBonus;
     /// <summary>
-    /// 2级：全营感染率 <b>−15%</b>（她在营存活时生效）。
-    /// <para>⚠️ 这个数**来回改过两轮**，别再"顺手改回去"：
-    /// 初版 −15% →（T21 用户在数值表上手改<b>下调</b>）−10% →（T59 用户在 wiki 上<b>又调回</b>）−15%。
-    /// 以表为准（表赢代码）。</para>
+    /// 2级：全营感染率效果见 Wiki 配置表（她在营存活时生效）。
     /// 数值外置 perks.json（<c>NightingaleLevel2InfectionReduction</c>）。
     /// </summary>
     public static double Level2InfectionReduction => GameConfigCatalog.Section<PerkConfig>().NightingaleLevel2InfectionReduction;
     /// <summary>
-    /// 3级：全营感染率再 <b>−10%</b>（永续遗产）。
-    /// <para>⚠️ 同上，来回两轮：初版 −10% →（T21 下调）−5% →（T59 又调回）−10%。</para>
+    /// 3级：全营感染率遗产效果见 Wiki 配置表。
     /// 数值外置 perks.json（<c>NightingaleLevel3InfectionReduction</c>）。
     /// </summary>
     public static double Level3InfectionReduction => GameConfigCatalog.Section<PerkConfig>().NightingaleLevel3InfectionReduction;
 
-    /// <summary>2级：干净床铺的恢复效率加成从默认 10 个百分点提高到 20 个百分点（她在营存活时）。</summary>
+    /// <summary>2级：干净床铺的恢复效率加成见 Wiki 配置表（她在营存活时）。</summary>
     public static double Level2BedSleepHealBonusPct => GameConfigCatalog.Section<PerkConfig>().NightingaleBedSleepHealBonusPct;
 
-    /// <summary>当前床铺恢复效率加成：南丁格尔 L2 且本人仍在营时为 20，否则回落健康系统默认值。</summary>
+    /// <summary>当前床铺恢复效率加成：南丁格尔 L2 且本人仍在营时取角色配置，否则回落健康系统默认值。</summary>
     public static double BedSleepHealBonusPct(int nurseLevel, bool nurseAliveInCamp)
         => nurseAliveInCamp && nurseLevel >= 2
             ? Level2BedSleepHealBonusPct
@@ -231,8 +221,7 @@ public static class NightingalePerk
     public static int LevelOf(StoryFlags flags) => EvaluateLevel(SurgeriesPerformed(flags));
 
     /// <summary>
-    /// 某台手术的**基础点数**（per-surgeon）：施术者是南丁格尔→<see cref="NightingaleSurgeryBasePoints"/>(30)、常人→
-    /// <see cref="DefaultSurgeryBasePoints"/>(15)；再叠加 L3 全营遗产 <see cref="CampSurgeryBaseBonus"/>(+5，若 <paramref name="l3LegacyActive"/>)。
+    /// 某台手术的**基础点数**（per-surgeon）：施术者与营地遗产的点数均由 Wiki 配置表提供。
     /// 供 <c>CampMain.OnSurgeryRequested</c> 喂 <c>PerformSurgery(surgeryBasePoints:…)</c>。纯静态、可脱实例（遗产在她死后仍算）。
     /// </summary>
     public static int SurgeryBasePoints(bool surgeonIsNightingale, bool l3LegacyActive)
@@ -240,18 +229,16 @@ public static class NightingalePerk
            + (l3LegacyActive ? CampSurgeryBaseBonus : 0);
 
     /// <summary>
-    /// 全营**感染率乘子**：2级 −15%（<paramref name="nurseAliveInCamp"/> 且 <paramref name="nurseLevel"/>≥2）
-    /// × 3级 −10%（<paramref name="l3LegacyActive"/>，永续遗产，她死/离营仍生效）。
+    /// 全营**感染率乘子**：2级与 3级效果按 Wiki 配置与对应条件生效。
     ///
     /// <para>🔴 <b>两级减免走乘算，不是加法</b>（CLAUDE.md 铁律：「百分比加成一律乘算，禁止加算」）。
     /// T59 之前这里是 <c>reduction += …; return 1 − reduction;</c> —— 一条**加算残留**，
-    /// 它会让减免可以线性堆到 100%（堆够就"永不感染"）；乘算则永远逼近而不触及 0。
-    /// 存活 L3 = ×(1−0.15)×(1−0.10) = <b>×0.765</b>（加算会给出 0.75，差的不只是这 0.015，而是方向）；
-    /// 死后/离营仅遗产 = ×0.90；仅 L2 存活 = ×0.85；无 = ×1.0。</para>
+    /// 加算会让减免线性堆到免疫；乘算则保持边际递减。
+    /// 各级效果连乘，禁止加算；当前结果以 Wiki 配置表为准。</para>
     /// 供 <c>CampMain.AdvanceSurvivorsHealthDay</c> 喂各幸存者 <c>TickDay(infectionChanceMultiplier:…)</c>。纯静态、可脱实例。
     ///
     /// ✅ <b>[DECISION·已裁·感染重做] 轴的归属＝预防轴（用户拍板）</b>：本乘子作用在<b>预防轴</b>（<c>infectionChanceMultiplier</c>＝"会不会感染"的几率，
-    /// ×0.765 连乘进 <see cref="HealthConditionSet.TickDay"/> 的每伤口感染几率链），**不是**恶化速率轴。
+    /// 按 Wiki 配置连乘进 <see cref="HealthConditionSet.TickDay"/> 的每伤口感染几率链，**不是**恶化速率轴。
     /// 与山姆 L3 的<b>速率轴</b> <see cref="SamPerk.CampInfectionWorsenMultiplier"/>（"感染条涨多快"）显式正交、互不叠加同轴。
     /// 护栏见 <c>NurseRecruitTests.NightingaleInfectionPerk_ActsOnPreventionAxis_NotProgressionAxis</c>。
     /// </summary>
@@ -265,18 +252,18 @@ public static class NightingalePerk
 }
 
 /// <summary>
-/// **山姆·"英雄风范"**（纯逻辑·authored perk，用户口径原话拍板，数值**非拟定**）。
+/// **山姆·"英雄风范"**（纯逻辑·authored perk，具体数值以 Wiki 配置表为准）。
 ///
 /// 三级效果（累进：升级不丢下级效果，同诺蒂 L3 保留 L2 自身加成、南丁格尔 L3 与 L2 叠加）：
-///   · 1级：他从小身强体壮、性格坚韧，比常人耐揍 —— **他收到的伤害 −10%**（只他自己）。
-///   · 2级：从小吃苦耐劳帮祖母打理农庄 —— **他的负重 +15%**（只他自己）。
+///   · 1级：耐揍效果见 Wiki 配置表（只他自己）。
+///   · 2级：负重效果见 Wiki 配置表（只他自己）。
 ///   · 3级：他散发英雄风范、影响周边的人 —— 只要**山姆还活着**，营地**所有人**（含他自己）
-///     **负重 +3%、干活效率 +3%、身体恢复速度 +3%、感染条上升速度 −3%**。
+///     负重、干活效率、身体恢复速度、感染条上升速度效果见 Wiki 配置表。
 ///
 /// **⚠ 与既有 perk 的关键差异：本 perk 的等级「可倒退」。**
 /// 诺蒂靠累计阅读时长、道格靠共同存活天数 —— 二者的升级轴都是**单调累计量**，只增不减；
 /// 南丁格尔靠累计手术台数，同样单调（她死后计数天然冻结）。
-/// 山姆的升级轴是**营地当前人数**（3 人 → L2、6 人 → L3）——这是个**会跌的实时量**：死了人，
+/// 山姆的升级轴是**营地当前人数**——这是个**会跌的实时量**：死了人，
 /// 技能就退回去（用户原话："如果营地人数减少，山姆的技能会倒退"）。
 ///
 /// **倒退是怎么"免费"得到的**：本类**无实例状态**（与 <see cref="NightingalePerk"/> 同为静态类），
@@ -287,41 +274,40 @@ public static class NightingalePerk
 /// 从不要求条件必须单调**。
 ///
 /// **营地人数口径**：**活着的、在营地的人类**——**狗（布鲁斯）不算人**（主 agent 裁决；本类 API 只收一个
-/// 人数 int，无从得知狗的存在，口径由调用方保证）。山姆本人计入这个人数（"营地 3 人时到达二级"含他）。
+/// 人数 int，无从得知狗的存在，口径由调用方保证）。山姆本人计入这个人数，具体阈值见 Wiki 配置表。
 /// **山姆死 → 等级归 0**（<see cref="EvaluateLevel"/> 的 <c>samAlive</c>），一切效果即刻消失。
 ///
 /// <para><b>⚠ [通则·用户拍板] 所有百分比加成一律「乘算」，作用于当前实际值，绝不加算。</b>
-/// 当前 authored 效果是：L1 山姆本人负重 ×1.15、操作能力 ×1.10；L2（营地至少 3 人）本人承伤 ×0.90、恢复 ×1.30；
-/// L3（营地至少 6 人）本人震荡触发概率 ×0.25，并把命中的大流血降为中流血。
-/// 旧版全营光环 API 保留为中性兼容入口，不再产生旧的 +3% 效果。</para>
+/// 当前 authored 效果的等级条件与乘子均以 Wiki 配置表为准。
+/// 旧版全营光环 API 保留为中性兼容入口，不再产生已退役的旧效果。</para>
 /// </summary>
 public static class SamPerk
 {
     /// <summary>山姆的姓名（<c>Pawn.Create</c> 按此名授予 <see cref="SurvivorPerks.GrantSam"/>，同诺蒂/南丁格尔按名授予先例）。</summary>
     public const string SamName = "山姆";
 
-    // —— 升级阈值（用户原话："营地 3 人时到达二级，6 人时到达三级"，非拟定）。数值外置 perks.json ——
+    // —— 升级阈值（数值外置 perks.json）——
     /// <summary>升到 L2 所需的营地人数（活着的在营人类，含山姆）。</summary>
     public static int Level2CampPopulation => GameConfigCatalog.Section<PerkConfig>().SamLevel2CampPopulation;
     /// <summary>升到 L3 所需的营地人数（活着的在营人类，含山姆）。</summary>
     public static int Level3CampPopulation => GameConfigCatalog.Section<PerkConfig>().SamLevel3CampPopulation;
 
-    // —— 三级效果数值（用户原话，**非拟定，勿标待调**）。数值外置 perks.json ——
-    /// <summary>2级：他收到的伤害 −10%（乘算减伤，作用在**护甲结算之后**，见 <c>CombatResolver.Resolve</c> 的 incomingDamageReduction）。</summary>
+    // —— 三级效果数值外置 perks.json ——
+    /// <summary>2级：他收到的伤害减免（乘算，作用在**护甲结算之后**）。</summary>
     public static double Level2DamageReduction => GameConfigCatalog.Section<PerkConfig>().SamLevel1DamageReduction;
     /// <summary>旧属性名兼容入口；当前数值语义是 L2 承伤减免。</summary>
     public static double Level1DamageReduction => Level2DamageReduction;
-    /// <summary>1级：他的负重 +15%（作用于负重上限，见 <c>Loadout.CapacityFromStrength</c> 的 capacityMultiplier）。</summary>
+    /// <summary>1级：他的负重加成（作用于负重上限，见 <c>Loadout.CarryLimit</c> 的 capacityMultiplier）。</summary>
     public static double Level1CarryBonus => GameConfigCatalog.Section<PerkConfig>().SamLevel2CarryBonus;
     /// <summary>旧属性名兼容入口；当前数值语义是 L1 负重加成。</summary>
     public static double Level2CarryBonus => Level1CarryBonus;
-    /// <summary>1级：他的操作能力 +10%，乘在当前实际操作能力上。</summary>
+    /// <summary>1级：他的操作能力加成，乘在当前实际操作能力上。</summary>
     public static double Level1OperationBonus => GameConfigCatalog.Section<PerkConfig>().SamLevel1OperationBonus;
-    /// <summary>2级：他的身体恢复速度 +30%。</summary>
+    /// <summary>2级：他的身体恢复速度加成。</summary>
     public static double Level2HealSpeedBonus => GameConfigCatalog.Section<PerkConfig>().SamLevel2HealSpeedBonus;
-    /// <summary>3级：被震荡概率降低 75%，即震荡触发概率乘 0.25。</summary>
+    /// <summary>3级：被震荡概率降低，具体乘子见 Wiki 配置表。</summary>
     public static double Level3ConcussionReduction => GameConfigCatalog.Section<PerkConfig>().SamLevel3ConcussionReduction;
-    /// <summary>3级：上肢操作、下肢移动两种骨折惩罚的负面缺口减轻 30%。</summary>
+    /// <summary>3级：上肢操作、下肢移动两种骨折惩罚的负面缺口按 Wiki 配置减轻。</summary>
     public static double Level3FracturePenaltyReduction =>
         GameConfigCatalog.Section<PerkConfig>().SamLevel3FracturePenaltyReduction;
     /// <summary>旧版全营负重光环的兼容配置值；当前 authored 页面未启用。</summary>
@@ -350,18 +336,17 @@ public static class SamPerk
     }
 
     /// <summary>
-    /// 某角色**受到伤害**的减免比例（0=无减免）：仅山姆本人、且达到 L2 → <see cref="Level2DamageReduction"/>。
+    /// 某角色**受到伤害**的减免比例：仅山姆本人、且达到 L2 → <see cref="Level2DamageReduction"/>。
     /// 2级效果**在 L3 依然保留**（等级累进）。喂给 <c>CombatResolver.Resolve(…, incomingDamageReduction:)</c>，
-    /// 在**护甲结算之后**乘算（护甲先吃，剩下的伤害再 ×0.9）。其余角色恒 0 → 引擎行为与既有完全一致。
+    /// 在**护甲结算之后**乘算。其余角色使用中性值 → 引擎行为与既有完全一致。
     /// </summary>
     public static double IncomingDamageReduction(int samLevel, bool isSam)
         => isSam && samLevel >= 2 ? Level2DamageReduction : 0.0;
 
     /// <summary>
-    /// 某角色的**负重上限乘子**（1.0=无加成）：多项加成**连乘**（[通则] 百分比加成一律乘算，见类注释）——
-    ///   · 山姆自己、L1 起：×(1+<see cref="Level1CarryBonus"/>)＝×1.15（他自己的体格）；
-    ///   · 当前页面没有全营负重效果，其他人恒为 ×1.0。
-    /// 喂给 <c>Loadout.CapacityFromStrength(strength, capacityMultiplier:)</c>，在那里再乘上他的基础负重能力
+    /// 某角色的**负重上限乘子**：多项加成**连乘**（[通则] 百分比加成一律乘算，见类注释）。
+    /// 当前页面没有全营负重效果，其他人使用中性值。
+    /// 喂给 <c>Loadout.CarryLimit(capacityMultiplier:)</c>，在那里再乘上他的基础负重能力
     /// —— 所以负重能力本身为 0 的人（若日后有此状态）加成后仍是 0。
     /// </summary>
     public static double CarryCapacityMultiplier(int samLevel, bool isSam)
@@ -371,11 +356,11 @@ public static class SamPerk
         return mult;
     }
 
-    /// <summary>山姆本人操作能力乘子：L1 起 ×1.10。</summary>
+    /// <summary>山姆本人操作能力乘子，L1 起的具体值见 Wiki 配置表。</summary>
     public static double PersonalOperationCapabilityMultiplier(int samLevel, bool isSam)
         => isSam && samLevel >= 1 ? 1.0 + Level1OperationBonus : 1.0;
 
-    /// <summary>山姆 L3 的震荡触发概率乘子：本人 ×0.25，其他人或未到 L3 为 ×1.0。</summary>
+    /// <summary>山姆 L3 的震荡触发概率乘子，具体值见 Wiki 配置表。</summary>
     public static double ConcussionChanceMultiplier(int samLevel, bool isSam)
         => isSam && samLevel >= 3 ? 1.0 - Level3ConcussionReduction : 1.0;
 
@@ -385,7 +370,7 @@ public static class SamPerk
 
     /// <summary>
     /// 把基础骨折能力系数按“负面影响减轻百分比”换算。
-    /// 例如 ×0.70 的惩罚缺口为 0.30，减轻 30% 后为 ×0.79；不直接把结果乘 1.30，避免能力超过正常值。
+    /// 按“负面影响减轻百分比”换算，不直接把结果乘加成，避免能力超过正常值。
     /// </summary>
     public static double ApplyFracturePenaltyReduction(double baseCapabilityFactor, double penaltyReduction)
         => 1.0 - (1.0 - baseCapabilityFactor) * (1.0 - penaltyReduction);
@@ -395,7 +380,7 @@ public static class SamPerk
         => isSam && samLevel >= 3 ? Level3FracturePenaltyReduction : 0.0;
 
     /// <summary>
-    /// 旧版全营操作光环兼容入口；当前 authored 页面只给山姆本人 L1 操作 ×1.10，
+    /// 旧版全营操作光环兼容入口；当前 authored 页面只给山姆本人操作效果，
     /// 由 <see cref="PersonalOperationCapabilityMultiplier"/> 提供，本方法保持中性。
     /// </summary>
     public static double CampWorkSpeedMultiplier(int samLevel) => 1.0;
@@ -409,11 +394,11 @@ public static class SamPerk
         => baseOperationCapability * CampWorkSpeedMultiplier(samLevel);
 
     /// <summary>
-    /// 旧版全营恢复光环兼容入口，当前保持中性；山姆本人 L2 恢复 ×1.30 由 <see cref="PersonalHealSpeedMultiplier"/> 提供。
+    /// 旧版全营恢复光环兼容入口，当前保持中性；山姆本人 L2 恢复效果由 <see cref="PersonalHealSpeedMultiplier"/> 提供。
     /// </summary>
     public static double CampHealSpeedMultiplier(int samLevel) => 1.0;
 
-    /// <summary>山姆本人恢复速度乘子：L2 起 ×1.30。</summary>
+    /// <summary>山姆本人恢复速度乘子，L2 起的具体值见 Wiki 配置表。</summary>
     public static double PersonalHealSpeedMultiplier(int samLevel, bool isSam)
         => isSam && samLevel >= 2 ? 1.0 + Level2HealSpeedBonus : 1.0;
 
@@ -426,26 +411,25 @@ public static class SamPerk
 /// <summary>
 /// 有效读速合成（纯函数，无状态）：§2 通则①<b>全乘算</b>——自身 perk / 每个 L3 书虫的全营贡献 / 每件穿戴品读速效果
 /// 各作<b>独立乘子</b>连乘，座位/前置系数亦乘。
-/// 公式：<c>有效读速 = 基础 × (1 + 自身level加成) × ∏(1 + 各L3书虫全营贡献) × ∏(穿戴品读速效果乘子) × (有座 1.0 / 无座 0.9) × 前置系数</c>。
+/// 公式：<c>有效读速 = 基础 × (1 + 自身level加成) × ∏(1 + 各L3书虫全营贡献) × ∏(穿戴品读速效果乘子) × 座位系数 × 前置系数</c>。
 /// <para>
 /// 全营乘子由上层遍历全体营员对 <see cref="SurvivorPerks.CampWideReadingSpeedBonus"/> 逐个 <c>×(1+贡献)</c> 连乘得到，
-/// <b>含 L3 书虫本人</b>（故诺蒂 L3 有座 = 1.50 × 1.25 = <b>×1.875</b>；普通人在其营地有座 = 1.0 × 1.25 = ×1.25）。
+/// <b>含 L3 书虫本人</b>；当前加成以 Wiki 配置表为准。
 /// 穿戴品乘子由 <see cref="ApparelCatalog.ApparelEffectMultiplier"/> 对读者穿戴品的 <see cref="EquipEffectKind.ReadingSpeed"/>
-/// 效果连乘得到（无效果 = 1.0，如平光眼镜 = ×1.05）。座位惩罚为 draft。
+/// 效果连乘得到。座位惩罚为 draft，具体值以 Wiki 配置表为准。
 /// </para>
 /// <para>
-/// 🔴 [加算残留整改·诺蒂读速] 旧式 <c>(1 + 自身 + 全营)</c> 是加算，违反 §2 通则①（会让"没能力的人"凭空得加成、
-/// 且多个来源线性叠加而非独立作用）。本次改全乘算：诺蒂 L3 由旧 ×1.75 → ×1.875、双书虫由 ×1.5 → ×1.5625。
+/// 🔴 [加算残留整改·诺蒂读速] 旧式加算违反 §2 通则①；现改为各来源独立乘算。
 /// </para>
 /// </summary>
 public static class ReadingSpeed
 {
-    // draft：无座位阅读惩罚（-10%）。数值外置 perks.json。
-    /// <summary>无座位时的读速乘子（draft，整体 -10%）。</summary>
+    // draft：无座位阅读惩罚，数值外置 perks.json。
+    /// <summary>无座位时的读速乘子（draft），见 Wiki 配置表。</summary>
     public static double NoSeatMultiplier => GameConfigCatalog.Section<PerkConfig>().ReadingNoSeatMultiplier;
 
-    // draft：未读完前置书时的读速乘子（读得极慢、耗时 5 倍，但不禁止）。系数拟定待调，数值外置 perks.json。
-    /// <summary>书籍前置链：读者尚未读完某书前置书时，读该书的读速乘子（draft，×0.2＝耗时 5 倍）。</summary>
+    // draft：未读完前置书时的读速乘子，系数拟定待调，数值外置 perks.json。
+    /// <summary>书籍前置链：读者尚未读完某书前置书时的读速乘子（draft），见 Wiki 配置表。</summary>
     public static double MissingPrerequisiteMultiplier => GameConfigCatalog.Section<PerkConfig>().ReadingMissingPrerequisiteMultiplier;
 
     /// <summary>
@@ -481,9 +465,9 @@ public static class ReadingSpeed
     public static double Effective(double baseSpeed, double selfBonus, bool hasSeat, double campWideMult,
         double apparelMult = 1.0, double prerequisiteFactor = 1.0)
         => baseSpeed
-           * (1.0 + selfBonus)   // 自身 perk 单因子（诺蒂 L3 = ×1.50）
+           * (1.0 + selfBonus)   // 自身 perk 单因子（数值见 Wiki）
            * campWideMult        // ∏(1 + 各 L3 书虫全营贡献)，调用方已连乘（无 = 1.0）
-           * apparelMult         // ∏(穿戴品读速效果乘子)（无 = 1.0，平光眼镜 = ×1.05）
+           * apparelMult         // ∏(穿戴品读速效果乘子)（无效果时为中性值，具体物品效果见 Wiki）
            * (hasSeat ? 1.0 : NoSeatMultiplier)
            * prerequisiteFactor;
 }
@@ -498,7 +482,7 @@ public static class ReadingSpeed
 /// </para>
 /// <para>
 /// <b>「一件」的口径</b>：一件 = 藏物清单里的**一个 <c>LootItem</c> 条目**（见 <c>LootSession</c> 头注释：
-/// 「8 发子弹是一堆、**一次转出**」）—— <b>不按数量/重量/价值</b>。故 75/250 件 = 75/250 个条目，
+/// 「一次转出一条 loot 记录」）—— <b>不按数量/重量/价值</b>。升级阈值以 Wiki 配置表为准，
 /// 计数源 = <c>LootSession</c> 每转出一件就 <see cref="RecordScavenged"/> 一次。
 /// </para>
 /// </summary>
@@ -507,19 +491,18 @@ public static class RatPerk
     /// <summary>她的名字（用户原话：「**没有名字，叫"耗子"**」）。</summary>
     public const string RatName = "耗子";
 
-    // —— 升级阈值（用户原话：「搜刮寻找物品，累计转出来 75 件物品升到二级，250 件升到三级」）。数值外置 perks.json ——
-    /// <summary>升到 L2 所需累计搜出件数（**用户原话 75**，非拟定）。</summary>
+    // —— 升级阈值（数值外置 perks.json）——
+    /// <summary>升到 L2 所需累计搜出件数，见 Wiki 配置表。</summary>
     public static int Level2ThresholdItems => GameConfigCatalog.Section<PerkConfig>().RatLevel2ThresholdItems;
-    /// <summary>升到 L3 所需累计搜出件数（**用户原话 250**，非拟定）。</summary>
+    /// <summary>升到 L3 所需累计搜出件数，见 Wiki 配置表。</summary>
     public static int Level3ThresholdItems => GameConfigCatalog.Section<PerkConfig>().RatLevel3ThresholdItems;
 
     /// <summary>她累计搜出件数的持久化旗标 key（字符串承载整数，同南丁格尔的手术台数）。</summary>
     public const string ScavengeCountFlag = "rat_scavenge_count";
 
-    // —— L1（用户原话：「耗子的脚步和动作轻不可闻，声音减少 40%。（战斗、开枪、破坏这些不减少），
-    //     耗子的翻找搜刮速度 +50%」）——
+    // —— L1（用户原话：耗子的脚步和动作轻不可闻；战斗、开枪、破坏不减少；搜刮速度按 Wiki 配置）——
     /// <summary>
-    /// L1：她的**动作噪音半径乘子** = 0.60（＝"声音减少 40%"）。
+    /// L1：她的**动作噪音半径乘子**见 Wiki 配置表。
     /// <para>
     /// 🔴 <b>这里绝不能拿 <see cref="NoiseKind"/> 当开关，别"顺手简化"</b>：那个枚举的语义轴是
     /// **"分不分阵营"**，不是 **"是不是战斗"** —— <b>开门(100) / 撬锁(30) / 静默拆除(35) 现在全都归
@@ -535,23 +518,22 @@ public static class RatPerk
     /// </summary>
     public static double Level1ActionNoiseMultiplier => GameConfigCatalog.Section<PerkConfig>().RatLevel1ActionNoiseMultiplier;
 
-    /// <summary>L1：翻找搜刮速度 **+50%**（用户原话）。数值外置 perks.json。</summary>
+    /// <summary>L1：翻找搜刮速度效果见 Wiki 配置表。</summary>
     public static double Level1LootSpeedBonus => GameConfigCatalog.Section<PerkConfig>().RatLevel1LootSpeedBonus;
 
-    // —— L2（用户原话：「在下水道捡垃圾是耗子的生存秘诀，耗子翻找物品的速度**再 +100%**，
-    //     并且她翻找东西**不会产生任何噪音**」）——
-    /// <summary>L2：翻找搜刮速度**再** +100%（用户原话「再 +100%」）。数值外置 perks.json。</summary>
+    // —— L2：翻找搜刮速度与搜刮噪音效果见 Wiki 配置表——
+    /// <summary>L2：翻找搜刮速度效果见 Wiki 配置表。</summary>
     public static double Level2LootSpeedBonus => GameConfigCatalog.Section<PerkConfig>().RatLevel2LootSpeedBonus;
 
     // —— L3（[T61 挂起] 见下方 TODO：两条都是**引擎新轴**，主 agent 裁决为「与今日其余新轴统一立项」——
     //     常量先落，**不接线**，护栏测试钉死"未接线"）——
     /// <summary>
-    /// L3：「黑暗带来的**隐匿点** +40%」（用户原话）。
+    /// L3：黑暗带来的**隐匿点**效果见 Wiki 配置表。
     /// <para>
     /// 🔴 <b>[T61 挂起 · 未接线]</b>：「隐匿点」这个标量目前**只存在于 <see cref="NightWatchContest.ComputeStealth"/>**
     /// （营地夜袭对抗，**潜行方恒为劫掠者、警戒方恒为我方守卫**）⇒ <b>玩家 pawn 在探索关根本没有隐匿分这个量</b>。
     /// 探索关里"黑暗难被发现"走的是**另一条形态**：视锥几何（暗 ⇒ 观察者视锥缩窄 <c>VisionLogic.ConeFor</c>；
-    /// 身上有光 ⇒ 别人看你的视距被放大 <c>Actor.ExposedCone</c>）。**+40% 无处可挂**，
+    /// 身上有光 ⇒ 别人看你的视距被放大 <c>Actor.ExposedCone</c>）。当前效果无处可挂，
     /// 硬挂到视锥上＝<b>拿别的效果冒充</b> ⇒ 不干。落地它需要新建「玩家 pawn 的探索关隐匿分」这条**引擎新轴**。
     /// </para>
     /// 数值外置 perks.json（<c>RatLevel3DarknessStealthBonus</c>）。
@@ -559,7 +541,7 @@ public static class RatPerk
     public static double Level3DarknessStealthBonus => GameConfigCatalog.Section<PerkConfig>().RatLevel3DarknessStealthBonus;
 
     /// <summary>
-    /// L3：「**破隐先手攻击**额外再造成 **35%** 的伤害」（用户原话）。
+    /// L3：**破隐先手攻击**效果见 Wiki 配置表。
     /// <para>
     /// 🔴 <b>[T61 挂起 · 未接线]</b>：<c>CombatResolver</c> **没有任何攻方伤害乘子**（只有守方的
     /// <c>incomingDamageReduction</c>），**更没有"未被发现/偷袭"的概念**。项目里唯一叫 <c>FirstStrike</c> 的是
@@ -604,9 +586,7 @@ public static class RatPerk
     /// 的那条乘子链**之上再乘一层**）。非耗子恒 1.0（零回归）。
     /// <para>
     /// 🔴 <b>这一条是"加算"，而且是<u>用户明确指定</u>的例外，不是漏网的加算残留 —— 别"顺手改成乘算"</b>：
-    /// 用户原话 L1「速度 <b>+50%</b>」、L2「速度<b>再 +100%</b>」⇒ 主 agent 拍板口径
-    /// <b>L2 = 1 + 0.50 + 1.00 = 2.50</b>。（项目通则「百分比一律乘算」针对的是**不同来源**的加成相叠；
-    /// 这里是**同一个 perk 自己的两级台阶**，用户是按"总量"口述的。）有护栏测试钉死 2.50，改成乘算(3.0)当场红。
+    /// 同一 perk 的等级台阶按角色页定义；不同来源仍按乘算通则处理。具体值以 Wiki 配置表为准。
     /// </para>
     /// <para>
     /// ⚠️ <b>绝不能挂进 <c>CampMain.WorkEfficiencyOf</c></b> —— 那条乘子链是**制作/砌墙/挖废墟/搜刮共用**的，
@@ -619,16 +599,16 @@ public static class RatPerk
         {
             return 1.0;
         }
-        double bonus = Level1LootSpeedBonus;                       // L1：+50%
+        double bonus = Level1LootSpeedBonus;                       // L1：配置值
         if (ratLevel >= 2)
         {
-            bonus += Level2LootSpeedBonus;                          // L2：再 +100% ⇒ 合计 +150%
+            bonus += Level2LootSpeedBonus;                          // L2：配置值
         }
-        return 1.0 + bonus;                                         // L1=1.50 / L2=L3=2.50
+        return 1.0 + bonus;                                         // 等级台阶按角色页定义
     }
 
     /// <summary>
-    /// **动作噪音半径乘子**：耗子的脚步/开门/撬锁/静默拆除按此缩（L1 起 0.60）。非耗子恒 1.0（零回归）。
+    /// **动作噪音半径乘子**：耗子的脚步/开门/撬锁/静默拆除按 Wiki 配置缩放。非耗子使用中性值。
     /// <para>见 <see cref="Level1ActionNoiseMultiplier"/> 的大段注释：<b>调用方必须逐个 emitter 点名，
     /// 不许拿 <see cref="NoiseKind"/> 当开关</b>（武器攻击/砸门破防**不得**经过这里）。</para>
     /// </summary>
@@ -636,7 +616,7 @@ public static class RatPerk
         => isRat ? Level1ActionNoiseMultiplier : 1.0;
 
     /// <summary>
-    /// **搜刮噪音乘子**：L2 起「她翻找东西**不会产生任何噪音**」⇒ 0.0；L1 与非耗子恒 1.0。
+    /// **搜刮噪音乘子**：L2 起效果由 Wiki 配置表决定；L1 与非耗子使用中性值。
     /// <para>
     /// ⚠️ <b>现状：搜刮本身在引擎里就不发噪音</b>（<c>LootSession</c> 不走 <c>EmitNoise</c> 任何通道）
     /// ⇒ 本乘子当前**恒等于"无事发生"**，是一条**面向未来的护栏**：哪天给"翻找"加了噪音（如 <c>SilentDismantleLogic</c> 那样的
@@ -647,8 +627,7 @@ public static class RatPerk
         => isRat && ratLevel >= 2 ? 0.0 : 1.0;
 
     /// <summary>
-    /// 该噪音**来源**是否吃耗子的 −40%（<b>唯一的分类真值表</b> —— 调用方一律查这里，别自己判）。
-    /// <para>用户原话：「耗子的**脚步和动作**轻不可闻，声音减少 40%。（**战斗、开枪、破坏**这些不减少）」。</para>
+    /// 该噪音**来源**是否吃耗子的动作噪音系数（<b>唯一的分类真值表</b> —— 调用方一律查这里，别自己判）。
     /// </summary>
     /// <param name="source">噪音来源，见 <see cref="RatNoiseSource"/>。</param>
     public static bool AppliesToActionNoise(RatNoiseSource source) => source switch
@@ -664,7 +643,7 @@ public static class RatPerk
 }
 
 /// <summary>
-/// 噪音的**来源**（[T61]）。<b>这是给耗子的 −40% 用的分类轴，和 <see cref="NoiseKind"/> 是两个正交的轴，别混</b>：
+/// 噪音的**来源**（[T61]）。<b>这是给耗子动作系数用的分类轴，和 <see cref="NoiseKind"/> 是两个正交的轴，别混</b>：
 /// <list type="bullet">
 /// <item><see cref="NoiseKind"/> 的语义轴 = <b>"这个声音分不分阵营"</b>（Movement 分 / Combat 不分）。</item>
 /// <item><see cref="RatNoiseSource"/> 的语义轴 = <b>"这个声音是不是'脚步和动作'"</b>（⇔ 战斗/开枪/破坏）。</item>

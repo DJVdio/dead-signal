@@ -6,7 +6,7 @@ using Xunit;
 namespace DeadSignal.Combat.Tests;
 
 /// <summary>
-/// 布鲁斯（狗）穿戴系统纯逻辑单测（批次5，道格 2 级解锁五件套）：
+/// 布鲁斯（狗）穿戴系统纯逻辑单测（解锁五件套）：
 /// 身体/头两槽的穿戴/顶替/卸装、护甲层聚合（喂 DefenderArmor）、口袋狗衣携带容量、目录映射。
 /// 护甲/容量数值皆"拟定待调"，测试锁的是规则形态。
 /// </summary>
@@ -33,7 +33,7 @@ public class DogApparelTests
         Assert.False(DogGearCatalog.IsDogGear(null));
     }
 
-    /// <summary>[SPEC-B18] 五件套<b>全部</b>有甲——口袋狗衣也从无甲改为薄甲(2/1)。</summary>
+    /// <summary>[SPEC-B18] 五件套<b>全部</b>有甲——口袋狗衣也从无甲改为 Wiki 配置中的薄甲。</summary>
     [Fact]
     public void Catalog_AllFiveGearsHaveArmor()
     {
@@ -44,7 +44,7 @@ public class DogApparelTests
         Assert.NotNull(DogGearCatalog.Get(DogGearCatalog.WireHelmetKey)!.Armor());
     }
 
-    /// <summary>[SPEC-B18] 铁皮头甲锐防更高但更重；钝防两者持平（表值 18/12 vs 12/12）——铁丝是"轻便档"而非纯劣档。</summary>
+    /// <summary>[SPEC-B18] 铁皮头甲锐防更高但更重；钝防两者持平——铁丝是"轻便档"而非纯劣档，数值来自 Wiki 配置。</summary>
     [Fact]
     public void Catalog_IronHelmet_OutDefendsWireHelmet_OnSharpOnly()
     {
@@ -151,7 +151,7 @@ public class DogApparelTests
         Assert.Contains(layers, l => l.CoversParts!.Contains(HumanBody.Head));  // 头甲护头
     }
 
-    /// <summary>[SPEC-B18] 口袋狗衣不再是"无甲纯容器"：表给了 2/1 薄甲，穿上应产出一层身体甲。</summary>
+    /// <summary>[SPEC-B18] 口袋狗衣不再是"无甲纯容器"：Wiki 配置给出薄甲，穿上应产出一层身体甲。</summary>
     [Fact]
     public void ArmorLayers_PocketVest_ProducesThinBodyLayer()
     {
@@ -179,7 +179,7 @@ public class DogApparelTests
         Assert.Equal(DogGearCatalog.PocketVestCapacity, a.TotalCarryCapacity());
     }
 
-    /// <summary>口袋狗衣负重以数值表为准：为狗提供 <b>8kg</b>（T29 用户手改 6 → 8；更早的 12kg 早已作废）。</summary>
+    /// <summary>口袋狗衣容量以 Wiki 配置为准；目录值直接用于队伍负重。</summary>
     [Fact]
     public void PocketVestCapacity_MatchesArmorTable_EightKg()
     {

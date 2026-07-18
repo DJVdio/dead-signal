@@ -85,7 +85,7 @@ public static class RecipeBook
     /// 《木匠入门》木工书 id（对齐 <see cref="BookLibrary.CarpentryBasics"/>）。<b>要出门搜刮</b>（<c>ExplorationCache</c>，商人也卖）。
     /// <para>
     /// <b>解锁：木椅 / 床 / 桌子 / 回收木料</b>——[SPEC-B21·T26] 用户把弓弩全搬走后，它<b>成了一本纯家具书</b>
-    /// （另有被动：制作家具速度 +5%，见 <c>CraftWorkTime</c>）。<b>这是用户有意的</b>，不是被掏空的事故。
+    /// （另有被动：制作家具速度加成，见 <c>CraftWorkTime</c>）。<b>这是用户有意的</b>，不是被掏空的事故。
     /// </para>
     /// <para>
     /// 搬走的去向：<b>短弓 → 《野外生存指南》</b>（开局就有的书）；<b>反曲弓 / 长弓 → 《弓制作指南》</b>（要搜刮；
@@ -102,8 +102,8 @@ public static class RecipeBook
     /// 《进阶木匠技术》木工进阶书 id（对齐 <see cref="BookLibrary.AdvancedCarpentry"/>；前置＝《木匠入门》）。<b>只能搜刮</b>（<c>ExplorationCache</c>）。
     /// <para>
     /// <b>解锁：消防斧</b>（[批次25·T44]；「消防斧 + 造消防斧的书同馆」＝联合收割机仓库，见本表 axe 那条）。
-    /// 另有被动两项：做家具<b>再快 5%</b>（与《木匠入门》那 5% <b>连乘</b>：两本都读过 = 0.95 × 0.95 = 0.9025，
-    /// 见 <see cref="CraftWorkTime"/>）；<b>持消防斧攻速 +8%</b>（见 <c>MeleeBookEffect</c>）。
+    /// 另有被动两项：做家具<b>再快</b>（与《木匠入门》效果<b>连乘</b>：当前值以 Wiki 配置为准，
+    /// 见 <see cref="CraftWorkTime"/>）；<b>持消防斧攻速效果见 Wiki 配置表</b>（见 <c>MeleeBookEffect</c>）。
     /// </para>
     /// <para>
     /// ⚠️ [T59] <b>反曲弓 / 长弓 已从本书搬去《弓制作指南》</b>（见 <see cref="BowCraftingGuideBookId"/>）
@@ -134,8 +134,8 @@ public static class RecipeBook
     /// 《弓与箭之道》书 id（对齐 <see cref="BookLibrary.WayOfBowAndArrowId"/>）。<b>只能搜刮</b>（<c>ExplorationCache</c>）。
     /// <para>
     /// <b>解锁：自制箭</b>（[SPEC-B21·T26] 用户拍板 —— 此前本书<b>一条配方都不解锁</b>，只有被动）。
-    /// 另有被动四项：箭矢回收率 25% → 50%、<b>弹道速度 +20%</b>、锥形角 −10%、攻速 +2%
-    /// （数值真源 <c>godot/data/config/archery.json</c>；<b>原「射程 +10%」已被弹道速度取代</b>，
+    /// 另有被动四项：箭矢回收率、弹道速度、锥形角、攻速效果均以 Wiki 配置为准
+    /// （数值真源为 Wiki 导出的 archery 配置；<b>原「射程」效果已被弹道速度取代</b>，
     /// 该文件里 <c>BookRangeMult</c> 现为 1＝射程无加成，见 <c>Archery</c>）。
     /// </para>
     /// <para>
@@ -180,9 +180,9 @@ public static class RecipeBook
     /// </para>
     /// <para>
     /// ⚠️ <b>它和《野外生存指南》一样，开局就在营地共享库存里</b>（<c>camp.json</c> 住宅·柜子，两本同架）
-    /// ⇒ 往它名下挂配方是<b>放宽</b>，不是收紧。但它<b>确实新增了一道"要花 4 小时读书"的闸</b>：
+    /// ⇒ 往它名下挂配方是<b>放宽</b>，不是收紧。但它<b>确实新增了一道阅读门槛</b>：
     /// <b>没读它 ⇒ 没有捕鸟陷阱 ⇒ 没有鸟 ⇒ 没有羽毛 ⇒ 一支箭都造不出来。</b>
-    /// 于是"开局先读哪本"成了真选择：<b>《野外生存指南》给你弓，《农场主》给你箭</b>，两本都读 8 小时。
+    /// 于是"开局先读哪本"成了真选择：<b>《野外生存指南》给你弓，《农场主》给你箭</b>，阅读时长以 Wiki 配置为准。
     /// </para>
     /// </summary>
     public const string FarmerHundredQuestionsBookId = "farmer_hundred_questions";
@@ -197,7 +197,7 @@ public static class RecipeBook
     /// </para>
     /// <para>
     /// 🔴 <b>茶不吃热量点</b>：它走的是<b>配方系统</b>（<see cref="RecipeBook"/> → <see cref="CraftingLogic"/>），
-    /// 不是<b>做饭系统</b>（<see cref="CookingLogic"/> 的 16 点/份、锅 −2、烤架 −2）。
+    /// 不是<b>做饭系统</b>（<see cref="CookingLogic"/> 的热量与炊具效果另按 Wiki 配置）。
     /// 这两套本来就是分开的——烹饪台在这里只是一个<b>"你得站在灶边才能煮"的门槛</b>，不是一台把材料变成"份数"的机器。
     /// ⇒ <b>烹饪系统一行都不用改</b>，茶也不会变成饭。它仍是药（<see cref="MedicineCatalog"/>）。
     /// </para>
@@ -261,13 +261,13 @@ public static class RecipeBook
         // 走**沙袋那条链**（产出材料 → 库存「摆放」→ 左键落位），不发明新的建造范式。
         // 材料：木料 12（床架）+ 布 4（褥子）+ 钉子 6。比木椅重得多——它是个能让人躺平的大件。
         // 门槛同木椅：锯片 + 读过《木匠入门》（用户拍板"木椅/自制弓也要读木工书"，床是更大的木工活，同理）。
-        // 工时 150 分。数值全部拟定待调。拆除走通用规则（SalvageLogic 50% 向下取整 ⇒ 木料 6 + 布 2 + 钉子 3）。
+        // 工时、材料与拆除返还均以 Wiki 配置为准。拆除走通用规则。
         R("bed", "床", RecipeCategory.Woodwork, "bed", Tools(ToolSlot.SawBlade), Books(CarpentryBasicsBookId)),
 
         // ── [批次21·T25] 桌子：用户在书籍表里点名的那张配方（《木匠入门》解锁"木椅、床、桌子、废木料回收"）──
         // ⚠️ **桌子目前没有任何玩法作用**：营地里没有"桌子"这个概念（聚餐是模态相位，不需要一张桌子；
         // camp.json 里也没有桌子这件 prop），本作又**没有心情系统** ⇒ 不许给它编一个"吃饭+心情"出来。
-        // 它现在是一件**纯家具**：可造、可摆、**可跨越（跨过减速 25%）**、可拆。用处待用户定，见 TableSpec 类注。
+        // 它现在是一件**纯家具**：可造、可摆、**可跨越（减速以 Wiki 配置为准）**、可拆。用处待用户定，见 TableSpec 类注。
         // 材料：木 8（一块面 + 四条腿）+ 钉 4。工时 120 分——比木椅（150）省事：一张平板不用弯靠背。
         // 门槛同木椅/床：锯片 + 读过《木匠入门》。数值全部拟定待调。
         // 读过《木匠入门》的人做它只要 ⌊120 × 0.95⌋ = 114 分（CraftWorkTime 的家具工时轴）。
@@ -276,16 +276,15 @@ public static class RecipeBook
         // ── [批次20·掩体] 沙袋：**用户拍板"可自由建造摆放"**——项目里第一件玩家能自己往地上摆的防御工事 ──
         // 为什么沙袋能建而**墙不能建**（"墙不能建"是用户为防 kill box 拍的板，别以为规则不一致而"统一"掉）：
         // 沙袋**不阻挡移动、不改变寻路**（SandbagSpec.IsSolid/CarvesNavHole 恒 false）⇒ 敌人照样直线冲过来、
-        // 不会被墙的迷宫牵着绕 ⇒ **摆不出 kill box**；它只给 25% 远程无伤，**而且敌人也能蹲在你的沙袋后面用**
+        // 不会被墙的迷宫牵着绕 ⇒ **摆不出 kill box**；它给 Wiki 配置的远程无伤概率，**而且敌人也能蹲在你的沙袋后面用**
         // （CoverLogic 双向对称）。玩家能经营防御位置，但摆不出必胜阵型。完整论证见 SandbagSpec 的类注。
         // 材料：布 2（袋子）+ 石料 4（往里装的东西）。**无书无工具门槛**——往麻袋里铲土不是手艺活，
         // 开局第一夜就该能垒起来。工时 30 分：一个人铲一垛的量。全部数值拟定待调。
-        // 拆除走通用规则（SalvageLogic：50% 向下取整 ⇒ 布 1 + 石料 2），不设特例。
+        // 拆除走通用规则，返还以 Wiki 配置为准，不设特例。
         R("sandbag", "沙袋", RecipeCategory.Misc, "sandbag", Tools(), Books()),
 
         // ── [批次20·拆除回收] 回收木料：**用户拍板的第三条规则**（4 废木料 + 1 胶水 → 4 木料，需锯片工作台）──
-        // 拆一件吃 16 木料的东西，只直接掉回 4 木料 + 4 废木料；这条配方就是那"另外 25%"的赎回券——
-        // 走一趟它，木材的总回收率才追平别的材料的 50%，**代价是一份胶水**（见 Materials 的 glue：它吃燃料，稀缺是刻意的）。
+        // 这条配方补足木材回收路径；返还与材料成本以 Wiki 配置为准，**代价是一份胶水**（见 Materials 的 glue：它吃燃料，稀缺是刻意的）。
         // **不设书门槛**（拆除是"建错了地方"的退出机制，不该被一本还没搜到的书卡死；粘木板是苦力活，不是手艺活）。
         // 工时 40 分：比造把椅子快，但也不是白得——你得站在锯台前把一堆碎料拼齐、刨平、压住。数值拟定待调。
         R("wood_from_scrap", "回收木料", RecipeCategory.Woodwork, "wood", Tools(ToolSlot.SawBlade), Books()),
@@ -351,7 +350,7 @@ public static class RecipeBook
 
         // ── [批次21·T7/T10] 改装台：**武器改造的唯一场所**（用户拍板「在工作台可以制作改装台，在改装台落地武器改造」）──
         // 在**工作台**上造出来 → 进库存 → 由玩家**自己摆到营地里**（同沙袋的"造→摆"两段式）。
-        // 它是**实心家具**（挖导航洞、真挡路），故放置受 PlacementRules 约束：**不许贴着围栏/大门**（64px 禁建带）。
+        // 它是**实心家具**（挖导航洞、真挡路），故放置受 PlacementRules 约束：**不许贴着围栏/大门**（禁建带由场景配置决定）。
         // 这正是用户原话要的东西：「为了防止玩家使用改装台、椅子等家具阻挡寻路，**放置的时候**就不允许贴着大门和围栏」
         // —— 要的是给放置**加约束**，不是取消放置；kill box 由禁建带正面挡住（见 WeaponModLogic.BenchSpec）。
         // 工具槽取**卡尺**（精工：改枪管、装刺刀都是找基准面的活，同自制猎枪/霰弹枪/弓弩那条线）。
@@ -367,9 +366,8 @@ public static class RecipeBook
         // ══════════════ [批次18] 子弹零件 + 四种子弹（用户拍板）══════════════
         // 产物 key 同时是 Materials 目录项 → CraftOutputFactory 走材料分支落地为可堆叠材料堆。
         //
-        // 【稀缺梯度＝用户拍板的制作比】1 个「子弹零件」→ **短 8 / 中 5 / 鹿 4 / 长 2** 发。
-        // 同一份原料，能喂手枪 8 次、喂步枪 5 次（而步枪一次扣扳机吞 2 发 → 实际只够 2 次半）、
-        // 喂狙击枪 2 次。**越强的枪，同一份料能打的次数越少** —— 这就是"强，但打不起"的算式。
+        // 【稀缺梯度＝用户拍板的制作比】四种弹药产量以 Wiki 配置为准。
+        // **越强的枪，同一份料能打的次数越少** —— 这就是"强，但打不起"的算式。
         //
         // 【后勤代价的两条腿】
         //  ① 子弹零件：弹壳/底火/弹头坯——**没法用土办法糊弄的精密件**，只能靠搜刮。
@@ -381,20 +379,18 @@ public static class RecipeBook
         // 工具/书门槛四条统一：烧杯类化学 + 《土法化学笔记》（该书本就解锁火药与自制猎枪——
         // 懂土法化学 → 能攒枪、也能攒弹，这条链最自然，不必新造一本枪匠书）。数值皆拟定待调。
 
-        // 短子弹（手枪/冲锋枪）：1 零件 + 1 火药 → **8 发**。最便宜的枪弹。
+        // 短子弹（手枪/冲锋枪）：材料、产量与定位以 Wiki 配置为准。
         R("ammo_short", "短子弹", RecipeCategory.Chemistry, "ammo_short", Tools(ToolSlot.Beaker), Books(FolkChemistryNotesBookId)),
 
-        // 中子弹（自制猎枪/步枪）：1 零件 + 1 火药 → **5 发**。
-        // 步枪二连发（weapons.json 步枪 BurstCount=2）→ 一炉只够它扣 2 次半扳机。
-        // 步枪是全表穿透第二高的枪（0.7，仅次于狙击 0.95）——它的强，代价就在这行。
-        // ⚠ 原注释此处写着「它 93.5% 的命中」：**全仓查无出处**（无报告、无 harness），且 Sim 的 Duel 根本不输出
+        // 中子弹（自制猎枪/步枪）：材料、产量与枪械消耗以 Wiki 配置为准。
+        // ⚠ 原注释此处写着一条裸命中率：**全仓查无出处**（无报告、无 harness），且 Sim 的 Duel 根本不输出
         //   命中率、也不建模弹药 ⇒ 已删。要引枪的强度数，去 docs/research 拿带日期的 Sim 报告，别留裸数字。
         R("ammo_medium", "中子弹", RecipeCategory.Chemistry, "ammo_medium", Tools(ToolSlot.Beaker), Books(FolkChemistryNotesBookId)),
 
-        // 鹿弹（自制霰弹枪）：1 零件 + 1 火药 → **4 发**。一发塞 8 颗铅丸，用料本就比中子弹重。
+        // 鹿弹（自制霰弹枪）：材料、产量与弹丸数以 Wiki 配置为准。
         R("ammo_buck", "鹿弹", RecipeCategory.Chemistry, "ammo_buck", Tools(ToolSlot.Beaker), Books(FolkChemistryNotesBookId)),
 
-        // 长子弹（狙击枪）：1 零件 + 1 火药 → **只有 2 发**。全表最贵的一发子弹。
+        // 长子弹（狙击枪）：材料、产量与定位以 Wiki 配置为准。
         // 拿它打丧尸＝用金子砸苍蝇；它存在的意义是"这一枪必须命中一个人"。
         R("ammo_long", "长子弹", RecipeCategory.Chemistry, "ammo_long", Tools(ToolSlot.Beaker), Books(FolkChemistryNotesBookId)),
 
@@ -403,8 +399,8 @@ public static class RecipeBook
         // 箭一律**不吃火药、不吃子弹零件** —— 这是弓弩的立身之本。枪弹的原料稀缺且与别的东西竞争；
         // 箭只吃木料/废金属/金属锭，而且**射出去还能捡回来一些**。枪强而打不起，弓弩弱而打得久 —— 两条路子由此分野。
         //
-        // ⚠ **但箭绝不便宜**，这是刻意的。用户拍板的回收率是 **25%**（读过《弓与箭之道》才 50%）——
-        // 射出四支只捡回一支，箭是**持续消耗品**。若造箭近乎白送，"跑回战场把箭捡回来"就不值得玩家冒一次险，
+        // ⚠ **但箭绝不便宜**，这是刻意的。箭矢回收率以 Wiki 配置为准——
+        // 箭是**持续消耗品**。若造箭近乎白送，"跑回战场把箭捡回来"就不值得玩家冒一次险，
         // 回收率这条机制也就白设计了。故除了应急用的木箭，**每一支箭都要吃到金属**（废金属 / 金属锭）。
         //
         // ══════════ 三种箭的门槛梯度（[SPEC-B21·T26] 用户按 wiki 书籍表重排，**推翻了下面这条旧口径**）══════════
@@ -418,11 +414,11 @@ public static class RecipeBook
         // 材料/工具门槛全部维持原样，本轮**只重排书**。
 
         // 削尖的木箭：**便宜好用的主力箭**（用户手改后的定位）。木料 1 + 羽毛 1 → **4 支**，无工具槽。
-        // 伤害 ×0.75、破甲 ×0.75，样样差一档但都不致残；代价集中在**射程 ×0.75**（全表最短）——新营地唯一撑得起弓手的箭。
+        // 伤害、破甲与射程效果以 Wiki 配置为准；代价集中在射程——新营地唯一撑得起弓手的箭。
         //
         // ⚠️ [SPEC-B21·T26] **它不再是零门槛配方了**：加了《野外生存指南》书门槛（用户拍板）。
         // **这不会卡死开局**，三条理由（核实过，别再当成收紧）：
-        //   ① 这本书**开局就在共享库存里**（camp.json 住宅-柜子 role=storage），不用搜刮，只需读完（24 小时）；
+        //   ① 这本书**开局就在共享库存里**（camp.json 住宅-柜子 role=storage），不用搜刮，只需读完配置时长；
         //   ② **短弓本身已经要这同一本书** ⇒ 没读书的人根本没弓可射，给箭加同一道门槛**不多锁任何东西**；
         //   ③ 就算搜到成品弓却还没读书，**重头箭仍是零书门槛**（只要卡尺，营地展示柜里就有）。
         // 它真正的作用是把"开局第一晚读哪本书"变成一个**真选择**：读它 ⇒ 一次拿到 骨刀＋短弓＋木箭＋陷阱＋战争面具。
@@ -489,7 +485,7 @@ public static class RecipeBook
         R("light_crossbow", "单手轻弩", RecipeCategory.Precision, "light_crossbow", Tools(ToolSlot.Calipers), Books(MechanicalBeautyBookId)),
 
         // 双手重弩：**全表最贵、最费时的配方**（320 分 ＞ 自制猎枪 240）。钢制弩臂 → 吃铁最多（铁 4）。
-        // 它的回报是 65% 穿透（可制作里最高）—— 想打穿板甲，就得先付出这个代价。
+        // 它的回报是可制作里较高的穿透——想打穿板甲，就得先付出这个代价；当前值以 Wiki 配置为准。
         R("heavy_crossbow", "双手重弩", RecipeCategory.Precision, "heavy_crossbow", Tools(ToolSlot.Calipers), Books(MechanicalBeautyBookId)),
 
         // ══════════════ [批次21·T14] 烹饪台 + 两件炊具（用户拍板的新设施）══════════════
@@ -503,15 +499,14 @@ public static class RecipeBook
         // 完工**不进库存**，直接砌在厨房锚点上（CookStation.AnchorX/Y；见 CampMain.CompleteCookStationBuild）。
         // 它实心、挖导航洞、不可跨越 ⇒ 锚点由 FixedFacilityAnchorTests 做**设计期**自检（玩家没有"放置"这个动作）。
         // RequiredCrafterGates：一座就够 —— 已有烹饪台时本配方灰掉（判定委托营地层，同改装台）。
-        // 拆除走通用规则（SalvageLogic：50% 向下取整；木料那份再分半走废木料）。数值皆拟定待调。
+        // 拆除走通用规则；材料与返还数值以 Wiki 配置为准。
         R(CookStation.RecipeId, CookStation.PropName, RecipeCategory.Misc, CookStation.ItemKey, Tools(), Books(), Books(CookStation.AbsentGate)),
 
-        // 锅：装进烹饪台的槽位 ⇒ 每份饭省 2 点热量（用户拍板）。一口砸扁再敲圆的铁锅。
+        // 锅：装进烹饪台的槽位 ⇒ 每份饭按 Wiki 配置节省热量。一口砸扁再敲圆的铁锅。
         // 无书无工具（敲锅不是手艺活），但吃**金属锭**——它是"省料"的投资，本身就得先付一笔料。
         R("cooking_pot", "锅", RecipeCategory.Misc, CookStation.PotItemKey, Tools(), Books()),
 
-        // 烤架：同样 -2 点。比锅便宜（几根铁丝架在火上就是烤架），但一样占掉一个槽 ⇒
-        // 两个槽都装满 = 每份饭只要 12 点，这是玩家能拿到的**唯一**一档"省料"，且要付两份材料 + 两份工时。
+        // 烤架：同样按 Wiki 配置节省热量。比锅便宜，但一样占掉一个槽；两个槽都装满是玩家能拿到的"省料"档，且要付两份材料 + 两份工时。
         R("cooking_grill", "烤架", RecipeCategory.Misc, CookStation.GrillItemKey, Tools(), Books()),
 
         // 火把（手持光源，批次4 光照）：木棒裹布蘸燃油即成——基础求生造物，无书门槛、无工具槽、开局可做。
@@ -521,7 +516,7 @@ public static class RecipeBook
 
         // ── [SPEC-B14] 草药医疗自制药（无书门槛：民间方子人人会；无工具槽；工时制）──────────────
         // 产物 key=herbal_salve / dandelion_tea，同时是 Materials 目录项 → CraftOutputFactory 走材料分支落地为 Item.Material，
-        // 据 Key 查 MedicineCatalog 治感染（草药膏 0.45 / 蒲公英茶 0.10 治疗效率）。材料/工时皆拟定待调。
+        // 据 Key 查 MedicineCatalog 治感染；药品疗效、材料与工时以 Wiki 配置为准。
 
         // 草药膏：蒲公英 1 + 玫瑰果 1 + 老君须 1 捣制，工时 ~40 分。
         R("herbal_salve", "草药膏", RecipeCategory.Misc, "herbal_salve", Tools(), Books()),
@@ -531,7 +526,7 @@ public static class RecipeBook
         //    它仍是**配方**（不吃 CookingLogic 的热量点），烹饪台在这里只是道门槛，见 <see cref="CookStationPresentGate"/>。
         R("dandelion_tea", "蒲公英茶", RecipeCategory.Misc, "dandelion_tea", Tools(), Books(), Books(CookStationPresentGate)),   // [T67] 烹饪台在场
 
-        // [SPEC-B14-补 / T72] 草药绷带：老君须 1 + 绷带 1，工时 ~20 分。止血手术供点 20（普通绷带上位替代）。[T72] **额外**再降该处感染几率 ×0.75（止血+消炎并存，见 SurgeryCatalog）。
+        // [SPEC-B14-补 / T72] 草药绷带：材料、工时、止血点与感染减免以 Wiki 配置为准（止血+消炎并存，见 SurgeryCatalog）。
         R("herbal_bandage", "草药绷带", RecipeCategory.Misc, "herbal_bandage", Tools(), Books()),
 
         // [SPEC-B14-补2] 玫瑰果茶：玫瑰果 2 煮制，工时 ~15 分。饮用后 24 游戏小时伤病恢复速度 +9pp（见 Pawn 恢复加成 buff）。
@@ -565,7 +560,7 @@ public static class RecipeBook
         // ── 圈套陷阱：营地里**唯一不用出门、不担风险**的食物来源（正文见 TrapSpec / TrapLogic 类注）──
         // 一圈铁丝套 + 一根弹木 + 一段绳子。**无工具门槛**——扎个活结不是手艺活，读过《野外生存指南》就会。
         // 造出来进库存 → 玩家自己摆到营地里（同沙袋/床的"造→摆"两段式）。它**不实心、不挖导航洞**
-        // （摆不出 kill box），但**守 64px 禁建带**（不许糊在防线上）。工时 40 分。数值皆拟定待调。
+        // （摆不出 kill box），但**守禁建带**（不许糊在防线上）。工时与材料以 Wiki 配置为准。
         // 拆除走通用规则（FurnitureBuildCost["陷阱"] 折半返还），两处成本由测试钉死一致——否则造一个拆一个就是永动机。
         R("snare_trap", "圈套陷阱", RecipeCategory.Misc, "snare_trap", Tools(), Books(WildernessSurvivalGuideBookId)),
 
@@ -583,10 +578,7 @@ public static class RecipeBook
         R("coarse_shirt", "粗布衬衫", RecipeCategory.Tailoring, "coarse_shirt", Tools(), Books(TailorsNotesBookId)),
 
         // ══════════════ [T59] 棉帽（用户在 wiki 上新加的一件）══════════════
-        // 数值层由我拟定（用户只给了护甲 6/3 与 0.15kg，没给配方）：**照最小号布衣那一档来**——
-        //   布 ×2 / 40 分钟，与「粗布短裤」（同为小件、同为 2 布 40 分）完全同档，**不另立新数**。
-        // 依据：布类配方的成本按「用了多少布」走，而布的用量与成衣重量同阶（短裤 0.1kg=2布、衬衫/长裤 0.15kg=3布）。
-        //   棉帽 0.15kg 但只罩一个头 + 两只耳朵（全是小部位）⇒ 取**下限档 2 布**，不给它 3 布：
+        // 数值层与配方均以 Wiki 配置为准；这里仅保留它与最小号布衣同档的 authored 语义：
         //   一顶帽子不该和一条长裤一样费布。工时同理取 40 分（全表最短的那一档）。
         // 书：《裁缝手记》—— 它是布类成衣的那本书，棉帽是布类成衣，不新开门槛。
         R("cotton_hat", "棉帽", RecipeCategory.Tailoring, "cotton_hat", Tools(), Books(TailorsNotesBookId)),
@@ -621,7 +613,7 @@ public static class RecipeBook
 
         // ══════════════ [T68] 恐怖装甲（用户在 wiki 上新加；**配方由我拟定**）══════════════
         //
-        // 🔴 **为什么它必须有配方**：用户只给了数值（20/10、3kg、装甲层）和一句文案，**没给获取途径**。
+        // 🔴 **为什么它必须有配方**：用户只给了数值与一句文案，**没给获取途径**。
         //    不配方、不投放 = 一件**永远拿不到的死物品**（"金属锭零获取途径"那个 bug 的原样重演）。
         //
         // **材料＝骨头 + 皮革，依据是用户自己的文案**：「每一片防护都来自于没做够防护的人」——
@@ -636,7 +628,7 @@ public static class RecipeBook
         //    ⇒ armor 层完全靠运气。它把那个洞堵上：**你可以自己造一件，代价是它比搜到的都弱**
         //    （20/10 ＜ 皮革胸甲 25/12.5），而且**只护胸+腹**（皮甲还护双臂）。
         //    真正的门槛不在书（那本开局就有），在**材料**：皮革要么搜刮、要么**自产**（`tan_leather`：碎皮革→生皮→鞣制→皮革，
-        //    一张皮革 = 宰 4 只老鼠 + 1 份鞣制药水）——两条路都得实打实攒，攒 3 张仍是出门的分量。
+        //    皮革需要动物副产物与鞣制药水——两条路都得实打实攒，仍是出门的分量。
         R("horror_armor", "恐怖装甲", RecipeCategory.Misc, "horror_armor", Tools(), Books(WildernessSurvivalGuideBookId)),
 
         // ══════════════ [T68] 墨镜 / 平光眼镜：**故意没有配方** ══════════════
@@ -659,7 +651,7 @@ public static class RecipeBook
         // 三样"造→摆"设施（捕鸟陷阱/菜园/宰杀点）走沙袋那条两段式链；宰杀台/缝合生皮是普通产物配方。
 
         // ── 捕鸟陷阱：《农场主的一百个问题》解锁。抓鸟（→ 宰杀 → 鸟肉 + 羽毛 → 箭）。正文见 BirdTrapSpec/BirdTrapLogic。──
-        // 一张网 + 两根木桩 + 一段绳（同圈套陷阱的量级）。不实心、不挖导航洞、守 64px 禁建带。
+        // 一张网 + 木桩 + 绳（同圈套陷阱的量级）。不实心、不挖导航洞、守禁建带。
         R(BirdTrapSpec.RecipeId, "捕鸟陷阱", RecipeCategory.Misc, BirdTrapSpec.ItemKey, Tools(), Books(FarmerHundredQuestionsBookId)),
 
         // ── 菜园：《农场主的一百个问题》解锁。翻一小块地种土豆。正文（含"绝不能变无限食物"的四道闸）见 CropPlotSpec/CropPlotLogic。──
@@ -674,13 +666,13 @@ public static class RecipeBook
 
         // ── 宰杀台（升级）：用户"木板*3+钉子*4"。🔴🔴 **「木板」在材料表里不存在**（只有「木料」wood / 「废木料」scrap_wood）──
         //    ⇒ 我按**木料*3+钉子*4**落地（木料是唯一的结构性木材），**已 [DECISION] 上抛用户确认**（一行可改）。
-        //    +50% 宰杀速度、20% 双倍产出（数值在 ButcheryLogic）。
+        //    宰杀速度与双倍产出效果（数值在 ButcheryLogic/Wiki 配置）。
         // 「升级」不新开引擎轴：它是一条**要求"营地已有简易宰杀点"**的配方（UpgradeGate），造出来落位时把简易点顶掉（消费层做）。
         R(ButcherStation.TableRecipeId, "宰杀台", RecipeCategory.Misc, ButcherStation.TableItemKey, Tools(), Books(), Books(ButcherStation.UpgradeGate)),   // 要求营地已有简易宰杀点
 
         // ── 缝合生皮：把宰杀老鼠攒下的「碎皮革」缝成成幅的「生皮」。──
         // 🔴 **它给「生皮」补上了游戏里的第一条生产线**：核实过 `rawhide` 此前**零掉落、零配方产出**，只能找商人买。
-        //    碎皮革 4 → 生皮 1（重量账：4 × 0.2 = 0.8kg → 1.0kg，缝完略重，无套利）。无书门槛，工时 30 分。
+        //    碎皮革 → 生皮；重量账、书门槛与工时以 Wiki 配置为准。
         //    这条链的下游现在**真的通了**（见紧邻的 `tan_leather`）：生皮 +（鞣制药水，化学书）→ 皮革 → 皮甲/恐怖装甲。
         //    宰杀于是喂到了护甲线上。
         R("leather_stitch", "缝合生皮", RecipeCategory.Misc, "rawhide", Tools(), Books()),
@@ -690,9 +682,8 @@ public static class RecipeBook
         //    ② `tanning_solution`（鞣制药水）此前**无任何消费方**——同样能造能买、却无处消耗。二者都在这条配方里第一次有了去处。
         //    ⇒ 「碎皮革 →（缝）生皮 →（鞣）皮革」全线打通，"自产皮革"从此可行。
         // **数值拟定待调**（新数值，报依据）：生皮 1 + 鞣制药水 1 → 皮革 1，工时 60 分。
-        //    · 重量账**无套利**：生皮 1.0kg + 鞣制药水 1.0kg（消耗掉）→ 皮革 0.6kg（越鞣越轻，不凭空增重）。
-        //    · 门槛梯度守住**皮革的稀缺**：一张皮革 = 4 碎皮革（宰 4 只老鼠）+ 1 鞣制药水（燃料 1 + 石 1 + 化学书）。
-        //      恐怖装甲吃 3 张皮革 ⇒ 12 只老鼠 + 3 份药水 —— 攒起来仍是实打实的出门，可制作但不廉价。
+        //    · 重量账**无套利**：原料消耗后产物重量由 Wiki 配置决定，不凭空增重。
+        //    · 门槛梯度守住**皮革的稀缺**：皮革与药水的来源/配比以 Wiki 配置为准。
         //    · **不再挂书**：鞣制药水的化学书门槛已在药水那步收过一次；鞣这一步是手工活，同 `leather_stitch` 零书门槛。
         R("tan_leather", "鞣制皮革", RecipeCategory.Misc, "leather", Tools(), Books()),
 
@@ -701,8 +692,7 @@ public static class RecipeBook
         //    没配方、没掉落投放 ⇒ 一件**永远拿不到的死物品**（同"金属锭零获取途径"那个 bug 的原样重演）。
         // **书＝《尖峰时刻》**（滑雪极限运动书，wiki 已定它解锁护踝鞋具）——不新造书（书是 authored，CLAUDE.md 铁律）。
         //    语义自洽：同一本极限运动书既教你做木缝雪镜、也教你做护住脚踝小腿的高帮硬底鞋具。
-        // **材料＝皮革 2 + 绳 1、工时 80min＝拟定待调**（照恐怖装甲拟定先例；护踝 0.75kg、只护一双脚，
-        //    比恐怖装甲 3kg 轻得多 ⇒ 量级取其零头：皮革做鞋body、绳做绑带高帮）。追加表尾不插队（配方序不进 Sim 战斗随机流）。
+        // **材料、工时与重量＝Wiki 配置**（护踝只护一双脚，量级低于恐怖装甲）。追加表尾不插队（配方序不进 Sim 战斗随机流）。
         //    产物走 CraftOutputFactory 的 ArmorOutputs 落成 Item.Armor(护踝鞋具)，穿戴登记见 ApparelSlots(脚槽·成对)。
         R("ankle_guard", "护踝鞋具", RecipeCategory.Misc, "ankle_guard", Tools(), Books(PeakHourBookId)),
 

@@ -7,25 +7,24 @@ namespace DeadSignal.Godot;
 
 /// <summary>
 /// **克莉丝汀**·教学关反水后收留的销售员（authored 三级专属效果「巧舌如簧」，纯逻辑）。
-/// 数值取自 wiki <c>characters.json</c> 克莉丝汀行（**authored·非拟定，勿标待调**）：
-///   · 一级：懂得挨饿——每个相位变化时，<see cref="L1HungerSkipChance"/>(25%) 几率**不掉饥饿值**（入队即得）。
-///   · 二级：从商人处买东西 <see cref="Level2BuyDiscount"/>(6.25%) 折扣（<b>需她在营存活</b>，同南丁格尔 L2/山姆光环先例）。
-///   · 三级：大仇得报，回归销售员本质——卖出价率 60%→<see cref="Level3SellRatePercent"/>(70%)；且对热量消耗更少，
-///     每相位<b>额外</b> <see cref="L3ExtraHungerSkipChance"/>(10%) 几率不掉饥饿（<b>与 L1 的 25% 按总量加算 ⇒ 合计 35%</b>）。
-/// 三级效果**累进**（升级不丢下级：L3 保留 L1 的 25% 基底再加 10%、保留 L2 的商人折扣）。
+/// 数值取自 Wiki 配置（**authored·非拟定**）：
+///   · 一级：懂得挨饿——每个相位变化时按配置几率**不掉饥饿值**（入队即得）。
+///   · 二级：从商人处买东西按配置折扣（<b>需她在营存活</b>，同南丁格尔 L2/山姆光环先例）。
+///   · 三级：大仇得报，回归销售员本质——卖出价率与额外饥饿保护均按配置。
+/// 三级效果**累进**（升级不丢下级；合并口径见 Wiki）。
 ///
 /// **升级轴**（<c>characters.json</c>「加入营地是一级，存活三天后升到二级，清剿金手指帮后升三级」）：
-///   · <b>L1→L2「在营存活三天」</b>＝调用方喂**在营存活天数**（同道格羁绊 <see cref="DougBruceBond"/> 的「共同存活天数」先例，
-///     调用方每昼夜她存活即 +1；她死/离营天然停累加）；累计 ≥<see cref="Level2ThresholdDays"/>(3) → L2。
+///   · <b>L1→L2「在营存活达到配置门槛」</b>＝调用方喂**在营存活天数**（同道格羁绊 <see cref="DougBruceBond"/> 的「共同存活天数」先例，
+///     调用方每昼夜她存活即 +1；她死/离营天然停累加）；累计达到 <see cref="Level2ThresholdDays"/> → L2。
 ///   · <b>L2→L3「清剿金手指帮」</b>＝据点守备全灭时置的永久旗标 <see cref="GoldfingerDiscovery.GangClearedFlag"/>
 ///     （灭帮是中后期一次性事件，其时在营天数早已 ≥3 ⇒ 旗标置位即直取 L3）。
 ///
-/// <para>🔴 <b>[Q1·主 agent 拍板] L1(25%)+L3额外(10%) 的合并按「加算」= 35%，不是独立掷(32.5%)</b>：
-/// 用户原话「额外10%」＝同 perk 两级台阶按总量加算（同耗子 L2「速度再+100%」= 2.50 的指定加算例外先例）。
+/// <para>🔴 <b>[Q1·主 agent 拍板] L1 与 L3 额外效果的合并按总量加算，不是独立掷</b>：
+/// 用户原话「额外」＝同 perk 两级台阶按总量加算（同耗子等级效果的指定加算例外先例）。
 /// 项目通则「百分比一律乘算」针对**不同来源**相叠；这里是**同一 perk 自己的两级台阶**，按总量加算。</para>
 ///
-/// <para>🔴 <b>[Q2·主 agent 拍板] 商人折扣/卖价 70% 均需她在营存活</b>（沿用南丁格尔 L2「卫生意识需她在营维持」、
-/// 山姆光环「只要山姆还活着」先例）：她死/离营 → 折扣与卖价加成即失（回退到基准买价/卖价率 60%）。</para>
+/// <para>🔴 <b>[Q2·主 agent 拍板] 商人折扣/卖价加成均需她在营存活</b>（沿用南丁格尔 L2「卫生意识需她在营维持」、
+/// 山姆光环「只要山姆还活着」先例）：她死/离营 → 折扣与卖价加成即失。</para>
 ///
 /// **无实例状态**：等级由「在营存活天数」（调用方运行时态，同道格羁绊天数不持久）+「灭帮旗标」（<c>StoryFlags</c>）派生，
 /// 身份标记＝<see cref="SurvivorPerks.IsChristine"/>。效果应用（相位饥饿钩子 <see cref="ResolveHungerPhase"/>、
@@ -41,19 +40,19 @@ public static class ChristinePerk
     public static int Level2ThresholdDays => GameConfigCatalog.Section<PerkConfig>().ChristineLevel2ThresholdDays;
 
     // —— 三级效果数值（characters.json 克莉丝汀行，authored·非拟定）。数值外置 perks.json ——
-    /// <summary>L1：每相位「不掉饥饿」的基础几率（25%，L1 起常驻）。</summary>
+    /// <summary>L1：每相位「不掉饥饿」的基础几率；当前值以 Wiki 配置为准。</summary>
     public static double L1HungerSkipChance => GameConfigCatalog.Section<PerkConfig>().ChristineL1HungerSkipChance;
-    /// <summary>L3：每相位「不掉饥饿」的**额外**几率（10%；[Q1] 与 L1 按总量加算 ⇒ L3 合计 35%）。</summary>
+    /// <summary>L3：每相位「不掉饥饿」的**额外**几率；与 L1 的合并口径见 Wiki。</summary>
     public static double L3ExtraHungerSkipChance => GameConfigCatalog.Section<PerkConfig>().ChristineL3ExtraHungerSkipChance;
-    /// <summary>L2：商人买入折扣（6.25%；需她在营存活）。</summary>
+    /// <summary>L2：商人买入折扣；当前值以 Wiki 配置为准，需她在营存活。</summary>
     public static double Level2BuyDiscount => GameConfigCatalog.Section<PerkConfig>().ChristineLevel2BuyDiscount;
-    /// <summary>L3：商人卖出价率（百分比，70；需她在营存活。基准/未激活时回退 <see cref="MerchantTrade.SellRatePercent"/>=60）。</summary>
+    /// <summary>L3：商人卖出价率；当前值以 Wiki 配置为准，需她在营存活。</summary>
     public static int Level3SellRatePercent => GameConfigCatalog.Section<PerkConfig>().ChristineLevel3SellRatePercent;
 
     // ==================== 等级派生纯函数 ====================
 
     /// <summary>
-    /// 由「在营存活天数」+「灭金手指帮旗标」派生等级：灭帮 → L3；否则在营存活天数 ≥<see cref="Level2ThresholdDays"/>(3) → L2；
+    /// 由「在营存活天数」+「灭金手指帮旗标」派生等级：灭帮 → L3；否则达到 <see cref="Level2ThresholdDays"/> → L2；
     /// 其余（入队即得）→ L1。灭帮是永久旗标、在营天数单调累加（她死/离营停累加）⇒ 等级**单调不倒退**。
     /// </summary>
     /// <param name="daysSurvivedInCamp">她入队后**在营存活**的累计天数（调用方每昼夜她存活即 +1；不在营不累加）。</param>
@@ -72,8 +71,8 @@ public static class ChristinePerk
     // ==================== 相位「不掉饥饿」（注入随机复现） ====================
 
     /// <summary>
-    /// 某等级每相位「不掉饥饿」的几率：L1/L2 = <see cref="L1HungerSkipChance"/>(25%)；
-    /// L3 起 = L1 基底 + <see cref="L3ExtraHungerSkipChance"/>(10%) **加算** ⇒ 35%（[Q1] 主 agent 拍板加算）。
+    /// 某等级每相位「不掉饥饿」的几率：L1/L2 使用 <see cref="L1HungerSkipChance"/>；
+    /// L3 起再按 <see cref="L3ExtraHungerSkipChance"/> 合并，口径以 Wiki 为准。
     /// </summary>
     public static double HungerSkipChance(int christineLevel)
         => L1HungerSkipChance + (christineLevel >= 3 ? L3ExtraHungerSkipChance : 0.0);
@@ -100,15 +99,15 @@ public static class ChristinePerk
     // ==================== 商人买卖价率（需在营存活） ====================
 
     /// <summary>
-    /// 克莉丝汀给的**商人买入折扣**（0=无折扣）：L2 起、且**她在营存活**（<paramref name="aliveInCamp"/>）→ <see cref="Level2BuyDiscount"/>(6.25%)；
-    /// 否则 0（零回归：无她/她死/离营 ⇒ 原价）。供 <c>MerchantTrade.Buy</c> 乘算到实付买价上（× (1−折扣)）。
+    /// 克莉丝汀给的**商人买入折扣**（零值=无折扣）：L2 起、且**她在营存活**（<paramref name="aliveInCamp"/>）→ <see cref="Level2BuyDiscount"/>；
+    /// 否则零值（零回归：无她/她死/离营 ⇒ 原价）。供 <c>MerchantTrade.Buy</c> 乘算到实付买价上。
     /// </summary>
     public static double MerchantBuyDiscount(int christineLevel, bool aliveInCamp)
         => aliveInCamp && christineLevel >= 2 ? Level2BuyDiscount : 0.0; // L2 起累进保留（L3 仍享折扣）
 
     /// <summary>
-    /// 克莉丝汀影响下的**商人卖出价率**（百分比）：L3 起、且**她在营存活** → <see cref="Level3SellRatePercent"/>(70)；
-    /// 否则回退 <paramref name="defaultRatePercent"/>（＝<c>MerchantTrade.SellRatePercent</c>=60，零回归）。供 <c>MerchantTrade.SellPrice</c> 取率。
+    /// 克莉丝汀影响下的**商人卖出价率**：L3 起、且**她在营存活** → <see cref="Level3SellRatePercent"/>；
+    /// 否则回退 <paramref name="defaultRatePercent"/>（零回归）。供 <c>MerchantTrade.SellPrice</c> 取率。
     /// </summary>
     public static int MerchantSellRatePercent(int christineLevel, bool aliveInCamp, int defaultRatePercent)
         => aliveInCamp && christineLevel >= 3 ? Level3SellRatePercent : defaultRatePercent;

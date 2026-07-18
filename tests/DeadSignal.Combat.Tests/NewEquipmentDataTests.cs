@@ -7,7 +7,7 @@ using Xunit;
 namespace DeadSignal.Combat.Tests;
 
 /// <summary>
-/// 新增装备数据的字段/形态校验（数值皆原型期拟定待调，这里只锁"规则形态"不锁具体数字）：
+/// 新增装备数据的字段/形态校验（数值来自 Wiki 配置，这里主要锁定规则形态）：
 /// 刺剑=单手锐器可双持、草叉=双手锐器、粗布外套=外套层且防护低于皮甲、劳保手套=手部轻护甲层；
 /// 并验证冲锋枪已放开可双持、两把新近战入 Arsenal。
 /// </summary>
@@ -77,9 +77,7 @@ public class NewEquipmentDataTests
         var names = WeaponTable.Arsenal().Select(w => w.Name).ToList();
         Assert.DoesNotContain("栓动猎枪", names);
 
-        // 枪械剩 6 把：自制猎枪 / 手枪 / 冲锋枪 / 步枪 / 狙击枪 / 自制霰弹枪。
-        // 全表 25 把 = 23（删掉栓动猎枪之后）+ 消防斧（[批次25·T44]）+ 骨刀（[T56]），两把都追加在末尾。
-        // ⚠️ 这个计数本身**不是**本测试的意图（意图是"栓动猎枪不许回来"）——它只是顺手的护栏。
+        // ⚠️ Arsenal 总数只是附加护栏；本测试真正意图是"栓动猎枪不许回来"。
         //    以后再加武器，改这个数字就行；但 DoesNotContain 那条一个字都不许动。
         Assert.Equal(25, WeaponTable.Arsenal().Count);
     }
@@ -122,7 +120,7 @@ public class NewEquipmentDataTests
 
     // ---- [T68] 恐怖装甲 / 平光眼镜：焊死登记与数值形态 ----
     //
-    // 两件是用户 wiki 手写、由同步单回写进代码的（护甲部分早在 fdfacf6，当时漏焊死）。本组焊死：数值/护甲层/
+    // 两件是用户 Wiki 手写、由同步单回写进代码的。本组焊死：配置映射/护甲层/
     // 覆盖部位 + **消费层 ApparelCatalog 真登记落对槽**（ItemDef/ArmorTable 写了数值 ≠ 装备目录能穿——两层都要焊）。
 
     [Fact]
@@ -163,10 +161,10 @@ public class NewEquipmentDataTests
         Assert.Equal(new HashSet<EquipSlot> { EquipSlot.Eyes }, def!.Slots);
     }
 
-    // ---- [装备→能力加成] 平光眼镜「+5% 阅读速度」：登记 + 真生效两层焊死 ----
+    // ---- [装备→能力加成] 平光眼镜阅读速度效果：登记 + 真生效两层焊死 ----
     //
     // 🔴 教训「登记效果 ≠ 生效」：ApparelDef.Effects 里挂了效果，若消费方不经 ApparelEffectMultiplier 从穿戴品取数
-    //    （手写常数），效果就是摆设。故两层各焊一条，真生效那条**走 name→查表→乘子→Effective 全链，绝不手传 1.05**。
+    //    （手写常数），效果就是摆设。故两层各焊一条，真生效那条**走 name→查表→乘子→Effective 全链，绝不手传配置值**。
 
     [Fact]
     public void PlainGlasses_读速效果已登记_焊死()
@@ -180,18 +178,18 @@ public class NewEquipmentDataTests
     [Fact]
     public void PlainGlasses_读速效果真生效_全链焊死()
     {
-        // 走真聚合函数（穿戴品名 → 查 Defs → 取 Effects → 连乘），不手写 1.05。
+        // 走真聚合函数（穿戴品名 → 查 Defs → 取 Effects → 连乘），不手写配置乘子。
         double wornMult = ApparelCatalog.ApparelEffectMultiplier(
             new[] { "平光眼镜" }, ApparelCatalog.EquipEffectKind.ReadingSpeed);
         Assert.Equal(1.05, wornMult, precision: 10);
 
-        // 无穿戴 / 戴无读速效果的墨镜 → 1.0（不误伤）。
+        // 无穿戴 / 戴无读速效果的墨镜 → 中性乘子（不误伤）。
         Assert.Equal(1.0, ApparelCatalog.ApparelEffectMultiplier(
             System.Array.Empty<string>(), ApparelCatalog.EquipEffectKind.ReadingSpeed), precision: 10);
         Assert.Equal(1.0, ApparelCatalog.ApparelEffectMultiplier(
             new[] { "墨镜" }, ApparelCatalog.EquipEffectKind.ReadingSpeed), precision: 10);
 
-        // 把真乘子喂进真读速合成：戴平光眼镜比不戴恰好快 5%（全链贯通，非摆设）。
+        // 把真乘子喂进真读速合成：戴平光眼镜的结果体现 Wiki 配置效果（全链贯通，非摆设）。
         double worn = ReadingSpeed.Effective(1.0, selfBonus: 0.0, hasSeat: true, campWideMult: 1.0, apparelMult: wornMult);
         double bare = ReadingSpeed.Effective(1.0, selfBonus: 0.0, hasSeat: true, campWideMult: 1.0, apparelMult: 1.0);
         Assert.Equal(bare * 1.05, worn, precision: 10);
@@ -293,8 +291,8 @@ public class NewEquipmentDataTests
         Assert.NotNull(v.CoversParts);
         Assert.Equal(new HashSet<string> { HumanBody.Chest, HumanBody.Abdomen }, v.CoversParts!);
         Assert.DoesNotContain(HumanBody.LeftArm, v.CoversParts!);
-        // 当前 Wiki 数值是锐防高于钝防；“对子弹额外锐防 30”仍是备注，不在统一规则层生效。
-        Assert.True(v.SharpDefense > v.BluntDefense, "防弹背心当前 Wiki 数值应为锐防高于钝防");
+        // 当前 Wiki 配置是锐防高于钝防；额外备注不在统一规则层生效。
+        Assert.True(v.SharpDefense > v.BluntDefense, "防弹背心应遵循 Wiki 配置的锐防/钝防关系");
     }
 
     [Fact]

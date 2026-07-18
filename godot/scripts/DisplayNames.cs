@@ -203,9 +203,9 @@ public static class DisplayNames
     /// <summary>调查点规模中文名（含预计探索天数，世界地图用）。</summary>
     public static string Of(SizeTier tier) => tier switch
     {
-        SizeTier.Small => "小·约1-2天",
-        SizeTier.Medium => "中·约3-5天",
-        SizeTier.Large => "大·约5天+",
+        SizeTier.Small => "小",
+        SizeTier.Medium => "中",
+        SizeTier.Large => "大",
         _ => Unknown,
     };
 

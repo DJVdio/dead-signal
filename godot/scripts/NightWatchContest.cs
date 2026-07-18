@@ -90,20 +90,20 @@ public readonly struct ContestResult
 }
 
 /// <summary>
-/// 夜防「警戒力 vs 潜行力」对抗纯逻辑（批次6 权威源）。全静态纯函数 + draft 常量。
+/// 夜防「警戒力 vs 潜行力」对抗纯逻辑（批次6 权威源）。全静态纯函数 + Wiki 配置入口。
 /// 消费 pipeline（night-response 运行时层每次袭营/每个袭击者对每个守卫）：
 ///   1. 守卫视锥经 VisionLogic：L=CombineLight(AmbientLight(相位,indoorsDark), 光源贡献)；cone=ConeFor(L[,R0])；
 ///      canSee=VisionLogic.CanSee(守卫位/朝向, 袭击者位, cone, occluded)；acuity=<see cref="VisionAcuity"/>(canSee,dist,cone)。
-///   2. alertness=<see cref="ComputeAlertness"/>(acuity,dist,岗哨加成,疲劳系数,站岗效率[布鲁斯 0.75])。
+///   2. alertness=<see cref="ComputeAlertness"/>(acuity,dist,岗哨加成,疲劳系数,站岗效率[布鲁斯系数读取 Wiki])。
 ///   3. 袭击者局部光照 L'（同 VisionLogic）；stealth=<see cref="ComputeStealth"/>(L',服饰潜行合计,dist,遮蔽权重)。
 ///   4. result=<see cref="Resolve"/>(alertness,stealth,rng,dist)。
 ///      · Detected → 站岗者拉响警报，玩家选 <see cref="RaidTier"/> → <see cref="RespondersFor"/> 出参战名册。
 ///      · Undetected → 按袭击者意图：Killer 走 <see cref="PreemptiveDamageMultiplier"/> 先手；Looter 走 <see cref="SilentTheftAmount"/> 偷窃。
-/// 所有数值常量皆「拟定待调」，由 Sim/目视校准。
+/// 当前可调数值统一以 Wiki 配置为准；公式、服饰 authored 风味与响应形态保留在本文件。
 /// </summary>
 public static class NightWatchContest
 {
-    // ── 警戒力权重（拟定待调）──【数值外置·第二批】已搬到 nightwatch.json ─────────────────
+    // ── 警戒力权重（当前值以 Wiki 配置为准）──【数值外置·第二批】────────────
     // VisionWeight/HearingWeight 仅方法体内用（零外部引用、非默认参数值）⇒安全改静态属性读配置。
     // ⚠️ HearingBaseRange 见下方 ComputeAlertness：它原是该方法**默认参数值**（编译期 const 上下文），
     //    不能裸改属性（会编译失败），故用「哨兵默认 -1f + 体内解析」把默认落到运行时配置（同 HungerState.DefaultCap 陷阱）。
@@ -114,7 +114,7 @@ public static class NightWatchContest
     /// <summary>听力基值半径（世界像素，新轴）：袭击者在此半径内可被"听见"，随距离线性衰减到 0。</summary>
     public static float HearingBaseRange => GameConfigCatalog.Section<NightWatchConfig>().HearingBaseRange;
 
-    // ── 潜行力权重（拟定待调）──【数值外置】原 5 个 const float 已搬到 nightwatch.json ─────────
+    // ── 潜行力权重（当前值以 Wiki 配置为准）──【数值外置】────────────────────
     // 现身体读 GameConfigCatalog（消费层配置范式，见 GameConfig/GameConfigCatalog/NightWatchConfig）。
     // const → 静态属性：这 5 个权重仅在本类方法体内使用（零外部引用、非默认参数值），故可安全改读配置。
     // ⚠️ 下方 ApparelStealth 服饰潜行表是 authored 内容（逐件风味注释），**保留在本文件、不外置**。
@@ -129,9 +129,9 @@ public static class NightWatchContest
     /// <summary>遮蔽项权重：视野遮蔽物权重 [0,1] 的放大系数。</summary>
     public static float StealthCoverWeight => GameConfigCatalog.Section<NightWatchConfig>().StealthCoverWeight;
 
-    // ── 未发现后果（拟定待调）──【数值外置·第二批】已搬到 nightwatch.json ────────────────────
+    // ── 未发现后果（当前值以 Wiki 配置为准）──【数值外置·第二批】──────────────
     // 三者仅方法体内用 + 运行时读（cref/字符串插值/测试 Assert），非默认参数值/const-expr 上下文 ⇒ 安全改静态属性。
-    /// <summary>杀戮意图潜行先手伤害乘数（用户口径 1.5x）。</summary>
+    /// <summary>杀戮意图潜行先手伤害乘数（用户口径；当前值以 Wiki 配置为准）。</summary>
     public static float PreemptiveStrikeMultiplier => GameConfigCatalog.Section<NightWatchConfig>().PreemptiveStrikeMultiplier;
     /// <summary>静默偷窃单位数下限（量级拟定）。</summary>
     public static int SilentTheftMinUnits => GameConfigCatalog.Section<NightWatchConfig>().SilentTheftMinUnits;
@@ -141,7 +141,7 @@ public static class NightWatchContest
     private const float Epsilon = 1e-4f;
 
     /// <summary>
-    /// 服饰潜行值目录（物品标识 → 潜行贡献，拟定待调）。未登记的服饰不贡献潜行值。
+    /// 服饰潜行值目录（物品标识 → 潜行贡献，当前值以 Wiki 配置为准）。未登记的服饰不贡献潜行值。
     /// 本处以本地小表承载「服饰潜行属性」，不侵入 <see cref="ApparelSlots"/>（保持其只管穿哪/防哪）；
     /// 数值日后可挪 json。ApparelCatalog 已登记的服饰名与此对齐。
     /// </summary>
@@ -151,22 +151,22 @@ public static class NightWatchContest
     /// 覆盖率是硬门禁：<c>ApparelCatalog.Defs</c> 里每一件人形穿戴品都必须在此登记（见
     /// NightWatchContestTests.ApparelStealth_CoversEveryWearableInCatalog）。<b>新增护甲/穿戴品请同步补一行</b>——
     /// 布夹克/牛仔外套/花衬衫当初就是这样漏掉的（新增了护甲，没人想起潜行表）。
-    /// 核定为中性的显式登记 0f（＝已核对，区别于"忘了给"）。
-    /// 直觉口径：深色/柔软/贴身/不反光 → 正；鲜艳/刚性/沉重/摩擦作响 → 负。数值皆「拟定待调」。
+    /// 核定为中性的显式登记（＝已核对，区别于"忘了给"）。
+    /// 直觉口径：深色/柔软/贴身/不反光 → 正；鲜艳/刚性/沉重/摩擦作响 → 负。具体数值以 Wiki 配置为准。
     /// 狗装备（布制/皮制/口袋狗衣、铁皮/铁丝头甲）不登记：夜防对抗里狗是**守方**（布鲁斯站岗），不作为袭击者，
     /// 潜行力这条轴对它无入口。
     /// </remarks>
     public static readonly IReadOnlyDictionary<string, float> ApparelStealth = new Dictionary<string, float>
     {
         // ── 专门的潜行装（既有基准，勿漂移）──
-        [DarkCloakId] = 0.30f,        // 深色斗篷：显著潜行
-        ["软底鞋"] = 0.15f,           // 消音脚步
+        [DarkCloakId] = 0.30f,        // 深色斗篷：显著潜行；数值以 Wiki 配置为准
+        ["软底鞋"] = 0.15f,           // 消音脚步；数值以 Wiki 配置为准
 
         // ── 外套层（五件互斥）：轻软 > 朴素 > 厚重挺括 > 反光皮革 ──
-        ["布夹克"] = 0.06f,           // 0.3kg，轻软贴身、无硬壳、动起来不出声——外套层潜行最佳
+        ["布夹克"] = 0.06f,           // 轻软贴身、无硬壳、动起来不出声——外套层潜行最佳；数值以 Wiki 配置为准
         ["粗布外套"] = 0.05f,         // 无反光的朴素外套，微弱潜行（基准件）
         ["粗布背心"] = 0.03f,         // 朴素但无袖，遮得少于外套
-        ["牛仔外套"] = 0.02f,         // 0.6kg 厚牛仔，布料挺括、走动摩擦沙沙响；胜在仍是深色布
+        ["牛仔外套"] = 0.02f,         // 厚牛仔，布料挺括、走动摩擦沙沙响；胜在仍是深色布，数值以 Wiki 配置为准
         ["皮夹克"] = -0.02f,          // 皮革吱呀作响，表面还反光（"倍有范儿"＝锃亮）
 
         // ── 贴身层（互斥两件）：素色遮皮肤 vs 花色自曝 ──
@@ -183,25 +183,25 @@ public static class NightWatchContest
         // ── 护甲层（三件互斥）：刚性件一律为负，越重越糟 ──
         ["皮革胸甲"] = -0.05f,        // 刚性护心甲，束住上身、皮革吱呀
         ["皮甲"] = -0.08f,            // 整身鞣皮甲，更硬更沉
-        ["板甲"] = -0.35f,            // 15kg 铁罐头摸黑：金属哐当、反光、动作迟缓。一件就吃掉一整件夜行斗篷还有余
+        ["板甲"] = -0.35f,            // 铁罐头摸黑：金属哐当、反光、动作迟缓。一件就吃掉一整件夜行斗篷还有余
 
         // ── 头部护甲（[SPEC-B19]，两件互斥）──
-        ["军用头盔"] = -0.06f,        // 硬盔壳压着耳朵，听不清也藏不住；1.5kg 顶在头上，动作跟着变笨
-        ["防暴头盔"] = -0.12f,        // 2.4kg + 一整片聚碳酸酯面罩：更沉，面罩在月光下反光，整张脸罩住＝听觉视觉全闷
+        ["军用头盔"] = -0.06f,        // 硬盔壳压着耳朵，听不清也藏不住，动作跟着变笨
+        ["防暴头盔"] = -0.12f,        // 一整片聚碳酸酯面罩：更沉，面罩在月光下反光，整张脸罩住＝听觉视觉全闷
 
         // ── 纯覆盖品 ──
         ["防毒面具"] = -0.03f,        // 滤罐呼哧作响；胜在遮脸不反光，故只是小负
 
-        // ── [批次21·T26] 新增可制作穿戴品（数值拟定待调，口径同上：深色/柔软/贴身/不反光 → 正）──
+        // ── [批次21·T26] 新增可制作穿戴品（数值以 Wiki 配置为准，口径同上：深色/柔软/贴身/不反光 → 正）──
         ["粗布衬衫"] = 0.03f,         // 同长袖布衣：素色贴身布，遮住裸露皮肤的反光
         ["粗布长裤"] = 0.02f,         // 同长裤：遮腿、不反光，聊胜于无
         ["粗布短裤"] = -0.02f,        // 同短裤：裸腿在月光下发白，反倒扎眼
         ["战争面具"] = -0.04f,        // 骨片面罩：遮住脸的反光（好事），但硬壳闷住呼吸与听觉、下巴一动就磕碰作响，净负
 
         // ── [T59] 棉帽（用户在 wiki 上新加）──
-        ["棉帽"] = 0.02f,             // 0.15kg 软棉线帽：遮住头顶与头发在月光下的反光（头本来完全裸着）＝正；
+        ["棉帽"] = 0.02f,             // 软棉线帽：遮住头顶与头发在月光下的反光（头本来完全裸着）＝正；
                                       // 但它罩住双耳、多少压掉一点听觉（同"硬盔壳压着耳朵"那条，只是轻得多）
-                                      // ⇒ 取比素色布衣(0.03)略低的小正值。口径同上：柔软/不反光 → 正。
+                                      // ⇒ 取较小的正值。口径同上：柔软/不反光 → 正；具体数值以 Wiki 配置为准。
 
         // ── [T68] 用户在 wiki 上新加的三件（口径同上）──
         ["恐怖装甲"] = -0.06f,        // 骨片缝在皮衬上的胸甲：遮脸不反光谈不上（护胸腹），但骨板一动就磕碰、皮衬吱呀 ⇒ 净负（略重于皮革胸甲的束缚感）
@@ -209,8 +209,8 @@ public static class NightWatchContest
         ["平光眼镜"] = -0.01f,        // 平光镜片几乎不挡光，只有镜面偶尔反一下月光 ⇒ 近中性的极小负值
         ["自制简易墨镜"] = -0.05f,   // [T71] 木片只留两条缝——白天防雪盲，夜里等于把视野掐到一条缝 ⇒ 夜防负值最大（比墨镜更甚，口径同上）
 
-        // ── [警察局] 防弹背心（用户 authored，2.5kg 钢/凯夫拉板）──
-        ["防弹背心"] = -0.05f,       // 刚性硬板贴身：束住上身、动起来护板磕碰有声、2.5kg 拖慢动作 ⇒ 净负（口径同皮革胸甲：刚性件一律为负）
+        // ── [警察局] 防弹背心（用户 authored，钢/凯夫拉板）──
+        ["防弹背心"] = -0.05f,       // 刚性硬板贴身：束住上身、动起来护板磕碰有声、拖慢动作 ⇒ 净负（口径同皮革胸甲：刚性件一律为负）
         ["厚重裤子"] = -0.04f,       // 双层加绒但沉，保暖不等于安静
         ["厚重披风"] = -0.08f,       // 厚布与装甲层摩擦，遮蔽有利但行动有声
         ["雪地靴"] = -0.01f,         // 保暖硬底与遮脚的收益相抵，近中性
@@ -260,9 +260,9 @@ public static class NightWatchContest
     /// <param name="distance">袭击者到守卫的距离（世界像素，供听力衰减）。</param>
     /// <param name="structureBonus">岗哨建筑加成（加法项，≥0，由 <see cref="GuardPostStats"/> 映射，如哨塔更高更远）。</param>
     /// <param name="fatigueMultiplier">疲劳系数 (0,1]，1=无疲劳，被唤醒者次相位 &lt;1（shift-sleep 供给）。</param>
-    /// <param name="watchEfficiency">站岗效率系数，人类=1，布鲁斯=0.75（consumer 传入 <c>DougBruceBond.BruceGuardEfficiency</c>，本类不硬编狗）。</param>
+    /// <param name="watchEfficiency">站岗效率系数，通常由消费层传入；布鲁斯值来自 <c>DougBruceBond.BruceGuardEfficiency</c>，本类不硬编狗。</param>
     /// <param name="hearingRange">听力基值半径。<b>负值（默认 -1）＝哨兵</b>：解析为运行时配置的 <see cref="HearingBaseRange"/>
-    /// （<see cref="HearingBaseRange"/> 数值已外置到 nightwatch.json，不再是编译期 const，故默认参数改用哨兵而非直接引用它）。</param>
+    /// （<see cref="HearingBaseRange"/> 数值已外置到 Wiki 配置，不再是编译期 const，故默认参数改用哨兵而非直接引用它）。</param>
     public static float ComputeAlertness(
         float visionAcuity,
         float distance,
@@ -340,7 +340,7 @@ public static class NightWatchContest
         return new ContestResult(detected, a, s, chance, detected ? Math.Max(0f, encounterDistance) : 0f);
     }
 
-    /// <summary>未被发现·意图对应先手伤害乘数：Killer→1.5x 潜行先手，Looter→1（不打，走偷窃）。</summary>
+    /// <summary>未被发现·意图对应先手伤害乘数：Killer 使用 Wiki 配置的潜行先手倍率，Looter 不攻击而走偷窃。</summary>
     public static float PreemptiveDamageMultiplier(RaiderIntent intent)
         => intent == RaiderIntent.Killer ? PreemptiveStrikeMultiplier : 1f;
 

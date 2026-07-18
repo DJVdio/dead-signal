@@ -34,7 +34,7 @@ public sealed partial class MedicalPanel : CanvasLayer
     /// <summary>[SPEC-B14-补3] 停止感染疗程：emit (病人)。营地清指派、当昼夜起不再自动用药。</summary>
     public event Action<Pawn>? TreatmentCancelled;
 
-    /// <summary>[SPEC-B14-补2] 给病人喝玫瑰果茶：emit (病人)。营地扣 1 份玫瑰果茶、激活其 24 小时 +9pp 恢复加成。</summary>
+    /// <summary>[SPEC-B14-补2] 给病人喝玫瑰果茶：emit (病人)。营地扣除配方要求的茶并激活恢复加成，当前数值以 Wiki 配置为准。</summary>
     public event Action<Pawn>? RosehipTeaRequested;
 
     /// <summary>[SPEC-B14-补7] 主动截肢感染的肢体（玩家抉择的保命手术）：emit (病人, 目标感染, 止血耗材, 是否床上, 施术者)。营地走 PerformAmputation 判成败+扣材料+断肢。</summary>
@@ -320,7 +320,7 @@ public sealed partial class MedicalPanel : CanvasLayer
             ? "自体手术：无人搭手，成功率打折。手术数值不外显，只给恢复描述。"
             : "选耗材做手术、或对感染/疾病用药。手术数值不外显，只给恢复描述。";
 
-        // [SPEC-B14-补2] 玫瑰果茶恢复加成（病人级动作，不挂具体伤条）：喝下 24 小时恢复 +9%。
+        // [SPEC-B14-补2] 玫瑰果茶恢复加成（病人级动作，不挂具体伤条）：持续时间与效果以 Wiki 配置为准。
         AddRosehipTeaRow();
 
         // [SPEC-B14-补8] 安装假肢也是手术：为任何原因缺失的肢体（战斗切除/截肢）列"安装假肢"手术入口。
@@ -434,7 +434,8 @@ public sealed partial class MedicalPanel : CanvasLayer
         row.AddThemeConstantOverride("separation", 8);
 
         var hint = new Label();
-        hint.Text = active ? "玫瑰果茶恢复加成生效中（+9% · 24 小时）" : $"玫瑰果茶（恢复+9% · 24 小时）（{have}）";
+        string bonus = $"恢复+{Pawn.RosehipTeaHealBonusPct:0.#}% · 持续至下一次黎明";
+        hint.Text = active ? $"玫瑰果茶恢复加成生效中（{bonus}）" : $"玫瑰果茶（{bonus}）（{have}）";
         hint.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
         hint.VerticalAlignment = VerticalAlignment.Center;
         hint.AddThemeFontSizeOverride("font_size", 12);
@@ -569,7 +570,7 @@ public sealed partial class MedicalPanel : CanvasLayer
             string name = Materials.Find(key)?.DisplayName ?? key;
             check.Text = have > 0 ? $"{name}（{have}）" : name;
             // 耗材图标挂在勾选框与文字之间（Button.Icon）。TextureFilter 走 Nearest，
-            // 否则 Godot 会把这张 32×32 的硬边图标线性插值成一团糊。
+            // 否则 Godot 会把硬边图标线性插值成一团糊。
             check.Icon = ItemIconTextures.ForRefKey(key);
             check.TextureFilter = CanvasItem.TextureFilterEnum.Nearest;
             check.ButtonPressed = selected;
@@ -648,8 +649,7 @@ public sealed partial class MedicalPanel : CanvasLayer
         cureBar.AddThemeColorOverride("font_color", curePct > 0 ? OkColor : DimColor);
         card.AddChild(cureBar);
 
-        // 免疫窗倒计时：免疫满后的 24h 窗激活期间实时呈现「剩多少小时」——新伤口感染几率 ×0.05 的保护正在生效，
-        // 这段时间是玩家推进感染赛道最安全的窗口，得让他看得见还剩多久（此前只有静态"到 100% 将获 24h 免疫"说明）。
+        // 免疫窗倒计时：保护窗激活期间实时呈现剩余时间；保护效果以 Wiki 配置为准。
         if (_patient?.Health is { ImmuneWindowActive: true } h)
         {
             int immuneHours = (int)Math.Ceiling(h.ImmuneWindowRemainingDays * 24.0);
@@ -750,7 +750,7 @@ public sealed partial class MedicalPanel : CanvasLayer
         card.AddChild(row);
     }
 
-    /// <summary>药品治疗效率标注（如 " · 效率45%"），单一事实源取自 <see cref="MedicineCatalog"/>；满效(100%)不啰嗦标注。</summary>
+    /// <summary>药品治疗效率标注：单一事实源取自 <see cref="MedicineCatalog"/>；满效不啰嗦标注。</summary>
     private static string EfficacyTag(string medicineKey)
     {
         Medicine? med = MedicineCatalog.For(medicineKey);

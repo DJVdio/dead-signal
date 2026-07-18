@@ -155,7 +155,9 @@ public sealed partial class CampMain : Node2D
         RemoveFurniture(ButcherStation.PointFurnitureKey);   // 顶掉简易点（连带碰撞/视觉/导航洞/容器登记，唯一出口）
         SpawnButcherTable(rect);
         RebakeNavigation();   // 顶替前后都实心，位置未变但走唯一重烘焙路径最稳
-        _campToast.Show("简易宰杀点升级成了宰杀台：手上快了 50%，还有两成机会一刀出双份。", CampToast.Ok);
+        int tableSpeedPct = (int)(ButcheryLogic.SpeedBonusOf(ButcherTier.Table) * 100);
+        int tableDoublePct = (int)(ButcheryLogic.TableDoubleYieldChance * 100);
+        _campToast.Show($"简易宰杀点升级成了宰杀台：手上快了 {tableSpeedPct}%，有 {tableDoublePct}% 机会一刀出双份。", CampToast.Ok);
         GD.Print($"[宰杀台] 完工，于简易点原地 {rect.Position} 顶替升级");
     }
 

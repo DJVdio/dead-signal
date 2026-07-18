@@ -11,8 +11,7 @@ public sealed record SilentDismantleParams
 {
     /// <summary>
     /// 静默拆一格<b>基础围栏</b>要多久（秒）。
-    /// <b>对照：砸同一格只要约 15 秒</b>（150 血 ÷ 每击 25 × 2.5s 冷却）。
-    /// 定 45 秒 = <b>砸的三倍</b> —— <b>慢就是静默的代价</b>，也正是留给对面发现你的窗口。
+    /// 具体时长以 Wiki 配置为准；<b>慢就是静默的代价</b>，也是留给对面发现你的窗口。
     /// </summary>
     public double SecondsBase { get; init; } = 45.0;
 
@@ -39,7 +38,7 @@ public sealed record SilentDismantleParams
 /// </para>
 /// <para>
 /// ⚠️ <b>对称性是靠签名保证的，不是靠自觉</b>：本类的函数<b>根本不接受"谁在拆"这个参数</b>。
-/// 玩家潜入敌营开侧洞，和劫掠者夜里摸进你家，走的是<b>同一个 45 秒、同一个 35 噪音</b>。
+    /// 玩家潜入敌营开侧洞，和劫掠者夜里摸进你家，走同一套 Wiki 配置。
 /// 任何一方开后门（AI 拆得特别快 / 玩家拆得特别安静）都是设计失败。
 /// </para>
 /// <para>
@@ -51,20 +50,16 @@ public sealed record SilentDismantleParams
 public static class SilentDismantleLogic
 {
     /// <summary>
-    /// 静默拆除的噪音半径 = <b>35</b>。
+    /// 静默拆除噪音半径；具体值以 Wiki 配置为准。
     /// <para>
-    /// 噪音梯度（<see cref="NoiseLogic"/>）：<b>撬锁 30</b>（金属细碎刮擦）&lt; <b>拆围栏 35</b>（撬木板、
-    /// 压着声音把它放下）&lt; <b>走路 40</b> &lt; <b>丧尸嗅觉 70</b> ≪ <b>破坏 180</b> ≪ 枪 350~700。
-    /// </para>
-    /// <para>
-    /// <b>必须 &lt; 70</b>：否则"静默"拆除会自己把东西招来，那它就只是"又慢又招人的破坏"——
+    /// 必须低于丧尸感知门槛，否则"静默"拆除会自己把东西招来，那它就只是"又慢又招人的破坏"——
     /// <b>没有任何人（玩家或 AI）会选它</b>，这条机制就整个作废了。
     /// </para>
     /// </summary>
     public const double NoiseRadius = NoiseLogic.SilentDismantleNoiseRadius;
 
     /// <summary>
-    /// <b>静默拆除不返材料</b>。想回收材料请走 <c>SalvageLogic</c>（拆自己营地的东西，返 50%）——
+    /// <b>静默拆除不返材料</b>。想回收材料请走 <c>SalvageLogic</c>（拆自己营地的东西，返还规则以 Wiki 配置为准）——
     /// 那是建造经济，不是潜入。混在一起会变成"拆敌营围栏还能顺走木料"的荒诞。
     /// </summary>
     public const bool YieldsMaterials = false;
@@ -72,7 +67,7 @@ public static class SilentDismantleLogic
     /// <summary>
     /// 什么能静默拆：<b>只有围栏</b>，且还没被拆没。
     /// <para>
-    /// <b>门不能</b>——门有它自己的两条路（<b>撬锁 30</b> / <b>砸 180</b>，见 <see cref="DoorLogic"/>）。
+    /// <b>门不能</b>——门有它自己的撬锁/破坏路径（见 <see cref="DoorLogic"/>）。
     /// 给门再开一条"静默拆"是重复机制。
     /// </para>
     /// </summary>
@@ -85,7 +80,7 @@ public static class SilentDismantleLogic
 
     /// <summary>
     /// 拆除完成时对那一格施加的伤害 = <b>整格的满血</b>。
-    /// <b>拆掉一格就是一个货真价实的洞</b>（100px，复用围栏分格 + 既有摧毁链路，不另造"洞"的概念）。
+    /// <b>拆掉一格就是一个货真价实的洞</b>（复用围栏分格 + 既有摧毁链路，不另造"洞"的概念）。
     /// <para>⚠️ 洞是<b>永久</b>的：要补得走<b>升级围栏</b>那条路（用户拍板"墙不能建，只能升级开局自带的围栏"）。</para>
     /// </summary>
     public static double DamageFor(StructureTier tier)

@@ -106,7 +106,7 @@ public static class MerchantBuyList
     /// 把库存里可收购之物聚合成卖出面板行：食物合并为一行（总份数）；材料按键聚合（每键一行，量=该键总持有）。
     /// 只列白名单内且持有量&gt;0 者，按"食物在前、材料按库存首次出现顺序"排列。
     /// </summary>
-    /// <param name="sellRatePercentOverride">克莉丝汀 L3 卖出价率覆盖（默认 null＝60%，零回归；她在营 L3 传 70），展示价须与 <see cref="MerchantTrade.SellOne"/> 实付一致。</param>
+    /// <param name="sellRatePercentOverride">克莉丝汀 L3 卖出价率覆盖（默认 null＝读取 Wiki 配置；她在营 L3 使用 authored 配置），展示价须与 <see cref="MerchantTrade.SellOne"/> 实付一致。</param>
     public static IReadOnlyList<SellRow> SellableRows(InventoryStore store, int? sellRatePercentOverride = null)
     {
         var rows = new List<SellRow>();

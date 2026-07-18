@@ -39,7 +39,7 @@ public sealed partial class StashPanel : CanvasLayer
 
     /// <summary>
     /// 点某件东西的「拆解」按钮：emit 其引用键（<see cref="Item.RefKey"/>）。CampMain 据此走
-    /// <see cref="SalvageService.Salvage"/> 把它拆回材料（返还 50%；木材走 25% 木料 + 25% 废木料的例外）。
+    /// <see cref="SalvageService.Salvage"/> 把它拆回材料（返还比例以 Wiki 配置为准；木材走专门的副产物例外）。
     /// 只有**造得出来**的东西才有这个按钮（<see cref="SalvageLogic.CanSalvageKey"/>）——搜刮来的军用枪没有配方，也就无从拆起。
     /// </summary>
     public event Action<string>? SalvageRequested;
@@ -64,7 +64,7 @@ public sealed partial class StashPanel : CanvasLayer
     public event Action<string>? DogGearUnequipRequested;
 
     /// <summary>
-    /// 布鲁斯当前穿戴的狗装备键（<see cref="DogGearCatalog"/> 键，0~2 件）。由 CampMain 在接线时设好
+    /// 布鲁斯当前穿戴的狗装备键（<see cref="DogGearCatalog"/> 键）。由 CampMain 在接线时设好
     /// （返回 <c>_bruce.Apparel.EquippedKeys</c>；布鲁斯不在场返回空/null）。<see cref="ShowStash"/> 据此渲染「布鲁斯装备」区。
     /// null 或空 = 不显示该区（无狗/未穿戴）。
     /// </summary>
@@ -151,7 +151,7 @@ public sealed partial class StashPanel : CanvasLayer
     /// 顶部是「背了多少 / 上限多少」，每行一个「扔掉」——负重上限是硬的，想拿新东西就得先舍旧的。
     /// <para>
     /// 🔴 [T45] <b>装备与战利品分开列，并写明这让全队慢了多少</b>。玩家在这个面板上做的决定是"还拿不拿"，
-    /// 而那笔账里有一半（身上的枪与甲）修复前**根本不在账上**——他会以为自己空着手，其实已经背了 17kg。
+    /// 而那笔账里有一半（身上的枪与甲）修复前**根本不在账上**——他会以为自己空着手，其实已经背着装备。
     /// 更要命的是：<b>装备重量是扔不掉的</b>（面板只能扔战利品）⇒ 板甲重装出门的人，余量天生就少一大截，
     /// 这必须在他决定"这桶燃料还是这把枪"之前就摆在脸上。
     /// </para>
@@ -264,7 +264,7 @@ public sealed partial class StashPanel : CanvasLayer
 
     /// <summary>
     /// 弹药分区（批次18）：紧跟「武器」之后——枪的战力现在完全由弹药供给决定，这个数字得和枪摆在一起看。
-    /// 弹药是可堆叠材料，库存里可能散成好几堆，故按弹药类型**合计**成一行（"子弹 ×23"），而非逐堆列出。
+    /// 弹药是可堆叠材料，库存里可能散成好几堆，故按弹药类型**合计**成一行，而非逐堆列出。
     /// 余量为 0 的弹药类型仍然列出（灰字）：让"我打空了"这件事可见，而不是让那一行凭空消失。
     /// </summary>
     private void AddAmmoSection(InventoryStore inventory)
@@ -294,7 +294,7 @@ public sealed partial class StashPanel : CanvasLayer
 
     /// <summary>
     /// 通用材料总览区（造/宰/搜刮攒下的原料余量）：木/布/金属/精密零件/皮/化学/有机杂料/药材八类
-    /// （<see cref="MaterialCategory"/>），逐类合计成一行（"木料 ×12"）。此前库存面板只列成品（武器/护甲/书/食物）
+    /// （<see cref="MaterialCategory"/>），逐类合计成一行。此前库存面板只列成品（武器/护甲/书/食物）
     /// 与弹药，背着一堆铁料木料零件却看不见数量——玩家查材料余量的唯一入口是制作面板逐配方"够/缺"行。
     /// <para>
     /// 刻意排除的三类：<b>弹药</b>（已由 <see cref="AddAmmoSection"/> 单列，枪的战力与弹药得摆一起看）、
@@ -427,7 +427,7 @@ public sealed partial class StashPanel : CanvasLayer
         string desc = item.Description ?? "";
         hbox.MouseEntered += () => _descLabel.Text = desc;
 
-        // 物品图标（32×32）。没配图标/PNG 还没生成的物品显示占位图，行高与对齐都不受影响。
+        // 物品图标。没配图标/PNG 还没生成的物品显示占位图，行高与对齐都不受影响。
         hbox.AddChild(ItemIconTextures.MakeIcon(item));
 
         var nameLabel = new Label();
@@ -443,7 +443,7 @@ public sealed partial class StashPanel : CanvasLayer
             : "";
         nameLabel.Text = $"{item.DisplayName}{suffix}{readTag}";
         nameLabel.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-        nameLabel.CustomMinimumSize = new Vector2(320, 30); // 让出 32px 给图标 + 8px 间距
+        nameLabel.CustomMinimumSize = new Vector2(320, 30); // 给图标与间距留位
         nameLabel.MouseFilter = Control.MouseFilterEnum.Pass;
         nameLabel.MouseEntered += () => _descLabel.Text = desc;
         nameLabel.VerticalAlignment = VerticalAlignment.Center;
@@ -506,7 +506,7 @@ public sealed partial class StashPanel : CanvasLayer
 
     /// <summary>
     /// 「摆放」按钮——玩家能自己往地上摆的东西（沙袋 / 床 / 桌子）。点它进入放置模式，再点地面落位
-    /// （<c>CampMain.CheckFurniturePlacement</c> 校验位置：不许贴大门/围栏的 64px 禁建带）。
+    /// （<c>CampMain.CheckFurniturePlacement</c> 校验位置：不许贴大门/围栏的禁建带）。
     /// <para>
     /// ⚠️ <b>谁能摆，问 <see cref="PlaceableItems"/> 这一张表</b>，别在这儿再硬写一遍 key ——
     /// 那正是**床此前摆不下去**的根因：<c>CampMain.OnStashPlaceRequested</c> 早就接好了床的分支，
@@ -546,13 +546,13 @@ public sealed partial class StashPanel : CanvasLayer
             "找块地方铺下。一张床只睡一个人，躺着的那个夜里不站岗、不生产。\n"
             + "（别贴着围栏和大门摆——墙根下那条道得留着。）",
         TableSpec.ItemKey =>
-            "摆在屋里。贴着它挨远程有 25% 无效——和沙袋一样，只是它进不了院子。\n"
+            $"摆在屋里。贴着它挨远程有 {(int)Math.Round(CoverLogic.DefaultCoverChance * 100)}% 无效——和沙袋一样，只是它进不了院子。\n"
             + "（它不挡路：谁都能跨过去，只是会慢一点。绕到你背后就白摆了，敌人也能蹲它后面。）",
         CropPlotSpec.ItemKey =>
             "翻在院子里（屋里种不出土豆）。摆好后选中角色右键前往下种——种一颗吃 1 土豆，种下就不用管，几个昼夜后回来收。\n"
             + "（别贴着围栏和大门摆——墙根那条道得留着。它不挡路，谁都跨得过去。）",
         TrapSpec.ItemKey =>
-            "支在院子里套老鼠和兔子。白天、夜里各自动查一次网——多摆几个能多抓，但每多一个，新那个的机会都更小（最低 5%）。\n"
+            $"支在院子里套老鼠和兔子。白天、夜里各自动查一次网——多摆几个能多抓，但每多一个，新那个的机会都更小（最低 {(int)Math.Round(TrapLogic.MinChance * 100)}%）。\n"
             + "（别贴着围栏和大门摆——墙根那条道得留着。它不挡路，谁都跨得过去。抓到的老鼠要先上案板，兔子能直接下锅。）",
         BirdTrapSpec.ItemKey =>
             "支在院子里张网捕鸟。白天、夜里各自动查一次网——鸟是羽毛的唯一来源（鸟→宰杀→鸟肉+羽毛→箭）。多摆递减同圈套。\n"

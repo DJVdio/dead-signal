@@ -105,7 +105,7 @@ public sealed partial class CampMain
         var visuals = new List<Node2D>();
         AddOccluderVisual(rect, style, seed: 47 + SeqOfCropPlot(name), height: 4f, cell: 24f, collect: visuals);
 
-        // Body=null：没有碰撞体。进 _furniture ⇒ ① 减速场自动收录（可跨越，×0.75）
+        // Body=null：没有碰撞体。进 _furniture ⇒ ① 减速场自动收录（可跨越，减速值由 Wiki 配置提供）
         // ② Shift+右键走通用家具拆除（按 FurnitureBuildCost["菜园"] 折半返还，见 RemoveFurniture 的 ClearPlot 清计时器）
         // ③ 存档走 CampSave.PlacedFurniture 那条唯一出口。
         _furniture[name] = new FurnitureInstance { Rect = rect, Body = null, Visuals = visuals };
@@ -123,7 +123,7 @@ public sealed partial class CampMain
     /// <summary>
     /// 到达菜园后执行交互（由 <c>CampMain.cs</c> 的 <see cref="ExecuteContainerInteract"/> 一行分发过来）：
     /// <list type="number">
-    /// <item>有熟的 ⇒ <b>收</b>（走 <see cref="CropPlotRuntime.HarvestRipe"/>，50/25/25 出 2/3/1 逐颗掷点、实产入库）。</item>
+    /// <item>有熟的 ⇒ <b>收</b>（走 <see cref="CropPlotRuntime.HarvestRipe"/>；分布与产出以 Wiki 配置表为准）。</item>
     /// <item>否则若能种 ⇒ <b>下种</b>（扣 1 种薯 + 起一条 <c>plant:菜园#N</c> 工时任务，夜间生产满 0.15h 落计时器）。</item>
     /// </list>
     /// </summary>

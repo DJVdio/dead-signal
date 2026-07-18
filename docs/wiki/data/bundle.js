@@ -353,7 +353,8 @@ window.WIKI_BUNDLE = {
     {
       "key": "weight",
       "label": "重量(公斤)",
-      "type": "number"
+      "type": "number",
+      "codeSource": "godot/scripts/ItemDef.cs :: ItemRegistry.Weapons"
     },
     {
       "key": "stockMin",

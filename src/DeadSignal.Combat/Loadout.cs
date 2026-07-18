@@ -3,17 +3,17 @@ namespace DeadSignal.Combat;
 /// <summary>负重分档（用户拍板的三档 + 硬上限）。</summary>
 public enum LoadoutTier
 {
-    /// <summary>&lt; 30kg：无影响，自由行动。</summary>
+    /// <summary>低于 Wiki 配置的免罚线：无影响，自由行动。</summary>
     Unencumbered,
 
-    /// <summary>30 ~ 50kg：轻度 debuff（移速）。</summary>
+    /// <summary>处于 Wiki 配置的轻度区间：受到轻度 debuff。</summary>
     Encumbered,
 
-    /// <summary>50 ~ 80kg：重度 debuff（移速加重 + 开始拖慢出手）。</summary>
+    /// <summary>处于 Wiki 配置的重度区间：移速 debuff 加重并拖慢出手。</summary>
     Strained,
 
     /// <summary>
-    /// &gt; 80kg：**不允许**（硬上限，拾取处直接拦）。
+    /// 超过 Wiki 配置的硬上限：**不允许**（拾取处直接拦）。
     /// 正常玩法不可达；只在**上限中途下降**（关内断手/饿掉一档/狗跑了）时，已背在身上的东西会落进这一档——
     /// 东西不会凭空消失，但你会被拖到几乎走不动。
     /// </summary>
@@ -21,10 +21,10 @@ public enum LoadoutTier
 }
 
 /// <summary>
-/// 负重上限与分档惩罚（纯函数）。**用户口径**：30kg 以下无影响、30~50kg 有 debuff、50~80kg debuff 加重、**不能超过 80kg**。
+/// 负重上限与分档惩罚（纯函数）。具体阈值、曲线与能力乘子以 Wiki 配置表为准。
 /// <para>
 /// [T45] 这本账里装的是**一个人身上的全部重量**：左右手的武器 + 11 槽护甲（消费层 <c>GearWeight</c>）+ 他分摊到的战利品。
-/// 所以"把枪改装得很强"的代价是——**它吃掉你的搜刮余量**（满改装步枪比原厂多占 3.5kg，那就是少搬 3.5kg 货回家）。
+/// 所以"把枪改装得很强"的代价是——**它吃掉你的搜刮余量**（改装后的重量由 Wiki 配置表决定）。
 /// <b>不是"出门就减速"</b>：普通配置出门离免罚线还远得很，是**你搜的东西**把你推过线的。
 /// 见 <see cref="BaseCarryLimitKg"/> 上方的余量表。
 /// </para>
@@ -33,8 +33,8 @@ public enum LoadoutTier
 /// 而不是"超重了慢慢挪"。硬上限才制造取舍；软惩罚负责让"背得多"本身有代价。
 /// </para>
 /// <para>
-/// <b>阈值是上限的比例，不是写死的公斤数</b>（30/80＝<see cref="FreeRatio"/>、50/80＝<see cref="StrainRatio"/>）：
-/// 这样任何抬高上限的乘子（山姆的 ×1.15、全营 ×1.03）都会把**三档整体上浮**，而不只是把终点线往后挪——
+/// <b>阈值是上限的比例，不是写死的公斤数</b>（见 <see cref="FreeRatio"/> 与 <see cref="StrainRatio"/>）：
+/// 这样任何抬高上限的乘子都会把**三档整体上浮**，而不只是把终点线往后挪——
 /// 他"从小帮祖母打理农庄"体现在每一档都比别人扛得住。反过来，残缺/饥饿把上限乘小，三档也一起收紧。
 /// </para>
 /// 本项目**没有"力量/体力"属性**（铁律：能力只由 authored 专属效果 + 读过的书承载），故 <see cref="CarryLimit"/>
@@ -42,123 +42,61 @@ public enum LoadoutTier
 /// </summary>
 public static class Loadout
 {
-    // ---- 用户拍板的三个公斤数（基准人：无残缺、不饿、无专属加成）----
-    //
-    // 🔴 [T45·负重激活] **装备（武器 + 护甲）现在计入这本账**（此前只算搜刮来的战利品，出门是空包 ⇒ 负重恒 0kg）。
-    //     三条线**保持 30/50/80 不动** —— 用户拍板。
-    //
-    // ⚠️ 曾经有人（我）提议把三条线随"装备进账"整体减半（30/50/80 → 15/25/40），理由是"账的口径变了"。
-    //    **用户否掉了，而且他是对的。** 用户原话：
-    //      「**不改啊，就应当是 30/50/80。带装备出门，随便搜点就超 30 了。如果全身重甲+重武器（单板甲就 15 了），
-    //        那出门就差不多 30 了，能搜的空间会很小。**」
-    //
-    // 🔴 **负重的代价不是"出门就减速"，而是「装备把你的搜刮余量吃掉了」。** 这是本系统的设计核心，别搞反：
-    //
-    //   [carryweight2·枪械翻倍后重推] 步枪 4→7.5 / 狙击 6→9（自制猎枪 3→7.5 / 霰弹 3.2→6 / 弩/重剑同批）：
-    //   配置                              出门实重   免罚余量(到30)   硬余量(到80)   搬得空住宅区(66kg)吗
-    //   开局(匕首+布衣+长裤+鞋)             1.30kg      28.7kg          78.7kg        ✅ 轻松
-    //   中期(步枪7.5+皮甲+军用头盔)         17.30kg      12.7kg          62.7kg        ❌ 留 3.3kg 在原地
-    //   中期 + 满改装步枪(7.5→15.19)        24.99kg       5.0kg          55.0kg        ❌ 留 11.0kg 在原地
-    //   重装(狙击9+板甲+防暴头盔)           29.90kg       0.1kg          50.1kg        ❌ 留 15.9kg 在原地
-    //   重装 + 满改装狙击(9→18.23)          39.13kg      −9.1kg(越线!)    40.9kg        ❌ 留 25.1kg 在原地
-    //
-    // 读法（每一行都是用户那句话的一个侧面）：
-    // · **普通中期配置(17.3kg)出门仍不罚**（远在 30kg 线下）——"普通配置出门不罚"不变量在翻倍后照样成立。
-    // · 重装出门 **29.9kg ≈ 30**（用户原话"全身重甲+重武器那出门就差不多 30 了"的字面兑现），余量只剩 0.1kg
-    //   ⇒ **搜一根木料就掉进负重档**。这就是用户说的"能搜的空间会很小"。
-    // · 枪械翻倍的直接后果：**连原厂中期步枪都搬不空最大点位了**（旧 4.0kg 时刚好搬得空，翻倍后留 3.3kg）——
-    //   "重武器出门余量更小"正是本轮翻倍的意图；满改装(+7.69kg)只是把这个差距再拉大。
-    // · **只有极端配置(重装+满改装狙击 39.13kg)出门即 debuff**——贪重装又贪满改装，就得接受一出门就慢，
-    //   这也在用户意图之内（"把枪改装得很强，但一出门就吃余量/进 debuff"）。
-    //
-    // ⇒ 「**要么带甲、要么带货**」这个取舍照样成立，而且是通过**余量**实现的，不是"出门即罚"——
-    //    这比出门就减速更好：**它把选择权留给玩家**。
-    //
-    // 三条线不动还有一个结构性好处：轻度档(30~50)与重度档(50~80)的宽度不变 ⇒
-    // 「重度档每公斤更陡」的既有护栏（`MechanicsTests.HeavyTierIsSteeperThanLightTier`）自然成立，无需迁就。
-    //
-    // 装备重量的实测见 `CarryLoadWiringTests`（全部由 ArmorTable/ItemWeights 复算，不写死）；
-    // 满改装武器的实重**权威在 `WeaponModCatalog`**（impl-weaponmod 所有），上表是快照。
+    // 装备、武器改装与负重阈值均由 Wiki/消费层配置提供；本类只保留分档计算规则。
 
-    /// <summary>硬上限：**不能超过 80kg**（用户原话）。装备也算在里面 —— 穿得越重，能搬回来的越少。</summary>
+    /// <summary>硬上限：不能超过 Wiki 配置的上限。装备也算在里面。</summary>
     public const double BaseCarryLimitKg = 80.0;
 
     /// <summary>
-    /// 无影响线：30kg 以下自由行动。
-    /// [T45] 装备进账后，这条线的意义变了——它不再是"你搜了多少"，而是"**装备之外你还能搜多少**"：
-    /// 板甲重装出门 26.9kg，离这条线只剩 3.1kg ⇒ 搜两根木料就越线。
+    /// 无影响线：低于 Wiki 配置的免罚阈值自由行动。
     /// </summary>
     public const double FreeThresholdKg = 30.0;
 
-    /// <summary>加重线：50kg 起 debuff 加重。</summary>
+    /// <summary>加重线：达到 Wiki 配置的重度阈值后 debuff 加重。</summary>
     public const double StrainThresholdKg = 50.0;
 
     // ---- 比例化（随上限乘子整体伸缩）----
 
-    /// <summary>无影响线占上限的比例（30/80 = 0.375）。</summary>
+    /// <summary>无影响线占上限的比例，按当前配置推导。</summary>
     public const double FreeRatio = FreeThresholdKg / BaseCarryLimitKg;
 
-    /// <summary>加重线占上限的比例（50/80 = 0.625）。</summary>
+    /// <summary>加重线占上限的比例，按当前配置推导。</summary>
     public const double StrainRatio = StrainThresholdKg / BaseCarryLimitKg;
 
-    // ---- debuff 曲线：🔴 **用户拍板的四个数，不是"拟定待调"** ----
-    //
-    // 用户原话：「**惩罚我目前预想的是：50kg 减少 20% 移动速度和攻击速度；80kg 减少 80% 移动速度和 50% 攻击速度；
-    //             30-50，50-80 线性变化**」
-    //
-    //   负重      移速乘子   攻速乘子
-    //   ≤30kg      1.00       1.00      ← 平坦，无惩罚
-    //   50kg       0.80       0.80      ← 两条一起 −20%
-    //   80kg       0.20       0.50      ← 移速只剩两成（**走不动了**）；攻速腰斩
-    //   30→50      线性        线性
-    //   50→80      线性        线性
-    //
-    // 🔴 **移速在满载时掉到 0.20 是有意的**（贪多 ⇒ 基本走不动 ⇒ 被丧尸追上）。别当笔误"修"回 0.5。
-    //
-    // 🔴 **攻速现在从 30kg 就开始罚**（旧口径是"轻度档不罚攻速、背 30kg 挥剑没影响"，**用户已推翻**）。
-    //
-    // 两档的每公斤梯度（这是理解这条曲线的关键）：
-    //   移速：轻档 20%/20kg = **1.0%/kg** → 重档 60%/30kg = **2.0%/kg**（**加速恶化**）
-    //   攻速：轻档 20%/20kg = **1.0%/kg** → 重档 30%/30kg = **1.0%/kg**（**两档等陡**）
-    // ⇒ **负重压垮的首先是你的腿，不是你的手**：越重，走路的恶化越快，而挥刀的恶化是匀速的。
-    //   故既有护栏 `HeavyTierIsSteeperThanLightTier`（只断言移速）**照样成立**：2.0 > 1.0。
-    //   若日后有人把那条护栏推广到攻速，请用"重档 ≥ 轻档"（非严格）——**不许为了让护栏绿去动这四个数**。
+    // ---- debuff 曲线：分段线性关系由 Wiki 配置表决定 ----
 
-    /// <summary>轻度档末（＝加重线，基准人 50kg）的移速乘子：**−20%**，负重行军，累但还跑得动。</summary>
+    /// <summary>轻度档末的移速乘子，具体值见 Wiki 配置表。</summary>
     public const double SpeedAtStrain = 0.80;
 
     /// <summary>
-    /// 重度档末（＝满上限，基准人 80kg）的移速乘子：**−80%，只剩两成速度**。
-    /// 走得动，但**逃不掉**——贪心的代价（用户拍板，有意的极重惩罚）。
+    /// 重度档末的移速乘子，具体值见 Wiki 配置表。
     /// </summary>
     public const double SpeedAtLimit = 0.20;
 
     /// <summary>
-    /// 轻度档末（＝加重线，基准人 50kg）的出手间隔乘子：**−20%**（与移速同步）。
-    /// ⚠️ 旧口径「轻度档不罚攻速」**已被用户推翻**——攻速从免罚线（30kg）起就开始线性掉。
+    /// 轻度档末的出手间隔乘子，具体值见 Wiki 配置表。
     /// </summary>
     public const double AttackSpeedAtStrain = 0.80;
 
-    /// <summary>重度档末（＝满上限，基准人 80kg）的出手间隔乘子：**−50%，攻速腰斩**。</summary>
+    /// <summary>重度档末的出手间隔乘子，具体值见 Wiki 配置表。</summary>
     public const double AttackSpeedAtLimit = 0.50;
 
-    /// <summary>超上限（正常不可达）每超 100% 额外扣的移速斜率（陡峭）。</summary>
+    /// <summary>超上限后的额外移速斜率，具体值见 Wiki 配置表。</summary>
     public const double OverloadSlope = 0.80;
 
-    /// <summary>速度乘子下限（再重也不至于完全钉死在地上）。</summary>
+    /// <summary>速度乘子下限，具体值见 Wiki 配置表。</summary>
     public const double MinMultiplier = 0.10;
 
     /// <summary>
     /// 一个人的负重上限（kg）＝ <see cref="BaseCarryLimitKg"/> × 承载能力 × authored 专属乘子。
     /// </summary>
     /// <param name="carryCapability">
-    /// 承载能力 0~1：断手/饿肚子背不动。消费层直接喂 <c>Pawn.OperationCapability</c>
+    /// 承载能力：断手/饿肚子背不动。消费层直接喂 <c>Pawn.OperationCapability</c>
     /// （＝<c>HungerState.CombineCapability(残疾操作惩罚, 饥饿惩罚)</c>，与战斗出手间隔同源口径），不另造一套数学。
     /// 用户只拍了三档公斤数、没提残缺——按**乘算通则**接在这里：断一只手 → 上限（连同三档阈值）对折。
     /// </param>
     /// <param name="capacityMultiplier">
-    /// authored 专属效果乘子（默认 1.0＝无加成）。现阶段唯一来源是**山姆"英雄风范"**：
-    /// L2 他自己 ×1.15、L3 全营 ×1.03，山姆本人两者**连乘** ×1.15×1.03（≠ 加算的 ×1.18）。
+    /// authored 专属效果乘子（默认值代表无加成）。具体角色效果见 Wiki 配置表。
     /// 负数按 0 钳制。
     /// </param>
     public static double CarryLimit(double carryCapability = 1.0, double capacityMultiplier = 1.0)
@@ -192,8 +130,7 @@ public static class Loadout
 
     /// <summary>
     /// 移速乘子（1.0 = 无惩罚）。
-    /// &lt;30kg: 1.0；30~50kg: 线性降到 <see cref="SpeedAtStrain"/>；50~80kg: 更陡地降到 <see cref="SpeedAtLimit"/>；
-    /// &gt;80kg（硬上限外，仅上限中途下降时可达）：以 <see cref="OverloadSlope"/> 陡降，下限 <see cref="MinMultiplier"/>。
+    /// 按 Wiki 配置的免罚线、轻度区间、重度区间与超限斜率计算。
     /// </summary>
     public static double SpeedMultiplier(double totalWeight, double carryLimit)
     {
@@ -221,13 +158,10 @@ public static class Loadout
     }
 
     /// <summary>
-    /// 出手间隔乘子（1.0 = 无惩罚，&lt;1 = 攻速变慢）。**与移速同构的两段线性**（用户拍板）：
-    /// &lt;30kg: 1.0；30~50kg: 线性降到 <see cref="AttackSpeedAtStrain"/>（0.80）；
-    /// 50~80kg: 线性降到 <see cref="AttackSpeedAtLimit"/>（0.50，**攻速腰斩**）。
+    /// 出手间隔乘子（低于基线代表攻速变慢）。按 Wiki 配置的两段线性曲线计算。
     /// <para>
-    /// ⚠️ **旧口径「只有重度档才罚攻速、背 30kg 挥剑没什么影响」已被用户推翻**：
-    /// 现在攻速和移速一样，从免罚线（30kg）起就开始掉。
-    /// 但两者的**恶化速度不同**——移速 1%/kg → 2%/kg（加速），攻速恒 1%/kg（匀速）：
+    /// ⚠️ **旧口径「只有重度档才罚攻速」已被用户推翻**：
+    /// 现在攻速和移速一样，从免罚线起就开始掉；两者的恶化速度由 Wiki 配置决定：
     /// <b>负重压垮的首先是你的腿，不是你的手</b>。
     /// </para>
     /// <para>
