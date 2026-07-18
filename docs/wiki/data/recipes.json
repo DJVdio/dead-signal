@@ -65,7 +65,8 @@
         "皮革": "leather",
         "碎皮革": "leather_scrap",
         "生皮": "rawhide",
-        "鞣制药水": "tanning_solution"
+        "鞣制药水": "tanning_solution",
+        "损坏的狙击枪": "damaged_sniper_rifle"
       },
       "hint": "格式：木料*2、布*1"
     },
@@ -262,6 +263,28 @@
       "userNote": "",
       "sync": "",
       "_icon": "furniture/chair"
+    },
+    {
+      "name": "沙发",
+      "category": "木工",
+      "productType": "家具与设施",
+      "group": "家具与设施",
+      "output": "sofa",
+      "outputQty": 1,
+      "materials": "木料*8、布*6、钉子*4",
+      "tools": "锯片",
+      "craftLocation": "工作台（锯片）",
+      "books": "《进阶木匠技术》",
+      "workMinutes": 240,
+      "crafterGate": "",
+      "_id": "sofa",
+      "_configId": "sofa",
+      "_crafterGateIds": "",
+      "_anchor": "godot/scripts/Recipe.cs :: RecipeBook（Id = \"sofa\"）",
+      "description": "",
+      "userNote": "",
+      "sync": "",
+      "_icon": "furniture/sofa"
     },
     {
       "name": "床",
@@ -1450,6 +1473,28 @@
       "userNote": "",
       "sync": "",
       "_icon": "armor/snow_boots"
+    },
+    {
+      "name": "狙击枪",
+      "category": "精工/弓弩",
+      "productType": "武器",
+      "group": "武器",
+      "output": "repair_sniper_rifle",
+      "outputQty": 1,
+      "materials": "损坏的狙击枪*1、武器零件*3",
+      "tools": "卡尺",
+      "craftLocation": "工作台（卡尺）",
+      "books": "《枪械维修指南》",
+      "workMinutes": 240,
+      "crafterGate": "",
+      "_id": "repair_sniper_rifle",
+      "_configId": "repair_sniper_rifle",
+      "_crafterGateIds": "",
+      "_anchor": "godot/scripts/Recipe.cs :: RecipeBook（Id = \"repair_sniper_rifle\"）",
+      "description": "",
+      "userNote": "",
+      "sync": "",
+      "_icon": "weapons/sniper_rifle"
     }
   ]
 }

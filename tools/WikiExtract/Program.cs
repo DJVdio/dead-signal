@@ -1558,6 +1558,8 @@ internal static class Program
             new("kind", "类型", "chip", Hint: "手持的占一只手；固定的钉在营地里"),
             new("intensity", "亮度", "percent", Hint: "照亮自己，也照亮别人眼里的你。"),
             new("radius", "照亮半径(像素)", "number"),
+            new("fuelKind", "消耗类型", "chip", Hint: "固定光源无限；手电吃电池；火把按燃烧耐久耗尽。"),
+            new("activeSeconds", "可用时长(游戏秒)", "number", Hint: "手持光源从满格到耗尽的游戏秒；固定光源为 0（无限）。"),
             new("description", "说明", "longtext"),
             new("_id", "内部 id", Internal: true),
             new("_anchor", "代码位置", Internal: true),
@@ -1572,6 +1574,13 @@ internal static class Program
                 ["kind"] = p.Kind == LightKind.Handheld ? "手持" : "固定",
                 ["intensity"] = p.Intensity,
                 ["radius"] = p.Radius,
+                ["fuelKind"] = p.FuelKind switch
+                {
+                    LightFuelKind.Battery => "电池",
+                    LightFuelKind.Durability => "耐久",
+                    _ => "无限",
+                },
+                ["activeSeconds"] = p.ActiveSeconds,
                 ["description"] = p.Description,
                 ["_id"] = p.Key,
                 ["_anchor"] = "godot/scripts/LightSource.cs :: LightSource",

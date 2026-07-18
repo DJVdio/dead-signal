@@ -131,6 +131,12 @@ public static class RecipeBook
     public const string PeakHourThreeBookId = BookLibrary.PeakHourThreeId;
 
     /// <summary>
+    /// [wiki-character-sync]《枪械维修指南》书 id（对齐 <see cref="BookLibrary.GunsmithRepairGuideId"/>）
+    /// ——神秘商人货源，与损坏的狙击枪互斥刷新。读完解锁狙击枪修复配方。
+    /// </summary>
+    public const string GunsmithRepairGuideBookId = BookLibrary.GunsmithRepairGuideId;
+
+    /// <summary>
     /// 《弓与箭之道》书 id（对齐 <see cref="BookLibrary.WayOfBowAndArrowId"/>）。<b>只能搜刮</b>（<c>ExplorationCache</c>）。
     /// <para>
     /// <b>解锁：自制箭</b>（[SPEC-B21·T26] 用户拍板 —— 此前本书<b>一条配方都不解锁</b>，只有被动）。
@@ -254,6 +260,11 @@ public static class RecipeBook
 
         // 椅子：锯片类木工 + 读过《木匠入门》解锁（用户拍板：木椅/自制弓也要读木工书）。
         R("chair", "木椅", RecipeCategory.Woodwork, "chair", Tools(ToolSlot.SawBlade), Books(CarpentryBasicsBookId)),
+
+        // 沙发（高级椅）：木椅的升级档。用户已拍板坐在沙发上读书读速×1.12、恢复速度×1.09；
+        // 解锁挂《进阶木匠技术》（Wiki 书籍表已有“解锁沙发”），仍需锯片。具体成本/工时在 recipes.json。
+        R(SofaSpec.RecipeId, "沙发", RecipeCategory.Woodwork, SofaSpec.ItemKey,
+            Tools(ToolSlot.SawBlade), Books(AdvancedCarpentryBookId)),
 
         // ── [批次21·impl-bedrest] 床：养病的物质基础 ──
         // 开局只有 2 张（camp.json 的 床#1/床#2），**第三张起要自己造**。床位稀缺是有意的：
@@ -568,7 +579,7 @@ public static class RecipeBook
         // 用户在《野外生存指南》的「效果」列里点了它的名，但**没说它是什么、干什么用**。
         // 落地取**最保守的那一种**：一件占「面部」槽的护甲（骨与皮缝的面罩，护鼻与下巴，不遮眼——你还得看得见）。
         // **刻意不发明玩法效果**（"吓退丧尸"一类本作没有这个机制，不凭空造）。数值拟定待调。
-        // 若用户想要的是别的东西（图腾/仪式道具/士气物），改这一条 + ArmorTable.WarMask() 即可，其余不动。
+        // 若用户想要的是别的东西（图腾/仪式道具），改这一条 + ArmorTable.WarMask() 即可，其余不动。
         R("war_mask", "战争面具", RecipeCategory.Misc, "war_mask", Tools(), Books(WildernessSurvivalGuideBookId)),
 
         // ══════════════ [批次21·T26] 粗布衬衫 / 短裤 / 长裤（《裁缝手记》）══════════════
@@ -702,6 +713,15 @@ public static class RecipeBook
 
         // Wiki 新增：尖峰时刻·三解锁的雪地靴。
         R("snow_boots", "雪地靴", RecipeCategory.Misc, "snow_boots", Tools(), Books(PeakHourThreeBookId)),
+
+        // ══════════════ [wiki-character-sync] 狙击枪修复（读《枪械维修指南》+ 损坏的狙击枪 + 武器零件）══════════════
+        // 产出：完好的狙击枪（Item.Weapon("狙击枪")，同 WeaponTable.SniperRifle）。
+        // 材料：损坏的狙击枪 1（神秘商人货源）+ 武器零件 3（修理精密的枪机/扳机/瞄具需要零件；[DECISION] 材料数值待用户确认）。
+        // 工具：卡尺精工（修枪机需要找基准面和对准，同自制猎枪/弩的精工活）。
+        // 书：《枪械维修指南》解锁（神秘商人货源）。
+        // 工时 240 分（对标自制猎枪的工时——修一支精密枪不比造一支土枪省事）。
+        R("repair_sniper_rifle", "狙击枪", RecipeCategory.Precision, "repair_sniper_rifle",
+            Tools(ToolSlot.Calipers), Books(GunsmithRepairGuideBookId)),
     };
 
     private static readonly IReadOnlyDictionary<string, RecipeData> _byId = ToMap(_all);

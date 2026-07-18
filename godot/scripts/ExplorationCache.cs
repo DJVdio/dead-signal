@@ -701,11 +701,18 @@ public static class ExplorationCache
     public const string GangSmgName = "冲锋枪";
 
     /// <summary>
+    /// [wiki-character-sync] 金手指帮军械柜的固定狙击枪入口已移除：狙击枪从军械柜撤走，
+    /// 改为神秘商人独家货源体系（损坏的狙击枪 +《枪械维修指南》互斥刷新 + 配方修复）。
+    /// 军械柜原有坑位由弹药量上调填补。GangSniperRifleName 常量已退役，保留墓碑防止复活。
+    /// </summary>
+    // public const string GangSniperRifleName = "狙击枪"; // 已退役 [wiki-character-sync]，墓碑防复活
+
+    /// <summary>
     /// 金手指帮**修械台**上的两把手枪，须与 <c>WeaponTable.Pistol().Name</c> 一致。
     /// <para>
     /// 🔴 [T57·用户拍板] 这两把枪**原本长在守备手上**（2 手枪 + 2 短剑 + 4 匕首）。这一关被重排到**中期**之后，
     /// 实测发现持手枪的守备让中期玩家"潜行清哨赢了、但全队残废"（全身而退仅 2%、平均 3.26 处永久残缺）
-    /// ⇒ 用户拍板把手枪从守备手里全撤（现 4 短剑 + 4 匕首，见 <see cref="GoldfingerGang.Roster"/>）。
+    /// ⇒ 用户拍板把手枪从守备手里全撤（当前 2 短剑 + 2 匕首，见 <see cref="GoldfingerGang.Roster"/>）。
     /// <b>但枪没有从这一关消失</b> —— 它们躺在这张台子上：「弹药打光了，空枪扔回枪械台，抄起短剑守着」。
     /// 玩家照样捡得到枪，只是从"尸体上扒"变成"柜子里翻"，「中期拿到枪、但打不起」的张力一格不丢。
     /// </para>
@@ -3263,7 +3270,7 @@ public static class ExplorationCache
     private const string GoldfingerFuelStashTitle = "油料桶";
     private const string GoldfingerFuelStashNarrative = "帮派囤的油料桶排在墙边，晃一晃还满，接出两桶柴油，旁边缠着几卷电线。";
     private const string GoldfingerArmoryTitle = "军械柜";
-    private const string GoldfingerArmoryNarrative = "打到根据地深处，帮派的军械柜就锁在这——撬开柜门，一支还能打的冲锋枪斜靠在里头，底下压着复装火药和几个枪械零件。这是拿命换来的。";
+    private const string GoldfingerArmoryNarrative = "打到根据地深处，帮派的军械柜就锁在这——撬开柜门，一支冲锋枪斜靠在里头，底下压着复装火药、几盒长子弹和几个枪械零件。枪是好枪，可惜缺一支撑得住的狙击镜。这是拿命换来的。";
     private const string GoldfingerBossSafeTitle = "头目保险柜";
     private const string GoldfingerBossSafeNarrative = "头目屋里那口老保险柜被人尝试撬过没成，这回连柜带砸——里头码着一小摞白银硬通货和几个精密零件，是帮派的家底。";
     private const string GoldfingerSilverCacheTitle = "银库暗格";

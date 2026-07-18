@@ -218,6 +218,17 @@ public class MaterialsTests
                 }
             }
         }
+
+        // 神秘商人的货架也是合法获取途径。损坏的狙击枪与维修指南互斥刷新，
+        // 因此用两个确定随机值覆盖两种变体，避免把商人独家材料误报成死材料。
+        foreach (double roll in new[] { 0.0, 1.5 })
+        {
+            MerchantShelf shelf = MerchantShelf.Default(new SequenceRandomSource(roll));
+            foreach (MerchantOffer offer in shelf.Offers.Where(o => o.Good.Category == ItemCategory.Material))
+            {
+                obtainable.Add(offer.Good.RefKey);
+            }
+        }
         foreach (StructureTier tier in Enum.GetValues<StructureTier>().Where(SalvageLogic.CanSalvageStructure))
         {
             foreach (string key in SalvageLogic.YieldOfStructure(tier).Keys)

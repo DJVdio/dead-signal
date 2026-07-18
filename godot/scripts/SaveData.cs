@@ -379,6 +379,9 @@ public sealed class PawnSave
     public int RestPhases { get; set; }
     public int RestRestPhases { get; set; }
     public int RestBedPhases { get; set; }
+
+    /// <summary>断肢时回到本人背包的装备（暂存，死者尸体可搜出）。旧档缺此字段→空列表。</summary>
+    public List<LootItem> SeveredBackpack { get; set; } = new();
 }
 
 /// <summary>一条伤病/感染。不变量走构造器，进度是可变量。</summary>
@@ -425,11 +428,12 @@ public sealed class LoadoutSave
     public bool RightHandLost { get; set; }
 }
 
-/// <summary>手持光源：光源键 + 占了哪只手。</summary>
+/// <summary>手持光源：光源键 + 占了哪只手 + 剩余电池/燃烧耐久（旧档缺字段时按满格兼容）。</summary>
 public sealed class HeldLightSave
 {
     public string LightKey { get; set; } = "";
     public Hand Hand { get; set; }
+    public double? RemainingSeconds { get; set; }
 }
 
 /// <summary>

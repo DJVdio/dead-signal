@@ -164,6 +164,13 @@ public abstract partial class Actor : CharacterBody2D
     public virtual IReadOnlyList<Weapon> HeldWeapons =>
         AttackWeapon is null ? Array.Empty<Weapon>() : new[] { AttackWeapon };
 
+    /// <summary>
+    /// 断肢后回到本人背包的装备（暂存，死者尸体可搜出）。
+    /// 基类恒空——丧尸/劫掠者/狗无背包概念，断肢掉落仍走地面容器兜底。
+    /// Pawn 覆写返回实例级追踪列表。
+    /// </summary>
+    public virtual IReadOnlyList<LootItem> SeveredBackpackItems => Array.Empty<LootItem>();
+
     private double _attackTimer;
 
     /// <summary>震荡硬打断剩余时长（秒）；&gt;0 时不能出手、移速×ConcussionMoveSlowFactor。见 <see cref="ReceiveAttack"/>。</summary>
@@ -201,6 +208,10 @@ public abstract partial class Actor : CharacterBody2D
     // ---- 指令目标 ----
     private Vector2? _moveTarget;
     private Actor? _attackTarget;
+
+    // 探索潜行状态：敌方一旦通过本 Actor 的感知链看见/嗅到它，或它主动打出一次攻击，
+    // 就视为破隐。生命周期内不自动复位，避免同一场遭遇重复获得 Rat L3 先手。
+    private bool _detectedByHostile;
 
     /// <summary>
     /// 防走A：自上次进入稳定攻击（在射程内停下开打）以来是否移动过——玩家给移动令、或实际位移逼近目标都算。
@@ -277,6 +288,11 @@ public abstract partial class Actor : CharacterBody2D
         _agent.VelocityComputed += OnVelocityComputed;
 
         ApplyFactionCollision();
+
+        // Body.Sever 会在战斗/医疗两条路径统一发出被移除部位；装备消费层在这里挂一次，
+        // 断肢时立即把手上武器/肢体穿戴物转成当前空间的可搜刮落点。重复挂载由
+        // WireEquipmentDrop 自身幂等，读档只恢复 Body/装备快照，不会重放旧掉落。
+        WireEquipmentDrop();
 
         OnReady();
     }
@@ -776,12 +792,12 @@ public abstract partial class Actor : CharacterBody2D
             // 实扣弹药：按攻击消耗扣除；多弹丸数量不重复乘弹药消耗，具体口径以 Wiki 配置为准。
             // 扣的是 ammoKey——弓/弩扣的是**选中那种箭**的具体键，而非它的类别键（库存里没有类别键那种东西）。
             SpendAmmo(shot, ammoKey, rounds);
-            FireProjectile(target, rounds, shot, ammoKey);
+            FireProjectile(target, rounds, shot, ammoKey, AttackDamageMultiplier(target, weapon));
         }
         else
         {
             // 贴脸枪托 / 空枪抡棍 / 本就近战武器：必中近战结算（枪托为上面派生的 MeleeProfile，不吃弹药）。
-            target.ReceiveAttack(this, weapon, Combat);
+            target.ReceiveAttack(this, weapon, Combat, AttackDamageMultiplier(target, weapon));
 
             // 近战噪音（用户拍板：近战「会有一定的噪音」）：挥砍、闷响、扭打——砍人不是哑剧。
             // 半径按武器走（匕首 90 最静 … 破甲锤 155 最响），一律 **> 弓弩(≤70)**：这正是弓存在的意义,
@@ -901,13 +917,13 @@ public abstract partial class Actor : CharacterBody2D
         }
     }
 
-    private void FireProjectile(Actor target, int rounds, Weapon weapon, string ammoKey)
+    private void FireProjectile(Actor target, int rounds, Weapon weapon, string ammoKey, double damageFactor = 1.0)
     {
         // 一次"射击"= rounds 发（= BurstCount 被余弹夹紧后的实发数，默认 1）。首发立即打出，
         // 其余 BurstInterval 间隔后逐发补上。每发独立锥采样、独立重新瞄准目标当前位置（连发跟枪）。
         // 冷却在 TryAttack 已含连发跨度；弹药亦已在 TryAttack 一次性扣清。
         // weapon = 有效武器（弓弩为「弓 ⊗ 箭」），在此捕获，避免连发途中换枪/换箭串味。
-        FireOneRound(target, weapon, ammoKey);
+        FireOneRound(target, weapon, ammoKey, damageFactor);
 
         int burst = System.Math.Max(1, rounds);
         if (burst <= 1)
@@ -927,13 +943,13 @@ public abstract partial class Actor : CharacterBody2D
                     return;
                 }
 
-                FireOneRound(target, weapon, ammoKey);
+                FireOneRound(target, weapon, ammoKey, damageFactor);
             };
         }
     }
 
     /// <param name="ammoKey">本发打出去的弹药具体键（弓弩＝选中那种箭）。传给弹丸供**箭矢回收**判定；枪弹一次性，用不上。</param>
-    private void FireOneRound(Actor target, Weapon weapon, string ammoKey)
+    private void FireOneRound(Actor target, Weapon weapon, string ammoKey, double damageFactor = 1.0)
     {
         Vector2 toTarget = target.GlobalPosition - GlobalPosition;
         if (toTarget == Vector2.Zero)
@@ -965,7 +981,7 @@ public abstract partial class Actor : CharacterBody2D
             double shotDeg = Combat.SampleShotDirectionDegrees(aimDeg, spread);
             Vector2 dir = Vector2.FromAngle(Mathf.DegToRad((float)shotDeg));
             Projectile.Spawn(GetParent(), GlobalPosition + dir * (Radius + 2f), dir,
-                maxDist, weapon, Combat, this, _postRangeMultiplier, ammoKey);
+                maxDist, weapon, Combat, this, _postRangeMultiplier, ammoKey, damageFactor);
         }
 
         // 开火噪音：这一枪（或这一箭）响了，半径内闲着的敌人会过来看看。近战/无声武器 NoiseRadius=0 → 直接返回。
@@ -995,6 +1011,26 @@ public abstract partial class Actor : CharacterBody2D
     /// </para>
     /// </summary>
     protected virtual double ActionNoiseScale => 1.0;
+
+    /// <summary>
+    /// 攻方伤害倍率入口。基类保持中性值；耗子 L3 在 Pawn 消费层按“未被敌方感知”时覆写。
+    /// 该入口只存在 Godot 实时层，不进入 CombatResolver/Sim 的既有结算路径。
+    /// </summary>
+    protected virtual double AttackDamageMultiplier(Actor target, Weapon weapon) => 1.0;
+
+    /// <summary>目标当前是否已被敌方感知/主动攻击破隐。</summary>
+    public bool IsDetectedByHostile => _detectedByHostile;
+
+    /// <summary>由感知链或攻击消费点调用，幂等地标记本 Actor 已破隐。</summary>
+    protected void MarkStealthBroken() => _detectedByHostile = true;
+
+    private void MarkDetectedBy(Actor observer)
+    {
+        if (Factions.IsHostile(observer.Faction, Faction))
+        {
+            _detectedByHostile = true;
+        }
+    }
 
     /// <summary>
     /// **通用噪音事件**：在本单位位置发出一次半径为 <paramref name="radius"/> 的噪音。半径内、
@@ -1052,6 +1088,8 @@ public abstract partial class Actor : CharacterBody2D
         }
 
         Vector2 origin = GlobalPosition;
+        // 先发给表现层：可视化不改变下面的听声判定，也不因无 listener 而丢失。
+        NoiseCueOverlay.Emit(this, origin, radius, kind, source);
         foreach (Node n in parent.GetChildren())
         {
             if (n is not Actor listener || listener == this)
@@ -1675,8 +1713,19 @@ public abstract partial class Actor : CharacterBody2D
             return cone;
         }
         float mult = VisionLogic.ExposureRangeMultiplier(ambient, carried);
-        return new VisionLogic.VisionCone(cone.Range * mult, cone.HalfAngleDeg);
+        double targetStealth = target.DetectionRangeMultiplier(ambient);
+        return new VisionLogic.VisionCone(cone.Range * mult * (float)targetStealth, cone.HalfAngleDeg);
     }
+
+    /// <summary>目标侧的实时潜行视距倍率；普通 Actor 恒为 1。</summary>
+    protected virtual double DetectionRangeMultiplier(float ambientLight) => 1.0;
+
+    /// <summary>
+    /// 当前 Actor 的半身掩体系数 [0,1]：0=无掩体（开阔地），1=完全遮蔽。
+    /// 基类恒 0（零回归——非 Pawn Actor 不消费掩体潜行效果）。
+    /// <see cref="Pawn"/> 覆写为从 <see cref="Covers"/> 场查询紧贴掩体。
+    /// </summary>
+    protected virtual double CoverCoefficient => 0.0;
 
     /// <summary>
     /// 锥形+光照+遮挡感知：从候选中挑本单位当前**能真正看见**的最近者。候选筛选（阵营/存活）由调用方在传入前完成。
@@ -1714,6 +1763,7 @@ public abstract partial class Actor : CharacterBody2D
             {
                 bestDist = d;
                 best = c;
+                c.MarkDetectedBy(this);
             }
         }
         return best;
@@ -1735,7 +1785,12 @@ public abstract partial class Actor : CharacterBody2D
         {
             return false; // 视锥外且嗅觉外 → 免 raycast
         }
-        return !SightBlocked(GlobalPosition, target.GlobalPosition); // 墙隔断=同房间外，视线与气味皆断
+        bool visible = !SightBlocked(GlobalPosition, target.GlobalPosition); // 墙隔断=同房间外，视线与气味皆断
+        if (visible)
+        {
+            target.MarkDetectedBy(this);
+        }
+        return visible;
     }
 
     /// <summary>感知节流闸：每 <see cref="PerceiveInterval"/> 放行一次重算（返回 true）；其间返回 false（维持现指令）。</summary>

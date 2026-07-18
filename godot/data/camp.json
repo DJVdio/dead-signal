@@ -286,7 +286,7 @@
     }
   ],
 
-  "_rubbleComment": "开局营地废墟（批次9，参考《这是我的战争》开局挖废墟）：营地内数处坍塌瓦砾堆，玩家选中幸存者→右键前往开挖，逐分钟挖满工时(workMinutes)→翻出基础材料(drops，同 props.loot 结构，主要木/碎金属/布，量级拟定待调)→该处永久清空、显露空地(移碰撞+视觉+重烘焙导航)。分布刻意撒向营地四角(西南/东南/东北/中庭)引导玩家走遍营地熟悉布局(西北被住宅占)。eggSlot=true 的处埋彩蛋位(内容 authored 待用户，当前仅出普通 drops)。坐标/工时/产出全为拟定待调占位。CampMain 读入建 RubbleField + 可点击容器(role=rubble)。",
+  "_rubbleComment": "开局营地废墟（批次9，参考《这是我的战争》开局挖废墟）：营地内数处坍塌瓦砾堆，玩家选中幸存者→右键前往开挖，逐分钟挖满工时(workMinutes)→翻出基础材料(drops，同 props.loot 结构，主要木/碎金属/布，量级拟定待调)→该处永久清空、显露空地(移碰撞+视觉+重烘焙导航)。分布刻意撒向营地四角(西南/东南/东北/中庭)引导玩家走遍营地熟悉布局(西北被住宅占)。eggSlot=true 的中庭断墙登记 authored 键 egg_courtyard_family，挖净后由 CampMain 播发现叙事；其余无键预留位仍只出普通 drops。坐标/工时/产出全为拟定待调占位。CampMain 读入建 RubbleField + 可点击容器(role=rubble)。",
   "rubble": [
     {
       "name": "废墟·西南瓦砾堆",
@@ -330,7 +330,7 @@
       "jitter": 0.22
     },
     {
-      "_eggComment": "中庭废墟埋彩蛋位（eggSlot=true）：位置在营地正中，最引玩家注意。彩蛋内容 authored（draft·待用户细化）：eggContentId 指向 CampMain.EggContent 里的叙事键；挖净时除普通 drops 外弹一段发现叙事（前住户全家福/蜡笔画/铁盒，克制向）。",
+    "_eggComment": "中庭废墟埋彩蛋位（eggSlot=true）：位置在营地正中，最引玩家注意。eggContentId 指向 RubbleSite/CampMain 共用的 authored 叙事键；挖净时除普通 drops 外弹一段发现叙事（前住户全家福/蜡笔画/铁盒，克制向）。",
       "name": "废墟·中庭断墙",
       "rect": [1120, 720, 90, 74],
       "workMinutes": 130,

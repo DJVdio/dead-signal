@@ -7,6 +7,7 @@
   "住宅-展示柜": { "cost": { "wood": 8, "nails": 4 }, "buildMinutes": 100 },
   "床": { "cost": { "wood": 12, "cloth": 4, "nails": 6 }, "buildMinutes": 150 },
   "桌子": { "cost": { "wood": 8, "nails": 4 }, "buildMinutes": 120 },
+  "沙发": { "cost": { "wood": 8, "cloth": 6, "nails": 4 }, "buildMinutes": 240 },
   "沙袋": { "cost": { "cloth": 2, "stone": 4 }, "buildMinutes": 30 },
   "陷阱": { "cost": { "wood": 2, "wire": 2, "rope": 1 }, "buildMinutes": 40 },
   "捕鸟陷阱": { "cost": { "wood": 2, "rope": 2 }, "buildMinutes": 40 },

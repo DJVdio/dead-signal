@@ -181,13 +181,13 @@ public static class BookLibrary
 
     /// <summary>
     /// 《进阶木匠技术》（木工进阶书，draft）——**前置**《木匠入门》：没读完前置照样能读，但读速按配置衰减。
-    /// 读完解锁什么**待用户指定**（暂作占位、不挂配方产出）。
+    /// 读完解锁沙发、加固门/围栏，并给消防斧攻速加成（具体效果由对应消费层登记）。
     /// </summary>
     public static BookData AdvancedCarpentry() => new(
         id: "advanced_carpentry",
         title: "进阶木匠技术",
         body: AdvancedCarpentryBody,
-        grantsRecipeStub: null, // 解锁效果待用户指定（占位书）
+        grantsRecipeStub: "recipe:" + SofaSpec.RecipeId, // 桩：配方门槛已实装（RecipeBook.RequiredBookIds）
         readHours: 12, // [T59] 用户在 wiki 上定的（原 28h）
         prerequisiteBookId: "carpentry_basics", // 前置链首条数据：没读入门读得极慢
         description: "它先教你把家里的门加固一道，再顺手教你把消防斧抡得更快。没写的是：这两样，迟早要在同一个晚上用上。");
@@ -395,6 +395,35 @@ public static class BookLibrary
         "更糟的后果不会在书里替你负责。先看形，再看生长的位置，最后才伸手。\n\n" +
         "至于靴子，先护住脚趾。脚趾冻僵以后，最短的路也会变成一场远征。";
 
+    /// <summary>《枪械维修指南》书 id（稳定键）。</summary>
+    public const string GunsmithRepairGuideId = "gunsmith_repair_guide";
+
+    /// <summary>
+    /// 《枪械维修指南》——神秘商人独家货源，与损坏的狙击枪互斥刷新。读完解锁狙击枪修复配方。
+    /// <para>
+    /// 正文＝占位，待用户 authored。只陈述机制，不编作者/来历/世界观。
+    /// 阅读时长拟定 8h（同《裁缝手记》/《土法化学笔记》/《木匠入门》等技术工具书）。
+    /// </para>
+    /// <para>
+    /// 投放：神秘商人（与损坏的狙击枪互斥刷新，不能同次/同一轮一起出现）。
+    /// </para>
+    /// </summary>
+    public static BookData GunsmithRepairGuide() => new(
+        id: GunsmithRepairGuideId,
+        title: "枪械维修指南",
+        body: GunsmithRepairGuideBody,
+        grantsRecipeStub: "recipe:repair_sniper_rifle",
+        readHours: 8,
+        description: "一支打不响的枪，和一根烧火棍的区别，往往只差几个零件的位置。这本书教你分清哪个该拧紧，哪个该扔掉。");
+
+    // 🔴 占位正文 —— 待用户 authored（同 MechanicalBeautyBody / BowCraftingGuideBody 口径）
+    private const string GunsmithRepairGuideBody =
+        "不是每一杆老枪都能被你修好——但知道怎么判断它值不值得修，本身就是一门手艺。\n\n" +
+        "先看枪管：膛线磨平了就是一根铁管子，救不回来。再看枪机：卡死的不一定废，" +
+        "多半是某个簧片断了，换掉就能再响。至于瞄具——裂几道镜片不要紧，" +
+        "你只要还能把准星和目标的影子叠在一起，它就还算得上一支枪。\n\n" +
+        "读完它，你就能把一杆卡死的狙击枪重新修响——前提是你找得到零件。";
+
     public static IReadOnlyList<BookData> All() => new[]
     {
         WildernessSurvivalGuide(),
@@ -411,6 +440,7 @@ public static class BookLibrary
         PeakHourThree(),      // Wiki 新增：葛根 / 大黄识别与雪地靴
         GoldfingerDiaryA(),
         GoldfingerDiaryB(),
+        GunsmithRepairGuide(), // [wiki-character-sync] 神秘商人独家货品
     };
 
     /// <summary>

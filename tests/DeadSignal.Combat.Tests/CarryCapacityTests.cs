@@ -455,9 +455,9 @@ public class CarryCapacityTests
 
         // 分区规模钉桩——防止别处误插/误删一整类。
         Assert.Equal(25, ItemRegistry.Weapons.Count);
-        Assert.Equal(56, ItemRegistry.Materials.Count);
+        Assert.Equal(57, ItemRegistry.Materials.Count);
         Assert.Equal(35, ItemRegistry.Armor.Count);
-        Assert.Equal(116, ItemRegistry.All.Count());
+        Assert.Equal(117, ItemRegistry.All.Count());
     }
 
     /// <summary>

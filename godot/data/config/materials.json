@@ -54,5 +54,6 @@
   "ammo_arrow_stick": 0.03,
   "ammo_arrow_handmade": 0.03,
   "ammo_arrow_carbon": 0.03,
-  "silver": 0.01
+  "silver": 0.01,
+  "damaged_sniper_rifle": 7.5
 }

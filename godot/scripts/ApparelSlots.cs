@@ -307,6 +307,12 @@ public static class ApparelCatalog
         /// <summary>阅读速度乘子；具体效果见 Wiki 配置表。汇总入 <see cref="ReadingSpeed.Effective"/> 的 apparelMult。</summary>
         ReadingSpeed,
 
+        /// <summary>探索时被发现距离倍率；由 NightWatchContest 的 authored 服饰潜行值投影。</summary>
+        ExplorationStealth,
+
+        /// <summary>脚步/动作噪音半径倍率；与负重移速倍率在实时消费层连乘。</summary>
+        ActionNoise,
+
         // 扩展位（后续，"通路第二消费者"）：DaylightVision——墨镜/雪镜白天视野效果，接 VisionLogic 链、且仅白天。
         // 本轮（范围A）只做 ReadingSpeed；视野是另一条链、更难测，待单独立项。
     }
@@ -318,6 +324,14 @@ public static class ApparelCatalog
     {
         /// <summary>读速效果工厂：按 Wiki 配置的百分点转换为乘子。</summary>
         public static EquipEffect ReadingSpeed(double pct) => new(EquipEffectKind.ReadingSpeed, 1.0 + pct);
+
+        /// <summary>探索潜行效果工厂：按既有 authored 潜行值转换为发现距离倍率。</summary>
+        public static EquipEffect ExplorationStealth(double apparelStealthScore)
+            => new(EquipEffectKind.ExplorationStealth, StealthLogic.EquipmentStealthMultiplier(apparelStealthScore));
+
+        /// <summary>动作噪音效果工厂：与探索潜行共用同一服饰倍率。</summary>
+        public static EquipEffect ActionNoise(double apparelStealthScore)
+            => new(EquipEffectKind.ActionNoise, StealthLogic.EquipmentNoiseMultiplier(apparelStealthScore));
     }
 
     /// <summary>
@@ -456,6 +470,23 @@ public static class ApparelCatalog
         // 披风只占装甲层；即使保护部位显示包含双大腿，也不抢裤装槽。
         Add(ArmorTable.HeavyCape(), EquipSlot.PlateLayer);
         AddPaired(ArmorTable.SnowBoots(), EquipSlot.LeftFoot, EquipSlot.RightFoot, HumanBody.LeftFoot, HumanBody.RightFoot);
+
+        // 实时潜行/噪音效果直接从 authored 夜防服饰表投影，避免另抄一张数值表。
+        // 已有 ReadingSpeed（如平光眼镜）保留，新的两条效果只追加，不覆盖旧效果。
+        foreach ((string name, float stealthScore) in NightWatchContest.ApparelStealth)
+        {
+            if (!d.TryGetValue(name, out ApparelDef? def))
+            {
+                // 夜行斗篷/软底鞋是夜防专用物品，暂未登记为可穿戴目录项；不强行造槽。
+                continue;
+            }
+
+            List<EquipEffect> effects = def.Effects?.ToList() ?? new List<EquipEffect>();
+            effects.Add(EquipEffect.ExplorationStealth(stealthScore));
+            effects.Add(EquipEffect.ActionNoise(stealthScore));
+            d[name] = def with { Effects = effects };
+        }
+
         return d;
     }
 

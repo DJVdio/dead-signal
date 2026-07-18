@@ -647,7 +647,7 @@ public sealed partial class CampMain
 
         foreach (CorpseSave c in s.Corpses)
         {
-            _corpseYard.RestoreCorpse(
+            Corpse? restored = _corpseYard.RestoreCorpse(
                 new Vector2((float)c.X, (float)c.Y),
                 new CorpseCell(c.CellX, c.CellY),
                 new Color(c.TintR, c.TintG, c.TintB),
@@ -655,6 +655,12 @@ public sealed partial class CampMain
                 c.ContainerId,
                 c.SpawnPhaseTick,
                 c.Loot);
+            // 读档后的尸体必须重新进入可点击容器表；否则装备（包括断肢遗落物）虽在 CorpseSave
+            // 里恢复了，玩家却永远点不到，形成“数据在、消费链断”的静默丢失。
+            if (restored is { Loot.Count: > 0 } && !string.IsNullOrEmpty(restored.ContainerId))
+            {
+                RegisterCorpseContainer(restored);
+            }
         }
     }
 

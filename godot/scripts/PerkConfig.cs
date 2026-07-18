@@ -100,9 +100,9 @@ public sealed class PerkConfig : IGameConfigSection
     public double RatLevel1LootSpeedBonus { get; init; } = 0.50;
     /// <summary>L2：翻找搜刮速度追加加成（同 perk 两级台阶按总量加算）；当前值以 Wiki 配置为准。</summary>
     public double RatLevel2LootSpeedBonus { get; init; } = 1.00;
-    /// <summary>L3：黑暗隐匿点加成（未接线）；当前值以 Wiki 配置为准。</summary>
+    /// <summary>L3：黑暗环境下的隐匿加成；当前值以 Wiki 配置为准，消费层折算为被发现距离倍率。</summary>
     public double RatLevel3DarknessStealthBonus { get; init; } = 0.50;
-    /// <summary>L3：破隐先手攻击额外伤害（未接线）；当前值以 Wiki 配置为准。</summary>
+    /// <summary>L3：未被发现时的破隐先手攻击额外伤害；当前值以 Wiki 配置为准。</summary>
     public double RatLevel3AmbushDamageBonus { get; init; } = 0.35;
 
     // ── 皮特（PetePerk）——数值用户口径·非拟定 ───────────────────────────────────

@@ -196,7 +196,8 @@ internal static class Characters
         Add("南丁格尔", "生存", "surgery_base_nurse", "1 级 她本人的手术基础点数", NightingalePerk.NightingaleSurgeryBasePoints, "点", nurseSrc + ".NightingaleSurgeryBasePoints", settled: true, cfgKey: "NightingaleSurgeryBasePoints");
         Add("南丁格尔", "生存", "surgery_base_camp_bonus", "3 级 全营手术基础点加成（永续）", NightingalePerk.CampSurgeryBaseBonus, "点", nurseSrc + ".CampSurgeryBaseBonus", settled: true, cfgKey: "NightingaleCampSurgeryBaseBonus");
         Add("南丁格尔", "生存", "nurse_l2_infection", "2 级 全营感染率降低", Pct(NightingalePerk.Level2InfectionReduction), "%", nurseSrc + ".Level2InfectionReduction", settled: true, cfgKey: "NightingaleLevel2InfectionReduction", pct: true);
-        Add("南丁格尔", "生存", "nurse_l2_bed_heal", "2 级 干净床铺恢复速度加成", NightingalePerk.Level2BedSleepHealBonusPct, "%", nurseSrc + ".Level2BedSleepHealBonusPct", settled: true, cfgKey: "NightingaleBedSleepHealBonusPct", pct: true);
+        // config/runtime 以百分点存储（20），页面直接显示 20，不再经 `_configPercent` 放大（谢菲选秀：人话 20% 而不是 2000%）。
+        Add("南丁格尔", "生存", "nurse_l2_bed_heal", "2 级 干净床铺恢复速度加成", NightingalePerk.Level2BedSleepHealBonusPct, "%", nurseSrc + ".Level2BedSleepHealBonusPct", settled: true, cfgKey: "NightingaleBedSleepHealBonusPct");
         Add("南丁格尔", "生存", "nurse_l3_infection", "3 级 全营感染率再降低（永续）", Pct(NightingalePerk.Level3InfectionReduction), "%", nurseSrc + ".Level3InfectionReduction", settled: true, cfgKey: "NightingaleLevel3InfectionReduction", pct: true);
 
         // —— 克莉丝汀 ——
@@ -377,7 +378,7 @@ internal static class Characters
         ["perkL1"] = $"入队即得。她本人的手术基础点数 {NightingalePerk.DefaultSurgeryBasePoints} → {NightingalePerk.NightingaleSurgeryBasePoints}"
                      + "（只有她主刀时才有，她死就没了）。",
         ["perkL2"] = $"她做满 {NightingalePerk.Level2ThresholdSurgeries} 台手术。卫生意识让床铺更干净——"
-                     + $"全营感染率 −{Pct(NightingalePerk.Level2InfectionReduction)}%（要她在营活着才维持，不在营/死了就失效）。并且干净的床铺让睡在上面的人恢复速度加成从10%变到{Pct(NightingalePerk.Level2BedSleepHealBonusPct)}%。",
+                     + $"全营感染率 −{Pct(NightingalePerk.Level2InfectionReduction)}%（要她在营活着才维持，不在营/死了就失效）。并且干净的床铺让睡在上面的人恢复速度加成从10%变到{NightingalePerk.Level2BedSleepHealBonusPct}%。",
         ["perkL3"] = $"她做满 {NightingalePerk.Level3ThresholdSurgeries} 台手术。卫生意识深入人心——全营手术基础点 +{NightingalePerk.CampSurgeryBaseBonus}、"
                      + $"全营感染率再 −{Pct(NightingalePerk.Level3InfectionReduction)}%。"
                      + $"这是永续遗产：她死了、离开了，依旧生效（知识已经传下去了）。她还活着时与 2 级叠加，感染合计 −{Pct(NightingalePerk.Level2InfectionReduction + NightingalePerk.Level3InfectionReduction)}%。",

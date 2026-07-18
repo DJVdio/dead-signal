@@ -167,6 +167,12 @@ public static class Materials
         // **只能搜刮**（军械/机修点位，见 ExplorationCache）。**未来可考虑「拆枪回收零件」**——
         // 那是一套全新机制（拆武器回收），本单没做，要做另开一单。
         new MaterialDef(WeaponPartsKey, "武器零件", "弩机、扳机组、几片淬过火的簧——造枪的人早死绝了，留下的这些小东西还硬邦邦地不肯锈。你造不出它们，只能指望别人也没找到。", MaterialCategory.Component),
+
+        // [wiki-character-sync] 损坏的狙击枪：神秘商人独家货品，经维修指南+武器零件可修复成完好的狙击枪。
+        // 是一个"想当狙击手，先过神秘商人那关"的门槛。它是整件损坏装备，不属于三味精密零件。
+        // 重量约等于完好的狙击枪（9.0kg），但损坏件略轻（部分零件已缺失/损坏），为方便提携[draft]。
+        // 🔴 定价 [DECISION]：材料成本是它本身的购入价与维修附加（武器零件），不反映最终武器的战力。
+        new MaterialDef(DamagedSniperRifleKey, "损坏的狙击枪", "枪管是好的，枪机却卡死了，瞄具镜片裂了几道。它不再是武器了，只是个念想——除非你找得到能修它的人。", MaterialCategory.Misc),
         // —— [批次18] 弹药四种（用户拍板：短/中/长子弹 + 鹿弹；键对齐引擎 AmmoKeys）——
         // **稀缺梯度写在制作比里**（用户拍板）：1 个子弹零件 → 短 8 / 中 5 / 鹿 4 / 长 2 发。
         // 越强的枪，同一份原料能喂它的次数越少。枪的强度现在完全由这四行的供给量决定。
@@ -288,6 +294,9 @@ public static class Materials
     /// 制作比（1 个 → N 发）见 <c>BulletParts.YieldPer</c>：短 8 / 中 5 / 鹿 4 / 长 2。
     /// </summary>
     public const string BulletPartsKey = "bullet_parts";
+
+    /// <summary>损坏的狙击枪标识键 —— 神秘商人独家货品，修复后成完好的狙击枪。</summary>
+    public const string DamagedSniperRifleKey = "damaged_sniper_rifle";
 
     /// <summary>
     /// [批次21·T26] 武器零件标识键 —— **两把弩的 defining 材料**（单手轻弩 2 / 双手重弩 3，见 <see cref="RecipeBook"/>）。

@@ -264,8 +264,9 @@ public sealed partial class WorldMapPanel : CanvasLayer
             else
             {
                 string danger = d.Node.Danger is { } dt ? $" · {DisplayNames.Of(dt)}" : "";
+                string enemies = d.Node.EnemyCount >= 0 ? $" · 敌对 {d.Node.EnemyCount}" : "";
                 string start = d.Node.IsStart && !string.IsNullOrEmpty(d.Node.Start) ? $" · 向{d.Node.Start}" : "";
-                lbl.Text = $"{d.Display}（{d.TravelTimeSeconds / 60} 分钟{danger}{start}）";
+                lbl.Text = $"{d.Display}（{d.TravelTimeSeconds / 60} 分钟{danger}{enemies}{start}）";
                 lbl.AddThemeColorOverride("font_color", new Color(0.8f, 0.75f, 0.6f));
             }
         }

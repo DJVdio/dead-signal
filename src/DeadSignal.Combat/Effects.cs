@@ -390,4 +390,3 @@ public sealed class CombatEffectResolver
 //     · 治疗恢复 → `Body.RestRecover` + 消费层 `Pawn.AdvanceHealthDay`（按昼夜推进，不按 dt）
 //   设计文档 §5 确有震荡规则（L482-483），但 §5:508 自陈「震荡打断+冷却清零+抗性…**已落地**」
 //   ⇒ 不是"设计有、代码没有"的待造项，而是**已实装且走别的路** ⇒ 不适用"保留待办"的理由。
-//   若将来做 §5:509 的辐射 DoT（待实现），按流血的先例走 `Body.TickXxx` 具体方法即可，不需要这层抽象。

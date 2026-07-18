@@ -61,6 +61,12 @@ public static class CombatData
     /// 与 Sim 共用同一个工厂 <see cref="HumanBody.NewZombieBody"/>，两边口径不会各算各的。
     /// </summary>
     public static Body NewZombieBody() => HumanBody.NewZombieBody();
+
+    /// <summary>
+    /// 新建布鲁斯的犬类躯体：胸腹/头 + 四足，不带任何人类手臂/手掌/手指。
+    /// 结构由 <see cref="DogBody"/> 单独登记；狗衣仍沿用胸腹/头锚名消费。
+    /// </summary>
+    public static Body NewDogBody() => DogBody.NewBody();
 }
 
 /// <summary>弹道命中一具躯体时的处理决策。</summary>

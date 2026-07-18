@@ -144,8 +144,8 @@
     },
     {
       "name": "运动鞋",
-      "equipSlot": "脚",
-      "covers": "双脚",
+      "equipSlot": "左脚、右脚",
+      "covers": "脚(含趾)（穿哪只护哪只，需两件护全）",
       "paired": true,
       "sharpDefense": 6,
       "bluntDefense": 3,
@@ -154,7 +154,7 @@
       "_id": "Sneakers",
       "_configId": "sneakers",
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.Sneakers()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
-      "userNote": "+3%移动速度",
+      "userNote": "",
       "sync": "",
       "_icon": "armor/sneakers"
     },
@@ -186,7 +186,7 @@
       "_id": "ChestPlate",
       "_configId": "chest_plate",
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.ChestPlate()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
-      "userNote": "移动速度-1%",
+      "userNote": "",
       "sync": "",
       "_icon": "armor/leather_cuirass"
     },
@@ -282,7 +282,7 @@
       "_id": "Leather",
       "_configId": "leather",
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.Leather()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
-      "userNote": "移动速度-3%",
+      "userNote": "",
       "sync": "",
       "_icon": "armor/leather_armor"
     },
@@ -298,7 +298,7 @@
       "_id": "Plate",
       "_configId": "plate",
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.Plate()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
-      "userNote": "移动速度-30%",
+      "userNote": "",
       "sync": "",
       "_icon": "armor/plate_armor"
     },
@@ -330,13 +330,13 @@
       "_id": "RiotHelmet",
       "_configId": "riot_helmet",
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.RiotHelmet()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
-      "userNote": "-10%视野距离和范围\n-10%听力",
+      "userNote": "",
       "sync": "",
       "_icon": "armor/riot_helmet"
     },
     {
       "name": "劳保手套",
-      "equipSlot": "手",
+      "equipSlot": "左手、右手",
       "covers": "手(含指)（穿哪只护哪只，需两件护全）",
       "paired": true,
       "sharpDefense": 6,
@@ -458,7 +458,7 @@
       "_id": "Sunglasses",
       "_configId": "sunglasses",
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.Sunglasses()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
-      "userNote": "白天+5%的视野范围",
+      "userNote": "",
       "sync": "",
       "_icon": "armor/sunglasses"
     },
@@ -490,13 +490,13 @@
       "_id": "SelfMadeSnowGoggles",
       "_configId": "self_made_snow_goggles",
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.SelfMadeSnowGoggles()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
-      "userNote": "白天+5%的视野范围（引擎新轴·视野系数不吃穿戴品·暂未实现，同墨镜先例）",
+      "userNote": "",
       "sync": "",
       "_icon": "armor/snow_goggles"
     },
     {
       "name": "护踝鞋具",
-      "equipSlot": "脚",
+      "equipSlot": "左脚、右脚",
       "covers": "小腿、脚(含趾)（穿哪只护哪只，需两件护全）",
       "paired": true,
       "sharpDefense": 12,
@@ -506,7 +506,7 @@
       "_id": "AnkleGuard",
       "_configId": "ankle_guard",
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.AnkleGuard()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
-      "userNote": "-2.5%移动速度",
+      "userNote": "",
       "sync": "",
       "_icon": "armor/ankle_guard"
     },
@@ -522,7 +522,7 @@
       "_id": "BallisticVest",
       "_configId": "ballistic_vest",
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.BallisticVest()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
-      "userNote": "对于子弹，获得额外30锐器防御",
+      "userNote": "",
       "sync": "",
       "_icon": "armor/ballistic_vest"
     },
@@ -538,7 +538,7 @@
       "_id": "HeavyTrousers",
       "_configId": "heavy_trousers",
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.HeavyTrousers()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
-      "userNote": "移动速度-3%",
+      "userNote": "",
       "sync": "",
       "_icon": "armor/heavy_trousers"
     },
@@ -554,14 +554,14 @@
       "_id": "HeavyCape",
       "_configId": "heavy_cape",
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.HeavyCape()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
-      "userNote": "移动速度-3%",
+      "userNote": "",
       "sync": "",
       "_icon": "armor/heavy_cape"
     },
     {
       "name": "雪地靴",
       "equipSlot": "左脚、右脚",
-      "covers": "双脚",
+      "covers": "脚(含趾)（穿哪只护哪只，需两件护全）",
       "paired": true,
       "sharpDefense": 10,
       "bluntDefense": 3,
@@ -574,6 +574,5 @@
       "sync": "",
       "_icon": "armor/snow_boots"
     }
-  ],
-  "_configVersion": "9b08c44bc64f"
+  ]
 }

@@ -34,7 +34,7 @@ using DeadSignal.Combat;
 ///
 /// <para><b>⚠️ 本 harness 仍然量不到的成本</b>（用它的数字前必须知道，否则又会低估）：弹药消耗
 /// （<see cref="DuelEngine"/> 不建模弹药，枪械按无限弹算）、战后的感染竞速与手术耗材/失败率、
-/// 卧床期间的劳力损失与营地空转、士气/剧情后果。<b>所以它给出的是成本的下界，不是全部。</b></para>
+/// 卧床期间的劳力损失与营地空转、剧情后果。<b>所以它给出的是成本的下界，不是全部。</b></para>
 /// </summary>
 public static class CombatCostCalibration
 {

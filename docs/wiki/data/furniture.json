@@ -195,6 +195,19 @@
       "_icon": ""
     },
     {
+      "name": "沙发",
+      "materials": "木料*8、布*6、钉子*4",
+      "buildMinutes": 240,
+      "salvage": "木料*2、废木料*2、布*3、钉子*2",
+      "description": "木椅的升级版。坐上去读书快一点，恢复也快一点——代价是它占地方，也吃掉更多布料。",
+      "_id": "沙发",
+      "_configId": "沙发",
+      "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
+      "userNote": "",
+      "sync": "",
+      "_icon": ""
+    },
+    {
       "name": "沙袋",
       "materials": "布*2、石料*4",
       "buildMinutes": 30,

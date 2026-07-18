@@ -462,13 +462,17 @@ public static class ReadingSpeed
     /// 前置链系数（<see cref="PrerequisiteFactor"/>，无前置/前置已读 = 1.0，未读前置 = <see cref="MissingPrerequisiteMultiplier"/>）。
     /// 作独立乘子并入，故减速只影响耗时、不改 <see cref="ReadingProgress.IsComplete"/> 的读满阈值（仍是 <see cref="BookData.ReadHours"/>）。
     /// </param>
+    /// <param name="seatMultiplier">
+    /// 有座位时的家具升级乘子（普通座位 = 1.0；沙发 = <see cref="SofaSpec.ReadingSpeedMultiplier"/>）。
+    /// 无座时不应用该乘子，避免“没坐上沙发却拿到沙发效果”。
+    /// </param>
     public static double Effective(double baseSpeed, double selfBonus, bool hasSeat, double campWideMult,
-        double apparelMult = 1.0, double prerequisiteFactor = 1.0)
+        double apparelMult = 1.0, double prerequisiteFactor = 1.0, double seatMultiplier = 1.0)
         => baseSpeed
            * (1.0 + selfBonus)   // 自身 perk 单因子（数值见 Wiki）
            * campWideMult        // ∏(1 + 各 L3 书虫全营贡献)，调用方已连乘（无 = 1.0）
            * apparelMult         // ∏(穿戴品读速效果乘子)（无效果时为中性值，具体物品效果见 Wiki）
-           * (hasSeat ? 1.0 : NoSeatMultiplier)
+           * (hasSeat ? seatMultiplier : NoSeatMultiplier)
            * prerequisiteFactor;
 }
 
@@ -525,16 +529,12 @@ public static class RatPerk
     /// <summary>L2：翻找搜刮速度效果见 Wiki 配置表。</summary>
     public static double Level2LootSpeedBonus => GameConfigCatalog.Section<PerkConfig>().RatLevel2LootSpeedBonus;
 
-    // —— L3（[T61 挂起] 见下方 TODO：两条都是**引擎新轴**，主 agent 裁决为「与今日其余新轴统一立项」——
-    //     常量先落，**不接线**，护栏测试钉死"未接线"）——
+    // —— L3（[T61] 探索消费层已接线：实时 Pawn 视距 + 破隐先手）——
     /// <summary>
     /// L3：黑暗带来的**隐匿点**效果见 Wiki 配置表。
     /// <para>
-    /// 🔴 <b>[T61 挂起 · 未接线]</b>：「隐匿点」这个标量目前**只存在于 <see cref="NightWatchContest.ComputeStealth"/>**
-    /// （营地夜袭对抗，**潜行方恒为劫掠者、警戒方恒为我方守卫**）⇒ <b>玩家 pawn 在探索关根本没有隐匿分这个量</b>。
-    /// 探索关里"黑暗难被发现"走的是**另一条形态**：视锥几何（暗 ⇒ 观察者视锥缩窄 <c>VisionLogic.ConeFor</c>；
-    /// 身上有光 ⇒ 别人看你的视距被放大 <c>Actor.ExposedCone</c>）。当前效果无处可挂，
-    /// 硬挂到视锥上＝<b>拿别的效果冒充</b> ⇒ 不干。落地它需要新建「玩家 pawn 的探索关隐匿分」这条**引擎新轴**。
+    /// 探索层把该 authored 数值投影为观察者的发现距离倍率：仅在环境光低于满光时启用，
+    /// 由 Pawn 的感知消费点读取；夜防 <see cref="NightWatchContest.ComputeStealth"/> 仍保留独立公式。
     /// </para>
     /// 数值外置 perks.json（<c>RatLevel3DarknessStealthBonus</c>）。
     /// </summary>
@@ -543,11 +543,8 @@ public static class RatPerk
     /// <summary>
     /// L3：**破隐先手攻击**效果见 Wiki 配置表。
     /// <para>
-    /// 🔴 <b>[T61 挂起 · 未接线]</b>：<c>CombatResolver</c> **没有任何攻方伤害乘子**（只有守方的
-    /// <c>incomingDamageReduction</c>），**更没有"未被发现/偷袭"的概念**。项目里唯一叫 <c>FirstStrike</c> 的是
-    /// **岗位属性**（<c>GuardPost</c> 的"暗哨"给一次**无冷却的免费攻击**）—— 它**既不是伤害加成，也不看有没有被发现**，
-    /// <b>不是同一个东西</b>。落地它需要两样引擎里都没有的东西：①攻方伤害乘子入口 ②"我此刻未被任何敌人发现"的判定，
-    /// 且**会进 Sim 结算路径 ⇒ 要受控 A/B**。
+    /// 探索层在 Pawn 的攻击消费点提供攻方乘子入口，并以敌对感知状态判定是否仍未破隐；
+    /// CombatResolver 的既有默认路径保持不变，因此 Sim 基线不受影响。
     /// </para>
     /// 数值外置 perks.json（<c>RatLevel3AmbushDamageBonus</c>）。
     /// </summary>
@@ -614,6 +611,24 @@ public static class RatPerk
     /// </summary>
     public static double ActionNoiseMultiplier(bool isRat, int ratLevel)
         => isRat ? Level1ActionNoiseMultiplier : 1.0;
+
+    /// <summary>
+    /// 耗子 L3 在黑暗中的发现距离倍率。探索层只在环境光较暗时调用；亮处保持中性值。
+    /// </summary>
+    public static double DarknessStealthMultiplier(bool isRat, int ratLevel, bool dark)
+        => isRat && ratLevel >= 3 && dark
+            ? 1.0 / (1.0 + Level3DarknessStealthBonus)
+            : 1.0;
+
+    /// <summary>
+    /// 耗子 L3 未被敌方感知时的破隐先手伤害倍率。
+    /// </summary>
+    public static double AmbushDamageMultiplier(bool isRat, int ratLevel, bool undetected)
+        => StealthLogic.AmbushDamageMultiplier(
+            isRat,
+            ratLevel,
+            undetected,
+            Level3AmbushDamageBonus);
 
     /// <summary>
     /// **搜刮噪音乘子**：L2 起效果由 Wiki 配置表决定；L1 与非耗子使用中性值。

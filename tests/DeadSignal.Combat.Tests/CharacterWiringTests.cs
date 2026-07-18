@@ -46,10 +46,20 @@ public sealed class CharacterWiringTests
         AssertStat(rows, "nordi_l3_hours", 72);
         AssertStat(rows, "doug_l2_days", 5);
         AssertStat(rows, "doug_l3_days", 12);
+        // 页面值是人话 20（config/runtime 百分点 20 直接显示，不再经 `_configPercent` 放大）。
         AssertStat(rows, "nurse_l2_bed_heal", 20);
         AssertStat(rows, "rat_l3_darkness", 50);
         AssertStat(rows, "christine_l2_buy_discount", 6.25);
         AssertStat(rows, "sam_l3_fracture_penalty_reduction", 30);
+    }
+
+    [Fact]
+    public void NurseL2BedHeal_PercentIsHumanReadable()
+    {
+        JsonElement nurse = WikiRow("docs/wiki/data/characters.json", "南丁格尔");
+        string l2 = nurse.GetProperty("perkL2").GetString()!;
+        Assert.DoesNotContain("2000%", l2);
+        Assert.Contains("20%", l2);
     }
 
     [Fact]

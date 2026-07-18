@@ -88,6 +88,12 @@ public readonly record struct HospitalEntrance(string Name, string? DoorName);
 public readonly record struct ExplorationDoor(string Name, WallRect Rect, DoorState Initial, LockTier Lock = LockTier.None);
 
 /// <summary>
+/// 敌营里一格不可自由摆放的围栏：空间层只消费矩形，档位沿用 <see cref="CampStructureTable"/>
+/// 的可破坏结构表，避免为探索关另造一套 HP/等级。
+/// </summary>
+public readonly record struct ExplorationFence(string Name, WallRect Rect, StructureTier Tier);
+
+/// <summary>
 /// 探索关墙体几何（纯逻辑）。TestExploration 按这些矩形实体化墙：
 /// 每段 → StaticBody2D(CollisionLayer=<c>VisionOcclusion.WallMask</c> 0b0100) + RectangleShape2D + 导航 obstruction outline。
 /// 三件事一次到位：<b>挡路</b>（碰撞层）、<b>阻断寻路</b>（obstruction）、<b>挡视线</b>（VisionOcclusion 射线打的就是这一层）。
@@ -96,6 +102,70 @@ public static class ExplorationWalls
 {
     /// <summary>导航体半径（须与 TestExploration.BuildNavigation 的 NavigationPolygon.AgentRadius 一致）：门洞宽度的下限由它决定。</summary>
     public const float NavAgentRadius = 14f;
+
+    // ── 金手指帮根据地：围栏 + 锁门（[TODO 20 A②/B④]）─────────────────────
+    // 这是敌营的 authored 外围，不是玩家可自由建墙的系统：空间层把它实体化为静态障碍，
+    // 门则复用 ExplorationDoor → DoorLogic → 右键前往/撬锁/开门激活链。
+    // 围栏档位沿用 CampStructure，给后续破坏/损坏消费层留下唯一等级入口。
+    public const string GoldfingerGateName = "金手指帮寨门";
+    public const float GoldfingerGateCenterX = 1200f;
+    public const float GoldfingerFenceTopY = 120f;
+    public const float GoldfingerFenceBottomY = 1230f;
+    public const float GoldfingerFenceLeftX = 420f;
+    public const float GoldfingerFenceRightX = 2180f;
+    public const float GoldfingerFenceThickness = 24f;
+    public const float GoldfingerGateWidth = 120f;
+
+    /// <summary>
+    /// 金手指帮外围五段基础围栏。南侧中段留给 <see cref="GoldfingerDoors"/> 的寨门，
+    /// 其余三边和南侧两翼均是完整屏障；围栏不能被玩家建造，只能按现有结构规则破坏。
+    /// </summary>
+    public static IReadOnlyList<ExplorationFence> GoldfingerFences()
+    {
+        const float t = GoldfingerFenceThickness;
+        float southLeftWidth = GoldfingerGateCenterX - GoldfingerGateWidth / 2f - GoldfingerFenceLeftX;
+        float southRightX = GoldfingerGateCenterX + GoldfingerGateWidth / 2f;
+        float southRightWidth = GoldfingerFenceRightX - southRightX;
+        return new[]
+        {
+            new ExplorationFence("金手指帮西围栏",
+                new WallRect(GoldfingerFenceLeftX, GoldfingerFenceTopY, t,
+                    GoldfingerFenceBottomY - GoldfingerFenceTopY), StructureTier.FenceBasic),
+            new ExplorationFence("金手指帮北围栏",
+                new WallRect(GoldfingerFenceLeftX, GoldfingerFenceTopY,
+                    GoldfingerFenceRightX - GoldfingerFenceLeftX, t), StructureTier.FenceBasic),
+            new ExplorationFence("金手指帮东围栏",
+                new WallRect(GoldfingerFenceRightX - t, GoldfingerFenceTopY, t,
+                    GoldfingerFenceBottomY - GoldfingerFenceTopY), StructureTier.FenceBasic),
+            new ExplorationFence("金手指帮南围栏·西段",
+                new WallRect(GoldfingerFenceLeftX, GoldfingerFenceBottomY,
+                    southLeftWidth, t), StructureTier.FenceBasic),
+            new ExplorationFence("金手指帮南围栏·东段",
+                new WallRect(southRightX, GoldfingerFenceBottomY,
+                    southRightWidth, t), StructureTier.FenceBasic),
+        };
+    }
+
+    /// <summary>
+    /// 金手指帮唯一入口：初始锁住的普通锁门。撬开才进入深处军械/头目区；
+    /// 门板恰好填满南侧围栏的门洞，且由消费层统一负责挡路、挡视线、断寻路。
+    /// </summary>
+    public static IReadOnlyList<ExplorationDoor> GoldfingerDoors()
+    {
+        const float t = GoldfingerFenceThickness;
+        return new[]
+        {
+            new ExplorationDoor(
+                GoldfingerGateName,
+                new WallRect(
+                    GoldfingerGateCenterX - GoldfingerGateWidth / 2f,
+                    GoldfingerFenceBottomY,
+                    GoldfingerGateWidth,
+                    t),
+                DoorState.Locked,
+                LockTier.Standard),
+        };
+    }
 
     // ── 锁屋（南林村庄，道格与布鲁斯被困处）─────────────────────────────────
     /// <summary>锁屋墙厚。</summary>

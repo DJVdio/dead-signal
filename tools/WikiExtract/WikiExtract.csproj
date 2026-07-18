@@ -59,6 +59,8 @@
     <Compile Include="..\..\godot\scripts\MerchantStand.cs" Link="Consumed\MerchantStand.cs" />
     <!-- 座位家具纯逻辑（无 Godot 依赖）：座位坐标登记 + 就近取空座(标记占用) + 释放，供读书等指派活动认领座位。 -->
     <Compile Include="..\..\godot\scripts\Seating.cs" Link="Consumed\Seating.cs" />
+    <!-- 沙发升级座位规格纯逻辑（无 Godot 依赖）：Recipe/家具/读书恢复字段由此共享。 -->
+    <Compile Include="..\..\godot\scripts\SofaSpec.cs" Link="Consumed\SofaSpec.cs" />
     <Compile Include="..\..\godot\scripts\TutorialRaidLogic.cs" Link="Consumed\TutorialRaidLogic.cs" />
     <Compile Include="..\..\godot\scripts\CampResources.cs" Link="Consumed\CampResources.cs" />
     <!-- 食物稀缺经济模型纯逻辑（无 Godot 依赖）：全员口粮需求 vs 库存 + 短缺分粮取舍(策略/玩家指定/缺口) + 短缺趋势预警。 -->
@@ -143,6 +145,8 @@
     <Compile Include="..\..\godot\scripts\GripCombat.cs" Link="Consumed\GripCombat.cs" />
     <!-- §6 穿戴槽纯逻辑（无 Godot 依赖）：11 槽占用/多槽/成对/断肢禁装/替换/卸装 + 护甲覆盖聚合 + 装备目录映射表。 -->
     <Compile Include="..\..\godot\scripts\ApparelSlots.cs" Link="Consumed\ApparelSlots.cs" />
+    <!-- 实时探索潜行/噪音投影纯逻辑（无 Godot 依赖）：服饰潜行值×负重倍率，供 ApparelSlots/SurvivorPerks 的 Wiki 消费链编译。 -->
+    <Compile Include="..\..\godot\scripts\StealthLogic.cs" Link="Consumed\StealthLogic.cs" />
     <!-- 批次5 布鲁斯（狗）穿戴纯逻辑（无 Godot 依赖）：身体+头2槽穿脱/顶替 + 五件套目录(布/皮/口袋狗衣·铁皮/铁丝头甲) + 护甲层聚合喂 DefenderArmor + 口袋狗衣携带容量。 -->
     <Compile Include="..\..\godot\scripts\DogApparel.cs" Link="Consumed\DogApparel.cs" />
     <!-- 伤病恶化+治疗模型纯逻辑（无 Godot 依赖，只读引用战斗引擎出血/骨折语义）：病状/每昼夜恶化(出血致死/感染链/骨折)/治疗判定/药品目录/战斗态只读映射。 -->

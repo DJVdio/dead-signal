@@ -186,9 +186,6 @@
       "_anchor": "godot/scripts/CookingLogic.cs :: FoodCalories（热量点）+ godot/scripts/Materials.cs（名称/说明）",
       "group": "食材",
       "userNote": "",
-      "label": "",
-      "unit": "",
-      "note": "",
       "sync": "",
       "_icon": "materials/kudzu_root"
     },
@@ -201,9 +198,6 @@
       "_anchor": "godot/scripts/CookingLogic.cs :: FoodCalories（热量点）+ godot/scripts/Materials.cs（名称/说明）",
       "group": "食材",
       "userNote": "",
-      "label": "",
-      "unit": "",
-      "note": "",
       "sync": "",
       "_icon": "materials/rhubarb"
     },

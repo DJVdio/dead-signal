@@ -135,7 +135,7 @@ public class LevelCorpseLootTests
     /// <summary>
     /// 关内丧尸<b>只掉衣服、不掉爪子</b>——探索关走的是营地那条同一个 <see cref="CorpseLoot.Strip"/>，
     /// 天生武器的排除是它<b>结构性</b>兜住的（不在 <c>WeaponTable.Arsenal</c> ⇒ 按名回查恒空），
-    /// 探索关这边一行都不用另写。金手指帮那 8 个"守备"当前正是丧尸 ⇒ 打完只捡得到衣服，捡不到枪。
+    /// 探索关这边一行都不用另写。金手指帮的 4 名活人守备走 Raider 的持械尸体通道；本测试只钉丧尸天然武器不掉落。
     /// </summary>
     [Fact]
     public void 关内丧尸的尸体_只掉衣服_不掉爪击()

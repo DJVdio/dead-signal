@@ -36,6 +36,12 @@ public sealed partial class Pawn : Actor
     protected override double HungerAbilityPenalty => Hunger.AbilityPenalty;
 
     /// <summary>
+    /// 断肢时回到本人背包的装备。死后可搜出。非 Pawn 单位不走此列表。
+    /// </summary>
+    private readonly List<LootItem> _severedBackpackItems = new();
+    public override IReadOnlyList<LootItem> SeveredBackpackItems => _severedBackpackItems;
+
+    /// <summary>
     /// 幸存者个人已读书集（见 <see cref="ReadBookSet"/>，纯逻辑）。配方书门槛按"制作者本人已读"判定 —— 消费本对象，
     /// 不再走营地全局已读（<see cref="BookData.IsRead"/> 仍供库存"已读"标记等营地视角点使用）。丧尸/Raider 不涉。
     /// </summary>
@@ -60,9 +66,64 @@ public sealed partial class Pawn : Actor
     /// <b>战斗/开枪/破坏不减</b> —— 那是由 <see cref="RatPerk.AppliesToActionNoise"/> 在 <see cref="Actor.EmitNoiseAt"/>
     /// 里按 <see cref="RatNoiseSource"/> 裁掉的，**本属性只管"缩多少"，不管"缩不缩"**。
     /// 其余角色 <see cref="SurvivorPerks.IsRat"/>=false ⇒ 使用中性系数（零回归）。
-    /// <para>L1 即生效（不看等级）⇒ 无需读 StoryFlags，Pawn 不必持有营地态。</para>
+    /// <para>L1 即生效（不看等级）；实时负重/服饰也在同一消费点连乘，避免装备登记成摆设。</para>
     /// </summary>
-    protected override double ActionNoiseScale => RatPerk.ActionNoiseMultiplier(Perks.IsRat, ratLevel: 1);
+    protected override double ActionNoiseScale
+        => StealthLogic.ActionNoiseMultiplier(
+            NightWatchContest.ApparelStealthSum(EquippedApparel),
+            CarryLoadSpeedMult)
+           * RatPerk.ActionNoiseMultiplier(Perks.IsRat, RatLevelNow);
+
+    /// <summary>耗子等级提供者（由 CampMain 注入实时 StoryFlags 派生值）；未注入按 L1，保证独立创建零回归。</summary>
+    private System.Func<int>? _ratLevelProvider;
+
+    /// <summary>注入耗子等级 lambda；null 清除并回落 L1。</summary>
+    public void SetRatLevelProvider(System.Func<int>? f) => _ratLevelProvider = f;
+
+    private int RatLevelNow => System.Math.Max(1, _ratLevelProvider?.Invoke() ?? 1);
+
+    /// <summary>
+    /// 探索敌方感知消费点：真实穿戴品 + 耗子 L3 黑暗加成（只在暗处）
+    /// + 负重 + 掩体系数，四项全进 <see cref="StealthLogic.StealthRating"/> 连乘。
+    /// </summary>
+    protected override double DetectionRangeMultiplier(float ambientLight)
+    {
+        double darknessBonus = Perks.IsRat && RatLevelNow >= 3
+            ? RatPerk.Level3DarknessStealthBonus
+            : 0.0;
+        return StealthLogic.StealthRating(
+            NightWatchContest.ApparelStealthSum(EquippedApparel),
+            CarryLoadSpeedMult,
+            ambientLight,
+            darknessBonus,
+            CoverCoefficient);
+    }
+
+    /// <summary>
+    /// 紧贴半身掩体时返回其无伤几率作为掩体系数；无掩体场或未紧贴 → 0。
+    /// </summary>
+    protected override double CoverCoefficient
+    {
+        get
+        {
+            if (Covers is not { } field)
+                return 0.0;
+            System.Numerics.Vector2 pos = new(GlobalPosition.X, GlobalPosition.Y);
+            HalfCover? cover = field.AdjacentTo(pos);
+            return cover?.Chance ?? 0f;
+        }
+    }
+
+    /// <summary>耗子 L3 破隐先手：命中前仍未被敌方感知时伤害×1.35；本次出手即标记破隐。</summary>
+    protected override double AttackDamageMultiplier(Actor target, Weapon weapon)
+    {
+        double factor = RatPerk.AmbushDamageMultiplier(Perks.IsRat, RatLevelNow, !IsDetectedByHostile);
+        if (factor > 1.0)
+        {
+            MarkStealthBroken();
+        }
+        return factor;
+    }
 
     /// <summary>本 Pawn 逐书阅读进度（跨夜持久）。见 <see cref="ReadingProgress"/>。</summary>
     private readonly ReadingProgress _readingProgress = new();
@@ -72,6 +133,13 @@ public sealed partial class Pawn : Actor
 
     /// <summary>当前认领的座位（无座为 <c>null</c>，读速惩罚见 Wiki 配置表）。由 CampMain 认领/释放。</summary>
     public CampMain.SeatClaim? ReadingSeat { get; set; }
+
+    /// <summary>
+    /// 本夜实际坐在沙发上的累计秒数。由 <see cref="Think"/> 在 <see cref="PawnRole.Reading"/>
+    /// 分支逐帧累计（仅就座后），黎明 <see cref="AdvanceHealthDay"/> 按占比折算恢复加成后清零。
+    /// 比例而非二元：坐满整夜得 ×1.09，坐半夜得 ×1.045，不坐得 0。
+    /// </summary>
+    private double _sofaOccupiedSeconds;
 
     /// <summary>当前在读书的底层数据（供读满时置全局已读 + 取 ReadHours 判完成）。</summary>
     private BookData? _assignedBook;
@@ -118,7 +186,11 @@ public sealed partial class Pawn : Actor
         double prereqFactor = ReadingSpeed.PrerequisiteFactor(book, HasReadBook);
         // [装备→能力加成] 读者穿戴品读速乘子经 ApparelEffectMultiplier 从真实穿戴品名取数，勿手写常数。
         double apparelMult = ApparelCatalog.ApparelEffectMultiplier(EquippedApparel, ApparelCatalog.EquipEffectKind.ReadingSpeed);
-        double speed = ReadingSpeed.Effective(1.0, Perks.SelfReadingSpeedBonus, hasSeat, _campWideReadingMult, apparelMult, prereqFactor);
+        double seatMult = ReadingSeat is { Kind: SeatKind.Sofa }
+            ? SofaSpec.ReadingSpeedMultiplier
+            : 1.0;
+        double speed = ReadingSpeed.Effective(1.0, Perks.SelfReadingSpeedBonus, hasSeat, _campWideReadingMult,
+            apparelMult, prereqFactor, seatMult);
         double hours = gameHours * speed;
         if (hours <= 0)
             return;
@@ -374,6 +446,13 @@ public sealed partial class Pawn : Actor
         double? restFraction = null, double? bedFraction = null, double? bedSleepHealBonusPct = null)
     {
         ArchiveWounds();
+        // 沙发恢复加成按实际座位占用比例折算：坐满整夜 = ×1.09，零占用 = 中性。
+        if (_sofaOccupiedSeconds > 0 && _nightLengthSeconds > 0)
+        {
+            double fraction = System.Math.Clamp(_sofaOccupiedSeconds / _nightLengthSeconds, 0.0, 1.0);
+            healSpeedMultiplier *= SofaSpec.EffectiveHealMultiplier(fraction);
+            _sofaOccupiedSeconds = 0;
+        }
         // [SPEC-B14-补2] 玫瑰果茶恢复加成：生效则本昼夜恢复效率 +RosehipTeaHealBonusPct 个百分点，随后自减一次计时。
         double extraHealBonusPct = 0.0;
         if (_rosehipTeaHealTicks > 0)
@@ -489,7 +568,9 @@ public sealed partial class Pawn : Actor
         // 与穿戴模型（该肢体上的穿戴品失效），再重组生效战斗数据。见 <see cref="ReconcileSeverance"/>。
         ReconcileSeverance();
 
-        // 手持光源（light-items HANDOFF）：持光手被切除即落地；每帧同步自照亮强度（暴露链 Actor.ExposedCone 读 CarriedLightIntensity）。
+        // 手持光源（light-items HANDOFF）：持光手被切除即落地；每帧扣电池/燃烧耐久并同步自照亮强度。
+        // delta 已由 Godot 按时标缩放：暂停不耗、3x/8x 按游戏速度耗；耗尽只熄灭，不静默丢掉手里的空壳。
+        _heldLight.Consume(delta);
         if (_heldLight.IsActive && _heldLight.HandUsed is Hand hlHand
             && (hlHand == Hand.Left ? _loadout.LeftHandLost : _loadout.RightHandLost))
         {
@@ -522,6 +603,9 @@ public sealed partial class Pawn : Actor
                     Stationing = false;
                 if (HasMoveOrder && !Stationing)
                     CancelOrders();
+                // 沙发占用时间累计：仅就座后（非步行途中），按真实座位类型而非读书状态。
+                if (!Stationing && ReadingSeat is { Kind: SeatKind.Sofa })
+                    _sofaOccupiedSeconds += delta;
                 if (!Stationing && _assignedBook is { } book)
                     AccrueReading(delta, book);
                 break;
@@ -830,8 +914,8 @@ public sealed partial class Pawn : Actor
         return key;
     }
 
-    /// <summary>把手持光源强度同步给 <see cref="Actor"/> 自照亮（<see cref="Actor.ExposedCone"/> 暴露链据此计算，无光=0）。</summary>
-    private void SyncCarriedLight() => SetCarriedLight(_heldLight.Held?.Intensity ?? 0f);
+    /// <summary>把手持光源强度同步给 <see cref="Actor"/> 自照亮（<see cref="Actor.ExposedCone"/> 暴露链据此计算；耗尽=0）。</summary>
+    private void SyncCarriedLight() => SetCarriedLight(_heldLight.ActiveHeld?.Intensity ?? 0f);
 
     /// <summary>
     /// 穿一件穿戴品（护甲名）。占槽/覆盖：目录品走 <see cref="ApparelCatalog"/>（如左右手套→对应手槽）；

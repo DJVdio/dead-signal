@@ -183,8 +183,8 @@ public sealed partial class Dog : Actor
         d.Faction = Faction.Survivor;   // 己方（与幸存者同阵营，不被友军误判，敌人可攻击）
         d.Radius = 9f;                  // 体型小
         d.MoveSpeed = 150f;             // 高移速（当前值以 Wiki 配置为准；缠斗定位=追得上、留得住）
-        // TODO(bruce-actor)：犬类专用躯体（无手、少部位）待建模；暂借人形躯体——可被切除/失血/杀死即满足本批需求。
-        d.Body = CombatData.NewHumanoidBody();
+        // 犬类专用躯体：无手、四足、胸腹/头；狗衣沿用胸腹/头锚名，断腿仍走通用下肢伤残链。
+        d.Body = CombatData.NewDogBody();
         d.AttackWeapon = WeaponTable.DogBite();
         d.AttackRange = 20f;            // 近战撕咬短射程（空间交战参数；当前值以 Wiki 配置为准）
         d.AttackCooldown = d.AttackWeapon.AttackInterval;

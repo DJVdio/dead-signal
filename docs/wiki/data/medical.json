@@ -222,7 +222,7 @@
       "_id": "herbal_bandage",
       "_configId": "herbal_bandage",
       "_anchor": "godot/scripts/Materials.cs（名称/说明）+ godot/scripts/HealthConditions.cs :: SurgeryCatalog / MedicineCatalog（数值）",
-      "userNote": "该处伤口发生感染的几率-25%",
+      "userNote": "",
       "sync": "",
       "_icon": "materials/herbal_bandage"
     },
@@ -308,7 +308,7 @@
     },
     {
       "name": "玫瑰果茶",
-      "use": "药品",
+      "use": "草药原料",
       "treats": "",
       "surgeryPoints": null,
       "exclusive": null,
@@ -322,7 +322,7 @@
       "_id": "rosehip_tea",
       "_configId": "rosehip_tea",
       "_anchor": "godot/scripts/Materials.cs（名称/说明）+ godot/scripts/HealthConditions.cs :: SurgeryCatalog / MedicineCatalog（数值）",
-      "userNote": "喝下后一整天，恢复速度+9%",
+      "userNote": "",
       "sync": "",
       "_icon": "materials/rosehip_tea"
     }

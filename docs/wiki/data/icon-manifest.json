@@ -103,6 +103,7 @@
       "materials/silver",
       "materials/bullet_parts",
       "materials/weapon_parts",
+      "materials/damaged_sniper_rifle",
       "food/rat",
       "food/pigeon",
       "food/rabbit",
@@ -127,6 +128,7 @@
       "armor/cloth_jacket",
       "furniture/bench",
       "furniture/chair",
+      "furniture/sofa",
       "furniture/bed",
       "furniture/table",
       "furniture/sandbag",
@@ -180,7 +182,8 @@
       "armor/ankle_guard",
       "armor/heavy_trousers",
       "armor/heavy_cape",
-      "armor/snow_boots"
+      "armor/snow_boots",
+      "weapons/sniper_rifle"
     ],
     "butchery": [
       "butchery/simple_rat",
@@ -208,6 +211,7 @@
       "books/book_peak_hour",
       "books/book_peak_hour_2",
       "books/book_peak_hour_3",
+      "books/book_gunsmith_repair",
       "books/book_diary_a",
       "books/book_diary_b"
     ],

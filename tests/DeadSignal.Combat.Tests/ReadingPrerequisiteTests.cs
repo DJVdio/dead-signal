@@ -105,10 +105,10 @@ public class ReadingPrerequisiteTests
     }
 
     [Fact]
-    public void AdvancedCarpentry_IsPlaceholder_NoRecipeUnlock()
+    public void AdvancedCarpentry_UnlocksSofaRecipe()
     {
-        // 解锁效果待用户指定：占位书暂不挂配方产出（桩为空）。
+        // 沙发是进阶木匠书名下的高级座位配方；门槛本体仍由 RecipeBook.RequiredBookIds 判定。
         var advanced = BookLibrary.All().First(b => b.Id == "advanced_carpentry");
-        Assert.Null(advanced.GrantsRecipeStub);
+        Assert.Equal("recipe:sofa", advanced.GrantsRecipeStub);
     }
 }

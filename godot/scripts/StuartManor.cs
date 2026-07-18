@@ -8,7 +8,7 @@ namespace DeadSignal.Godot;
 //（与 GoldfingerGang.cs / CorpseLoot.cs 一样被 DeadSignal.Combat.Tests 以 Link 方式编入单测）。
 //
 // ⚠️ 与 GoldfingerGang.cs 的一处**刻意不同**：本文件**不被 DeadSignal.Sim Link**。
-//    金手指帮那张表要进 Sim 是因为 Sim 在算"打赢那 8 个残兵要付多少代价"；本关不进 Sim 的结算路径，
+//    金手指帮那张表要进 Sim 是因为 Sim 在算"打赢那 4 个残兵要付多少代价"；本关不进 Sim 的结算路径，
 //    Sim 也就**根本读不到它** ⇒ 既有武器×护甲基线**结构性零漂移**（这是本单的零漂移证明，不是靠跑一遍对 MD5）。
 
 /// <summary>斯图尔特家族庄园劫掠者的持械档位。<b>给什么武器＝给了什么战利品</b>（<see cref="CorpseLoot"/> 必掉零掷骰）。</summary>
@@ -94,7 +94,7 @@ public sealed record ManorRaider(string DisplayName, ManorArm Arm, ManorOutfit O
 /// <b>允许他选择不打</b>（潜行绕过 / 只清边缘 / 撤退）是这一关的正确玩法之一，不是设计失败。</item>
 /// </list></para>
 ///
-/// <para><b>他们是健全的人</b>（不同于金手指帮那 8 个"刚经历完异常战斗"的残兵，见 <see cref="GoldfingerGang"/>）——
+/// <para><b>他们是健全的人</b>（不同于金手指帮那 4 个"刚经历完异常战斗"的残兵，见 <see cref="GoldfingerGang"/>）——
 /// 这里没有 <c>GangInjury</c> 那一列，<b>结构性地</b>不可能给他们打折。高危就该是高危。</para>
 /// </summary>
 public static class StuartManor

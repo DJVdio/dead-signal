@@ -21,6 +21,19 @@ public enum LightKind
     Fixed,
 }
 
+/// <summary>手持光源的消耗轴：固定光源无限；手电吃电池；火把按燃烧耐久耗尽。</summary>
+public enum LightFuelKind
+{
+    /// <summary>固定光源，永不耗尽。</summary>
+    None,
+
+    /// <summary>手电的可更换电池（当前以单件光源的剩余秒数表示）。</summary>
+    Battery,
+
+    /// <summary>火把的燃烧耐久（耗尽后仍占手，但不再发光）。</summary>
+    Durability,
+}
+
 /// <summary>
 /// 一类光源的静态属性(不可变值对象，拟定待调)。<see cref="Intensity"/> = 光源中心处贡献的局部光照等级
 /// (∈[0,1]，供 VisionLogic.CombineLight 与环境光求 max)；<see cref="Radius"/> = 有效照亮半径(世界像素)，
@@ -32,7 +45,47 @@ public readonly record struct LightProfile(
     float Intensity,
     float Radius,
     LightKind Kind,
-    string Description = "");
+    string Description = "",
+    LightFuelKind FuelKind = LightFuelKind.None,
+    double ActiveSeconds = 0);
+
+/// <summary>
+/// 一件手持光源的运行时消耗状态。
+/// <para>
+/// 规则只记录“点亮了多久”，不偷偷把实时秒换成现实分钟：调用方传入已受游戏时标缩放的 delta，
+/// 所以暂停不耗、3x/8x 会按游戏速度消耗。固定光源 <see cref="LightFuelKind.None"/> 永不耗尽。
+/// </para>
+/// </summary>
+public sealed class LightChargeState
+{
+    public LightFuelKind FuelKind { get; }
+    public double CapacitySeconds { get; }
+    public double RemainingSeconds { get; private set; }
+
+    public bool IsFinite => FuelKind != LightFuelKind.None && CapacitySeconds > 0;
+    public bool IsDepleted => IsFinite && RemainingSeconds <= 0;
+    public bool IsLit => !IsFinite || RemainingSeconds > 0;
+
+    public LightChargeState(LightProfile profile, double? remainingSeconds = null)
+    {
+        FuelKind = profile.FuelKind;
+        CapacitySeconds = Math.Max(0, profile.ActiveSeconds);
+        RemainingSeconds = IsFinite
+            ? Math.Clamp(remainingSeconds ?? CapacitySeconds, 0, CapacitySeconds)
+            : 0;
+    }
+
+    /// <summary>消耗已缩放的游戏秒；返回本次是否刚好从有光变为耗尽。</summary>
+    public bool Consume(double gameSeconds)
+    {
+        if (!IsFinite || gameSeconds <= 0 || double.IsNaN(gameSeconds))
+            return false;
+
+        bool wasLit = RemainingSeconds > 0;
+        RemainingSeconds = Math.Max(0, RemainingSeconds - gameSeconds);
+        return wasLit && RemainingSeconds <= 0;
+    }
+}
 
 /// <summary>一盏落在世界某处的光源实例(固定光源的坐标，或某帧手持光源持有者的坐标) + 其 <see cref="LightProfile"/>。</summary>
 public readonly record struct PlacedLight(float X, float Y, LightProfile Profile);
@@ -44,11 +97,20 @@ public readonly record struct PlacedLight(float X, float Y, LightProfile Profile
 public static class LightSource
 {
     // ——光源标识键(对齐 Item.Light 的 RefKey / camp.json lights.key / 火把配方 OutputKey)——
-    /// <summary>手电：拾取/投放获得的手持光源，聚焦亮束、无耐久(电池系统列 TODO)。</summary>
+    /// <summary>手电：拾取/投放获得的手持光源，聚焦亮束；默认一块电池可亮 3 个夜晚(1440 游戏秒)。</summary>
     public const string FlashlightKey = "flashlight";
 
-    /// <summary>火把：可制作的手持光源(见 RecipeBook「火把」)，暖光、射程略短。</summary>
+    /// <summary>火把：可制作的手持光源(见 RecipeBook「火把」)，暖光、射程略短；一根可燃烧 1 个夜晚(480 游戏秒)。</summary>
     public const string TorchKey = "torch";
+
+    /// <summary>默认夜晚长度，与 <c>godot/data/daynight.json</c> 的 480 秒一致；仅作为光源初始耐久档。</summary>
+    public const double DefaultNightSeconds = 480;
+
+    /// <summary>手电一块电池的初始可用时长（3 个默认夜晚）。</summary>
+    public const double FlashlightBatterySeconds = DefaultNightSeconds * 3;
+
+    /// <summary>火把一根的燃烧时长（1 个默认夜晚）。</summary>
+    public const double TorchDurabilitySeconds = DefaultNightSeconds;
 
     /// <summary>油灯：营地/关卡固定光源，中范围暖光。</summary>
     public const string LampKey = "lamp";
@@ -59,8 +121,8 @@ public static class LightSource
     // draft：以下强度/半径均为占位草稿，最终由 Sim/用户目视校准(对齐 SPEC-B4 白天满档、黑暗~0.35 环境光的量级)。
     private static readonly IReadOnlyDictionary<string, LightProfile> _byKey = ToMap(new[]
     {
-        new LightProfile(FlashlightKey, "手电", 0.90f, 340f, LightKind.Handheld, "让光成为手臂的延伸。"),
-        new LightProfile(TorchKey, "火把", 0.50f, 240f, LightKind.Handheld, "黑暗中的唯一慰藉，祈祷他不要灭掉。"),   // 亮度 T21 用户手改：0.70 → 0.50
+        new LightProfile(FlashlightKey, "手电", 0.90f, 340f, LightKind.Handheld, "让光成为手臂的延伸。", LightFuelKind.Battery, FlashlightBatterySeconds),
+        new LightProfile(TorchKey, "火把", 0.50f, 240f, LightKind.Handheld, "黑暗中的唯一慰藉，祈祷他不要灭掉。", LightFuelKind.Durability, TorchDurabilitySeconds),   // 亮度 T21 用户手改：0.70 → 0.50
         new LightProfile(LampKey, "油灯", 0.75f, 300f, LightKind.Fixed, "挂在营地里的油灯，照亮一小片起居，也照亮「我们还没散伙」这件事。"),
         new LightProfile(CampfireKey, "火堆", 0.95f, 460f, LightKind.Fixed, "驱散黑暗、烤暖人心。"),
     });

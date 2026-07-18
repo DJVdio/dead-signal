@@ -194,6 +194,7 @@ public static class ItemIcons
         // —— 材料：弹药与其原料 ——
         ["bullet_parts"] = new(Mats, "bullet_parts", "delapouite/machine-gun-magazine"),
         ["weapon_parts"] = new(Mats, "weapon_parts", "lorc/gear-hammer"),   // [批次21·T26] 武器零件（弩机/扳机组，只喂弩）
+        ["damaged_sniper_rifle"] = new(Mats, "damaged_sniper_rifle", "skoll/winchester-rifle"), // 损坏的狙击枪（修复原料，图标暂用完好版）
         ["ammo_short"] = new(Mats, "ammo_short", "lorc/bullets"),
         ["ammo_medium"] = new(Mats, "ammo_medium", "delapouite/heavy-bullets"),
         ["ammo_long"] = new(Mats, "ammo_long", "lorc/supersonic-bullet"),
@@ -222,6 +223,8 @@ public static class ItemIcons
         ["peak_hour"] = new(Books, "book_peak_hour", "lorc/mountains"),   // [T71] 《尖峰时刻》（滑雪极限运动书，解锁自制简易墨镜）——群山剪影
         ["peak_hour_2"] = new(Books, "book_peak_hour_2", "lorc/mountains"),
         ["peak_hour_3"] = new(Books, "book_peak_hour_3", "lorc/mountains"),
+        // [wiki-character-sync] 《枪械维修指南》：神秘商人的互斥书籍货品。
+        ["gunsmith_repair_guide"] = new(Books, "book_gunsmith_repair", "lorc/gears"),
         ["goldfinger_diary_a"] = new(Books, "book_diary_a", "delapouite/book-pile"),
         ["goldfinger_diary_b"] = new(Books, "book_diary_b", "lorc/papers"),
 
@@ -231,6 +234,7 @@ public static class ItemIcons
         // —— 家具/工事（配方产物，落地为材料堆）——
         ["bench"] = new(Furniture, "bench", "delapouite/park-bench"),
         ["chair"] = new(Furniture, "chair", "delapouite/wooden-chair"),
+        ["sofa"] = new(Furniture, "sofa", "delapouite/sofa"),
         ["sandbag"] = new(Furniture, "sandbag", "delapouite/concrete-bag"),
         ["bed"] = new(Furniture, "bed", "delapouite/bed"),
         ["table"] = new(Furniture, "table", "delapouite/table"),            // [批次21·T25] 桌子

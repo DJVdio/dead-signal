@@ -233,7 +233,7 @@ public class StuartManorTests
         }
     }
 
-    /// <summary>他们是<b>健全的</b>人（不同于金手指帮那 8 个残兵）——高危就该是高危，别拿伤情当折扣。</summary>
+    /// <summary>他们是<b>健全的</b>人（不同于金手指帮那 4 个残兵）——高危就该是高危，别拿伤情当折扣。</summary>
     [Fact]
     public void ManorRaiders_AreNotWounded()
     {

@@ -69,6 +69,7 @@ public static class CraftWorkTime
     {
         "bench",             // 板凳（无书门槛的最低档家具）
         "chair",             // 木椅
+        SofaSpec.RecipeId,    // 沙发（升级座位）
         BedSpec.RecipeId,    // 床
         TableSpec.RecipeId,  // 桌子
     };
@@ -177,6 +178,7 @@ public static class PlaceableItems
         SandbagSpec.ItemKey,   // 沙袋：半身掩体，恒不挡路
         BedSpec.ItemKey,       // 床：养病，人要走上去躺下 ⇒ 非实心
         TableSpec.ItemKey,     // 桌子：纯家具，可跨越（跨过减速 25%）
+        SofaSpec.ItemKey,      // 沙发：木椅升级档，非实心室内座位
         CropPlotSpec.ItemKey,  // [T72] 菜园：户外持久种植区（造→摆→种→收→拆），非实心可跨越
         TrapSpec.ItemKey,      // [T75] 圈套陷阱：户外贴地矮物（造→摆→每昼夜段掷点→收猎物→拆），非实心可跨越。**此前漏登记 ⇒ 摆放按钮不长出来，机制静默失效**
         BirdTrapSpec.ItemKey,  // [T75] 捕鸟陷阱：同上，纯逻辑早就在、消费层却整条未接 ⇒ 玩家根本摆不出来。这次一并接通

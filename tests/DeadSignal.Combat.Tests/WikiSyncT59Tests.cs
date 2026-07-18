@@ -74,13 +74,14 @@ public class WikiSyncT59Tests
             .Where(b => b.Id != BookLibrary.BowCraftingGuideId
                      && b.Id != BookLibrary.PeakHourId
                      && b.Id != BookLibrary.PeakHourTwoId
-                     && b.Id != BookLibrary.PeakHourThreeId)
+                     && b.Id != BookLibrary.PeakHourThreeId
+                     && b.Id != BookLibrary.GunsmithRepairGuideId)
             .Sum(b => b.ReadHours);
         Assert.Equal(64.0, userEight, 6);
 
         Assert.Equal(8.0, BookLibrary.BowCraftingGuide().ReadHours, 6);   // 拟定值（用户没给）
         Assert.Equal(6.0, BookLibrary.PeakHour().ReadHours, 6);           // [T71] 用户在 wiki 定的
-        Assert.Equal(90.0, BookLibrary.Manuals().Sum(b => b.ReadHours), 6);
+        Assert.Equal(98.0, BookLibrary.Manuals().Sum(b => b.ReadHours), 6);
 
         // 日记一小时都不该贡献。
         Assert.Equal(0.0, BookLibrary.Diaries().Sum(b => b.ReadHours), 6);

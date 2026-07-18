@@ -20,6 +20,9 @@ namespace DeadSignal.Godot;
 /// </summary>
 public sealed class RubbleSite
 {
+    /// <summary>中庭断墙 authored 彩蛋键（与 camp.json / CampMain 的叙事消费同源）。</summary>
+    public const string CourtyardFamilyEggContentId = "egg_courtyard_family";
+
     /// <summary>废墟点稳定标识（对齐 camp.json 里该废墟的 name；CampMain 据此关联视觉节点与收获落地）。</summary>
     public string Id { get; }
 
@@ -33,14 +36,16 @@ public sealed class RubbleSite
     public IReadOnlyList<LootItem> Drops { get; }
 
     /// <summary>
-    /// 是否含彩蛋位（1~2 处废墟埋彩蛋，内容 authored 待用户）。为 true 时 <see cref="EggContentId"/> 指向 authored 内容键；
-    /// MVP 内容未填（EggContentId 空）→ 收获仍只出 <see cref="Drops"/> 普通材料，彩蛋落地由 CampMain 后续接 authored 内容。
+    /// 是否含彩蛋位（废墟可埋一段 authored 发现）。为 true 时 <see cref="EggContentId"/> 指向消费层内容键；
+    /// 空键仍允许作为“只有普通掉落的预留位”，但不会假装已经接上剧情。
     /// </summary>
     public bool HasEggSlot { get; }
 
-    /// <summary>彩蛋 authored 内容键（待用户填；空=未填。仅 <see cref="HasEggSlot"/> 为 true 时有意义）。</summary>
-    // TODO(彩蛋 authored 待用户)：填入具体彩蛋内容键后，CampMain 收获时据此播放 authored 剧情/发特殊物；当前仅数据槽占位。
+    /// <summary>彩蛋 authored 内容键（空=仅预留位；仅 <see cref="HasEggSlot"/> 为 true 时有意义）。</summary>
     public string EggContentId { get; }
+
+    /// <summary>该位是否已经填入 authored 内容键，供消费层避免把空预留位当成已接线彩蛋。</summary>
+    public bool HasAuthoredEgg => HasEggSlot && EggContentId.Length > 0;
 
     /// <summary>已收获清空（挖满后 <see cref="Harvest"/> 过一次 → 该处永久消失、显露空地）。</summary>
     public bool Cleared { get; private set; }

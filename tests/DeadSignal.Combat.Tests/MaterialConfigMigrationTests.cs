@@ -92,6 +92,7 @@ public sealed class MaterialConfigMigrationTests
         { "dandelion_tea", 0.25 },
         { "rosehip_tea", 0.25 },
         { "silver", 0.01 },
+        { "damaged_sniper_rifle", 7.5 },
     };
 
     [Fact]

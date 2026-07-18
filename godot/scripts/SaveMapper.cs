@@ -162,7 +162,7 @@ public static class SaveMapper
 
     public static HeldLightSave? ToSave(HeldLightState light)
         => light.Held is LightProfile p && light.HandUsed is Hand h
-            ? new HeldLightSave { LightKey = p.Key, Hand = h }
+            ? new HeldLightSave { LightKey = p.Key, Hand = h, RemainingSeconds = p.FuelKind == LightFuelKind.None ? null : light.RemainingSeconds }
             : null;
 
     public static void RestoreHeldLight(HeldLightState light, HeldLightSave? s, WeaponLoadout loadout)
@@ -174,7 +174,7 @@ public static class SaveMapper
         }
         if (LightSource.Find(s.LightKey) is LightProfile profile)
         {
-            light.TryHold(profile, s.Hand, loadout);
+            light.TryHold(profile, s.Hand, loadout, s.RemainingSeconds);
         }
     }
 

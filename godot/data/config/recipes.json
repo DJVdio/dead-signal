@@ -36,6 +36,15 @@
       "nails": 2
     }
   },
+  "sofa": {
+    "OutputQuantity": 1,
+    "WorkMinutes": 240,
+    "MaterialCosts": {
+      "wood": 8,
+      "cloth": 6,
+      "nails": 4
+    }
+  },
   "bed": {
     "OutputQuantity": 1,
     "WorkMinutes": 150,
@@ -472,6 +481,14 @@
     "MaterialCosts": {
       "rawhide": 1,
       "tanning_solution": 1
+    }
+  },
+  "repair_sniper_rifle": {
+    "OutputQuantity": 1,
+    "WorkMinutes": 240,
+    "MaterialCosts": {
+      "damaged_sniper_rifle": 1,
+      "weapon_parts": 3
     }
   }
 }

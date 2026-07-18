@@ -172,4 +172,46 @@ public class ExplorationWallsTests
         Assert.True(ExplorationWalls.SegmentHitsAnyWall(wall, 5f, 50f, 5f, 60f), "整段在墙内应命中");
         Assert.False(ExplorationWalls.SegmentHitsAnyWall(System.Array.Empty<WallRect>(), -20f, 50f, 20f, 50f), "无墙则不命中");
     }
+
+    // ── 金手指帮根据地：敌营门/围栏 authored 几何 ──────────────────────────
+
+    [Fact]
+    public void GoldfingerEnemyCamp_HasLockedGateAndDestructibleFenceSegments()
+    {
+        IReadOnlyList<ExplorationFence> fences = ExplorationWalls.GoldfingerFences();
+        IReadOnlyList<ExplorationDoor> doors = ExplorationWalls.GoldfingerDoors();
+
+        Assert.True(fences.Count >= 4, "敌营外围至少要有四段围栏，不能再是一片开阔地");
+        Assert.All(fences, fence =>
+        {
+            Assert.True(fence.Rect.Width > 0f && fence.Rect.Height > 0f, fence.Name);
+            Assert.Equal(CampStructureKind.Fence, CampStructureTable.KindOf(fence.Tier));
+            Assert.True(CampStructureTable.MaxHp(fence.Tier) > 0, fence.Name);
+        });
+
+        ExplorationDoor gate = Assert.Single(doors);
+        Assert.Equal(ExplorationWalls.GoldfingerGateName, gate.Name);
+        Assert.Equal(DoorState.Locked, gate.Initial);
+        Assert.Equal(LockTier.Standard, gate.Lock);
+        Assert.Equal(CampStructureKind.Door, CampStructureTable.KindOf(StructureTier.DoorMetal));
+    }
+
+    [Fact]
+    public void GoldfingerEnemyCamp_FencePerimeterLeavesOnlyGateGap()
+    {
+        IReadOnlyList<WallRect> fences = ExplorationWalls.GoldfingerFences()
+            .Select(f => f.Rect)
+            .ToArray();
+        float x = ExplorationWalls.GoldfingerGateCenterX;
+
+        // 从南侧入口穿过寨门进入内院，围栏本身不能把唯一门洞砌死。
+        Assert.False(
+            ExplorationWalls.SegmentHitsAnyWall(fences, x, 1500f, x, 1100f),
+            "寨门正中应保留门洞");
+
+        // 从围栏侧面直穿必须被挡，不能只是视觉摆设。
+        Assert.True(
+            ExplorationWalls.SegmentHitsAnyWall(fences, 250f, 700f, 600f, 700f),
+            "西侧围栏应挡路");
+    }
 }
