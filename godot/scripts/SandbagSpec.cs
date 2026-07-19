@@ -14,7 +14,7 @@ namespace DeadSignal.Godot;
 ///
 /// 沙袋<b>不触发这个风险</b>，因为它<b>不阻挡移动、不改变寻路</b>（见 <see cref="IsSolid"/> /
 /// <see cref="CarvesNavHole"/>，两者恒 false）：敌人照样直线冲过来，不会被牵着绕迷宫 ⇒ <b>摆不出 kill box</b>。
-/// 它只给 25% 远程无伤，<b>而且敌人也能蹲在你的沙袋后面用</b>（<see cref="CoverLogic"/> 双向对称）。
+/// 它只给配置所定的远程整发无伤概率，<b>而且敌人也能蹲在你的沙袋后面用</b>（<see cref="CoverLogic"/> 双向对称）。
 /// ⇒ 玩家能经营防御位置，但摆不出必胜阵型——沙袋给的是"这个角度我更耐打"，不是"敌人只能从这里进来"。
 ///
 /// <b>所以规则不一致是有意的</b>：能不能建，取决于它改不改寻路。谁要把沙袋改成实心的，
@@ -60,7 +60,7 @@ public static class SandbagSpec
     /// </summary>
     public const bool CarvesNavHole = false;
 
-    /// <summary>躲在其后的远程无伤概率（同其它半身掩体，25%，拟定待调）。</summary>
+    /// <summary>躲在其后的远程无伤概率（同其它半身掩体，数值以 Wiki 配置为准）。</summary>
     public const float CoverChance = CoverLogic.DefaultCoverChance;
 
     /// <summary>

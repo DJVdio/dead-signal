@@ -304,20 +304,34 @@ public static class ApparelCatalog
     /// </summary>
     public enum EquipEffectKind
     {
-        /// <summary>阅读速度乘子（平光眼镜 ×1.05）。汇总入 <see cref="ReadingSpeed.Effective"/> 的 apparelMult。</summary>
+        /// <summary>阅读速度乘子；具体效果见 Wiki 配置表。汇总入 <see cref="ReadingSpeed.Effective"/> 的 apparelMult。</summary>
         ReadingSpeed,
 
-        // 扩展位（后续，"通路第二消费者"）：DaylightVision——墨镜/雪镜白天视野 ×1.05，接 VisionLogic 链、且仅白天。
+        /// <summary>探索时被发现距离倍率；由 NightWatchContest 的 authored 服饰潜行值投影。</summary>
+        ExplorationStealth,
+
+        /// <summary>脚步/动作噪音半径倍率；与负重移速倍率在实时消费层连乘。</summary>
+        ActionNoise,
+
+        // 扩展位（后续，"通路第二消费者"）：DaylightVision——墨镜/雪镜白天视野效果，接 VisionLogic 链、且仅白天。
         // 本轮（范围A）只做 ReadingSpeed；视野是另一条链、更难测，待单独立项。
     }
 
     /// <summary>
-    /// 一条穿戴品效果：效果类型 + <b>乘子</b>（直接存乘子，如 +5% = 1.05；§2 通则①全乘算，避免"+5%"歧义与加算诱惑）。
+    /// 一条穿戴品效果：效果类型 + <b>乘子</b>（直接存乘子；§2 通则①全乘算，避免加算歧义）。
     /// </summary>
     public readonly record struct EquipEffect(EquipEffectKind Kind, double Multiplier)
     {
-        /// <summary>读速效果工厂：<paramref name="pct"/>=0.05 → ×1.05。</summary>
+        /// <summary>读速效果工厂：按 Wiki 配置的百分点转换为乘子。</summary>
         public static EquipEffect ReadingSpeed(double pct) => new(EquipEffectKind.ReadingSpeed, 1.0 + pct);
+
+        /// <summary>探索潜行效果工厂：按既有 authored 潜行值转换为发现距离倍率。</summary>
+        public static EquipEffect ExplorationStealth(double apparelStealthScore)
+            => new(EquipEffectKind.ExplorationStealth, StealthLogic.EquipmentStealthMultiplier(apparelStealthScore));
+
+        /// <summary>动作噪音效果工厂：与探索潜行共用同一服饰倍率。</summary>
+        public static EquipEffect ActionNoise(double apparelStealthScore)
+            => new(EquipEffectKind.ActionNoise, StealthLogic.EquipmentNoiseMultiplier(apparelStealthScore));
     }
 
     /// <summary>
@@ -436,20 +450,43 @@ public static class ApparelCatalog
         //   🔴 这是本表**第一次**出现"只占眼镜槽、不连着占面部槽"的东西：在它们之前，眼镜槽上的三位住客
         //   （防暴头盔 / 战争面具 / 防毒面具）**全都要连着占面部槽** ⇒ 眼镜槽从来没有过独立的候选人。
         //   ⇒ 戴一副眼镜 = **放弃那三件里的任何一件**（头盔的面罩、面具的骨片、防毒面具的滤毒罐）。
-        //   这个取舍是这两件东西的**全部价值**——那 1 点防御是凑数的，真正的效果（白天视野 / 阅读速度）
+        //   这个取舍是这两件东西的**主要价值**——真正的效果（白天视野 / 阅读速度）
         //   是引擎新轴，尚未落地（见 ArmorTable.Sunglasses / PlainGlasses 的注释）。
         Add(ArmorTable.Sunglasses(), EquipSlot.Eyes);
-        //   平光眼镜：[装备→能力加成] 挂 **+5% 阅读速度**（用户 authored，wiki 护甲表）。这是本引擎第一件"穿戴给能力供数"的装备。
-        //   效果经 ApparelEffectMultiplier 汇总入 ReadingSpeed.Effective 的 apparelMult（§2 乘算 ×1.05）。墨镜的"白天视野"是另一条链、后续。
+        //   平光眼镜：[装备→能力加成] 挂阅读效果（用户 authored，wiki 护甲表）。这是本引擎第一件"穿戴给能力供数"的装备。
+        //   效果经 ApparelEffectMultiplier 汇总入 ReadingSpeed.Effective 的 apparelMult。墨镜的"白天视野"是另一条链、后续。
         AddFx(ArmorTable.PlainGlasses(), EquipSlot.Eyes, EquipEffect.ReadingSpeed(0.05));
         //   [T71] 自制简易墨镜（木缝雪镜）→ 同占眼镜槽，与墨镜/平光眼镜/防暴盔/战争面具/防毒面具互斥。
-        //   它是墨镜的**可制作对应物**（读《尖峰时刻》解锁），护双眼 12/6——见 ArmorTable.SelfMadeSnowGoggles 注释。
+        //   它是墨镜的**可制作对应物**（读《尖峰时刻》解锁），护双眼数值见 Wiki 配置表。
         Add(ArmorTable.SelfMadeSnowGoggles(), EquipSlot.Eyes);
 
         // [警察局] 防弹背心 → **贴身层**（EquipSlot.SkinLayer，与长袖布衣/花衬衫/粗布衬衫互斥）。
         // 🔴 它是贴身层、**不是装甲层**：抗弹背心贴身穿 ⇒ **能与皮甲/板甲叠穿**（打底 + 装甲层罩外），
         // 不与装甲层三件(皮革胸甲/皮甲/板甲)互斥。护胸+腹，数值见 ArmorTable.BallisticVest（拟定待 Sim 校准）。
         Add(ArmorTable.BallisticVest(), EquipSlot.SkinLayer);
+
+        // [Wiki 新增] 厚重裤子 / 厚重披风 / 雪地靴。userNote 中的移动速度效果暂作备注，不在本轮接线。
+        Add(ArmorTable.HeavyTrousers(), EquipSlot.Pants);
+        // 披风只占装甲层；即使保护部位显示包含双大腿，也不抢裤装槽。
+        Add(ArmorTable.HeavyCape(), EquipSlot.PlateLayer);
+        AddPaired(ArmorTable.SnowBoots(), EquipSlot.LeftFoot, EquipSlot.RightFoot, HumanBody.LeftFoot, HumanBody.RightFoot);
+
+        // 实时潜行/噪音效果直接从 authored 夜防服饰表投影，避免另抄一张数值表。
+        // 已有 ReadingSpeed（如平光眼镜）保留，新的两条效果只追加，不覆盖旧效果。
+        foreach ((string name, float stealthScore) in NightWatchContest.ApparelStealth)
+        {
+            if (!d.TryGetValue(name, out ApparelDef? def))
+            {
+                // 夜行斗篷/软底鞋是夜防专用物品，暂未登记为可穿戴目录项；不强行造槽。
+                continue;
+            }
+
+            List<EquipEffect> effects = def.Effects?.ToList() ?? new List<EquipEffect>();
+            effects.Add(EquipEffect.ExplorationStealth(stealthScore));
+            effects.Add(EquipEffect.ActionNoise(stealthScore));
+            d[name] = def with { Effects = effects };
+        }
+
         return d;
     }
 

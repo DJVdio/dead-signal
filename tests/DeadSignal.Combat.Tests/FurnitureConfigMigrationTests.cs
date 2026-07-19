@@ -38,6 +38,7 @@ public sealed class FurnitureConfigMigrationTests
         new Dictionary<string, (Dictionary<string, int>, int)>
         {
             ["工作台"] = (new() { ["wood"] = 16, ["nails"] = 8 }, 180),
+            ["武器台"] = (new() { ["wood"] = 8, ["iron"] = 4, ["nails"] = 6 }, 180),
             ["改装台"] = (new() { ["wood"] = 8, ["iron"] = 4, ["components"] = 2, ["nails"] = 6 }, 200),
             ["烹饪台"] = (new() { ["stone"] = 8, ["wood"] = 6, ["iron"] = 3, ["nails"] = 4 }, 180),
             ["住宅-柜子"] = (new() { ["wood"] = 10, ["nails"] = 6 }, 120),
@@ -45,6 +46,7 @@ public sealed class FurnitureConfigMigrationTests
             ["住宅-展示柜"] = (new() { ["wood"] = 8, ["nails"] = 4 }, 100),
             ["床"] = (new() { ["wood"] = 12, ["cloth"] = 4, ["nails"] = 6 }, 150),
             ["桌子"] = (new() { ["wood"] = 8, ["nails"] = 4 }, 120),
+            ["沙发"] = (new() { ["wood"] = 8, ["cloth"] = 6, ["nails"] = 4 }, 240),
             ["沙袋"] = (new() { ["cloth"] = 2, ["stone"] = 4 }, 30),
             ["陷阱"] = (new() { ["wood"] = 2, ["wire"] = 2, ["rope"] = 1 }, 40),
             ["捕鸟陷阱"] = (new() { ["wood"] = 2, ["rope"] = 2 }, 40),
@@ -61,7 +63,7 @@ public sealed class FurnitureConfigMigrationTests
         Assert.NotNull(cost);
     }
 
-    // ── 字面值锚定（A/B）：14 件家具逐件 Cost + BuildMinutes == 迁移前字面量 ──────────────
+    // ── 字面值锚定（A/B）：15 件家具逐件 Cost + BuildMinutes == 迁移前字面量 ──────────────
     [Fact]
     public void Costs_and_minutes_match_original_literals()
     {

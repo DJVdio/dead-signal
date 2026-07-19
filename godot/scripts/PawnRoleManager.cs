@@ -14,6 +14,7 @@ public sealed class PawnRoleManager
 
     /// <summary>夜间读书指派（pawnId → bookId）。与守卫互斥：同人若两处都在，守卫优先（读书让位）。仅 NightAct 生效。</summary>
     public Dictionary<int, string> ReadingAssignments { get; } = new();
+    public HashSet<int> ProductionAssignments { get; } = new();
 
     public event Action? RolesChanged;
 
@@ -49,6 +50,14 @@ public sealed class PawnRoleManager
         ApplyPhase(_clock.CurrentPhase);
     }
 
+    public void SetProductionAssignments(IEnumerable<int> pawnIds)
+    {
+        ProductionAssignments.Clear();
+        foreach (int id in pawnIds ?? Enumerable.Empty<int>())
+            ProductionAssignments.Add(id);
+        ApplyPhase(_clock.CurrentPhase);
+    }
+
     private void OnPhaseChanged(DayPhase phase) => ApplyPhase(phase);
 
     private void ApplyPhase(DayPhase phase)
@@ -65,6 +74,8 @@ public sealed class PawnRoleManager
         switch (phase)
         {
             case DayPhase.DayPrep:
+                foreach (var p in _allPawns)
+                    if (ProductionAssignments.Contains(p.Id)) p.Role = PawnRole.Producing;
                 break;
             case DayPhase.DayTravel:
             case DayPhase.DayExplore:
@@ -83,6 +94,8 @@ public sealed class PawnRoleManager
                 ExpeditionIds.Clear();
                 break;
             case DayPhase.NightPrep:
+                foreach (var p in _allPawns)
+                    if (ProductionAssignments.Contains(p.Id)) p.Role = PawnRole.Producing;
                 break;
             case DayPhase.NightAct:
                 // 守卫与读书同为夜间指派角色（一人一个）：守卫优先，剩下被指派读书者置 Reading。
@@ -91,6 +104,8 @@ public sealed class PawnRoleManager
                 {
                     if (guarded.Contains(p.Id))
                         p.Role = PawnRole.Guard;
+                    else if (ProductionAssignments.Contains(p.Id))
+                        p.Role = PawnRole.Producing;
                     else if (ReadingAssignments.ContainsKey(p.Id))
                         p.Role = PawnRole.Reading;
                 }

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using DeadSignal.Combat;
@@ -162,7 +163,7 @@ public static class SaveMapper
 
     public static HeldLightSave? ToSave(HeldLightState light)
         => light.Held is LightProfile p && light.HandUsed is Hand h
-            ? new HeldLightSave { LightKey = p.Key, Hand = h }
+            ? new HeldLightSave { LightKey = p.Key, Hand = h, RemainingSeconds = p.FuelKind == LightFuelKind.None ? null : light.RemainingSeconds }
             : null;
 
     public static void RestoreHeldLight(HeldLightState light, HeldLightSave? s, WeaponLoadout loadout)
@@ -174,7 +175,7 @@ public static class SaveMapper
         }
         if (LightSource.Find(s.LightKey) is LightProfile profile)
         {
-            light.TryHold(profile, s.Hand, loadout);
+            light.TryHold(profile, s.Hand, loadout, s.RemainingSeconds);
         }
     }
 
@@ -336,6 +337,31 @@ public static class SaveMapper
         var job = new CraftingJob(s.RecipeId, s.TotalWorkMinutes, s.Times);
         job.Advance(s.ElapsedWorkMinutes, canWork: true);
         return job;
+    }
+
+    public static List<FacilityJobSave> ToSave(FacilityJobBoard board)
+        => (board?.Jobs ?? Array.Empty<FacilityJobSlot>()).Select(slot => new FacilityJobSave
+        {
+            SlotKey = slot.SlotKey,
+            RecipeId = slot.Job.RecipeId,
+            Times = slot.Job.Times,
+            TotalWorkMinutes = slot.Job.TotalWorkMinutes,
+            ElapsedWorkMinutes = slot.Job.ElapsedWorkMinutes,
+            WorkerId = slot.WorkerId,
+        }).ToList();
+
+    public static FacilityJobBoard FromSave(IEnumerable<FacilityJobSave>? saves)
+    {
+        var board = new FacilityJobBoard();
+        foreach (FacilityJobSave s in saves ?? Enumerable.Empty<FacilityJobSave>())
+        {
+            var job = new CraftingJob(s.RecipeId, s.TotalWorkMinutes, s.Times);
+            job.Advance(s.ElapsedWorkMinutes, canWork: true);
+            FacilityJobStartResult restored = board.TryRestore(new FacilityJobSlot(s.SlotKey, job, s.WorkerId));
+            if (!restored.Started)
+                throw new InvalidOperationException($"生产存档冲突：{s.SlotKey}/{s.WorkerId}（{restored.Failure}）");
+        }
+        return board;
     }
 
     // ---- DogApparelSlots ----

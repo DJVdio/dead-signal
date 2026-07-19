@@ -188,9 +188,8 @@ public class LayerRerollMinTests
     }
 
     /// <summary>
-    /// 🔴 「好甲必须强过烂甲」的验收判据：**一件板甲（锐防 50）必须明显强于三件垃圾布**
-    /// （皮革胸甲8 + 粗布外套6 + 长袖布衣6，锐防合计 20）。
-    /// 修复前是**反的**：三件套 17% ＜ 板甲 41% ⇒ **破布比板甲硬 2.4 倍**。
+    /// 🔴 「好甲必须强过烂甲」的验收判据：**一件板甲必须明显强于三件垃圾布**。
+    /// 护甲数值均从 Wiki 配置读取。
     /// </summary>
     [Fact]
     public void OnePlate_BeatsThreeRags()
@@ -204,7 +203,7 @@ public class LayerRerollMinTests
             777);
 
         Assert.True(plate < rags,
-            $"板甲(锐防50)必须比三件垃圾布(锐防合计20)更抗揍：板甲 {plate:F2} vs 三件套 {rags:F2}");
+            $"板甲必须比三件垃圾布更抗揍：板甲 {plate:F2} vs 三件套 {rags:F2}");
     }
 
     /// <summary>

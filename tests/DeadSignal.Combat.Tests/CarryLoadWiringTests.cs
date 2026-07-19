@@ -11,12 +11,12 @@ namespace DeadSignal.Combat.Tests;
 /// 🔴 [T45·负重激活] 「**装备真的进了账、debuff 真的作用到了人身上**」——两条断链的护栏。
 ///
 /// <para>═══ <b>这组测试是为一个真断链写的，别删</b> ═══
-/// T45 之前，负重系统看起来是完整的：<c>Loadout</c> 有上限、有三档、有移速/攻速乘子，
+/// T45 之前，负重系统看起来是完整的：<c>Loadout</c> 有上限、有分档、有移速/攻速乘子，
 /// <c>CarryCapacityTests</c> 一路全绿。**但它整个不存在**：
 /// <list type="number">
 /// <item><b>断链一</b>：<c>ExpeditionBag.CarriedKg</c> 只算 <c>LootItem</c>，而出门那一刻
-///       <c>_bag = new ExpeditionBag(...)</c> 是**空包** ⇒ <b>玩家出门时负重恒为 0kg</b>。
-///       一把 7.5kg 的满改装步枪、一身 15kg 的板甲，对负重的贡献都是**零**。</item>
+///       <c>_bag = new ExpeditionBag(...)</c> 是**空包** ⇒ <b>玩家出门时装备重量没有入账</b>。
+///       满改装武器和重型护甲对负重的贡献都是**零**。</item>
 /// <item><b>断链二</b>：<c>Loadout.SpeedMultiplier</c> / <c>AttackSpeedMultiplier</c> 全仓
 ///       **没有任何游戏代码消费**（只有 <c>CarryWeight.cs</c> 自己和单测）——移速是常数
 ///       <c>Pawn.MoveSpeed = 95f</c> ⇒ <b>负重 debuff 是死代码</b>。</item>
@@ -35,7 +35,7 @@ public class CarryLoadWiringTests
 {
     // ════════════════ ① 装备的账：真数据（ArmorTable / ItemWeights 是单一事实源，本文件不复制数值）════════════════
 
-    /// <summary>护甲重量取引擎 <c>ArmorTable</c> 的 Weight（单一事实源）。</summary>
+/// <summary>护甲重量动态读取 <c>ArmorTable</c>；表值以 Wiki 配置为准。</summary>
     private static double A(ArmorLayer layer) => layer.Weight;
 
     /// <summary>某套装备的总重（kg）——武器名走 <see cref="ItemWeights.WeaponKg"/>，护甲走 <c>ArmorLayer.Weight</c>。</summary>
@@ -65,7 +65,7 @@ public class CarryLoadWiringTests
 
     /// <summary>
     /// 🔴 <b>出门负重 ≠ 0</b> —— 本组最要害的一条。
-    /// <para>⚠️ 修复前这条**必红**：装备一克都不进账，一个刚建好的幸存者出门时负重恒为 0.0kg。</para>
+    /// <para>⚠️ 修复前这条**必红**：装备一克都不进账，一个刚建好的幸存者出门时装备重量恒未入账。</para>
     /// <para>清单读的是 <see cref="SurvivorStartingKit"/> —— <c>Pawn.Create</c> **照着同一份清单**穿
     /// （见下方 <see cref="PawnCreate_WearsTheStartingKit_TwoSourcesWelded"/>），两份事实源焊死，不是各抄一遍。</para>
     /// </summary>
@@ -75,15 +75,15 @@ public class CarryLoadWiringTests
         double dagger = SurvivorStartingKit.GearKg(StartingWeapon.Dagger);
         double pistol = SurvivorStartingKit.GearKg(StartingWeapon.Pistol);
 
-        Assert.True(dagger > 0, "刚建好的幸存者出门时身上必须有重量——修复前这里是 0kg");
+        Assert.True(dagger > 0, "刚建好的幸存者出门时身上必须有重量——修复前装备重量未入账");
 
-        // 布衣 0.15 + 长裤 0.15 + 鞋 0.25×2 = 0.80kg 衣物
+        // 起始衣物重量动态读取 Wiki 配置并汇总。
         Assert.Equal(0.80, SurvivorStartingKit.ApparelKg, 6);
         Assert.Equal(0.80 + 0.5, dagger, 6);  // + 匕首
         Assert.Equal(0.80 + 1.0, pistol, 6);  // + 手枪
     }
 
-    /// <summary>成对品（鞋/手套）**逐只计重**：一只 0.25kg 的运动鞋，两只就是 0.5kg（不是"一双 = 一件"）。</summary>
+    /// <summary>成对品（鞋/手套）**逐只计重**：两只总重等于单只重量的两倍（不是"一双 = 一件"）。</summary>
     [Fact]
     public void PairedApparel_WeighsPerPiece_NotPerPair()
     {
@@ -118,45 +118,44 @@ public class CarryLoadWiringTests
     }
 
     /// <summary>
-    /// 五档真实配置的实重（**这张表就是免罚线 15kg 的标定依据**）。
+    /// 五档真实配置的实重（数值由 <c>ArmorTable</c>/<c>ItemWeights</c> 按 Wiki 配置复算）。
     /// 数字全部由 <c>ArmorTable</c>/<c>ItemWeights</c> 复算，本文件不写死任何护甲重量。
     /// </summary>
     [Fact]
     public void TheFiveRealLoadouts_WeighWhatTheCalibrationAssumes()
     {
         Assert.Equal(1.30, Gear("匕首", StarterClothes()), 2);       // 开局
-        Assert.Equal(17.30, Gear("步枪", MidGameArmor()), 2);        // 中期标准（步枪 4.0→7.5）
-        Assert.Equal(29.90, Gear("狙击枪", HeavyArmor()), 2);        // 板甲重装（狙击 6.0→9.0）
+        Assert.Equal(17.30, Gear("步枪", MidGameArmor()), 2);        // 中期标准（重量来自 Wiki 配置）
+        Assert.Equal(29.90, Gear("狙击枪", HeavyArmor()), 2);        // 板甲重装（重量来自 Wiki 配置）
 
         // 满改装（重量走 ItemWeights.WeaponKg；改装件增重由 impl-weaponmod 接进那个函数，见 [HANDOFF]）：
-        // 步枪 7.5 → 15.1875（创伤型枪托 +50% × 加长枪管 +35%，**连乘**）
+        // 步枪重量读取 Wiki 配置；改装效果 +50% × +35%，**连乘**。
         Assert.Equal(24.9875, ModdedRifleKg + GearWeight.OfArmor(MidGameArmor()), 2);
-        // 狙击 9.0 → 18.225
+        // 狙击重量读取 Wiki 配置；改装效果按同一规则连乘。
         Assert.Equal(39.125, ModdedSniperKg + GearWeight.OfArmor(HeavyArmor()), 2);
     }
 
     // ════════════════ ② 🔴 用户的设计意图：装备**吃掉你的搜刮余量** ════════════════
     //
     // ⚠️ 别搞反：负重的代价**不是"出门就减速"**。用户原话：
-    //   「**不改啊，就应当是 30/50/80。带装备出门，随便搜点就超 30 了。如果全身重甲+重武器（单板甲就 15 了），
-    //     那出门就差不多 30 了，能搜的空间会很小。**」
-    // ⇒ 每个配置出门时**都还在免罚线下**（不罚）；装备的代价是**它把你到 30kg 那条线的余量吃掉了**。
-    //   穿板甲带重枪 ⇒ 余量只剩 0.1kg（出门就差不多 30）⇒ **搜一根木料就掉档**。这比"出门即罚"好——**它把选择权留给玩家**。
+    //   「带装备出门，随便搜点就会进入负重档；全身重甲+重武器时，能搜的空间会很小。」
+    // ⇒ 阈值和装备重量均来自 Wiki 配置；装备的代价是**吃掉免罚线余量**。
+    //   重装配置接近免罚线，少量搜刮即可掉档。这比"出门即罚"好——**它把选择权留给玩家**。
 
-    /// <summary>基准人的上限（80kg，健全饱食无加成）。</summary>
+    /// <summary>基准人的上限（数值来自 Wiki 配置，健全饱食无加成）。</summary>
     private static double Limit => CarryCapacity.For(1.0);
 
     // ———— 满改装武器的实重：**权威在 `WeaponModCatalog`（impl-weaponmod 所有）**，这里是快照 ————
     // 负重的**规则**不依赖这两个数（它们只经 ItemWeights.WeaponKg 进账）；它们变了，只需改这两行 + 下面的余量表。
     // 现值：创伤型枪托 +50% × 加长枪管 +35%，**连乘**（百分比一律乘算，CLAUDE.md 铁律）。
 
-    /// <summary>满改装步枪：7.5 × 1.50 × 1.35 = 15.1875kg（步枪基础重 4.0→7.5 翻倍后）。</summary>
+    /// <summary>满改装步枪：基础重量读取 Wiki 配置，改装效果按连乘。</summary>
     private const double ModdedRifleKg = 15.1875;
 
-    /// <summary>满改装狙击：9.0 × 1.50 × 1.35 = 18.225kg（狙击基础重 6.0→9.0 后）。</summary>
+    /// <summary>满改装狙击：基础重量读取 Wiki 配置，改装效果按连乘。</summary>
     private const double ModdedSniperKg = 18.225;
 
-    /// <summary>改装的重量必须是**连乘**出来的，不是加算（加算会得到 7.5 × 1.85 = 13.875kg）。</summary>
+    /// <summary>改装的重量必须按 Wiki 配置效果**连乘**出来，不是加算。</summary>
     [Fact]
     public void ModWeights_ChainMultiplicatively_NotAdditively()
     {
@@ -165,13 +164,13 @@ public class CarryLoadWiringTests
         Assert.NotEqual(7.5 * (1 + 0.50 + 0.35), ModdedRifleKg, 6); // 防加算回潮
     }
 
-    /// <summary>基准人的免罚线（30kg）。</summary>
+    /// <summary>基准人的免罚线（数值来自 Wiki 配置）。</summary>
     private static double FreeLine => Loadout.FreeThresholdFor(Limit);
 
     /// <summary>
     /// 🔴🔴 <b>用户设计意图的核心表</b>：出门时**没有一个配置在罚**，但它们的<b>搜刮余量天差地别</b>。
-    /// <para>⚠️ 修复前这张表的「余量」列**全是 30.0kg**：装备不进账 ⇒ 一把 7.5kg 的满改装步枪、一身 15kg 的板甲，
-    /// 对搜刮余量的影响都是**零**。那正是这单要修的东西。</para>
+    /// <para>⚠️ 修复前这张表的「余量」列没有计入装备：满改装武器、重型护甲对搜刮余量的影响都是**零**。
+    /// 那正是这单要修的东西。</para>
     /// </summary>
     [Theory]
     [InlineData("开局(匕首+布衣+长裤+鞋)", 1.30, 28.7)]        // 想拿什么拿什么
@@ -181,7 +180,7 @@ public class CarryLoadWiringTests
     public void GearDoesNotSlowYouDownAtTheGate_ItEatsYourLootingRoom(
         string _, double gearKg, double expectFreeRoomKg)
     {
-        // 出门：一个都不罚（用户："那出门就差不多 30 了"——差不多，但还没到）
+        // 出门：一个都不罚（阈值与装备重量来自 Wiki 配置）
         Assert.Equal(LoadoutTier.Unencumbered, Loadout.TierOf(gearKg, Limit));
         Assert.Equal(1.0, Loadout.SpeedMultiplier(gearKg, Limit), 9);
         Assert.Equal(1.0, Loadout.AttackSpeedMultiplier(gearKg, Limit), 9);
@@ -193,8 +192,8 @@ public class CarryLoadWiringTests
     /// <summary>
     /// 🔴🔴 <b>用户设计意图的核心断言</b>：「全身重甲+重武器 ⇒ **能搜的空间会很小**」——
     /// 板甲重装出门就<b>贴着免罚线</b>：余量很小，随便搜一点点建材就掉进负重档。
-    /// <para>⚠️ [T68] <b>本条改成"按实重推断"而非钉死数字</b>：它同时吃**武器重量**（另有 agent 在同步武器表）
-    /// 与**木料重量**（本单减半 2→1）两个都在动的变量 —— 钉死"余量 3.1kg / 搜 N 根"会被任一改动打红，
+    /// <para>⚠️ [T68] <b>本条改成"按实重推断"而非钉死数字</b>：它同时吃**武器重量**与**木料重量**两个都在动的变量 ——
+    /// 钉死具体余量 / 搜刮数量会被任一 Wiki 配置改动打红，
     /// 且那不是这条测试要守的东西。它守的是**机制**：重甲重武器出门时余量所剩无几，加一点点货就越线。</para>
     /// </summary>
     [Fact]
@@ -220,9 +219,8 @@ public class CarryLoadWiringTests
     }
 
     /// <summary>
-    /// 🔴 <b>满改装步枪的代价：吃掉 7.69kg 搜刮余量</b>（不是"出门就减速"——它出门仍然一分不罚）。
-    /// <para>[carryweight2] 步枪基础重翻倍(4.0→7.5)后，改装增重 = 7.5×1.5×1.35 − 7.5 = 7.6875kg，
-    /// 原样从搜刮余量里扣走——比原厂多背这些，就得少搬这些货回家。</para>
+    /// 🔴 <b>满改装步枪的代价：吃掉搜刮余量</b>（不是"出门就减速"——它出门仍然一分不罚）。
+    /// <para>改装增重按 Wiki 配置效果连乘，原样从搜刮余量里扣走——比原厂多背这些，就得少搬这些货回家。</para>
     /// </summary>
     [Fact]
     public void AFullyModdedRifle_CostsYouLootingRoom_NotSpeedAtTheGate()
@@ -230,12 +228,12 @@ public class CarryLoadWiringTests
         double stock = Gear("步枪", MidGameArmor());                       // 17.30kg 原厂（步枪 7.5）
         double modded = ModdedRifleKg + GearWeight.OfArmor(MidGameArmor()); // 24.9875kg 满改装
 
-        // 两个出门都不罚——改装**不是**"出门即 debuff"（满改装 24.99kg 仍在 30kg 免罚线下）
+        // 两个出门都不罚——改装**不是**"出门即 debuff"（当前 Wiki 配置仍在免罚线下）
         Assert.Equal(LoadoutTier.Unencumbered, Loadout.TierOf(stock, Limit));
         Assert.Equal(LoadoutTier.Unencumbered, Loadout.TierOf(modded, Limit));
         Assert.Equal(1.0, Loadout.SpeedMultiplier(modded, Limit), 9);
 
-        // 代价在余量：满改装比原厂少 7.69kg 的搜刮空间（= 那把枪多出来的重量，一克不差）
+        // 代价在余量：满改装比原厂少的搜刮空间，等于那把枪多出来的重量。
         double stockRoom = FreeLine - stock;    // 12.7kg
         double moddedRoom = FreeLine - modded;  // 5.0125kg
         Assert.Equal(12.7, stockRoom, 1);
@@ -244,9 +242,9 @@ public class CarryLoadWiringTests
     }
 
     /// <summary>
-    /// 🔴 <b>枪械翻倍后：连原厂中期步枪都搬不空最大点位了</b>（住宅区 66kg，硬余量只剩 62.7kg，留 3.3kg 在原地）；
-    /// 换上满改装步枪，硬余量掉到 55.0kg ⇒ <b>留 11.0kg 在原地，改装把差距又拉大了 7.69kg</b>。
-    /// <para>[carryweight2] 旧口径"原厂步枪刚好搬得空"随枪重翻倍作废——重武器出门余量更小正是本轮意图。
+    /// 🔴 <b>当前 Wiki 配置下：原厂中期步枪也搬不空最大点位</b>；
+    /// 换上满改装步枪后，留下更多货物，差距等于改装增重。
+    /// <para>旧口径"原厂步枪刚好搬得空"随 Wiki 配置变化作废——重武器出门余量更小正是本轮意图。
     /// 保留的机制：改装增重原样变成额外留货（modded 留的 − stock 留的 = 那把枪多出的重量）。
     /// 「你可以把枪改装得很强，但你得接受多空手而归」——用户要的取舍，这就是它的数字形态。</para>
     /// </summary>
@@ -279,7 +277,7 @@ public class CarryLoadWiringTests
         Assert.Equal(28.7, FreeLine - gear, 1);
     }
 
-    /// <summary>贪多战利品：任何配置背满都要付代价（用户："随便搜点就超 30 了"）。</summary>
+    /// <summary>贪多战利品：任何配置背满都要付代价（阈值来自 Wiki 配置）。</summary>
     [Fact]
     public void GreedForLoot_CostsSpeed_WhateverYouWear()
     {
@@ -294,8 +292,8 @@ public class CarryLoadWiringTests
 
     /// <summary>
     /// 🔴 <b>负重是逐人的，不是全队摊薄的</b>：两人同队各搜 10kg 货，
-    /// 穿板甲的那个（29.9kg 装备）**当场掉档变慢**，轻装的队友（1.3kg）**一点不受连累**。
-    /// <para>若按全队总账分档，板甲那 25kg 会被队友摊薄成"全队平均"，
+    /// 穿重装的那个**当场掉档变慢**，轻装的队友**一点不受连累**。
+    /// <para>若按全队总账分档，重装重量会被队友摊薄成"全队平均"，
     /// 「穿板甲的人自己走得慢」这条代价就凭空消失了。</para>
     /// </summary>
     [Fact]
@@ -312,18 +310,18 @@ public class CarryLoadWiringTests
         Assert.Equal(10.0, tankLoad.LootShareKg, 6);  // 平摊：各 10kg
         Assert.Equal(10.0, scoutLoad.LootShareKg, 6);
 
-        // 板甲那位：29.9 + 10 = 39.9kg ⇒ 越线，走得慢、打得也慢
+        // 重装那位：装备重量加上个人战利品后越线，走得慢、打得也慢
         Assert.Equal(LoadoutTier.Encumbered, tankLoad.Tier);
         Assert.True(tankLoad.SpeedMultiplier < 1.0);
         Assert.True(tankLoad.AttackSpeedMultiplier < 1.0);
 
-        // 轻装队友：1.3 + 10 = 11.3kg ⇒ 一点不受连累
+        // 轻装队友：按 Wiki 配置仍未越线，一点不受连累
         Assert.Equal(LoadoutTier.Unencumbered, scoutLoad.Tier);
         Assert.Equal(1.0, scoutLoad.SpeedMultiplier, 9);
         Assert.Equal(1.0, scoutLoad.AttackSpeedMultiplier, 9);
     }
 
-    /// <summary>战利品按**运力占比**摊：背得动的人多背（山姆的 ×1.15 让他多分到货，也确实扛得住）。</summary>
+    /// <summary>战利品按**运力占比**摊：背得动的人多背（山姆专属运力加成来自 Wiki/角色配置）。</summary>
     [Fact]
     public void LootIsSharedInProportionToWhoCanCarryIt()
     {
@@ -339,7 +337,7 @@ public class CarryLoadWiringTests
         Assert.Equal(20.0 * (sam / total), s.LootShareKg, 6);
     }
 
-    /// <summary>布鲁斯的口袋狗衣（8kg）**真的把 8kg 从人的肩膀上卸下来**——狗先驮满，剩下的才摊给人。</summary>
+    /// <summary>布鲁斯的口袋狗衣按 Wiki 配置**把容量从人的肩膀上卸下来**——狗先驮满，剩下的才摊给人。</summary>
     [Fact]
     public void ThePocketVest_TakesEightKilosOffHumanShoulders()
     {
@@ -407,7 +405,7 @@ public class CarryLoadWiringTests
         Assert.Equal(70.0, bag.FreeKg, 6);
     }
 
-    /// <summary>装备重到把余量吃光（把全队塞进板甲）⇒ 一件东西都拿不走，但不会炸（FreeKg 钳到 0）。</summary>
+    /// <summary>装备重到把余量吃光（把全队塞进重装）⇒ 一件东西都拿不走，但不会炸（FreeKg 钳到 0）。</summary>
     [Fact]
     public void OverGearedParty_CanCarryNothingHome_ButDoesNotCrash()
     {
@@ -424,11 +422,11 @@ public class CarryLoadWiringTests
 
     [Fact]
     public void Hud_ShowsNothingWhenThereIsNothingToWarnAbout()
-        => Assert.Equal("", CarryCapacity.PenaltyText(29.9, Limit)); // 板甲重装+重枪出门(29.9kg)仍不罚 ⇒ HUD 保持干净
+        => Assert.Equal("", CarryCapacity.PenaltyText(29.9, Limit)); // 重装配置出门仍不罚 ⇒ HUD 保持干净
 
     /// <summary>
     /// 越线后，HUD 要写清**移速和攻速各掉了多少**。
-    /// <para>🔴 [用户新曲线] 攻速从 30kg 起就开始掉 ⇒ 轻度档的提示里**也有攻速**了
+    /// <para>🔴 [用户新曲线] 进入轻度档后攻速也开始掉 ⇒ 提示里**也有攻速**了
     /// （旧口径"轻度档只罚移速"已作废）。</para>
     /// </summary>
     [Fact]
@@ -447,7 +445,7 @@ public class CarryLoadWiringTests
         Assert.Contains("攻速 −50%", full);
     }
 
-    /// <summary>HUD 把**装备**和**战利品**分开列——那 26.9kg 是你自己穿上去的，不是捡来的（而且扔不掉）。</summary>
+    /// <summary>HUD 把**装备**和**战利品**分开列——装备重量来自 Wiki 配置，不是捡来的（而且扔不掉）。</summary>
     [Fact]
     public void Hud_SeparatesWhatYouWoreFromWhatYouLooted()
     {
@@ -462,7 +460,7 @@ public class CarryLoadWiringTests
     [Fact]
     public void Hud_NamesTheGuyWhoIsSlowingEveryoneDown()
     {
-        // 板甲重装+重枪 + 分摊到 20kg 货 = 49.9kg ⇒ 轻度档，走得慢
+        // 重装+重枪分摊战利品后进入轻度档，走得慢
         MemberLoad tank = ExpeditionLoad.For(Gear("狙击枪", HeavyArmor()), lootKg: 20, dogCapacityKg: 0, Limit, Limit);
         Assert.Contains("山姆", CarryCapacity.FormatMember("山姆", tank));
         Assert.Contains("移速 −", CarryCapacity.FormatMember("山姆", tank));
@@ -510,6 +508,38 @@ public class CarryLoadWiringTests
         Assert.Contains("interval / System.Math.Max(CarryLoadAttackSpeedMult", actor);
     }
 
+    [Fact]
+    public void Actor_AttackInterval_ActuallyConsumesAuthoredAttackSpeedProvider()
+    {
+        string actor = Source(Path.Combine("godot", "scripts", "Actor.cs"));
+        Assert.Contains("SetAuthoredAttackSpeedMult", actor);
+        Assert.Contains("_authoredAttackSpeedMult is { } authoredAttack", actor);
+        Assert.Contains("interval /= System.Math.Max(authoredAttackSpeed", actor);
+    }
+
+    [Fact]
+    public void Actor_ReceiveAttack_ConsumesConcussionAndLargeBleedProviders()
+    {
+        string actor = Source(Path.Combine("godot", "scripts", "Actor.cs"));
+        Assert.Contains("SetConcussionChanceMultiplier", actor);
+        Assert.Contains("_concussionChanceMultProvider", actor);
+        Assert.Contains("concussionMult()", actor);
+        Assert.Contains("SetLargeBleedDowngradeProvider", actor);
+        Assert.Contains("_downgradeLargeBleedProvider", actor);
+        Assert.Contains("Body.DowngradeLargeBleed(hit.PartName)", actor);
+    }
+
+    [Fact]
+    public void Actor_FractureChains_ConsumeSamPenaltyReductionProvider()
+    {
+        string actor = Source(Path.Combine("godot", "scripts", "Actor.cs"));
+        Assert.Contains("SetFracturePenaltyReductionProvider", actor);
+        Assert.Contains("_fracturePenaltyReductionProvider", actor);
+        Assert.Contains("ApplyFracturePenaltyReduction", actor);
+        Assert.Contains("LowerLimbFractureMobilityFactor", actor);
+        Assert.Contains("UpperLimbFractureOperationFactor", actor);
+    }
+
     /// <summary>🔴 <c>Pawn.SetCarryLoad</c> 必须把两个乘子落到 Actor 的那两个字段上（否则灌了也白灌）。</summary>
     [Fact]
     public void Pawn_SetCarryLoad_LandsBothMultipliersOnTheActor()
@@ -543,7 +573,7 @@ public class CarryLoadWiringTests
 
     /// <summary>
     /// 🔴 <b>两份事实源焊死</b>：<c>Pawn.Create</c> 必须照 <see cref="SurvivorStartingKit"/> 发衣服。
-    /// 否则本文件里"开局幸存者 1.30kg"那条断言就是**自说自话**（测试算的是清单 A，游戏穿的是清单 B）。
+    /// 否则本文件里开局幸存者的重量断言就是**自说自话**（测试算的是清单 A，游戏穿的是清单 B）。
     /// </summary>
     [Fact]
     public void PawnCreate_WearsTheStartingKit_TwoSourcesWelded()

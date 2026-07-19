@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-16 16:18:05",
+  "generatedAt": "2026-07-19 15:56:11",
   "iconDir": "godot/assets/items",
   "multiselectOptions": {
     "fitsWeapons": [
@@ -27,7 +27,9 @@
       "双手重弩",
       "复合弩",
       "消防斧",
-      "骨刀"
+      "骨刀",
+      "自制手枪",
+      "牙医小手枪"
     ]
   },
   "dpsGripFactors": {
@@ -40,14 +42,14 @@
       "id": "weapons",
       "label": "武器",
       "file": "weapons.json",
-      "count": 28,
+      "count": 30,
       "source": "src/DeadSignal.Combat/WeaponTable.cs"
     },
     {
       "id": "armor",
       "label": "护甲服装",
       "file": "armor.json",
-      "count": 27,
+      "count": 33,
       "source": "src/DeadSignal.Combat/ArmorTable.cs（防护数值）+ godot/scripts/ApparelSlots.cs（穿在哪、护到哪）"
     },
     {
@@ -68,7 +70,7 @@
       "id": "materials",
       "label": "材料",
       "file": "materials.json",
-      "count": 26,
+      "count": 28,
       "source": "godot/scripts/Materials.cs"
     },
     {
@@ -82,8 +84,15 @@
       "id": "recipes",
       "label": "配方",
       "file": "recipes.json",
-      "count": 57,
+      "count": 69,
       "source": "godot/scripts/Recipe.cs"
+    },
+    {
+      "id": "butchery",
+      "label": "宰杀配方",
+      "file": "butchery.json",
+      "count": 6,
+      "source": "godot/scripts/Butchery.cs"
     },
     {
       "id": "lights",
@@ -96,7 +105,7 @@
       "id": "books",
       "label": "书籍与日记",
       "file": "books.json",
-      "count": 12,
+      "count": 31,
       "source": "godot/scripts/BookData.cs · godot/scripts/BookData.cs"
     },
     {
@@ -110,14 +119,14 @@
       "id": "furniture",
       "label": "家具建造",
       "file": "furniture.json",
-      "count": 14,
+      "count": 16,
       "source": "godot/scripts/FurnitureBuildCost.cs"
     },
     {
       "id": "food",
       "label": "食物与烹饪",
       "file": "food.json",
-      "count": 14,
+      "count": 16,
       "source": "godot/scripts/CookingLogic.cs + godot/scripts/Materials.cs · godot/scripts/CookingLogic.cs"
     },
     {
@@ -145,7 +154,7 @@
       "id": "character-stats",
       "label": "角色数值",
       "file": "character-stats.json",
-      "count": 68,
+      "count": 76,
       "source": "godot/scripts/SurvivorPerks.cs 等（每行的「代码位置」列写明了各自的出处）"
     },
     {

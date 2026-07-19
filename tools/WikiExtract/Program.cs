@@ -52,6 +52,16 @@ internal sealed record Col(
     bool UserNote = false,
 
     /// <summary>
+    /// **不在 config json、仍由 C# 持有的列级真源。**
+    /// <para>
+    /// 这类列不能伪造 <see cref="ConfigKey"/>（wiki-serve 只会把它投影进 json config），
+    /// 但 <see cref="TableMerge"/> 仍会拿 Wiki 旧值与代码种子逐格比较，并在漂移报告中把改动指向这里。
+    /// 序列化为 <c>codeSource</c>，也供 doc↔code 覆盖测试确认这列没有成为无主数据。
+    /// </para>
+    /// </summary>
+    string? CodeSource = null,
+
+    /// <summary>
     /// **这一列是 config json 的镜像——wiki↔config 双向联动的字段级 join。**
     /// <para>
     /// 非空 ⇒ 这一列的值就是 <c>godot/data/config/&lt;表&gt;.json</c> 里对应条目的
@@ -158,6 +168,157 @@ internal static class Program
         + "它不会被同步成游戏文案，但 agent 每次跑抽取器都会看到你新写的备注。";
 
     /// <summary>
+    /// Wiki 专用的“条目 → 已有物品图标”复用表。
+    /// <para>
+    /// 这里不另造文件名，只把非库存条目（改装、宰杀工序、中文家具配置键）指向
+    /// <see cref="ItemIcons"/> 已登记且已经落盘的近义图标。它解决的是 Wiki 接线，不改变游戏内
+    /// 物品自己的专属图标映射；日后有专图时删掉对应别名即可。
+    /// </para>
+    /// </summary>
+    private static readonly IReadOnlyDictionary<(string Category, string Id), string> WikiIconAliases
+        = new Dictionary<(string, string), string>
+    {
+        // 家具配置以中文名为键，ItemIcons 则以配方产物 key 为键。
+        [("furniture", "工作台")] = "bench",
+        [("furniture", "武器台")] = "bench",
+        [("furniture", "weapon_bench")] = "bench",
+        [("furniture", "改装台")] = "mod_bench",
+        [("furniture", "烹饪台")] = "cook_station",
+        [("furniture", "住宅-柜子")] = "table",
+        [("furniture", "住宅-衣柜")] = "table",
+        [("furniture", "住宅-展示柜")] = "table",
+        [("furniture", "床")] = "bed",
+        [("furniture", "桌子")] = "table",
+        [("furniture", "沙发")] = "chair", // 专属 sofa PNG 尚缺；先复用同类座具
+        [("furniture", "沙袋")] = "sandbag",
+        [("furniture", "陷阱")] = "snare_trap",
+        [("furniture", "捕鸟陷阱")] = "snare_trap",
+        [("furniture", "菜园")] = "potato",
+        [("furniture", "简易宰杀点")] = "骨刀",
+        [("furniture", "宰杀台")] = "骨刀",
+
+        // 宰杀配方是工序，不需要五张“工序图”；用猎物本身即可清楚区分。
+        [("butchery", "simple_rat")] = "rat",
+        [("butchery", "simple_pigeon")] = "pigeon",
+        [("butchery", "simple_rabbit")] = "rabbit",
+        [("butchery", "table_rat")] = "rat",
+        [("butchery", "table_rabbit")] = "rabbit",
+        [("butchery", "table_pigeon")] = "pigeon",
+
+        // 改装优先复用其最直观的现有零件/武器图标，避免 20 个永远 404 的伪路径。
+        [("weapon-mods", "lightened_stock")] = "wood",
+        [("weapon-mods", "sawn_off_barrel")] = "自制霰弹枪",
+        [("weapon-mods", "extended_barrel")] = "步枪",
+        [("weapon-mods", "bayonet")] = "匕首",
+        [("weapon-mods", "claw_stock")] = "骨刀",
+        [("weapon-mods", "trauma_stock")] = "棍棒",
+        [("weapon-mods", "blade_stock")] = "匕首",
+        [("weapon-mods", "serrated_blade")] = "长剑",
+        [("weapon-mods", "honed_edge")] = "长剑",
+        [("weapon-mods", "fuller_blade")] = "长剑",
+        [("weapon-mods", "weighted_handle")] = "wood",
+        [("weapon-mods", "lightened_handle")] = "wood",
+        [("weapon-mods", "grip_wrap_blade")] = "rope",
+        [("weapon-mods", "handguard")] = "劳保手套",
+        [("weapon-mods", "wire_wrap")] = "wire",
+        [("weapon-mods", "nail_studs")] = "nails",
+        [("weapon-mods", "limb_wrap")] = "cloth",
+        [("weapon-mods", "compound_limbs")] = "竞技复合弓",
+        [("weapon-mods", "heavy_bowstring")] = "rope",
+        [("weapon-mods", "crossbow_shield")] = "板甲",
+
+        // 已登记专属 slug、但 PNG 尚未绘制的物品：Wiki 暂用同类现有资产，不让表格空着。
+        [("armor", "HorrorArmor")] = "皮甲",
+        [("armor", "BallisticVest")] = "粗布背心",
+        [("armor", "HeavyTrousers")] = "长裤",
+        [("armor", "HeavyCape")] = "粗布外套",
+        [("armor", "SnowBoots")] = "护踝鞋具",
+        [("armor", "CowboyHat")] = "棉帽",
+        [("armor", "RidingBoots")] = "护踝鞋具",
+        [("armor", "SimpleArmor")] = "皮甲",
+        [("weapons", "ImprovisedPistol")] = "手枪",
+        [("weapons", "DentistPistol")] = "手枪",
+        [("books", "bow_crafting_guide")] = "way_of_bow_and_arrow",
+        [("books", "peak_hour")] = "wilderness_survival_guide",
+        [("books", "peak_hour_2")] = "wilderness_survival_guide",
+        [("books", "peak_hour_3")] = "wilderness_survival_guide",
+        // 本轮 Wiki 新增书尚无专图，先统一复用现有书封；稳定 id 保留，日后补图只需删对应别名。
+        [("books", "street_fighting_guide")] = "wilderness_survival_guide",
+        [("books", "medical_facility_standards")] = "wilderness_survival_guide",
+        [("books", "essence_of_sales")] = "wilderness_survival_guide",
+        [("books", "hundred_family_recipes")] = "wilderness_survival_guide",
+        [("books", "family_first_aid_manual")] = "wilderness_survival_guide",
+        [("books", "stone_breaking_guide")] = "wilderness_survival_guide",
+        [("books", "django_unchained")] = "wilderness_survival_guide",
+        [("books", "vietnamese_chronicle")] = "wilderness_survival_guide",
+        [("books", "little_mouse_digs_holes")] = "wilderness_survival_guide",
+        [("books", "sharpes_autobiography")] = "wilderness_survival_guide",
+        [("books", "british_chronicle")] = "wilderness_survival_guide",
+        [("books", "irish_chronicle")] = "wilderness_survival_guide",
+        [("books", "italian_chronicle")] = "wilderness_survival_guide",
+        [("books", "spanish_chronicle")] = "wilderness_survival_guide",
+        [("books", "turkish_chronicle")] = "wilderness_survival_guide",
+        [("books", "malay_chronicle")] = "wilderness_survival_guide",
+        [("books", "new_book_1")] = "wilderness_survival_guide",
+        [("books", "new_book_2")] = "wilderness_survival_guide",
+        [("books", "new_book_3")] = "wilderness_survival_guide",
+        [("books", "new_book_4")] = "wilderness_survival_guide",
+        [("books", "new_book_5")] = "wilderness_survival_guide",
+        [("books", "new_book_6")] = "wilderness_survival_guide",
+        [("books", "new_book_7")] = "wilderness_survival_guide",
+        [("books", "new_book_8")] = "wilderness_survival_guide",
+        [("books", "new_book_9")] = "wilderness_survival_guide",
+        [("books", "new_book_10")] = "wilderness_survival_guide",
+        [("books", "new_book_11")] = "wilderness_survival_guide",
+        [("books", "new_book_12")] = "wilderness_survival_guide",
+        [("books", "new_book_13")] = "wilderness_survival_guide",
+        [("books", "new_book_14")] = "wilderness_survival_guide",
+        [("books", "new_book_15")] = "wilderness_survival_guide",
+        [("books", "new_book_16")] = "wilderness_survival_guide",
+        [("materials", "damaged_sniper_rifle")] = "狙击枪",
+        [("materials", "feather")] = "pigeon",
+        [("materials", "leather_scrap")] = "leather",
+        [("food", "rat_meat")] = "rat",
+        [("food", "bird_meat")] = "pigeon",
+        [("food", "rabbit_meat")] = "rabbit",
+        [("food", "kudzu_root")] = "laojunxu",
+        [("food", "rhubarb")] = "laojunxu",
+
+        // 配方页按配方 id 覆盖那些专属 PNG 尚缺的产物。
+        [("recipes", "sofa")] = "chair",
+        [("recipes", "horror_armor")] = "皮甲",
+        [("recipes", "snow_goggles")] = "军用头盔",
+        [("recipes", "bird_trap")] = "snare_trap",
+        [("recipes", "crop_plot")] = "potato",
+        [("recipes", "butcher_point")] = "骨刀",
+        [("recipes", "butcher_table")] = "骨刀",
+        [("recipes", "heavy_trousers")] = "长裤",
+        [("recipes", "heavy_cape")] = "粗布外套",
+        [("recipes", "snow_boots")] = "护踝鞋具",
+        [("recipes", "improvised_pistol")] = "手枪",
+        [("recipes", "dentist_pistol")] = "手枪",
+        [("recipes", "cowboy_hat")] = "棉帽",
+        [("recipes", "riding_boots")] = "护踝鞋具",
+        [("recipes", "simple_armor")] = "皮甲",
+        [("recipes", "weapon_bench")] = "bench",
+    };
+
+    /// <summary>
+    /// 仍需真正绘制的专属图标。抽取器会把“清单有路径、磁盘无 PNG”的结果与本集合对账：
+    /// 新增漏图立即失败；补图后则提示删掉已完成项。这样图标覆盖不会再静默倒退。
+    /// </summary>
+    private static readonly IReadOnlySet<string> KnownPendingWikiIcons = new HashSet<string>(StringComparer.Ordinal)
+    {
+        "armor/sunglasses", "armor/plain_glasses", "armor/snow_goggles",
+        "characters/sam", "characters/nordi", "characters/doug", "characters/nightingale",
+        "characters/christine", "characters/pete", "characters/rat", "characters/bruce",
+        "characters/merchant_first", "characters/merchant_second", "characters/gordon",
+        "characters/grandmother", "characters/goldfinger_member", "characters/zombie",
+        "characters/raider", "characters/supermarket_survivors",
+        "characters/elite_riot_police", "characters/elite_soldier",
+    };
+
+    /// <summary>
     /// 一行的图标：**相对 <c>godot/assets/items/</c> 的路径（不带扩展名）**，如 <c>weapons/short_sword</c>。
     /// 网页据此取 <c>assets/items/&lt;这个&gt;.png</c>，缺图画占位框。
     /// <para>
@@ -172,15 +333,26 @@ internal static class Program
     /// </summary>
     private static string IconPathOf(string categoryId, Dictionary<string, object?> row)
     {
+        string id = row.TryGetValue("_id", out object? rawId) ? rawId as string ?? "" : "";
+        if (WikiIconAliases.TryGetValue((categoryId, id), out string? alias)
+            && ItemIcons.Find(alias) is { } aliasDef)
+        {
+            return $"{aliasDef.Category}/{aliasDef.Slug}";
+        }
+
+        // 这些分区不是物品目录。尤其角色 id "rat" 会误撞材料键 rat，显示成一只食材老鼠；
+        // 非物品页只能走自己的稳定待绘制路径，不能跨分区碰巧查中 ItemIcons。
+        bool itemLike = categoryId is "weapons" or "armor" or "dog-gear" or "ammo" or "materials"
+            or "medical" or "recipes" or "butchery" or "lights" or "books" or "food" or "furniture";
         foreach (string key in new[] { "_id", "name", "title", "output" })
         {
-            if (row.TryGetValue(key, out object? v) && v is string s && s.Length > 0
+            if (itemLike && row.TryGetValue(key, out object? v) && v is string s && s.Length > 0
                 && ItemIcons.Find(s) is { } def)
             {
                 return $"{def.Category}/{def.Slug}";
             }
         }
-        string slug = SnakeCase(row.TryGetValue("_id", out object? id) ? id as string ?? "" : "");
+        string slug = SnakeCase(id);
         return slug.Length == 0 ? "" : $"{categoryId}/{slug}";
     }
 
@@ -231,6 +403,7 @@ internal static class Program
             Materials(),
             Medical(),
             Recipes(),
+            Butchery(),
             Lights(),
             // [波2 合页] 书籍 + 日记 → 一页（沿用 id "books"；旧 diaries.json 成孤儿，重跑后删）。
             // 页内两分块：书籍（要角色整夜读、有工时/效果）与 日记（道具，无工时，只讲故事）。
@@ -405,6 +578,45 @@ internal static class Program
             new JsonObject { ["note"] = "wiki 用到的图标清单：godot/assets/items/<这里的每一项>.png。映射的单一事实源是 godot/scripts/ItemIcons.cs；PNG 由 tools/icons/build_icons.sh 生成。（自动生成，勿手改）", ["icons"] = manifest }
                 .ToJsonString(JsonOpts), new UTF8Encoding(false));
 
+        // 覆盖门禁：只允许上面显式登记的真实美术缺口。纯规则行 _icon="" 不进分母；
+        // 别名全部指向 ItemIcons 已登记的现有资产，若文件被删也会在这里当场被抓出来。
+        string[] requestedIcons = categories
+            .SelectMany(c => c.Rows)
+            .Select(r => r.TryGetValue("_icon", out object? icon) ? icon as string : null)
+            .Where(icon => !string.IsNullOrEmpty(icon))
+            .Select(icon => icon!)
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(icon => icon, StringComparer.Ordinal)
+            .ToArray();
+        string[] missingIcons = requestedIcons
+            .Where(icon => !File.Exists(Path.Combine(repoRoot, "godot", "assets", "items", icon + ".png")))
+            .ToArray();
+        string[] unexpectedMissing = missingIcons.Except(KnownPendingWikiIcons, StringComparer.Ordinal).ToArray();
+        string[] completedButListed = KnownPendingWikiIcons.Except(missingIcons, StringComparer.Ordinal).ToArray();
+
+        var coverage = new JsonObject
+        {
+            ["note"] = "自动图标覆盖报告：有实体含义且声明了 _icon 的条目才计入；纯规则/状态行不应硬塞图标。",
+            ["rows"] = categories.Sum(c => c.Rows.Count),
+            ["rowsWithIcon"] = categories.Sum(c => c.Rows.Count(r => r.TryGetValue("_icon", out object? icon) && icon is string { Length: > 0 })),
+            ["uniqueIcons"] = requestedIcons.Length,
+            ["availableIcons"] = requestedIcons.Length - missingIcons.Length,
+            ["pendingIcons"] = new JsonArray(missingIcons.Select(icon => (JsonNode)JsonValue.Create(icon)!).ToArray()),
+        };
+        File.WriteAllText(Path.Combine(dataDir, "icon-coverage.json"), coverage.ToJsonString(JsonOpts), new UTF8Encoding(false));
+
+        if (completedButListed.Length > 0)
+        {
+            Console.WriteLine($"\n🖼️ 已补图但仍在待绘清单：{string.Join("、", completedButListed)}（请从 KnownPendingWikiIcons 删除）");
+        }
+        if (unexpectedMissing.Length > 0)
+        {
+            throw new InvalidOperationException(
+                $"Wiki 新增了未登记的缺图：{string.Join("、", unexpectedMissing)}。"
+                + "能复用现有资产就补 WikiIconAliases；确需新图才登记到 KnownPendingWikiIcons。 ");
+        }
+        Console.WriteLine($"  图标覆盖       {requestedIcons.Length - missingIcons.Length}/{requestedIcons.Length} 个唯一图标可用；待绘 {missingIcons.Length} 个");
+
         // bundle.js：file:// 直接双击打开 index.html 时的降级数据源（fetch 读不了 file://，<script> 可以）。
         // 本地服务在每次保存后会重新生成它，故两条链路不会各说各话。
         WriteBundle(dataDir, categories, index);
@@ -476,6 +688,7 @@ internal static class Program
                 if (col.Internal) jo["internal"] = true;
                 if (col.ReadOnly) jo["readonly"] = true;
                 if (col.UserNote) jo["usernote"] = true;
+                if (col.CodeSource is not null) jo["codeSource"] = col.CodeSource;
                 if (col.ConfigKey is not null) jo["configKey"] = col.ConfigKey;
                 if (col.ConfigFile is not null) jo["configFile"] = col.ConfigFile;
                 if (col.ConfigRoot is not null) jo["configRoot"] = col.ConfigRoot;
@@ -721,7 +934,8 @@ internal static class Program
                 Hint: "自动算的：打一个穿着「皮甲 + 长袖布衣」的人。**含**护甲三段判定、部位覆盖（头/手/脚是裸的，打到那儿等于打无甲）、穿透、霰弹逐颗独立被挡。**不含**距离衰减、噪音、弹药、清群。⚠️ 裸 DPS 是无甲天花板，这一列才看得出「打不打得动甲」。"),
             new("dualDps", "双持每秒伤害", "number", ReadOnly: true,
                 Hint: "自动算的。两把同款一起打；不可双持的武器这里是「—」（要改 ⇒ 改「可双持」）。注意它不是「每秒伤害 *1.4」——双持的惩罚只落在冷却上，连发那一段不受罚。"),
-            new("weight", "重量(公斤)", "number"),
+            new("weight", "重量(公斤)", "number",
+                CodeSource: "godot/scripts/ItemDef.cs :: ItemRegistry.Weapons"),
             new("stockMin", "枪托近战 伤害下限", "number", ConfigKey: "StockMeleeDamageMin"),
             new("stockMax", "枪托近战 伤害上限", "number", ConfigKey: "StockMeleeDamageMax"),
             new("stockInterval", "枪托近战 间隔(秒)", "number", ConfigKey: "StockMeleeInterval"),
@@ -739,7 +953,7 @@ internal static class Program
         var rows = new List<Dictionary<string, object?>>();
         foreach ((string member, Weapon w) in CatalogOf<Weapon>(typeof(WeaponTable)))
         {
-            rows.Add(new Dictionary<string, object?>
+            var row = new Dictionary<string, object?>
             {
                 ["name"] = w.Name,
                 ["kind"] = WeaponKind(member, w),
@@ -781,7 +995,10 @@ internal static class Program
                 // config 联动 join 键：PascalCase 成员名 → snake_case（= godot/data/config/weapons.json 的条目键）。
                 ["_configId"] = SnakeCase(member),
                 ["_anchor"] = $"src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.{member}()",
-            });
+            };
+            // 爪击/撕咬/拳脚是战斗型态，不是有实体的库存物品；不要制造三张永远不存在的 PNG 契约。
+            if (WeaponKind(member, w) == "天生武器") row["_icon"] = "";
+            rows.Add(row);
         }
         return new Category("weapons", "武器",
             "src/DeadSignal.Combat/WeaponTable.cs",
@@ -850,11 +1067,11 @@ internal static class Program
             //    （引擎的 ArmorSlot 是**伤害层序**，与"占哪个槽"无关，代码里也写着"别混"。它不给用户看。）
             new("equipSlot", "装备槽", "chip",
                 Hint: "这件东西穿在哪（引擎真读它：决定能不能穿、和什么冲突）。上身有三个槽：贴身层／外套层／装甲层——它们是槽，不是层级，可以同时各穿一件。多个槽用「、」隔开。"),
-            // [波1·item1] 保护部位：**只读的显示折叠**。真源是引擎的 45 个部位常量（HumanBody）+ ArmorTable.CoversParts，
-            // 那套逐指逐趾的模型一点不动（断手/缺指致残全靠它）；这里只把「左X+右X」折成「双X」、把手/脚的
-            // 逐指逐趾折成「手(含指)/脚(含趾)」这类人话。因是纯显示派生、非用户可改字段，故只读（改覆盖去改 ArmorTable/ApparelCatalog）。
-            new("covers", "保护部位", ReadOnly: true,
-                Hint: "这件东西实际护到身上哪些地方（引擎真源，只读）。已折叠显示：「双X」= 左右都护；「手(含指)/脚(含趾)」= 连同该手指/脚趾一起护。没护到的部位命中时一点也不挡。"),
+            // [波1·item1] 保护部位：**Wiki 可编辑、但不自动投影代码**。
+            // 真正运行时仍由 ArmorTable/ApparelCatalog 消费；这列允许设计稿先改人话显示，agent 再按需落回代码。
+            // 不设置 ConfigKey/ConfigScalar，wiki-serve 不会把它写进 armor.json config 或任何运行时配置。
+            new("covers", "保护部位",
+                Hint: "这件东西实际护到身上哪些地方。可直接改 Wiki 里的显示稿；此列不会自动同步到代码/config，需 agent 另行核对后落地。已折叠显示：「双X」= 左右都护；「手(含指)/脚(含趾)」= 连同该手指/脚趾一起护。没护到的部位命中时一点也不挡。"),
             new("paired", "成对装备", "bool",
                 Hint: "手套/鞋子这种：物品本身不分左右，**一件只占一个槽、只护一只手（脚）——要护全得装两件**。「保护部位」列显示的是装在其中一侧时护的部位。"),
             new("sharpDefense", "锐防", "number", ConfigKey: "SharpDefense"),
@@ -1318,6 +1535,59 @@ internal static class Program
             cols, rows, ConfigFile: "recipes.json");
     }
 
+    // ─────────────────────────── 宰杀配方 ───────────────────────────
+
+    /// <summary>
+    /// 宰杀是多产物工序，不塞进 RecipeData（RecipeData 只有一个 OutputKey）。
+    /// 这里直接从 ButcheryLogic 的配方清单抽取，避免 Wiki 把「一刀出肉+副产物」拆成两条互相独立的假配方。
+    /// </summary>
+    private static Category Butchery()
+    {
+        var cols = new List<Col>
+        {
+            new("name", "名称", Primary: true),
+            new("facility", "设施", "chip", ReadOnly: true),
+            new("input", "原料", "chip", ReadOnly: true),
+            new("outputs", "产出", "text", ReadOnly: true),
+            new("baseWorkMinutes", "基础工时", "number", ReadOnly: true,
+                Hint: "这是未计算刀具/设施加速前的基础工时；实际工时会按刀具和设施速度缩短。"),
+            new("doubleYieldChance", "双倍产出概率", "number", ReadOnly: true,
+                Hint: "只有宰杀台有这条额外判定；简易宰杀点为 0。"),
+            new("description", "简介", "longtext"),
+            new("_id", "内部 id", Internal: true),
+            new("_anchor", "代码位置", Internal: true),
+        };
+
+        var rows = new List<Dictionary<string, object?>>();
+        foreach (ButcherRecipe r in ButcheryLogic.Recipes)
+        {
+            string facility = r.Tier == ButcherTier.Table ? "宰杀台" : "简易宰杀点";
+            string outputs = $"{MaterialName(r.ByproductKey)}*{r.ByproductQuantity}、{MaterialName(r.MeatKey)}*{r.MeatQuantity}";
+            rows.Add(new Dictionary<string, object?>
+            {
+                ["name"] = $"{facility}：{r.QuarryName}",
+                ["facility"] = facility,
+                ["input"] = r.QuarryName,
+                ["outputs"] = outputs,
+                ["baseWorkMinutes"] = ButcheryLogic.BaseMinutes,
+                ["doubleYieldChance"] = r.Tier == ButcherTier.Table
+                    ? ButcheryLogic.TableDoubleYieldChance * 100
+                    : 0,
+                ["description"] = r.Tier == ButcherTier.Table
+                    ? "宰杀台基础产出；命中双倍判定时，肉和副产物一起翻倍。"
+                    : "简易宰杀点基础产出，不触发双倍判定。",
+                ["_id"] = r.Id,
+                ["_anchor"] = $"godot/scripts/Butchery.cs :: ButcheryLogic（Id = \"{r.Id}\"）",
+            });
+        }
+
+        return new Category("butchery", "宰杀配方",
+            "godot/scripts/Butchery.cs",
+            "宰杀不是普通单产物制作：一只猎物上案板后，同时产出肉和副产物。"
+            + "简易宰杀点和宰杀台都处理老鼠、兔子、鸟；宰杀台另保留 20% 双倍产出判定。",
+            cols, rows);
+    }
+
     /// <summary>
     /// 「造→摆」的野外设施配方 id —— 无工具、无站点门槛，在营地空地上徒手搭出来的东西
     /// （陷阱 / 菜园 / 沙袋）。列在这里才把它们和「工作台徒手活」区分开。
@@ -1463,6 +1733,7 @@ internal static class Program
         "doug_bond_l2" => "道格，且与布鲁斯的羁绊达到 2 级",
         "cook_station_absent" => "营地里还没有烹饪台（已有就不能再造第二座）",
         "mod_bench_absent" => "营地里还没有改装台（已有就不能再造第二台）",
+        "weapon_bench_absent" => "营地里还没有武器台（已有就不能再造第二台）",
         // [T67] 采集/种植/诱捕支柱的三道门槛
         "cook_station_present" => "营地里已经有一座烹饪台（茶要在灶上煮）",
         "butcher_absent" => "营地里还没有宰杀设施（已有就不能再造）",
@@ -1492,6 +1763,8 @@ internal static class Program
             new("kind", "类型", "chip", Hint: "手持的占一只手；固定的钉在营地里"),
             new("intensity", "亮度", "percent", Hint: "照亮自己，也照亮别人眼里的你。"),
             new("radius", "照亮半径(像素)", "number"),
+            new("fuelKind", "消耗类型", "chip", Hint: "固定光源无限；手电吃电池；火把按燃烧耐久耗尽。"),
+            new("activeSeconds", "可用时长(游戏秒)", "number", Hint: "手持光源从满格到耗尽的游戏秒；固定光源为 0（无限）。"),
             new("description", "说明", "longtext"),
             new("_id", "内部 id", Internal: true),
             new("_anchor", "代码位置", Internal: true),
@@ -1506,6 +1779,13 @@ internal static class Program
                 ["kind"] = p.Kind == LightKind.Handheld ? "手持" : "固定",
                 ["intensity"] = p.Intensity,
                 ["radius"] = p.Radius,
+                ["fuelKind"] = p.FuelKind switch
+                {
+                    LightFuelKind.Battery => "电池",
+                    LightFuelKind.Durability => "耐久",
+                    _ => "无限",
+                },
+                ["activeSeconds"] = p.ActiveSeconds,
                 ["description"] = p.Description,
                 ["_id"] = p.Key,
                 ["_anchor"] = "godot/scripts/LightSource.cs :: LightSource",
@@ -1637,6 +1917,42 @@ internal static class Program
                 ? $"被动：不使用任何手术材料时，手术加成点数 +{surgeryPoints}（教的是没器械时的土办法；一旦投了正规耗材就不加）"
                 : $"被动：读过它的人做手术更有把握（手术点数 +{surgeryPoints}）");
         }
+
+        // 书籍被动不全是配方或手术点：尖峰时刻的骨折恢复、尖峰时刻·三的野外识别也要进入同一列，
+        // 否则 Wiki 会把已经接线的能力误报成“只有配方”。
+        if (bookId == BookLibrary.PeakHourId)
+        {
+            parts.Add("被动：骨折恢复速度 +15%");
+        }
+        if (bookId == BookLibrary.PeakHourThreeId)
+        {
+            parts.Add("被动：认得葛根和大黄，可在野外交互采集");
+        }
+
+        if (bookId == BookLibrary.StreetFightingGuideId)
+            parts.Add("被动：使用棍棒或匕首命中头部/躯干时，伤害 *1.15");
+        if (bookId == BookLibrary.MedicalFacilityStandardsId)
+            parts.Add("全营被动（不叠加）：感染几率 *0.92");
+        if (bookId == BookLibrary.EssenceOfSalesId)
+            parts.Add("逐角色被动：由读过本书的人交易时，卖价 *1.03");
+        if (bookId == BookLibrary.HundredFamilyRecipesId)
+            parts.Add("逐角色被动：由读过本书的人烹饪时，每份热量消耗 −1");
+        if (bookId == BookLibrary.LittleMouseDigsHolesId)
+            parts.Add("全营被动（不叠加）：圈套基础捕获率 +5 个百分点");
+        if (bookId == BookLibrary.ItalianChronicleId)
+            parts.Add("解锁改装：弩盾");
+        if (bookId == BookLibrary.FamilyFirstAidManualId)
+            parts.Add("逐角色被动：读过本书的施术者手术速度 *1.25");
+        if (bookId == BookLibrary.SharpesAutobiographyId)
+            parts.Add("被动：使用短剑或刺剑时，近战闪避率 +10 个百分点");
+        if (bookId == BookLibrary.IrishChronicleId)
+            parts.Add("被动：土豆生长时间 −12 游戏小时");
+        if (bookId == BookLibrary.StoneBreakingGuideId)
+            parts.Add("被动：受到天生钝击时有 10% 几率把该次伤害 *0.50");
+        if (bookId == BookLibrary.MalayChronicleId)
+            parts.Add("被动：双持两把锐器时，攻速系数 0.70 → 0.80");
+        if (bookId == BookLibrary.TurkishChronicleId)
+            parts.Add("被动：同时持远程与近战武器时，远程散布 *0.90、近战穿透 *1.10");
 
         return string.Join("；", parts);
     }
@@ -1881,6 +2197,9 @@ internal static class Program
                 ["_anchor"] = "godot/scripts/CookingLogic.cs :: CookingLogic.WorkMinutesPerPortion",
             },
         };
+
+        // 这四行是规则数值，不是四件食物。显式置空，防止合页后按 id 派生出 4 个伪图标路径。
+        foreach (Dictionary<string, object?> row in rows) row["_icon"] = "";
 
         return new Category("cooking", "烹饪规则",
             "godot/scripts/CookingLogic.cs",

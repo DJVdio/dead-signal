@@ -11,7 +11,7 @@ namespace DeadSignal.Combat.Tests;
 ///
 /// <para>本类钉死三件事，任何一件被回退都必须红：
 /// <list type="number">
-/// <item><b>他们是持械的人</b> —— 8 个人手里的东西<b>全部扒得走</b>（此前是丧尸 ⇒ 打赢一把枪都捡不到）。</item>
+/// <item><b>他们是持械的人</b> —— 4 个人手里的东西<b>全部扒得走</b>（此前是丧尸 ⇒ 打赢一把枪都捡不到）。</item>
 /// <item><b>他们没拿着自己看守的军火</b> —— 冲锋枪在军械柜里，是奖赏，不是守备的手牌。</item>
 /// <item><b>「状态不是巅峰」既真伤又不白送</b> —— 致死余量确实掉了，但没人半死不活。</item>
 /// </list></para>
@@ -27,9 +27,10 @@ public class GoldfingerGangTests
     // ── 一、他们是人，持械，杀了能扒 ──────────────────────────────────────
 
     [Fact]
-    public void 守备编制为八人()
+    public void 守备编制为四人()
     {
-        Assert.Equal(8, GoldfingerGang.Roster.Count);
+        Assert.Equal(4, GoldfingerGang.Roster.Count);
+        Assert.Equal(GoldfingerGang.Roster.Count, GoldfingerGang.Posts.Count);
     }
 
     [Fact]
@@ -60,13 +61,13 @@ public class GoldfingerGangTests
     }
 
     [Fact]
-    public void 打赢的战利品是四短剑四匕首_枪不在他们手上()
+    public void 打赢的战利品是两短剑两匕首_枪不在他们手上()
     {
         // 经济钉死：打赢金手指帮 = 一次可观但**有限**的装备跃迁。
         //  · 长剑 / 重剑 / 破甲锤 / 步枪一把都没有 ⇒ 好武器仍然只能出门找。
         // 这张表改了（用户拍板换方案），本条必须跟着改——它是经济后果的看门断言。
         //
-        // 🔴 [T57] 用户拍板：**手枪从守备手里全撤**（原案 2 手枪 + 2 短剑 + 4 匕首 → 现 4 短剑 + 4 匕首）。
+        // 🔴 [T57] 用户拍板：**手枪从守备手里全撤**（原案 2 手枪 + 2 短剑 + 4 匕首 → 现 2 短剑 + 2 匕首）。
         //    这一关被重排到**中期**，原案在中期是"赢了但全队残废"（潜行清哨全身而退仅 2%、3.26 处永久残缺）。
         //    ⚠️ **枪没有从这一关消失** —— 它们躺在枪械台/军械柜里（见 GoldfingerCacheTests）：
         //    「弹药打光了，空枪扔回枪械台，抄起短剑守着」。玩家照样捡得到枪，只是从尸体上扒变成柜子里翻。
@@ -75,8 +76,8 @@ public class GoldfingerGangTests
             .ToDictionary(g => g.Key, g => g.Count());
 
         Assert.False(loot.ContainsKey(GangArm.Pistol), "守备手里不该再有枪——枪在柜子里，不在人身上");
-        Assert.Equal(4, loot[GangArm.Shortsword]);
-        Assert.Equal(4, loot[GangArm.Dagger]);
+        Assert.Equal(2, loot[GangArm.Shortsword]);
+        Assert.Equal(2, loot[GangArm.Dagger]);
     }
 
     // ── 二、「状态不是巅峰」：真带伤 ────────────────────────────────────────
@@ -109,7 +110,7 @@ public class GoldfingerGangTests
     {
         // 骨折是唯一"直接降战力"的轴（上肢 ×0.70 操作 / 下肢 ×0.70 移动），运行时与 Sim 都真消费。
         int fractured = GoldfingerGang.Roster.Count(g => g.Injury.Fractures.Count > 0);
-        Assert.True(fractured >= 5, $"只有 {fractured} 人骨折——「大家的状态都不是巅峰」没落到实处");
+        Assert.True(fractured >= 3, $"只有 {fractured} 人骨折——「大家的状态都不是巅峰」没落到实处");
     }
 
     [Fact]
@@ -164,7 +165,7 @@ public class GoldfingerGangTests
     public void 预置伤不出血否则他们会在玩家赶到前自己流血死()
     {
         // 战斗内失血是 1.5/s·处（BleedModel），三处大伤口 ~15.6s 放干。预置伤若登记出血，
-        // 这 8 个人会在关卡加载后的十几秒内自己躺平——玩家推门进来看到一地尸体。
+        // 这 4 个人会在关卡加载后的十几秒内自己躺平——玩家推门进来看到一地尸体。
         foreach (GangGuard g in GoldfingerGang.Roster)
         {
             Body body = GoldfingerGang.NewInjuredBody(g.Injury);
@@ -192,7 +193,7 @@ public class GoldfingerGangTests
     public void 身体工厂与就地施伤等价()
     {
         // Sim 的身体工厂走 NewInjuredBody，运行时的 Raider 走 ApplyInjuries(现成的 Body)。两条路必须同一个结果，
-        // 否则 Sim 算出来的胜率与玩家真正碰上的那 8 个人对不上。
+        // 否则 Sim 算出来的胜率与玩家真正碰上的那 4 个人对不上。
         foreach (GangGuard g in GoldfingerGang.Roster)
         {
             Body viaFactory = GoldfingerGang.NewInjuredBody(g.Injury);
@@ -242,7 +243,7 @@ public class GoldfingerGangTests
     /// </para>
     /// <para>
     /// 这几个数是 <c>GoldfingerGang.cs</c> 的 [T57] 拍板<b>前提</b>（那段注释明写"噪音设计<b>一格没动</b>"才敢降难度）：
-    /// <b>弓/匕首叫醒 0 人 ⇒ 逐个清哨可行；手枪 2 人 ⇒ 招来一小撮；步枪 5 人 ⇒ 半个据点扑上来。</b>
+    /// <b>弓/匕首叫醒 0 人 ⇒ 逐个清哨可行；手枪 1 人 ⇒ 招来一小撮；步枪 3 人 ⇒ 半个据点扑上来。</b>
     /// 此前<b>全项目没有任何测试钉它</b>（招怪表只活在 Sim 生成的 research 文档里）⇒ 悄悄改布点/画布不会有人发现。
     /// </para>
     /// </summary>
@@ -256,8 +257,8 @@ public class GoldfingerGangTests
         Assert.Equal(0, Alerted(WeaponTable.ShortBow()));   // 70  —— 潜行清哨可行的全部依据
         Assert.Equal(0, Alerted(WeaponTable.Dagger()));     // 90
         Assert.Equal(0, Alerted(WeaponTable.Shortsword())); // 95
-        Assert.Equal(2, Alerted(WeaponTable.Pistol()));     // 350 —— 招来一小撮
-        Assert.Equal(5, Alerted(WeaponTable.Rifle()));      // 600 —— 半个据点
+        Assert.Equal(1, Alerted(WeaponTable.Pistol()));     // 350 —— 招来一小撮
+        Assert.Equal(3, Alerted(WeaponTable.Rifle()));      // 600 —— 半个据点
     }
 
     /// <summary>越响叫醒的人越多（单调不减）——这是几何本身，任何布点/画布改动都不该打破它。</summary>

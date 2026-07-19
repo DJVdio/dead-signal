@@ -28,6 +28,18 @@
       "type": "number"
     },
     {
+      "key": "fuelKind",
+      "label": "消耗类型",
+      "type": "chip",
+      "hint": "固定光源无限；手电吃电池；火把按燃烧耐久耗尽。"
+    },
+    {
+      "key": "activeSeconds",
+      "label": "可用时长(游戏秒)",
+      "type": "number",
+      "hint": "手持光源从满格到耗尽的游戏秒；固定光源为 0（无限）。"
+    },
+    {
       "key": "description",
       "label": "简介",
       "type": "longtext",
@@ -73,6 +85,8 @@
       "kind": "手持",
       "intensity": 0.9,
       "radius": 340,
+      "fuelKind": "电池",
+      "activeSeconds": 1440,
       "description": "让光成为手臂的延伸。",
       "_id": "flashlight",
       "_anchor": "godot/scripts/LightSource.cs :: LightSource",
@@ -85,6 +99,8 @@
       "kind": "手持",
       "intensity": 0.5,
       "radius": 240,
+      "fuelKind": "耐久",
+      "activeSeconds": 480,
       "description": "黑暗中的唯一慰藉，祈祷他不要灭掉。",
       "_id": "torch",
       "_anchor": "godot/scripts/LightSource.cs :: LightSource",
@@ -97,6 +113,8 @@
       "kind": "固定",
       "intensity": 0.75,
       "radius": 300,
+      "fuelKind": "无限",
+      "activeSeconds": 0,
       "description": "挂在营地里的油灯，照亮一小片起居，也照亮「我们还没散伙」这件事。",
       "_id": "lamp",
       "_anchor": "godot/scripts/LightSource.cs :: LightSource",
@@ -109,6 +127,8 @@
       "kind": "固定",
       "intensity": 0.95,
       "radius": 460,
+      "fuelKind": "无限",
+      "activeSeconds": 0,
       "description": "驱散黑暗、烤暖人心。",
       "_id": "campfire",
       "_anchor": "godot/scripts/LightSource.cs :: LightSource",

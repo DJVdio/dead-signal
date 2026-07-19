@@ -19,7 +19,7 @@ namespace DeadSignal.Combat.Tests;
 /// <list type="number">
 ///   <item><b>接线活着 + 懒加载</b>：首次取配方触发 Bootstrapper 懒加载成功。</item>
 ///   <item><b>字面值锚定（A/B）</b>：代表配方的产量/工时/材料逐项 == 迁移前原始字面量。</item>
-///   <item><b>取用点确实读 catalog</b>：全 56 条配方的三项数字 == section.Get(id)（证明委托到配置、非残留字面量）。</item>
+///   <item><b>取用点确实读 catalog</b>：全 59 条配方的三项数字 == section.Get(id)（证明委托到配置、非残留字面量）。</item>
 ///   <item><b>完整性</b>：recipes.json 恰覆盖 RecipeBook.All 全部 id、无多无少。</item>
 ///   <item><b>往返保真</b>：段序列化→反序列化，逐配方逐字段相等（含材料字典）⇒ 加载器不丢数据。</item>
 ///   <item><b>盘上文件反射加载</b>：GameConfigFiles 定位的 recipes.json 经 FromJson / Loader.Parse 解析 == golden。</item>
@@ -31,18 +31,18 @@ namespace DeadSignal.Combat.Tests;
 /// </summary>
 public sealed class RecipeConfigMigrationTests
 {
-    // ── 迁移前 RecipeBook 里的原始字面量（golden）——A/B 的"旧硬编码"一侧。改 recipes.json 会让本表变红。──
+    // ── 当前 Wiki/配置认可值（golden）——A/B 的配置迁移锚点。改 recipes.json 会让本表变红。──
     // 代表集覆盖：单料 / 多料 / 产量>1 / 常量 id / 羽毛键 / 武器零件键 / 门槛配方。
     private static readonly (string Id, int Out, int Min, (string, int)[] Mats)[] Golden =
     {
         ("bone_knife", 1, 45, new[] { ("bone", 2), ("cloth", 1) }),
-        ("cloth_vest", 1, 90, new[] { ("cloth", 4) }),
+        ("cloth_vest", 1, 90, new[] { ("cloth", 2) }),
         ("horror_armor", 1, 240, new[] { ("bone", 6), ("leather", 3), ("rope", 2) }),
         ("glue", 2, 60, new[] { ("bone", 4), ("fuel", 1) }),
         ("wood_from_scrap", 4, 40, new[] { ("scrap_wood", 4), ("glue", 1) }),
         ("ammo_short", 8, 45, new[] { ("bullet_parts", 1), ("gunpowder", 1) }),
         ("ammo_arrow_stick", 4, 20, new[] { ("wood", 1), ("feather", 1) }),
-        ("heavy_crossbow", 1, 320, new[] { ("wood", 4), ("iron", 4), ("rope", 2), ("weapon_parts", 3) }),
+        ("heavy_crossbow", 1, 480, new[] { ("wood", 6), ("iron", 3), ("rope", 2), ("weapon_parts", 3) }),
         // 常量 id 配方（ButcherStation.TableRecipeId="butcher_table"）——[DECISION] 木板→木料落地值。
         ("butcher_table", 1, 60, new[] { ("wood", 3), ("nails", 4) }),
     };

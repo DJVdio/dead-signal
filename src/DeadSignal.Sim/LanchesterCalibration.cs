@@ -243,7 +243,7 @@ public static class LanchesterCalibration
         sb.AppendLine("| 幸存者碰撞半径 | 12 px | `Pawn.cs` → `p.Radius` |");
         sb.AppendLine("| 🔴 丧尸 ↔ 幸存者 | **不碰撞，可完全重叠**（mask 只含 墙/围栏/同阵营） | `Actor.cs` → `ApplyFactionCollision` |");
         sb.AppendLine("| 丧尸 ↔ 丧尸 | 碰撞（圆心最小间距 26 px） | `Actor.cs:285` |");
-        // [T63] 此前这一格把冷却**硬编码**成 "1.2 s"，而表里早已是 1.4（用户在 wiki 上改的）。
+        // [T63] 此前这一格把冷却硬编码，已改为读取 Wiki 投影。
         // 一行标着"读表，非硬编码"的字，自己却是硬编码的 ⇒ 真·读表。
         sb.AppendLine(string.Create(CultureInfo.InvariantCulture,
             $"| 攻击冷却 | **{WeaponTable.ZombieClaw().AttackInterval:0.0##} s**（读表，非硬编码） | `Zombie.cs:69` → `WeaponTable.ZombieClaw()` |"));

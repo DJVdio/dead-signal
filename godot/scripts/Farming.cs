@@ -39,7 +39,7 @@ namespace DeadSignal.Godot;
 /// 圈套陷阱套的是<b>地上跑的</b>（老鼠 / 兔子）；捕鸟陷阱扣的是<b>天上飞的</b>（<b>鸟</b>，即原「鸽子」）。
 /// 两者的产物<b>都要过案板</b>（老鼠 → 老鼠肉 + 碎皮革；鸟 → 鸟肉 + <b>羽毛</b>），
 /// 而<b>只有鸟身上出羽毛</b> ⇒ **捕鸟陷阱是营地唯一可持续的箭矢原料来源**：
-/// 它的位置在**军备**这条线上，不只在灶台上。（兔子是圈套的另一个产物，用户没让它进案板 ⇒ 仍可直接下锅。）
+/// 它的位置在**军备**这条线上，不只在灶台上。（兔子是圈套的另一个产物，也必须先上任一档宰杀设施再下锅。）
 /// 两者的<b>几率递减各数各的</b>（各按自己的实例名前缀数），但它们<b>抢同一块地皮</b>
 /// —— 院子就这么大，多扎一个网就少一个套子。这就是它们之间真正的取舍。</para>
 ///
@@ -118,23 +118,19 @@ public static class BirdTrapSpec
 ///       ⇒ 上面那条"删了就成死物品"的顾虑对干豆不再适用：它已经<b>不存在</b>，没有任何东西再引用它。</item>
 /// </list></para>
 ///
-/// <para>═══ <b>数值（拟定待调，用户未给）</b> ═══
-/// 基准 <b>20%</b>（低于圈套的 30%：鸟比兔子机警，且它的产出是<b>食物+军备</b>两条线）；步长/地板沿用用户给圈套定的 5%/5%
-/// ⇒ 20/15/10/5/5…，<b>第 4 个就撞地板</b>（比圈套更早，鸟本来就没那么多）。
-/// 一个陷阱的每日期望 = 0.20 × 2 次/天（昼夜各一次）= <b>0.4 只/天</b>。
-/// 过一遍简易宰杀点 ⇒ 0.4 份鸟肉 + <b>0.4 根羽毛</b>（宰杀台还有 20% 双倍 ⇒ ≈0.48 根）。
-/// 一根羽毛 → <b>4 支削尖的木箭</b> ⇒ <b>一个捕鸟陷阱 ≈ 1.6 支木箭/天</b>：撑得起一个弓手，撑不起一个弓兵队。
+/// <para>═══ <b>数值</b> ═══
+/// 捕获率、递减、掷点频率、宰杀产出与箭配方全部以 Wiki 配置为准。
 /// （箭的真正瓶颈仍是**铁**，自制箭/重头箭都吃铁 —— 羽毛是<b>门槛</b>，不是产量天花板。）</para>
 /// </summary>
 public static class BirdTrapLogic
 {
-    /// <summary>第 1 个捕鸟陷阱的捕获几率（拟定待调）：20%，低于圈套陷阱的 30%。数值真源＝<c>farming.json</c>（<see cref="FarmingConfig.BirdTrapBaseChance"/>）。</summary>
+    /// <summary>第 1 个捕鸟陷阱的捕获几率；当前值以 Wiki 配置为准（<see cref="FarmingConfig.BirdTrapBaseChance"/>）。</summary>
     public static double BaseChance => GameConfigCatalog.Section<FarmingConfig>().BirdTrapBaseChance;
 
-    /// <summary>每多放一个，新加的那个比上一个低多少（沿用用户给圈套定的 5 个百分点）。数值真源＝<c>farming.json</c>。</summary>
+    /// <summary>每多放一个，新加的那个比上一个低多少；当前值以 Wiki 配置为准。</summary>
     public static double ChanceStep => GameConfigCatalog.Section<FarmingConfig>().BirdTrapChanceStep;
 
-    /// <summary>几率地板（沿用用户给圈套定的 5%）。递减撞到它就停。数值真源＝<c>farming.json</c>。</summary>
+    /// <summary>几率地板；递减撞到它就停，当前值以 Wiki 配置为准。</summary>
     public static double MinChance => GameConfigCatalog.Section<FarmingConfig>().BirdTrapMinChance;
 
     /// <summary>
@@ -144,14 +140,14 @@ public static class BirdTrapLogic
     /// </summary>
     public const string BirdKey = "pigeon";
 
-    /// <summary>捕鸟陷阱一天掷几次点 = <b>2</b>（白天 1 + 夜晚 1，与圈套陷阱/吃饭同频）。
+    /// <summary>捕鸟陷阱每天掷点频率与昼夜节律跟随 <see cref="TrapLogic.RollsOnPhase"/>（与圈套陷阱/吃饭同频）。
     /// <b>频率的唯一事实源在 <see cref="TrapLogic.RollsOnPhase"/></b>——两种陷阱掷点节律共用一张尺子；这里从谓词数出而非写死。
-    /// <para>⚠️ 曾误按 8 个 <see cref="DayPhase"/> 逐个掷点（产出翻 4 倍，"捕鸟陷阱太强"的根因），已随圈套陷阱一并改回 2/天。</para></summary>
+    /// <para>⚠️ 频率只由共同谓词裁定，不在这里复制数字。</para></summary>
     public static int RollsPerDay => Enum.GetValues<DayPhase>().Count(TrapLogic.RollsOnPhase);
 
     /// <summary>
-    /// <b>场上第 <paramref name="ordinal"/> 个捕鸟陷阱的单次捕获几率</b>（1-based）= <c>max(5%, 20% − 5%×(n−1))</c>。
-    /// <para>20% / 15% / 10% / 5% / 5%… —— 第 4 个起撞地板。<paramref name="ordinal"/> ≤ 0 ⇒ 0（不白送基准几率）。</para>
+    /// <b>场上第 <paramref name="ordinal"/> 个捕鸟陷阱的单次捕获几率</b>（1-based）按基准、递减与地板配置计算。
+    /// <para><paramref name="ordinal"/> ≤ 0 ⇒ 0（不白送基准几率）。</para>
     /// </summary>
     public static double ChanceOf(int ordinal)
     {
@@ -242,8 +238,7 @@ public static class BirdTrapRuntime
 /// <b>营地菜园（种植区）</b>的规格（T67）—— 《农场主的一百个问题》解锁。
 ///
 /// <para>═══ 🔴 <b>用户拍板的种植设定（一字不改地落地）</b> ═══
-/// 「菜园最多种 <b>16 颗</b>植物。目前先只支持土豆：种一颗吃 <b>1 土豆</b>，成熟需 <b>84 游戏小时</b>（连续墙钟计时、
-///   昼夜都走、<b>零维护</b>）。种植动作 <b>0.15 游戏小时/颗</b>（人力，走工时化）。」
+/// 「菜园容量、种薯消耗、成熟时长、种植动作时长与维护规则」均以 Wiki 配置为准。
 /// 下行最差回本（<b>永不亏种子</b>）。用户框架：种植成本低 ⇒ 产出不能非常高、也不能过于低。</para>
 ///
 /// <para>⚠️ <b>收获分布别在这儿抄第二份</b>：原始拍板是「50% 出 2 / 50% 出 1」（期望 1.5、净 +0.5/颗），
@@ -254,20 +249,15 @@ public static class BirdTrapRuntime
 /// <para>═══ 🔴 <b>硬约束：它绝不能变成"无限食物"</b>（设计红线；四道闸换了形态但仍在）═══
 /// <list type="number">
 /// <item><b>每颗要种薯</b>：下种吃掉 <see cref="CropPlotLogic.SeedCost"/> = <b>土豆 1</b>。收获分布的下限也是 1（回本）⇒ <b>永不亏种子、零风险</b>。</item>
-/// <item><b>要地皮</b>：菜园是**户外可摆放物**，占院子（守 64px 禁建带），<b>和两种陷阱抢同一块地</b>。</item>
-/// <item><b>要工时</b>：种一颗要 <see cref="CropPlotLogic.PlantActionGameHours"/> = 0.15 游戏小时的<b>人力动作</b>（走既有 <see cref="CraftingJob"/> 工时化，零新轴）。满种 16 颗 = 2.4 小时一次性人力。</item>
-/// <item>🔴 <b>16 颗上限 + 每颗收完要重新下种</b>（见 <see cref="MaxPlants"/>、<see cref="GardenConsumedOnHarvest"/>）。
-///       <b>菜园本身不消失</b>（它是持久种植区，同"种下去就不用管"的口径）；消失的是<b>每颗收完那一格</b>——空出后要再吃 1 土豆 + 再等 84h 才有下一茬。</item>
+/// <item><b>要地皮</b>：菜园是**户外可摆放物**，占院子（守禁建带），<b>和两种陷阱抢同一块地</b>。</item>
+/// <item><b>要工时</b>：种植动作走既有 <see cref="CraftingJob"/> 工时化，具体时长以 Wiki 配置为准。</item>
+/// <item>🔴 <b>容量上限 + 每颗收完要重新下种</b>（见 <see cref="MaxPlants"/>、<see cref="GardenConsumedOnHarvest"/>）。
+///       <b>菜园本身不消失</b>；消失的是<b>每颗收完那一格</b>——空出后按配置重新投入种薯并等待下一茬。</item>
 /// </list></para>
 ///
 /// <para>═══ <b>算给你看：它为什么喂不饱营地</b>（和 <see cref="FoodCalories"/> 对得上的账）═══
-/// 满种 16 颗，一个周期净 <see cref="CropPlotLogic.NetExpectedYieldPerGarden"/> = <b>+16 土豆</b>
-/// ⇒ <see cref="CropPlotLogic.NetExpectedCaloriesPerGarden"/> = <b>+64 热量点</b>（土豆 4 点/颗）。
-/// 周期 = <b>84 游戏小时 = 3.5 个昼夜</b>（游戏钟一昼夜 = 24 游戏小时，见 <see cref="CropPlotLogic.GameHoursPerDayNightCycle"/>）
-/// ⇒ <b>日均净 ≈ 18 热量点/昼夜</b>。一个人一天两餐 = <b>2 × 16 = 32 点</b>
-/// ⇒ <b>满种一整座菜园的净产出只养得起 ≈ 4/7 个人</b>（用户口径「勉强养活大半个人」）——是"睡后收入"式的稳定小补，
-/// <b>喂不饱营地</b>，也<b>关不掉饥饿系统</b>（5 人营地一天要 ~160 点，菜园覆盖约 11%）。搜刮/宰杀依旧是主粮来源。
-/// <para>⚠️ 上面每个数都是从 <see cref="CropPlotLogic"/> 的收获分布<b>推导</b>出来的——改了那边的档位，<b>这段账必须跟着重算</b>。</para></para>
+/// 产量、热量、周期与营地覆盖率均由 <see cref="CropPlotLogic"/> 和 Wiki 配置推导；不要在这里复制数字。
+/// <b>喂不饱营地</b>，也<b>关不掉饥饿系统</b>。搜刮/宰杀依旧是主粮来源。</para>
 ///
 /// <para>═══ <b>为什么种土豆</b>（不是我发明的作物；目前先只支持土豆，留扩展口）═══
 /// <b>土豆已经存在</b>（<see cref="Materials"/> 里的 <c>potato</c>，菜窖/农庄的战利品），且它的 flavor 就写着
@@ -362,6 +352,10 @@ public static class CropPlotLogic
     /// <summary>刚下种：剩余游戏小时 = <see cref="GrowGameHours"/> = 84。</summary>
     public static double InitialRemainingHours => GrowGameHours;
 
+    /// <summary>按下种者已读书效果计算新种薯计时；既有存量计时不追溯改写。</summary>
+    public static double InitialRemainingHoursFor(int growHoursReduction)
+        => Math.Max(0.0, GrowGameHours - Math.Max(0, growHoursReduction));
+
     /// <summary>
     /// 走过 <paramref name="elapsedGameHours"/> 游戏小时：剩余 − 流逝，<b>不跌破 0</b>
     /// （熟了就一直熟着等你来收，不会烂在地里——烂菜是引擎新轴，本单不开）。负流逝按 0 处理。
@@ -381,44 +375,43 @@ public static class CropPlotLogic
     /// <summary>制作队列里"种一颗"任务 id 的前缀（同 <c>cook:</c>／<c>salvage:</c> 的分流范式）：<c>plant:菜园#3</c>。</summary>
     public const string PlantJobPrefix = "plant:";
 
-    /// <summary>种一颗的人力动作耗时（<b>用户拍板：0.15 游戏小时/颗</b>）。占用一个幸存者 0.15h。</summary>
-    public const double PlantActionGameHours = 0.15;
+    /// <summary>种一颗的人力动作耗时（<b>用户拍板：0.25 游戏小时/颗</b>）。占用一个幸存者 0.25h。</summary>
+    public const double PlantActionGameHours = 0.25;
 
-    /// <summary>种一颗动作折成 <see cref="CraftingJob"/> 的工时（游戏分钟）= 0.15 × 60 = <b>9</b>。</summary>
+    /// <summary>种一颗动作折成 <see cref="CraftingJob"/> 的工时；当前值以 Wiki 配置为准。</summary>
     public const int PlantWorkMinutes = (int)(PlantActionGameHours * 60);   // = 9
 
     // ── 收获（三段分布，随机走可注入 IRandomSource、可复现）────────────────────────────────
-    // 🔴 <b>用户最终拍板</b>（原始 50/50 出 2/1，几经增/减后定在此档）：<b>50% 出 2 / 25% 出 3 / 25% 出 1</b>
-    //    ⇒ 期望 <b>2.0</b>、净 <b>+1.0/颗</b>。下行仍是<b>回本</b>（最差 25% 出 1 = 种薯 1，永不亏种子）。
-    //    满种日均净 ≈ 18 点 ⇒「勉强养活大半个人」（约 4/7 人）——正是用户口径。
+    // 🔴 <b>用户最终拍板</b>：收获为三段分布，具体概率、产量与推导结果以 Wiki 配置为准。
+    //    下行仍是<b>回本</b>，永不亏种子；满种菜园只是稳定小补，不能替代搜刮/宰杀。
 
-    /// <summary>收获出 <b>2 颗</b>的几率：<b>50%</b>（用户拍板）。落点区间 [0, 0.50)。</summary>
+    /// <summary>收获出中档产量的几率；当前值以 Wiki 配置为准。</summary>
     public const double Out2Chance = 0.50;
 
-    /// <summary>收获出 <b>3 颗</b>的几率：<b>25%</b>。落点区间 [0.50, 0.75)。</summary>
+    /// <summary>收获出高档产量的几率；当前值以 Wiki 配置为准。</summary>
     public const double Out3Chance = 0.25;
 
-    /// <summary>收获出 <b>1 颗</b>的几率：<b>25%</b>（= 种薯 <see cref="SeedCost"/> ⇒ 回本，永不亏种子）。落点区间 [0.75, 1)。</summary>
+    /// <summary>收获出低档产量的几率；当前值以 Wiki 配置为准（不低于种薯成本）。</summary>
     public const double Out1Chance = 0.25;
 
-    /// <summary>收获下限：<b>1 颗</b>（= 种薯 <see cref="SeedCost"/> ⇒ 最差回本，永不亏种子）。</summary>
+    /// <summary>收获下限；当前值以 Wiki 配置为准（最差回本）。</summary>
     public const int LowYield = 1;
 
-    /// <summary>收获中档：<b>2 颗</b>（最常见，50%）。</summary>
+    /// <summary>收获中档；当前值以 Wiki 配置为准。</summary>
     public const int MidYield = 2;
 
-    /// <summary>收获上限：<b>3 颗</b>（25%）。</summary>
+    /// <summary>收获上限；当前值以 Wiki 配置为准。</summary>
     public const int HighYield = 3;
 
-    /// <summary>三段分布第一道边界：<c>rng &lt; 0.50 ⇒ 2 颗</c>。</summary>
+    /// <summary>三段分布第一道边界；由 Wiki 配置概率派生。</summary>
     public const double Out2Cutoff = Out2Chance;                 // 0.50
 
-    /// <summary>三段分布第二道边界：<c>0.50 ≤ rng &lt; 0.75 ⇒ 3 颗；rng ≥ 0.75 ⇒ 1 颗</c>。</summary>
+    /// <summary>三段分布第二道边界；由 Wiki 配置概率派生。</summary>
     public const double Out3Cutoff = Out2Chance + Out3Chance;    // 0.75
 
     /// <summary>
     /// <b>收一颗</b>：掷一次点，按三段分布定产量（可注入随机、可复现）：
-    /// <c>[0,0.50) ⇒ 2 颗 · [0.50,0.75) ⇒ 3 颗 · [0.75,1) ⇒ 1 颗</c>。
+    /// 三段区间与产量均由 Wiki 配置派生。
     /// <paramref name="rng"/> 为 null ⇒ 保底给下限（不白送高产）。
     /// </summary>
     public static int RollHarvest(IRandomSource rng)
@@ -433,20 +426,19 @@ public static class CropPlotLogic
         return LowYield;                           // [0.75, 1)    → 1
     }
 
-    /// <summary>一颗的期望产出 = 0.50 × 2 + 0.25 × 3 + 0.25 × 1 = <b>2.0</b>。</summary>
+    /// <summary>一颗的期望产出由 Wiki 配置的分布派生。</summary>
     public static double ExpectedYieldPerPlant
         => Out2Chance * MidYield + Out3Chance * HighYield + Out1Chance * LowYield;
 
-    /// <summary>一颗的期望<b>净</b>产出（扣种薯）= 2.0 − 1 = <b>+1.0</b>。护栏：必须 &gt; 0（否则种地纯亏）。</summary>
+    /// <summary>一颗的期望<b>净</b>产出扣除种薯成本；护栏：必须为正（否则种地纯亏）。</summary>
     public static double NetExpectedYieldPerPlant => ExpectedYieldPerPlant - SeedCost;
 
-    /// <summary>满种 16 颗一个周期的期望净产出（土豆颗数）= 16 × 1.0 = <b>16</b>。</summary>
+    /// <summary>满种一个周期的期望净产出由容量与分布配置派生。</summary>
     public static double NetExpectedYieldPerGarden => MaxPlants * NetExpectedYieldPerPlant;
 
     /// <summary>
-    /// 满种菜园一个周期（84h）的期望<b>净热量点</b> = 16 颗 × 土豆 4 点 = <b>64 点</b>。
-    /// <b>护栏盯着它</b>：为正（种地不是纯亏）且日均 ≈ 18 点（64 / 3.5 昼夜）仍<b>喂不饱一个人</b>（一天两餐 32 点）
-    /// ——「勉强养活大半个人」（约 4/7 人，用户口径）；见 <see cref="CropPlotSpec"/> 类注的账。
+    /// 满种菜园一个周期的期望<b>净热量点</b>由容量、周期、产量与食物配置派生。
+    /// <b>护栏盯着它</b>：为正且仍<b>喂不饱一个人</b>——见 <see cref="CropPlotSpec"/> 类注的账。
     /// </summary>
     public static double NetExpectedCaloriesPerGarden => NetExpectedYieldPerGarden * FoodCalories.Of(CropKey);
 }
@@ -546,7 +538,7 @@ public static class CropPlotRuntime
     /// <b>种植工时满、完工</b>：把下一个空格的计时器置成 <see cref="CropPlotLogic.InitialRemainingHours"/>=84（开始 84 游戏小时倒计时）。
     /// 返回落种的格号；满种（理论上不该发生，开工前已 <see cref="CanPlant"/> 校验过）返回 0（种薯已扣，但这里没格可落——消费层据此如实报）。
     /// </summary>
-    public static int CompletePlant(StoryFlags flags, string plotName)
+    public static int CompletePlant(StoryFlags flags, string plotName, int growHoursReduction = 0)
     {
         int slot = NextFreeSlot(flags, plotName);
         if (slot == 0)
@@ -554,7 +546,7 @@ public static class CropPlotRuntime
             return 0;
         }
         flags.Set(SlotFlag(plotName, slot),
-            CropPlotLogic.InitialRemainingHours.ToString("R", CultureInfo.InvariantCulture));
+            CropPlotLogic.InitialRemainingHoursFor(growHoursReduction).ToString("R", CultureInfo.InvariantCulture));
         return slot;
     }
 
@@ -675,8 +667,8 @@ public static class CropPlotRuntime
 
     /// <summary>
     /// <b>一帧实时秒 → 游戏小时</b>（消费层每帧喂给 <see cref="TickGrowth"/> 的换算，抽出来单测）：
-    /// 一个昼/夜相位铺 12 游戏小时（同 <see cref="GameClock"/>.ClockHm），故 <c>= realSeconds / phaseLengthSeconds × 12</c>。
-    /// <para>白天相位长 720s ⇒ 每实时秒 = 12/720 游戏小时；夜晚 480s ⇒ 12/480。≤0 或相位长非正 ⇒ 0（冻结相位 delta=0 天然不长）。</para>
+    /// 一个昼/夜相位的游戏小时数与实时相位长度由 Wiki/时钟配置提供，故按 <c>realSeconds / phaseLengthSeconds × phaseHours</c> 换算。
+    /// <para>≤0 或相位长非正 ⇒ 0（冻结相位 delta=0 天然不长）。</para>
     /// </summary>
     public static double GameHoursForElapsed(double realSeconds, double phaseLengthSeconds)
     {
@@ -710,21 +702,22 @@ public static class CropPlotRuntime
 /// 收到一个 id ⇒ 本类 <see cref="Resolve"/> 出"给什么、给多少" ⇒ 消费层实产入库。<b>没有新 UI、没有新节点类型。</b></para>
 ///
 /// <para>═══ <b>《野外生存指南》的作用</b>（用户把采集挂在这本书名下）═══
-/// <b>不读书也采得到</b>（弯腰薅一把不需要执照），但<b>读过的人采得更多</b>：产量 <b>×1.5</b>（<b>乘算</b>，向下取整）
+/// <b>不读书也采得到</b>（弯腰薅一把不需要执照），但<b>读过的人采得更多</b>：产量按 Wiki 配置<b>乘算</b>并向下取整
 /// —— 书教的是"哪一丛底下还有、哪一朵别碰"。
 /// 这与蘑菇的 flavor 严丝合缝：「<b>你认得这一种，你很确定你认得这一种</b>」——那句"很确定"里的心虚，正是没读书的人。
 /// ⚠️ <b>不做"毒蘑菇"</b>：中毒是引擎新轴（本单明令不开新轴）。书的作用只落在<b>产量</b>上。</para>
 /// </summary>
 public static class ForageLogic
 {
-    /// <summary>读过《野外生存指南》的采集产量乘子（<b>乘算</b>，项目铁律）。1.5 ⇒ 采 2 变 3、采 3 变 4。</summary>
+    /// <summary>读过《野外生存指南》的采集产量乘子（<b>乘算</b>，项目铁律）；当前值以 Wiki 配置为准。</summary>
     public const double GuideYieldMultiplier = 1.5;
 
     /// <summary>《野外生存指南》书 id（对齐 <see cref="RecipeBook.WildernessSurvivalGuideBookId"/>，不抄字符串）。</summary>
     public const string GuideBookId = RecipeBook.WildernessSurvivalGuideBookId;
 
-    /// <summary>一处采集点：id（踏入触发用）、产什么、基准产多少、面板/地图上的中文标签。</summary>
-    public readonly record struct ForageSpot(string Id, string MaterialKey, int BaseQuantity, string Label);
+    /// <summary>一处采集点：id、产物、基准产量、地图标签；RequiredBookId 非空时需先读该书才能交互。</summary>
+    public readonly record struct ForageSpot(
+        string Id, string MaterialKey, int BaseQuantity, string Label, string RequiredBookId = "");
 
     // ── 采集点清单（**追加末尾不插队**：新点一律加在最后，别打乱既有随机流/测试算例）──
     //
@@ -747,6 +740,12 @@ public static class ForageLogic
     /// <summary>斯图尔特庄园·地头垄尾（土豆，刨剩下的）。</summary>
     public const string StuartFurrowPotatoId = "forage_stuart_furrow_potato";
 
+    /// <summary>守林人小屋·后山坡（葛根；读《尖峰时刻·三》后识别）。</summary>
+    public const string RangersKudzuRootId = "forage_rangers_kudzu_root";
+
+    /// <summary>斯图尔特庄园·菜地边缘（大黄；读《尖峰时刻·三》后识别）。</summary>
+    public const string StuartRhubarbId = "forage_stuart_rhubarb";
+
     /// <summary>全部采集点（<b>按声明顺序，新点追加末尾</b>）。</summary>
     public static readonly IReadOnlyList<ForageSpot> All = new[]
     {
@@ -754,6 +753,8 @@ public static class ForageLogic
         new ForageSpot(RangersCabinWoodpileMushroomId, "mushroom", 2, "柴堆背阴的蘑菇"),
         new ForageSpot(StuartGardenPotatoId,           "potato",   3, "菜地里的土豆"),
         new ForageSpot(StuartFurrowPotatoId,           "potato",   2, "垄尾漏刨的土豆"),
+        new ForageSpot(RangersKudzuRootId,             Materials.KudzuRootKey, 2, "后山坡的葛根", RecipeBook.PeakHourThreeBookId),
+        new ForageSpot(StuartRhubarbId,                Materials.RhubarbKey,   2, "菜地边的大黄", RecipeBook.PeakHourThreeBookId),
     };
 
     /// <summary>这个 id 是不是一处采集点（消费层用它把踏入事件路由过来）。</summary>
@@ -777,13 +778,18 @@ public static class ForageLogic
     }
 
     /// <summary>
-    /// <b>采一把</b>：返回 (材料键, 数量)。读过《野外生存指南》⇒ 数量 <b>×1.5 乘算、向下取整</b>；不读书也有基准量。
+    /// <b>采一把</b>：返回 (材料键, 数量)。读过《野外生存指南》⇒ 数量按 Wiki 配置乘算、向下取整；不读书也有基准量。
     /// <para>未知 id ⇒ 数量 0（消费层据此静默跳过，不白送东西）。</para>
     /// </summary>
     public static (string MaterialKey, int Quantity) Resolve(string? spotId, bool hasWildernessGuide)
     {
         var spot = Find(spotId);
         if (spot is null)
+        {
+            return (string.Empty, 0);
+        }
+
+        if (!string.IsNullOrEmpty(spot.Value.RequiredBookId))
         {
             return (string.Empty, 0);
         }
@@ -798,5 +804,28 @@ public static class ForageLogic
 
     /// <summary>同上，但直接吃一份"读过的书"集合（消费层手里就是这个）。</summary>
     public static (string MaterialKey, int Quantity) Resolve(string? spotId, ReadBookSet? readBooks)
-        => Resolve(spotId, readBooks is not null && readBooks.HasRead(GuideBookId));
+        => Resolve(spotId, readBooks is null ? null : readBooks.HasRead);
+
+    /// <summary>按书籍查询函数解析采集点；新植物的 RequiredBookId 在这里真正成为交互门槛。</summary>
+    public static (string MaterialKey, int Quantity) Resolve(string? spotId, Func<string, bool>? hasReadBook)
+    {
+        var spot = Find(spotId);
+        if (spot is null)
+        {
+            return (string.Empty, 0);
+        }
+
+        bool Has(string id) => hasReadBook?.Invoke(id) ?? false;
+        if (!string.IsNullOrEmpty(spot.Value.RequiredBookId) && !Has(spot.Value.RequiredBookId))
+        {
+            return (string.Empty, 0);
+        }
+
+        int qty = spot.Value.BaseQuantity;
+        if (Has(GuideBookId))
+        {
+            qty = (int)Math.Floor(qty * GuideYieldMultiplier);
+        }
+        return (spot.Value.MaterialKey, Math.Max(0, qty));
+    }
 }

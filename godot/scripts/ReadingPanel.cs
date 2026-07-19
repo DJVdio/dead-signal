@@ -16,7 +16,7 @@ public sealed partial class ReadingPanel : CanvasLayer
     {
         public string BookId;
         public string Title;
-        /// <summary>前置书 id（可空=无前置）。读者未读完它则读速极慢（引擎侧 ×0.2），预指派界面据此提示。</summary>
+        /// <summary>前置书 id（可空=无前置）。未读完前置时的读速效果见 Wiki 配置表，预指派界面据此提示。</summary>
         public string? PrerequisiteBookId;
         /// <summary>前置书标题（供提示文案「未读《X》」用；无前置时为 null）。</summary>
         public string? PrerequisiteTitle;
@@ -32,6 +32,16 @@ public sealed partial class ReadingPanel : CanvasLayer
     private readonly List<BookOption> _books = new();
     private readonly List<OptionButton> _dropdowns = new();
     private Func<int, string, bool>? _readerHasReadBook; // (pawnId, bookId)→已读；判前置是否满足
+    private Func<int, string, double>? _readerHoursOnBook;
+
+    // ---- character-first mode (先选角色再选书, with progress) ----
+    private bool _useCharacterFirstMode;
+    private HBoxContainer _selectorBar = null!;
+    private OptionButton _pawnSelector = null!;
+    private int _selectedPawnIndex;
+    private readonly Dictionary<int, string> _assignmentMap = new();
+    private List<BookDisplayOption> _characterBooks = new();
+    private readonly List<Button> _bookAssignBtns = new();
 
     public event Action<Dictionary<int, string>>? ReadingConfirmed; // pawnId→bookId
     public event Action? Cancelled;
@@ -41,7 +51,7 @@ public sealed partial class ReadingPanel : CanvasLayer
         var panel = UiStyle.BuildModalShell(
             this, out _root, "ReadingPanel",
             overlayAlpha: 0.6f,
-            panelSize: new Vector2(520, 400),
+            panelSize: new Vector2(520, 440),
             borderColor: new Color(0.25f, 0.22f, 0.18f));
 
         var title = new Label();
@@ -51,8 +61,29 @@ public sealed partial class ReadingPanel : CanvasLayer
         title.AddThemeColorOverride("font_color", new Color(0.9f, 0.85f, 0.7f));
         panel.AddChild(title);
 
+        // ---- pawn selector bar (hidden by default, shown in character-first mode) ----
+        _selectorBar = new HBoxContainer();
+        _selectorBar.Position = new Vector2(24, 48);
+        _selectorBar.Size = new Vector2(472, 28);
+        _selectorBar.Visible = false;
+        panel.AddChild(_selectorBar);
+
+        var selectorLabel = new Label();
+        selectorLabel.Text = "读者：";
+        selectorLabel.CustomMinimumSize = new Vector2(50, 0);
+        selectorLabel.AddThemeFontSizeOverride("font_size", 15);
+        selectorLabel.AddThemeColorOverride("font_color", new Color(0.85f, 0.82f, 0.75f));
+        _selectorBar.AddChild(selectorLabel);
+
+        _pawnSelector = new OptionButton();
+        _pawnSelector.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        _pawnSelector.AddThemeColorOverride("font_color", new Color(0.9f, 0.85f, 0.75f));
+        _pawnSelector.AddThemeColorOverride("font_hover_color", new Color(1, 0.9f, 0.7f));
+        _pawnSelector.ItemSelected += OnPawnSelected;
+        _selectorBar.AddChild(_pawnSelector);
+
         var listBg = new Panel();
-        listBg.Position = new Vector2(24, 52);
+        listBg.Position = new Vector2(24, 80);
         listBg.Size = new Vector2(472, 240);
         var listStyle = new StyleBoxFlat();
         listStyle.BgColor = new Color(0.06f, 0.06f, 0.08f, 0.8f);
@@ -105,12 +136,15 @@ public sealed partial class ReadingPanel : CanvasLayer
     public void SetupReaders(IReadOnlyList<PawnOption> pawns, IReadOnlyList<BookOption> unreadBooks,
         Func<int, string, bool>? readerHasReadBook = null)
     {
+        _useCharacterFirstMode = false;
+        _selectorBar.Visible = false;
         _readerHasReadBook = readerHasReadBook;
         _pawns.Clear();
         _pawns.AddRange(pawns);
         _books.Clear();
         _books.AddRange(unreadBooks);
         _dropdowns.Clear();
+        _assignmentMap.Clear();
         UiStyle.ClearChildren(_rowContainer);
 
         if (_pawns.Count == 0 || _books.Count == 0)
@@ -147,7 +181,7 @@ public sealed partial class ReadingPanel : CanvasLayer
             for (int b = 0; b < _books.Count; b++)
             {
                 BookOption book = _books[b];
-                // 前置未读 → 该读者读此书极慢，项名后缀提示（引擎侧 ×0.2，不禁止，仅耗时）。
+                // 前置未读 → 该读者读此书变慢，项名后缀提示（不禁止，仅耗时；系数见 Wiki 配置表）。
                 bool slow = book.PrerequisiteBookId is { } preId
                     && !(_readerHasReadBook?.Invoke(pawn.Id, preId) ?? false);
                 string label = slow
@@ -165,26 +199,156 @@ public sealed partial class ReadingPanel : CanvasLayer
         }
     }
 
+    /// <summary>
+    /// 先选角色再选书：展示所有书并显示当前角色的已读标识和进度。
+    /// </summary>
+    public void SetupCharacterBooks(IReadOnlyList<ReaderOption> pawns, IReadOnlyList<BookDisplayOption> books,
+        Func<int, string, bool>? readerHasReadBook = null,
+        Func<int, string, double>? readerHoursOnBook = null)
+    {
+        _useCharacterFirstMode = true;
+        _selectorBar.Visible = true;
+        _readerHasReadBook = readerHasReadBook;
+        _readerHoursOnBook = readerHoursOnBook;
+        _pawns.Clear();
+        foreach (var p in pawns)
+            _pawns.Add(new PawnOption { Id = p.Id, Name = p.Name });
+        _characterBooks.Clear();
+        _characterBooks.AddRange(books);
+        _assignmentMap.Clear();
+        _dropdowns.Clear();
+        _bookAssignBtns.Clear();
+
+        _pawnSelector.Clear();
+        for (int i = 0; i < _pawns.Count; i++)
+            _pawnSelector.AddItem(_pawns[i].Name, i);
+
+        UiStyle.ClearChildren(_rowContainer);
+
+        if (_pawns.Count == 0)
+        {
+            _emptyHint.Text = "没有可读书的人（全员在外/伤重/已另有安排）。";
+            _emptyHint.Visible = true;
+            _confirmBtn.Disabled = true;
+            return;
+        }
+        _emptyHint.Visible = false;
+        _confirmBtn.Disabled = _characterBooks.Count == 0;
+
+        _selectedPawnIndex = 0;
+        _pawnSelector.Select(0);
+        RebuildBookListForSelectedPawn();
+    }
+
+    private void OnPawnSelected(long index)
+    {
+        int pawnId = _pawns[_selectedPawnIndex].Id;
+        // store any pending assignment before switching
+        // (already stored in _assignmentMap via button clicks)
+
+        _selectedPawnIndex = (int)index;
+        RebuildBookListForSelectedPawn();
+    }
+
+    private void RebuildBookListForSelectedPawn()
+    {
+        UiStyle.ClearChildren(_rowContainer);
+        _bookAssignBtns.Clear();
+
+        if (_selectedPawnIndex < 0 || _selectedPawnIndex >= _pawns.Count)
+            return;
+
+        int pawnId = _pawns[_selectedPawnIndex].Id;
+
+        for (int b = 0; b < _characterBooks.Count; b++)
+        {
+            BookDisplayOption book = _characterBooks[b];
+
+            var hbox = new HBoxContainer();
+            hbox.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+            hbox.MouseFilter = Control.MouseFilterEnum.Pass;
+
+            var titleLabel = new Label();
+            titleLabel.Text = book.Title;
+            titleLabel.CustomMinimumSize = new Vector2(200, 0);
+            titleLabel.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+            titleLabel.AddThemeFontSizeOverride("font_size", 14);
+            titleLabel.AddThemeColorOverride("font_color", new Color(0.85f, 0.82f, 0.75f));
+            hbox.AddChild(titleLabel);
+
+            // status label: "已读" or "x.x/y.y 小时"
+            var statusLabel = new Label();
+            bool isRead = _readerHasReadBook?.Invoke(pawnId, book.BookId) ?? book.IsRead;
+            double readHours = _readerHoursOnBook?.Invoke(pawnId, book.BookId) ?? book.ReadHours;
+            if (isRead)
+            {
+                statusLabel.Text = "已读";
+                statusLabel.AddThemeColorOverride("font_color", new Color(0.4f, 0.8f, 0.4f));
+            }
+            else
+            {
+                statusLabel.Text = $"{readHours:F1}/{book.RequiredHours} 小时";
+                statusLabel.AddThemeColorOverride("font_color", new Color(0.85f, 0.75f, 0.45f));
+            }
+            statusLabel.CustomMinimumSize = new Vector2(100, 0);
+            statusLabel.AddThemeFontSizeOverride("font_size", 13);
+            hbox.AddChild(statusLabel);
+
+            // assign toggle button
+            bool isAssigned = _assignmentMap.TryGetValue(pawnId, out string? assignedId)
+                && assignedId == book.BookId;
+            var assignBtn = new Button();
+            assignBtn.Text = isAssigned ? "取消指派" : "指派";
+            assignBtn.CustomMinimumSize = new Vector2(70, 0);
+
+            int capturedIndex = b;
+            string capturedBookId = book.BookId;
+            assignBtn.Pressed += () =>
+            {
+                if (_assignmentMap.TryGetValue(pawnId, out string? current) && current == capturedBookId)
+                    _assignmentMap.Remove(pawnId);
+                else
+                    _assignmentMap[pawnId] = capturedBookId;
+                RebuildBookListForSelectedPawn();
+            };
+
+            hbox.AddChild(assignBtn);
+            _bookAssignBtns.Add(assignBtn);
+
+            var sep = new HSeparator();
+            sep.AddThemeColorOverride("default_color", new Color(0.2f, 0.2f, 0.2f, 0.5f));
+            _rowContainer.AddChild(hbox);
+            _rowContainer.AddChild(sep);
+        }
+    }
+
     private void OnConfirm()
     {
-        var bookIndices = new List<int>(_dropdowns.Count);
-        foreach (var dd in _dropdowns)
-            bookIndices.Add(dd.GetItemId(dd.Selected));
+        if (_useCharacterFirstMode)
+        {
+            ReadingConfirmed?.Invoke(new Dictionary<int, string>(_assignmentMap));
+        }
+        else
+        {
+            var bookIndices = new List<int>(_dropdowns.Count);
+            foreach (var dd in _dropdowns)
+                bookIndices.Add(dd.GetItemId(dd.Selected));
 
-        var pawnIds = new List<int>(_pawns.Count);
-        foreach (var p in _pawns)
-            pawnIds.Add(p.Id);
+            var pawnIds = new List<int>(_pawns.Count);
+            foreach (var p in _pawns)
+                pawnIds.Add(p.Id);
 
-        var bookIds = new List<string>(_books.Count);
-        foreach (var b in _books)
-            bookIds.Add(b.BookId);
+            var bookIds = new List<string>(_books.Count);
+            foreach (var b in _books)
+                bookIds.Add(b.BookId);
 
-        ReadingConfirmed?.Invoke(BuildAssignment(pawnIds, bookIndices, bookIds));
+            ReadingConfirmed?.Invoke(BuildAssignment(pawnIds, bookIndices, bookIds));
+        }
     }
 
     /// <summary>
     /// 纯逻辑：把「每行选中的书序号」映射为 pawnId→bookId。
-    /// bookIndex &lt; 0（“不读”）或越界的行略过不入。
+    /// bookIndex &lt; 0（"不读"）或越界的行略过不入。
     /// </summary>
     public static Dictionary<int, string> BuildAssignment(
         IReadOnlyList<int> pawnIds,

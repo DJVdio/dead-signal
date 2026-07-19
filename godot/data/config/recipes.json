@@ -11,7 +11,7 @@
     "OutputQuantity": 1,
     "WorkMinutes": 90,
     "MaterialCosts": {
-      "cloth": 4
+      "cloth": 2
     }
   },
   "cloth_jacket": {
@@ -34,6 +34,15 @@
     "MaterialCosts": {
       "wood": 4,
       "nails": 2
+    }
+  },
+  "sofa": {
+    "OutputQuantity": 1,
+    "WorkMinutes": 240,
+    "MaterialCosts": {
+      "wood": 8,
+      "cloth": 6,
+      "nails": 4
     }
   },
   "bed": {
@@ -90,7 +99,7 @@
     "WorkMinutes": 60,
     "MaterialCosts": {
       "fuel": 1,
-      "stone": 1
+      "glue": 1
     }
   },
   "handmade_bow": {
@@ -107,16 +116,16 @@
     "MaterialCosts": {
       "iron": 4,
       "wood": 2,
-      "components": 2
+      "weapon_parts": 3
     }
   },
   "improvised_shotgun": {
     "OutputQuantity": 1,
-    "WorkMinutes": 150,
+    "WorkMinutes": 210,
     "MaterialCosts": {
       "iron": 3,
       "wood": 2,
-      "components": 1
+      "weapon_parts": 3
     }
   },
   "mod_bench": {
@@ -127,14 +136,6 @@
       "iron": 4,
       "components": 2,
       "nails": 6
-    }
-  },
-  "bullet_parts": {
-    "OutputQuantity": 1,
-    "WorkMinutes": 60,
-    "MaterialCosts": {
-      "iron": 2,
-      "components": 1
     }
   },
   "ammo_short": {
@@ -200,13 +201,12 @@
     "WorkMinutes": 180,
     "MaterialCosts": {
       "wood": 3,
-      "rope": 1,
-      "leather": 1
+      "rope": 2
     }
   },
   "longbow": {
     "OutputQuantity": 1,
-    "WorkMinutes": 240,
+    "WorkMinutes": 300,
     "MaterialCosts": {
       "wood": 5,
       "rope": 2
@@ -214,20 +214,20 @@
   },
   "light_crossbow": {
     "OutputQuantity": 1,
-    "WorkMinutes": 200,
+    "WorkMinutes": 180,
     "MaterialCosts": {
       "wood": 2,
       "iron": 2,
       "rope": 1,
-      "weapon_parts": 2
+      "weapon_parts": 1
     }
   },
   "heavy_crossbow": {
     "OutputQuantity": 1,
-    "WorkMinutes": 320,
+    "WorkMinutes": 480,
     "MaterialCosts": {
-      "wood": 4,
-      "iron": 4,
+      "wood": 6,
+      "iron": 3,
       "rope": 2,
       "weapon_parts": 3
     }
@@ -301,7 +301,7 @@
     "OutputQuantity": 1,
     "WorkMinutes": 50,
     "MaterialCosts": {
-      "cloth": 3
+      "cloth": 2
     }
   },
   "dog_leather_vest": {
@@ -357,7 +357,7 @@
     "OutputQuantity": 1,
     "WorkMinutes": 60,
     "MaterialCosts": {
-      "cloth": 3
+      "cloth": 4
     }
   },
   "cotton_hat": {
@@ -378,7 +378,7 @@
     "OutputQuantity": 1,
     "WorkMinutes": 70,
     "MaterialCosts": {
-      "cloth": 3
+      "cloth": 4
     }
   },
   "axe": {
@@ -386,7 +386,8 @@
     "WorkMinutes": 180,
     "MaterialCosts": {
       "iron": 3,
-      "wood": 2
+      "wood": 3,
+      "nails": 3
     }
   },
   "horror_armor": {
@@ -409,6 +410,29 @@
   "ankle_guard": {
     "OutputQuantity": 1,
     "WorkMinutes": 80,
+    "MaterialCosts": {
+      "leather": 2,
+      "rope": 1
+    }
+  },
+  "heavy_trousers": {
+    "OutputQuantity": 1,
+    "WorkMinutes": 120,
+    "MaterialCosts": {
+      "cloth": 5
+    }
+  },
+  "heavy_cape": {
+    "OutputQuantity": 1,
+    "WorkMinutes": 150,
+    "MaterialCosts": {
+      "cloth": 5,
+      "rope": 2
+    }
+  },
+  "snow_boots": {
+    "OutputQuantity": 1,
+    "WorkMinutes": 90,
     "MaterialCosts": {
       "leather": 2,
       "rope": 1
@@ -457,6 +481,86 @@
     "MaterialCosts": {
       "rawhide": 1,
       "tanning_solution": 1
+    }
+  },
+  "repair_sniper_rifle": {
+    "OutputQuantity": 1,
+    "WorkMinutes": 240,
+    "MaterialCosts": {
+      "damaged_sniper_rifle": 1,
+      "weapon_parts": 3
+    }
+  },
+  "improvised_pistol": {
+    "OutputQuantity": 1,
+    "WorkMinutes": 180,
+    "MaterialCosts": {
+      "iron": 2,
+      "wood": 1,
+      "weapon_parts": 2
+    }
+  },
+  "dentist_pistol": {
+    "OutputQuantity": 1,
+    "WorkMinutes": 150,
+    "MaterialCosts": {
+      "iron": 1,
+      "wood": 1,
+      "weapon_parts": 2
+    }
+  },
+  "cowboy_hat": {
+    "OutputQuantity": 1,
+    "WorkMinutes": 90,
+    "MaterialCosts": {
+      "leather": 2,
+      "cloth": 1
+    }
+  },
+  "riding_boots": {
+    "OutputQuantity": 1,
+    "WorkMinutes": 120,
+    "MaterialCosts": {
+      "leather": 3,
+      "cloth": 1,
+      "rope": 1
+    }
+  },
+  "simple_armor": {
+    "OutputQuantity": 1,
+    "WorkMinutes": 240,
+    "MaterialCosts": {
+      "iron": 3,
+      "cloth": 4,
+      "leather": 2,
+      "rope": 2
+    }
+  },
+  "weapon_bench": {
+    "OutputQuantity": 1,
+    "WorkMinutes": 180,
+    "MaterialCosts": {
+      "wood": 8,
+      "iron": 4,
+      "nails": 6
+    }
+  },
+  "rifle": {
+    "OutputQuantity": 1,
+    "WorkMinutes": 360,
+    "MaterialCosts": {
+      "iron": 8,
+      "wood": 3,
+      "weapon_parts": 5
+    }
+  },
+  "pistol": {
+    "OutputQuantity": 1,
+    "WorkMinutes": 240,
+    "MaterialCosts": {
+      "iron": 4,
+      "wood": 1,
+      "weapon_parts": 3
     }
   }
 }

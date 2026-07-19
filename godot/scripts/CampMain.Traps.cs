@@ -6,8 +6,7 @@ using Godot;
 namespace DeadSignal.Godot;
 
 /// <summary>
-/// <b>圈套陷阱的消费层接线</b>（批次21·T26）—— 用户原话「<b>陷阱机制是每个相位都有 30% 的几率抓到老鼠或者兔子，
-/// 每多放置一个，多的那个几率就会减小 5%，最低到 5%。</b>」
+/// <b>圈套陷阱的消费层接线</b>（批次21·T26）—— 用户原话是按相位抓取，且随场上数量递减、设最低值；具体数值以 Wiki 配置为准。
 ///
 /// <para>
 /// 规则与数值在 <see cref="TrapLogic"/> / <see cref="TrapSpec"/>（纯逻辑、零 Godot 依赖、单测覆盖）；
@@ -27,7 +26,7 @@ namespace DeadSignal.Godot;
 ///       本文件<b>不自己写贴边判定</b>。</item>
 /// <item><b>可跨越 + 减速</b> → <b>白拿的</b>：<c>RebuildTraversalField</c> 从 <c>_furniture</c>（唯一真源）重建减速场，
 ///       而 <see cref="FurnitureTraversal.IsTraversable"/> 对陷阱缺省为 true（它不在作业台名册里）
-///       ⇒ 陷阱一进 <c>_furniture</c> 就自动吃到 ×0.75。<b>这儿一行都不用写</b>。</item>
+///       ⇒ 陷阱一进 <c>_furniture</c> 就自动吃到 Wiki 配置减速。<b>这儿一行都不用写</b>。</item>
 /// <item><b>存档</b> → <c>CampSave.PlacedFurniture</c> 那条唯一出口（<c>CampMain.Save.cs</c>），同床/沙袋。</item>
 /// </list>
 /// </para>
@@ -88,7 +87,7 @@ public sealed partial class CampMain
 
     /// <summary>
     /// 陷阱落位。<b>刻意不建碰撞体、不挖导航洞</b>（<see cref="TrapSpec.IsSolid"/> / <see cref="TrapSpec.CarvesNavHole"/> 恒 false）
-    /// —— 它是贴地矮物，人和丧尸都跨得过去（跨过减速 25%，由减速场自动接管）。谁给它加碰撞体，kill box 就回来了。
+    /// —— 它是贴地矮物，人和丧尸都跨得过去（跨过减速由 Wiki 配置提供，由减速场自动接管）。谁给它加碰撞体，kill box 就回来了。
     /// <para>提示里<b>报出这是第几个</b>：几率按序号递减，玩家有权知道自己正在把新陷阱摆进哪一档。</para>
     /// </summary>
     private void PlaceTrapAt(Vector2 cart)
@@ -124,7 +123,7 @@ public sealed partial class CampMain
         var visuals = new List<Node2D>();
         AddOccluderVisual(rect, style, seed: 31 + _trapSeq, height: 6f, cell: 32f, collect: visuals);
 
-        // Body=null：它压根没有碰撞体。进 _furniture ⇒ ① 减速场自动收录（可跨越，×0.75）
+        // Body=null：它压根没有碰撞体。进 _furniture ⇒ ① 减速场自动收录（可跨越，减速值由 Wiki 配置提供）
         // ② Shift+右键走 impl-salvage 的通用家具拆除（按 FurnitureBuildCost["陷阱"] 折半返还）
         // ③ 存档走 CampSave.PlacedFurniture 那条唯一出口。
         _furniture[name] = new FurnitureInstance { Rect = rect, Body = null, Visuals = visuals };
@@ -140,7 +139,7 @@ public sealed partial class CampMain
     /// 悬停提示（由 <c>CampMain.cs</c> 的 role switch 一行分发过来）。
     /// <para>
     /// <b>把这一个陷阱的当前几率直接报出来</b>：几率按"场上第几个"递减，而这条曲线在地上<b>没有任何痕迹</b>——
-    /// 不报的话，第 7 个陷阱和第 1 个在玩家眼里长得一模一样，可收益差了六倍（30% vs 5%）。
+    /// 不报的话，不同序位的陷阱在玩家眼里长得一样，但命中率可能已因数量递减。当前数值以 Wiki 配置为准。
     /// 这不是剧透，是把一条<b>玩家做决策必须知道</b>的规则摆到台面上（区别于烹饪那条刻意隐藏的热量线：
     /// 那里藏的是"配方答案"，此处露的是"边际收益"——藏了它，玩家只会盲目多摆，而那正是这条规则要劝阻的事）。
     /// </para>
@@ -163,7 +162,7 @@ public sealed partial class CampMain
     private int TrapCount() => _furniture.Keys.Count(TrapSpec.IsTrapFurniture);
 
     /// <summary>
-    /// <b>一个昼夜段的陷阱结算</b>：场上每个陷阱各掷一次点，抓到的老鼠/兔子<b>直接入共享库存</b>（可下锅，见 <see cref="FoodCalories"/>）。
+    /// <b>一个昼夜段的陷阱结算</b>：场上每个陷阱各掷一次点，抓到的老鼠/兔子<b>直接入共享库存</b>（两者都要先宰杀，不能直接下锅）。
     /// <para>由 <c>CampMain.cs</c> 的 <see cref="OnGamePhaseChanged"/> 一行调用，且<b>只在 <see cref="TrapLogic.RollsOnPhase"/> 为真的两个昼夜段边界</b>
     /// （白天 <see cref="DayPhase.DawnMeal"/> + 夜晚 <see cref="DayPhase.DuskMeal"/>）触发 ⇒ <b>一天 2 次</b>（用户拍板：白天 1 次 + 夜晚 1 次）。
     /// 频率的唯一事实源在 <see cref="TrapLogic.RollsOnPhase"/>；这里不自己判相位，避免"一个写 2、一个按 8 触发"的两处漂移。</para>
@@ -175,7 +174,9 @@ public sealed partial class CampMain
     {
         // 掷点 + 逐只入库都走纯编排 TrapRuntime.ResolveCatch（消费层与单测同一段代码，见其类注）。
         // 没陷阱 / 本段全空手 ⇒ caught 为空 ⇒ 静默（空陷阱是常态，天天播报只会变成噪音）。
-        IReadOnlyList<string> caught = TrapRuntime.ResolveCatch(TrapCount(), _inventory, _trapRng);
+        double bonus = BookPassiveEffects.SnareBaseChanceBonus(
+            new[] { AnyCamperHasReadBook(BookLibrary.LittleMouseDigsHolesId) });
+        IReadOnlyList<string> caught = TrapRuntime.ResolveCatch(TrapCount(), _inventory, _trapRng, bonus);
         if (caught.Count == 0)
         {
             return;

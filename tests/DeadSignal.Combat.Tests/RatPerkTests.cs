@@ -143,26 +143,23 @@ public class RatPerkTests
         Assert.Equal(1.0, RatPerk.LootNoiseMultiplier(isRat: false, ratLevel: 3), precision: 10);
     }
 
-    // ==================== 🔴 三级：挂起 · 未接线（护栏） ====================
+    // ==================== 三级：探索黑暗潜行 + 破隐先手 ====================
 
     [Fact]
-    public void 三级的两条效果是引擎新轴_常量已落但尚未接线()
+    public void 三级的两条效果已接入实时探索消费点()
     {
-        // 用户原话（L3）：「黑暗带来的**隐匿点 +40%**，并且耗子的**破隐先手攻击额外再造成 35% 的伤害**。」
-        // 常量先落（authored 数值，勿改）：
-        Assert.Equal(0.40, RatPerk.Level3DarknessStealthBonus, precision: 10);
+        // 角色页（L3）：黑暗隐匿点 +50%；破隐先手额外 +35%。数值仍由 perks.json 提供。
+        Assert.Equal(0.50, RatPerk.Level3DarknessStealthBonus, precision: 10);
         Assert.Equal(0.35, RatPerk.Level3AmbushDamageBonus, precision: 10);
 
-        // 🔴 但**两条都是引擎新轴，本轮不接线**（主 agent 裁决：与今日其余新轴统一立项）：
-        //   ① 「隐匿点」这个标量**只存在于 NightWatchContest（营地夜袭对抗）**，且那套里潜行方恒为劫掠者
-        //      ⇒ 玩家 pawn 在探索关**根本没有隐匿分这个量**，+40% 无处可挂。
-        //   ② CombatResolver **没有任何攻方伤害乘子**（只有守方 incomingDamageReduction），
-        //      **更没有"未被发现/偷袭"的概念** ⇒ 「破隐先手」不存在。
-        //      （项目里唯一叫 FirstStrike 的是**岗位属性**"暗哨"——一次无冷却的免费攻击，
-        //        **既不是伤害加成、也不看有没有被发现** ⇒ 不是同一个东西，**不许拿它冒充**。）
-        //
-        // 这条断言钉死「未接线」这个事实本身：CombatResolver 的攻方一侧至今没有伤害乘子入口。
-        // 立项接线时，本测试应被**改写**（而不是删掉），届时改成断言那两个调用点确实吃到了 0.40 / 0.35。
+        // 黑暗效果只在暗处启用，返回的是发现距离倍率 1/(1+50%)。
+        Assert.Equal(1.0 / 1.5, RatPerk.DarknessStealthMultiplier(true, 3, dark: true), precision: 10);
+        Assert.Equal(1.0, RatPerk.DarknessStealthMultiplier(true, 3, dark: false), precision: 10);
+        Assert.Equal(1.0, RatPerk.DarknessStealthMultiplier(true, 2, dark: true), precision: 10);
+
+        // 破隐先手只在 L3 且未被敌方感知时给一次；Actor/Pawn 攻击消费点负责标记破隐。
+        Assert.Equal(1.35, RatPerk.AmbushDamageMultiplier(true, 3, undetected: true), precision: 10);
+        Assert.Equal(1.0, RatPerk.AmbushDamageMultiplier(true, 3, undetected: false), precision: 10);
         Assert.Equal(3, RatPerk.EvaluateLevel(RatPerk.Level3ThresholdItems));
     }
 

@@ -12,8 +12,8 @@ namespace DeadSignal.Godot;
 /// <see cref="PawnRoleManager"/> 只遍历 Pawn）。
 ///
 /// 行为（<see cref="Think"/>）：①守卫驻守态让位营地巡防调度；②否则自主缠斗侦测半径内最近敌对目标；
-/// ③无敌则跟随主人（道格）。站岗效率=人类 75%（见 <see cref="GuardEfficiency"/> / <see cref="GuardSightRadiusScaled"/>）。
-/// 当前攻击目标经 <see cref="EngagedTarget"/> 暴露，供 synergy-wiring 接 2 级技能「道格打布鲁斯正攻击目标 ×1.25」。
+/// ③无敌则跟随主人（道格）。站岗效率与视野倍率以 Wiki 配置为准（见 <see cref="GuardEfficiency"/> / <see cref="GuardSightRadiusScaled"/>）。
+/// 当前攻击目标经 <see cref="EngagedTarget"/> 暴露，供 synergy-wiring 接 2 级技能；技能倍率以 Wiki 配置为准。
 ///
 /// 战斗定位（用户口径）：**擅长缠斗的特殊战斗单元——高闪避 / 高移速 / 低伤害**，难独自击杀、也难被速杀，
 /// 靠拖住敌人给道格创造 2 级输出窗口。高闪避＝覆盖 <see cref="EvadeIncoming"/> 按概率整次躲开来袭（引擎无闪避轴，
@@ -30,40 +30,37 @@ public sealed partial class Dog : Actor
     public int Id { get; } = _nextDogId++;
     public string DisplayName { get; private set; } = "布鲁斯";
 
-    // ---- 跟随/侦测参数（拟定待调）----
+    // ---- 跟随/侦测参数（空间几何参数；当前值以 Wiki 配置为准）----
     private const float FollowStopRadius = 56f;    // 距主人此半径内不再挪动（贴随完成）
     private const float FollowResumeRadius = 96f;   // 超此半径才重新贴近（滞回，防原地抖动）
     private const float DetectRadius = 200f;        // 自主缠斗侦测半径
     private const float LoseTargetRadius = 300f;    // 超此距离放弃当前缠斗目标
 
     /// <summary>
-    /// 站岗效率 = 人类 75%（用户口径）。作用到守卫巡防有效锁敌半径（<see cref="GuardSightRadiusScaled"/>）。
-    /// 单一真源＝doug-logic 的 <see cref="DougBruceBond.BruceGuardEfficiency"/>（同值 0.75，接线层 synergy-wiring 归并）。
+    /// 站岗效率作用到守卫巡防有效锁敌半径（<see cref="GuardSightRadiusScaled"/>），当前系数以 Wiki 配置为准。
+    /// 单一真源＝doug-logic 的 <see cref="DougBruceBond.BruceGuardEfficiency"/>，接线层 synergy-wiring 归并。
     /// </summary>
     public const float GuardEfficiency = DougBruceBond.BruceGuardEfficiency;
 
     /// <summary>
     /// 闪避概率 [0,1]（高闪避）：每次来袭（近战/远程皆吃）以此概率整次躲开。配合极低伤害构成
     /// "难独自击杀、难被速杀"的缠斗定位。
-    /// 校准依据（param-calibration，dogcal 4000 种子）：保留"高闪避"身份取 0.45。
+    /// 当前闪避系数以 Wiki 配置为准；本处只描述"高闪避"身份。
     /// <para>
     /// 🔴 <b>数字一律以真源报告为准，别在这里抄快照</b>：<c>docs/research/2026-07-12-dog-calibration.md</c>
     /// （harness＝<c>src/DeadSignal.Sim/DogCalibration.cs</c>，重跑：<c>dotnet run --project src/DeadSignal.Sim -- dogcal</c>）。
-    /// 此前这段内联抄着「DogBite 1-4 → 胜率 39%、时长 33s、匕首基线 14.5s」，四个数**全部失效**
+    /// **历史报告/非配置源**：此前这段曾内联抄写武器伤害、胜率、时长与匕首基线，相关快照均已失效
     /// （"1-4" 更是 born-stale：初版 9bba641 就是 2-6，min 从来没到过 1；现 2-4 见 weapons.json dog_bite）。
     /// </para>
     /// <para>
-    /// ⚠ <b>已知偏离，待用户拍板</b>（2026-07-17 重跑复现，与报告 56.4% 一致）：布鲁斯 solo vs 丧尸胜率
-    /// <b>56.6%，已高出"目标 30~45%"区间</b>（dogcal 的判定行自己也在这么报）。缠斗感本身仍成立
-    /// （solo 时长 85.8s ≫ 匕首基线 55.0s），2v1 稳赢≈100% 亦未变。
-    /// <b>是否回调 0.45 / 还是重标目标区间＝数值决策，未自裁</b>——改这个数会动感知/Sim 基线，须走 [DECISION]。
+    /// 仅作历史校准记录，不能作为当前平衡依据；当前系数、目标区间与战斗数据以 Wiki/最新报告为准。
     /// </para>
     /// </summary>
     private const float DodgeChance = 0.45f;
 
     /// <summary>
-    /// 脚步噪音：狗比人轻得多（四只软肉垫、体重不到人的四分之一）→ 25px，人是 40px。
-    /// 布鲁斯移速 150 也意味着他脚步更**密**（噪音按位移节流），但每一声都传得更**近** ——
+    /// 脚步噪音：狗比人轻得多（四只软肉垫、体型与步态更安静）；当前噪音半径以 Wiki 配置为准。
+    /// 布鲁斯移速也意味着他脚步更**密**（噪音按位移节流），但每一声都传得更**近** ——
     /// 净效果是他天然适合被放出去探路。
     /// </summary>
     protected override double FootstepNoiseRadius => NoiseLogic.DogWalkNoiseRadius;
@@ -81,8 +78,8 @@ public sealed partial class Dog : Actor
     private Func<Actor?>? _masterProvider;                 // 主人（道格）当前实例，离场/身故返回 null
     private Func<IEnumerable<Actor>>? _hostileProvider;    // 场上潜在敌对单位（狗自行按 IsHostile 过滤）
     private readonly RandomNumberGenerator _rng = new();
-    // 布鲁斯 2 级「视野距离 +10%」感知消费口：自主缠斗侦测半径按羁绊系数缩放（synergy-wiring 注入 DougBruceBond.BruceRangeMult；
-    // null=1.0 零回归）。仅放大侦测获取半径（"视距"语义），放弃半径 LoseTargetRadius 不随之变（防抖）。
+    // 布鲁斯 2 级视野距离消费口：自主缠斗侦测半径按羁绊系数缩放（synergy-wiring 注入 DougBruceBond.BruceRangeMult；
+    // null=中性值零回归）。仅放大侦测获取半径（"视距"语义），放弃半径 LoseTargetRadius 不随之变（防抖）。
     private Func<float>? _detectRangeMultProvider;
 
     /// <summary>注入侦测视距系数（布鲁斯 L2 视距加成，synergy-wiring 喂 DougBruceBond.BruceRangeMult(level,dougAlive)）。null=无加成。</summary>
@@ -96,11 +93,11 @@ public sealed partial class Dog : Actor
 
     /// <summary>
     /// 布鲁斯当前正在攻击的存活目标（无则 null）。供 synergy-wiring 判定 2 级「道格攻击正在被布鲁斯攻击的
-    /// 敌人时 ×1.25 伤害」。只读干净接口，不暴露内部指令态。
+    /// 敌人时使用 Wiki 配置的羁绊伤害倍率」。只读干净接口，不暴露内部指令态。
     /// </summary>
     public Actor? EngagedTarget => CurrentAttackTarget is { Alive: true } t ? t : null;
 
-    // ---- 进食（犬类最简，用户口径：吃一份 +3 / 每聚餐相位 -1 / 不上桌）----
+    // ---- 进食（犬类最简，用户口径：吃一份增加饥饿 / 每聚餐相位衰减 / 不上桌；当前数值以 Wiki 配置为准）----
 
     /// <summary>布鲁斯的饥饿刻度（见 <see cref="DogHungerState"/>）。营地聚餐结算按余粮驱动，不占分配面板/坐席/气泡。</summary>
     public DogHungerState Hunger { get; } = new();
@@ -108,7 +105,7 @@ public sealed partial class Dog : Actor
     /// <summary>饥饿对战斗能力的惩罚（喂给 <see cref="Actor"/> 的钩子）：越饿攻速/移速越低（与人类同阶梯）。</summary>
     protected override double HungerAbilityPenalty => Hunger.AbilityPenalty;
 
-    /// <summary>一次聚餐相位的饥饿结算（-1，吃到一份再 +3）。返回本次是否饿死。营地层每聚餐相位对布鲁斯调一次。</summary>
+    /// <summary>一次聚餐相位的饥饿结算（进食与自然衰减数值以 Wiki 配置为准）。返回本次是否饿死。营地层每聚餐相位对布鲁斯调一次。</summary>
     public bool ResolveHungerPhase(bool ate) => Hunger.ResolvePhase(ate);
 
     /// <summary>饥饿刻度已归 0（饿死）。由聚餐结算据此走统一死亡路径。</summary>
@@ -169,8 +166,8 @@ public sealed partial class Dog : Actor
     public void RefreshArmor() => DefenderArmor = Apparel.ArmorLayers();
 
     /// <summary>
-    /// 守卫巡防有效锁敌半径 = 基类岗位锁敌半径 × <see cref="GuardEfficiency"/>（75%）。CampMain 袭营巡防用此半径
-    /// 找最近来袭丧尸，落实"相当于人类 75% 效率"。基类 <c>GuardSightRadius</c> 非虚，故以派生属性叠系数（不改 Actor）。
+    /// 守卫巡防有效锁敌半径 = 基类岗位锁敌半径 × <see cref="GuardEfficiency"/>（当前系数以 Wiki 配置为准）。CampMain 袭营巡防用此半径
+    /// 找最近来袭丧尸。基类 <c>GuardSightRadius</c> 非虚，故以派生属性叠系数（不改 Actor）。
     /// </summary>
     public float GuardSightRadiusScaled => GuardSightRadius * GuardEfficiency;
 
@@ -185,11 +182,11 @@ public sealed partial class Dog : Actor
         };
         d.Faction = Faction.Survivor;   // 己方（与幸存者同阵营，不被友军误判，敌人可攻击）
         d.Radius = 9f;                  // 体型小
-        d.MoveSpeed = 150f;             // 高移速（拟定待调，明显快于人类 95；缠斗定位=追得上、留得住）
-        // TODO(bruce-actor)：犬类专用躯体（无手、少部位）待建模；暂借人形躯体——可被切除/失血/杀死即满足本批需求。
-        d.Body = CombatData.NewHumanoidBody();
+        d.MoveSpeed = 150f;             // 高移速（当前值以 Wiki 配置为准；缠斗定位=追得上、留得住）
+        // 犬类专用躯体：无手、四足、胸腹/头；狗衣沿用胸腹/头锚名，断腿仍走通用下肢伤残链。
+        d.Body = CombatData.NewDogBody();
         d.AttackWeapon = WeaponTable.DogBite();
-        d.AttackRange = 20f;            // 近战撕咬短射程（拟定待调）
+        d.AttackRange = 20f;            // 近战撕咬短射程（空间交战参数；当前值以 Wiki 配置为准）
         d.AttackCooldown = d.AttackWeapon.AttackInterval;
         d.DefenderArmor = Array.Empty<ArmorLayer>(); // 无甲
         return d;
@@ -269,9 +266,10 @@ public sealed partial class Dog : Actor
     }
 
     /// <summary>
-    /// 高闪避：每次来袭以 <see cref="DodgeChance"/> 概率整次躲开（近战/远程皆吃）。掷免走引擎注入的
+    /// 高闪避：每次来袭以 <see cref="DodgeChance"/> 概率整次躲开（近战/远程皆吃；武器与远近参数在狗这条通路不改变概率）。掷免走引擎注入的
     /// <see cref="IRandomSource"/>（与哨塔抵挡同源口径，可复现）。TODO(bruce-actor)：闪避表现（"闪避"飘字）
-    /// 待接（当前静默躲开，机制优先）；数值/是否仅限近战拟定待调。
+    /// 待接（当前静默躲开，机制优先）；数值/是否仅限近战待用户确认。
     /// </summary>
-    protected override bool EvadeIncoming(IRandomSource rng) => rng.Range(0.0, 1.0) < DodgeChance;
+    protected override bool EvadeIncoming(IRandomSource rng, Weapon incomingWeapon, bool ranged)
+        => rng.Range(0.0, 1.0) < DodgeChance;
 }

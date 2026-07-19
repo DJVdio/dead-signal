@@ -125,6 +125,19 @@ public sealed partial class CampMain
             },
             new()
             {
+                TypeName = "沙发",
+                StashItemKey = SofaSpec.ItemKey,
+                Begin = BeginSofaPlacement,
+                IsPlacing = () => _placingSofa,
+                TryPlace = TryPlaceSofa,
+                Cancel = EndSofaPlacement,
+                CancelToast = "算了，沙发先搁着。",
+                Match = SofaSpec.IsSofaFurniture,
+                IsSolid = SofaSpec.IsSolid,
+                Respawn = RespawnSofa,
+            },
+            new()
+            {
                 TypeName = "菜园",
                 StashItemKey = CropPlotSpec.ItemKey,
                 Begin = BeginCropPlotPlacement,
@@ -172,6 +185,13 @@ public sealed partial class CampMain
                 Match = key => key == WeaponModLogic.BenchFurnitureKey,
                 IsSolid = true,
                 Respawn = (_, rect) => SpawnModBench(rect),
+            },
+            new()
+            {
+                TypeName = "武器台",
+                Match = key => key == WeaponBench.FurnitureKey,
+                IsSolid = true,
+                Respawn = (_, rect) => SpawnWeaponBench(rect),
             },
         };
 

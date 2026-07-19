@@ -36,7 +36,7 @@ public enum WeaponPart
     /// </summary>
     Shaft,
 
-    // ── [T69] 弓弩专属部位（用户在 wiki 上新加的 5 条改装引入）──
+    // ── [T69] 弓弩专属部位（用户在 wiki 上新加的改装引入）──
     // 弓与缠手是**两个不同部位**（用户拍板：复合弓臂 part=弓、弓臂缠手 part=缠手，可同装一把弓、互不占位）。
 
     /// <summary>弓臂（复合弓臂占它）。与 <see cref="LimbWrap"/> 是不同部位，可同装。</summary>
@@ -64,8 +64,9 @@ public enum WeaponPart
     /// <para>🔴 与 <see cref="Shaft"/>（棍棒上部）是<b>两个不同部位</b> ⇒ 钉子与铁丝**可以一起装**。
     /// 用户在 wiki 上定的（wiki＝唯一设计源）：铁丝 part＝棍棒上部、钉子 part＝棍棒顶端。</para>
     /// <para>
-    /// <b>为什么这个拆分不只是"多一个槽"</b>：合槽时铁丝（伤害 +15%）把钉子（穿透 +0.03 + 25% 小流血）
-    /// <b>完全支配</b>——实测打长剑手 +15.4pp vs +0.1pp（＝噪声）⇒ 钉子是一条永远不会有人选的死配方。
+    /// <b>为什么这个拆分不只是"多一个槽"</b>：合槽时铁丝的伤害优势曾把钉子的破甲/流血效果
+    /// <b>完全支配</b>——<b>[历史仿真快照，非当前配置源]</b>旧测试中两者胜率差距明显，钉子几乎成了没人选的死配方；
+    /// 当前数值以 <c>docs/wiki/data/</c> 为准。
     /// 拆开之后两者不再互相排挤：钉子买的是**破甲与流血**（钝器唯一的流血来源），铁丝买的是**伤害**。
     /// </para>
     /// </summary>
@@ -106,15 +107,15 @@ public enum WeaponStat
     StockMeleeNoiseRadius,
 
     /// <summary>
-    /// [T68] 弹丸飞行速度（<see cref="Weapon.FlightSpeed"/>，默认 560）。为弓弩改装「飞速 +12%」
-    /// （复合弓臂/重磅弓弦，由 modweapon-mods 填）留的乘算通路——同轴与《弓与箭之道》的 +20% 连乘。
+    /// [T68] 弹丸飞行速度（<see cref="Weapon.FlightSpeed"/>）。弓弩改装的飞速倍率由
+    /// <c>docs/wiki/data/</c> 配置，并与《弓与箭之道》的效果走乘算通路。
     /// </summary>
     FlightSpeed,
 
-    /// <summary>[T53] 这把武器造成的伤口的流血速率乘数（锯齿剑刃 ×1.4 = 流血速度 +40%）。</summary>
+    /// <summary>[T53] 这把武器造成的伤口的流血速率乘数；具体值以 Wiki 配置为准。</summary>
     BleedRateMultiplier,
 
-    /// <summary>[T53] 造成伤害时额外引发一处「小流血」的概率（钉子强化 = 0.25）。</summary>
+    /// <summary>[T53] 造成伤害时额外引发一处「小流血」的概率；具体值以 Wiki 配置为准。</summary>
     BleedOnHitChance,
 }
 
@@ -143,7 +144,7 @@ public enum MeleeForm
     Bayonet,
 
     /// <summary>[T68] 锋刃型：枪托（握把）固定一把匕首 → 锐器**切割**。**给短枪（手枪/冲锋枪）的近战型态**——
-    /// 短枪装不了刺刀/利爪/创伤（那三种是重枪专属），它换来一把 85% 攻速的匕首，近身出其不意。</summary>
+    /// 短枪装不了刺刀/利爪/创伤（那三种是重枪专属），它换来一把按 Wiki 攻速倍率配置的匕首，近身出其不意。</summary>
     Blade,
 }
 
@@ -228,7 +229,7 @@ public sealed class WeaponMod
     public int WorkMinutes { get; init; } = 60;
 
     /// <summary>
-    /// **这项改装让整把武器重多少倍**（1.0 = 不改重量；0.75 = 减重 25%；1.5 = 增重 50%）。
+    /// **这项改装让整把武器重多少倍**；具体倍率以 Wiki 配置为准。
     ///
     /// <para><b>🔴 用户原话：「我希望重量在改装中是一个重要的因素」</b> —— 重量是这套改装设计的**核心代价轴**：
     /// 你可以把一把枪改得很强，但它会把你压进负重 debuff。故重量**不是 flavor 字段**，它真的进负重账
@@ -245,7 +246,7 @@ public sealed class WeaponMod
     /// <summary>
     /// **消耗型改装**：还能撑几次攻击（<c>null</c> = 永久改装，绝大多数属此）。
     ///
-    /// <para>用户点名的那条：<b>锋刃研磨 = 穿透 +75%，攻击三次后失去该改装</b>（<c>UsesBeforeBreak = 3</c>）。
+    /// <para>用户点名的那条：<b>锋刃研磨是消耗型破甲改装，达到配置的使用次数后失去该改装</b>。
     /// 用光时改装**脱落**——武器回到"没有这个改装"的状态，且玩家看得见（不是静默失效）。</para>
     ///
     /// <para><b>次数本身不是这里的状态</b>：本字段只是**目录里的规格**（"这种改装能用几次"），
@@ -261,7 +262,7 @@ public sealed class WeaponMod
     /// **允许单手持有**（截短枪管：把长枪锯短到能单手抡）。<c>true</c> ⇒ 合成后 <c>TwoHanded = false</c>。
     ///
     /// <para><b>⚠️ 刻意不动 <c>CanDualWield</c></b>：用户原话只有「**允许单手持有**」四个字，
-    /// 没说"允许双持"——那是**另一个独立字段**、另一件事（双持 = 两手各一把同型枪，弹药 ×2、散布 ×1.5625）。
+    /// 没说"允许双持"——那是**另一个独立字段**、另一件事（双持的弹药/散布按独立双持规则处理）。
     /// 而用户在冲锋枪那条上刚刚拍板过「**保双手，放弃双持**」⇒ 顺手打开双持会绕过他自己的裁决。
     /// 按字面落地：**能腾出一只手（拿火把/开门），但不能双持**。要双持，用户在表上再说一句即可。</para>
     ///
@@ -295,19 +296,19 @@ public sealed class WeaponMod
 
     /// <summary>
     /// **护手挡格**：持这把武器的手（连同手指）被选为受击部位时，按此几率把**整次攻击**判无效。
-    /// 0 = 无此效果。护手挡格 = 0.5（用户 wiki）。判定见 <see cref="WeaponModDefense.HandGuardNegates"/>，
+    /// 默认值为零时无此效果；具体几率以 Wiki 配置为准。判定见 <see cref="WeaponModDefense.HandGuardNegates"/>，
     /// 接线在 <c>CombatEngine.ResolveHit</c>（部位在那里选定、伤害在其后施加，故否决必须落在选部位之后）。
     /// </summary>
     public double HandGuardNegateChance { get; init; }
 
     /// <summary>
     /// **弩盾**：举着这把武器时，来自**正面锥内**（半角 <see cref="FrontalNegateHalfAngleDeg"/>）的**远程**攻击，
-    /// 按此几率整发判无效。0 = 无此效果。弩盾 = 0.25（用户 wiki）。判定见
+    /// 按此几率整发判无效。默认值为零时无此效果；具体几率以 Wiki 配置为准。判定见
     /// <see cref="WeaponModDefense.FrontalRangedNegates"/>，接线在 <c>Actor.ReceiveAttack</c>（与半身掩体/哨塔围栏同层）。
     /// </summary>
     public double FrontalRangedNegateChance { get; init; }
 
-    /// <summary>弩盾正面锥的**半角**（度）；全张角 = 2×此值。用户 wiki：正面 120° ⇒ 半角 60°。</summary>
+    /// <summary>弩盾正面锥的**半角**（度）；全张角 = 2×半角。具体角度以 Wiki 配置为准。</summary>
     public double FrontalNegateHalfAngleDeg { get; init; } = 60.0;
 }
 
@@ -365,7 +366,7 @@ public sealed class ModdedWeapon
     /// <summary>[T69] 这把变体的**弩盾**正面远程否决几率（取各改装最大值；无则 0）。见 <see cref="WeaponMod.FrontalRangedNegateChance"/>。</summary>
     public double FrontalRangedNegateChance => AppliedMods.Count == 0 ? 0.0 : AppliedMods.Max(m => m.FrontalRangedNegateChance);
 
-    /// <summary>[T69] 弩盾正面锥半角（度）：取带弩盾的那条改装的值；无弩盾则默认 60。</summary>
+    /// <summary>[T69] 弩盾正面锥半角（度）：取带弩盾的那条改装的值；无弩盾则使用默认配置。</summary>
     public double FrontalNegateHalfAngleDeg =>
         AppliedMods.Where(m => m.FrontalRangedNegateChance > 0).Select(m => m.FrontalNegateHalfAngleDeg).DefaultIfEmpty(60.0).First();
 
@@ -493,11 +494,11 @@ public static class WeaponMods
         private int _burstCount = 1;
         private double _burstInterval;
 
-        // [T53] 流血轴。中性默认（1.0 / 0）⇒ 没装流血改装的武器逐字段不变。
+        // [T53] 流血轴。中性默认值 ⇒ 没装流血改装的武器逐字段不变。
         private double _bleedRateMult = 1.0;
         private double _bleedOnHit;
 
-        // [T68] 弹丸飞速。默认 560（＝旧全局常量）⇒ 没装飞速改装的武器逐字段不变。
+        // [T68] 弹丸飞速。默认值透传基础武器（旧全局常量已退役）⇒ 没装飞速改装的武器逐字段不变。
         private double _flightSpeed = 560.0;
 
         /// <summary>近战型态改装重定义枪托伤害类型（利爪/刺刀=锐击，创伤=钝击）。</summary>
@@ -576,9 +577,9 @@ public static class WeaponMods
         /// <summary>
         /// 收尾成一把不可变 <see cref="Weapon"/>。所有字段在此**统一夹紧**（合法域由引擎定，改装不许越界）。
         /// <para>
-        /// 🔴 <b>穿透 100% 上限（用户拍板：「穿透不能超过 100%」）</b>：<c>Penetration</c> 与
+        /// 🔴 <b>穿透上限（用户拍板：穿透不能超过完整概率域）</b>：<c>Penetration</c> 与
         /// <c>StockMeleePenetration</c> 都 <c>Clamp(0, 1)</c>。这是**唯一**的收口点 ——
-        /// 改装的穿透是**乘算**的（穿透 +75% ⇒ ×1.75），叠满多条改装理论上能把它顶穿 100%，
+        /// 改装的穿透是**乘算**的，叠加多条改装后仍由这里统一收口，
         /// 全靠这里兜住。护栏见 <c>WeaponModPenetrationCapTests</c>：谁把这个 Clamp 拿掉，测试当场红。
         /// </para>
         /// </summary>
@@ -587,7 +588,7 @@ public static class WeaponMods
             Name = name,
             DamageMin = System.Math.Max(0, _damageMin),
             DamageMax = System.Math.Max(System.Math.Max(0, _damageMin), _damageMax),
-            Penetration = System.Math.Clamp(_penetration, 0, 1),   // ← 穿透 ≤ 100%（用户拍板）
+            Penetration = System.Math.Clamp(_penetration, 0, 1),   // ← 穿透概率域上限（用户拍板）
             DamageType = _damageType,
             TwoHanded = _twoHanded,
             CanDualWield = _canDualWield,
@@ -602,13 +603,13 @@ public static class WeaponMods
             StockMeleeDamageMin = _stockMin is null ? null : System.Math.Max(0, _stockMin.Value),
             StockMeleeDamageMax = _stockMax is null ? null : System.Math.Max(0, _stockMax.Value),
             StockMeleeInterval = _stockInterval is null ? null : System.Math.Max(0.01, _stockInterval.Value),
-            StockMeleePenetration = _stockPen is null ? null : System.Math.Clamp(_stockPen.Value, 0, 1),   // ← 同上，枪托侧的 100% 上限
+            StockMeleePenetration = _stockPen is null ? null : System.Math.Clamp(_stockPen.Value, 0, 1),   // ← 同上，枪托侧上限
             StockMeleeNoiseRadius = _stockNoise is null ? null : System.Math.Max(0, _stockNoise.Value),
             StockMeleeDamageType = _stockDamageType,
             // [T53] 流血轴，同样在此统一夹紧：速率乘数不为负（负流血=回血，荒谬）；小流血概率是概率 ⇒ [0,1]。
             BleedRateMultiplier = System.Math.Max(0, _bleedRateMult),
             BleedOnHitChance = System.Math.Clamp(_bleedOnHit, 0, 1),
-            // [T68] 弹丸飞速：不为负（负速＝倒着飞，荒谬）。默认 560 透传 ⇒ 没装飞速改装的武器零漂移。
+            // [T68] 弹丸飞速：不为负（负速＝倒着飞，荒谬）；未装飞速改装时透传基础武器值。
             FlightSpeed = System.Math.Max(0, _flightSpeed),
         };
     }

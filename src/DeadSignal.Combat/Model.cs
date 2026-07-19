@@ -39,7 +39,7 @@ public sealed class Weapon
     /// <summary>伤害区间上限（含）。</summary>
     public double DamageMax { get; init; }
 
-    /// <summary>穿透力，0~1。降低防方可 roll 的防御上限。</summary>
+    /// <summary>穿透力。降低防方可 roll 的防御上限，具体值见 Wiki 配置表。</summary>
     public double Penetration { get; init; }
 
     public DamageType DamageType { get; init; }
@@ -47,26 +47,25 @@ public sealed class Weapon
     // ---- 流血轴（[T53]）：武器影响它**造成的伤口**流得多快。中性默认 ⇒ 既有武器零漂移。----
 
     /// <summary>
-    /// 这把武器造成的伤口的**流血速率乘数**（1.0 = 常规刃口，不改变流血）。「锯齿剑刃」改装填 **1.4**（流血速度 +40%）。
+    /// 这把武器造成的伤口的**流血速率乘数**；具体值与改装效果见 Wiki 配置表。
     ///
     /// <para>
     /// 它是**伤口**的属性，由造成伤口的武器在建档时写入（<see cref="Body.RegisterBleed(string, double)"/>），
-    /// 与**受害者**侧的体质倍率 <see cref="Body.BleedRateMultiplier"/>（丧尸 1/3）**正交相乘** ——
+    /// 与**受害者**侧的体质倍率 <see cref="Body.BleedRateMultiplier"/> **正交相乘** ——
     /// 「谁在砍」和「谁在流血」是两件事，各自一根轴。
     /// </para>
     /// <para>
-    /// 🔴 <b>零漂移</b>：默认 1.0，且 <see cref="Body.TickBleed"/> 里 Σ(乘数) 在全 1.0 时**逐位等于**旧的伤口计数
+    /// 🔴 <b>零漂移</b>：中性默认值下，且 <see cref="Body.TickBleed"/> 里 Σ(乘数) **逐位等于**旧的伤口计数
     /// ⇒ 既有武器的结算路径逐字节不变。
     /// </para>
     /// </summary>
     public double BleedRateMultiplier { get; init; } = 1.0;
 
     /// <summary>
-    /// 造成伤害时**额外**引发一处「小流血」的概率（0 = 不会，默认）。「钉子强化」改装填 **0.25**
-    /// （棍棒独有：25% 几率造成小流血）。
+    /// 造成伤害时**额外**引发一处「小流血」的概率；具体值与改装效果见 Wiki 配置表。
     /// <para>
     /// 🔴 [T58]「小流血」**现在有了正式语义**：它就是 <see cref="BleedModel.BleedSeverity.Small"/> 这一级
-    /// （旧的 <c>SmallWoundRateMultiplier = 0.5</c>「速率减半的普通伤口」**已退役**）。
+    /// （旧的速率减半普通伤口口径**已退役**）。
     /// ⇒ 钉子扎出的口子会和别的小流血**按同一套规则合并**（同一处扎两下 ⇒ 中流血）。
     /// </para>
     ///
@@ -139,7 +138,7 @@ public sealed class Weapon
     // ---- 弹丸飞行速度（[T68] 空间层弹道飞行轴；仅远程武器有意义）----
 
     /// <summary>
-    /// 这把武器射出的弹丸的**飞行速度**（世界单位/秒）。默认 <b>560</b> ＝ 改造前 <c>Projectile.Speed</c>
+    /// 这把武器射出的弹丸的**飞行速度**（世界单位/秒）。默认沿用旧的全局弹道配置
     /// 全局常量的等效值 ⇒ <b>不填此字段的武器飞速与旧行为逐字节一致</b>（既有基线零漂移）。
     /// <para>
     /// 🔴 <b>零漂移（结构性证明）</b>：飞速是**空间层弹道飞行**属性——弹丸在 Godot 实时层沿直线匀速飞、
@@ -148,7 +147,7 @@ public sealed class Weapon
     /// 对既有武器×护甲的 Sim 输出零影响。消费点唯一：Godot 侧 <c>Projectile._PhysicsProcess</c>。
     /// </para>
     /// <para>
-    /// [T68] 此前飞速是全局常量、非逐武器字段，导致《弓与箭之道》「弹道速度 +20%」与后续弓弩改装「飞速 +12%」
+    /// [T68] 此前飞速是全局常量、非逐武器字段，导致《弓与箭之道》与后续弓弩改装的飞速效果
     /// 都卡在这轴上无法落地。改为逐武器字段后：射手侧的书加成由 <see cref="Archery.Combine"/> 连乘进有效武器的飞速
     /// （<see cref="Archery.BookFlightSpeedMult"/>）；下游改装的飞速乘子由 <c>WeaponMod</c> 的 <c>WeaponStat.FlightSpeed</c>
     /// 走同一条乘算通路。同轴一律**乘算**（CLAUDE.md 铁律）。
@@ -163,8 +162,9 @@ public sealed class Weapon
     /// <b>默认空串 = 不消耗弹药</b> —— 全部近战武器、爪击/撕咬、以及 <see cref="MeleeProfile"/> 派生的枪托近战
     /// 均不填此字段，行为与随机流一律不变（既有基线零漂移）。
     /// <para>
-    /// 设计意图（用户拍板）：把枪的碾压从"平衡问题"变成<b>资源管理问题</b>。步枪照样 93.5% 命中、二连发、穿透 40%，
-    /// 但每次扣动扳机烧掉两颗子弹，而子弹靠搜刮/制作（火药→燃料）换来。<b>不削数值，用后勤代价平衡。</b>
+    /// 设计意图（用户拍板）：把枪的碾压从"平衡问题"变成<b>资源管理问题</b>。
+    /// 连发与穿透以 Wiki 配置为准；每次扣动扳机的弹药消耗由连发数派生，子弹靠搜刮/制作取得。
+    /// <b>不削数值，用后勤代价平衡。</b>
     /// </para>
     /// </summary>
     public string AmmoKey { get; init; } = "";
@@ -177,12 +177,12 @@ public sealed class Weapon
     /// 一次"射击"消耗的弹药数 = 连发数（打几发就扣几发）。不吃弹药的武器恒 0。
     /// <para>
     /// <b>由 <see cref="BurstCount"/> 派生而非另填一个字段</b>：两者永远不会不同步，且这正是物理事实——
-    /// 打出两发就是两个弹壳。这也是弹药系统真正的平衡杠杆：步枪二连发 = 2 发/次、冲锋枪三连发 = 3 发/次，
+    /// 打出几发就消耗对应数量的弹壳。这也是弹药系统真正的平衡杠杆：
     /// 越强的枪每次扣扳机越贵。
     /// </para>
     /// <para>
-    /// <b><see cref="PelletCount"/> 不参与相乘</b>：霰弹枪一发壳里 8 颗弹丸同时飞出（8 次独立判定），
-    /// 但消耗的是<b>一发</b>霰弹，不是 8 发。
+    /// <b><see cref="PelletCount"/> 不参与相乘</b>：多弹丸武器一发壳内同时飞出多颗弹丸（各自独立判定），
+    /// 但消耗的是一发对应弹药，不按弹丸数重复扣除。
     /// </para>
     /// </summary>
     [JsonIgnore] // 计算属性：由 BurstCount 派生，不入 weapons.json。
@@ -202,9 +202,7 @@ public sealed class Weapon
     /// <para>
     /// <b>设计意图（用户拍板）</b>：「弓箭可以设计成潜行武器，但是也会发出一定声响」——
     /// 弓<b>不是无声</b>，只是声音小。目标手感是<b>「你能悄悄干掉一个，但干不掉一群」</b>。
-    /// 故梯度锚在两个既有常量上：<b>弓 ≈ 丧尸嗅觉半径</b>（<c>Zombie.SmellSenseRadius</c> = 70px：
-    /// 听得见你放箭的丧尸，本来就已经闻得到你 → 放箭不额外招怪）；
-    /// <b>枪 ≫ 丧尸夜间视距</b>（≈219px：一枪把视野外、屏幕外的丧尸全拽过来）。
+    /// 故梯度锚在丧尸感知配置上：弓的噪音与嗅觉范围、枪的噪音与视距关系均以 Wiki 配置表为准。
     /// </para>
     /// <b>噪音不吃墙遮挡</b>（声音会绕、会穿——与吃遮挡的视线/气味不同）。数值拟定待调。
     /// </summary>
@@ -277,10 +275,10 @@ public sealed class Weapon
     public double? StockMeleePenetration { get; init; }
 
     /// <summary>
-    /// 这把枪的枪托近战噪音半径。<c>null</c> ⇒ 回落到全局 <see cref="StockMeleeNoise"/>（110，钝器量级）——
+    /// 这把枪的枪托近战噪音半径。<c>null</c> ⇒ 回落到全局 <see cref="StockMeleeNoise"/>（钝器量级）——
     /// 故**不填的武器行为完全不变**（零回归）。
     /// <para>
-    /// 分枪型的理由：拿手枪柄敲人和抡一杆 6kg 的狙击枪托砸下去，动静不是一回事。按枪身质量分档（拟定待调）。
+    /// 分枪型的理由：不同枪型的枪身质量不同，动静不是一回事。按枪身质量分档，具体值见 Wiki 配置表。
     /// </para>
     /// </summary>
     public double? StockMeleeNoiseRadius { get; init; }
@@ -477,19 +475,19 @@ public enum BodyMacroRegion
 /// <summary>假肢等级。恢复比例见 <see cref="Prosthetic.RestoreRatio"/>（相对单肢能力）。</summary>
 public enum ProstheticGrade
 {
-    /// <summary>木制假肢：恢复单肢能力的 25%。</summary>
+    /// <summary>木制假肢：恢复比例见 Wiki 配置表。</summary>
     Wooden,
 
-    /// <summary>简易假肢：恢复单肢能力的 50%。</summary>
+    /// <summary>简易假肢：恢复比例见 Wiki 配置表。</summary>
     Simple,
 
-    /// <summary>仿生假肢：恢复单肢能力的 75%。</summary>
+    /// <summary>仿生假肢：恢复比例见 Wiki 配置表。</summary>
     Bionic,
 }
 
 /// <summary>
 /// 假肢数据模型。装在被切除肢体的空槽位上（取代该部位），假肢无 HP、不可再被切除（暂定）。
-/// 恢复是**相对单肢能力**的比例：单肢 = 全局能力的 50%，恢复值（占全局）= <see cref="RestoreRatio"/> × 50%。
+/// 恢复是**相对单肢能力**的比例；具体比例见 Wiki 配置表。
 /// </summary>
 public sealed class Prosthetic
 {
@@ -500,10 +498,10 @@ public sealed class Prosthetic
     /// <summary>取代的肢体区域（<see cref="BodyRegion.Hand"/> 恢复操作能力 / <see cref="BodyRegion.Leg"/> 恢复移动能力）。</summary>
     public BodyRegion ReplacesRegion { get; init; }
 
-    /// <summary>恢复比例，相对于单肢能力（手=50%，腿=50%）。值域 0.0~1.0。木 0.25 / 简易 0.5 / 仿生 0.75。</summary>
+    /// <summary>恢复比例，相对于单肢能力；具体值见 Wiki 配置表。</summary>
     public double RestoreRatio { get; init; }
 
-    /// <summary>按等级构造假肢（等级→恢复比例：木 0.25 / 简易 0.5 / 仿生 0.75，拟定待调）。</summary>
+    /// <summary>按等级构造假肢，等级对应的恢复比例见 Wiki 配置表。</summary>
     public static Prosthetic OfGrade(ProstheticGrade grade, BodyRegion replaces, string? name = null)
     {
         double ratio = grade switch
@@ -524,16 +522,16 @@ public sealed class Prosthetic
 }
 
 /// <summary>
-/// 能力惩罚（残疾净值）。值域 0.0~1.0：0 = 无惩罚，1.0 = 完全丧失该能力。
+/// 能力惩罚（残疾净值）；具体范围与数值见 Wiki 配置表。
 /// 由 <see cref="Body.RecalculatePenalties"/> 依"切除部位 + 假肢"重算净值。
 /// 操作能力：影响攻速/生产/开锁修理等精细操作；移动能力：影响移速/闪避走位。
 /// </summary>
 public sealed class DisabilityModifiers
 {
-    /// <summary>操作能力惩罚，0.0~1.0（一只手 -50%，两手 -100%）。</summary>
+    /// <summary>操作能力惩罚；具体比例见 Wiki 配置表。</summary>
     public double OperationPenalty { get; set; }
 
-    /// <summary>移动能力惩罚，0.0~1.0（一条腿 -50%，两腿 -100%）。</summary>
+    /// <summary>移动能力惩罚；具体比例见 Wiki 配置表。</summary>
     public double MobilityPenalty { get; set; }
 }
 

@@ -101,7 +101,7 @@
       "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
       "userNote": "",
       "sync": "",
-      "_icon": ""
+      "_icon": "furniture/bench"
     },
     {
       "name": "改装台",
@@ -114,7 +114,20 @@
       "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
       "userNote": "",
       "sync": "",
-      "_icon": ""
+      "_icon": "furniture/mod_bench"
+    },
+    {
+      "name": "武器台",
+      "materials": "木料*8、铁*4、钉子*6",
+      "buildMinutes": 180,
+      "salvage": "木料*2、废木料*2、铁*2、钉子*3",
+      "description": "锯、锉、夹具和一块经得住锤打的厚台面。武器从这里造出来，至于拿去对付谁，台子不问。",
+      "_id": "武器台",
+      "_configId": "武器台",
+      "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
+      "userNote": "",
+      "sync": "",
+      "_icon": "furniture/bench"
     },
     {
       "name": "烹饪台",
@@ -127,7 +140,7 @@
       "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
       "userNote": "",
       "sync": "",
-      "_icon": ""
+      "_icon": "furniture/cook_station"
     },
     {
       "name": "住宅-柜子",
@@ -140,7 +153,7 @@
       "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
       "userNote": "",
       "sync": "",
-      "_icon": ""
+      "_icon": "furniture/table"
     },
     {
       "name": "住宅-衣柜",
@@ -153,7 +166,7 @@
       "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
       "userNote": "",
       "sync": "",
-      "_icon": ""
+      "_icon": "furniture/table"
     },
     {
       "name": "住宅-展示柜",
@@ -166,7 +179,7 @@
       "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
       "userNote": "",
       "sync": "",
-      "_icon": ""
+      "_icon": "furniture/table"
     },
     {
       "name": "床",
@@ -179,7 +192,7 @@
       "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
       "userNote": "",
       "sync": "",
-      "_icon": ""
+      "_icon": "furniture/bed"
     },
     {
       "name": "桌子",
@@ -192,7 +205,20 @@
       "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
       "userNote": "",
       "sync": "",
-      "_icon": ""
+      "_icon": "furniture/table"
+    },
+    {
+      "name": "沙发",
+      "materials": "木料*8、布*6、钉子*4",
+      "buildMinutes": 240,
+      "salvage": "木料*2、废木料*2、布*3、钉子*2",
+      "description": "木椅的升级版。坐上去读书快一点，恢复也快一点——代价是它占地方，也吃掉更多布料。",
+      "_id": "沙发",
+      "_configId": "沙发",
+      "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
+      "userNote": "",
+      "sync": "",
+      "_icon": "furniture/chair"
     },
     {
       "name": "沙袋",
@@ -205,7 +231,7 @@
       "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
       "userNote": "",
       "sync": "",
-      "_icon": ""
+      "_icon": "furniture/sandbag"
     },
     {
       "name": "陷阱",
@@ -218,7 +244,7 @@
       "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
       "userNote": "",
       "sync": "",
-      "_icon": ""
+      "_icon": "furniture/snare_trap"
     },
     {
       "name": "捕鸟陷阱",
@@ -231,7 +257,7 @@
       "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
       "userNote": "",
       "sync": "",
-      "_icon": ""
+      "_icon": "furniture/snare_trap"
     },
     {
       "name": "菜园",
@@ -244,7 +270,7 @@
       "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
       "userNote": "",
       "sync": "",
-      "_icon": ""
+      "_icon": "food/potato"
     },
     {
       "name": "简易宰杀点",
@@ -257,7 +283,7 @@
       "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
       "userNote": "",
       "sync": "",
-      "_icon": ""
+      "_icon": "weapons/bone_knife"
     },
     {
       "name": "宰杀台",
@@ -270,7 +296,7 @@
       "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
       "userNote": "",
       "sync": "",
-      "_icon": ""
+      "_icon": "weapons/bone_knife"
     }
   ]
 }

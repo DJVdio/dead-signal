@@ -53,6 +53,12 @@ public sealed class WorldNode
     /// <summary>危险度（null＝未定级，地图上不显示——不拿没人拍过的数字骗玩家送死）。</summary>
     public DangerTier? Danger { get; init; }
 
+    /// <summary>
+    /// 关内敌对单位数量（数据配置，0 代表本关没有游荡敌人，例如超市的威胁来自劫掠者）。
+    /// 旧数据缺字段时以 -1 表示未配置，由消费层按 DangerTier 兜底；真数据门禁要求新行显式填写。
+    /// </summary>
+    public int EnemyCount { get; init; } = -1;
+
     public float X { get; init; }
     public float Y { get; init; }
 
@@ -137,6 +143,9 @@ public sealed class WorldGraph
                 TravelSeconds = e.TryGetProperty("travelSeconds", out var t) ? t.GetInt32() : 0,
                 Size = ParseSize(Str(e, "size")),
                 Danger = ParseDanger(Str(e, "danger")),
+                EnemyCount = e.TryGetProperty("enemyCount", out var ec) && ec.ValueKind == JsonValueKind.Number
+                    ? ec.GetInt32()
+                    : -1,
                 X = e.TryGetProperty("x", out var x) ? x.GetSingle() : 0,
                 Y = e.TryGetProperty("y", out var y) ? y.GetSingle() : 0,
                 Summary = Str(e, "summary") ?? "",
@@ -284,7 +293,7 @@ public sealed class WorldNodeLock
 {
     public bool Unlocked { get; init; }
 
-    /// <summary>锁着时给玩家的一句话（"需要先把「超市」探索到 50% 以上"）。解锁时为空。</summary>
+    /// <summary>锁着时给玩家的一句话（包含当前探索门槛）。解锁时为空。</summary>
     public string Reason { get; init; } = "";
 }
 
@@ -294,7 +303,7 @@ public sealed class WorldNodeLock
 /// </summary>
 public static class WorldGraphUnlock
 {
-    /// <summary>探索度门槛：**严格大于 50%**（用户原话"探索度大于50%"）。整数比较 done*2 &gt; total，不碰浮点。</summary>
+    /// <summary>探索度门槛：严格大于既定阈值。整数比较 done*2 &gt; total，不碰浮点。</summary>
     public static bool MeetsExplorationThreshold(int done, int total) => total > 0 && done * 2 > total;
 
     /// <summary>门槛文案（给 UI 与测试共用）。</summary>

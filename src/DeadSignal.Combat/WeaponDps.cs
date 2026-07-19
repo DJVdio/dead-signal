@@ -30,10 +30,10 @@ public static class WeaponDps
     ///
     /// <para><b>🔴 持握系数只作用在冷却上，不作用在连发间隔上</b>
     /// （<c>GripCombat.EffectiveInterval</c> = 基础冷却 ÷ (操作能力 × 持握系数)）——
-    /// 所以**双持不是简单地把 DPS ×1.4**：连发间隔那一截不跟着变。这正是必须按周期公式算、
+    /// 所以**双持不是简单地乘一个固定倍数**：连发间隔那一截不跟着变。这正是必须按周期公式算、
     /// 而不能用捷径的原因。<b>持握系数如今只剩双持一项</b>（双手握已无攻速加成，见 <see cref="DualWield"/>）。</para>
     /// </summary>
-    /// <param name="operation">操作能力（残疾 × 饥饿，0~1）。本表按**健康满值 1.0** 算。</param>
+    /// <param name="operation">操作能力（残疾 × 饥饿）。本表按健康满值计算。</param>
     public static double CycleSeconds(Weapon w, GripMode grip, double operation = 1.0)
     {
         int burst = Math.Max(1, w.BurstCount);
@@ -51,9 +51,9 @@ public static class WeaponDps
     /// <para>
     /// 一个周期打出的总伤害 = 期望单发伤害 × <see cref="Weapon.PelletCount"/> × 连发数。
     /// </para>
-    /// <para><b>⚠️ 弹丸（霰弹枪 8 颗）按「全中」算 ⇒ 这是理论上限</b>：引擎里每颗弹丸
+    /// <para><b>⚠️ 多弹丸武器按「全中」算 ⇒ 这是理论上限</b>：引擎里每颗弹丸
     /// **独立选命中部位、独立走三段判定**（<see cref="CombatResolver.ResolveVolley"/>），
-    /// 打披甲目标时挡下的那些颗**不算数**。所以霰弹枪的这个数字是「8 颗全中且目标无甲」的天花板，
+    /// 打披甲目标时挡下的那些颗**不算数**。所以该数字是「所有弹丸全中且目标无甲」的天花板，
     /// 实战永远达不到——**它不是假精确，是明确标注了上限语义**。</para>
     /// </summary>
     public static double Of(Weapon w, GripMode grip, double operation = 1.0)
@@ -84,7 +84,7 @@ public static class WeaponDps
     /// <see cref="VolumeWeightedHitSelector"/> 按真实分布抽 —— 所以这个数**天然把"打到裸露部位"算进去了**，
     /// 既不会只算"打中甲上"（低估），也不会按裸伤算（高估）。</para>
     ///
-    /// <para><b>多弹丸</b>：霰弹枪 8 颗**逐颗独立选部位、独立三段判定**（同引擎 <c>ResolveVolley</c> 的语义），
+    /// <para><b>多弹丸</b>：弹丸**逐颗独立选部位、独立三段判定**（同引擎 <c>ResolveVolley</c> 的语义），
     /// 打披甲会被挡掉好几颗 —— 这正是"霰弹枪对披甲极差"的来源，本函数如实反映，**不按全中算**。</para>
     ///
     /// <para><b>不含</b>乘算减伤层（<c>incomingDamageReduction</c>）：它现阶段唯一的非零来源是山姆的专属效果，
@@ -151,7 +151,7 @@ public static class WeaponDps
     /// <summary>
     /// **常规 DPS**（这把武器**按它唯一/默认的持法**拿着时的 DPS）：单持与双手握**同值**——
     /// 双手握已无攻速加成（见 <see cref="DualWield"/>），故这一列就是「不双持时的 DPS」。
-    /// <para>保留 grip 形参与本重载，是因为<b>双持仍有 ×0.70</b>——持握依然会改变 DPS，只是方向只剩变慢一种。</para>
+    /// <para>保留 grip 形参与本重载，是因为双持仍有持握惩罚——持握依然会改变 DPS，只是方向只剩变慢一种。</para>
     /// </summary>
     public static double Single(Weapon w, double operation = 1.0)
         => Of(w, w.TwoHanded ? GripMode.TwoHanded : GripMode.OneHanded, operation);
@@ -160,13 +160,12 @@ public static class WeaponDps
     /// **双持 DPS**（两把同款一起打）：**不可双持的武器返回 <c>null</c>**——
     /// 该显示「—」，而不是 0、更不是编一个数出来。
     /// <para>
-    /// 双持时**每只手**都按 <see cref="GripMode.DualWield"/> 算（冷却 ÷ 0.70 ⇒ 每只手更慢），
+    /// 双持时**每只手**都按 <see cref="GripMode.DualWield"/> 算（冷却受持握系数影响 ⇒ 每只手更慢），
     /// 两只手各自独立出手 ⇒ 合计 = <b>2 × 单手在双持态下的 DPS</b>。
     /// </para>
-    /// <para><b>🔴 它不等于「常规 DPS × 1.4」，而且方向和直觉相反</b>：0.70 只除在**冷却**上，
+    /// <para><b>🔴 它不等于常规 DPS 的固定倍数</b>：持握惩罚只作用在**冷却**上，
     /// **连发那一段时间不吃惩罚**（见 <see cref="CycleSeconds"/>）⇒ 连发占周期比重越大，
-    /// 双持惩罚被稀释得越厉害 ⇒ <b>连发武器双持反而比 ×1.4 更划算</b>。
-    /// 只有**不连发**的武器（burst=1）才恰好是 ×1.4——那是特例，不是通则。
+    /// 双持惩罚被连发间隔稀释；具体倍率随武器连发配置变化。
     /// （这条把作者本人也绊倒过一次，测试 <c>有连发的武器_双持DPS_不等于常规的1点4倍</c> 钉死了它。）</para>
     /// </summary>
     public static double? Dual(Weapon w, double operation = 1.0)

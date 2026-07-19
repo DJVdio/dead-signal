@@ -7,7 +7,7 @@ namespace DeadSignal.Godot;
 // 注意：本文件为**纯 C# 逻辑**，不得引入任何 Godot 类型
 //（与 GoldfingerDiscovery.cs / CorpseLoot.cs 一样被 DeadSignal.Combat.Tests 以 Link 方式编入单测；
 //  **同时被 DeadSignal.Sim 以 Link 方式编入校准 harness** —— 编制表必须是单一事实源：
-//  Sim 算出来的胜率与代价，跟玩家真正会碰上的那 8 个人，读的是同一张表。抄一份到 Sim 里就会漂移。）
+//  Sim 算出来的胜率与代价，跟玩家真正会碰上的那 4 个人，读的是同一张表。抄一份到 Sim 里就会漂移。）
 
 /// <summary>金手指帮守备的持械档位。<b>他们是人，不是丧尸</b>——持械 ⇒ 杀了能扒（<see cref="CorpseLoot"/>）。</summary>
 public enum GangArm
@@ -62,7 +62,7 @@ public sealed record GangGuard(string DisplayName, GangArm Arm, GangInjury Injur
 /// <summary>
 /// 金手指帮根据地的<b>守备编制表</b>（authored 配置；空间布点在 <c>TestExploration.SpawnGoldfingerGuards</c>）。
 ///
-/// <para><b>他们是人。</b>此前代码里这 8 个"守备"生成的是<b>丧尸</b>（<c>SpawnZombieAt</c>）——而丧尸不持械、
+/// <para><b>他们是人。</b>此前代码里的据点守备生成的是<b>丧尸</b>（<c>SpawnZombieAt</c>）——而丧尸不持械、
 /// 掉不出武器，于是"打赢金手指帮"这条本该是玩家最重要装备通道的路，<b>一把枪都捡不到</b>。
 /// 用户澄清：「金手指帮是人，不是丧尸，不过他们刚经历完异常战斗，大家的状态都不是巅峰。」</para>
 ///
@@ -135,9 +135,9 @@ public static class GoldfingerGang
         new[] { HumanBody.LeftHand, HumanBody.RightLeg });
 
     /// <summary>
-    /// 8 人各拿什么武器（authored 的经济决定，不是平衡参数）。
+    /// 4 人各拿什么武器（authored 的经济决定，不是平衡参数）。
     /// <para>
-    /// 🔴 <b>[T57] 用户拍板改过一次：手枪全撤，改成 4 短剑 + 4 匕首（原案 2 手枪 + 2 短剑 + 4 匕首）。</b>
+    /// 🔴 <b>[T57] 用户拍板改过一次：手枪全撤；本次又将根据地守备从 8 人收束为 4 人，当前为 2 短剑 + 2 匕首。</b>
     /// 起因是这一关被重排到<b>中期</b>（金手指帮不再是终局）。
     /// <para>
     /// ⚠️ <b>[T63] 的复核结论「这一刀砍对了，板不用翻」仍然成立</b>——但它引用的那组数字<b>是错的，已作废重写</b>。
@@ -157,26 +157,20 @@ public static class GoldfingerGang
     /// <b>焊死在引擎上</b>（报告里的数与实跑对不上就当场红 ⇒ 去重跑报告、并回来复核本段结论）。下面只留<b>结论</b>：
     /// </para>
     /// <list type="bullet">
-    /// <item><b>潜行清哨仍是那条可行的路</b>（3 人同持<b>消防斧</b>＝中期玩家口径）：胜率 ≈99.9%，
-    /// 但<b>全身而退只有 ≈19%</b>、平均 ≈2.24 处永久残缺 ⇒ 赢了，有人挂彩。<b>这才叫可行。</b></item>
-    /// <item>🔴 <b>「正面很贵」仍然成立——但贵在成本面，不在胜率面</b>（§2 通则③：<b>胜率不是成本</b>，用户原话
-    /// 「战斗难道不是成本吗」）。逐波推进胜率 ≈85.3% 听着软，可<b>同一格</b>里：平均<b>阵亡 ≈1.07 / 3 人</b>、
-    /// <b>永久残缺 ≈2.68</b>、惨胜 96%、<b>全身而退只有 1%</b> ⇒ <b>打赢＝平均赔掉一条人命、外加两三处不可逆残缺。</b>
-    /// 拿胜率当"软"的证据会读反这一关。</item>
+    /// <item>⚠️ <b>本段战斗成本数字待四人编制重跑</b>：用户将守备由 8 人改为 4 人，旧报告的胜率/残缺/阵亡数字不再适用；在机器报告重跑前不在代码注释里复述。</item>
     /// <item>🔴 <b>代价换了货币，不是消失了</b>：本关<b>骨折恒为 0.00</b>——<b>不是 bug、是 [T57] 那一刀的结构性后果</b>：
-    /// 撤掉手枪后守备<b>清一色利器</b>（4 短剑 + 4 匕首，<c>weapons.json</c> 里 dagger/shortsword 的 damageType 皆 <c>Sharp</c>），
+    /// 撤掉手枪后守备<b>清一色利器</b>（2 短剑 + 2 匕首，<c>weapons.json</c> 里 dagger/shortsword 的 damageType 皆 <c>Sharp</c>），
     /// 而骨折<b>只由天然钝器触发</b>（<c>Effects.cs</c>：<c>if (nativeBlunt &amp;&amp; dmg > 0)</c>）⇒ <b>他们切你，不打断你的骨头。</b>
     /// 代价于是从「骨折（7 昼夜愈合、占床、不能干活/站岗）」整个换成「<b>永久残缺（不可逆、长不回来）</b>」——<b>更贵，不是更便宜。</b></item>
-    /// <item>🔴 <b>红线守住了</b>：「惊动全据点」近战仍≈0%（消防斧 2.2% / 长剑 0.3% / 棍棒 0.0%）。<b>枪一响还是死。</b>
-    /// 噪音设计（弓/匕首叫醒 0 人、手枪 2 人、步枪 5 人）<b>一格没动</b>，且现由
+    /// <item>🔴 <b>红线守住了</b>：「惊动全据点」近战仍≈0%（四人编制重跑报告前不复述旧概率）。<b>枪一响还是死。</b>
+    /// 四人编制下噪音招怪为弓/匕首 0 人、手枪 1 人、步枪 3 人，且现由
     /// <c>GoldfingerGangTests.枪一响还是死_弓与匕首叫醒零人而枪招来一片</c> 钉死（此前全项目没有任何测试钉它）。</item>
     /// <item>⚠️ <b>「原案（2 手枪）」那组 A/B（94.9% / 全退 3% / 2.54 残缺）已删除、未重算也无法重算</b>——它是<b>反事实</b>
     /// （harness 只跑当前 authored 编制），且同出 born-stale 报告 ⇒ <b>只可当历史留痕，不得引用为事实</b>。
     /// 若日后要重做该 A/B，须临时改 Roster 重跑，属独立单。</item>
     /// </list>
     /// <para>
-    /// 数在 <c>docs/research/2026-07-14-goldfinger-calibration.md</c>（生成口径：3 人探索队 / 2000 次蒙特卡洛 /
-    /// Arena 无空间下界；<b>末次重跑 2026-07-17 @ bd867a8</b>），harness = <c>src/DeadSignal.Sim/GoldfingerCalibration.cs</c>。
+    /// 数在 <c>docs/research/2026-07-14-goldfinger-calibration.md</c>（旧报告为 8 人编制；本次 4 人改动后需重跑，暂不改机器产物），harness = <c>src/DeadSignal.Sim/GoldfingerCalibration.cs</c>。
     /// </para>
     /// <para>
     /// <b>剧情自洽</b>（这一刀不是"把他们改成病秧子"）：他们仍是"刚打完一场恶战"的残兵——
@@ -187,9 +181,7 @@ public static class GoldfingerGang
     /// </para>
     /// <para>
     /// <b>没给他们好枪</b>：全图唯一的冲锋枪仍锁在他们自己的军械柜里——它是<b>打赢的奖赏</b>，不该长在守备手上。
-    /// 8 个人里但凡有一个端着冲锋枪，这仗就从"硬仗"变成"必死局"（<c>GoldfingerGangTests.守备不拿他们自己看守的军火</c> 钉死）。
-    /// <b>评估过但否掉的选项</b>：减编制 8→6 —— 布点表 <see cref="Placements"/> 与本表<b>同序同长</b>，减人会当场
-    /// <c>IndexOutOfRange</c>，必须连关卡布点一起重排；动的面比减枪大、收益却更小。
+    /// 4 个人里但凡有一个端着冲锋枪，这仗就从"硬仗"变成"必死局"（<c>GoldfingerGangTests.守备不拿他们自己看守的军火</c> 钉死）。
     /// </para>
     /// </summary>
     public static IReadOnlyList<GangGuard> Roster { get; } = new[]
@@ -198,18 +190,12 @@ public static class GoldfingerGang
         new GangGuard(GuardName, GangArm.Shortsword, ModerateHand, IsSentry: true),
         new GangGuard(GuardName, GangArm.Dagger, Light, IsSentry: false),
         new GangGuard(GuardName, GangArm.Shortsword, Heavy, IsSentry: true),
-        // 中段（修械 / 弹药 / 皮件 / 铺位）
-        new GangGuard(GuardName, GangArm.Dagger, ModerateLeg, IsSentry: false),
-        new GangGuard(GuardName, GangArm.Shortsword, Light, IsSentry: false),
-        new GangGuard(GuardName, GangArm.Dagger, Heavy, IsSentry: false),
-        // 近入口（前院 / 岗哨）
-        new GangGuard(GuardName, GangArm.Dagger, ModerateHand, IsSentry: false),
-        new GangGuard(GuardName, GangArm.Shortsword, Light, IsSentry: true),
+        new GangGuard(GuardName, GangArm.Dagger, ModerateLeg, IsSentry: true),
     };
 
     /// <summary>
-    /// 8 名守备的<b>布点</b>（关卡<b>相对</b>坐标 0~1，与 <see cref="Roster"/> <b>同序</b>）。
-    /// 深处/中段加权：多数在关卡上半（y 小＝北，军械柜/银库/头目区所在），少数在中段与近入口 ⇒ "打过才拿"。
+    /// 4 名守备的<b>布点</b>（关卡<b>相对</b>坐标 0~1，与 <see cref="Roster"/> <b>同序</b>）。
+    /// 深处/中段加权：两人在关卡上半（y 小＝北，军械柜/银库/头目区所在），其余在中段与近入口 ⇒ "打过才拿"。
     /// <para>
     /// 放在这儿（而不是只写在 <c>TestExploration</c> 里）是因为<b>噪音招怪要算得出来</b>：一枪的半径能罩住几个人，
     /// 是纯几何问题（<see cref="AlertedBy"/>），而 Sim 够不着 Godot 的场景层。布点与编制必须是同一张表——
@@ -219,12 +205,8 @@ public static class GoldfingerGang
     public static IReadOnlyList<(double X, double Y)> Posts { get; } = new[]
     {
         (0.78, 0.18), // 深·头目/银库区   ← 哨兵
-        (0.90, 0.15), // 深·银库暗格侧
         (0.70, 0.24), // 深·军械柜侧      ← 哨兵
         (0.55, 0.32), // 中深·修械/弹药区
-        (0.62, 0.45), // 中·皮件/gauntlet
-        (0.38, 0.40), // 中·铺位/油料区
-        (0.30, 0.62), // 中前·前院
         (0.50, 0.72), // 近入口·岗哨侧    ← 哨兵
     };
 

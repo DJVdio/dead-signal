@@ -66,10 +66,10 @@ public class CarpentryWorkTimeTests
     // ──────────────── 「家具类」的边界：谁吃这 5%，谁不吃 ────────────────
 
     [Fact]
-    public void 家具类配方_只有四张_板凳木椅床桌子()
+    public void 家具类配方_包含板凳木椅沙发床桌子()
     {
         Assert.Equal(
-            new[] { "bed", "bench", "chair", TableSpec.RecipeId }.OrderBy(x => x),
+            new[] { "bed", "bench", "chair", SofaSpec.RecipeId, TableSpec.RecipeId }.OrderBy(x => x),
             CraftWorkTime.FurnitureRecipeIds.OrderBy(x => x));
     }
 

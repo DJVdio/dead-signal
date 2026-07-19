@@ -325,7 +325,7 @@ public class ArcheryCraftingTests
             .Where(l => l.Kind == LootKind.Material && l.RefId == Materials.WeaponPartsKey)
             .Sum(l => l.Quantity);
 
-        int light = RecipeBook.Find("light_crossbow")!.MaterialCosts[Materials.WeaponPartsKey];   // 2
+        int light = RecipeBook.Find("light_crossbow")!.MaterialCosts[Materials.WeaponPartsKey];   // 1
         int heavy = RecipeBook.Find("heavy_crossbow")!.MaterialCosts[Materials.WeaponPartsKey];   // 3
 
         Assert.InRange(total, light + heavy, 12);     // 至少凑得齐一套轻+重；上限防"弩变量产品"

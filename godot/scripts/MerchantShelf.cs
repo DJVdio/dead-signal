@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using DeadSignal.Combat; // IRandomSource（随机选择互斥刷新项）
 
 namespace DeadSignal.Godot;
 
@@ -47,6 +48,19 @@ public sealed class MerchantShelf
     /// <summary>《木匠入门》售价（**整银**，draft 待调；建货架时经 <see cref="Silver.FromWhole"/> 转分）——它已从探索点撤下，神秘商人是唯一来源。</summary>
     public const int CarpentryBasicsPrice = 30;
 
+    /// <summary>
+    /// [wiki-character-sync] 损坏的狙击枪售价（**整银**，draft；[DECISION] 拟定 60 银——对标一把完好的枪械级装备，
+    /// 但损坏件折扣 + 神秘商人加价 ≈ 狙击枪价值的 ~60%。具体值待用户确认。）
+    /// </summary>
+    public const int DamagedSniperRiflePrice = 60;
+
+    /// <summary>
+    /// [wiki-character-sync]《枪械维修指南》售价（**整银**，draft；[DECISION] 拟定 25 银——技术工具书，
+    /// 略低于《木匠入门》(30银)：书本身不直接给武器，要给玩家一个"先买书还是先买枪"的抉择空间。
+    /// 具体值待用户确认。）
+    /// </summary>
+    public const int GunsmithRepairGuidePrice = 25;
+
     private readonly List<MerchantOffer> _offers = new();
 
     /// <summary>当前全部售卖条目（只读视图，按加入顺序；含已售罄条目，UI 据 <see cref="MerchantOffer.SoldOut"/> 标下架）。</summary>
@@ -76,6 +90,40 @@ public sealed class MerchantShelf
     /// 日后要卖别的，往这里 <see cref="Add"/> 新 <see cref="MerchantOffer"/> 即可（数据驱动，逻辑零改）。
     /// </summary>
     public static MerchantShelf Default()
+    {
+        var shelf = Base();
+        return shelf;
+    }
+
+    /// <summary>
+    /// 带**互斥刷新**的货架（损坏的狙击枪 / 《枪械维修指南》二选一，不共存）。
+    /// <paramref name="rng"/> 决定本轮刷新哪一项。未提供 rng 时回落为无互斥项（测试/旧代码兼容）。
+    /// </summary>
+    public static MerchantShelf Default(IRandomSource rng)
+    {
+        var shelf = Base();
+
+        // 损坏的狙击枪 vs 《枪械维修指南》：互斥刷新
+        // [DECISION] 刷新概率 50/50，待用户确认。rng 在游戏启动时注入（SystemRandomSource）。
+        bool offerDamagedSniper = rng.Range(0, 2) < 1.0;
+        if (offerDamagedSniper)
+        {
+            var damagedSniper = Item.Material(
+                Materials.DamagedSniperRifleKey,
+                Materials.Find(Materials.DamagedSniperRifleKey)?.DisplayName ?? "损坏的狙击枪",
+                1);
+            shelf.Add(new MerchantOffer(damagedSniper, Silver.FromWhole(DamagedSniperRiflePrice), stock: 1));
+        }
+        else
+        {
+            BookData repairGuide = BookLibrary.GunsmithRepairGuide();
+            shelf.Add(new MerchantOffer(repairGuide.ToItem(), Silver.FromWhole(GunsmithRepairGuidePrice), stock: 1));
+        }
+
+        return shelf;
+    }
+
+    private static MerchantShelf Base()
     {
         BookData book = BookLibrary.CarpentryBasics();
         var shelf = new MerchantShelf();

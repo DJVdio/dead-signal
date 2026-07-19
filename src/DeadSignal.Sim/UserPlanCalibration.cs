@@ -8,13 +8,11 @@ using DeadSignal.Combat;
 /// 用户原话：「1.锐器降低下限，例如匕首伤害改为1-7　2.钝器提高基础伤害」
 ///
 /// 核心待验证命题（来自 weaponsweep 的诊断）：单层护甲要能挡下一击，必须
-/// **护甲值×(1−穿透)/2 &gt; 武器伤害下限**。长袖布衣锐防 6、当时的匕首穿透 9% → 门槛约 2.73；
-/// 旧匕首下限 4 &gt; 2.73 → **恒挡不下（实测 0.0%）**。下限压到 1 后 1 &lt; 2.73 → 布衣应重新有非零阻挡。
+/// **护甲值×(1−穿透)/2 &gt; 武器伤害下限**。具体门槛随 Wiki 配置动态计算。
 /// 本 harness 实测该命题，并把"降下限"推广到全部锐器，给出多套上限方案的代价对比。
 ///
 /// ⚠️ <b>时效</b>：以上是 [批次18补] <b>当时</b>的诊断快照，保留作立项依据，<b>不是现值</b>。
-/// 该方案<b>已被采纳落地</b>（设计文档 §5：近战锐器下限统一压到 1，匕首 <b>1~7</b>），
-/// 匕首穿透其后也已改为 <b>7.5%</b>（门槛随之约 2.78）。报告正文里的门槛/军火库读数一律现算，别照抄本段。
+/// 具体武器值以 Wiki 配置表为准；报告正文读运行时配置，不在注释中复制。
 ///
 /// 只读 <see cref="WeaponTable"/>/<see cref="ArmorTable"/> 构造**变体武器**，不改任何游戏数值。
 /// </summary>
@@ -265,31 +263,31 @@ public static class UserPlanCalibration
         sb.AppendLine("### 2. 各件护甲的「下限门槛」——武器下限必须压到这个数以下，这件甲才开始有效");
         sb.AppendLine();
         sb.AppendLine("门槛 = 护甲防御值 ×(1−武器穿透) ÷ 2。武器伤害下限只要 ≥ 门槛，这件甲就**一次也挡不下**（数学上恒为零，不是概率低）。");
-        // 🔴 别把这里的穿透抄成裸常数——它必须跟着 WeaponTable 走（此处曾写死 10%「匕首量级」，
-        //    而匕首现值是 7.5%，土制枪早已重定位到 25%，两头都对不上）。
         double pen = WeaponTable.Dagger().Penetration;
-        sb.AppendLine(CultureInfo.InvariantCulture,
-            $"下表按匕首现值穿透 {pen:P1} 算；穿透越高门槛越低（越难被挡）。");
+        sb.AppendLine("下表按当前武器配置计算；穿透越高门槛越低。");
         sb.AppendLine();
         sb.AppendLine("| 护甲 | 对锐器防御 | 锐器下限门槛 | 对钝器防御 | 钝器下限门槛 |");
         sb.AppendLine("|------|-----------:|-------------:|-----------:|-------------:|");
-        var rows = new (string Name, double S, double B)[]
+        var rows = new (string Name, ArmorLayer Layer)[]
         {
-            ("丧尸腐皮", 3, 3),
-            ("长袖布衣 / 长裤 / 粗布外套 / 粗布背心", 6, 3),
-            ("皮夹克 / 皮甲", 12, 6),
-            ("皮革胸甲", 18, 9),
-            ("板甲", 50, 25),
+            ("丧尸腐皮", ArmorTable.ZombieHide()[0]),
+            ("长袖布衣", ArmorTable.LongSleeveShirt()),
+            ("长裤", ArmorTable.Trousers()),
+            ("粗布外套", ArmorTable.CoarseClothCoat()),
+            ("粗布背心", ArmorTable.CoarseClothVest()),
+            ("皮夹克", ArmorTable.LeatherJacket()),
+            ("皮甲", ArmorTable.Leather()),
+            ("皮革胸甲", ArmorTable.ChestPlate()),
+            ("板甲", ArmorTable.Plate()),
         };
-        foreach (var (n, s, b) in rows)
+        foreach (var (n, layer) in rows)
         {
+            double s = layer.SharpDefense;
+            double b = layer.BluntDefense;
             sb.AppendLine(CultureInfo.InvariantCulture,
                 $"| {n} | {s:0.#} | **{s * (1 - pen) / 2:F2}** | {b:0.#} | **{b * (1 - pen) / 2:F2}** |");
         }
         sb.AppendLine();
-        // 🔴 这一行必须从实测里长出来。它此前写死「现有全部 15 把武器的伤害下限（最低是匕首 4）都在布衣门槛 2.7
-        //    之上——这就是布衣挡下率恒为 0% 的全部原因」，而本 harness 论证的「锐器降下限」方案**早已被采纳落地**
-        //    （设计文档 §5：匕首 1~7），军火库也从 15 把长到 25 把 ⇒ 那句话的三个数全错，结论正好反了。
         var arsenal = WeaponTable.Arsenal();
         double clothThreshold = 6 * (1 - pen) / 2;
         var lowest = arsenal.MinBy(w => w.DamageMin)!;
@@ -428,8 +426,8 @@ public static class UserPlanCalibration
     {
         sb.AppendLine("### 6. 钝器该提多少（在锐器已降下限的新环境里重算）");
         sb.AppendLine();
-        sb.AppendLine("钝器**吃不到「降下限救布甲」这一手**：布衣钝防只有 3，门槛 1.35——棍棒下限要压到 1.3 以下才有意义，");
-        sb.AppendLine("那等于把棍棒变成挠痒。所以钝器的路子只有一条：**提高基础伤害**，靠伤害量级压过护甲掷点。");
+        sb.AppendLine("钝器**吃不到「降下限救薄甲」这一手**：具体门槛随 Wiki 护甲与武器配置动态变化。");
+        sb.AppendLine("所以钝器的路子只有一条：**提高基础伤害**，靠伤害量级压过护甲掷点。");
         sb.AppendLine();
 
         // 在推荐的「方案戊」环境下重算：锐器全部下限 1、上限抬到保平均（对手长剑 = 1~39，平均仍是 20）

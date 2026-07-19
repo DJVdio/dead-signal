@@ -208,7 +208,7 @@ public sealed partial class CampMain
     }
 
     /// <summary>
-    /// <b>手术池那 +10 点「床位加成」的唯一真值来源。</b>
+    /// <b>手术池床位加成的唯一真值来源。</b>具体数值以 Wiki 配置为准。
     /// <para>
     /// 医疗面板的「床上」是**展示层**（它自己也是从 <see cref="BedRegistry"/> 同步来的，见 <c>MedicalPanel.SyncBedCheck</c>），
     /// 但展示层不该是权威 —— 手术真要给 +10 池（<see cref="HealthConditionSet.BedBonusPoints"/>），

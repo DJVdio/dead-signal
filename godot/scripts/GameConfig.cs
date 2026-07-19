@@ -53,7 +53,7 @@ public sealed class GameConfig
     /// <summary>南方三问考验段（southtrial.json）——三题总分的通过门槛（南逃 WIN 入口）。</summary>
     public SouthTrialConfig SouthTrial { get; init; } = new();
 
-    /// <summary>神秘商人经济段（merchant.json）——买卖价率（买 100%/卖 60%）。</summary>
+    /// <summary>神秘商人经济段（merchant.json）——买卖价率。</summary>
     public MerchantConfig Merchant { get; init; } = new();
 
     /// <summary>诱捕命中率段（farming.json）——圈套/捕鸟陷阱的基础命中率/递减/地板 + 圈套兔鼠分配比例。</summary>

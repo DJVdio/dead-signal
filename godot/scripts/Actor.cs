@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using DeadSignal.Combat;
 using Godot;
 
@@ -25,6 +26,12 @@ public abstract partial class Actor : CharacterBody2D
     /// <summary>防御方躯体（细部位 HP/切除/损毁/失血）。由子类工厂在 Create 时装配。</summary>
     protected Body Body = null!;
 
+    /// <summary>当前眼部功能比例，供感知/警戒消费层读取；身体模板无眼时为中性 1。</summary>
+    public double VisionCapability => Body.VisionCapability;
+
+    /// <summary>当前耳部功能比例，供感知/警戒消费层读取；身体模板无耳时为中性 1。</summary>
+    public double HearingCapability => Body.HearingCapability;
+
     /// <summary>非战斗致死标记（如饿死）：绕过 Body 战斗死亡表示，走统一死亡路径。</summary>
     private bool _nonCombatDead;
 
@@ -32,7 +39,7 @@ public abstract partial class Actor : CharacterBody2D
     public bool Alive => Body is { IsDead: false } && !_nonCombatDead;
 
     /// <summary>
-    /// 饥饿对战斗能力的惩罚净值 0~1（1=完全丧失）。基类（丧尸等无饥饿单位）恒为 0；
+    /// 饥饿对战斗能力的惩罚净值，具体范围与曲线见 Wiki 配置表。基类（丧尸等无饥饿单位）恒为中性；
     /// <see cref="Pawn"/> 覆盖返回其饥饿刻度惩罚，在攻速/移速消费点与残疾惩罚经
     /// <see cref="HungerState.CombineCapability"/> 合并（不覆盖、不改残疾数学）。
     /// </summary>
@@ -74,12 +81,11 @@ public abstract partial class Actor : CharacterBody2D
     protected double CarryLoadSpeedMult = 1.0;
 
     /// <summary>
-    /// 负重出手间隔乘子（1.0 = 无罚，&lt;1 = 攻速变慢）。有效间隔 <b>÷</b> 它（乘子 0.85 ⇒ 间隔 ×1.176）。
-    /// **从免罚线（30kg）起就线性掉**（50kg −20%、80kg −50%），见 <see cref="Loadout.AttackSpeedMultiplier"/>。
+    /// 负重出手间隔乘子。有效间隔按它换算；阈值与曲线见 <see cref="Loadout.AttackSpeedMultiplier"/> / Wiki 配置表。
     /// </summary>
     protected double CarryLoadAttackSpeedMult = 1.0;
 
-    // ---- authored 移速乘子（皮特·青春期田径队：L1 1.15× / L2 1.25× / L3 1.30×）----
+    // ---- authored 移速乘子（皮特·青春期田径队；具体值见 Wiki 配置表）----
     /// <summary>
     /// authored 专属移速乘子（1.0 = 无加成）。<b>乘算</b>进移动能力链（残缺 × 饥饿 × 骨折 × 战斗减速 × 家具 × 负重 × <b>authored</b>），
     /// 与负重槽同一注入式口径。<b>null（未注入）= 恒 1.0</b> ⇒ 丧尸/劫掠者/狗/商人及非皮特幸存者逐位零回归。
@@ -91,9 +97,14 @@ public abstract partial class Actor : CharacterBody2D
     /// <summary>注入 authored 移速乘子 lambda（皮特按等级现算）。null 清除（＝1.0，零回归）。</summary>
     public void SetAuthoredMoveSpeedMult(System.Func<double>? f) => _authoredMoveSpeedMult = f;
 
+    /// <summary>authored 攻击速度乘子（1.0 = 无影响）：有效间隔除以该值。空值=1.0。</summary>
+    private System.Func<double>? _authoredAttackSpeedMult;
+
+    public void SetAuthoredAttackSpeedMult(System.Func<double>? f) => _authoredAttackSpeedMult = f;
+
     /// <summary>
     /// 当前持握态，供攻速/误差角消费（<see cref="GripCombat"/>）。<see cref="Pawn"/> 走其 <see cref="Pawn.Grip"/>
-    /// （左右手持械推导）；其余单位（丧尸/劫掠者等无持械模型）恒 <see cref="GripMode.OneHanded"/>（系数 ×1.0，零回归）。
+    /// （左右手持械推导）；其余单位（丧尸/劫掠者等无持械模型）恒 <see cref="GripMode.OneHanded"/>（中性系数，零回归）。
     /// 说明：Pawn 已非虚暴露 public Grip 且其文件为只读边界，无法沿 HungerAbilityPenalty 的虚钩子路径（基类同名虚属性会被
     /// Pawn 的 public 隐藏而非覆盖），故此处以类型判定就地取用，行为与「Pawn override 返回 Grip」完全等价。
     /// </summary>
@@ -134,7 +145,7 @@ public abstract partial class Actor : CharacterBody2D
     protected bool IsRanged;
     /// <summary>
     /// 远程武器"贴脸"阈值（cartesian 像素，拟定待调）：目标 body 边缘进此间隙内改用枪托近战钝击而非开火。
-    /// 采边缘间隙口径（+双方半径，与本文件其余交战判定一致）——确保近战敌(丧尸/劫掠者贴到约边缘 24~26px)贴身时可靠切枪托。
+    /// 采边缘间隙口径（+双方半径，与本文件其余交战判定一致）；贴脸切换阈值以 Wiki 配置为准。
     /// </summary>
     private const float PointBlankRange = 40f;
     protected IReadOnlyList<ArmorLayer> DefenderArmor = Array.Empty<ArmorLayer>();
@@ -160,6 +171,13 @@ public abstract partial class Actor : CharacterBody2D
     public virtual IReadOnlyList<Weapon> HeldWeapons =>
         AttackWeapon is null ? Array.Empty<Weapon>() : new[] { AttackWeapon };
 
+    /// <summary>
+    /// 断肢后回到本人背包的装备（暂存，死者尸体可搜出）。
+    /// 基类恒空——丧尸/劫掠者/狗无背包概念，断肢掉落仍走地面容器兜底。
+    /// Pawn 覆写返回实例级追踪列表。
+    /// </summary>
+    public virtual IReadOnlyList<LootItem> SeveredBackpackItems => Array.Empty<LootItem>();
+
     private double _attackTimer;
 
     /// <summary>震荡硬打断剩余时长（秒）；&gt;0 时不能出手、移速×ConcussionMoveSlowFactor。见 <see cref="ReceiveAttack"/>。</summary>
@@ -167,6 +185,22 @@ public abstract partial class Actor : CharacterBody2D
 
     /// <summary>震荡抗性剩余时长（秒，覆盖打断+首轮重走冷却）；&gt;0 时再次被震荡的触发概率×ConcussionResistFactor（防死锁）。</summary>
     private double _concussionResistTimer;
+
+    /// <summary>角色专属震荡触发概率乘子（Sam L3 等）；null=1.0。</summary>
+    private System.Func<double>? _concussionChanceMultProvider;
+
+    /// <summary>角色专属大流血降级开关（Sam L3）；null=false。</summary>
+    private System.Func<bool>? _downgradeLargeBleedProvider;
+
+    /// <summary>角色专属骨折惩罚减轻值（Sam L3）；null=0，不改变基础骨折系数。</summary>
+    private System.Func<double>? _fracturePenaltyReductionProvider;
+
+    public void SetConcussionChanceMultiplier(System.Func<double>? f) => _concussionChanceMultProvider = f;
+
+    public void SetLargeBleedDowngradeProvider(System.Func<bool>? f) => _downgradeLargeBleedProvider = f;
+
+    public void SetFracturePenaltyReductionProvider(System.Func<double>? f) =>
+        _fracturePenaltyReductionProvider = f;
 
     /// <summary>
     /// 命中减速剩余时长（秒，通用/RimWorld stagger 式）；&gt;0 时移速×StaggerSpeedMult。
@@ -181,6 +215,10 @@ public abstract partial class Actor : CharacterBody2D
     // ---- 指令目标 ----
     private Vector2? _moveTarget;
     private Actor? _attackTarget;
+
+    // 探索潜行状态：敌方一旦通过本 Actor 的感知链看见/嗅到它，或它主动打出一次攻击，
+    // 就视为破隐。生命周期内不自动复位，避免同一场遭遇重复获得 Rat L3 先手。
+    private bool _detectedByHostile;
 
     /// <summary>
     /// 防走A：自上次进入稳定攻击（在射程内停下开打）以来是否移动过——玩家给移动令、或实际位移逼近目标都算。
@@ -258,6 +296,11 @@ public abstract partial class Actor : CharacterBody2D
 
         ApplyFactionCollision();
 
+        // Body.Sever 会在战斗/医疗两条路径统一发出被移除部位；装备消费层在这里挂一次，
+        // 断肢时立即把手上武器/肢体穿戴物转成当前空间的可搜刮落点。重复挂载由
+        // WireEquipmentDrop 自身幂等，读档只恢复 Body/装备快照，不会重放旧掉落。
+        WireEquipmentDrop();
+
         OnReady();
     }
 
@@ -275,7 +318,7 @@ public abstract partial class Actor : CharacterBody2D
     ///  - <b>挡移动</b> ✓ —— 故一切 Actor 的物理 mask 都含本层（同墙）。
     ///  - <b>不挡视线</b> ✓ —— <see cref="VisionOcclusion.WallMask"/> 只含层3，射线不查本层 ⇒ 看得穿网格。
     ///  - <b>不挡弹道</b> ✓ —— <c>Projectile.HitMask</c>=0b1111 只覆盖层1~4 ⇒ 子弹从网格空洞穿过去。
-    ///  - <b>挡近战</b> ✓ —— 但这条**碰撞体拦不住**（围栏才 22px 厚，丧尸 24px 的够到距离跨得过去），
+    ///  - <b>挡近战</b> ✓ —— 但这条**碰撞体拦不住**（围栏厚度与单位够到距离由当前配置决定），
     ///    故由 <see cref="CoverLogic.MeleeBlocked"/> 在出手前显式拦（用户拍板"不允许隔着围栏近战"）。
     /// <b>营地大门不在本层</b>——门是实心的，仍在墙层3，照常挡视线挡弹道。
     /// </summary>
@@ -457,8 +500,7 @@ public abstract partial class Actor : CharacterBody2D
                 // 近战按有效射程边缘（AttackRange 含守卫岗位加成）。远程武器的开火距离权威口径 = MaxRange，非 AttackRange。
                 //
                 // ⚠ 弓弩必须按**有效武器**（弓 ⊗ 箭 ⊗ 书）的射程判，不能按弓的裸射程——否则停下的距离与
-                // TryAttack 真正的开火门（走的是有效武器）对不上：搭木箭（射程 ×0.75）时会停在射不到的地方
-                // 干站着，读过《弓与箭之道》（×1.10）时又白白多走十步。枪与近战走的是同一个 AttackWeapon，行为不变。
+                // TryAttack 走有效武器；箭矢与书籍对射程的修正以 Wiki 配置为准，避免停下距离与开火门脱节。
                 bool inEngage = IsRanged
                     ? Ballistics.InRange(EffectiveRangeDistance(dist), ResolveRangedShot().Shot)
                     : dist <= AttackRange + Radius + tgt.Radius;
@@ -510,13 +552,13 @@ public abstract partial class Actor : CharacterBody2D
         // 再乘饥饿因子：有效能力 = (1−残疾) × (1−饥饿)，饿越狠移动越慢（丧尸 HungerAbilityPenalty=0，等价原样）。
         double mobility = HungerState.CombineCapability(
             Body.DisabilityModifiers.MobilityPenalty, HungerAbilityPenalty);
-        // 下肢骨折 → 移动能力×0.7（未治疗）/×0.85（已治疗，用户口径）；两下肢乘算叠加、锁下限。与残疾/饥饿相互独立叠乘。
+        double fracturePenaltyReduction = _fracturePenaltyReductionProvider?.Invoke() ?? 0.0;
+        // 下肢骨折 → 移动能力按未治疗/已治疗系数计算；角色专属效果按惩罚缺口乘算叠加、锁下限。
         mobility *= Body.LowerLimbFractureMobilityFactor(
-            CombatEffectCfg.LegFractureMobilityMult, CombatEffectCfg.LegFractureHealedMobilityMult,
+            SamPerk.ApplyFracturePenaltyReduction(CombatEffectCfg.LegFractureMobilityMult, fracturePenaltyReduction),
+            SamPerk.ApplyFracturePenaltyReduction(CombatEffectCfg.LegFractureHealedMobilityMult, fracturePenaltyReduction),
             CombatEffectCfg.FractureCapabilityFloor);
-        // 战斗移动减速：震荡硬打断 ×0.1（−90%，重）与命中减速 ×0.6（−40%，通用/RimWorld stagger 式）。
-        // 二者并存则乘算，但整体封底 ConcussionMoveSlowFactor（0.1）——命中减速不再把已处震荡的移速进一步压低
-        // （震荡是更重的效果，减速叠在其上无意义；封底口径拟定待确认，见 §5）。单独命中减速时 = ×0.6（不触底）。
+        // 战斗移动减速：震荡硬打断与命中减速按 Wiki 配置效果计算，并按乘算通路叠加。
         double combatSlow = 1.0;
         if (_concussionTimer > 0)
         {
@@ -528,21 +570,19 @@ public abstract partial class Actor : CharacterBody2D
         }
         mobility *= System.Math.Max(combatSlow, CombatEffectCfg.ConcussionMoveSlowFactor);
 
-        // 家具减速：踩在可跨越家具（椅子/床/柜子…）上 → ×0.75（用户拍板 −25%）。**乘算**进本链，
-        // 不是从总数里减 25 个百分点：断腿(×0.7)的人跨椅子 = 0.7 × 0.75 = 0.525，不是加算的 0.45。
-        // 无场（探索关）⇒ ×1.0，零回归。作业台（工作台/改装台/烹饪台）是实心的、压根站不上去，不在场里。
+        // 家具减速按 Wiki 配置独立乘算进本链；无场使用中性系数。
         if (Slowdowns is { } slow)
         {
             mobility *= slow.MultiplierAt(ToNumerics(GlobalPosition));
         }
 
         // 🔴 [T45] 负重减速：背着自己的枪、甲和战利品跑不快。**乘算**进本链（铁律），与残缺/骨折/家具彼此独立叠乘：
-        // 断腿(×0.7) 的人背着满改装步枪(×0.97) = 0.679，不是加算的 0.67。基类恒 1.0 ⇒ 丧尸/劫掠者零回归。
+        // 负重与残疾/骨折/家具彼此独立叠乘；基类使用中性系数 ⇒ 丧尸/劫掠者零回归。
         // 修复前这一行不存在 ⇒ Loadout.SpeedMultiplier 算出来的数字**没有任何人读它**。
         mobility *= CarryLoadSpeedMult;
 
-        // authored 移速乘子（皮特青春期田径队 1.15/1.25/1.30×）：**乘算**进本链，与残缺/骨折/家具/负重彼此独立叠乘。
-        // 未注入（非皮特）⇒ null ⇒ 不乘 ⇒ 零回归。皮特断腿(×0.7)背包(×0.97)仍照乘：0.7×0.97×1.30，不是加算。
+        // authored 移速乘子（具体值见 Wiki 配置表）：**乘算**进本链，与残缺/骨折/家具/负重彼此独立叠乘。
+        // 未注入（非皮特）⇒ null ⇒ 不乘 ⇒ 零回归。
         if (_authoredMoveSpeedMult is { } authoredMove)
         {
             mobility *= authoredMove();
@@ -636,21 +676,38 @@ public abstract partial class Actor : CharacterBody2D
     {
         double operation = HungerState.CombineCapability(
             Body.DisabilityModifiers.OperationPenalty, HungerAbilityPenalty);
-        // 上肢骨折 → 操作能力×0.7（未治疗）/×0.85（已治疗，含攻速，持久，用户口径）；两上肢乘算叠加、锁下限。对齐 Duel.EffectiveInterval。
+        double fracturePenaltyReduction = _fracturePenaltyReductionProvider?.Invoke() ?? 0.0;
+        // 上肢骨折 → 操作能力按未治疗/已治疗系数计算；角色专属效果按 Wiki 配置乘算。
+        // 两上肢乘算叠加、锁下限。对齐 Duel.EffectiveInterval。
         operation *= Body.UpperLimbFractureOperationFactor(
-            CombatEffectCfg.HandFractureOperationMult, CombatEffectCfg.HandFractureHealedOperationMult,
+            SamPerk.ApplyFracturePenaltyReduction(CombatEffectCfg.HandFractureOperationMult, fracturePenaltyReduction),
+            SamPerk.ApplyFracturePenaltyReduction(CombatEffectCfg.HandFractureHealedOperationMult, fracturePenaltyReduction),
             CombatEffectCfg.FractureCapabilityFloor);
         double interval = GripCombat.EffectiveInterval(baseCooldown ?? AttackCooldown, operation, ActiveGrip);
 
-        // [A4] 书→近战攻速被动（消费层乘子汇总，见 MeleeBookEffect）：读过《进阶木匠技术》持消防斧 ⇒ 攻速 +8%（间隔 ×1/1.08）。
+        // 《马来编年史》：仅双持两把锐器且读者本人持有时，把双持速度系数从 0.70 改成 0.80。
+        // GripCombat 已应用默认 0.70，这里乘 0.70/0.80 把间隔换算到新系数；默认路径严格为 1。
+        if (this is Pawn dualReader)
+        {
+            bool bothSharp = dualReader.HeldWeapons.Count == 2
+                && dualReader.HeldWeapons.All(w => w.DamageType == DamageType.Sharp);
+            double desired = BookPassiveEffects.DualSharpAttackSpeedMultiplier(bothSharp, dualReader.HasReadBook);
+            if (bothSharp && desired != BookPassiveEffects.DefaultDualWieldAttackSpeedMultiplier)
+                interval *= BookPassiveEffects.DefaultDualWieldAttackSpeedMultiplier / desired;
+        }
+
+        // [A4] 书→近战攻速被动（消费层乘子汇总，见 MeleeBookEffect）；具体效果见 Wiki 配置表。
         // 仅 Pawn 有 ReadBookSet（IsBookRead 对非 Pawn 恒 false）⇒ 丧尸等零回归。武器名走当前生效武器；base 武器 Sim 读不到本乘子。
         interval *= AttackWeapon is null ? 1.0
             : MeleeBookEffect.AttackIntervalMultiplier(AttackWeapon.Name, IsBookRead);
 
-        // 🔴 [T45] 负重罚攻速：**从免罚线（30kg）起就线性掉**（50kg −20%、80kg −50%）。攻速乘子 m ⇒ **间隔 ÷ m**（0.50 ⇒ 间隔 ×2.0）。
+        // 🔴 [T45] 负重罚攻速：从免罚线起按 Wiki 配置曲线下降。攻速乘子 m ⇒ **间隔 ÷ m**。
         // 刻意**不**并进上面的 operation 乘法——`Loadout` 明确写了负重不碰操作能力（那是残缺与饥饿的地盘，
         // 且负重上限本身已经乘过一遍操作能力，再扣一次就是双重惩罚）。故独立除在最后一层。
         // 修复前这一层不存在 ⇒ Loadout.AttackSpeedMultiplier 是死代码。基类恒 1.0 ⇒ 非 Pawn 单位零回归。
+        // authored 攻速同样是独立乘算轴（Bruce L2 等）：速度乘子 m ⇒ 间隔 ÷ m；未注入回落 1.0。
+        double authoredAttackSpeed = _authoredAttackSpeedMult is { } authoredAttack ? authoredAttack() : 1.0;
+        interval /= System.Math.Max(authoredAttackSpeed, Loadout.MinMultiplier);
         return interval / System.Math.Max(CarryLoadAttackSpeedMult, Loadout.MinMultiplier);
     }
 
@@ -717,7 +774,7 @@ public abstract partial class Actor : CharacterBody2D
         }
 
         // 不允许隔着围栏近战（用户拍板）：围栏有网格空洞 ⇒ 看得穿、射得穿，但**捅不过去**。
-        // 光靠碰撞体拦不住——围栏才 22px 厚，而丧尸的够到距离是 24+13+12=49px，跨得过去（现状就是
+        // 光靠碰撞体拦不住——围栏厚度与单位够到距离由当前关卡/实体配置决定，跨得过去（现状就是
         // 丧尸能隔着栅栏咬到墙内的你）。故在出手前用线段-矩形几何显式拦掉。
         // 覆盖一切近战：本身近战武器、贴脸枪托、空枪抡棍（fireRanged=false 的全部路径）。远程不拦（能射穿）。
         // 拦下时**不进冷却**（这一下压根没打出来），下帧再判——玩家走开/围栏被啃穿后自然恢复。
@@ -750,15 +807,15 @@ public abstract partial class Actor : CharacterBody2D
 
         if (fireRanged)
         {
-            // 实扣弹药：打几发扣几发（霰弹的 8 颗弹丸在同一发壳里，不乘弹药）。
+            // 实扣弹药：按攻击消耗扣除；多弹丸数量不重复乘弹药消耗，具体口径以 Wiki 配置为准。
             // 扣的是 ammoKey——弓/弩扣的是**选中那种箭**的具体键，而非它的类别键（库存里没有类别键那种东西）。
             SpendAmmo(shot, ammoKey, rounds);
-            FireProjectile(target, rounds, shot, ammoKey);
+            FireProjectile(target, rounds, shot, ammoKey, AttackDamageMultiplier(target, weapon));
         }
         else
         {
             // 贴脸枪托 / 空枪抡棍 / 本就近战武器：必中近战结算（枪托为上面派生的 MeleeProfile，不吃弹药）。
-            target.ReceiveAttack(this, weapon, Combat);
+            target.ReceiveAttack(this, weapon, Combat, AttackDamageMultiplier(target, weapon));
 
             // 近战噪音（用户拍板：近战「会有一定的噪音」）：挥砍、闷响、扭打——砍人不是哑剧。
             // 半径按武器走（匕首 90 最静 … 破甲锤 155 最响），一律 **> 弓弩(≤70)**：这正是弓存在的意义,
@@ -827,9 +884,9 @@ public abstract partial class Actor : CharacterBody2D
     }
 
     /// <summary>
-    /// 本射手**本人**读完《弓与箭之道》没有——读过则其弓弩 射程 ×1.10、散布 ×0.90、攻速 ×1.02
+    /// 本射手**本人**读完《弓与箭之道》没有；读过后的弓弩效果见 Wiki 配置表。
     /// （<see cref="Archery.Combine"/> 里与箭的同轴系数**连乘**）。判据＝射手自己的已读书集，
-    /// 与箭矢回收率 25%→50%（<see cref="Projectile"/>）同一条口径：**书的加成属于人，不属于箭，也不属于营地**。
+    /// 与箭矢回收率（见 Wiki 配置表）同一条口径：**书的加成属于人，不属于箭，也不属于营地**。
     /// 丧尸/劫掠者不是 <see cref="Pawn"/>，恒 <c>false</c>（既有行为零回归）。
     /// </summary>
     private bool HasReadArcheryBook =>
@@ -878,13 +935,13 @@ public abstract partial class Actor : CharacterBody2D
         }
     }
 
-    private void FireProjectile(Actor target, int rounds, Weapon weapon, string ammoKey)
+    private void FireProjectile(Actor target, int rounds, Weapon weapon, string ammoKey, double damageFactor = 1.0)
     {
         // 一次"射击"= rounds 发（= BurstCount 被余弹夹紧后的实发数，默认 1）。首发立即打出，
         // 其余 BurstInterval 间隔后逐发补上。每发独立锥采样、独立重新瞄准目标当前位置（连发跟枪）。
         // 冷却在 TryAttack 已含连发跨度；弹药亦已在 TryAttack 一次性扣清。
         // weapon = 有效武器（弓弩为「弓 ⊗ 箭」），在此捕获，避免连发途中换枪/换箭串味。
-        FireOneRound(target, weapon, ammoKey);
+        FireOneRound(target, weapon, ammoKey, damageFactor);
 
         int burst = System.Math.Max(1, rounds);
         if (burst <= 1)
@@ -904,13 +961,13 @@ public abstract partial class Actor : CharacterBody2D
                     return;
                 }
 
-                FireOneRound(target, weapon, ammoKey);
+                FireOneRound(target, weapon, ammoKey, damageFactor);
             };
         }
     }
 
     /// <param name="ammoKey">本发打出去的弹药具体键（弓弩＝选中那种箭）。传给弹丸供**箭矢回收**判定；枪弹一次性，用不上。</param>
-    private void FireOneRound(Actor target, Weapon weapon, string ammoKey)
+    private void FireOneRound(Actor target, Weapon weapon, string ammoKey, double damageFactor = 1.0)
     {
         Vector2 toTarget = target.GlobalPosition - GlobalPosition;
         if (toTarget == Vector2.Zero)
@@ -920,8 +977,14 @@ public abstract partial class Actor : CharacterBody2D
 
         // 误差角锥采样：以指向目标的准星方向为轴，在武器基础误差角内随机一个射击方向。
         // 命中判定交给弹道实时层（路径首个碰撞体，含撞墙落空）——引擎只出纯函数采样方向。
-        // 双持两把单手武器时误差角 ×1.25（远程双持代价）；单手/双手一把不变。近战不经此路径。
+        // 双持两把单手武器时远程误差角取 Wiki 配置；单手/双手一把不变。近战不经此路径。
         double spread = GripCombat.EffectiveSpreadDegrees(weapon.BaseSpreadDegrees, ActiveGrip);
+        if (this is Pawn mixedReader)
+        {
+            IReadOnlyList<Weapon> held = mixedReader.HeldWeapons;
+            bool mixed = held.Count == 2 && held.Any(w => w.IsRanged) && held.Any(w => !w.IsRanged);
+            spread *= BookPassiveEffects.MixedGripRangedSpreadMultiplier(mixed, mixedReader.HasReadBook);
+        }
         double aimDeg = Mathf.RadToDeg(toTarget.Angle());
 
         // 子弹最大飞行距离对齐武器 MaxRange × 岗位射程倍率（开火判定同源；超此距离衰减归 0）。
@@ -942,7 +1005,7 @@ public abstract partial class Actor : CharacterBody2D
             double shotDeg = Combat.SampleShotDirectionDegrees(aimDeg, spread);
             Vector2 dir = Vector2.FromAngle(Mathf.DegToRad((float)shotDeg));
             Projectile.Spawn(GetParent(), GlobalPosition + dir * (Radius + 2f), dir,
-                maxDist, weapon, Combat, this, _postRangeMultiplier, ammoKey);
+                maxDist, weapon, Combat, this, _postRangeMultiplier, ammoKey, damageFactor);
         }
 
         // 开火噪音：这一枪（或这一箭）响了，半径内闲着的敌人会过来看看。近战/无声武器 NoiseRadius=0 → 直接返回。
@@ -974,6 +1037,32 @@ public abstract partial class Actor : CharacterBody2D
     protected virtual double ActionNoiseScale => 1.0;
 
     /// <summary>
+    /// 攻方伤害倍率入口。基类保持中性值；耗子 L3 在 Pawn 消费层按“未被敌方感知”时覆写。
+    /// 该入口只存在 Godot 实时层，不进入 CombatResolver/Sim 的既有结算路径。
+    /// </summary>
+    protected virtual double AttackDamageMultiplier(Actor target, Weapon weapon) => 1.0;
+
+    /// <summary>命中部位选定后的攻方伤害倍率；基类中性，幸存者按个人已读书覆写。</summary>
+    protected virtual double HitLocationDamageMultiplier(Weapon weapon, BodyPart part) => 1.0;
+
+    /// <summary>本次攻击的穿透倍率；基类中性，幸存者的混合持械书籍效果覆写。</summary>
+    protected virtual double AttackPenetrationMultiplier(Weapon weapon) => 1.0;
+
+    /// <summary>目标当前是否已被敌方感知/主动攻击破隐。</summary>
+    public bool IsDetectedByHostile => _detectedByHostile;
+
+    /// <summary>由感知链或攻击消费点调用，幂等地标记本 Actor 已破隐。</summary>
+    protected void MarkStealthBroken() => _detectedByHostile = true;
+
+    private void MarkDetectedBy(Actor observer)
+    {
+        if (Factions.IsHostile(observer.Faction, Faction))
+        {
+            _detectedByHostile = true;
+        }
+    }
+
+    /// <summary>
     /// **通用噪音事件**：在本单位位置发出一次半径为 <paramref name="radius"/> 的噪音。半径内、
     /// **当前没有攻击目标**的**敌对** Actor（丧尸 + 劫掠者，用户拍板全量版）走过去侦查一次。
     /// 判定走纯逻辑 <see cref="NoiseLogic.ShouldInvestigateSquared"/>，本方法只负责空间侧的遍历与派发。
@@ -1002,7 +1091,7 @@ public abstract partial class Actor : CharacterBody2D
     /// <param name="source">
     /// [T61] 噪音**来源**（<see cref="RatNoiseSource"/>，与 <paramref name="kind"/> **正交**）——
     /// 决定本次噪音吃不吃 <see cref="ActionNoiseScale"/>（耗子的"脚步和动作轻不可闻"）。
-    /// **每个 emitter 必须点名**，不许省。非耗子单位恒 ×1.0（零回归）。
+    /// **每个 emitter 必须点名**，不许省。非耗子单位使用中性系数（零回归）。
     /// </param>
     private void EmitNoiseAt(double radius, NoiseKind kind, RatNoiseSource source)
     {
@@ -1011,8 +1100,8 @@ public abstract partial class Actor : CharacterBody2D
             return; // 无声：零回归
         }
 
-        // [T61] 耗子：脚步/开门/撬锁/静默拆除 ×0.60；战斗/开枪/破坏原样（用户明确排除）。
-        // 非耗子 ActionNoiseScale ≡ 1.0 ⇒ 既有单位的噪音半径逐字节不变。
+        // [T61] 耗子：脚步/开门/撬锁/静默拆除使用 Wiki 配置的噪音系数；战斗/开枪/破坏原样。
+        // 非耗子 ActionNoiseScale 使用中性系数 ⇒ 既有单位的噪音半径逐字节不变。
         if (RatPerk.AppliesToActionNoise(source))
         {
             radius *= ActionNoiseScale;
@@ -1029,6 +1118,8 @@ public abstract partial class Actor : CharacterBody2D
         }
 
         Vector2 origin = GlobalPosition;
+        // 先发给表现层：可视化不改变下面的听声判定，也不因无 listener 而丢失。
+        NoiseCueOverlay.Emit(this, origin, radius, kind, source);
         foreach (Node n in parent.GetChildren())
         {
             if (n is not Actor listener || listener == this)
@@ -1078,12 +1169,11 @@ public abstract partial class Actor : CharacterBody2D
     /// 脚步噪音：把本帧真实走过的距离攒进 <see cref="_footstepAccum"/>，**攒满一个步幅才响一声**。
     /// <para>
     /// <b>为什么按位移节流、而不是每帧广播</b>：走路是**持续行为**且**每个 Actor 都在走**（玩家 + 队友 + 全场敌人），
-    /// 每帧广播就是每秒 60×N 次 O(N) 遍历 = O(N²) 灾难。按**累计位移**节流后，一个 Actor 最快也只能
-    /// 每 <see cref="NoiseLogic.StrideDistance"/>(48px) 响一次 —— 以人类移速 95px/s 计约 **2 次/秒**。
+    /// 每帧广播会造成 O(N²) 遍历。按**累计位移**节流后，触发间距与单位移速均以 Wiki/运行时配置为准。
     /// </para>
     /// <para>
     /// 按<b>位移</b>而非按<b>时间</b>节流还顺手买一送三：站着不动完全不发声；被减速/负重时脚步自动变稀；
-    /// 移速快的（狗 150px/s）脚步自动变密。都是免费的正确物理直觉。
+    /// 移速快的单位脚步自动变密。都是免费的正确物理直觉。
     /// </para>
     /// <para>
     /// <b>谁发脚步声</b>：**所有 Actor，无一例外**（玩家/队友/丧尸/劫掠者/狗），代码里没有任何身份特例。
@@ -1130,8 +1220,7 @@ public abstract partial class Actor : CharacterBody2D
     /// <summary>
     /// **撬锁**发出的噪音（<see cref="NoiseLogic.LockpickNoiseRadius"/> = 30，<b>全表最轻</b>，比走路 40 还轻）。
     /// <para>
-    /// 30 &lt; 丧尸嗅觉 70 ⇒ <b>撬锁本身惊动不了任何东西</b>。这是该机制存在的全部理由：撬锁若能招来东西，
-    /// 它就只是"慢速版砸门"，没人会选它。<b>撬锁买的是寂静，付的是时间</b>（坚固锁期望 32 秒 + 3 根铁丝）。
+    /// 撬锁噪音、丧尸感知范围、锁具耗时与耗材均以 Wiki 配置为准；撬锁的规则定位是“以时间换安静”。
     /// </para>
     /// </summary>
     public void EmitLockpickNoise() => EmitNoiseAt(NoiseLogic.LockpickNoiseRadius, NoiseKind.Combat, RatNoiseSource.Lockpick);
@@ -1150,7 +1239,7 @@ public abstract partial class Actor : CharacterBody2D
     /// <see cref="Raider"/> 覆写为 true。
     /// <para>
     /// ⚠️ <b>这是硬安全阀，不是平衡项</b>。<see cref="HearNoise"/> 走的是 <see cref="CommandMoveTo"/> ——
-    /// 那正是**玩家下达移动指令的同一条通道**。若不挡住玩家单位，任何一只丧尸只要走过幸存者 40px 内
+    /// 那正是**玩家下达移动指令的同一条通道**。若不挡住玩家单位，任何一只丧尸只要进入步行噪音范围
     /// （<see cref="NoiseLogic.WalkNoiseRadius"/>），那个没在攻击的幸存者就会**自己朝丧尸走过去**，
     /// 玩家的操作被无声覆盖（玩家只会觉得"我的人中邪了"）。走路噪音把这个坑从偶发变成持续灾难。
     /// </para>
@@ -1193,7 +1282,7 @@ public abstract partial class Actor : CharacterBody2D
     private float _postBlockChance;          // 哨塔围栏远程抵挡几率（默认 0=不抵挡）
     private bool _firstStrikeAvailable;
 
-    // ---- 半身掩体（桌子/椅子/沙袋）：远程 25% 整发无效 ----
+    // ---- 半身掩体（桌子/椅子/沙袋）：远程整发判定，概率以 Wiki 配置为准 ----
     /// <summary>
     /// 当前关卡的半身掩体场（<b>场级唯一</b>）。<c>null</c> = 本关无掩体系统 ⇒ <see cref="ReceiveAttack"/> 里整块短路、
     /// **不掷点、不动随机流**（Sim/单测/未接线关卡零漂移）。
@@ -1211,7 +1300,7 @@ public abstract partial class Actor : CharacterBody2D
     /// 场上的<b>家具减速场</b>（可跨越家具的占地 + 移速乘子，见 <see cref="FurnitureTraversal"/>）。
     /// <c>null</c> = 没有场（探索关等）⇒ 谁都不减速，<b>零回归</b>。
     ///
-    /// <para><b>为何是 static</b>：跟 <see cref="Covers"/> 一模一样的理由 —— 用户拍板「跨过家具减 25% 移速」
+    /// <para><b>为何是 static</b>：跟 <see cref="Covers"/> 一模一样的理由 —— 家具穿越减速值以 Wiki 配置为准，
     /// 时<b>没有限定玩家</b>，所以它必须对<b>一切 Actor 双向对称</b>生效：丧尸、劫掠者、布鲁斯跨过你的柜子，
     /// 和你跨过它一样慢。挂在 Actor 基类的移速链上是<b>结构性</b>保证 —— <c>Pawn</c> / <c>Zombie</c> /
     /// <c>Raider</c> / <c>Dog</c> 全都是 Actor，<b>想给谁开后门，得先把它从 Actor 里摘出去</b>。</para>
@@ -1344,21 +1433,21 @@ public abstract partial class Actor : CharacterBody2D
     /// 基类恒 <c>false</c>（无闪避轴，零回归）；高闪避单位（<see cref="Dog"/> 布鲁斯）覆盖按闪避概率掷免。
     /// 随机走引擎注入的 <see cref="IRandomSource"/>（<paramref name="rng"/>=<c>combat.Rng</c>，可复现）。
     /// </summary>
-    protected virtual bool EvadeIncoming(IRandomSource rng) => false;
+    protected virtual bool EvadeIncoming(IRandomSource rng, Weapon incomingWeapon, bool ranged) => false;
 
     // ---- 专属效果承伤乘子（synergy-wiring 注入，批次5 道格&布鲁斯；null=1.0 零回归）----
-    /// <summary>本单位承伤额外系数（道格&布鲁斯 3 级光环：相依为命受伤 ×0.90）。返回 ≥0 乘子。</summary>
+    /// <summary>本单位承伤额外系数（道格&布鲁斯 authored 光环）。具体等级与乘子以 Wiki 配置为准。</summary>
     private Func<double>? _incomingDamageFactor;
 
     /// <summary>注入承伤系数（3 级光环减伤）。null 清除。</summary>
     public void SetIncomingDamageFactor(Func<double>? f) => _incomingDamageFactor = f;
 
-    // ---- 专属效果**护甲后**减伤（山姆 1 级"比常人耐揍"−10%；null=0 零回归）----
+    // ---- 专属效果**护甲后**减伤（山姆 authored 效果；数值以 Wiki 配置为准）----
     /// <summary>
-    /// 本单位的**护甲后**乘算减伤比例（0..1，山姆 1 级 = 0.10）。**与上面的 <see cref="_incomingDamageFactor"/> 不是同一层**：
+    /// 本单位的**护甲后**乘算减伤比例。具体等级与数值以 Wiki 配置为准。**与上面的 <see cref="_incomingDamageFactor"/> 不是同一层**：
     /// 那个折进 <c>damageFactor</c> → 缩放**武器伤害区间**，是**护甲之前**（甲随后照常吃缩小后的伤害）；
     /// 本条走 <c>CombatData.ResolveHit(…, incomingDamageReduction:)</c> → <c>CombatResolver.Resolve</c>，
-    /// 在**护甲三段判定之后**乘算（甲先吃，穿透剩下的伤害再 ×0.9）。山姆的口径是后者（"更耐揍"＝肉更硬，不是让对方武器变钝）。
+    /// 在**护甲三段判定之后**乘算（甲先吃，穿透剩下的伤害再乘角色效果）。山姆的口径是后者（"更耐揍"＝肉更硬，不是让对方武器变钝）。
     /// </summary>
     private Func<double>? _incomingDamageReduction;
 
@@ -1394,7 +1483,7 @@ public abstract partial class Actor : CharacterBody2D
         }
         // 闪避：高闪避单位（布鲁斯）命中前掷免整次攻击（整次躲开、不结算伤害/效果/表现）。基类恒不闪避（零回归）。
         // 现引擎无闪避轴，按用户口径以最小侵入落在 Godot 层承伤入口；随机走引擎注入的 IRandomSource（可复现）。
-        if (EvadeIncoming(combat.Rng))
+        if (EvadeIncoming(combat.Rng, weapon, ranged))
         {
             return;
         }
@@ -1404,10 +1493,9 @@ public abstract partial class Actor : CharacterBody2D
         {
             return;
         }
-        // 半身掩体（桌子/椅子/沙袋）：躲在其后挨的**远程**攻击，按 25% 整发判无效——用户口径「这一下射中了人，
-        // 但是判定 25% 几率无效」（不做子弹与掩体的物理碰撞）。**方向性**：只有掩体落在射击者与我的连线上才算
-        // （绕后 → 掩体白躲，这正是包抄的意义）；**双向对称**：本门对一切 Actor 生效——你打躲在桌后的劫掠者，
-        // 一样吃 25%。近战不吃（贴身砍你，桌子挡不住）。
+        // 半身掩体（桌子/椅子/沙袋）：躲在其后的**远程**攻击按配置做整发无效判定——用户口径「这一下射中了人，
+        // 但是按概率判无效」（不做子弹与掩体的物理碰撞）。**方向性**：只有掩体落在射击者与我的连线上才算
+        // （绕后 → 掩体白躲，这正是包抄的意义）；**双向对称**：本门对一切 Actor 生效。近战不吃（贴身砍你，桌子挡不住）。
         // **零漂移**：Covers 未接线（Sim/单测/无掩体关卡）或本次无掩体保护（chance=0）→ 短路，**不掷点、不动随机流**。
         if (ranged && attacker is not null && Covers is { } coverField)
         {
@@ -1419,7 +1507,7 @@ public abstract partial class Actor : CharacterBody2D
                 return;
             }
         }
-        // [T69] 弩盾：举着装了弩盾的弩时，来自**正面 120°**（半角 60°）的**远程**攻击 25% 整发无效。
+        // [T69] 弩盾：举着装了弩盾的弩时，来自正面扇区的**远程**攻击按配置做整发无效判定。
         // 与半身掩体同层（整发否决、不结算），方向按"射手在我正面锥内"判（绕到侧后 → 挡不住）。
         // 零漂移：无弩盾（chance ≤ 0）或近战 ⇒ WeaponModDefense.FrontalRangedNegates 短路、不掷点、不动随机流。
         if (ranged && attacker is not null && AttackWeapon is not null)
@@ -1437,20 +1525,34 @@ public abstract partial class Actor : CharacterBody2D
         }
         // 伤害/流血/切除/致死已在此调用内施加到 Body；下方仅发布到表现总线（飘字②③④各自订阅）。
         // damageFactor：远程距离衰减系数（近战/贴脸枪托传默认 1.0，不衰减）。
-        // 光环承伤乘子（批次5 道格&布鲁斯 3 级：相依为命受伤 ×0.90）：折进 damageFactor 一并结算
-        // （近战/首发/弹道统一经此入口）。null 注入回落 ×1.0（零回归）。
+        // 光环承伤乘子（道格&布鲁斯 authored 效果，具体值以 Wiki 配置为准）：折进 damageFactor 一并结算
+        // （近战/首发/弹道统一经此入口）。null 注入回落中性乘子（零回归）。
         if (_incomingDamageFactor is { } inMult)
             damageFactor *= inMult();
         // 震荡抗性：本单位处抗性窗内（吃过震荡、打断+首轮冷却未走完）→ 再次震荡触发概率打折（防死锁）。
         double concResist = _concussionResistTimer > 0 ? CombatEffectCfg.ConcussionResistFactor : 1.0;
+        if (_concussionChanceMultProvider is { } concussionMult)
+            concResist *= Math.Max(0.0, concussionMult());
         // 护甲后减伤（山姆 1 级"比常人耐揍"）：不折进 damageFactor（那是护甲前），单独喂进结算，甲吃完才乘。null → 0（零回归）。
         double postArmorReduction = _incomingDamageReduction is { } red ? red() : 0.0;
+        if (weapon.DamageType == DamageType.Blunt && IsBookRead(BookLibrary.StoneBreakingGuideId))
+        {
+            double keep = BookPassiveEffects.NaturalBluntDamageMultiplier(
+                isNaturalBlunt: true, combat.Rng.Range(0.0, 1.0), IsBookRead);
+            postArmorReduction = 1.0 - (1.0 - postArmorReduction) * keep;
+        }
         // [T69] 护手挡格：持械手（含手指）被选为受击部位时，按几率整发否决。几率来自防御方（this）手里那把改装武器；
         // 判定必须落在**选部位之后**，故连同"持械手部位集"喂进 ResolveHit（承伤入口这里只知整次攻击、不知打哪个部位）。
         // 零漂移：无护手挡格 ⇒ chance 0 ⇒ ResolveHit 里短路、不掷点。
         double handGuardChance = AttackWeapon is null ? 0.0 : ModdedWeaponRegistry.HandGuardNegateChanceOf(AttackWeapon.Name);
         AttackOutcome hit = combat.ResolveHit(weapon, DefenderArmor, Body, damageFactor, concResist, postArmorReduction,
-            handGuardChance, handGuardChance > 0 ? WeaponHandParts : null);
+            handGuardChance, handGuardChance > 0 ? WeaponHandParts : null,
+            attacker is null ? null : attacker.HitLocationDamageMultiplier,
+            attacker?.AttackPenetrationMultiplier(weapon) ?? 1.0);
+        if (hit.Bled && _downgradeLargeBleedProvider?.Invoke() == true)
+        {
+            Body.DowngradeLargeBleed(hit.PartName);
+        }
         if (hit.Concussed)
         {
             ApplyConcussion(hit.ConcussionSeconds);
@@ -1491,7 +1593,7 @@ public abstract partial class Actor : CharacterBody2D
     protected double AttackCooldownRemaining => _attackTimer;
 
     /// <summary>
-    /// 受一次震荡（重制口径）：进入 <paramref name="durationSeconds"/> 秒硬打断（期间 TryAttack 门控不出手、移速×0.1），
+    /// 受一次震荡（重制口径）：进入 <paramref name="durationSeconds"/> 硬打断（期间 TryAttack 门控不出手、移速按配置衰减），
     /// 并把已积累的冷却清零——重置为「打断时长 + 一个满有效冷却」，使打断结束后从零重走完整冷却（对齐引擎）；
     /// 抗性窗覆盖「打断 + 首轮冷却」，期间再次被震荡触发概率打折（防死锁）。多次震荡取更长者、不缩短已有窗。
     /// </summary>
@@ -1649,8 +1751,19 @@ public abstract partial class Actor : CharacterBody2D
             return cone;
         }
         float mult = VisionLogic.ExposureRangeMultiplier(ambient, carried);
-        return new VisionLogic.VisionCone(cone.Range * mult, cone.HalfAngleDeg);
+        double targetStealth = target.DetectionRangeMultiplier(ambient);
+        return new VisionLogic.VisionCone(cone.Range * mult * (float)targetStealth, cone.HalfAngleDeg);
     }
+
+    /// <summary>目标侧的实时潜行视距倍率；普通 Actor 恒为 1。</summary>
+    protected virtual double DetectionRangeMultiplier(float ambientLight) => 1.0;
+
+    /// <summary>
+    /// 当前 Actor 的半身掩体系数 [0,1]：0=无掩体（开阔地），1=完全遮蔽。
+    /// 基类恒 0（零回归——非 Pawn Actor 不消费掩体潜行效果）。
+    /// <see cref="Pawn"/> 覆写为从 <see cref="Covers"/> 场查询紧贴掩体。
+    /// </summary>
+    protected virtual double CoverCoefficient => 0.0;
 
     /// <summary>
     /// 锥形+光照+遮挡感知：从候选中挑本单位当前**能真正看见**的最近者。候选筛选（阵营/存活）由调用方在传入前完成。
@@ -1688,6 +1801,7 @@ public abstract partial class Actor : CharacterBody2D
             {
                 bestDist = d;
                 best = c;
+                c.MarkDetectedBy(this);
             }
         }
         return best;
@@ -1709,7 +1823,12 @@ public abstract partial class Actor : CharacterBody2D
         {
             return false; // 视锥外且嗅觉外 → 免 raycast
         }
-        return !SightBlocked(GlobalPosition, target.GlobalPosition); // 墙隔断=同房间外，视线与气味皆断
+        bool visible = !SightBlocked(GlobalPosition, target.GlobalPosition); // 墙隔断=同房间外，视线与气味皆断
+        if (visible)
+        {
+            target.MarkDetectedBy(this);
+        }
+        return visible;
     }
 
     /// <summary>感知节流闸：每 <see cref="PerceiveInterval"/> 放行一次重算（返回 true）；其间返回 false（维持现指令）。</summary>

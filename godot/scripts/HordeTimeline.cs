@@ -45,10 +45,8 @@ public static class HordeTimeline
     /// <summary>
     /// 终局冻结旗标键：置位 ⇒ 时限被结局流程接管，尸潮围攻不再触发（<see cref="ShouldTriggerSiege"/> 冻结分支）。
     /// <para>
-    /// ⚠️ <b>当前全仓无任何置位方，此分支恒不入</b>——这<b>不是</b>"待实装"，是主线落地后<b>拍板不置</b>的结果：
-    /// <see cref="RadioMainline"/> 的两条终局分支都明确<b>不冻结</b>时限（回复军方 ⇒ 回复日+2 军袭先到，尸潮更晚，
-    /// 无需冻结；南逃 ⇒ <b>须抢在第 <see cref="DeadlineDay"/> 天尸潮前完成，紧迫感即卖点，用户拍板</b>）。
-    /// 键与门控保留＝给将来真需要"停表"的结局留的钩子；<b>要用它请先确认那条结局确实要停表</b>，别当漏接线补上。
+    /// <see cref="RadioMainline.GrantTransmitter"/> 在主线抵达终局抉择点（取得发出设备、解锁回复/呼叫）时置位；
+    /// 之后不再由世界时限触发尸潮终局，改由玩家选择的结局流程接管。
     /// </para>
     /// </summary>
     public const string EndgameFreezeFlag = "endgame_freeze";

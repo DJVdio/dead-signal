@@ -49,8 +49,8 @@ public sealed class ConfigSkeletonTests
             Assert.IsAssignableFrom<IConfigSection>(p.GetValue(config));
         }
 
-        // weapons 段确实装满（28 把）——证明"发现→读盘→反序列化"整条自动链走通。
-        Assert.Equal(28, config.Weapons.ById.Count);
+        // weapons 段确实装满（30 把）——证明"发现→读盘→反序列化"整条自动链走通。
+        Assert.Equal(30, config.Weapons.ById.Count);
     }
 
     [Fact]

@@ -60,6 +60,20 @@ public class RadioMainlineTests
     }
 
     [Fact]
+    public void GrantTransmitter_ReachesEndgameDecisionPoint_AndFreezesHordeDeadline()
+    {
+        var flags = new StoryFlags();
+
+        Assert.True(RadioMainline.GrantTransmitter(flags));
+
+        Assert.True(flags.Has(HordeTimeline.EndgameFreezeFlag));
+        Assert.False(HordeTimeline.ShouldTriggerSiege(
+            HordeTimeline.DeadlineDay,
+            sighted: true,
+            endgameFrozen: flags.Has(HordeTimeline.EndgameFreezeFlag)));
+    }
+
+    [Fact]
     public void GrantTransmitter_WithoutHearing_StillWorks_RankJump()
     {
         // 发出设备由探索取得，可能先于营地收音机收听：直接 Unknown→HasTransmitter。
@@ -104,13 +118,13 @@ public class RadioMainlineTests
     }
 
     [Fact]
-    public void ReplyToMilitary_DoesNotSetEndgameFreeze()
+    public void ReplyToMilitary_PreservesEndgameFreezeSetAtDecisionPoint()
     {
-        // 用户口径：回复军方后尸潮时限不冻结（第 3 天军袭先到）。
+        // 取得设备即抵达终局抉择点；选择回复后由军袭结局流程接管，冻结不得丢失。
         var flags = new StoryFlags();
         RadioMainline.GrantTransmitter(flags);
         RadioMainline.ReplyToMilitary(flags, 5);
-        Assert.False(flags.Has(HordeTimeline.EndgameFreezeFlag));
+        Assert.True(flags.Has(HordeTimeline.EndgameFreezeFlag));
     }
 
     // —— 终态②：呼叫南方 ——
@@ -128,13 +142,13 @@ public class RadioMainlineTests
     }
 
     [Fact]
-    public void CallSouth_DoesNotSetEndgameFreeze()
+    public void CallSouth_PreservesEndgameFreezeSetAtDecisionPoint()
     {
-        // 用户拍板：南逃线不冻结时限，须抢在第 40 天尸潮前。
+        // 取得设备即抵达终局抉择点；选择南方后由南逃结局流程接管，冻结不得丢失。
         var flags = new StoryFlags();
         RadioMainline.GrantTransmitter(flags);
         RadioMainline.CallSouth(flags);
-        Assert.False(flags.Has(HordeTimeline.EndgameFreezeFlag));
+        Assert.True(flags.Has(HordeTimeline.EndgameFreezeFlag));
     }
 
     // —— 终态互斥不可逆 ——
@@ -248,6 +262,7 @@ public class RadioMainlineTests
         Assert.Equal(RadioMainlineStage.HasTransmitter, RadioMainline.Stage(flags)); // 退回持设备态
         Assert.True(RadioMainline.IsSouthRefused(flags));                            // 南方已拒
         Assert.False(flags.Has(RadioMainline.SouthEscapeOpenFlag));                  // 南逃线关闭
+        Assert.False(flags.Has(HordeTimeline.EndgameFreezeFlag));                    // 结局流程已退回，世界时限恢复
         Assert.True(RadioMainline.IsDecisionAvailable(flags));                       // 电台抉择重新可用
     }
 
@@ -262,6 +277,7 @@ public class RadioMainlineTests
         Assert.True(RadioMainline.ReplyToMilitary(flags, 12));
         Assert.Equal(RadioMainlineStage.RepliedMilitary, RadioMainline.Stage(flags));
         Assert.Equal(12, RadioMainline.ReplyDay(flags));
+        Assert.True(flags.Has(HordeTimeline.EndgameFreezeFlag)); // 再次进入结局流程，重新冻结
     }
 
     [Fact]

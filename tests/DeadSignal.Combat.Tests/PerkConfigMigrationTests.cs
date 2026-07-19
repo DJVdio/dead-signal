@@ -36,10 +36,10 @@ public sealed class PerkConfigMigrationTests
 {
     // ── 迁移前的原始常量（golden）——A/B 的"旧硬编码"一侧。改 perks.json 里这些值会让本表变红 ──
     // 诺蒂·书虫 / 读速
-    private const double GoldBookwormL2Hours = 48;
-    private const double GoldBookwormL3Hours = 120;
+    private const double GoldBookwormL2Hours = 24;
+    private const double GoldBookwormL3Hours = 72;
     private const double GoldBookwormSelfL1 = 0.25;
-    private const double GoldBookwormSelfL2Plus = 0.50;
+    private const double GoldBookwormSelfL2Plus = 0.75;
     private const double GoldBookwormCampWide = 0.25;
     private const double GoldNoSeat = 0.9;
     private const double GoldMissingPrereq = 0.2;
@@ -51,11 +51,16 @@ public sealed class PerkConfigMigrationTests
     private const int GoldCampSurgeryBonus = 5;
     private const double GoldNurseL2Infection = 0.15;
     private const double GoldNurseL3Infection = 0.10;
+    private const double GoldNurseBedSleepHeal = 20.0;
     // 山姆
     private const int GoldSamL2Pop = 3;
     private const int GoldSamL3Pop = 6;
     private const double GoldSamL1Damage = 0.10;
     private const double GoldSamL2Carry = 0.15;
+    private const double GoldSamL1Operation = 0.10;
+    private const double GoldSamL2HealSpeed = 0.30;
+    private const double GoldSamL3Concussion = 0.75;
+    private const double GoldSamL3FracturePenaltyReduction = 0.30;
     private const double GoldSamAuraCarry = 0.03;
     private const double GoldSamAuraWork = 0.03;
     private const double GoldSamAuraHeal = 0.03;
@@ -66,7 +71,7 @@ public sealed class PerkConfigMigrationTests
     private const double GoldRatActionNoise = 0.60;
     private const double GoldRatL1Loot = 0.50;
     private const double GoldRatL2Loot = 1.00;
-    private const double GoldRatL3Stealth = 0.40;
+    private const double GoldRatL3Stealth = 0.50;
     private const double GoldRatL3Ambush = 0.35;
     // 皮特
     private const double GoldPeteL1Move = 1.15;
@@ -119,6 +124,7 @@ public sealed class PerkConfigMigrationTests
         Assert.Equal(GoldCampSurgeryBonus, NightingalePerk.CampSurgeryBaseBonus);
         BitEqual(GoldNurseL2Infection, NightingalePerk.Level2InfectionReduction);
         BitEqual(GoldNurseL3Infection, NightingalePerk.Level3InfectionReduction);
+        BitEqual(GoldNurseBedSleepHeal, NightingalePerk.Level2BedSleepHealBonusPct);
     }
 
     [Fact]
@@ -128,6 +134,10 @@ public sealed class PerkConfigMigrationTests
         Assert.Equal(GoldSamL3Pop, SamPerk.Level3CampPopulation);
         BitEqual(GoldSamL1Damage, SamPerk.Level1DamageReduction);
         BitEqual(GoldSamL2Carry, SamPerk.Level2CarryBonus);
+        BitEqual(GoldSamL1Operation, SamPerk.Level1OperationBonus);
+        BitEqual(GoldSamL2HealSpeed, SamPerk.Level2HealSpeedBonus);
+        BitEqual(GoldSamL3Concussion, SamPerk.Level3ConcussionReduction);
+        BitEqual(GoldSamL3FracturePenaltyReduction, SamPerk.Level3FracturePenaltyReduction);
         BitEqual(GoldSamAuraCarry, SamPerk.AuraCarryBonus);
         BitEqual(GoldSamAuraWork, SamPerk.AuraWorkSpeedBonus);
         BitEqual(GoldSamAuraHeal, SamPerk.AuraHealSpeedBonus);
@@ -194,11 +204,16 @@ public sealed class PerkConfigMigrationTests
         Assert.Equal(s.NightingaleCampSurgeryBaseBonus, NightingalePerk.CampSurgeryBaseBonus);
         BitEqual(s.NightingaleLevel2InfectionReduction, NightingalePerk.Level2InfectionReduction);
         BitEqual(s.NightingaleLevel3InfectionReduction, NightingalePerk.Level3InfectionReduction);
+        BitEqual(s.NightingaleBedSleepHealBonusPct, NightingalePerk.Level2BedSleepHealBonusPct);
 
         Assert.Equal(s.SamLevel2CampPopulation, SamPerk.Level2CampPopulation);
         Assert.Equal(s.SamLevel3CampPopulation, SamPerk.Level3CampPopulation);
         BitEqual(s.SamLevel1DamageReduction, SamPerk.Level1DamageReduction);
         BitEqual(s.SamLevel2CarryBonus, SamPerk.Level2CarryBonus);
+        BitEqual(s.SamLevel1OperationBonus, SamPerk.Level1OperationBonus);
+        BitEqual(s.SamLevel2HealSpeedBonus, SamPerk.Level2HealSpeedBonus);
+        BitEqual(s.SamLevel3ConcussionReduction, SamPerk.Level3ConcussionReduction);
+        BitEqual(s.SamLevel3FracturePenaltyReduction, SamPerk.Level3FracturePenaltyReduction);
         BitEqual(s.SamAuraCarryBonus, SamPerk.AuraCarryBonus);
         BitEqual(s.SamAuraWorkSpeedBonus, SamPerk.AuraWorkSpeedBonus);
         BitEqual(s.SamAuraHealSpeedBonus, SamPerk.AuraHealSpeedBonus);
@@ -285,10 +300,15 @@ public sealed class PerkConfigMigrationTests
         NightingaleCampSurgeryBaseBonus = GoldCampSurgeryBonus,
         NightingaleLevel2InfectionReduction = GoldNurseL2Infection,
         NightingaleLevel3InfectionReduction = GoldNurseL3Infection,
+        NightingaleBedSleepHealBonusPct = GoldNurseBedSleepHeal,
         SamLevel2CampPopulation = GoldSamL2Pop,
         SamLevel3CampPopulation = GoldSamL3Pop,
         SamLevel1DamageReduction = GoldSamL1Damage,
         SamLevel2CarryBonus = GoldSamL2Carry,
+        SamLevel1OperationBonus = GoldSamL1Operation,
+        SamLevel2HealSpeedBonus = GoldSamL2HealSpeed,
+        SamLevel3ConcussionReduction = GoldSamL3Concussion,
+        SamLevel3FracturePenaltyReduction = GoldSamL3FracturePenaltyReduction,
         SamAuraCarryBonus = GoldSamAuraCarry,
         SamAuraWorkSpeedBonus = GoldSamAuraWork,
         SamAuraHealSpeedBonus = GoldSamAuraHeal,

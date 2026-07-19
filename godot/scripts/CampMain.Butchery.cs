@@ -97,7 +97,7 @@ public sealed partial class CampMain : Node2D
         SpawnButcherPoint(rect);
         RebakeNavigation();   // 它实心、挖了导航洞、不可跨越 —— 寻路图得知道
         EndButcherPointPlacement();
-        _campToast.Show("简易宰杀点支好了。刀槽里放把匕首或骨刀，就能把老鼠、鸟宰成肉和皮。", CampToast.Ok);
+        _campToast.Show("简易宰杀点支好了。刀槽里放把匕首或骨刀，就能把老鼠、兔子、鸟宰成肉和皮。", CampToast.Ok);
     }
 
     /// <summary>退出摆放简易宰杀点模式（落位成功 / 右键作罢 都走这儿）。</summary>
@@ -155,7 +155,9 @@ public sealed partial class CampMain : Node2D
         RemoveFurniture(ButcherStation.PointFurnitureKey);   // 顶掉简易点（连带碰撞/视觉/导航洞/容器登记，唯一出口）
         SpawnButcherTable(rect);
         RebakeNavigation();   // 顶替前后都实心，位置未变但走唯一重烘焙路径最稳
-        _campToast.Show("简易宰杀点升级成了宰杀台：手上快了 50%，还有两成机会一刀出双份。", CampToast.Ok);
+        int tableSpeedPct = (int)(ButcheryLogic.SpeedBonusOf(ButcherTier.Table) * 100);
+        int tableDoublePct = (int)(ButcheryLogic.TableDoubleYieldChance * 100);
+        _campToast.Show($"简易宰杀点升级成了宰杀台：手上快了 {tableSpeedPct}%，有 {tableDoublePct}% 机会一刀出双份。", CampToast.Ok);
         GD.Print($"[宰杀台] 完工，于简易点原地 {rect.Position} 顶替升级");
     }
 
@@ -180,7 +182,7 @@ public sealed partial class CampMain : Node2D
             CurrentButcherTier,
             ControllableCrafters(),   // 掌刀的人：同制作/掌勺，取存活且可控的幸存者
             _inventory,
-            _craftingJob);            // 全营单任务队列：有人正忙着别的活 ⇒ 不接新单
+            JobAt(FacilityJobKeys.MainButcherStation));
 
     private void CloseButchery()
     {
@@ -255,9 +257,9 @@ public sealed partial class CampMain : Node2D
     /// </summary>
     private void OnButcherRequested(string quarryKey, Pawn worker)
     {
-        if (_craftingJob is not null)
+        if (!CanStartFacilityJob(FacilityJobKeys.MainButcherStation, worker, out string busyWhy))
         {
-            _campToast.Show("有人正忙着别的活——完工之后再宰。", CampToast.Bad);
+            _campToast.Show(busyWhy, CampToast.Bad);
             RefreshButchery();
             return;
         }
@@ -267,7 +269,8 @@ public sealed partial class CampMain : Node2D
             RefreshButchery();
             return;
         }
-        if (!ButcheryLogic.CanButcher(_butcherStation.Slotted, quarryKey) || _inventory.MaterialCount(quarryKey) <= 0)
+        if (!ButcheryLogic.CanButcher(CurrentButcherTier, _butcherStation.Slotted, quarryKey)
+            || _inventory.MaterialCount(quarryKey) <= 0)
         {
             _campToast.Show("库里没有这只猎物可宰。", CampToast.Bad);
             RefreshButchery();
@@ -275,10 +278,9 @@ public sealed partial class CampMain : Node2D
         }
 
         int minutes = ButcheryLogic.MinutesFor(CurrentButcherTier, _butcherStation.Slotted);
-        _craftingJob = new CraftingJob(ButcherJobPrefix + quarryKey, minutes);
-        _craftingJobWorker = worker;
+        StartFacilityJob(FacilityJobKeys.MainButcherStation,
+            new CraftingJob(ButcherJobPrefix + quarryKey, minutes), worker);
         _craftLastMinuteKey = -1;
-        _craftMinuteBudget = 0f;
 
         string quarryName = Materials.Find(quarryKey)?.DisplayName ?? quarryKey;
         string work = CraftingPanelFormat.FormatWorkDuration(minutes);

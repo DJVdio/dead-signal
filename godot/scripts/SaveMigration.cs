@@ -118,6 +118,12 @@ public static class SaveMigration
             MergeLegacyMetalsIntoIron(obj);
         }
 
+        // v3 → v4：全营单一 CraftingJob 无损搬进按设施稳定键保存的 FacilityJobs 列表。
+        if (fromVersion < 4)
+        {
+            MigrateLegacyCraftingJob(obj);
+        }
+
         // [T64] 左上臂/右上臂 → 左手臂/右手臂。**版本无关**（理由见上面那段：v3 的档里也可能是老名字）。
         // 对已经是新名字的档，这一趟是 no-op ⇒ **幂等**，重复跑不会出错。
         RenameLegacyArmParts(obj);
@@ -144,6 +150,30 @@ public static class SaveMigration
     }
 
     // ---- v2 → v3 ----
+
+    private static void MigrateLegacyCraftingJob(JsonObject root)
+    {
+        if (root["Camp"] is not JsonObject camp) return;
+        var jobs = new JsonArray();
+        if (camp["CraftingJob"] is JsonObject old
+            && old["RecipeId"]?.GetValue<string>() is string recipeId
+            && old["WorkerId"]?.GetValue<int>() is int workerId
+            && workerId >= 0)
+        {
+            var migrated = new JsonObject
+            {
+                ["SlotKey"] = FacilityJobKeys.ForLegacyRecipe(recipeId),
+                ["RecipeId"] = recipeId,
+                ["Times"] = old["Times"]?.GetValue<int>() ?? 1,
+                ["TotalWorkMinutes"] = old["TotalWorkMinutes"]?.GetValue<int>() ?? 0,
+                ["ElapsedWorkMinutes"] = old["ElapsedWorkMinutes"]?.GetValue<int>() ?? 0,
+                ["WorkerId"] = workerId,
+            };
+            jobs.Add(migrated);
+        }
+        camp["FacilityJobs"] = jobs;
+        camp["CraftingJob"] = null;
+    }
 
     /// <summary>
     /// 把整棵存档树里的「废金属 / 金属锭」全部改写成「铁」。

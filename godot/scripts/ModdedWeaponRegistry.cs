@@ -70,7 +70,7 @@ public static class ModdedWeaponRegistry
     private static readonly Dictionary<string, Weapon> _resolved = new();
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // 【T47】消耗型改装的**状态层**（锋刃研磨：穿透 +75%，攻击三次后失去该改装）
+    // 【T47】消耗型改装的**状态层**（锋刃研磨的数值与耐久以 Wiki 配置为准）
     //
     // 🔴 设计的核心一句话：**Rebuild 保持纯函数，状态挂在武器实例上，而"实例"就是变体名。**
     //
@@ -380,7 +380,7 @@ public static class ModdedWeaponRegistry
 
     /// <summary>
     /// 某个变体名的**基础武器名**（"步枪（刺刀型）" → "步枪"）；不是已登记的变体 ⇒ null。
-    /// 负重表等"按原厂武器名索引"的地方靠它回落——否则一把改装狙击枪会按"未登记武器"算成 2kg（比手枪还轻）。
+    /// 负重表等"按原厂武器名索引"的地方靠它回落——否则一把改装武器会按"未登记武器"处理。
     /// </summary>
     public static string? BaseNameOf(string? variantName)
         => variantName is not null && _specs.TryGetValue(variantName, out ModdedWeaponSpec? spec)

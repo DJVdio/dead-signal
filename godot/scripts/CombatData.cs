@@ -9,23 +9,23 @@ namespace DeadSignal.Godot;
 
 /// <summary>
 /// 原型期武器/护甲/部位数据工厂 + 一次攻击的封装。
-/// 数值取自设计文档第 5 节（穿透口径直接照抄，其余为原型拟定，待蒙特卡洛拉表微调）。
+/// 可调数值取自 Wiki 配置表；本层只转发数据并封装规则调用。
 /// 纯数据与规则调用，不含任何 Godot 类型，方便与 Sim 层共用。
 /// </summary>
 public static class CombatData
 {
     // ---- 武器/护甲（权威数据源为 DeadSignal.Combat.WeaponTable / ArmorTable，本层仅转发）----
 
-    /// <summary>手枪：中距离锐器，穿透 15%（文档：手枪 15%）。远程有误差角。</summary>
+    /// <summary>手枪：中距离锐器，穿透与远程误差配置以 Wiki 为准。</summary>
     public static Weapon Pistol() => WeaponTable.Pistol();
 
-    /// <summary>匕首：近战锐器，穿透 9%（文档：匕首 9%）。</summary>
+    /// <summary>匕首：近战锐器，穿透配置以 Wiki 为准。</summary>
     public static Weapon Dagger() => WeaponTable.Dagger();
 
-    /// <summary>棍棒：近战钝器（骨折工厂），穿透 0%。道格开局武器。</summary>
+    /// <summary>棍棒：近战钝器（骨折工厂），穿透配置以 Wiki 为准。道格开局武器。</summary>
     public static Weapon Club() => WeaponTable.Club();
 
-    /// <summary>丧尸爪击：近战钝器，穿透 3%（文档：棍棒级 3%）。天然钝器逐层保留自身穿透。</summary>
+    /// <summary>丧尸爪击：近战钝器，穿透配置以 Wiki 为准。天然钝器逐层保留自身穿透。</summary>
     public static Weapon ZombieClaw() => WeaponTable.ZombieClaw();
 
     /// <summary>拳脚：人的天生武器＝空手近战（钝伤、低伤、快冷却）。空手/持弓弩近战都走它，见 <see cref="Unarmed.MeleeFor"/>。</summary>
@@ -38,9 +38,9 @@ public static class CombatData
     public static IReadOnlyList<ArmorLayer> ZombieHide() => ArmorTable.ZombieHide();
 
     /// <summary>
-    /// 普通丧尸的护甲：随机抽一套<b>日常着装</b>（布衣/夹克/长裤/短裤…，85% 至少还穿着一件）叠在腐皮之外。
-    /// 腐皮锐防/钝防仅 3 → 挡下门槛 1.5 &lt; 任何武器的伤害下限 ⇒ 光靠腐皮<b>对全部武器 0% 阻挡</b>；
-    /// 布类锐防 6 把门槛抬到 3.0，丧尸才真有防护。规则与预设表见 <see cref="ZombieOutfit"/>。
+    /// 普通丧尸的护甲：随机抽一套<b>日常着装</b>叠在腐皮之外，着装权重以 Wiki 配置为准。
+    /// 腐皮单独提供的防护有限；丧尸实际防护还来自生前衣物。
+    /// 护甲值与覆盖部位来自 Wiki 配置表，规则与预设表见 <see cref="ZombieOutfit"/>。
     /// </summary>
     public static IReadOnlyList<ArmorLayer> ZombieArmor(IRandomSource rng) => ZombieOutfit.RollArmor(rng);
 
@@ -51,7 +51,7 @@ public static class CombatData
     /// </summary>
     public static IReadOnlyList<ArmorLayer> ZombieArmorNamed(string outfitName) => ZombieOutfit.ArmorOf(outfitName);
 
-    // ---- 部位（接入引擎细部位表：15 细部位，含 MaxHp/Region/Category/树形父子） ----
+    // ---- 部位（接入引擎细部位表，含 MaxHp/Region/Category/树形父子） ----
 
     /// <summary>新建一具满血人形躯体（幸存者与丧尸同用人体细部位表）。</summary>
     public static Body NewHumanoidBody() => HumanBody.NewBody();
@@ -61,6 +61,12 @@ public static class CombatData
     /// 与 Sim 共用同一个工厂 <see cref="HumanBody.NewZombieBody"/>，两边口径不会各算各的。
     /// </summary>
     public static Body NewZombieBody() => HumanBody.NewZombieBody();
+
+    /// <summary>
+    /// 新建布鲁斯的犬类躯体：胸腹/头 + 四足，不带任何人类手臂/手掌/手指。
+    /// 结构由 <see cref="DogBody"/> 单独登记；狗衣仍沿用胸腹/头锚名消费。
+    /// </summary>
+    public static Body NewDogBody() => DogBody.NewBody();
 }
 
 /// <summary>弹道命中一具躯体时的处理决策。</summary>
@@ -126,11 +132,11 @@ public readonly struct AttackOutcome
     /// <summary>本次命中后防御方死亡（含斩首/开膛/失血致死）。</summary>
     public readonly bool Died;
 
-    /// <summary>本次震荡的硬打断时长（秒，2~5s roll，拟定待调）；未震荡为 0。实时层据此设打断计时器。</summary>
+    /// <summary>本次震荡的硬打断时长（秒，时长范围由 Wiki 配置提供）；未震荡时为零。实时层据此设打断计时器。</summary>
     public readonly double ConcussionSeconds;
 
     /// <summary>
-    /// 本次命中的通用减速时长（秒，拟定待调 ~1s）；**命中即触发**（无论破防与否，含被甲完全挡下）。
+    /// 本次命中的通用减速时长（秒，时长由 Wiki 配置提供）；**命中即触发**（无论破防与否，含被甲完全挡下）。
     /// 实时层（<c>Actor._staggerTimer</c>）据此短暂降移速（×StaggerSpeedMult）。与震荡区分：不打断、不清冷却。
     /// </summary>
     public readonly double StaggerSeconds;
@@ -194,12 +200,12 @@ public sealed class CombatEngine
     /// <param name="incomingDamageReduction">
     /// 防方**护甲后**乘算减伤比例（0..1，<b>默认 0＝无减免、零回归</b>）：与 <paramref name="damageFactor"/> 分层——
     /// 后者缩放**武器伤害区间**（护甲之前，甲再吃缩小后的伤害），本参数在**护甲三段判定之后**才乘
-    /// （见 <see cref="CombatResolver.Resolve"/>）。现阶段唯一来源＝山姆 1 级"比常人耐揍"−10%
-    /// （<c>SamPerk.IncomingDamageReduction</c>，经 <c>Actor.SetIncomingDamageReduction</c> 注入）。
+    /// （见 <see cref="CombatResolver.Resolve"/>）。现阶段唯一来源＝山姆的"比常人耐揍"专属效果
+    /// （<c>SamPerk.IncomingDamageReduction</c>，经 <c>Actor.SetIncomingDamageReduction</c> 注入）。具体减伤值以 Wiki 为准。
     /// </param>
     /// <param name="handGuardNegateChance">
     /// [T69] 防御方**护手挡格**否决几率（<b>默认 0＝无、零回归</b>）：当本次命中选中了持械手（见
-    /// <paramref name="weaponHandParts"/>）时，按此几率把整次攻击判无效。护手挡格 = 0.5，来源＝防御方手里那把
+    /// <paramref name="weaponHandParts"/>）时，按此几率把整次攻击判无效。具体挡格几率来源＝防御方手里那把
     /// 改装武器（<c>ModdedWeaponRegistry.HandGuardNegateChanceOf</c>，经 <c>Actor.ReceiveAttack</c> 注入）。
     /// 判定必须落在**选部位之后**（承伤入口只知"整次攻击"、不知打哪个部位），故落点在此、不在 <c>Actor.ReceiveAttack</c>。
     /// </param>
@@ -212,7 +218,9 @@ public sealed class CombatEngine
         double concussionResistFactor = 1.0,
         double incomingDamageReduction = 0.0,
         double handGuardNegateChance = 0.0,
-        IReadOnlySet<string>? weaponHandParts = null)
+        IReadOnlySet<string>? weaponHandParts = null,
+        System.Func<Weapon, BodyPart, double>? hitDamageMultiplier = null,
+        double penetrationMultiplier = 1.0)
     {
         // 远程距离衰减：只在系数 <1 时建缩放副本，满伤/近战路径沿用原武器、逐字节零改动（零回归）。
         Weapon effective = damageFactor < 1.0 ? ScaleWeaponDamage(weapon, damageFactor) : weapon;
@@ -223,6 +231,14 @@ public sealed class CombatEngine
             .ToList();
 
         BodyPart part = _hitSelector.Select(candidates);
+
+        // 读书等消费层效果中，有些必须等部位选定后才知道是否生效（如只强化头/躯干）。
+        // 默认回调为空且穿透乘子=1，既有路径不建副本、不消耗随机流。
+        double locationDamageMultiplier = hitDamageMultiplier?.Invoke(effective, part) ?? 1.0;
+        if (locationDamageMultiplier != 1.0 || penetrationMultiplier != 1.0)
+        {
+            effective = TransformWeapon(effective, locationDamageMultiplier, penetrationMultiplier);
+        }
 
         // [T69] 护手挡格否决：命中选中的是持械手（含手指）时，按几率整发判无效（不结算伤害/效果）。
         // 零漂移：chance ≤ 0（绝大多数武器）或命中非持械手 ⇒ WeaponModDefense.HandGuardNegates 短路、不掷点。
@@ -281,12 +297,14 @@ public sealed class CombatEngine
     /// 其余字段原样保留）。远程距离衰减用。<see cref="Weapon"/> 为 sealed class 无 <c>with</c> 表达式：
     /// **若 Weapon 新增字段，须在此同步拷贝**，否则副本会静默丢字段。
     /// </summary>
-    private static Weapon ScaleWeaponDamage(Weapon w, double factor) => new()
+    private static Weapon ScaleWeaponDamage(Weapon w, double factor) => TransformWeapon(w, factor, 1.0);
+
+    private static Weapon TransformWeapon(Weapon w, double damageFactor, double penetrationFactor) => new()
     {
         Name = w.Name,
-        DamageMin = w.DamageMin * factor,
-        DamageMax = w.DamageMax * factor,
-        Penetration = w.Penetration,
+        DamageMin = w.DamageMin * damageFactor,
+        DamageMax = w.DamageMax * damageFactor,
+        Penetration = System.Math.Clamp(w.Penetration * penetrationFactor, 0.0, 1.0),
         DamageType = w.DamageType,
         TwoHanded = w.TwoHanded,
         CanDualWield = w.CanDualWield,

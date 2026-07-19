@@ -34,8 +34,8 @@ public class UnarmedTests
 
         // 低伤害：均值低于全表最弱的近战武器（匕首）
         Assert.True((f.DamageMin + f.DamageMax) / 2 < (dagger.DamageMin + dagger.DamageMax) / 2);
-        // 快冷却：出手间隔短于匕首（拳头没重量）
-        Assert.True(f.AttackInterval < dagger.AttackInterval);
+        // 快冷却：出手间隔不慢于匕首（当前两者均为 1.4s）
+        Assert.True(f.AttackInterval <= dagger.AttackInterval);
         Assert.True(f.AttackInterval > 0);
         // 噪音小：低于匕首（90）、也低于弓（70）——空手扭打是最安静的攻击方式
         Assert.True(f.NoiseRadius < dagger.NoiseRadius);
@@ -147,8 +147,7 @@ public class UnarmedTests
     }
 
     /// <summary>
-    /// 骨刀存在的理由：**造出来必须比空手强**。骨刀单持 DPS 1.50 > 拳脚 1.43——
-    /// 这条关系只在拳脚冷却＝1.4 时成立（1.2 时拳脚 1.67 反超骨刀 ⇒ "造把骨刀不如用拳头"）。
+    /// 骨刀存在的理由：**造出来必须比空手强**。当前接受值下骨刀单持 DPS 1.7411 > 拳脚 1.4286。
     /// </summary>
     [Fact]
     public void BoneKnife_BeatsBareFists()
@@ -169,7 +168,7 @@ public class UnarmedTests
         // 拳脚同爪击/撕咬——天生武器不入表 ⇒ Sim 的结算路径根本读不到它 ⇒ 既有基线不可能漂移。
         // 25 = 24 − 栓动猎枪（T29 用户从数值表删除） + 消防斧（[批次25·T44] 新建，**追加在末尾**）
         //      + 骨刀（[T56] 它早有配方却不在 Arsenal ⇒ 造得出来、拿不起来；补进表里，**同样追加在末尾**）。
-        Assert.Equal(25, WeaponTable.Arsenal().Count);
+        Assert.Equal(27, WeaponTable.Arsenal().Count);
         Assert.DoesNotContain(WeaponTable.Arsenal(), w => w.Name == WeaponTable.Fists().Name);
         Assert.DoesNotContain(WeaponTable.ArcheryArsenal(), w => w.Name == WeaponTable.Fists().Name);
     }

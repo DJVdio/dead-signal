@@ -20,9 +20,9 @@
   "nails": 0.05,
   "bandage": 0.1,
   "herbal_bandage": 0.1,
-  "herbal_salve": 0.1,
-  "dandelion_tea": 0.5,
-  "rosehip_tea": 0.5,
+  "herbal_salve": 0.15,
+  "dandelion_tea": 0.25,
+  "rosehip_tea": 0.25,
   "needle_thread": 0.05,
   "antibiotics": 0.05,
   "medicine": 0.05,
@@ -39,6 +39,9 @@
   "pigeon": 0.3,
   "potato": 0.3,
   "mushroom": 0.05,
+  "kudzu_root": 0.2,
+  "rhubarb": 0.2,
+  "rabbit_meat": 0.15,
   "rat_meat": 0.15,
   "bird_meat": 0.15,
   "feather": 0.02,
@@ -51,5 +54,6 @@
   "ammo_arrow_stick": 0.03,
   "ammo_arrow_handmade": 0.03,
   "ammo_arrow_carbon": 0.03,
-  "silver": 0.01
+  "silver": 0.01,
+  "damaged_sniper_rifle": 7.5
 }

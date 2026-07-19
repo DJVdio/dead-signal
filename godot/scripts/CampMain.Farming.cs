@@ -105,7 +105,7 @@ public sealed partial class CampMain
         var visuals = new List<Node2D>();
         AddOccluderVisual(rect, style, seed: 47 + SeqOfCropPlot(name), height: 4f, cell: 24f, collect: visuals);
 
-        // Body=null：没有碰撞体。进 _furniture ⇒ ① 减速场自动收录（可跨越，×0.75）
+        // Body=null：没有碰撞体。进 _furniture ⇒ ① 减速场自动收录（可跨越，减速值由 Wiki 配置提供）
         // ② Shift+右键走通用家具拆除（按 FurnitureBuildCost["菜园"] 折半返还，见 RemoveFurniture 的 ClearPlot 清计时器）
         // ③ 存档走 CampSave.PlacedFurniture 那条唯一出口。
         _furniture[name] = new FurnitureInstance { Rect = rect, Body = null, Visuals = visuals };
@@ -123,7 +123,7 @@ public sealed partial class CampMain
     /// <summary>
     /// 到达菜园后执行交互（由 <c>CampMain.cs</c> 的 <see cref="ExecuteContainerInteract"/> 一行分发过来）：
     /// <list type="number">
-    /// <item>有熟的 ⇒ <b>收</b>（走 <see cref="CropPlotRuntime.HarvestRipe"/>，50/25/25 出 2/3/1 逐颗掷点、实产入库）。</item>
+    /// <item>有熟的 ⇒ <b>收</b>（走 <see cref="CropPlotRuntime.HarvestRipe"/>；分布与产出以 Wiki 配置表为准）。</item>
     /// <item>否则若能种 ⇒ <b>下种</b>（扣 1 种薯 + 起一条 <c>plant:菜园#N</c> 工时任务，夜间生产满 0.15h 落计时器）。</item>
     /// </list>
     /// </summary>
@@ -144,10 +144,11 @@ public sealed partial class CampMain
             return;
         }
 
-        // ② 没熟的可收 ⇒ 下种。种植走同一条工时队列（同 cook:/salvage:），台上有活就不接新单。
-        if (_craftingJob is not null)
+        // ② 没熟的可收 ⇒ 下种。每座菜园有自己的槽，但同一人不可同时接第二块地。
+        string slotKey = FacilityJobKeys.For("cropplot", plot);
+        if (!CanStartFacilityJob(slotKey, arriver, out string busyWhy))
         {
-            _campToast.Show("手头有活在做（制作/拆解/另一颗在种）：等它完工再下种。", CampToast.Bad);
+            _campToast.Show(busyWhy, CampToast.Bad);
             return;
         }
         if (!CropPlotRuntime.CanPlant(_storyFlags, _inventory, plot, out string? why))
@@ -162,10 +163,9 @@ public sealed partial class CampMain
             return;
         }
 
-        _craftingJob = new CraftingJob(CropPlotLogic.PlantJobPrefix + plot, CropPlotLogic.PlantWorkMinutes);
-        _craftingJobWorker = arriver;
+        StartFacilityJob(slotKey,
+            new CraftingJob(CropPlotLogic.PlantJobPrefix + plot, CropPlotLogic.PlantWorkMinutes), arriver);
         _craftLastMinuteKey = -1;   // 重置增量基线（同下单制作/拆解）
-        _craftMinuteBudget = 0f;
 
         string work = CraftingPanelFormat.FormatWorkDuration(CropPlotLogic.PlantWorkMinutes);
         _campToast.Show($"{arriver.DisplayName} 开始在 {plot} 下种（工时 {work}，夜间生产；种薯已下地）。", CampToast.Ok);
@@ -180,9 +180,11 @@ public sealed partial class CampMain
     /// 种植工时满、完工（由 <see cref="CompleteActiveCraftingJob"/> 的 <c>plant:</c> 分流一行调过来）：
     /// 把下一个空格的计时器置成 84 游戏小时（开始倒计时）。满种（不该发生，下种前已校验）则如实报——种薯已扣，白费。
     /// </summary>
-    private void CompletePlantJob(string plotName)
+    private void CompletePlantJob(string plotName, Pawn? planter)
     {
-        int slot = CropPlotRuntime.CompletePlant(_storyFlags, plotName);
+        int reduction = BookPassiveEffects.PotatoGrowHoursReduction(
+            planter is null ? null : new Func<string, bool>(planter.HasReadBook));
+        int slot = CropPlotRuntime.CompletePlant(_storyFlags, plotName, reduction);
         if (slot == 0)
         {
             _campToast.Show($"{plotName} 已经满了，这颗种薯白下了。", CampToast.Bad);

@@ -7,10 +7,10 @@ namespace DeadSignal.Godot;
 /// 同一条链路（配方产出一件"桌子" → 库存「摆放」→ 左键落位建成 → 可拆走重摆），不发明新的建造范式。
 ///
 /// <para>═══ <b>桌子 = 室内的半身掩体</b>（用户拍板）═══
-/// 用户的掩体原话是「<b>躲在桌子/椅子/沙袋后</b>，被【远程】攻击有 25% 无伤概率」—— 桌子是他<b>点了名的掩体</b>，
-/// 玩家自己造的那张也算（<see cref="CoverChance"/> = 25%，与沙袋同档；<b>不拦近战</b>：矮物，绕过去就能砍）。
+/// 用户的掩体原话是「<b>躲在桌子/椅子/沙袋后</b>，被【远程】攻击有无伤概率」—— 桌子是他<b>点了名的掩体</b>，
+/// 玩家自己造的那张也算（<see cref="CoverChance"/> 与沙袋同档，数值以 Wiki 配置为准；<b>不拦近战</b>：矮物，绕过去就能砍）。
 /// <para>
-/// <b>那它会不会变成沙袋的廉价替代品？（木 8 + 钉 4 换 25% 远程无伤）—— 不会，用户同时拍了另一条规则：</b>
+/// <b>那它会不会变成沙袋的廉价替代品？——不会，用户同时拍了另一条规则：</b>
 /// 「<b>家具不能放到室外</b>；<b>沙袋能放到室内和室外</b>」（缓冲带/室内外判定归 <see cref="PlacementRules"/>）。
 /// ⇒ <b>桌子只摆得进屋里</b>（室内掩体，打巷战用）、<b>沙袋是唯一能垒在门口和院子里的掩体</b>（守门用）。
 /// 两者<b>各有各的场，不互相替代</b>。
@@ -28,8 +28,8 @@ namespace DeadSignal.Godot;
 /// <para>═══ <b>桌子凭什么能自由摆放</b>（同床/沙袋那条论证，别"统一"掉）═══
 /// 用户拍板 <b>"墙不能建"</b> 是为了防 kill box。桌子和床一样<b>不阻挡移动、不改变寻路</b>
 /// （<see cref="IsSolid"/> / <see cref="CarvesNavHole"/> 恒 false）—— 它是<b>减速带，不是墙</b>：
-/// 谁都能跨过去，只是慢 25%（<see cref="FurnitureTraversal"/>）。摆不出迷宫，因为没有一格是走不通的。
-/// 但它仍<b>守 64px 禁建带</b>（<see cref="PlacementRules"/>）：墙根下那条道得留给砌墙的人和逃命的人。
+/// 谁都能跨过去，只是按配置减速（<see cref="FurnitureTraversal"/>）。摆不出迷宫，因为没有一格是走不通的。
+/// 但它仍<b>守禁建带</b>（<see cref="PlacementRules"/>）：墙根下那条道得留给砌墙的人和逃命的人。
 /// </para>
 /// </summary>
 public static class TableSpec
@@ -52,7 +52,7 @@ public static class TableSpec
     public const float Height = 48f;
 
     /// <summary>
-    /// <b>恒 false。</b>不建碰撞体 ⇒ 人跨得过去（跨过减速 25%，见 <see cref="FurnitureTraversal"/>）。
+    /// <b>恒 false。</b>不建碰撞体 ⇒ 人跨得过去（跨过按配置减速，见 <see cref="FurnitureTraversal"/>）。
     /// 改成 true 之前请先回去读本类的类注：kill box 就是这么来的。
     /// </summary>
     public const bool IsSolid = false;
@@ -61,7 +61,7 @@ public static class TableSpec
     public const bool CarvesNavHole = false;
 
     /// <summary>
-    /// <b>半身掩体的无伤概率</b>（25%，取 <see cref="CoverLogic.DefaultCoverChance"/> —— 与沙袋同档，不另立数值）。
+    /// <b>半身掩体的无伤概率</b>（取 <see cref="CoverLogic.DefaultCoverChance"/> —— 与沙袋同档，不另立数值）。
     /// <para>
     /// <b>方向性 + 双向对称</b>照搬 <see cref="CoverLogic"/> 的既有规则：只有桌子落在射击者与目标的连线上才生效
     /// （敌人绕后就绕掉了），而且<b>敌人也能蹲在你的桌子后面</b>。桌子不新增任何例外。

@@ -197,23 +197,23 @@ public static class GoldfingerCalibration
     }
 
     // ── 三种打法的波次分组（公开＝报告与护栏测试共用单一源，别各写各的）──────────────
-    // 分组 = SpawnGoldfingerGuards 的空间布点（roster 顺序即编制：0-2 深处 / 3-5 中段 / 6-7 近入口）。
-    // 玩家从南边入口进 ⇒ 先撞近入口，再中段，最后深处（军械柜/银库就在那三个人背后）。
+    // 分组 = SpawnGoldfingerGuards 的空间布点（roster 顺序即编制：0-1 深处 / 2 中段 / 3 近入口）。
+    // 玩家从南边入口进 ⇒ 先撞近入口，再中段，最后深处（军械柜/银库就在那两个人背后）。
 
-    /// <summary>逐波推进 2→3→3：正常推进，按纵深一波波撞上去（伤在波间累积）。</summary>
+    /// <summary>逐波推进 1→1→2：正常推进，按纵深一波波撞上去（伤在波间累积）。</summary>
     public static IReadOnlyList<IReadOnlyList<GangGuard>> PushWaves { get; } =
         new IReadOnlyList<GangGuard>[]
         {
-            new[] { GoldfingerGang.Roster[6], GoldfingerGang.Roster[7] },                            // 近入口
-            new[] { GoldfingerGang.Roster[3], GoldfingerGang.Roster[4], GoldfingerGang.Roster[5] },  // 中段
-            new[] { GoldfingerGang.Roster[0], GoldfingerGang.Roster[1], GoldfingerGang.Roster[2] },  // 深处
+            new[] { GoldfingerGang.Roster[3] },                    // 近入口
+            new[] { GoldfingerGang.Roster[2] },                    // 中段
+            new[] { GoldfingerGang.Roster[0], GoldfingerGang.Roster[1] }, // 深处
         };
 
-    /// <summary>惊动全据点 8：一次性 3v8 ——<b>开枪的后果</b>（噪音招怪见 <see cref="GoldfingerGang.AlertedBy"/>）。</summary>
+    /// <summary>惊动全据点 4：一次性 3v4 ——<b>开枪的后果</b>（噪音招怪见 <see cref="GoldfingerGang.AlertedBy"/>）。</summary>
     public static IReadOnlyList<IReadOnlyList<GangGuard>> AllAtOnce { get; } =
         new IReadOnlyList<GangGuard>[] { GoldfingerGang.Roster.ToList() };
 
-    /// <summary>逐个清哨 1×8：弓/匕首潜行，绕开哨兵扫视一个个摸掉（伤累积）。</summary>
+    /// <summary>逐个清哨 1×4：弓/匕首潜行，绕开哨兵扫视一个个摸掉（伤累积）。</summary>
     public static IReadOnlyList<IReadOnlyList<GangGuard>> OneByOne { get; } =
         GoldfingerGang.Roster.Select(g => (IReadOnlyList<GangGuard>)new[] { g }).ToArray();
 
@@ -228,7 +228,7 @@ public static class GoldfingerCalibration
         var sb = new StringBuilder();
         sb.AppendLine("# 金手指帮之战（Arena·无空间下界）");
         sb.AppendLine();
-        sb.AppendLine($"敌方 8 名守备：{string.Join(" / ", r.GroupBy(g => g.Arm).Select(g => $"{g.Count()}×{g.Key}"))}；");
+        sb.AppendLine($"敌方 {r.Count} 名守备：{string.Join(" / ", r.GroupBy(g => g.Arm).Select(g => $"{g.Count()}×{g.Key}"))}；");
         sb.AppendLine($"伤情：{string.Join(" / ", r.GroupBy(g => g.Injury.Name).Select(g => $"{g.Count()}×{g.Key}"))}（读 GoldfingerGang.Roster，与运行时同一张表）。");
         sb.AppendLine($"玩家：{TeamSize} 人探索队，护甲＝皮夹克+长袖布衣（与守备同）。{Seeds} 次蒙特卡洛。");
         sb.AppendLine();
@@ -255,9 +255,9 @@ public static class GoldfingerCalibration
         foreach ((string name, Weapon w) in kits)
         {
             sb.AppendLine($"## 3 人同持「{name}」");
-            Scenario(sb, "逐波推进 2→3→3", w, pushWaves, injured: true);
-            Scenario(sb, "逐个清哨 1×8", w, oneByOne, injured: true);
-            Scenario(sb, "惊动全据点 8", w, allAtOnce, injured: true);
+            Scenario(sb, "逐波推进 1→1→2", w, pushWaves, injured: true);
+            Scenario(sb, "逐个清哨 1×4", w, oneByOne, injured: true);
+            Scenario(sb, "惊动全据点 4", w, allAtOnce, injured: true);
             sb.AppendLine();
         }
 
@@ -286,7 +286,7 @@ public static class GoldfingerCalibration
                 GoldfingerGang.NoiseProbeX, GoldfingerGang.NoiseProbeY,
                 noise, GoldfingerGang.LevelW, GoldfingerGang.LevelH);
             string verdict = alerted <= 1 ? "只惊动交手的那个" : alerted <= 3 ? "招来一小撮" : "半个据点扑上来";
-            sb.AppendLine($"  {name,-10} 噪音 {noise,4:0} px → 叫醒 {alerted}/8 人　{verdict}");
+            sb.AppendLine($"  {name,-10} 噪音 {noise,4:0} px → 叫醒 {alerted}/{GoldfingerGang.Roster.Count} 人　{verdict}");
         }
         sb.AppendLine();
         sb.AppendLine("   ⚠️ 这解释了胜率表里那个陷阱：**枪在纸面上打得最狠（逐个清哨 99%），但一开枪，就没有「逐个」了**。");

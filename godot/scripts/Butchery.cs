@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using DeadSignal.Combat;   // IRandomSource（纯 C# 引擎类型，无 Godot 依赖）
 
 namespace DeadSignal.Godot;
@@ -11,21 +12,16 @@ namespace DeadSignal.Godot;
 // ═══════════════════════════════════════════════════════════════════════════════════════
 // 【T67】宰杀 —— 用户拍板的一道**新工序**，卡在"猎物"和"饭"之间。
 //
-// 用户原话（规格，一字不改）：
-//   「老鼠和鸟不能直接入锅了，而是要先宰杀。
-//     新增简易宰杀点，可以用工作台制作（木材*1）。
-//     简易宰杀点一个槽位，可以放入匕首或者骨刀。
-//     宰杀老鼠->老鼠肉*1+碎皮革*1 1h
-//     宰杀鸟->鸟肉*1+羽毛*1 1h
-//     简易宰杀点可以升级为宰杀台（木板*3+钉子*4），一个槽位，可以放入匕首或者骨刀。
-//     宰杀台+50%宰杀速度，并且有20%几率获得双倍产出。
-//     匕首+50%宰杀速度，骨刀+25%宰杀速度」
+// 用户 authored 说明（当前配方、工时、速度、概率与产出数值以 Wiki 配置为准）：
+//   老鼠和鸟不能直接入锅，必须先经过宰杀；简易宰杀点可升级为宰杀台；
+//   两档设施各有一个刀槽，只允许放入匕首或骨刀；宰杀台有双倍产出机制，
+//   设施与刀的速度贡献采用本文件后文说明的加算例外。
 //
 // 🔴 **它把三样东西同时接上了**：
 //   ① **羽毛的唯一来源** ⇒ 三种箭（用户已把它们全改成吃羽毛）从此有料可造 —— 这是整条弓箭线的源头。
 //   ② **生皮的第一条生产线** ⇒ 核实过：`rawhide` 此前**零掉落、零配方产出**，只能找商人买。碎皮革缝起来就是它。
-//   ③ 🔴 **骨刀终于有了存在的理由** ⇒ 它是全表最弱的武器（DPS 1.50，打重甲 0.46），
-//      此前是个"造出来也没人拿"的摆设。现在它是**宰杀工具**（+25% 速度）——
+//   ③ 🔴 **骨刀终于有了存在的理由** ⇒ 它是全表较弱的武器，
+//      此前是个"造出来也没人拿"的摆设。现在它是**宰杀工具**——
 //      **骨刀的定位从"废武器"变成了"工具"**，而它的配方门槛（《野外生存指南》，开局共享库存就有）
 //      正好让它成为营地第一把能上案板的刀。
 // ═══════════════════════════════════════════════════════════════════════════════════════
@@ -36,7 +32,7 @@ public enum ButcherTier
     /// <summary>简易宰杀点：一块板子加一个钩子。基准速度，无双倍产出。</summary>
     SimplePoint,
 
-    /// <summary>宰杀台：+50% 宰杀速度，且 20% 几率双倍产出。</summary>
+    /// <summary>宰杀台：速度与双倍产出效果均以 Wiki 配置为准。</summary>
     Table,
 }
 
@@ -48,10 +44,10 @@ public enum ButcherTier
 /// 见 <see cref="CookwareSlot"/> / <see cref="CookStation.ItemKeyOf"/> —— 那两件也是装槽即离库、卸槽即归库）。
 /// <list type="bullet">
 /// <item><b>为什么不做"共享"</b>：让同一把匕首既挂在案板上又插在腰上，等于<b>白送</b>——
-///       宰杀速度这条设计（+50%）的代价就消失了，槽位也就不再是一个选择。</item>
-/// <item><b>它制造的取舍是真的</b>：营地往往<b>只有一把匕首</b>（DPS 2.353，全表最强的近战之一）。
+///       宰杀速度这条设计的代价就消失了，槽位也就不再是一个选择。</item>
+/// <item><b>它制造的取舍是真的</b>：营地往往<b>只有一把匕首</b>（全表较强的近战之一）。
 ///       把它钉在案板上，今晚站岗的人就得换别的家伙。<b>这正是「骨刀」的位置</b>：
-///       骨刀慢一档（+25%），但没人会心疼一把 DPS 1.50 的刀——**它本来就不该上战场。**</item>
+///       骨刀慢一档，但没人会心疼一把较弱的刀——**它本来就不该上战场。**</item>
 /// </list></para>
 /// </summary>
 public enum ButcherKnife
@@ -59,10 +55,10 @@ public enum ButcherKnife
     /// <summary>槽位空着。<b>没刀就宰不了</b>（<see cref="ButcheryLogic.CanButcher"/>）——徒手撕不开一只老鼠。</summary>
     None,
 
-    /// <summary>匕首（+50% 宰杀速度）。全表最好的宰杀刀，也是全表最好的近战刀之一——这就是那个取舍。</summary>
+    /// <summary>匕首（宰杀速度以 Wiki 配置为准）。全表较好的宰杀刀，也是近战取舍的一部分。</summary>
     Dagger,
 
-    /// <summary>骨刀（+25% 宰杀速度）。慢一档，但你不会舍不得。</summary>
+    /// <summary>骨刀（宰杀速度以 Wiki 配置为准）。慢一档，但你不会舍不得。</summary>
     BoneKnife,
 }
 
@@ -163,12 +159,23 @@ public static class ButcherStation
     };
 }
 
-/// <summary>宰杀一次的产出（主料 + 副产物；<b>可能因宰杀台的双倍产出而翻倍</b>）。</summary>
-/// <param name="MeatKey">肉的材料键（老鼠肉 / 鸟肉）。</param>
+/// <summary>一条宰杀配方的基础产出（主料 + 副产物；<b>可能因宰杀台的双倍产出而翻倍</b>）。</summary>
+public readonly record struct ButcherRecipe(
+    string Id,
+    ButcherTier Tier,
+    string QuarryKey,
+    string QuarryName,
+    string MeatKey,
+    int MeatQuantity,
+    string ByproductKey,
+    int ByproductQuantity);
+
+/// <summary>宰杀一次的结算产出（主料 + 副产物；<b>可能因宰杀台的双倍产出而翻倍</b>）。</summary>
+/// <param name="MeatKey">肉的材料键（老鼠肉 / 兔子肉 / 鸟肉）。</param>
 /// <param name="MeatQuantity">肉的数量。</param>
 /// <param name="ByproductKey">副产物材料键（碎皮革 / 羽毛）。</param>
 /// <param name="ByproductQuantity">副产物数量。</param>
-/// <param name="Doubled">这一刀有没有掷中宰杀台的 20% 双倍产出。</param>
+/// <param name="Doubled">这一刀有没有掷中宰杀台的双倍产出概率（当前值以 Wiki 配置为准）。</param>
 public readonly record struct ButcherYield(
     string MeatKey,
     int MeatQuantity,
@@ -180,53 +187,75 @@ public readonly record struct ButcherYield(
 /// <b>宰杀的判定与结算</b>（纯函数；随机走可注入的 <see cref="IRandomSource"/>，测试用 <c>SequenceRandomSource</c> 复现）。
 ///
 /// <para>═══ 🔴🔴 <b>速度加成是【加算】—— 这是对项目"百分比一律乘算"铁律的一条【显式例外】</b> ═══
-/// <b>用户原话拍板</b>：「<b>加算 ⇒ +100%（2 倍速，30 分钟）</b>」
-/// ⇒ 宰杀台(+50%) + 匕首(+50%) = <b>+100%</b> ⇒ 速度倍率 <b>2.0</b> ⇒ 1h ÷ 2.0 = <b>30 分钟</b>。
-/// <b>不是</b>乘算的 1.5 × 1.5 = 2.25（那会算出 26.7 分钟）。
+/// <b>用户原话拍板</b>：设施与刀的速度贡献采用<b>加算</b>，不是乘算；当前加成与工时以 Wiki 配置为准。
 ///
 /// <para>⚠️ <b>给下一个 agent</b>：CLAUDE.md 写着「百分比加成一律乘算，禁止加算」，你会很想"顺手修正"这里 ——
 /// <b>别改。</b> 这是用户逐条问过之后<b>明确拍板的例外</b>（同类先例：耗子的搜刮速度加成）。
 /// 乘算铁律真正要防的是<b>"没有手的人凭空获得 3% 操作能力"</b>那种**能力从零变正**的荒谬；
 /// 而这里两项加成都是<b>设备与工具的独立贡献</b>（案子更顺手 + 刀更快），它们本来就该相加。
-/// <b>有测试钉死「宰杀台 + 匕首 = 2 倍速 = 30 分钟」，改成乘算当场红。</b></para>
+/// <b>测试钉死加算规则与最终工时换算，具体期望值以 Wiki 配置为准。</b></para>
 ///
 /// <para>⚠️ <b>换算方向别搞反</b>：<b>实际耗时 = 基准耗时 ÷ 速度倍率</b>（<b>取倒数，不是减法</b>）。
-/// 60 分 ÷ 2.0 = 30 分。若写成"减 100% 时间"就会得到 0 分钟 —— 那正是这条恒等式要防的坑
+/// 工时按速度倍率取倒数换算；若写成"减去速度加成"会得到错误结果。
 /// （既有先例：<c>LootSession.EffectiveSecondsPerItem = baseSeconds / workEfficiency</c>，同一个模型）。</para></para>
 /// </summary>
 public static class ButcheryLogic
 {
-    /// <summary>基准宰杀工时（<b>用户给定</b>：1h = 60 游戏分钟；老鼠与鸟同价）。</summary>
+    /// <summary>基准宰杀工时（老鼠与鸟同价；当前值以 Wiki 配置为准）。</summary>
     public const int BaseMinutes = 60;
 
-    /// <summary>宰杀台的速度加成（<b>用户给定</b>：+50%）。<b>加算</b>。</summary>
+    /// <summary>宰杀台的速度加成（当前值以 Wiki 配置为准）。<b>加算</b>。</summary>
     public const double TableSpeedBonus = 0.50;
 
-    /// <summary>匕首的速度加成（<b>用户给定</b>：+50%）。<b>加算</b>。</summary>
+    /// <summary>匕首的速度加成（当前值以 Wiki 配置为准）。<b>加算</b>。</summary>
     public const double DaggerSpeedBonus = 0.50;
 
-    /// <summary>骨刀的速度加成（<b>用户给定</b>：+25%）。<b>加算</b>。</summary>
+    /// <summary>骨刀的速度加成（当前值以 Wiki 配置为准）。<b>加算</b>。</summary>
     public const double BoneKnifeSpeedBonus = 0.25;
 
-    /// <summary>宰杀台的双倍产出几率（<b>用户给定</b>：20%）。简易宰杀点<b>没有</b>这一条。</summary>
+    /// <summary>宰杀台的双倍产出几率（当前值以 Wiki 配置为准）。简易宰杀点<b>没有</b>这一条。</summary>
     public const double TableDoubleYieldChance = 0.20;
 
-    /// <summary>可被宰杀的猎物 → (肉, 副产物)。<b>用户给定的两条，一条不多</b>（兔子/鱼不在此列——用户没提，不引申）。</summary>
-    private static readonly IReadOnlyDictionary<string, (string Meat, string Byproduct)> _table =
-        new Dictionary<string, (string, string)>(StringComparer.Ordinal)
-        {
-            // 宰杀老鼠 → 老鼠肉*1 + 碎皮革*1
-            ["rat"] = (Materials.RatMeatKey, Materials.LeatherScrapKey),
-            // 宰杀鸟 → 鸟肉*1 + 羽毛*1   ⚠️ 键仍是 pigeon（显示名已改「鸟」，见 Materials 的注释：改名不改键）
-            ["pigeon"] = (Materials.BirdMeatKey, Materials.FeatherKey),
-        };
+    /// <summary>
+    /// 宰杀配方清单：简易宰杀点沿用老鼠/鸟两条旧工序；宰杀台使用 Wiki 新给的三条基础产出。
+    /// 声明顺序也是 Wiki 展示顺序，新条目只追加，不改已有随机流。
+    /// </summary>
+    private static readonly IReadOnlyList<ButcherRecipe> _recipes = new[]
+    {
+        new ButcherRecipe("simple_rat", ButcherTier.SimplePoint, "rat", "老鼠", Materials.RatMeatKey, 1, Materials.LeatherScrapKey, 1),
+        new ButcherRecipe("simple_pigeon", ButcherTier.SimplePoint, "pigeon", "鸟", Materials.BirdMeatKey, 1, Materials.FeatherKey, 1),
+        new ButcherRecipe("table_rat", ButcherTier.Table, "rat", "老鼠", Materials.RatMeatKey, 1, Materials.LeatherScrapKey, 2),
+        new ButcherRecipe("table_rabbit", ButcherTier.Table, "rabbit", "兔子", Materials.RabbitMeatKey, 1, Materials.LeatherScrapKey, 3),
+        new ButcherRecipe("table_pigeon", ButcherTier.Table, "pigeon", "鸟", Materials.BirdMeatKey, 1, Materials.FeatherKey, 1),
+    };
 
-    /// <summary>这只东西宰不宰得了（<b>只有老鼠和鸟</b>）。</summary>
+    private static readonly IReadOnlyDictionary<(ButcherTier Tier, string QuarryKey), ButcherRecipe> _recipesByKey =
+        _recipes.ToDictionary(r => (r.Tier, r.QuarryKey));
+
+    /// <summary>供 Wiki 抽取器使用的宰杀配方清单。</summary>
+    public static IReadOnlyList<ButcherRecipe> Recipes => _recipes;
+
+    /// <summary>按设施档和猎物键找基础宰杀配方。</summary>
+    public static ButcherRecipe? FindRecipe(ButcherTier tier, string? quarryKey)
+        => quarryKey is not null && _recipesByKey.TryGetValue((tier, quarryKey), out ButcherRecipe recipe)
+            ? recipe
+            : null;
+
+    /// <summary>这只东西在简易宰杀点能不能宰（默认查询保持旧 API 语义）。</summary>
     public static bool IsButcherable(string? quarryKey)
-        => quarryKey is not null && _table.ContainsKey(quarryKey);
+        => IsButcherable(ButcherTier.SimplePoint, quarryKey);
 
-    /// <summary>全部可宰杀的猎物键（面板列表用）。</summary>
-    public static IReadOnlyCollection<string> ButcherableKeys => (IReadOnlyCollection<string>)_table.Keys;
+    /// <summary>这只东西在指定设施档能不能宰。</summary>
+    public static bool IsButcherable(ButcherTier tier, string? quarryKey)
+        => FindRecipe(tier, quarryKey) is not null;
+
+    /// <summary>简易宰杀点可处理的猎物键（旧 API；面板应使用 <see cref="ButcherableKeysFor"/>）。</summary>
+    public static IReadOnlyCollection<string> ButcherableKeys
+        => _recipes.Where(r => r.Tier == ButcherTier.SimplePoint).Select(r => r.QuarryKey).ToArray();
+
+    /// <summary>指定设施档可处理的猎物键（面板列表用）。</summary>
+    public static IReadOnlyCollection<string> ButcherableKeysFor(ButcherTier tier)
+        => _recipes.Where(r => r.Tier == tier).Select(r => r.QuarryKey).ToArray();
 
     /// <summary>某把刀的速度加成（空槽 = 0）。</summary>
     public static double SpeedBonusOf(ButcherKnife knife) => knife switch
@@ -236,7 +265,7 @@ public static class ButcheryLogic
         _ => 0.0,
     };
 
-    /// <summary>某一档设施的速度加成（简易宰杀点 = 0，宰杀台 = +50%）。</summary>
+    /// <summary>某一档设施的速度加成（简易宰杀点无加成；其余当前值以 Wiki 配置为准）。</summary>
     public static double SpeedBonusOf(ButcherTier tier) => tier switch
     {
         ButcherTier.Table => TableSpeedBonus,
@@ -245,15 +274,14 @@ public static class ButcheryLogic
 
     /// <summary>
     /// <b>速度倍率 = 1 + 设施加成 + 刀加成</b>（🔴 <b>加算</b>，用户拍板的例外，见类注）。
-    /// <para>简易+骨刀 = 1.25 · 简易+匕首 = 1.50 · 宰杀台+骨刀 = 1.75 · <b>宰杀台+匕首 = 2.00</b>（用户点名的那个数）。</para>
+    /// <para>设施与刀的贡献相加；各组合的当前倍率以 Wiki 配置为准。</para>
     /// </summary>
     public static double SpeedMultiplier(ButcherTier tier, ButcherKnife knife)
         => 1.0 + SpeedBonusOf(tier) + SpeedBonusOf(knife);
 
     /// <summary>
-    /// <b>一刀要多少游戏分钟 = 60 ÷ 速度倍率</b>（<b>取倒数</b>，见类注的换算方向警告；四舍五入到整分钟）。
-    /// <para>简易+骨刀 48 分 · 简易+匕首 40 分 · 宰杀台+骨刀 34 分 · <b>宰杀台+匕首 30 分</b>（用户点名）。</para>
-    /// <para>空槽（<see cref="ButcherKnife.None"/>）⇒ 倍率 1.0 ⇒ 60 分，但 <see cref="CanButcher"/> 本来就不让你开工。</para>
+    /// <b>一刀工时按基准工时 ÷ 速度倍率</b>（<b>取倒数</b>，见类注的换算方向警告；四舍五入到整分钟）。
+    /// <para>各设施与刀的组合工时以 Wiki 配置为准；空槽仍不允许开工。</para>
     /// </summary>
     public static int MinutesFor(ButcherTier tier, ButcherKnife knife)
         => (int)Math.Round(BaseMinutes / SpeedMultiplier(tier, knife), MidpointRounding.AwayFromZero);
@@ -263,16 +291,21 @@ public static class ButcheryLogic
     /// <para>🔴 <b>没刀不许宰</b>（用户："一个槽位，可以放入匕首或者骨刀" ⇒ 那把刀不是加成，是<b>开工的前提</b>）。</para>
     /// </summary>
     public static bool CanButcher(ButcherKnife knife, string? quarryKey)
-        => knife != ButcherKnife.None && IsButcherable(quarryKey);
+        => CanButcher(ButcherTier.SimplePoint, knife, quarryKey);
+
+    /// <summary>指定设施档能不能开工。</summary>
+    public static bool CanButcher(ButcherTier tier, ButcherKnife knife, string? quarryKey)
+        => knife != ButcherKnife.None && IsButcherable(tier, quarryKey);
 
     /// <summary>
-    /// <b>结算一刀</b>：出肉 + 副产物；<b>宰杀台</b>额外掷一次 20% 的<b>双倍产出</b>点（简易宰杀点<b>不掷点</b>，
+    /// <b>结算一刀</b>：出肉 + 副产物；<b>宰杀台</b>额外掷一次 Wiki 配置的<b>双倍产出</b>点（简易宰杀点<b>不掷点</b>，
     /// 随机流干净——测试算例按此写）。
     /// <para>宰不了（不在白名单 / 没刀）⇒ 返回 null，<b>一次点都不掷</b>。</para>
     /// </summary>
     public static ButcherYield? Resolve(ButcherTier tier, ButcherKnife knife, string? quarryKey, IRandomSource rng)
     {
-        if (!CanButcher(knife, quarryKey) || quarryKey is null || !_table.TryGetValue(quarryKey, out var pair))
+        ButcherRecipe? recipe = FindRecipe(tier, quarryKey);
+        if (!CanButcher(tier, knife, quarryKey) || recipe is null)
         {
             return null;
         }
@@ -284,15 +317,31 @@ public static class ButcheryLogic
         }
 
         int mult = doubled ? 2 : 1;
-        return new ButcherYield(pair.Meat, 1 * mult, pair.Byproduct, 1 * mult, doubled);
+        return new ButcherYield(
+            recipe.Value.MeatKey,
+            recipe.Value.MeatQuantity * mult,
+            recipe.Value.ByproductKey,
+            recipe.Value.ByproductQuantity * mult,
+            doubled);
     }
 
     /// <summary>
     /// <b>一只猎物的期望羽毛/碎皮革产出</b>（给经济分析与护栏测试用）：
-    /// 简易宰杀点 = 1.0；宰杀台 = 1 × 0.8 + 2 × 0.2 = <b>1.2</b>（+20%）。
+    /// 基础产出与双倍产出概率按 Wiki 配置代入期望值公式。
     /// </summary>
     public static double ExpectedByproductPerQuarry(ButcherTier tier)
         => tier == ButcherTier.Table ? (1 * (1 - TableDoubleYieldChance) + 2 * TableDoubleYieldChance) : 1.0;
+
+    /// <summary>指定猎物的期望副产物数量（基础产出 × 宰杀台双倍期望）。</summary>
+    public static double ExpectedByproductPerQuarry(ButcherTier tier, string quarryKey)
+    {
+        ButcherRecipe? recipe = FindRecipe(tier, quarryKey);
+        if (recipe is null) return 0.0;
+        double multiplier = tier == ButcherTier.Table
+            ? 1.0 + TableDoubleYieldChance
+            : 1.0;
+        return recipe.Value.ByproductQuantity * multiplier;
+    }
 }
 
 /// <summary>
@@ -344,7 +393,7 @@ public static class ButcheryRuntime
 {
     /// <summary>
     /// <b>宰一只</b>：从 <paramref name="inventory"/> 扣 1 只 <paramref name="quarryKey"/>，按设施档 + 刀
-    /// 走 <see cref="ButcheryLogic.Resolve"/> 出肉 + 副产物（<b>宰杀台掷 20% 双倍</b>），产物<b>逐样真入库</b>。
+    /// 走 <see cref="ButcheryLogic.Resolve"/> 出肉 + 副产物（<b>宰杀台按 Wiki 配置掷双倍</b>），产物<b>逐样真入库</b>。
     /// <list type="bullet">
     /// <item>没刀 / 不在白名单 / 库里没有这只猎物 ⇒ 返回 null，<b>库存零变化、一次点都不掷</b>（随机流干净）。</item>
     /// <item>宰成了 ⇒ 返回本刀产出（含是否双倍），库存已同步扣猎物、加肉与副产物。</item>
@@ -354,7 +403,7 @@ public static class ButcheryRuntime
         ButcherTier tier, ButcherKnife knife, string? quarryKey, InventoryStore inventory, IRandomSource rng)
     {
         if (inventory is null
-            || !ButcheryLogic.CanButcher(knife, quarryKey)
+            || !ButcheryLogic.CanButcher(tier, knife, quarryKey)
             || quarryKey is null
             || inventory.MaterialCount(quarryKey) <= 0)
         {

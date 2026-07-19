@@ -8,7 +8,7 @@ namespace DeadSignal.Godot;
 
 /// <summary>
 /// 「南逃谢幕」结局序列的**运行时接线**（消费 <see cref="SouthEscapeEnding"/> 纯逻辑内核）。
-/// 🔴 REUSABLE：军袭结局（<see cref="TryTriggerMilitaryRaid"/>）+ 将来「40 天无限尸潮」结局共用同一序列，
+/// 🔴 REUSABLE：军袭结局（<see cref="TryTriggerMilitaryRaid"/>）+ 将来「配置时限无限尸潮」结局共用同一序列，
 /// 唯一入口 <see cref="BeginSouthEscapeEnding"/>（调用方选好南逃者 + 传触发上下文）。
 ///
 /// <para>三幕：
@@ -48,7 +48,7 @@ public sealed partial class CampMain
 
     /// <summary>
     /// 🔴 REUSABLE 入口：启动「南逃谢幕」强制终局序列。调用方选好 <paramref name="escapee"/>（军袭=随机存活者、
-    /// 将来 40 天尸潮结局同）并传 <paramref name="trigger"/> 决定屠营演出/旁白语气。幂等（进行中再调无效）。
+    /// 将来尸潮结局同）并传 <paramref name="trigger"/> 决定屠营演出/旁白语气。幂等（进行中再调无效）。
     /// </summary>
     public void BeginSouthEscapeEnding(Pawn escapee, SouthEscapeTrigger trigger)
     {
@@ -73,7 +73,7 @@ public sealed partial class CampMain
     }
 
     /// <summary>
-    /// 尸潮到期终局钩子（第 40 天 NightAct 调，由 <see cref="HordeTimeline.ShouldTriggerSiege"/> 门控）：
+    /// 尸潮到期终局钩子（配置时限到达时由 NightAct 调，由 <see cref="HordeTimeline.ShouldTriggerSiege"/> 门控）：
     /// **推翻旧"可玩无限围攻直至全灭"路由**（用户 authored）——无限丧尸踏平营地、随机一名幸存者半残南逃
     /// → 进「南逃谢幕」序列（<see cref="BeginSouthEscapeEnding"/> 传 <see cref="SouthEscapeTrigger.HordeSiege"/>，
     /// 与军袭 <see cref="TryTriggerMilitaryRaid"/> 共用同一单角色南逃谢幕，只是触发源＝丧尸、CG-A 施暴方＝丧尸）。
@@ -301,7 +301,7 @@ public sealed partial class CampMain
 
     /// <summary>
     /// 峡谷前谢幕（南逃者踏入终点区触发）：大桥未落、两哨兵冷眼——走 <see cref="EndingPanel"/> 播 CG-B 分段文本，
-    /// 播完黑屏谢幕（重新开始/退出）。REUSABLE：军袭 + 40 天尸潮结局共用此谢幕。
+    /// 播完黑屏谢幕（重新开始/退出）。REUSABLE：军袭 + 尸潮结局共用此谢幕。
     /// </summary>
     private void PlaySouthEscapeFarewell()
     {

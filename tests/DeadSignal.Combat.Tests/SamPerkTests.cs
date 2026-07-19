@@ -11,8 +11,8 @@ namespace DeadSignal.Combat.Tests;
 /// 本 perk 的独特之处 = **可倒退**：等级不由累计量推进（诺蒂靠累计阅读时长、道格靠共同存活天数，二者只增不减），
 /// 而由**实时营地人数**派生 —— 人多则升、人死则退。测试重点覆盖：
 ///   · 人数阈值升降（含"人死 → 等级倒退 → 光环消失"）；
-///   · L1 减伤只作用山姆本人；L2 负重只作用山姆本人；L3 四项作用全营（含山姆）；
-///   · 山姆死亡 → 等级归 0 → 一切效果（含全营光环）消失；
+///   · L1 负重/操作只作用山姆本人；L2 承伤/恢复只作用山姆本人；L3 震荡/流血效果只作用山姆本人；
+///   · 山姆死亡 → 等级归 0 → 一切效果消失；
 ///   · 引擎减伤层默认 0 → 既有角色零回归。
 /// </summary>
 public class SamPerkTests
@@ -48,22 +48,23 @@ public class SamPerkTests
         Assert.Equal(0, SamPerk.EvaluateLevel(0, samAlive: false));
     }
 
-    // ---------- L1：受到伤害 −10%（仅山姆本人） ----------
+    // ---------- L2：受到伤害 −10%（仅山姆本人） ----------
 
     [Fact]
-    public void Level1_DamageReduction_AppliesToSamOnly()
+    public void Level2_DamageReduction_AppliesToSamOnly()
     {
-        int lv = SamPerk.EvaluateLevel(1, samAlive: true);
-        Assert.Equal(SamPerk.Level1DamageReduction, SamPerk.IncomingDamageReduction(lv, isSam: true));
+        int lv = SamPerk.EvaluateLevel(3, samAlive: true);
+        Assert.Equal(SamPerk.Level2DamageReduction, SamPerk.IncomingDamageReduction(lv, isSam: true));
         Assert.Equal(0.0, SamPerk.IncomingDamageReduction(lv, isSam: false)); // 别人没有
+        Assert.Equal(0.0, SamPerk.IncomingDamageReduction(1, isSam: true)); // L1 尚未解锁
     }
 
     [Fact]
-    public void Level1_DamageReduction_PersistsAtHigherLevels()
+    public void Level2_DamageReduction_PersistsAtHigherLevels()
     {
         // 等级累进（同诺蒂 L3 保留 L2 自身加成、南丁格尔 L3 与 L2 叠加）：升到 2/3 级不丢 1 级的减伤。
-        Assert.Equal(SamPerk.Level1DamageReduction, SamPerk.IncomingDamageReduction(2, isSam: true));
-        Assert.Equal(SamPerk.Level1DamageReduction, SamPerk.IncomingDamageReduction(3, isSam: true));
+        Assert.Equal(SamPerk.Level2DamageReduction, SamPerk.IncomingDamageReduction(2, isSam: true));
+        Assert.Equal(SamPerk.Level2DamageReduction, SamPerk.IncomingDamageReduction(3, isSam: true));
     }
 
     [Fact]
@@ -72,33 +73,31 @@ public class SamPerkTests
         Assert.Equal(0.0, SamPerk.IncomingDamageReduction(SamPerk.EvaluateLevel(6, samAlive: false), isSam: true));
     }
 
-    // ---------- L2：负重 +15%（仅山姆本人）；L3：全营 +3%（含山姆，叠加） ----------
+    // ---------- L1：负重 +15% / 操作 +10%（仅山姆本人） ----------
 
     [Fact]
-    public void Level2_CarryBonus_SamOnly()
+    public void Level1_CarryBonus_SamOnly()
     {
-        int lv = SamPerk.EvaluateLevel(SamPerk.Level2CampPopulation, samAlive: true); // L2
-        Assert.Equal(1.0 + SamPerk.Level2CarryBonus, SamPerk.CarryCapacityMultiplier(lv, isSam: true), 6);
-        Assert.Equal(1.0, SamPerk.CarryCapacityMultiplier(lv, isSam: false), 6); // L2 时别人没有负重加成
+        int lv = SamPerk.EvaluateLevel(1, samAlive: true); // L1
+        Assert.Equal(1.0 + SamPerk.Level1CarryBonus, SamPerk.CarryCapacityMultiplier(lv, isSam: true), 6);
+        Assert.Equal(1.0, SamPerk.CarryCapacityMultiplier(lv, isSam: false), 6);
     }
 
     [Fact]
-    public void Level1_NoCarryBonus()
+    public void Level1_OperationBonus_AppliesToSamOnly()
     {
         int lv = SamPerk.EvaluateLevel(1, samAlive: true);
-        Assert.Equal(1.0, SamPerk.CarryCapacityMultiplier(lv, isSam: true), 6);
+        Assert.Equal(1.0 + SamPerk.Level1OperationBonus,
+            SamPerk.PersonalOperationCapabilityMultiplier(lv, isSam: true), 6);
+        Assert.Equal(1.0, SamPerk.PersonalOperationCapabilityMultiplier(lv, isSam: false), 6);
     }
 
     [Fact]
-    public void Level3_CarryBonus_CampWide_AndStacksMultiplicativelyForSam()
+    public void Level3_CarryBonus_RemainsPersonalOnly()
     {
         int lv = SamPerk.EvaluateLevel(SamPerk.Level3CampPopulation, samAlive: true); // L3
-        // 全营（含山姆）×1.03
-        Assert.Equal(1.03, SamPerk.CarryCapacityMultiplier(lv, isSam: false), 6);
-        // 山姆自己：L2 的 ×1.15（他自己的体格）与 L3 光环 ×1.03（他给全营的、含自己）**连乘** = ×1.1845
-        // （**不是** 加算的 1+0.15+0.03 = 1.18 —— 百分比加成一律乘算，见通则）
-        Assert.Equal(1.15 * 1.03, SamPerk.CarryCapacityMultiplier(lv, isSam: true), 6);
-        Assert.NotEqual(1.18, SamPerk.CarryCapacityMultiplier(lv, isSam: true), 6); // 防加算回潮
+        Assert.Equal(1.0, SamPerk.CarryCapacityMultiplier(lv, isSam: false), 6);
+        Assert.Equal(1.15, SamPerk.CarryCapacityMultiplier(lv, isSam: true), 6);
     }
 
     [Fact]
@@ -109,17 +108,16 @@ public class SamPerkTests
         Assert.Equal(1.0, SamPerk.CarryCapacityMultiplier(lv, isSam: false), 6);
     }
 
-    // ---------- L3 全营四项：负重 / 干活效率 / 身体恢复 / 感染上升 ----------
+    // ---------- 旧版全营光环 API 保持中性（兼容调用） ----------
 
     [Fact]
     public void Level3_Aura_WorkSpeed_HealSpeed_InfectionWorsen()
     {
         int l3 = SamPerk.EvaluateLevel(SamPerk.Level3CampPopulation, samAlive: true);
 
-        Assert.Equal(1.0 + SamPerk.AuraWorkSpeedBonus, SamPerk.CampWorkSpeedMultiplier(l3), 6);   // 干活快 3%（制作/建造/搜刮）
-        Assert.Equal(1.0 + SamPerk.AuraHealSpeedBonus, SamPerk.CampHealSpeedMultiplier(l3), 6);   // 恢复快 3%
-        Assert.Equal(1.0 - SamPerk.AuraInfectionWorsenReduction,
-            SamPerk.CampInfectionWorsenMultiplier(l3), 6);                                        // 感染条上升慢 3%
+        Assert.Equal(1.0, SamPerk.CampWorkSpeedMultiplier(l3), 6);
+        Assert.Equal(1.0, SamPerk.CampHealSpeedMultiplier(l3), 6);
+        Assert.Equal(1.0, SamPerk.CampInfectionWorsenMultiplier(l3), 6);
     }
 
     [Fact]
@@ -141,12 +139,12 @@ public class SamPerkTests
         int after = SamPerk.EvaluateLevel(5, samAlive: true);
         Assert.Equal(3, before);
         Assert.Equal(2, after);
-        Assert.Equal(1.0 + SamPerk.AuraWorkSpeedBonus, SamPerk.CampWorkSpeedMultiplier(before), 6);
+        Assert.Equal(1.0, SamPerk.CampWorkSpeedMultiplier(before), 6);
         Assert.Equal(1.0, SamPerk.CampWorkSpeedMultiplier(after), 6);
         Assert.Equal(1.0, SamPerk.CampHealSpeedMultiplier(after), 6);
         Assert.Equal(1.0, SamPerk.CampInfectionWorsenMultiplier(after), 6);
-        // 山姆本人的 L2 负重仍在（5 人 ≥ 3），只是没了 +3% 光环。
-        Assert.Equal(1.0 + SamPerk.Level2CarryBonus, SamPerk.CarryCapacityMultiplier(after, isSam: true), 6);
+        // 山姆本人的 L1 负重仍在（5 人 ≥ 3），只是没有旧版全营光环。
+        Assert.Equal(1.0 + SamPerk.Level1CarryBonus, SamPerk.CarryCapacityMultiplier(after, isSam: true), 6);
     }
 
     [Fact]
@@ -169,12 +167,51 @@ public class SamPerkTests
         Assert.Equal(2, SamPerk.EvaluateLevel(5, samAlive: true));
     }
 
+    [Fact]
+    public void Level2_HealSpeedMultiplier_IsPersonal()
+    {
+        Assert.Equal(1.0, SamPerk.PersonalHealSpeedMultiplier(1, isSam: true), 6);
+        Assert.Equal(1.0 + SamPerk.Level2HealSpeedBonus,
+            SamPerk.PersonalHealSpeedMultiplier(2, isSam: true), 6);
+        Assert.Equal(1.0, SamPerk.PersonalHealSpeedMultiplier(2, isSam: false), 6);
+    }
+
+    [Fact]
+    public void Level3_ConcussionAndLargeBleedEffects_ArePersonal()
+    {
+        Assert.Equal(1.0, SamPerk.ConcussionChanceMultiplier(2, isSam: true), 6);
+        Assert.Equal(1.0 - SamPerk.Level3ConcussionReduction,
+            SamPerk.ConcussionChanceMultiplier(3, isSam: true), 6);
+        Assert.Equal(1.0, SamPerk.ConcussionChanceMultiplier(3, isSam: false), 6);
+        Assert.True(SamPerk.DowngradesLargeBleed(3, isSam: true));
+        Assert.False(SamPerk.DowngradesLargeBleed(3, isSam: false));
+        Assert.False(SamPerk.DowngradesLargeBleed(2, isSam: true));
+    }
+
+    [Fact]
+    public void Level3_FracturePenalty_ReducesBothLimbPenaltiesByThirtyPercent()
+    {
+        double reduction = SamPerk.FracturePenaltyReduction(3, isSam: true);
+
+        // “负面影响减轻 30%”作用于惩罚缺口：
+        // 未治疗 ×0.7 → 1 - (1 - 0.7) × 0.7 = ×0.79；
+        // 治疗中 ×0.85 → 1 - (1 - 0.85) × 0.7 = ×0.895。
+        Assert.Equal(0.79, SamPerk.ApplyFracturePenaltyReduction(0.70, reduction), 9);
+        Assert.Equal(0.895, SamPerk.ApplyFracturePenaltyReduction(0.85, reduction), 9);
+
+        // 非 L3 / 非山姆不改变既有骨折系数。
+        Assert.Equal(0.70, SamPerk.ApplyFracturePenaltyReduction(
+            0.70, SamPerk.FracturePenaltyReduction(2, isSam: true)), 9);
+        Assert.Equal(0.85, SamPerk.ApplyFracturePenaltyReduction(
+            0.85, SamPerk.FracturePenaltyReduction(3, isSam: false)), 9);
+    }
+
     // ---------- 引擎：护甲后的乘算减伤层（默认 0 = 零回归） ----------
 
     private static Weapon Blade(double dmg = 10) =>
         new() { Name = "试刀", DamageMin = dmg, DamageMax = dmg, DamageType = DamageType.Sharp, Penetration = 0 };
 
-    private static BodyPart Chest() => new() { Name = "胸部", MaxHp = 40, VolumeWeight = 40 };
+    private static BodyPart Chest() => new() { Name = HumanBody.Chest, MaxHp = 40, VolumeWeight = 40 };
 
     [Fact]
     public void EngineDamageReduction_DefaultsToZero_NoRegression()
@@ -219,8 +256,8 @@ public class SamPerkTests
     public void EngineDamageReduction_BlockedByArmor_StaysZero()
     {
         // 被甲挡下（终止）→ 0 伤，减伤层不该把 0 抬成 MinLandedDamage。
-        var layer = new ArmorLayer { Name = "板甲", Slot = ArmorSlot.Plate, SharpDefense = 50, BluntDefense = 25 };
-        var rng = new SequenceRandomSource(10, 40); // 攻 10 < 防 40 的一半 → 挡下、结算终止
+        var layer = ArmorTable.Plate();
+        var rng = new SequenceRandomSource(10, 40); // 攻击 roll 低于防御 roll 的一半 → 挡下、结算终止
         CombatResult r = new CombatResolver(rng)
             .Resolve(Blade(), new[] { layer }, Chest(), incomingDamageReduction: 0.10);
         Assert.True(r.Terminated);
@@ -271,17 +308,16 @@ public class SamPerkTests
         Assert.Equal(1.0, Loadout.SpeedMultiplier(32, sam), 6);
     }
 
-    /// <summary>三级时山姆自己吃「二级 ×1.15」×「全营 ×1.03」**连乘**，上限 94.76kg（≠ 加算的 ×1.18 = 94.4kg）。</summary>
+    /// <summary>三级时山姆仍保留 L1 的个人 ×1.15 负重，上限 92kg；没有全营负重光环。</summary>
     [Fact]
     public void Loadout_SamL3_ChainsMultiplicatively_NotAdditively()
     {
         double sam = Loadout.CarryLimit(1.0, SamPerk.CarryCapacityMultiplier(3, isSam: true));
-        Assert.Equal(80.0 * 1.15 * 1.03, sam, 6);
-        Assert.Equal(94.76, sam, 2);
-        Assert.NotEqual(80.0 * 1.18, sam, 6); // 防加算回潮
+        Assert.Equal(80.0 * 1.15, sam, 6);
+        Assert.Equal(92.0, sam, 2);
 
-        // 全营光环：别人只吃 ×1.03 → 82.4kg
-        Assert.Equal(82.4, Loadout.CarryLimit(1.0, SamPerk.CarryCapacityMultiplier(3, isSam: false)), 6);
+        // 其他人没有个人加成。
+        Assert.Equal(80.0, Loadout.CarryLimit(1.0, SamPerk.CarryCapacityMultiplier(3, isSam: false)), 6);
     }
 
     // ---------- 通则：百分比加成一律**乘算**，作用于当前实际值（残疾不被加成补偿） ----------
@@ -291,17 +327,15 @@ public class SamPerkTests
     {
         int l3 = SamPerk.EvaluateLevel(SamPerk.Level3CampPopulation, samAlive: true);
 
-        // 缺小拇指 + 无名指（−7%/指）→ 操作能力 0.86。光环是 **×1.03**，不是 **+0.03**。
+        // 旧版全营光环入口现在是中性；乘算仍不会凭空给残缺者加能力。
         const double twoFingersGone = 0.86;
-        Assert.Equal(0.86 * 1.03, SamPerk.OperationCapabilityWithAura(twoFingersGone, l3), 9); // = 0.8858
-        Assert.NotEqual(0.89, SamPerk.OperationCapabilityWithAura(twoFingersGone, l3), 6);     // 加算会是 0.89 —— 把残缺补回去了
+        Assert.Equal(twoFingersGone, SamPerk.OperationCapabilityWithAura(twoFingersGone, l3), 9);
     }
 
     [Fact]
     public void OperationAura_HandlessMan_StaysAtZero()
     {
-        // 用户口径的硬核心：一个手全没了的人，操作能力就是 0。乘算下 0 × 1.03 = 0，
-        // 加算会让他凭空有 3% 操作能力 —— 荒谬。这条断言就是那道防线。
+        // 用户口径的硬核心：一个手全没了的人，操作能力就是 0。
         int l3 = SamPerk.EvaluateLevel(SamPerk.Level3CampPopulation, samAlive: true);
         Assert.Equal(0.0, SamPerk.OperationCapabilityWithAura(0.0, l3), 9);
     }
@@ -309,19 +343,18 @@ public class SamPerkTests
     [Fact]
     public void SamsOwnAura_DoesNotCompensateHisOwnMissingFingers()
     {
-        // 山姆自己缺两指（九岁救诺蒂被野狗咬掉）。他给全营的 3% 光环，对他自己也只能在**折损后的基数**上乘。
-        // 英雄有代价，代价不该被自己的光环抹掉：加成后仍**严格低于**一个健全人的裸操作能力。
+        // 当前 authored 页面只给山姆本人 L1 操作 ×1.10；旧版全营光环入口保持中性。
         int l3 = SamPerk.EvaluateLevel(SamPerk.Level3CampPopulation, samAlive: true);
         double samWithAura = SamPerk.OperationCapabilityWithAura(0.86, l3);
         Assert.True(samWithAura < 1.0, "缺两指的山姆即便吃满自己的光环，也不该达到健全人水平");
-        Assert.Equal(0.8858, samWithAura, 4);
+        Assert.Equal(0.86, samWithAura, 4);
     }
 
     [Fact]
     public void OperationAura_HealthyMan_GetsFullThreePercent()
     {
         int l3 = SamPerk.EvaluateLevel(SamPerk.Level3CampPopulation, samAlive: true);
-        Assert.Equal(1.03, SamPerk.OperationCapabilityWithAura(1.0, l3), 9); // 健全人 1.0 × 1.03
+        Assert.Equal(1.0, SamPerk.OperationCapabilityWithAura(1.0, l3), 9);
     }
 
     [Fact]
@@ -334,25 +367,34 @@ public class SamPerkTests
         }
     }
 
-    // ---------- 工时：干活效率 +3%（制作 / 建造 / 挖掘同一条工时轴） ----------
+    [Fact]
+    public void PersonalOperationBonus_MultipliesCurrentCapability()
+    {
+        const double damagedHandCapability = 0.86;
+        double actual = damagedHandCapability
+            * SamPerk.PersonalOperationCapabilityMultiplier(1, isSam: true);
+        Assert.Equal(0.86 * 1.10, actual, 9);
+        Assert.NotEqual(0.96, actual, 6); // 禁止把 +10% 当成基准值加法
+        Assert.Equal(0.0, 0.0 * SamPerk.PersonalOperationCapabilityMultiplier(1, isSam: true), 9);
+    }
+
+    // ---------- 工时：旧版全营操作光环保持中性 ----------
 
     [Fact]
     public void WorkSpeed_Aura_SpeedsUpCraftingAndDigging()
     {
-        // 工时轴（CraftingJob / RubbleSite）吃的是"本次流逝分钟"，光环把流逝分钟放大 3%。
-        // 调用方按现成的小数预算模式（CampMain._craftMinuteBudget）累积余数，此处只锁乘子语义：
-        // 100 分钟的活，在 L3 光环下等效投入 103 分钟工时。
+        // 当前 authored 页面没有山姆全营工时加成，保留旧入口但不得改变工时。
         double mult = SamPerk.CampWorkSpeedMultiplier(3);
         var job = new CraftingJob("test_recipe", totalWorkMinutes: 103);
         job.Advance((int)(100 * mult), canWork: true);
-        Assert.True(job.IsComplete, "L3 光环下 100 分钟应推满 103 工时的活");
+        Assert.False(job.IsComplete, "旧版全营工时入口保持中性");
 
         var plain = new CraftingJob("test_recipe", totalWorkMinutes: 103);
         plain.Advance((int)(100 * SamPerk.CampWorkSpeedMultiplier(2)), canWork: true);
         Assert.False(plain.IsComplete, "无光环时 100 分钟推不满 103 工时");
     }
 
-    // ---------- 健康：身体恢复 +3% / 感染条上升 −3% ----------
+    // ---------- 健康：山姆本人 L2 恢复 ×1.30；旧版全营感染入口中性 ----------
 
     private static IRandomSource NoInfectionRng()
         => new SequenceRandomSource(System.Linq.Enumerable.Repeat(1.0, 16).ToArray());
@@ -376,7 +418,7 @@ public class SamPerkTests
     }
 
     [Fact]
-    public void Level3_Aura_SpeedsUpHealing()
+    public void Level2_Personal_SpeedsUpHealing()
     {
         var plain = new HealthConditionSet();
         var cp = new HealthCondition(HealthConditionType.Bleeding, 0.5, "右手", onLimb: true);
@@ -392,11 +434,11 @@ public class SamPerkTests
         aura.PerformSurgery(cs, materials: null, onBed: false, new SequenceRandomSource(13));
         double beforeAura = cs.Severity;
         aura.TickDay(NoInfectionRng(), resting: false,
-            healSpeedMultiplier: SamPerk.CampHealSpeedMultiplier(3));
+            healSpeedMultiplier: SamPerk.PersonalHealSpeedMultiplier(2, isSam: true));
         double auraHeal = beforeAura - cs.Severity;
 
         Assert.True(plainHeal > 0);
-        Assert.Equal(plainHeal * (1.0 + SamPerk.AuraHealSpeedBonus), auraHeal, 9); // 恢复速度 ×1.03
+        Assert.Equal(plainHeal * (1.0 + SamPerk.Level2HealSpeedBonus), auraHeal, 9); // 恢复速度 ×1.30
     }
 
     [Fact]
@@ -416,7 +458,7 @@ public class SamPerkTests
     }
 
     [Fact]
-    public void Level3_Aura_SlowsInfectionWorsening()
+    public void Legacy_CampInfectionWorsen_IsNeutral()
     {
         var plain = new HealthConditionSet();
         var ip = new HealthCondition(HealthConditionType.Infection, 0.2, "左手", onLimb: true);
@@ -432,11 +474,11 @@ public class SamPerkTests
         double auraGain = ia.Severity - 0.2;
 
         Assert.True(plainGain > 0);
-        Assert.Equal(plainGain * (1.0 - SamPerk.AuraInfectionWorsenReduction), auraGain, 9); // 上升速度 ×0.97
+        Assert.Equal(plainGain, auraGain, 9);
     }
 
     [Fact]
-    public void Level3_Aura_StacksWithMedicineWorsenMultiplier()
+    public void Legacy_CampInfectionWorsen_DoesNotAlterMedicine()
     {
         // 与用药的 WorsenMultiplier 是**两个独立乘子**（药压得多、光环再压一点），不互相吞。
         Medicine herbal = MedicineCatalog.For("herbal_salve")!.Value;
@@ -454,6 +496,6 @@ public class SamPerkTests
             campWorsenMultiplier: SamPerk.CampInfectionWorsenMultiplier(3));
         double bothGain = ib.Severity - 0.2;
 
-        Assert.Equal(medGain * (1.0 - SamPerk.AuraInfectionWorsenReduction), bothGain, 9);
+        Assert.Equal(medGain, bothGain, 9);
     }
 }

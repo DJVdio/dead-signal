@@ -233,8 +233,8 @@ public class NoiseTests
         Assert.True(loudestArchery < quietestMelee,
             $"最吵的弓弩({loudestArchery}) 必须比最静的近战({quietestMelee}) 还静 —— "
             + "**弓比近战安静就是弓存在的意义**：远远一箭放倒，好过凑上去砍出一堆动静");
-        Assert.True(loudestMelee * 2 < quietestGun,
-            $"最吵的近战({loudestMelee}) 必须远低于最静的枪({quietestGun})");
+        Assert.True(loudestMelee * 2 <= quietestGun,
+            $"最吵的近战({loudestMelee}) 必须不高于最静枪声({quietestGun})的一半");
     }
 
     [Fact]

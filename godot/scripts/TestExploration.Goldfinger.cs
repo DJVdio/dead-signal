@@ -23,7 +23,7 @@ public sealed partial class TestExploration
     /// 金手指帮根据地守备布防。
     ///
     /// <para>🔴 <b>他们是人，不是丧尸</b>（用户澄清：「金手指帮是人，不是丧尸，不过他们刚经历完异常战斗，
-    /// 大家的状态都不是巅峰」）。此前这 8 个"守备"生成的是 <c>Zombie</c> ⇒ 丧尸不持械 ⇒
+    /// 大家的状态都不是巅峰」）。此前据点守备生成的是 <c>Zombie</c> ⇒ 丧尸不持械 ⇒
     /// <b>打赢金手指帮一把武器都捡不到</b>，而这本该是玩家最重要的装备通道。</para>
     ///
     /// <para>改成 <see cref="Raider"/> 后三样东西<b>全部白拿、零新规则</b>：
@@ -80,6 +80,8 @@ public sealed partial class TestExploration
     /// </summary>
     private void SetupGoldfingerCorpseDiscoveries()
     {
+        SetupGoldfingerStructures();
+
         AddDiscoveryPoint(
             GoldfingerDiscovery.GangMemberCorpseId,
             new Vector2(1150, 350),
@@ -109,5 +111,22 @@ public sealed partial class TestExploration
         AddCachePoint(ExplorationCache.GoldfingerBossSafeId, new Vector2(1850f, 250f), "头目保险柜");
         AddCachePoint(ExplorationCache.GoldfingerSilverCacheId, new Vector2(2010f, 180f), "银库暗格");
         AddCachePoint(ExplorationCache.GoldfingerBossMedkitId, new Vector2(1750f, 480f), "头目急救箱");
+    }
+
+    /// <summary>
+    /// 金手指帮据点外围的空间实体：围栏是 authored 静态屏障，寨门走关内门的通用链。
+    /// <see cref="ExplorationWalls.GoldfingerFences"/> 与 <see cref="ExplorationWalls.GoldfingerDoors"/>
+    /// 是几何唯一事实源；门会自动登记到 CampMain 的右键前往/撬锁菜单，开门时同样走导航洞与
+    /// [SPEC-T60] 门后激活入口。围栏档位保留在纯逻辑表，后续补探索关结构损坏消费时无需重铺地图。
+    /// </summary>
+    private void SetupGoldfingerStructures()
+    {
+        var fenceColor = new Color(0.25f, 0.20f, 0.16f, 0.98f);
+        foreach (ExplorationFence fence in ExplorationWalls.GoldfingerFences())
+            AddSolidWall(fence.Rect, fenceColor, zIndex: -4);
+
+        var gateColor = new Color(0.38f, 0.32f, 0.24f, 0.98f);
+        foreach (ExplorationDoor door in ExplorationWalls.GoldfingerDoors())
+            AddLevelDoor(door, gateColor);
     }
 }

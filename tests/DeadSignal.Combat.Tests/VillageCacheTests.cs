@@ -102,6 +102,6 @@ public class VillageCacheTests
     public void Village_IsLargeTier_Label()
     {
         // 南林村庄定级＝大（site-tiers 代填 Tier=Large；此处锁文案口径，Destination.Tier 由 WorldMapPanel 持有）。
-        Assert.Equal("大·约5天+", ExplorationProgress.TierLabel(SizeTier.Large));
+        Assert.Equal("大", ExplorationProgress.TierLabel(SizeTier.Large));
     }
 }

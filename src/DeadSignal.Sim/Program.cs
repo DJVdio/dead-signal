@@ -19,7 +19,7 @@ using DeadSignal.Combat;
 //   userplan [p]        → [批次18补] 锐器降下限/钝器提伤 what-if（⚠️ **追加**写入，默认与 weaponsweep 同路径）
 //   bleedcal [p]        → 流血轴复验（锯齿剑刃梯度）
 //   shotgun [p]         → 自制霰弹枪多弹丸校准
-//   archery [p]         → 弓弩 8×4 组合校准
+//   archery [p]         → 弓弩组合校准
 //   zombiecloth [p]     → 丧尸穿「生前的破衣服」前后对比（挡下率 0% → ?、玩家胜率变化）
 //   wallcal [p]         → 围墙/大门破防校准
 //   goldfinger          → 金手指帮之战（胜率 + 代价）
@@ -171,12 +171,12 @@ string outPath = args.Length > 0
     ? args[0]
     : "docs/research/2026-07-05-combat-sim-v2.md";
 
-// ---- 武器表（权威数据源 WeaponTable；穿透/类型来自设计文档第 5 节，伤害区间拟定待调）----
+// ---- 武器表（数值来自 Wiki 配置，经 WeaponTable 投影）----
 var weapons = WeaponTable.Arsenal().ToList();
 
-// ---- 护甲层（权威数据源 ArmorTable = 数据表『护甲表』[SPEC-B18]）----
+// ---- 护甲层（数值来自 Wiki 配置，经 ArmorTable 投影）----
 // 三档甲组按"层"叠穿（贴身/外套/护甲层各一件），覆盖部位以表为准——护甲不再全身覆盖，
-// 头/手/脚等未覆盖部位为裸命中，故甲组的实际减伤低于其防御值字面量。
+// 头/手/脚等未覆盖部位为裸命中。
 var combos = new List<(string Name, ArmorLayer[] Layers)>
 {
     ("无甲", Array.Empty<ArmorLayer>()),
@@ -270,8 +270,8 @@ sb.AppendLine("# Dead Signal 战斗数值基线 v2（蒙特卡洛）");
 sb.AppendLine();
 sb.AppendLine(CultureInfo.InvariantCulture, $"日期：2026-07-05　样本：每组合 {Iterations:N0} 次　种子：{seed}");
 sb.AppendLine();
-sb.AppendLine("> 武器伤害区间、护甲防御值、效果概率系数、部位 HP/命中权重均为原型期**拟定值待调**（穿透/伤害类型来自设计文档第 5 节）。");
-sb.AppendLine("> 护甲组合（从外到内）：板甲(锐50/钝25，护躯干+双臂+双腿) → 粗布外套(锐6/钝3，护胸腹双臂) → 长袖布衣(锐6/钝3，护胸腹双臂)。**头/手/脚不在覆盖内**（[SPEC-B18] 覆盖收窄）。");
+sb.AppendLine("> 可调数值与覆盖部位均来自 Wiki 配置表；本报告不复制配置数值。");
+sb.AppendLine("> 护甲组合（从外到内）：板甲 → 粗布外套 → 长袖布衣；未覆盖部位不计护甲。");
 sb.AppendLine("> 命中部位按人体细部位表体积加权随机分配（躯干/头/四肢/手脚/眼/鼻/下巴）。效果打在满血人体上统计。");
 sb.AppendLine("> **远程武器（⌖）期望伤害假设弹道命中**——几何误差角 miss 不在本模拟范围（属实时层）。");
 sb.AppendLine();
@@ -322,7 +322,7 @@ sb.AppendLine(CultureInfo.InvariantCulture,
 sb.AppendLine(CultureInfo.InvariantCulture,
     $"5. **高穿透碾压多层甲**：狙击枪满甲期望穿透层数 {Get("狙击枪", "板甲+粗布外套+长袖布衣").ExpectedPenLayers:F2}（满层=3）、期望伤害 {Get("狙击枪", "板甲+粗布外套+长袖布衣").ExpectedDamage:F2}，与匕首满甲 {Get("匕首", "板甲+粗布外套+长袖布衣").ExpectedDamage:F2} 形成数量级差，弹药稀缺是唯一约束——需靠掉落/上弹时间限制。");
 sb.AppendLine();
-sb.AppendLine("> 效果概率系数（流血 k=1.0/cap0.9、骨折 k=0.8/cap0.6、震荡头 k=0.9/cap0.85、震荡躯干 k=0.25/cap0.4）与部位 HP 均拟定待调；上表用于校准方向，非终值。");
+sb.AppendLine("> 效果参数与部位属性来自 Wiki 配置；上表用于校准方向，不作为配置真源。");
 
 var report = sb.ToString();
 SimReport.Write(outPath, report); // 出处戳 + 落盘（含建目录）

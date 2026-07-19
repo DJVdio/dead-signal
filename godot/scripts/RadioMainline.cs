@@ -18,9 +18,9 @@ namespace DeadSignal.Godot;
 //     ★「军袭事件本体不实装（CampMain 留 TODO 挂点 + 安全 no-op）」**亦已失效**：本体已实装并接线——
 //       CampMain.TryTriggerMilitaryRaid（CampMain.cs:7077，每日黎明经 CampMain.cs:5162 调）消费本类
 //       TryFireMilitaryRaidHook → SouthEscapeEnding.SelectEscapee → CampMain.BeginSouthEscapeEnding(…, MilitaryRaid)。
-//     ★回复军方后尸潮时限**不冻结**：回复日+2 军袭先到、40 天尸潮更晚，无需 EndgameFreezeFlag（此处不置，仅注明）。
+//     ★取得发出设备、抵达终局抉择点时即冻结尸潮时限；回复军方后由军袭结局流程接管。
 //   · 已呼叫南方 → 置**南逃线 flag**（结局③，唯一生路：南方求救→临时开放"前往峡谷的路"→考验→带少量物资南逃，
-//     后续 authored）。南逃线亦**不冻结**尸潮时限：南逃须抢在第 40 天尸潮前完成（紧迫感即卖点，用户拍板）。
+//     后续 authored）。尸潮时限仍保持冻结，由南逃结局流程接管。
 //
 // 两个终态**互斥且不可逆**（终局岔口）：一旦回复军方或呼叫南方，状态机停在该终态，不再推进。
 // 状态只存在 StoryFlags 的字符串里（引擎无整数字段）：这里只做"读值→判定→写值"，不碰 Godot、可单测。
@@ -133,32 +133,35 @@ public static class RadioMainline
 
     /// <summary>
     /// 在广播台取得发出设备：推进到 HasTransmitter（rank 跳升，即使未先收听也可——设备由探索取得）。
+    /// 此阶段即终局抉择点：同步置 <see cref="HordeTimeline.EndgameFreezeFlag"/>，此后尸潮时限与到期围攻由结局流程接管。
     /// 已持设备或已进终态则无操作（不降级、不覆盖终局抉择）。返回是否发生了推进（首次取得）。
     /// </summary>
     public static bool GrantTransmitter(StoryFlags flags)
     {
         if (flags == null || Stage(flags) >= RadioMainlineStage.HasTransmitter) return false;
         flags.Set(StageKey, DeviceValue);
+        flags.Set(HordeTimeline.EndgameFreezeFlag, "true");
         return true;
     }
 
     /// <summary>
     /// 抉择：回复军方（结局②岔口）。仅 <see cref="RadioMainlineStage.HasTransmitter"/> 可选（须持设备、未做过终局抉择）。
     /// 成功则置终态 RepliedMilitary 并记录回复日 <paramref name="currentDay"/>（军袭期满 = 回复日 + <see cref="MilitaryRaidDelayDays"/>）。
-    /// 返回是否成功推进（非持设备态/已抉择 → false，什么都不做）。★不置 EndgameFreezeFlag：尸潮时限照走（军袭先到）。
+    /// 返回是否成功推进（非持设备态/已抉择 → false，什么都不做）。终局抉择点已置的尸潮冻结保持不变。
     /// </summary>
     public static bool ReplyToMilitary(StoryFlags flags, int currentDay)
     {
         if (flags == null || Stage(flags) != RadioMainlineStage.HasTransmitter) return false;
         flags.Set(StageKey, RepliedValue);
         flags.Set(ReplyDayKey, currentDay.ToString());
+        flags.Set(HordeTimeline.EndgameFreezeFlag, "true"); // 含南方失败后重新入结局流程
         return true;
     }
 
     /// <summary>
     /// 抉择：呼叫南方营地（结局③岔口，唯一生路）。仅 <see cref="RadioMainlineStage.HasTransmitter"/> 可选。
     /// 成功则置终态 CalledSouth + 开启南逃线 <see cref="SouthEscapeOpenFlag"/>（后续 authored 流程读它）。
-    /// 返回是否成功推进。★不置 EndgameFreezeFlag：南逃须抢在第 40 天尸潮前完成。
+    /// 返回是否成功推进。终局抉择点已置的尸潮冻结保持不变，由南逃结局流程接管。
     /// </summary>
     public static bool CallSouth(StoryFlags flags)
     {
@@ -166,6 +169,7 @@ public static class RadioMainline
         if (flags.Has(SouthRefusedFlag)) return false; // 南方已拒（三问失败过）：不可再呼叫南方
         flags.Set(StageKey, CalledSouthValue);
         flags.Set(SouthEscapeOpenFlag, "true");
+        flags.Set(HordeTimeline.EndgameFreezeFlag, "true");
         return true;
     }
 
@@ -174,7 +178,8 @@ public static class RadioMainline
     /// <see cref="RadioMainlineStage.HasTransmitter"/>（回复军方重新可达），并置 <see cref="SouthRefusedFlag"/>
     /// （南方已拒，不可再呼叫南方）+ 清 <see cref="SouthEscapeOpenFlag"/>（南逃线关闭）。
     /// 仅 CalledSouth 可退回（非该终态 → false，什么都不做）。返回是否发生退回。
-    /// ★不结束游戏：调用方失败后继续游戏，玩家可回复军方（→军袭坏结局）或死守（→第 40 天尸潮）。
+    /// 同时清 <see cref="HordeTimeline.EndgameFreezeFlag"/>：结局流程已退回，世界尸潮时限恢复。
+    /// ★不结束游戏：调用方失败后继续游戏，玩家可回复军方（→军袭坏结局）或死守（→到期尸潮）。
     /// </summary>
     public static bool ReopenAfterSouthFailure(StoryFlags flags)
     {
@@ -182,6 +187,7 @@ public static class RadioMainline
         flags.Set(StageKey, DeviceValue);        // 退回持设备态，抉择入口重新可用
         flags.Set(SouthRefusedFlag, "true");     // 南方已拒，CallSouth 从此被 guard 挡下
         flags.Set(SouthEscapeOpenFlag, null);    // 南逃线关闭（清 flag）
+        flags.Set(HordeTimeline.EndgameFreezeFlag, null); // 结局流程退回：世界时限恢复
         return true;
     }
 

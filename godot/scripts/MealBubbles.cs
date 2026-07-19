@@ -13,12 +13,12 @@ namespace DeadSignal.Godot;
 
 /// <summary>
 /// 聚餐吃饭动画期间"某进食者这一条世界内气泡是否播出"的纯规则（坐 vs 站）。
-/// 用户拍板：站着吃聊天气泡触发概率 −50%（玩家可能因此错过一些线索/支线）——漏听惩罚由概率承载。
+/// 用户拍板：站着吃聊天气泡触发概率按 Wiki 配置降低（玩家可能因此错过一些线索/支线）——漏听惩罚由概率承载。
 /// 坐着按基础概率、站着按基础 × 系数掷一次。数值"拟定待调"。随机走可注入 <see cref="IRandomSource"/>。
 /// </summary>
 public static class MealBubbleDelivery
 {
-    /// <summary>站着吃相对坐着的气泡触发概率系数（−50% → 0.5）。拟定待调。</summary>
+    /// <summary>站着吃相对坐着的气泡触发概率系数；当前值以 Wiki 配置为准。</summary>
     public const double StandingBubbleFactor = 0.5;
 
     /// <summary>坐着吃时一条气泡播出的基础概率（1 = 坐着必播，漏听只发生在站着）。拟定待调。</summary>

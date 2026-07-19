@@ -1,4 +1,5 @@
 using System.Linq;
+using DeadSignal.Combat;
 using DeadSignal.Godot;
 using Xunit;
 
@@ -235,5 +236,24 @@ public class ExplorationCacheTests
     {
         foreach (string id in ExplorationCache.CacheIdsFor(ExplorationCache.GoldfingerBaseName))
             Assert.NotNull(ExplorationCache.Resolve(id, new StoryFlags()));
+    }
+
+    [Fact]
+    public void GoldfingerArmory_SniperRifleRemoved_MovedToMerchantSystem()
+    {
+        CacheResult result = Assert.IsType<CacheResult>(
+            ExplorationCache.Resolve(ExplorationCache.GoldfingerArmoryId, new StoryFlags()));
+
+        // 狙击枪已从军械柜移除（改为神秘商人体系），不应再出现在此处。
+        Assert.DoesNotContain(result.Loot, loot =>
+            loot.Kind == LootKind.Weapon && loot.RefId == WeaponTable.SniperRifle().Name);
+
+        // 冲锋枪仍在（帮派招牌火力）。
+        Assert.Contains(result.Loot, loot =>
+            loot.Kind == LootKind.Weapon && loot.RefId == WeaponTable.Smg().Name);
+
+        // 长子弹保持 2 发（全表最稀有，稀缺梯度不变）。
+        Assert.Contains(result.Loot, loot =>
+            loot.Kind == LootKind.Material && loot.RefId == "ammo_long" && loot.Quantity == 2);
     }
 }

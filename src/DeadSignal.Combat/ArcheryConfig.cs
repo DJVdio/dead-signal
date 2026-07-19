@@ -7,7 +7,7 @@ namespace DeadSignal.Combat;
 
 /// <summary>
 /// 弓弩数值段：<c>archery.json</c>。<b>照 <see cref="WeaponConfig"/> 范式</b>，但载荷不是一张裸字典——
-/// 它同时装两类数据：①<see cref="Arrows"/>（4 种箭 <see cref="ArrowDef"/>，<c>materialKey → 箭</c>）；
+/// 它同时装两类数据：①<see cref="Arrows"/>（箭定义 <see cref="ArrowDef"/>，<c>materialKey → 箭</c>）；
 /// ②一组<b>射手/弓弩全局可调常量</b>（穿透封顶、散布下限、箭矢回收率、《弓与箭之道》三项被动加成）。
 /// <para>
 /// 🔴 <b>弓/弩本身不在这里</b>——那 8 把是 <see cref="Weapon"/>，早已随 weapons.json 外置（config-skeleton 单）。
@@ -27,22 +27,22 @@ public sealed class ArcheryConfig : IConfigSection
     /// <summary>散布角 clamp 下限（度）——不许任何 弓×箭 组合变「绝对精准」。</summary>
     public double MinSpreadDegrees { get; init; }
 
-    /// <summary>箭矢回收率·基础（射出四支捡回一支）。</summary>
+    /// <summary>箭矢回收率·基础，具体值由 Wiki 配置提供。</summary>
     public double BaseArrowRecoveryRate { get; init; }
 
-    /// <summary>箭矢回收率·读过《弓与箭之道》后（翻倍）。</summary>
+    /// <summary>箭矢回收率·读过《弓与箭之道》后，具体值由 Wiki 配置提供。</summary>
     public double SkilledArrowRecoveryRate { get; init; }
 
-    /// <summary>《弓与箭之道》·射程加成（[T68] 已中和为 1.0）。</summary>
+    /// <summary>《弓与箭之道》·射程加成（[T68] 已中和，具体值由 Wiki 配置提供）。</summary>
     public double BookRangeMult { get; init; }
 
-    /// <summary>《弓与箭之道》·弹道速度加成（[T68] ×1.2）。</summary>
+    /// <summary>《弓与箭之道》·弹道速度加成，具体值由 Wiki 配置提供。</summary>
     public double BookFlightSpeedMult { get; init; }
 
-    /// <summary>《弓与箭之道》·散布（锥形角）加成（−10% ⇒ ×0.90）。</summary>
+    /// <summary>《弓与箭之道》·散布（锥形角）加成，具体值由 Wiki 配置提供。</summary>
     public double BookSpreadMult { get; init; }
 
-    /// <summary>《弓与箭之道》·攻速加成（+2% ⇒ ×1.02；出手间隔的倒数在 <see cref="Archery.BookCooldownMult"/> 现算）。</summary>
+    /// <summary>《弓与箭之道》·攻速加成；出手间隔的倒数在 <see cref="Archery.BookCooldownMult"/> 现算。</summary>
     public double BookAttackSpeedMult { get; init; }
 
     /// <summary>4 种箭：材料键 → 箭定义。archery.json 里 <c>Arrows</c> 这张字典。</summary>

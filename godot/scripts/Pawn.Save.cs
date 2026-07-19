@@ -52,6 +52,8 @@ public sealed partial class Pawn
         RestPhases = Rest.PhasesCounted,
         RestRestPhases = Rest.RestPhases,
         RestBedPhases = Rest.BedPhases,
+
+        SeveredBackpack = _severedBackpackItems.ToList(),
     };
 
     /// <summary>
@@ -86,6 +88,13 @@ public sealed partial class Pawn
         // [批次21·impl-bedrest] 卧床令 + 当日休养流水账。床位占用是营地级的（CampSave.BedOccupancy），不在这儿。
         BedrestOrdered = s.BedrestOrdered;
         Rest.Restore(s.RestPhases, s.RestRestPhases, s.RestBedPhases);
+
+        // 断肢背包：清空再填入存档值（幂等，读档时是全新 Pawn）。
+        _severedBackpackItems.Clear();
+        if (s.SeveredBackpack is { Count: > 0 })
+        {
+            _severedBackpackItems.AddRange(s.SeveredBackpack);
+        }
 
         // 护甲**数值层**是派生缓存（穿戴态 + 护甲表 → 层），不进存档——存了反而会和护甲表打架。
         // 穿戴态摆回来之后，照着它把缓存重建一次，再投影出生效战斗数据。

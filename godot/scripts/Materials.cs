@@ -101,8 +101,8 @@ public static class Materials
     private static readonly IReadOnlyList<MaterialDef> _all = new[]
     {
         new MaterialDef("wood", "木料", "树的尸体。", MaterialCategory.Wood),
-        // [批次20·拆除回收] 废木料：拆木结构掉出来的碎料（用户拍板：拆 16 木料的东西 → 4 木料 + 4 废木料）。
-        // 它**盖不了任何东西**——得先在锯片工作台上用胶水粘回木料（配方 wood_from_scrap）。木材那"另外 25%"就压在这堆碎料里。
+        // [批次20·拆除回收] 废木料：拆木结构掉出来的碎料；具体回收比例以 Wiki 配置为准。
+        // 它**盖不了任何东西**——得先在锯片工作台上用胶水粘回木料（配方 wood_from_scrap）。
         new MaterialDef("scrap_wood", "废木料", "拆下来的断料、劈裂的板子、带钉眼的短头。单看哪一块都不成器，可你手里也没别的了。", MaterialCategory.Wood),
         // 布：整幅好布与撕下的碎布不再区分（用户拍板）——末日里没人挑剔布的出身，能缝上就行。
         new MaterialDef("cloth", "布", "“扯一块好布，奶奶给你做新衣裳”——奶奶", MaterialCategory.Cloth),
@@ -167,6 +167,12 @@ public static class Materials
         // **只能搜刮**（军械/机修点位，见 ExplorationCache）。**未来可考虑「拆枪回收零件」**——
         // 那是一套全新机制（拆武器回收），本单没做，要做另开一单。
         new MaterialDef(WeaponPartsKey, "武器零件", "弩机、扳机组、几片淬过火的簧——造枪的人早死绝了，留下的这些小东西还硬邦邦地不肯锈。你造不出它们，只能指望别人也没找到。", MaterialCategory.Component),
+
+        // [wiki-character-sync] 损坏的狙击枪：神秘商人独家货品，经维修指南+武器零件可修复成完好的狙击枪。
+        // 是一个"想当狙击手，先过神秘商人那关"的门槛。它是整件损坏装备，不属于三味精密零件。
+        // 重量约等于完好的狙击枪（9.0kg），但损坏件略轻（部分零件已缺失/损坏），为方便提携[draft]。
+        // 🔴 定价 [DECISION]：材料成本是它本身的购入价与维修附加（武器零件），不反映最终武器的战力。
+        new MaterialDef(DamagedSniperRifleKey, "损坏的狙击枪", "枪管是好的，枪机却卡死了，瞄具镜片裂了几道。它不再是武器了，只是个念想——除非你找得到能修它的人。", MaterialCategory.Misc),
         // —— [批次18] 弹药四种（用户拍板：短/中/长子弹 + 鹿弹；键对齐引擎 AmmoKeys）——
         // **稀缺梯度写在制作比里**（用户拍板）：1 个子弹零件 → 短 8 / 中 5 / 鹿 4 / 长 2 发。
         // 越强的枪，同一份原料能喂它的次数越少。枪的强度现在完全由这四行的供给量决定。
@@ -210,6 +216,9 @@ public static class Materials
         new MaterialDef("flour", "面粉", "一袋面粉。", MaterialCategory.Food),
         new MaterialDef("potato", "土豆", "他妈的！土在哪！！！", MaterialCategory.Food),
         new MaterialDef("mushroom", "蘑菇", "你认得这一种，你最好确定你认得这一种。", MaterialCategory.Food),
+        // [Wiki 新增·尖峰时刻·三] 读书后才能认出的野外食材；描述不透露热量。
+        new MaterialDef("kudzu_root", "葛根", "埋在土里的根，挖出来时沾着一股清苦的土腥味。", MaterialCategory.Food),
+        new MaterialDef("rhubarb", "大黄", "叶子比想象中宽，根比想象中苦。至少这次你认对了。", MaterialCategory.Food),
 
         // ════════════════ [T67] 宰杀链的四样新材料（**追加末尾不插队**，Sim 随机流纪律）════════════════
         //
@@ -224,6 +233,9 @@ public static class Materials
 
         // 鸟肉：热量点 **5**，同样原样继承自「鸟」（原「鸽子」）。
         new MaterialDef("bird_meat", "鸟肉", "两条细腿，一小块胸脯。", MaterialCategory.Food),
+
+        // 兔子肉：宰杀台的产物，热量点原样继承自整只兔子（11 点）。
+        new MaterialDef("rabbit_meat", "兔子肉", "剥下来的兔肉。兔兔这么可爱，吃起来倒是很顶饱。", MaterialCategory.Food),
 
         // 羽毛：**箭的尾羽**。三种箭全都吃它（用户在 wiki 上亲手改的），也就是说——
         // **没有鸟，就没有箭**。弓不是靠木头喂活的，是靠一张网和一把刀。
@@ -249,6 +261,15 @@ public static class Materials
     /// <summary>鸟肉的材料标识键 —— 宰杀鸟的主产物（5 热量点，继承自鸟）。</summary>
     public const string BirdMeatKey = "bird_meat";
 
+    /// <summary>兔子肉的材料标识键 —— 宰杀台宰杀兔子的主产物（11 热量点，继承自兔子）。</summary>
+    public const string RabbitMeatKey = "rabbit_meat";
+
+    /// <summary>葛根的材料标识键——读《尖峰时刻·三》后可在野外交互采集。</summary>
+    public const string KudzuRootKey = "kudzu_root";
+
+    /// <summary>大黄的材料标识键——读《尖峰时刻·三》后可在野外交互采集。</summary>
+    public const string RhubarbKey = "rhubarb";
+
     /// <summary>
     /// [T46] 铁的材料标识键 —— 金属加工的**唯一**原料（钉子/铁丝/武器零件是另算的成品件，不由它派生）。
     /// <para>
@@ -273,6 +294,9 @@ public static class Materials
     /// 制作比（1 个 → N 发）见 <c>BulletParts.YieldPer</c>：短 8 / 中 5 / 鹿 4 / 长 2。
     /// </summary>
     public const string BulletPartsKey = "bullet_parts";
+
+    /// <summary>损坏的狙击枪标识键 —— 神秘商人独家货品，修复后成完好的狙击枪。</summary>
+    public const string DamagedSniperRifleKey = "damaged_sniper_rifle";
 
     /// <summary>
     /// [批次21·T26] 武器零件标识键 —— **两把弩的 defining 材料**（单手轻弩 2 / 双手重弩 3，见 <see cref="RecipeBook"/>）。

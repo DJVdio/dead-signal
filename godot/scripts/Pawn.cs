@@ -25,6 +25,44 @@ public sealed partial class Pawn : Actor
     /// </summary>
     public bool Stationing { get; set; }
 
+    // 营地岗哨运行时态：相位由 CampMain 每夜每个岗位只掷一次，Pawn 只按确定性波形转向。
+    // 使用 Numerics 坐标，避免让纯逻辑 SentryLogic 引入 Godot 类型。
+    private SentryPost? _guardDutyPost;
+    private SentrySweep _guardDutySweep = SentrySweep.Default;
+    private double _guardDutyElapsed;
+    /// <summary>敌袭已经进入实时战斗时由 CampMain 置 true；此时玩家移动/瞄准完全接管，不跑驻守取消逻辑。</summary>
+    public bool GuardCombatControlEnabled { get; set; }
+
+    /// <summary>正前往生产设施；到位后 Producing 会钉在设施前，避免接受其它移动令。</summary>
+    public bool ProducingStationing { get; set; }
+    /// <summary>敌袭战斗期间临时放行生产者参战；工时因离台/有战斗目标自动暂停。</summary>
+    public bool ProductionCombatControlEnabled { get; set; }
+
+    /// <summary>
+    /// 开始站岗：先走向岗位；到岗后按既定相位自动左右巡查。非战斗时不需要玩家逐个转头。
+    /// </summary>
+    public void BeginGuardDuty(Vector2 standPosition, float facingRadians, double sweepPhaseSeconds,
+        SentrySweep? sweep = null)
+    {
+        _guardDutyPost = new SentryPost(
+            new System.Numerics.Vector2(standPosition.X, standPosition.Y),
+            facingRadians,
+            sweepPhaseSeconds);
+        _guardDutySweep = sweep ?? SentrySweep.Default;
+        _guardDutyElapsed = 0.0;
+        GuardCombatControlEnabled = false;
+        Stationing = true;
+    }
+
+    /// <summary>结束站岗并清除岗位、扫视时钟和驻守移动态。</summary>
+    public void EndGuardDuty()
+    {
+        _guardDutyPost = null;
+        _guardDutyElapsed = 0.0;
+        GuardCombatControlEnabled = false;
+        Stationing = false;
+    }
+
     /// <summary>
     /// 饥饿刻度状态机（见 <see cref="HungerState"/>，数值化 0-6）。全部规则（衰减/进食/上限/惩罚）
     /// 归纯逻辑对象；Pawn 只持有并在昼夜切换/聚餐时驱动，并把能力惩罚经钩子喂给战斗消费点。
@@ -34,6 +72,12 @@ public sealed partial class Pawn : Actor
 
     /// <summary>饥饿对战斗能力的惩罚（喂给 <see cref="Actor"/> 的钩子）。丧尸基类返回 0，此处返回饥饿净值。</summary>
     protected override double HungerAbilityPenalty => Hunger.AbilityPenalty;
+
+    /// <summary>
+    /// 断肢时回到本人背包的装备。死后可搜出。非 Pawn 单位不走此列表。
+    /// </summary>
+    private readonly List<LootItem> _severedBackpackItems = new();
+    public override IReadOnlyList<LootItem> SeveredBackpackItems => _severedBackpackItems;
 
     /// <summary>
     /// 幸存者个人已读书集（见 <see cref="ReadBookSet"/>，纯逻辑）。配方书门槛按"制作者本人已读"判定 —— 消费本对象，
@@ -50,28 +94,103 @@ public sealed partial class Pawn : Actor
     // ================= 读书活动（夜间指派）：走到座位坐下累进度 → 读满标已读 + 诺蒂涨 perk =================
     // 读书是**指派的夜间活动**（Role=Reading，仅 NightAct）：被指派者寻路走到座位坐下，逐帧累计阅读小时，
     // 读满 BookData.ReadHours 即标个人已读（配方门槛）+ 全局已读（库存标记）。诺蒂持"书虫"专属效果——
-    // 边读边涨等级、读得越快。无座 -10% 读速。读书算休养、无医疗代价（营地昼夜推进的 resting 由营地层给）。
+    // 边读边涨等级、读得越快。无座读速惩罚见 Wiki 配置表。读书算休养、无医疗代价。
 
     /// <summary>本 Pawn 的专属效果容器（诺蒂·书虫，其余角色无 perk → 各加成为 0）。见 <see cref="SurvivorPerks"/>。</summary>
     public SurvivorPerks Perks { get; } = new();
 
     /// <summary>
-    /// [T61] **耗子**：脚步/开门/撬锁/静默拆除的噪音半径 ×0.60（用户原话「耗子的脚步和动作轻不可闻，声音减少 40%」）。
+    /// [T61] **耗子**：脚步/开门/撬锁/静默拆除的噪音系数见 Wiki 配置表。
     /// <b>战斗/开枪/破坏不减</b> —— 那是由 <see cref="RatPerk.AppliesToActionNoise"/> 在 <see cref="Actor.EmitNoiseAt"/>
     /// 里按 <see cref="RatNoiseSource"/> 裁掉的，**本属性只管"缩多少"，不管"缩不缩"**。
-    /// 其余角色 <see cref="SurvivorPerks.IsRat"/>=false ⇒ 恒 1.0（零回归：既有单位噪音半径一个数不变）。
-    /// <para>L1 即生效（不看等级）⇒ 无需读 StoryFlags，Pawn 不必持有营地态。</para>
+    /// 其余角色 <see cref="SurvivorPerks.IsRat"/>=false ⇒ 使用中性系数（零回归）。
+    /// <para>L1 即生效（不看等级）；实时负重/服饰也在同一消费点连乘，避免装备登记成摆设。</para>
     /// </summary>
-    protected override double ActionNoiseScale => RatPerk.ActionNoiseMultiplier(Perks.IsRat, ratLevel: 1);
+    protected override double ActionNoiseScale
+        => StealthLogic.ActionNoiseMultiplier(
+            NightWatchContest.ApparelStealthSum(EquippedApparel),
+            CarryLoadSpeedMult)
+           * RatPerk.ActionNoiseMultiplier(Perks.IsRat, RatLevelNow);
+
+    /// <summary>耗子等级提供者（由 CampMain 注入实时 StoryFlags 派生值）；未注入按 L1，保证独立创建零回归。</summary>
+    private System.Func<int>? _ratLevelProvider;
+
+    /// <summary>注入耗子等级 lambda；null 清除并回落 L1。</summary>
+    public void SetRatLevelProvider(System.Func<int>? f) => _ratLevelProvider = f;
+
+    private int RatLevelNow => System.Math.Max(1, _ratLevelProvider?.Invoke() ?? 1);
+
+    /// <summary>
+    /// 探索敌方感知消费点：真实穿戴品 + 耗子 L3 黑暗加成（只在暗处）
+    /// + 负重 + 掩体系数，四项全进 <see cref="StealthLogic.StealthRating"/> 连乘。
+    /// </summary>
+    protected override double DetectionRangeMultiplier(float ambientLight)
+    {
+        double darknessBonus = Perks.IsRat && RatLevelNow >= 3
+            ? RatPerk.Level3DarknessStealthBonus
+            : 0.0;
+        return StealthLogic.StealthRating(
+            NightWatchContest.ApparelStealthSum(EquippedApparel),
+            CarryLoadSpeedMult,
+            ambientLight,
+            darknessBonus,
+            CoverCoefficient);
+    }
+
+    /// <summary>
+    /// 紧贴半身掩体时返回其无伤几率作为掩体系数；无掩体场或未紧贴 → 0。
+    /// </summary>
+    protected override double CoverCoefficient
+    {
+        get
+        {
+            if (Covers is not { } field)
+                return 0.0;
+            System.Numerics.Vector2 pos = new(GlobalPosition.X, GlobalPosition.Y);
+            HalfCover? cover = field.AdjacentTo(pos);
+            return cover?.Chance ?? 0f;
+        }
+    }
+
+    /// <summary>耗子 L3 破隐先手：命中前仍未被敌方感知时伤害×1.35；本次出手即标记破隐。</summary>
+    protected override double AttackDamageMultiplier(Actor target, Weapon weapon)
+    {
+        double factor = RatPerk.AmbushDamageMultiplier(Perks.IsRat, RatLevelNow, !IsDetectedByHostile);
+        if (factor > 1.0)
+        {
+            MarkStealthBroken();
+        }
+        return factor;
+    }
+
+    protected override double HitLocationDamageMultiplier(Weapon weapon, BodyPart part)
+        => BookPassiveEffects.DamageMultiplier(weapon.Name, part.MacroRegion, HasReadBook);
+
+    protected override double AttackPenetrationMultiplier(Weapon weapon)
+    {
+        IReadOnlyList<Weapon> held = HeldWeapons;
+        bool mixed = held.Count == 2 && held.Any(w => w.IsRanged) && held.Any(w => !w.IsRanged);
+        return BookPassiveEffects.MixedGripMeleePenetrationMultiplier(
+            mixed && !weapon.IsRanged, HasReadBook);
+    }
 
     /// <summary>本 Pawn 逐书阅读进度（跨夜持久）。见 <see cref="ReadingProgress"/>。</summary>
     private readonly ReadingProgress _readingProgress = new();
 
+    public double ReadingHoursFor(string bookId) => _readingProgress.HoursOn(bookId);
+
     /// <summary>当前被指派在读的书 id（未在读为 <c>null</c>）。读满或结束后清空。</summary>
     public string? AssignedBookId { get; private set; }
 
-    /// <summary>当前认领的座位（无座为 <c>null</c>，按 -10% 读速就地读）。由 CampMain 认领/释放，Pawn 只持有并据其判有无座。</summary>
+    /// <summary>当前认领的座位（无座为 <c>null</c>，读速惩罚见 Wiki 配置表）。由 CampMain 认领/释放。</summary>
     public CampMain.SeatClaim? ReadingSeat { get; set; }
+
+    /// <summary>
+    /// 本夜实际坐在沙发上的累计秒数。由 <see cref="Think"/> 在 <see cref="PawnRole.Reading"/>
+    /// 分支逐帧累计（仅就座后），黎明 <see cref="AdvanceHealthDay"/> 按占比折算恢复加成后清零。
+    /// 比例而非二元：坐满整夜得 ×1.09，坐半夜得 ×1.045，不坐得 0。
+    /// </summary>
+    private double _sofaOccupiedSeconds;
 
     /// <summary>当前在读书的底层数据（供读满时置全局已读 + 取 ReadHours 判完成）。</summary>
     private BookData? _assignedBook;
@@ -79,7 +198,7 @@ public sealed partial class Pawn : Actor
     /// <summary>本夜有效的全营读速加成汇总（由 CampMain 遍历全体求和喂入，含读者自身贡献）。</summary>
     private double _campWideReadingMult = 1.0;   // [整改] 全营读速乘子(∏(1+各L3书虫贡献))，非旧加成和；无书虫=1.0
 
-    /// <summary>一夜的实时长度（游戏内秒，受时标缩放同口径）：把每帧 delta 换算成游戏内小时（一整夜=12 小时）。</summary>
+    /// <summary>一夜的实时长度（游戏内秒，受时标缩放同口径）；换算比例见 Wiki 配置表。</summary>
     private double _nightLengthSeconds;
 
     /// <summary>
@@ -114,11 +233,15 @@ public sealed partial class Pawn : Actor
 
         double gameHours = delta / _nightLengthSeconds * 12.0;
         bool hasSeat = ReadingSeat.HasValue;
-        // 书籍前置链：没读完前置书读得极慢（×0.2），但不禁止（读满阈值不变，只是更耗时）。
+        // 书籍前置链：没读完前置书读得更慢，但不禁止；具体系数见 Wiki 配置表。
         double prereqFactor = ReadingSpeed.PrerequisiteFactor(book, HasReadBook);
-        // [装备→能力加成] 读者穿戴品读速乘子（平光眼镜 ×1.05）：经 ApparelEffectMultiplier 从真实穿戴品名取数，勿手写常数。
+        // [装备→能力加成] 读者穿戴品读速乘子经 ApparelEffectMultiplier 从真实穿戴品名取数，勿手写常数。
         double apparelMult = ApparelCatalog.ApparelEffectMultiplier(EquippedApparel, ApparelCatalog.EquipEffectKind.ReadingSpeed);
-        double speed = ReadingSpeed.Effective(1.0, Perks.SelfReadingSpeedBonus, hasSeat, _campWideReadingMult, apparelMult, prereqFactor);
+        double seatMult = ReadingSeat is { Kind: SeatKind.Sofa }
+            ? SofaSpec.ReadingSpeedMultiplier
+            : 1.0;
+        double speed = ReadingSpeed.Effective(1.0, Perks.SelfReadingSpeedBonus, hasSeat, _campWideReadingMult,
+            apparelMult, prereqFactor, seatMult);
         double hours = gameHours * speed;
         if (hours <= 0)
             return;
@@ -161,7 +284,7 @@ public sealed partial class Pawn : Actor
 
     /// <summary>持握态（只读，由左右手持械推导）。<b>已被战斗层消费</b>：<see cref="Actor.ActiveGrip"/> 就地取本属性，
     /// 喂 <c>GripCombat.EffectiveInterval</c>（攻速，Actor.cs:643）与 <c>GripCombat.EffectiveSpreadDegrees</c>
-    /// （误差角，Actor.cs:924）。系数本身在 <c>DualWield</c>（双持攻速 0.70×、散布放大；单手/双手 ×1.0）。</summary>
+    /// （误差角，Actor.cs:924）。具体系数在 <c>DualWield</c> / Wiki 配置表。</summary>
     public GripMode Grip => _loadout.Grip;
 
     // ———————————— 🔴 [T45·负重激活] 这个人这一趟背了多少 ————————————
@@ -193,7 +316,7 @@ public sealed partial class Pawn : Actor
     /// <summary>回营/离队：清账，恢复无罚（营地里没有背包，也就没有负重档）。</summary>
     public void ClearCarryLoad() => SetCarryLoad(MemberLoad.None);
 
-    // ———————————— 皮特·闪避（L3 且当前负重 <30kg 时 15% 掷免整次攻击）————————————
+    // ———————————— 皮特·闪避（条件与概率见 Wiki 配置表）————————————
 
     /// <summary>皮特当前等级提供者（由 <c>CampMain.AddActor</c> 注入 <c>() => PeteLevelNow()</c>，读实时 StoryFlags 派生）。
     /// null（非皮特/未注入）⇒ <see cref="EvadeIncoming"/> 恒 false 零回归。</summary>
@@ -203,16 +326,18 @@ public sealed partial class Pawn : Actor
     public void SetPeteLevelProvider(System.Func<int>? f) => _peteLevelProvider = f;
 
     /// <summary>
-    /// 皮特受击闪避：仅皮特 L3 且当前负重 &lt;30kg → 15% 概率整次躲开（<see cref="PetePerk.DodgeChance"/>）。
+    /// 皮特受击闪避：条件与概率由 <see cref="PetePerk.DodgeChance"/> / Wiki 配置表决定。
     /// 非皮特/未注入等级提供者 ⇒ 恒 false（基类零回归）。随机走引擎注入的 <see cref="IRandomSource"/>（可复现）。
     /// </summary>
-    protected override bool EvadeIncoming(IRandomSource rng)
+    protected override bool EvadeIncoming(IRandomSource rng, Weapon incomingWeapon, bool ranged)
     {
-        if (!Perks.IsPete || _peteLevelProvider is not { } level)
-        {
-            return false;
-        }
-        double chance = PetePerk.DodgeChance(level(), CarryLoad.CarriedKg);
+        double peteChance = Perks.IsPete && _peteLevelProvider is { } level
+            ? PetePerk.DodgeChance(level(), CarryLoad.CarriedKg)
+            : 0.0;
+        double bookChance = ranged ? 0.0 : BookPassiveEffects.MeleeDodgeChance(
+            PrimaryWeapon?.Name ?? "", HasReadBook);
+        // 两条独立闪避来源按概率乘算合并，避免加算越界，也只消耗一次随机点。
+        double chance = 1.0 - (1.0 - peteChance) * (1.0 - bookChance);
         return chance > 0.0 && rng.Range(0.0, 1.0) < chance;
     }
 
@@ -361,18 +486,26 @@ public sealed partial class Pawn : Actor
     /// <param name="rng">感染 roll 随机源。</param>
     /// <param name="resting">本昼夜是否卧床休养（减缓感染/疾病恶化、加速术后愈合）。**已被 <paramref name="restFraction"/> 取代**，仅在不传占比时回落。</param>
     /// <param name="healSpeedMultiplier">
-    /// 全营恢复速度乘子（默认 1.0＝无光环，零回归）：山姆 3 级"英雄风范"光环 ×1.03（<c>SamPerk.CampHealSpeedMultiplier</c>），
-    /// 由 <c>CampMain</c> 按当前营地人数算好传入。作用于术后愈合量，与玫瑰果茶/睡床的加算百分点是正交两轴。
+    /// 恢复速度乘子（默认中性，零回归）：由调用方按角色传入 authored 效果。
+    /// 作用于术后愈合量，与玫瑰果茶/睡床的加算百分点是正交两轴。
     /// </param>
     /// <param name="restFraction">
     /// [批次21·impl-bedrest] 本昼夜**休养占比** 0..1（默认 null → 回落布尔，零回归）：由 <see cref="RestLedger"/> 按相位累计。
     /// **白天在营地睡的相位自此计入** —— 旧模型整日只取一个布尔且在黎明读到昨夜的角色，白天睡整天等于白睡。
     /// </param>
     /// <param name="bedFraction">[批次21·impl-bedrest] 本昼夜**睡床占比** 0..1（默认 null → 回落布尔）：地铺不吃这一轴，床要造。</param>
+    /// <param name="bedSleepHealBonusPct">睡床恢复效率覆盖值（默认 null → 健康系统默认 10；南丁格尔 L2 在营时可传 20）。</param>
     public HealthTickResult AdvanceHealthDay(IRandomSource rng, bool resting, bool restedInBed = false, double infectionChanceMultiplier = 1.0, double healSpeedMultiplier = 1.0,
-        double? restFraction = null, double? bedFraction = null)
+        double? restFraction = null, double? bedFraction = null, double? bedSleepHealBonusPct = null)
     {
         ArchiveWounds();
+        // 沙发恢复加成按实际座位占用比例折算：坐满整夜 = ×1.09，零占用 = 中性。
+        if (_sofaOccupiedSeconds > 0 && _nightLengthSeconds > 0)
+        {
+            double fraction = System.Math.Clamp(_sofaOccupiedSeconds / _nightLengthSeconds, 0.0, 1.0);
+            healSpeedMultiplier *= SofaSpec.EffectiveHealMultiplier(fraction);
+            _sofaOccupiedSeconds = 0;
+        }
         // [SPEC-B14-补2] 玫瑰果茶恢复加成：生效则本昼夜恢复效率 +RosehipTeaHealBonusPct 个百分点，随后自减一次计时。
         double extraHealBonusPct = 0.0;
         if (_rosehipTeaHealTicks > 0)
@@ -380,12 +513,12 @@ public sealed partial class Pawn : Actor
             extraHealBonusPct = RosehipTeaHealBonusPct;
             _rosehipTeaHealTicks--;
         }
-        // [A3] 书 → 骨折恢复被动：读过《尖峰时刻》⇒ 本人**骨折**逐日愈合 ×1.15（仅骨折，见 FractureRecoveryBooks）。
+        // [A3] 书 → 骨折恢复被动：读过《尖峰时刻》⇒ 本人**骨折**逐日愈合加速（仅骨折，系数见 Wiki 配置表）。
         // 这是**该人本人**的属性（判据＝其 ReadBookSet），故在此按 this 的已读书就地算——与山姆 L3 全营光环（healSpeedMultiplier，
         // 由 CampMain 统一传入）是正交两轴、对骨折连乘。非 Pawn 单位不经此路径 ⇒ 零回归。
         double fractureHealSpeedMultiplier = FractureRecoveryBooks.HealSpeedMultiplier(HasReadBook);
         HealthTickResult result = Health.TickDay(rng, resting, restedInBed, infectionChanceMultiplier, extraHealBonusPct, healSpeedMultiplier,
-            restFraction, bedFraction, fractureHealSpeedMultiplier);
+            restFraction, bedFraction, fractureHealSpeedMultiplier, bedSleepHealBonusPct);
 
         foreach (string part in result.MaimedParts)
         {
@@ -410,8 +543,8 @@ public sealed partial class Pawn : Actor
         //    而 SetBloodMax 在 Godot 层一次都没被调用 ⇒ 储血单调递减、无恢复路径，长线必然见底。
         //
         // 挂在**既有休养系统**上（restFraction/bedFraction，与术后愈合同一套账），不另起炉灶：
-        //   · 量：BloodRegenPerRestDay(10) × 休养占比 × 睡床加成（复用 BedSleepHealBonusPct=10 个百分点，加算，同族）
-        //   · 70 储血 / 10 每昼夜 = **7 昼夜从零回满**，与「骨折愈合 7 昼夜」同量级。
+        //   · 量：BloodRegenPerRestDay × 休养占比 × 睡床加成（具体参数见 Wiki 配置表）
+        //   · 回满周期与骨折恢复周期以 Wiki 配置表为准。
         //   · **必须先止血**（BleedingWoundCount == 0，即伤口已被手术缝合）：还在流的口子边流边补是自欺欺人，
         //     也会架空用户「任何时候只要伤口没被手术治疗就会流血」这条规则。
         //     注意本行在上面的 StopBleed 同步**之后** ⇒ 本昼夜刚缝合的伤口，当天就能开始回血。
@@ -420,10 +553,10 @@ public sealed partial class Pawn : Actor
         Body.RecoverBlood(BloodRecovery.PerRestDay(
             restFraction ?? (resting ? 1.0 : 0.0),
             bedFraction ?? (restedInBed ? 1.0 : 0.0),
-            hasOpenWound: Body.BleedingWoundCount > 0));
+            hasOpenWound: Body.BleedingWoundCount > 0,
+            bedSleepHealBonusPct: bedSleepHealBonusPct));
 
-        // 骨折治疗档回写 Body（能力系数三档：未治 -30% / 术后 -15% / 痊愈 0，见 Body.HandFractureOperationFactor/LegFractureMobilityFactor）：
-        //  · 手术成功(IsOperated) → MarkFractureTreated：惩罚减半（-15%）。幂等，仅对 Body 仍骨折的部位生效。
+        // 骨折治疗档回写 Body；未治疗/术后/痊愈系数见 Wiki 配置表。
         foreach (HealthCondition c in Health.Conditions)
         {
             if (c.Type == HealthConditionType.Fracture && c.BodyPart != null && c.IsOperated)
@@ -446,14 +579,14 @@ public sealed partial class Pawn : Actor
 
     /// <summary>
     /// [SPEC-B14/终稿+补7] 推进本人感染竞速一个时间片（相位级 dt&lt;1 或整日 dt=1）：调 <see cref="HealthConditionSet.AdvanceInfectionRace"/>
-    /// （感染进度累积、用药期间按档减缓+累进治疗进度、治疗先到顶清除、**感染到 100% 立刻死亡**——不再自动截肢）。
+    /// （感染进度累积、用药期间按档减缓+累进治疗进度、治疗先到顶清除、感染达到 Wiki 配置的死亡线即死亡）。
     /// 是否致死经返回结果 <see cref="InfectionRaceResult.Outcome"/> 交营地统一走死亡路径。保命的主动截肢走 <see cref="AmputateInfectedLimb"/>。
     /// </summary>
     /// <param name="dtDays">时间片天数（相位级传 1/相位数，整日传 1.0）。</param>
     /// <param name="medicated">本时段是否在用药（疗程指派且有药）。</param>
     /// <param name="medicine">本时段所用感染药（medicated 为真时给，取 Efficacy/WorsenMultiplier）。</param>
     /// <param name="campWorsenMultiplier">
-    /// 全营感染条上升速度乘子（默认 1.0＝无光环，零回归）：山姆 3 级光环 ×0.97（<c>SamPerk.CampInfectionWorsenMultiplier</c>），
+    /// 全营感染条上升速度乘子（默认中性，零回归）：山姆光环效果见 Wiki 配置表。
     /// 由 <c>CampMain</c> 按当前营地人数算好传入。与用药的 <c>Medicine.WorsenMultiplier</c> 相乘、互不吞没。
     /// </param>
     public InfectionRaceResult AdvanceInfectionRace(double dtDays, bool medicated, Medicine? medicine,
@@ -488,7 +621,9 @@ public sealed partial class Pawn : Actor
         // 与穿戴模型（该肢体上的穿戴品失效），再重组生效战斗数据。见 <see cref="ReconcileSeverance"/>。
         ReconcileSeverance();
 
-        // 手持光源（light-items HANDOFF）：持光手被切除即落地；每帧同步自照亮强度（暴露链 Actor.ExposedCone 读 CarriedLightIntensity）。
+        // 手持光源（light-items HANDOFF）：持光手被切除即落地；每帧扣电池/燃烧耐久并同步自照亮强度。
+        // delta 已由 Godot 按时标缩放：暂停不耗、3x/8x 按游戏速度耗；耗尽只熄灭，不静默丢掉手里的空壳。
+        _heldLight.Consume(delta);
         if (_heldLight.IsActive && _heldLight.HandUsed is Hand hlHand
             && (hlHand == Hand.Left ? _loadout.LeftHandLost : _loadout.RightHandLost))
         {
@@ -505,22 +640,41 @@ public sealed partial class Pawn : Actor
                 // 驻守途中放行移动令（走向岗位）；抵达即恢复原地驻守。非驻守时沿用原逻辑取消杂散移动令。
                 if (Stationing && IsNavigationFinished())
                     Stationing = false;
-                if (HasMoveOrder && !Stationing)
-                    CancelOrders();
-                if (CurrentAttackTarget is { Alive: true } tgt)
+                if (!GuardCombatControlEnabled)
                 {
-                    float dist = GlobalPosition.DistanceTo(tgt.GlobalPosition);
-                    if (dist > AttackRange + Radius + tgt.Radius)
+                    if (HasMoveOrder && !Stationing)
                         CancelOrders();
+                    // 到岗且未交战：自动按可预测的岗哨规律左右巡查；交战时让 Actor 的瞄准朝向接管。
+                    if (!Stationing && !HasActiveTarget && _guardDutyPost is { } post)
+                    {
+                        _guardDutyElapsed += delta;
+                        SetFacing(SentryLogic.FacingFor(SentryAction.HoldPost, post, FacingAngle,
+                            _guardDutyElapsed, _guardDutySweep));
+                    }
+                    if (CurrentAttackTarget is { Alive: true } tgt)
+                    {
+                        float dist = GlobalPosition.DistanceTo(tgt.GlobalPosition);
+                        if (dist > AttackRange + Radius + tgt.Radius)
+                            CancelOrders();
+                    }
                 }
+                break;
+            case PawnRole.Producing:
+                if (ProducingStationing && IsNavigationFinished())
+                    ProducingStationing = false;
+                if (!ProductionCombatControlEnabled && HasMoveOrder && !ProducingStationing)
+                    CancelOrders();
                 break;
             case PawnRole.Reading:
                 // 仿 Guard Stationing：走向座位途中放行移动令，抵达（导航完成）即坐下开读。
-                // 无座者不下移动令（Stationing=false），就地立即累进（-10% 速）。
+                // 无座者不下移动令（Stationing=false），就地立即累进（读速惩罚见 Wiki 配置表）。
                 if (Stationing && IsNavigationFinished())
                     Stationing = false;
                 if (HasMoveOrder && !Stationing)
                     CancelOrders();
+                // 沙发占用时间累计：仅就座后（非步行途中），按真实座位类型而非读书状态。
+                if (!Stationing && ReadingSeat is { Kind: SeatKind.Sofa })
+                    _sofaOccupiedSeconds += delta;
                 if (!Stationing && _assignedBook is { } book)
                     AccrueReading(delta, book);
                 break;
@@ -540,7 +694,7 @@ public sealed partial class Pawn : Actor
         p.Body = CombatData.NewHumanoidBody();
 
         // authored 背景在躯体上的开局痕迹（按名应用）：山姆开局左手缺小指+无名指——九岁那年为救诺蒂被疯狗咬掉，
-        // 人称"小英雄"的代价。走引擎既有切除通则（−7%/指 操作惩罚，共 −14%），不豁免、不加码。见 SurvivorBackstory。
+        // 人称"小英雄"的代价。走引擎既有切除通则，具体惩罚见 Wiki 配置表；不豁免、不加码。
         SurvivorBackstory.ApplyTo(name, p.Body);
 
         // 通用技能系统已删——角色能力改由 authored 专属效果 + 读过的书承载，此处不再直设初始技能。
@@ -679,6 +833,7 @@ public sealed partial class Pawn : Actor
             ArmorTable.CoarseClothShirt(), ArmorTable.CoarseShorts(), ArmorTable.CoarseTrousers(),
             ArmorTable.HorrorArmor(), ArmorTable.Sunglasses(), ArmorTable.PlainGlasses(),
             ArmorTable.SelfMadeSnowGoggles(), ArmorTable.AnkleGuard(), ArmorTable.BallisticVest(),
+            ArmorTable.HeavyTrousers(), ArmorTable.HeavyCape(), ArmorTable.SnowBoots(),
         })
         {
             d[l.Name] = l;
@@ -828,8 +983,8 @@ public sealed partial class Pawn : Actor
         return key;
     }
 
-    /// <summary>把手持光源强度同步给 <see cref="Actor"/> 自照亮（<see cref="Actor.ExposedCone"/> 暴露链据此计算，无光=0）。</summary>
-    private void SyncCarriedLight() => SetCarriedLight(_heldLight.Held?.Intensity ?? 0f);
+    /// <summary>把手持光源强度同步给 <see cref="Actor"/> 自照亮（<see cref="Actor.ExposedCone"/> 暴露链据此计算；耗尽=0）。</summary>
+    private void SyncCarriedLight() => SetCarriedLight(_heldLight.ActiveHeld?.Intensity ?? 0f);
 
     /// <summary>
     /// 穿一件穿戴品（护甲名）。占槽/覆盖：目录品走 <see cref="ApparelCatalog"/>（如左右手套→对应手槽）；

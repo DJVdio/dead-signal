@@ -7,10 +7,10 @@ using Xunit;
 namespace DeadSignal.Combat.Tests;
 
 /// <summary>
-/// 负重上限系统（用户口径：&lt;30kg 无影响 / 30~50kg debuff / 50~80kg debuff 加重 / **不能超过 80kg**）。
+/// 负重上限系统（阈值与上限来自 Wiki 配置）。
 /// 本文件覆盖上限算式、物品称重、远征背包硬上限、队伍运力（人+狗）。三档 debuff 曲线本身见 <c>LoadoutTests</c>；
 /// [T45] 装备进账、逐人分档、消费层接线、**搜刮余量表**见 <c>CarryLoadWiringTests</c>。
-/// 铁律核对：**不存在"力量"属性** —— 80kg 基数全员相同，个体差异只来自 authored 专属效果（山姆）与身体状态（残缺/饥饿）。
+/// 铁律核对：**不存在"力量"属性** —— 基准负重来自 Wiki 配置，个体差异只来自 authored 专属效果（山姆）与身体状态（残缺/饥饿）。
 /// </summary>
 public class CarryCapacityTests
 {
@@ -19,8 +19,8 @@ public class CarryCapacityTests
     [Fact]
     public void Limit_BaseIsUniformForEveryone_80kg()
     {
-        // 无残缺无饥饿无专属效果 = 全员同一个 80kg（这就是"无属性系统"的形态）
-        // [T45] 这本账现在**含装备**（连人带甲带枪），但 80kg 这个数**用户拍板不动**——
+        // 无残缺无饥饿无专属效果 = 全员使用同一 Wiki 配置基准（这就是"无属性系统"的形态）
+        // [T45] 这本账现在**含装备**（连人带甲带枪），基准值来自 Wiki 配置——
         // 装备的代价体现在"搜刮余量被吃掉"，不是把上限调小。
         Assert.Equal(80.0, Loadout.BaseCarryLimitKg, 6);
         Assert.Equal(80.0, CarryCapacity.For(1.0), 6);
@@ -37,7 +37,7 @@ public class CarryCapacityTests
     [Fact]
     public void Limit_ScalesWithHunger()
     {
-        // 饥饿(3) = 0.10 惩罚 → 80 × 0.9 = 72kg
+        // 饥饿等级惩罚按乘算规则作用于 Wiki 配置的基础上限。
         double capability = HungerState.CombineCapability(0.0, HungerState.PenaltyFor((int)HungerLevel.Hungry));
         Assert.Equal(72.0, CarryCapacity.For(capability), 6);
     }
@@ -76,28 +76,27 @@ public class CarryCapacityTests
     }
 
     [Fact]
-    public void Limit_SamLevel3_SamHimself_ChainsMultiplicatively_Not_Additively()
+    public void Limit_SamLevel3_SamHimself_UsesPersonalCarryBonusOnly()
     {
-        // 用户拍板的乘算通则：山姆自己 = 二级 ×1.15 × 三级全营 ×1.03 **连乘**，不是加算的 ×1.18
+        // 当前 authored 语义：山姆 L1 起只有本人负重加成；L3 不再叠加退役的全营光环。
         double mult = SamPerk.CarryCapacityMultiplier(3, isSam: true);
         double limit = CarryCapacity.For(1.0, mult);
 
-        Assert.Equal(80.0 * 1.15 * 1.03, limit, 6);
-        Assert.Equal(94.76, limit, 2);
-        Assert.NotEqual(80.0 * 1.18, limit, 6); // 防加算回潮（94.4 ≠ 94.76）
+        Assert.Equal(92.0, limit, 6); // 80 × 1.15
+        Assert.Equal(80.0 * 1.15, limit, 6);
     }
 
     [Fact]
-    public void Limit_SamLevel3_OtherSurvivors_OnlyGetCampAura()
+    public void Limit_SamLevel3_OtherSurvivors_DoNotGetRetiredCampAura()
     {
         double mult = SamPerk.CarryCapacityMultiplier(3, isSam: false);
-        Assert.Equal(82.4, CarryCapacity.For(1.0, mult), 6); // 80 × 1.03
+        Assert.Equal(80.0, CarryCapacity.For(1.0, mult), 6); // 当前页面没有全营负重效果
     }
 
     [Fact]
     public void Limit_SamMissingTwoFingers_PerkOffsetsDisability()
     {
-        // 山姆开局缺两指 = -14% 操作能力；他的二级专属效果 ×1.15 几乎把残缺补了回来
+        // 山姆开局缺两指导致操作能力下降；二级专属效果按乘算规则抵消部分影响。
         double capability = HungerState.CombineCapability(disabilityPenalty: 0.14, hungerPenalty: 0.0);
         double mult = SamPerk.CarryCapacityMultiplier(2, isSam: true);
         Assert.Equal(80.0 * 0.86 * 1.15, CarryCapacity.For(capability, mult), 6); // 79.12kg
@@ -149,12 +148,12 @@ public class CarryCapacityTests
     [Fact]
     public void ItemWeight_AuditedAmmoAndTea_HaveExplicitWeights()
     {
-        // 用户在 wiki 弹药表上逐口径改了重量：短 0.01 / 中 0.02 / 鹿 0.05。
+        // 弹药重量来自 Wiki 配置；这里同时校验显式登记。
         Assert.Equal(0.01, ItemWeights.MaterialKg("ammo_short"), 6);
         Assert.Equal(0.02, ItemWeights.MaterialKg("ammo_medium"), 6);
         Assert.Equal(0.05, ItemWeights.MaterialKg("ammo_buck"), 6);
 
-        // 重头箭：用户把它单独加重到 0.05（箭头灌铅），不再走 0.03 兜底。
+        // 重头箭使用 Wiki 配置中的独立重量，不走通用兜底。
         Assert.Equal(0.05, ItemWeights.MaterialKg("ammo_arrow_heavy"), 6);
         Assert.NotEqual(ItemWeights.AmmoPerRoundKg, ItemWeights.MaterialKg("ammo_arrow_heavy"));
 
@@ -165,8 +164,8 @@ public class CarryCapacityTests
             ["ammo_arrow_stick"] = 0.03,
             ["ammo_arrow_handmade"] = 0.03,
             ["ammo_arrow_carbon"] = 0.03,
-            ["dandelion_tea"] = 0.5,
-            ["rosehip_tea"] = 0.5,
+            ["dandelion_tea"] = 0.25,
+            ["rosehip_tea"] = 0.25,
         };
 
         foreach (var (key, expectedKg) in expected)
@@ -180,15 +179,15 @@ public class CarryCapacityTests
 
     /// <summary>
     /// 🔴 焊死测试：<c>WeaponTable.Arsenal()</c> 里**每一把**武器都必须在 <c>ItemWeights._weaponKg</c> 显式登记重量，
-    /// 禁止落 <see cref="ItemWeights.DefaultWeaponKg"/>（=2.0）兜底。
+    /// 禁止落 <see cref="ItemWeights.DefaultWeaponKg"/> 兜底。
     /// <para>
     /// 武器重量的**唯一真源**是 <c>_weaponKg</c>（中文名字典）——<c>Weapon</c> record 里**没有 Weight 字段**。
-    /// 加/改武器漏登记就会静默落到 2.0kg（骨刀曾差点算成 2.0 比棍棒 1.5 还沉、消防斧同隐患），负重系统当场失真。
+    /// 加/改武器漏登记就会静默使用默认重量，负重系统当场失真。
     /// 护甲侧早有对应焊死（<see cref="ItemWeight_Armor_ReadsArmorTableWeight"/> 一类），武器侧本测补齐。
     /// </para>
     /// <para>
-    /// ⚠ 用**私有字典的键是否存在**判定（反射直读 <c>_weaponKg</c>），不能用「重量 != 2.0」代替——
-    /// 「单手轻弩」正好合法登记为 2.0kg，值判会把它误判成兜底。天生武器（爪击/撕咬/拳脚）不入 Arsenal，不在此列。
+    /// ⚠ 用**私有字典的键是否存在**判定（反射直读 <c>_weaponKg</c>），不能用重量值代替——
+    /// 合法武器可能与默认值相同。天生武器（爪击/撕咬/拳脚）不入 Arsenal，不在此列。
     /// </para>
     /// </summary>
     [Fact]
@@ -207,7 +206,7 @@ public class CarryCapacityTests
 
         Assert.True(
             missing.Count == 0,
-            $"以下武器未在 ItemWeights._weaponKg 显式登记重量（会静默落 {ItemWeights.DefaultWeaponKg}kg 兜底）：" +
+            $"以下武器未在 ItemWeights._weaponKg 显式登记重量（会静默落默认值；数值来自 Wiki 配置）：" +
             string.Join("、", missing));
     }
 
@@ -243,7 +242,7 @@ public class CarryCapacityTests
         Assert.Equal(0.0, ItemWeights.OfLoot(LootItem.Tool("calipers")), 6); // 工具进工作台不进背包
     }
 
-    // ---------- 远征背包：硬上限（用户："不能超过 80kg"）----------
+    // ---------- 远征背包：硬上限（基准值来自 Wiki 配置）----------
 
     [Fact]
     public void Bag_StartsEmpty_WithGivenCapacity()
@@ -278,14 +277,14 @@ public class CarryCapacityTests
     [Fact]
     public void Bag_NeverExceedsEightyKilos_ForABaselinePerson()
     {
-        // 用户原话"不能超过 80kg"：一路搬到满，再多一根木头也进不去
+        // 用户原话"不能超过上限"：一路搬到满，再多一根木头也进不去
         var bag = new ExpeditionBag(CarryCapacity.For(1.0)); // 80kg
         for (int i = 0; i < 100; i++)
         {
             bag.AddAsManyAsFit(LootItem.Material("wood", 5)); // [T68] 每次 5kg（木料 1kg/根）
         }
 
-        Assert.True(bag.CarriedKg <= 80.0 + 1e-9, $"背了 {bag.CarriedKg}kg，超过 80kg 硬上限");
+        Assert.True(bag.CarriedKg <= 80.0 + 1e-9, $"背了 {bag.CarriedKg}kg，超过 Wiki 配置的负重上限");
         Assert.True(bag.IsFull);
         Assert.False(bag.TryAdd(LootItem.Material("wood", 1)));
     }
@@ -328,7 +327,7 @@ public class CarryCapacityTests
     [Fact]
     public void Bag_ReportsTheThreeTiers_AsItFillsUp()
     {
-        var bag = new ExpeditionBag(80.0); // 基准人：30 / 50 / 80
+        var bag = new ExpeditionBag(80.0); // 基准人；阈值来自 Wiki 配置
 
         bag.AddAsManyAsFit(LootItem.Material("wood", 20)); // [T68] 20kg（木料 1kg/根）
         Assert.Equal(LoadoutTier.Unencumbered, bag.Tier);
@@ -338,8 +337,7 @@ public class CarryCapacityTests
         bag.AddAsManyAsFit(LootItem.Material("wood", 20)); // 40kg
         Assert.Equal(LoadoutTier.Encumbered, bag.Tier);
         Assert.True(bag.SpeedMultiplier < 1.0);
-        // 🔴 [T45·用户新曲线] 轻度档**也罚攻速了**——旧口径「背 30kg 挥剑没什么影响」已被用户推翻
-        // （「50kg 减少 20% 移动速度**和攻击速度**」）。此处原本断言 == 1.0。
+        // 🔴 [T45·用户新曲线] 轻度档**也罚攻速了**——旧口径「低负重挥剑没什么影响」已被用户推翻。
         Assert.True(bag.AttackSpeedMultiplier < 1.0);
 
         bag.AddAsManyAsFit(LootItem.Material("wood", 24)); // 64kg
@@ -351,7 +349,7 @@ public class CarryCapacityTests
     [Fact]
     public void Bag_CapacityDropsMidTrip_LandsInOverloaded_ButKeepsTheGoods()
     {
-        // 关内断了手：上限从 80 掉到 40，已背的 60kg 不会凭空消失，但你几乎走不动了
+        // 关内断了手：上限下降，已背物品不会凭空消失，但你几乎走不动了
         var bag = new ExpeditionBag(80.0);
         bag.AddAsManyAsFit(LootItem.Material("wood", 60)); // [T68] 60kg（木料 1kg/根）
         Assert.Equal(LoadoutTier.Strained, bag.Tier);
@@ -367,15 +365,15 @@ public class CarryCapacityTests
     [Fact]
     public void PartyCapacity_SumsMembers()
     {
-        double a = CarryCapacity.For(1.0);                                                  // 80
-        double b = CarryCapacity.For(1.0, SamPerk.CarryCapacityMultiplier(2, isSam: true)); // 92（山姆）
+        double a = CarryCapacity.For(1.0);                                                  // 基准人
+        double b = CarryCapacity.For(1.0, SamPerk.CarryCapacityMultiplier(2, isSam: true)); // 山姆专属效果
         Assert.Equal(172.0, ExpeditionBag.PartyCapacity(new[] { a, b }, dogCapacityKg: 0), 6);
     }
 
     [Fact]
     public void PartyCapacity_DogPocketVest_AddsItsEightKilos()
     {
-        // 布鲁斯的口袋狗衣（8kg）统一进同一套负重账：狗衣容量直接加到队伍背包上限
+        // 布鲁斯的口袋狗衣容量来自 Wiki 配置，并统一进同一套负重账。
         var vest = new DogApparelSlots();
         vest.TryEquip(DogGearCatalog.PocketVestKey, out _);
 
@@ -383,7 +381,7 @@ public class CarryCapacityTests
         double party = ExpeditionBag.PartyCapacity(new[] { human }, vest.TotalCarryCapacity());
 
         Assert.Equal(human + DogGearCatalog.PocketVestCapacity, party, 6);
-        Assert.Equal(88.0, party, 6); // 80 + 8（T29 用户手改 6 → 8）
+        Assert.Equal(88.0, party, 6); // 与 Wiki 配置的狗衣容量一致
     }
 
     [Fact]
@@ -395,15 +393,15 @@ public class CarryCapacityTests
     // ---------- 校准：一趟能搬回多少 ----------
 
     /// <summary>
-    /// 🔴 [T45 / carryweight2·枪械翻倍后重推] <b>「能搜的空间会很小」——用户原话，这条把它钉成数字。</b>
+    /// 🔴 [T45 / carryweight2·枪械翻倍后重推] <b>「能搜的空间会很小」——用户原话，这条锁住校准结果。</b>
     /// <para>
-    /// 装备进账之后，<b>硬上限 80kg 第一次真的咬人了</b>：它不再只限制"你搜了多少"，
-    /// 而是限制"<b>装备之外</b>你还能搜多少"。枪械重量翻倍(步枪 4→7.5 / 狙击 6→9)后，同一个人去最大点位（住宅区 ≈66kg 货）：
+    /// 装备进账之后，硬上限按 Wiki 配置计入装备：它不再只限制"你搜了多少"，
+    /// 而是限制"<b>装备之外</b>你还能搜多少"。同一个人去最大点位（住宅区 ≈66kg 货）：
     /// </para>
     /// <list type="bullet">
     /// <item><b>轻装出门</b>（1.3kg）⇒ 硬余量 78.7kg ⇒ <b>搬得空</b>，到家 67.3kg（移速仅剩 45%）。</item>
-    /// <item><b>中期装备</b>（步枪7.5，17.3kg）⇒ 硬余量 62.7kg ⇒ <b>搬不空了</b>（枪翻倍前 13.8kg 时刚好搬得空，现在留 3.3kg）。</item>
-    /// <item><b>板甲重装</b>（狙击9，29.9kg）⇒ 硬余量 50.1kg ⇒ <b>搬不空，得留 15.9kg 在原地</b>；出门就差不多 30（余量 0.1kg）。</item>
+    /// <item><b>中期装备</b>（17.3kg）⇒ 硬余量 62.7kg ⇒ <b>搬不空了</b>，当前测量结果留 3.3kg。</item>
+    /// <item><b>板甲重装</b>（29.9kg）⇒ 硬余量 50.1kg ⇒ <b>搬不空，得留 15.9kg 在原地</b>。</item>
     /// </list>
     /// <b>⇒ 「要么带甲带枪，要么带货」——这正是用户要的取舍，重武器把余量吃得更狠正是本轮翻倍的意图。</b>
     /// <para>日后若调重物品重量或改上限，此测试会红，提示重新校准。</para>
@@ -423,17 +421,17 @@ public class CarryCapacityTests
         Assert.True(solo - lightGear >= biggestSiteKg, "轻装单人搬得空最大点位");
         double lightHome = lightGear + biggestSiteKg; // 67.3kg
         Assert.Equal(LoadoutTier.Strained, Loadout.TierOf(lightHome, solo));
-        Assert.True(Loadout.SpeedMultiplier(lightHome, solo) < 0.5, "背满 66kg 货到家，移速掉到一半以下");
+        Assert.True(Loadout.SpeedMultiplier(lightHome, solo) < 0.5, "背满最大点位货物到家，移速掉到一半以下");
 
-        // 🔴 中期：枪械翻倍后，连原厂中期步枪都搬不空最大点位了（旧 4.0kg 时刚好搬得空）——留 3.3kg 在原地
+        // 🔴 中期：按当前 Wiki 配置，连原厂中期步枪都搬不空最大点位了——留 3.3kg 在原地
         Assert.True(solo - midGear < biggestSiteKg, "枪械翻倍后，中期原厂步枪单人也搬不空最大点位");
         Assert.Equal(3.3, biggestSiteKg - (solo - midGear), 6); // 留在原地的那 3.3kg
 
-        // 🔴 板甲重装：搬不空得更多。装备吃掉了 29.9kg 余量 ⇒ 有 15.9kg 货只能留在原地。
+        // 🔴 板甲重装：搬不空得更多，有 15.9kg 货只能留在原地。
         Assert.True(solo - heavyGear < biggestSiteKg, "穿板甲带重枪的人搬不空最大点位——「能搜的空间会很小」");
         Assert.Equal(15.9, biggestSiteKg - (solo - heavyGear), 6); // 留在原地的那 15.9kg
 
-        // 出门那一刻：重装 29.9kg ≈ 30，仍在免罚线下不罚（用户"那出门就差不多 30 了"）
+        // 出门那一刻：重装仍在 Wiki 配置的免罚线下，不触发惩罚。
         Assert.Equal(LoadoutTier.Unencumbered, Loadout.TierOf(heavyGear, solo));
     }
 
@@ -455,20 +453,20 @@ public class CarryCapacityTests
         Assert.Same(ItemRegistry.Materials, Field("_materialKg"));
         Assert.Same(ItemRegistry.Armor, Field("_armorKg"));
 
-        // 分区规模钉桩（武器 25 / 材料 53[审计补齐 6 个弹药与茶] / 护甲 32 = 全表 110）——防止别处误插/误删一整类。
-        Assert.Equal(25, ItemRegistry.Weapons.Count);
-        Assert.Equal(53, ItemRegistry.Materials.Count);
-        Assert.Equal(32, ItemRegistry.Armor.Count);
-        Assert.Equal(110, ItemRegistry.All.Count());
+        // 分区规模钉桩——防止别处误插/误删一整类。
+        Assert.Equal(27, ItemRegistry.Weapons.Count);
+        Assert.Equal(57, ItemRegistry.Materials.Count);
+        Assert.Equal(38, ItemRegistry.Armor.Count);
+        Assert.Equal(122, ItemRegistry.All.Count());
     }
 
     /// <summary>
     /// 🔴 [R6] 护甲侧焊死测试（补齐 R4 武器侧 <see cref="ItemWeight_EveryArsenalWeapon_HasExplicitWeightRegistered"/>）：
     /// <c>ArmorTable</c> 里**每一个单层护甲方法**产出的护甲名，都必须在 <see cref="ItemRegistry.Armor"/> 登记，
-    /// 禁止落 <see cref="ItemWeights.DefaultArmorKg"/>（=1.0kg）兜底。
+    /// 禁止落 <see cref="ItemWeights.DefaultArmorKg"/> 兜底。
     /// <para>
-    /// 这正是本轮修的 bug 类：棉帽 0.15kg / 战争面具 0.3kg / 木缝雪镜 0.1kg 都曾漏登记 ⇒ 被当成 1.0kg
-    /// （棉帽 6.7 倍）。护甲重量的单一事实源是引擎 <c>ArmorLayer.Weight</c>，登记花名册是 <see cref="ItemRegistry.ArmorRoster"/>——
+    /// 这正是本轮修的 bug 类：护甲漏登记会静默使用默认重量。护甲重量的单一事实源是引擎 <c>ArmorLayer.Weight</c>，
+    /// 登记花名册是 <see cref="ItemRegistry.ArmorRoster"/>——
     /// 加一件护甲到 ArmorTable 却忘了补进花名册，本测试当场报红。
     /// </para>
     /// <para>⚠ 只覆盖返回单个 <c>ArmorLayer</c> 的无参方法；<c>ZombieHide()/SurvivorArmor()</c> 返回列表

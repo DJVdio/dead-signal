@@ -13,13 +13,13 @@ namespace DeadSignal.Godot;
 /// </para>
 ///
 /// <para>
-/// 调查点是**网状解锁**的（用户原话）：「需要去过前置的调查点且探索度大于50%，才能够走到之后的调查点。
+/// 调查点是**网状解锁**的（用户原话）：「需要去过前置的调查点且探索度达到门槛，才能够走到之后的调查点。
 /// 开局可以选择向东或者向西北的两个简单前期探查点。」判定全部走 <see cref="WorldGraphUnlock"/> 那一个纯函数
 /// —— 这里**不许**另写一份"能不能去"的 if（那正是"锁是画上去的、其实点得进去"怎么来的）。
 /// </para>
 ///
 /// <para>
-/// 锁着的点**照样画在地图上**，灰着、挂把锁、并且**明说为什么锁着**（"需要先去过「超市」并探索到 50% 以上"）——
+/// 锁着的点**照样画在地图上**，灰着、挂把锁、并且**明说为什么锁着**——
 /// 把锁着的点藏起来，玩家就不知道还有路可走。
 /// </para>
 /// </summary>
@@ -264,8 +264,9 @@ public sealed partial class WorldMapPanel : CanvasLayer
             else
             {
                 string danger = d.Node.Danger is { } dt ? $" · {DisplayNames.Of(dt)}" : "";
+                string enemies = d.Node.EnemyCount >= 0 ? $" · 敌对 {d.Node.EnemyCount}" : "";
                 string start = d.Node.IsStart && !string.IsNullOrEmpty(d.Node.Start) ? $" · 向{d.Node.Start}" : "";
-                lbl.Text = $"{d.Display}（{d.TravelTimeSeconds / 60} 分钟{danger}{start}）";
+                lbl.Text = $"{d.Display}（{d.TravelTimeSeconds / 60} 分钟{danger}{enemies}{start}）";
                 lbl.AddThemeColorOverride("font_color", new Color(0.8f, 0.75f, 0.6f));
             }
         }

@@ -74,6 +74,7 @@ public sealed partial class TestExploration
         var forageC = new Color(0.42f, 0.62f, 0.36f);
         AddDiscoveryPoint(ForageLogic.RangersCabinMushroomId, new Vector2(1700, 1560), markerColor: forageC, label: "林下蘑菇");
         AddDiscoveryPoint(ForageLogic.RangersCabinWoodpileMushroomId, new Vector2(1840, 1340), markerColor: forageC, label: "柴堆背阴");
+        AddDiscoveryPoint(ForageLogic.RangersKudzuRootId, new Vector2(1580, 1480), markerColor: forageC, label: "后山坡葛根");
     }
 
     /// <summary>后院老树占位（纯视觉）：树干 + 树冠 + 一段吊绳，示意哥顿上吊处。<paramref name="basePos"/>＝树根位置。</summary>

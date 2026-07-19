@@ -8,7 +8,7 @@ namespace DeadSignal.Godot;
 //
 // ═══ [R6·物品单一登记入口] ═══
 // 从前"加一件物品要改 5~7 处"，重量这一格散在 CarryWeight 的三张字典里（武器/护甲/材料各一张）。
-// 三张表**各建各表**的代价是"漏登记 → 静默落兜底 → 数值悄悄错"：棉帽 0.15kg 曾被算成 1.0kg（6.7 倍）、
+// 三张表**各建各表**的代价是"漏登记 → 静默落兜底 → 数值悄悄错"；
 // 消防斧/雪镜同款、cotton_hat 一度根本没进产出表。本文件把三张重量表**合并成一处按类别分区的统一登记表**
 // （<see cref="ItemRegistry"/>）——武器/护甲/材料的重量**从这一张表投影**，CarryWeight 只做薄读取。
 //
@@ -69,24 +69,20 @@ public static class ItemRegistry
         ["破甲锤"] = 4.5,        // wiki 同步（4.0 → 4.5）
         // [批次25·T44] 消防斧：头重杆轻的一件东西——与重剑同重，比尖头锤沉。拟定待调。
         ["消防斧"] = 3.0,
-        // [T56] 骨刀：一片削出来的骨头——全表最轻的武器（比匕首 0.5kg 还轻）。拟定待调。
-        // ⚠ 用户在数值表上**没填这一格**。不登记就落到 DefaultWeaponKg = 2.0 ⇒ 一把骨刀重 2kg
-        // （比棍棒 1.5kg 还沉），荒谬。🔴 武器重量的真源就在本表，Weapon 记录里根本没有重量字段。
+        // [T56] 骨刀重量由 Wiki 配置表填写；武器重量真源在本表，Weapon 记录里没有重量字段。
         ["骨刀"] = 0.4,
 
         // 枪械
-        // [wiki 同步·carryweight2] 用户在 wiki 上把长枪重量整体加重（**翻倍**）：自制猎枪 3→7.5 / 霰弹 3.2→6 /
-        //   步枪 4→7.5 / 狙击 6→9。这批曾因 impl-carryweight 免罚线(30/50/80)校准而暂缓，现随负重余量表
-        //   重推一起落地：三条线 30/50/80 **不动**，代价通过"装备吃掉搜刮余量"体现（重武器出门余量更小）。
-        //   核实：普通中期(步枪7.5+皮甲+军盔)出门 17.30kg **仍在 30kg 免罚线下**，"普通配置出门不罚"不变量成立。
-        //   余量表见 Loadout.cs 顶部 + CarryLoadWiringTests / CarryCapacityTests。
+        // [wiki 同步] 枪械重量与负重阈值均以 Wiki 配置表为准；装备重量会占用搜刮余量。
         ["手枪"] = 1.0,
         ["冲锋枪"] = 3.0,
         ["自制猎枪"] = 7.5,
         ["自制霰弹枪"] = 6.0,
-        // 「栓动猎枪」已按用户在数值表上的删除撤下（原 3.5kg）。
+        // 「栓动猎枪」已按用户在数值表上的删除撤下。
         ["步枪"] = 7.5,
         ["狙击枪"] = 9.0,
+        ["自制手枪"] = 2.5,
+        ["牙医小手枪"] = 1.0,
 
         // 弓弩
         ["短弓"] = 0.8,
@@ -95,7 +91,7 @@ public static class ItemRegistry
         ["竞技复合弓"] = 1.8,
         ["长弓"] = 1.5,
         ["单手轻弩"] = 2.0,
-        // [wiki 同步·carryweight2] 复合弩 3→4.5 / 双手重弩 4.5→9（用户手改，与枪械翻倍同批落地）。
+        // [wiki 同步·carryweight2] 弓弩重量以 Wiki 配置表为准。
         ["复合弩"] = 4.5,
         ["双手重弩"] = 9.0,
     };
@@ -116,7 +112,7 @@ public static class ItemRegistry
 
     /// <summary>
     /// 护甲花名册——重量登记的**唯一护甲清单**。加一件护甲到 <see cref="ArmorTable"/> 后必须补进这里，
-    /// 否则称重时静默落 <c>ItemWeights.DefaultArmorKg</c>（=1.0kg）兜底（棉帽 0.15→1.0 的 6.7 倍 bug 就是这么来的）。
+    /// 否则称重时静默落 <c>ItemWeights.DefaultArmorKg</c> 兜底；兜底不是设计数值。
     /// 焊死测试 <c>ItemWeight_EveryArmorTableLayer_IsRegistered</c> 反射枚举 ArmorTable 的单层护甲方法，漏一件即红。
     /// </summary>
     public static readonly IReadOnlyList<ArmorLayer> ArmorRoster = new[]
@@ -126,21 +122,21 @@ public static class ItemRegistry
         ArmorTable.ClothJacket(), ArmorTable.DenimJacket(), ArmorTable.LeatherJacket(), ArmorTable.Leather(),
         ArmorTable.Plate(), ArmorTable.WorkGloves(),
         ArmorTable.MilitaryHelmet(), ArmorTable.RiotHelmet(),
-        // [T68] 🔴 **补登记 5 件漏网的**（战争面具 / 棉帽 / 粗布衬衫 / 粗布短裤 / 粗布长裤）：
-        // 它们从落地那天起就没进过这张表 ⇒ 一律落到 DefaultArmorKg = **1.0kg**。
-        // 后果不是"差一点"：一顶 0.15kg 的棉帽被算成 1kg（**6.7 倍**），一张 0.3kg 的战争面具算成 1kg（3.3 倍）。
+        // [T68] 补登记新增护甲，避免落入默认重量；护甲重量真源在 ArmorLayer.Weight。
         // 负重刚接线（装备计入负重账）⇒ 这个兜底值正在**凭空吃掉玩家的背包**。
         // 📌 纪律：**兜底值不是设计决策**——它冒充设计决策，就是 bug。
         ArmorTable.WarMask(), ArmorTable.CottonHat(),
         ArmorTable.CoarseClothShirt(), ArmorTable.CoarseShorts(), ArmorTable.CoarseTrousers(),
         // [T68] 用户新加的三件。
         ArmorTable.HorrorArmor(), ArmorTable.Sunglasses(), ArmorTable.PlainGlasses(),
-        // [T71] 自制简易墨镜（木缝雪镜，0.1kg）——显式登记，别落 DefaultArmorKg=1.0（0.1kg 木镜算 1kg 是 10 倍）。
+        // [T71] 自制简易墨镜显式登记，避免落入默认重量。
         ArmorTable.SelfMadeSnowGoggles(),
-        ArmorTable.AnkleGuard(),   // [T72] 护踝鞋具（成对·脚槽，0.75kg）——追加末尾，重量真源在 ArmorLayer.Weight
-        ArmorTable.BallisticVest(),   // [警察局] 防弹背心（贴身层·护胸腹，2.5kg 拟定待Sim校准）——追加末尾，重量真源在 ArmorLayer.Weight
+        ArmorTable.AnkleGuard(),   // [T72] 护踝鞋具（成对·脚槽）——追加末尾，重量真源在 ArmorLayer.Weight
+        ArmorTable.BallisticVest(),   // [警察局] 防弹背心（贴身层·护胸腹）——追加末尾，重量真源在 ArmorLayer.Weight
+        ArmorTable.HeavyTrousers(), ArmorTable.HeavyCape(), ArmorTable.SnowBoots(),
         ArmorTable.DogClothVest(), ArmorTable.DogLeatherVest(), ArmorTable.DogPocketVest(),
         ArmorTable.DogIronHelmet(), ArmorTable.DogWireHelmet(),
+        ArmorTable.CowboyHat(), ArmorTable.RidingBoots(), ArmorTable.SimpleArmor(),
     };
 
     /// <summary>

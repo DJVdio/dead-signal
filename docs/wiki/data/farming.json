@@ -117,9 +117,9 @@
     {
       "group": "种植",
       "label": "种一颗的人力工时",
-      "value": 9,
+      "value": 15,
       "unit": "游戏分钟",
-      "note": "下种是一次人力动作（走既有工时化）。满种 16 颗 = 144 游戏分钟一次性人力。",
+      "note": "下种是一次人力动作（走既有工时化）。满种 16 颗 = 240 游戏分钟一次性人力。",
       "_id": "crop_plant_action_minutes",
       "_anchor": "godot/scripts/Farming.cs :: CropPlotLogic.PlantWorkMinutes",
       "_icon": "",

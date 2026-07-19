@@ -298,7 +298,7 @@ public class NurseRecruitTests
     /// <b>不是</b>「感染条涨多快」的速率轴（那条是山姆 L3 光环 <c>CampInfectionWorsenMultiplier</c>，两者显式正交）。
     ///
     /// 用户在数值表上把她的文案由「感染率降低」改成了「感染<b>条速度</b>降低」，字面指向速率轴。
-    /// 但换轴是**行为变更**（会与山姆的速率乘子叠加），已上抛 [DECISION]，<b>代码轴维持预防轴不动</b>。
+    /// 但换轴是**行为变更**，已上抛 [DECISION]，<b>代码轴维持预防轴不动</b>；退役的旧山姆全营速率光环兼容入口保持中性。
     /// 本测试钉住现状，以便换轴决议落地时能立刻红给你看。
     /// </summary>
     [Fact]
@@ -307,8 +307,8 @@ public class NurseRecruitTests
         // 她的乘子进的是"感染几率"通道：L2 在营 → 几率 ×0.85。
         Assert.Equal(0.85, NightingalePerk.CampInfectionMultiplier(2, nurseAliveInCamp: true, l3LegacyActive: false), 6);
 
-        // 速率轴（感染条涨多快）由山姆 L3 光环独占，南丁格尔不参与——她的等级不影响这个乘子。
+        // 速率轴（感染条涨多快）不由南丁格尔参与；退役的旧山姆全营速率光环兼容入口保持中性。
         Assert.Equal(1.0, SamPerk.CampInfectionWorsenMultiplier(samLevel: 0), 6);
-        Assert.True(SamPerk.CampInfectionWorsenMultiplier(samLevel: 3) < 1.0);
+        Assert.Equal(1.0, SamPerk.CampInfectionWorsenMultiplier(samLevel: 3), 6);
     }
 }

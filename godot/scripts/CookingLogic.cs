@@ -9,10 +9,9 @@ namespace DeadSignal.Godot;
 // 空间执行（烹饪台落地/挖导航洞/重烘焙/面板）归 Godot 消费层（CampMain / CookingPanel），本文件只出**判定与账**。
 //
 // ══════════ 烹饪：把生料变成饭 ══════════
-// 用户原话（口径以此为准）：
-//   「每种食物原材料都有对应的热量点，够 16 点热量点就能在烹饪台消耗一些时间制作一份食物。
-//     例如：老鼠 6 点，玫瑰果 2 点，军用单兵口粮 30 点。
-//     烹饪台有两个槽位，安装锅让每份食物需要的热量 -2，安装烤架让每份食物需要的热量 -2。
+// 用户 authored 说明（当前配方、热量、炊具减免与工时以 Wiki 配置为准）：
+//   每种食物原材料都有对应热量；达到一份食物的需求后，烹饪台消耗工时制作食物。
+//     烹饪台有两个槽位，安装锅或烤架会降低每份食物的热量需求。
 //     玩家只能一味地放食材，当热量点不足一份食物时，不让制作。当热量点在一份到两份间时，只能制作一份，
 //     并且不会给玩家提示。当热量点超过两份时，UI 上显示产物食物*2，能够制作两份。
 //     总之，每种食材的热量点和制作一份食物需要的热量是玩家要自己探索试错的。」
@@ -20,10 +19,10 @@ namespace DeadSignal.Godot;
 // ⚠️⚠️ **信息隐藏是这个机制的全部乐趣所在，不是待修的 UX 缺陷** ⚠️⚠️
 // 玩家在游戏里**永远看不到**：某种食材值几点、一份饭要几点、还差几点、零头浪费了几点。
 // 他唯一能观察到的信号是**产物那一行的「食物 ×N」**（和"按钮点不点得动"）。
-// 谁将来觉得"这里该给个进度条/该提示还差 4 点"——**那正是本机制要拒绝的东西**，动手前先回来读这段。
+// 谁将来觉得"这里该给个进度条/该提示还差多少"——**那正是本机制要拒绝的东西**，动手前先回来读这段。
 // （对照：本仓有「首次触发一行提示」框架 hint-system，**烹饪刻意不接它**。）
 //
-// 本文件的数值全部**拟定待调**（除用户点名的三个：老鼠 6 / 玫瑰果 2 / 军用单兵口粮 30，与一份 16 点、每槽 -2）。
+// 本文件的当前数值全部以 Wiki 配置为准；此处只保留规则形状与信息隐藏约束。
 
 /// <summary>
 /// 烹饪台的两个槽位（用户拍板：「烹饪台有两个槽位」）。装上就省料——每装一件，
@@ -68,7 +67,7 @@ public sealed class CookStationState
 ///
 /// <para>═══ <b>为什么热量点是外挂表，而不是 MaterialDef 上的一个字段</b> ═══
 /// 因为**一样东西可以既是材料又是食材**：玫瑰果（<c>rosehip</c>）是草药膏/玫瑰果茶的配料
-/// （<see cref="MaterialCategory.Medical"/>，归医疗那条线），同时也是用户点名的 2 点热量食材——
+/// （<see cref="MaterialCategory.Medical"/>，归医疗那条线），同时也是一条热量食材——
 /// 它下得了锅，也进得了药。把热量点做成 <see cref="MaterialDef"/> 的字段就得给全表 40 多种材料
 /// 都挂一个"热量"（木料的热量？铁丝的热量？），而"是不是食材"这件事**本来就是跨类别的**。
 /// ⇒ 「是不是食材」的定义就是<b>「在不在这张表里」</b>（<see cref="Has"/>）。</para>
@@ -83,9 +82,7 @@ public static class FoodCalories
     /// <param name="Calories">热量点（这一个单位的食材能贡献多少热量）。</param>
     public readonly record struct FoodDef(string Key, int Calories);
 
-    // 用户点名的三个值（老鼠 6 / 玫瑰果 2 / 军用单兵口粮 30）是**定值**，其余按"这一份能顶多少饭"拟定待调。
-    // 标尺：一份饭 = 16 点 ⇒ 口粮 30 ≈ 两份差一点（这就是它"珍贵但下锅浪费"的手感）；
-    //       老鼠 6 ≈ 三只才够一份；玫瑰果 2 ≈ 八颗才够一份（用户给的这两个数本身就在说"野食是苦日子"）。
+    // 当前热量值与每份需求以 Wiki 配置为准；玩家只能通过产物数量和按钮状态探索。
     // **声明顺序刻意不按热量排序**——面板按显示名排，绝不按热量排（按热量排 = 把答案免费告诉玩家）。
     private static readonly IReadOnlyList<FoodDef> _all = new[]
     {
@@ -95,25 +92,27 @@ public static class FoodCalories
         //    删的是"能直接下锅"这一条 ⇒ 现在灶上点不到它们，得先过一遍案板（<see cref="ButcheryLogic"/>）。
         //    走法与 [T59] 蒲公英**完全同源**（那次是"从食物表删、材料保留"），判据也是同一句：
         //    **「是不是食材」问的是 FoodCalories.Has，不是 MaterialCategory。**
-        //    ⚠️ 热量点**一点没蒸发**：老鼠的 6 点（**用户给定的定值**）原样搬到了 rat_meat 上，鸟的 5 点搬到了 bird_meat 上。
-        //    ⚠️ **兔子（rabbit）刻意没动** —— 用户只点名了"老鼠和鸟"。别顺手"统一"成"所有猎物都要宰杀"，那是引申。
-        new FoodDef("rabbit", 11),           // 兔子（[T67] **仍可直接下锅**：用户没提它 ⇒ 一个字没动）
+        //    ⚠️ 热量点**一点没蒸发**：宰杀只改变材料形态，肉的热量配置沿用设计表。
+        //    ⚠️ 兔子现在也进入宰杀链：任一档宰杀设施都能把 rabbit 变成 rabbit_meat，热量值以 Wiki 配置为准。
+        new FoodDef("rabbit_meat", 11),      // 兔子肉（宰杀产物，热量值以 Wiki 配置为准）
         new FoodDef("fish", 8),              // 鱼
 
         // ——— 存粮 / 罐头 ———
-        new FoodDef("ration", 30),           // 军用单兵口粮（用户给定）
-        new FoodDef("canned_food", 16),      // 罐头（热量点 T21 用户手改：12 → 16）
+        new FoodDef("ration", 30),           // 军用单兵口粮（热量值以 Wiki 配置为准）
+        new FoodDef("canned_food", 16),      // 罐头（热量值以 Wiki 配置为准）
         new FoodDef("flour", 10),            // 面粉
 
         // ——— 野菜 / 采集（与医疗原料共用同一批材料键，见类注）———
         new FoodDef("potato", 4),            // 土豆（[T67] 菜畦种出来的也是它——同一个键，不新造"自种土豆"）
         new FoodDef("mushroom", 3),          // 蘑菇
+        new FoodDef("kudzu_root", 6),        // 葛根（《尖峰时刻·三》识别后可采）
+        new FoodDef("rhubarb", 3),           // 大黄（《尖峰时刻·三》识别后可采）
 
         // ——— [T67] 宰杀出来的肉（**追加末尾不插队**）———
         // 热量点是从被宰的那只动物身上**原样继承**的，宰杀不创造也不毁灭热量（它只是把肉从骨头和皮上取下来）。
-        new FoodDef("rat_meat", 6),          // 老鼠肉 ← 继承老鼠的 6 点（用户给定的定值，一分不差）
-        new FoodDef("bird_meat", 5),         // 鸟肉   ← 继承鸟（原「鸽子」）的 5 点
-        new FoodDef("rosehip", 2),           // 玫瑰果（用户给定；同时是医疗原料，归 impl-medicine 那条线，本表不碰它的类别）
+        new FoodDef("rat_meat", 6),          // 老鼠肉 ← 继承老鼠的热量配置
+        new FoodDef("bird_meat", 5),         // 鸟肉   ← 继承鸟（原「鸽子」）的热量配置
+        new FoodDef("rosehip", 2),           // 玫瑰果（同时是医疗原料；本表不碰它的类别）
 
         // 🔴 [T59] **蒲公英已从本表移除**（用户在 wiki 的「食物与食材」页把它删了）⇒ 它**下不了锅**了。
         //    它**没有**从游戏里消失：仍是 MaterialCategory.Medical 的药材，仍是蒲公英茶（感染三档药之一）
@@ -259,7 +258,7 @@ public enum CookBlockReason
     /// <summary>
     /// 热量凑不够一份饭。
     /// <para>⚠️ <b>这条原因永远不许出现在玩家眼前</b>——玩家只该看到"按钮按不动"，
-    /// 不该看到"还差 4 点"。见 <see cref="CookingLogic.PlayerFacingText"/>。</para>
+    /// 不该看到还差多少。见 <see cref="CookingLogic.PlayerFacingText"/>。</para>
     /// </summary>
     NotEnoughCalories,
 }
@@ -281,21 +280,21 @@ public sealed record CookPlan(
 /// <summary>烹饪的判定与结算（纯函数，无状态、无副作用）。</summary>
 public static class CookingLogic
 {
-    /// <summary>一份饭的**基础**热量需求（用户拍板：16 点）。</summary>
+    /// <summary>一份饭的基础热量需求（当前值以 Wiki 配置为准）。</summary>
     public const int BasePortionCost = 16;
 
     // ———————————————————————— 炊具减免：**每个槽各一个独立值** ————————————————————————
     //
-    // 用户拍板的初值是「装锅 -2、装烤架 -2」——两个数**恰好相等**，但它们**不是同一个数**。
+    // Wiki 当前配置分别维护锅与烤架的减免——即使两个值恰好相等，它们也**不是同一个数**。
     // 曾经这里是一个共用常量 `CookwareDiscount`，看着更"DRY"，实际是个坑：
     // 用户要在 wiki 上调烹饪数值，共用常量意味着他**动不了其中一个**（改锅，烤架跟着变）。
     // ⇒ 拆成两个独立值。**初值不变、行为不变**（纯结构调整，既有测试原样绿）。
     // 新增炊具槽时：在 CookwareSlot 里加一个值 + 在 DiscountOf 里给它一个数（switch 逐值穷举，漏了会被编译器/测试抓到）。
 
-    /// <summary>装上「锅」时，每份饭省下的热量（用户拍板初值 2；可与烤架分别调）。</summary>
+    /// <summary>装上「锅」时，每份饭省下的热量（当前值以 Wiki 配置为准；可与烤架分别调）。</summary>
     public const int PotDiscount = 2;
 
-    /// <summary>装上「烤架」时，每份饭省下的热量（用户拍板初值 2；可与锅分别调）。</summary>
+    /// <summary>装上「烤架」时，每份饭省下的热量（当前值以 Wiki 配置为准；可与锅分别调）。</summary>
     public const int GrillDiscount = 2;
 
     /// <summary>某个炊具槽装上后省几点热量。⚠️ <b>这个数永远不许显示给玩家</b>（见本文件顶部）。</summary>
@@ -310,12 +309,12 @@ public static class CookingLogic
     public const int WorkMinutesPerPortion = 45;
 
     /// <summary>
-    /// 当前每份饭要多少热量：基础 16，**逐件**减去已装炊具各自的减免（锅 -2、烤架 -2 ⇒ 两件都装 = 12）。
-    /// <para>下限 1（防止将来把减免调大到把需求减成 0 或负数 ⇒ 除零 / 无限白送饭）。</para>
+    /// 当前每份饭要多少热量：基础需求**逐件**减去已装炊具各自的减免，具体值以 Wiki 配置为准。
+    /// <para>保留下限，防止减免把需求变成非正数。</para>
     /// </summary>
-    public static int PortionCost(IReadOnlySet<CookwareSlot>? installed)
+    public static int PortionCost(IReadOnlySet<CookwareSlot>? installed, int bookReduction = 0)
     {
-        int cost = BasePortionCost;
+        int cost = BasePortionCost - Math.Max(0, bookReduction);
         foreach (CookwareSlot slot in installed ?? (IReadOnlySet<CookwareSlot>)new HashSet<CookwareSlot>())
         {
             cost -= DiscountOf(slot);   // 逐件减：锅和烤架各有各的数，不再共用一个常量
@@ -339,11 +338,11 @@ public static class CookingLogic
     /// <summary>
     /// <b>份数 = ⌊总热量 ÷ 每份需求⌋</b>（**不封顶**）。
     /// <para>
-    /// 用户举的「一到两份之间只能做一份」「超过两份能做两份」就是这条通式的两个实例，
-    /// 不是两条特例规则——放到 48 点就是 3 份，放到 160 点就是 10 份。
+    /// 用户举的「一到两份之间只能做一份」「超过两份能做两份」就是这条通式的实例，
+    /// 不是两条特例规则；具体热量与产出数量以 Wiki 配置为准。
     /// </para>
     /// <para>
-    /// <b>零头静默浪费</b>：20 点、每份 16 ⇒ 做 1 份，多出的 4 点**直接没了**——不返还、不提示、不入账。
+    /// <b>零头静默浪费</b>：不足下一份的余量**直接没了**——不返还、不提示、不入账。
     /// 这是刻意的（"炖过头的那锅汤"），也是玩家试错的唯一代价。
     /// </para>
     /// </summary>
@@ -364,12 +363,13 @@ public static class CookingLogic
         bool hasStation,
         IReadOnlyDictionary<string, int>? pot,
         IReadOnlySet<CookwareSlot>? installed,
-        Func<string, int> availableMaterial)
+        Func<string, int> availableMaterial,
+        int bookCaloriesReduction = 0)
     {
         if (availableMaterial is null) throw new ArgumentNullException(nameof(availableMaterial));
 
         var blocks = new List<CookBlock>();
-        int cost = PortionCost(installed);
+        int cost = PortionCost(installed, bookCaloriesReduction);
 
         if (!hasStation)
         {
@@ -424,7 +424,7 @@ public static class CookingLogic
     /// 「没有烹饪台」「锅是空的」「库里没那么多」这三条是**玩家自己看得见的事实**（营地里没那座灶、
     /// 他一样没放、库存数字就摆在那儿），说出来不泄露任何东西；
     /// 而 <see cref="CookBlockReason.NotEnoughCalories"/> —— <b>热量不够 —— 一个字都不许说</b>：
-    /// 说了就等于把"一份要 16 点""老鼠值 6 点"直接送给玩家，用户要的试错乐趣当场归零。
+    /// 说了就等于把热量配置直接送给玩家，用户要的试错乐趣当场归零。
     /// </para>
     /// <para>热量不够时返回 <c>null</c> = <b>什么都不提示，按钮灰着就完了</b>。</para>
     /// </summary>

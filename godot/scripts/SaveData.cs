@@ -104,6 +104,10 @@ public sealed class WorldSave
     public double TravelElapsed { get; set; }
     public bool WarningFired { get; set; }
     public int SpeedIndex { get; set; }
+    /// <summary>当夜排程；读档必须原样恢复，禁止再次掷骰。</summary>
+    public NightEventKind NightEventKind { get; set; }
+    public double NightEventTriggerGameHour { get; set; }
+    public bool NightEventFired { get; set; }
 }
 
 /// <summary>营地全貌。</summary>
@@ -131,8 +135,16 @@ public sealed class CampSave
     /// </summary>
     public ButcherKnife ButcherKnife { get; set; } = ButcherKnife.None;
 
-    /// <summary>在制品（没有就 null）。</summary>
+    /// <summary>v3 旧单槽，仅供确定性迁移到 <see cref="FacilityJobs"/>；新档恒为 null。</summary>
     public CraftingJobSave? CraftingJob { get; set; }
+
+    /// <summary>各真实设施的独立在制任务，按稳定槽键排序保存。</summary>
+    public List<FacilityJobSave> FacilityJobs { get; set; } = new();
+
+    /// <summary>
+    /// 进行中的手术（没有就 null）。只保存角色 id、伤情/部位稳定键与工时；旧档缺字段自然等于没有手术，语义无损。
+    /// </summary>
+    public SurgeryJobSnapshot? SurgeryJob { get; set; }
 
     /// <summary>围栏/大门/门——<b>按格</b>逐个存（血量 + 档位 + 门的开关闩锁）。</summary>
     public List<StructureSave> Structures { get; set; } = new();
@@ -279,6 +291,16 @@ public sealed class CraftingJobSave
     public int WorkerId { get; set; } = -1;
 }
 
+public sealed class FacilityJobSave
+{
+    public string SlotKey { get; set; } = "";
+    public string RecipeId { get; set; } = "";
+    public int Times { get; set; }
+    public int TotalWorkMinutes { get; set; }
+    public int ElapsedWorkMinutes { get; set; }
+    public int WorkerId { get; set; } = -1;
+}
+
 /// <summary>
 /// 一处结构（一段围栏 / 一扇大门 / 一扇门）。<b>按格存</b>——围栏是逐格可破坏的，
 /// 只存"南墙还剩多少血"是不够的，玩家记得的是**哪一格**被啃开了。
@@ -379,6 +401,9 @@ public sealed class PawnSave
     public int RestPhases { get; set; }
     public int RestRestPhases { get; set; }
     public int RestBedPhases { get; set; }
+
+    /// <summary>断肢时回到本人背包的装备（暂存，死者尸体可搜出）。旧档缺此字段→空列表。</summary>
+    public List<LootItem> SeveredBackpack { get; set; } = new();
 }
 
 /// <summary>一条伤病/感染。不变量走构造器，进度是可变量。</summary>
@@ -425,11 +450,12 @@ public sealed class LoadoutSave
     public bool RightHandLost { get; set; }
 }
 
-/// <summary>手持光源：光源键 + 占了哪只手。</summary>
+/// <summary>手持光源：光源键 + 占了哪只手 + 剩余电池/燃烧耐久（旧档缺字段时按满格兼容）。</summary>
 public sealed class HeldLightSave
 {
     public string LightKey { get; set; } = "";
     public Hand Hand { get; set; }
+    public double? RemainingSeconds { get; set; }
 }
 
 /// <summary>

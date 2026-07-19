@@ -30,10 +30,13 @@ public class FlightSpeedTests
     [Fact]
     public void 全表既有武器飞速一律560_没有谁偷偷改了默认()
     {
-        foreach (Weapon w in WeaponTable.Arsenal())
+        foreach (Weapon w in WeaponTable.Arsenal().Where(w => w.Name is not "自制手枪" and not "牙医小手枪"))
         {
             Assert.Equal(LegacyGlobalFlightSpeed, w.FlightSpeed);
         }
+
+        Assert.Equal(450, WeaponTable.ImprovisedPistol().FlightSpeed);
+        Assert.Equal(400, WeaponTable.DentistPistol().FlightSpeed);
     }
 
     // ==================== 《弓与箭之道》→ 飞速 ×1.2 真生效 ====================

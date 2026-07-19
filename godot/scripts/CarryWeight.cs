@@ -13,10 +13,10 @@ namespace DeadSignal.Godot;
 //  ② ExpeditionBag —— 远征背包：**硬上限**（背不下就是拿不走），搜刮当场制造"拿什么、扔什么"的取舍
 //  ③ CarryCapacity —— 把上限算式（Loadout.Capacity）与角色状态/authored 专属效果接起来
 //
-// 上限算式见 Loadout.CarryLimit：基础 80kg（全员统一，**无"力量"属性**）× 承载能力（残缺×饥饿）× authored 专属乘子（山姆）。
+// 上限算式见 Loadout.CarryLimit：基础上限、承载能力与 authored 专属乘子均以 Wiki 配置表为准（全员统一，**无"力量"属性**）。
 //
 // 🔴 [T45·负重激活] 本文件另有三件事——原先缺的**那半本账**：
-//  ④ GearWeight —— 一个人**穿在身上、握在手里**的东西有多沉（修复前：装备一克都不进账 ⇒ 出门负重恒 0kg）
+//  ④ GearWeight —— 一个人**穿在身上、握在手里**的东西有多沉（旧版装备未计入负重账）
 //  ⑤ MemberLoad / ExpeditionLoad —— **逐人**的负重账（自己的装备 + 分摊到的战利品），出移速/攻速乘子
 //  ⑥ ExpeditionBag.GearKg —— 出门那一刻就压在账上的装备重量（同时吃掉搬运余量）
 
@@ -92,7 +92,7 @@ public static class ItemWeights
     /// <para>
     /// **改装变体**（"步枪（创伤型・加长枪管）"）不在本表里 —— 回落到它的**基础武器**重量
     /// （<see cref="ModdedWeaponRegistry.BaseNameOf"/>）。不这么做的话，一把改装狙击枪会按"未登记武器"
-    /// 算成 2kg（比手枪还轻），负重系统当场失真。
+    /// 算成兜底重量，负重系统当场失真。
     /// </para>
     ///
     /// <para>
@@ -101,15 +101,10 @@ public static class ItemWeights
     /// <list type="bullet">
     /// <item>基础重 × 各改装件重量乘子（<see cref="ModdedWeaponRegistry.WeightMultiplierOf"/>，
     ///       多条改装**连乘**——百分比一律乘算，CLAUDE.md 铁律）。</item>
-    /// <item>[carryweight2·枪重翻倍后] 满改装步枪 7.5 → <b>15.1875kg</b>（创伤型 +50% × 加长枪管 +35%）；
-    ///       满改装狙击 9.0 → <b>18.225kg</b>。</item>
-    /// <item>轻质化那一档是**减重**（−15% / −25%）：减重本身就是它唯一的收益，所以它必须真的减。</item>
+    /// <item>改装件的增减重按配置生效；轻质化改装的收益也是减重。</item>
     /// </list>
     /// ⚠️ <b>但代价的【形态】被用户后来澄清过，别照着上面那句原话去宣传</b>：三条线就是 <b>30/50/80，不改</b>
-    /// ⇒ 满改装步枪出门（中期配置 24.99kg）**仍在 30kg 免罚线下、一分不罚**（余量只剩 5kg）。
-    /// 改装的代价是「<b>它吃掉你的搜刮余量</b>」：免罚余量 12.7 → 5.0kg、硬余量 62.7 → 55.0kg。
-    /// [carryweight2] 枪重翻倍后，**原厂中期步枪也搬不空最大点位（66kg，硬余量 62.7）了**——重武器出门余量更小
-    /// 正是本轮翻倍的用户意图；满改装只是把这个差距再拉大（多留 7.69kg 货在原地）。
+    /// ⇒ 改装重量会吃掉搜刮余量；免罚线、硬上限与各物品重量均以 Wiki 配置为准。
     /// 「要么带甲带枪、要么带货」这个取舍是通过**余量**实现的，不是"出门即减速"——它把选择权留给玩家。
     /// </para>
     /// <para>
@@ -197,7 +192,7 @@ public static class ItemWeights
 ///
 /// <para>═══ 这个类是为一条真断链写的 ═══
 /// T45 之前，负重账（<see cref="ExpeditionBag"/>）**只算搜刮来的战利品**，出门那一刻背包是空的 ⇒
-/// **玩家出门时负重恒为 0kg**，一把 7.5kg 的满改装步枪、一身 15kg 的板甲，对负重系统的贡献都是**零**。
+/// **旧版玩家出门时负重恒为零**，装备重量未进入负重账；现已由装备账统一接入。
 /// 用户原话：「我希望重量在改装中是一个重要的因素，玩家可以把一把武器改装得很强，**但是一出门就进入负重 debuff**」——
 /// 这句话在断链下**无论把改装重量写多大都不可能成立**。本类把装备接进同一本账。
 /// </para>
@@ -209,7 +204,7 @@ public static class GearWeight
 {
     /// <summary>
     /// 手里握着的武器总重。喂 <c>Pawn.HeldWeapons</c>（= <see cref="WeaponLoadout.HeldWeapons"/>）——
-    /// <b>双手握一把的去重已在那里收口</b>，所以抱着重剑的人只算一次 3.0kg，不是两次。
+    /// <b>双手握一把的去重已在那里收口</b>，所以双手武器只计一次重量。
     /// <para>
     /// 🔴 <b>改装件增重的唯一入口是 <see cref="ItemWeights.WeaponKg"/></b>（见该函数）：改装变体武器的
     /// <c>Weapon.Name</c>（如"步枪（创伤型·加长枪管）"）在这里被原样喂进去。<c>impl-weaponmod</c> 只要让
@@ -221,7 +216,7 @@ public static class GearWeight
 
     /// <summary>
     /// 身上穿的护甲总重。喂 <c>Pawn.WornArmor</c>（= 11 槽投影出的生效层）——**逐件计**：
-    /// 成对品（鞋/手套）两只 = 两层，各算各的重量（一只 0.25kg 的运动鞋，两只 0.5kg）。
+    /// 成对品（鞋/手套）两只 = 两层，各按登记重量计入。
     /// 天生层（丧尸腐皮，<c>Weight = 0</c>）不影响结果。
     /// </summary>
     public static double OfArmor(IEnumerable<ArmorLayer>? worn)
@@ -233,7 +228,7 @@ public static class GearWeight
 }
 
 /// <summary>
-/// 开局主手武器规格（取代旧的 <c>usePistol</c> 布尔——它只能表达"手枪 or 匕首"，撑不起 authored 的"空手/棍棒"）。
+/// 开局主手武器规格（取代旧的 <c>usePistol</c> 布尔——它只能表达"手枪 or 匕首"，撑不起 authored 的"空手/棍棒/刺剑"）。
 /// </summary>
 public enum StartingWeapon
 {
@@ -245,6 +240,8 @@ public enum StartingWeapon
     Dagger,
     /// <summary>棍棒（近战钝器·骨折工厂）。道格。</summary>
     Club,
+    /// <summary>刺剑（近战锐器）。耗子。</summary>
+    Rapier,
 }
 
 /// <summary>起始武器 → 武器显示名 / camp.json 键解析（纯逻辑，供重量核算与 spawn 读取共用）。</summary>
@@ -256,6 +253,7 @@ public static class StartingWeaponInfo
         StartingWeapon.Pistol => WeaponTable.Pistol().Name,
         StartingWeapon.Dagger => WeaponTable.Dagger().Name,
         StartingWeapon.Club => WeaponTable.Club().Name,
+        StartingWeapon.Rapier => WeaponTable.Rapier().Name,
         _ => null,
     };
 
@@ -265,6 +263,7 @@ public static class StartingWeaponInfo
         "pistol" => StartingWeapon.Pistol,
         "dagger" => StartingWeapon.Dagger,
         "club" => StartingWeapon.Club,
+        "rapier" => StartingWeapon.Rapier,
         _ => StartingWeapon.None,
     };
 }
@@ -312,12 +311,12 @@ public static class SurvivorStartingKit
 /// 🔴 [T45] **一个队员这一趟的负重账**：他自己的装备 + 他分摊到的队伍战利品，对着**他自己的上限**分档。
 ///
 /// <para><b>为什么是逐人而不是全队一个数</b>：用户要的是「**你**把**你的**枪改装得很强 ⇒ **你**一出门就慢」。
-/// 若只按全队总账分档，一个人的满改装会被队友摊薄（3 人队里 +3.5kg 只抬高全队比例 1.5%），
+/// 若只按全队总账分档，一个人的重装备会被队友摊薄，无法体现个人负重差异，
 /// 那条代价就消失了。逐人分档下，**背板甲的那个人自己走得慢，队友不受连累**。</para>
 ///
-/// <para><b>战利品怎么分</b>：狗先驮满它那份（口袋狗衣 8kg，见 <c>DogGearCatalog.PocketVestCapacity</c>），
+/// <para><b>战利品怎么分</b>：狗先驮满它那份（容量见 <c>DogGearCatalog.PocketVestCapacity</c>），
 /// 剩下的按**各人运力占比**摊给人——背得动的人多背。这不是物理模拟，是"队伍会自己把货分匀"的合理近似；
-/// 它让狗衣的 8kg 真正**从人的肩膀上卸下来**，而不只是一个抽象的上限数字。</para>
+/// 它让狗衣容量真正**从人的肩膀上卸下来**，而不只是一个抽象的上限数字。</para>
 /// </summary>
 public readonly record struct MemberLoad
 {
@@ -381,7 +380,7 @@ public static class ExpeditionLoad
 /// 硬上限才逼出《这是我的战争》式的当场决定："这桶燃料和这把步枪，只能带一样。"
 /// 软惩罚（<see cref="Loadout.SpeedMultiplier"/>）依然在上限**之内**生效：背得越满走得越慢，所以"背满"本身也有代价。
 /// </para>
-/// 容量由 <see cref="PartyCapacity"/> 汇总（队里每个人的 <see cref="CarryCapacity"/> + 布鲁斯口袋狗衣的 8kg）。
+/// 容量由 <see cref="PartyCapacity"/> 汇总（队里每个人的 <see cref="CarryCapacity"/> + 布鲁斯口袋狗衣容量，数值见 Wiki）。
 /// </summary>
 public sealed class ExpeditionBag
 {
@@ -398,7 +397,7 @@ public sealed class ExpeditionBag
     /// <summary>
     /// 🔴 [T45] 队伍**装备**总重（kg）：出门那一刻就压在账上的东西——每个队员手里的武器 + 身上 11 槽的护甲。
     /// <para>
-    /// 修复前这本账<b>只算战利品</b>（<c>CarriedKg => TotalOfLoot(_contents)</c>），出门是空包 ⇒ 负重恒 0kg ⇒
+    /// 修复前这本账<b>只算战利品</b>（<c>CarriedKg => TotalOfLoot(_contents)</c>），装备未入账 ⇒
     /// 一把满改装步枪对负重的贡献是零 ⇒ 用户要的「一出门就 debuff」<b>在代码里不可能发生</b>。
     /// </para>
     /// <para>
@@ -430,21 +429,21 @@ public sealed class ExpeditionBag
     /// <summary>装满了（一颗钉子也塞不下了）。</summary>
     public bool IsFull => FreeKg <= 0;
 
-    /// <summary>0~1+ 的负重比例（喂 <see cref="Loadout.SpeedMultiplier"/> / <see cref="Loadout.TierOf"/>）。</summary>
+    /// <summary>负重比例（喂 <see cref="Loadout.SpeedMultiplier"/> / <see cref="Loadout.TierOf"/>）。</summary>
     public double Ratio => CapacityKg > 0 ? CarriedKg / CapacityKg : 0;
 
     /// <summary>当前档位（轻装 / 负重 / 重负 / 超载）——UI 要一眼可见，玩家靠它决定还拿不拿。</summary>
     public LoadoutTier Tier => Loadout.TierOf(CarriedKg, CapacityKg);
 
     /// <summary>
-    /// 全队总账的移速乘子（30kg 内无罚；30~50 轻度；50~80 加重，按队伍总运力伸缩）。
+    /// 全队总账的移速乘子；分段与曲线以 Wiki 配置为准。
     /// <para>⚠️ [T45] <b>真正作用到角色身上的是逐人的 <see cref="MemberLoad.SpeedMultiplier"/></b>
     /// （用户要的是"你把你的枪改装得很强 ⇒ 你走得慢"，不是全队摊薄）。本属性是**队伍总账的概览**，
     /// 供 HUD/面板显示与既有校准测试使用。</para>
     /// </summary>
     public double SpeedMultiplier => Loadout.SpeedMultiplier(CarriedKg, CapacityKg);
 
-    /// <summary>全队总账的出手间隔乘子（**从免罚线 30kg 起就线性掉**：50kg −20%、80kg −50%）。逐人口径同上，见 <see cref="MemberLoad.AttackSpeedMultiplier"/>。</summary>
+    /// <summary>全队总账的出手间隔乘子；起算线与曲线以 Wiki 配置为准。逐人口径同上，见 <see cref="MemberLoad.AttackSpeedMultiplier"/>。</summary>
     public double AttackSpeedMultiplier => Loadout.AttackSpeedMultiplier(CarriedKg, CapacityKg);
 
     /// <summary>
@@ -509,7 +508,7 @@ public sealed class ExpeditionBag
 
     /// <summary>
     /// 一支探索队这一趟的总运力：每个队员的上限之和 + 布鲁斯口袋狗衣的驮运容量。
-    /// 狗的负重就此**统一进同一套账**——口袋狗衣不再是独立口径，就是给队伍背包 +8kg（<see cref="DogGearCatalog.PocketVestCapacity"/>，T29 用户手改 6→8）。
+    /// 狗的负重就此**统一进同一套账**——口袋狗衣容量走 <see cref="DogGearCatalog.PocketVestCapacity"/>，不再复制另一套口径。
     /// </summary>
     /// <param name="memberCapacitiesKg">每个人的上限（各自走 <see cref="CarryCapacity.For"/>）。</param>
     /// <param name="dogCapacityKg">随队狗的驮运容量（<c>DogApparelSlots.TotalCarryCapacity()</c>；没带狗＝0）。</param>
@@ -536,29 +535,29 @@ public static class LootDisplay
 
 /// <summary>
 /// 把负重上限算式接到角色身上（引擎 <see cref="Loadout"/> 的消费层门面）。
-/// **无"力量"属性**：80kg 基数全员统一，个体差异只来自身体状态（残缺/饥饿）与 authored 专属效果（山姆）。
+/// **无"力量"属性**：负重基数全员统一，具体配置与个体差异以 Wiki 及身体状态/authored 效果为准。
 /// </summary>
 public static class CarryCapacity
 {
     /// <summary>
-    /// 某人的负重上限（kg）。基准人 80kg；三档（30/50/80）随此上限按比例伸缩。[T45] 账里含装备，不只是战利品。
+    /// 某人的负重上限（kg）；分档随配置伸缩。[T45] 账里含装备，不只是战利品。
     /// </summary>
     /// <param name="operationCapability">
-    /// 该角色**当前实际**的操作能力 0~1（残缺 × 饥饿已折算完，直接喂 <c>Pawn.OperationCapability</c>）——
+    /// 该角色**当前实际**的操作能力（残缺 × 饥饿已折算完，直接喂 <c>Pawn.OperationCapability</c>）——
     /// 断了手、饿着肚子的人背不动东西，与战斗出手间隔同源口径，不另造数学。
     /// </param>
     /// <param name="authoredMultiplier">
     /// authored 专属效果乘子（<c>CampMain.SamCarryCapacityMultFor(pawn)</c>）：
-    /// 山姆 L2 他自己 ×1.15、L3 全营 ×1.03，山姆本人**连乘** ×1.15×1.03（≠ 加算的 ×1.18）。
+    /// 山姆的专属乘子与全营叠加规则以 Wiki 配置为准；百分比加成保持连乘。
     /// </param>
     public static double For(double operationCapability, double authoredMultiplier = 1.0)
         => Loadout.CarryLimit(operationCapability, authoredMultiplier);
 
-    /// <summary>负重对应的移速乘子（15kg 内无罚；15~25 轻度；25~40 加重）。</summary>
+    /// <summary>负重对应的移速乘子；分段与曲线以 Wiki 配置为准。</summary>
     public static double SpeedMultiplier(double carriedKg, double limitKg)
         => Loadout.SpeedMultiplier(carriedKg, limitKg);
 
-    /// <summary>负重对应的出手间隔乘子（**从免罚线 30kg 起就线性掉**：50kg −20%、80kg −50%）。</summary>
+    /// <summary>负重对应的出手间隔乘子；起算线与曲线以 Wiki 配置为准。</summary>
     public static double AttackSpeedMultiplier(double carriedKg, double limitKg)
         => Loadout.AttackSpeedMultiplier(carriedKg, limitKg);
 
@@ -583,12 +582,12 @@ public static class CarryCapacity
         => $"{carriedKg:0.0} / {limitKg:0.0} kg（{TierLabel(TierOf(carriedKg, limitKg))}）";
 
     // ———————————— [T45] HUD：**超重了、慢了多少**，必须一眼看见 ————————————
-    // 修复前 HUD 只有一行「背包 12.5 / 30.0 kg（负重）」——玩家看得到自己背了多少，
+    // 修复前 HUD 只有一行固定格式的背包重量——玩家看得到自己背了多少，
     // **看不到这让他慢了多少**。而"慢了多少"恰恰是负重系统唯一的实际后果。
 
     /// <summary>
-    /// 惩罚短语（无惩罚 ⇒ 空串，HUD 保持干净）：「移速 −14%」「移速 −27%，攻速 −6%」。
-    /// 乘子四舍五入到整百分点；不足 1% 的（如 −0.4%）不显示，避免 HUD 抖动。
+    /// 惩罚短语（无惩罚 ⇒ 空串，HUD 保持干净）；展示值从实时乘子生成。
+    /// 乘子四舍五入到整百分点；极小惩罚不显示，避免 HUD 抖动。
     /// </summary>
     public static string PenaltyText(double carriedKg, double limitKg)
     {
@@ -604,14 +603,14 @@ public static class CarryCapacity
     }
 
     /// <summary>
-    /// HUD 一行的**队伍总账**：「负重 17.3+10.0 = 27.3 / 40.0 kg（重负）」——
-    /// 装备与战利品**分开显示**，玩家才看得出"这 17.3kg 是我自己穿上去的、不是捡来的"。
+    /// HUD 一行的**队伍总账**：装备与战利品分开显示——
+    /// 装备与战利品**分开显示**，玩家才看得出重量来自装备还是搜刮物。
     /// </summary>
     public static string FormatBag(double gearKg, double lootKg, double capacityKg)
         => $"装备 {gearKg:0.0} + 战利品 {lootKg:0.0} = " + Format(gearKg + lootKg, capacityKg);
 
     /// <summary>
-    /// HUD 一行的**某个人**：「诺蒂 负重 −5%」。<paramref name="name"/> 为空则只出档位与惩罚。
+    /// HUD 一行的**某个人**：展示角色名、档位与实时惩罚。<paramref name="name"/> 为空则只出档位与惩罚。
     /// 无惩罚 ⇒ 返回空串（调用方据此整段省略）。
     /// </summary>
     public static string FormatMember(string name, MemberLoad load)

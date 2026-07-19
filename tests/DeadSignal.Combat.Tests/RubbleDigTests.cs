@@ -155,15 +155,17 @@ public class RubbleDigTests
         var site = new RubbleSite("废墟A", 90, Rubbish());
         Assert.False(site.HasEggSlot);
         Assert.Equal("", site.EggContentId);
+        Assert.False(site.HasAuthoredEgg);
     }
 
     [Fact]
     public void EggSlot_CarriesFlagAndAuthoredKey()
     {
-        var site = new RubbleSite("废墟彩蛋", 120, Rubbish(), hasEggSlot: true, eggContentId: "");
+        var site = new RubbleSite("废墟彩蛋", 120, Rubbish(), hasEggSlot: true, eggContentId: RubbleSite.CourtyardFamilyEggContentId);
         Assert.True(site.HasEggSlot);
-        Assert.Equal("", site.EggContentId); // MVP 未填：仍只出普通材料
-        // 挖满收获照常出普通掉落（彩蛋落地由 CampMain 后续接 authored 内容）。
+        Assert.Equal(RubbleSite.CourtyardFamilyEggContentId, site.EggContentId);
+        Assert.True(site.HasAuthoredEgg);
+        // 挖满收获照常出普通掉落，消费层另播 authored 发现叙事。
         site.Advance(120, workerPresent: true);
         Assert.Equal(3, site.Harvest().Count);
     }

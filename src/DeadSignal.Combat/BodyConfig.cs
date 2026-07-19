@@ -8,7 +8,7 @@ namespace DeadSignal.Combat;
 /// <summary>
 /// 身体部位数值段：<c>body.json</c>。承载 <see cref="HumanBody"/> 里**可调的数字**——
 /// 每个部位的体积权重（命中倾向）与最大 HP（也是切除阈值：切除判据 <c>单次伤害 ≥ 部位 MaxHp</c>），
-/// 以及残疾惩罚（单肢 −50% / 每指 −7% / 每趾 −2%）。
+/// 以及残疾惩罚；具体比例以 Wiki 配置表为准。
 /// <para>
 /// ⚠️ <b>只外置数值，不外置结构</b>：部位名（<see cref="HumanBody.Chest"/> 等 const）、所属 Region/MacroRegion/Category
 /// 分类、父子拓扑（切除连带的树形）都是<b>结构</b>，仍写死在 <see cref="HumanBody"/> 里。此段只提供两个可调数字
@@ -63,12 +63,12 @@ public sealed class BodyPartStats
 /// <summary>残疾能力惩罚系数（乘算通则的一部分，见 <see cref="Body.RecalculatePenalties"/>）。</summary>
 public sealed class BodyDisability
 {
-    /// <summary>单手/单腿失去 = 全局能力的 −50%（两侧累加至 −100%）。</summary>
+    /// <summary>单手/单腿失去对应的能力惩罚，具体比例见 Wiki 配置表。</summary>
     public double SingleLimbPenalty { get; init; }
 
-    /// <summary>未失去的手每失去一根手指 −7%（该手上限 −50%）。</summary>
+    /// <summary>未失去的手每失去一根手指对应的能力惩罚，具体比例见 Wiki 配置表。</summary>
     public double FingerPenalty { get; init; }
 
-    /// <summary>未失去的脚每失去一根脚趾 −2%（该脚上限 −50%）。</summary>
+    /// <summary>未失去的脚每失去一根脚趾对应的能力惩罚，具体比例见 Wiki 配置表。</summary>
     public double ToePenalty { get; init; }
 }

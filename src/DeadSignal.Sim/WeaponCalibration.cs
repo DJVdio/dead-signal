@@ -32,8 +32,8 @@ public static class WeaponCalibration
         ("丧尸腐皮", ArmorTable.ZombieHide().ToArray()),
     };
 
-    // ---- 旧护甲对照组（[SPEC-B18] 之前的值，工具内联；只作 A/B 对照，不改 ArmorTable）----
-    // 旧值取自护甲重做前的 ArmorTable：布衣 4/2、皮甲(外套层) 12/6、板甲 34/11；且全部**全身覆盖**。
+    // ---- 旧护甲对照组（[SPEC-B18] 之前的值，工具内联；只作 A/B 对照，不改 Wiki 投影）----
+    // 历史值只服务 A/B 诊断，不作为当前配置说明。
     private static ArmorLayer OldCloth() => new()
     { Name = "旧布衣", Slot = ArmorSlot.Skin, SharpDefense = 4, BluntDefense = 2, Weight = 1 };
 
@@ -185,9 +185,9 @@ public static class WeaponCalibration
 
         int burst = Math.Max(1, w.BurstCount);
 
-        // 🔴 弹丸数必须乘进来（霰弹枪 PelletCount=8）：上面的采样循环是**逐颗弹丸**结算的
+        // 🔴 弹丸数必须乘进来：上面的采样循环是**逐颗弹丸**结算的
         // （resolver.Resolve 一次 = 一颗弹丸独立选部位、独立走三段判定），所以 perHit 是「一颗弹丸」的期望伤害，
-        // 而玩家扣一次扳机打出的是 8 颗。此前这里漏了 ×pellets ⇒ **表 1 的霰弹枪 DPS 被低估 8 倍**
+        // 而玩家扣一次扳机打出的是 PelletCount 颗。此前这里漏了 ×pellets，导致表 1 的多弹丸武器 DPS 被低估。
         // （harness 的 bug，不是数值问题）。连发（BurstCount）与弹丸（PelletCount）是两个独立的乘数：
         // 连发是"一次出手打几发"（拉长周期），弹丸是"一发里飞几颗"（不拉长周期）。
         int pellets = Math.Max(1, w.PelletCount);
@@ -307,7 +307,7 @@ public static class WeaponCalibration
 
         sb.AppendLine("## 表 1：每秒伤害（全身平均，含攻速、连发与弹丸数）");
         sb.AppendLine();
-        sb.AppendLine("> 多弹丸武器（自制霰弹枪 8 颗）按「一次扣扳机 = 8 颗各自独立结算」计入 —— 弹丸不拉长出手周期，故整发进 DPS。");
+        sb.AppendLine("> 多弹丸武器按「一次扣扳机 = PelletCount 颗各自独立结算」计入 —— 弹丸不拉长出手周期，故整发进 DPS。");
         sb.AppendLine();
         sb.Append("| 武器 | 类型 |");
         foreach (var (cn, _) in combos) sb.Append(CultureInfo.InvariantCulture, $" {cn} |");
@@ -443,8 +443,7 @@ public static class WeaponCalibration
 
         sb.AppendLine("## 表 8：改护甲前 vs 改护甲后（同一把武器，A/B 对照）");
         sb.AppendLine();
-        sb.AppendLine("旧甲值：布衣 锐4/钝2、皮甲 锐12/钝6、板甲 锐34/钝11、腐皮 锐1.5/钝3，且**全部全身覆盖**。");
-        sb.AppendLine("新甲值：长袖布衣 6/3、皮夹克 12/6、板甲 50/25、腐皮 3/3，且外套类**覆盖收窄到胸腹双臂**。");
+        sb.AppendLine("旧甲组为历史对照；新甲组数值与覆盖部位均直接读取 Wiki 配置表。");
         sb.AppendLine();
         sb.Append("| 武器 | 类型 |");
         foreach (var p in pairs) sb.Append(CultureInfo.InvariantCulture, $" {p.Name}·击杀耗时 旧→新 | {p.Name}·无伤率 旧→新 |");
@@ -544,7 +543,7 @@ public static class WeaponCalibration
         }
         rows.Add(("尖头锤", "伤害 ×1.5 + 穿透 12%", Variant(WeaponTable.SpikeHammer(), dmgMul: 1.5, pen: 0.12)));
 
-        // 匕首抬穿透（伤害不动）。扫描档位含 9%（匕首的历史穿透值，留作回溯对照；现值见 WeaponTable.Dagger）。
+        // 匕首抬穿透（伤害不动）。历史档位只服务回溯对照；现值来自 Wiki 投影。
         foreach (double p in new[] { 0.09, 0.18, 0.25, 0.35 })
         {
             rows.Add(("匕首", string.Create(CultureInfo.InvariantCulture, $"穿透 {p:P0}（伤害不动）"),
@@ -559,8 +558,7 @@ public static class WeaponCalibration
                 Variant(WeaponTable.Pistol(), pen: p)));
         }
 
-        // 冲锋枪降 DPS。冷却 1.8→2.6 已于 [批次18补] 落地，故「现值」= 2.6s；
-        // 1.8s 作为回溯对照保留（原始诊断锚，说明这次削弱削掉了多少）。
+        // 冲锋枪降 DPS。历史冷却档位只服务回溯对照；现值来自 Wiki 投影。
         rows.Add(("冲锋枪", "冷却 1.8s（改前原值·回溯对照）", Variant(WeaponTable.Smg(), interval: 1.8)));
         rows.Add(("冲锋枪", "现值（伤害 10~18 ×3发 / 冷却 2.6s）", WeaponTable.Smg()));
         rows.Add(("冲锋枪", "冷却 3.2s", Variant(WeaponTable.Smg(), interval: 3.2)));
@@ -587,8 +585,7 @@ public static class WeaponCalibration
     /// <summary>
     /// 参照锚（现值）。🔴 <b>这一行的数字必须从实测里长出来，不能手写</b>——[T63] 已在
     /// <see cref="CombatCostCalibration"/> 判过同一宗罪：手写的正文与它正上方那张自己生成的表互相矛盾。
-    /// 此处此前写死「匕首 打丧尸 90.2%、长剑 92.8%、重剑 96.0%；打重甲每秒伤害 长剑 2.86、重剑 3.87、破甲锤 3.31」，
-    /// 而同一次运行的表 7 实测已是 99.6% / 99.7% / 99.9% —— 引擎迭代把数带走了，正文没人复核。
+    /// 此处只输出当前运行时实测，不在注释中复制历史结果。
     /// </summary>
     private static void RenderAnchors(StringBuilder sb, IReadOnlyList<BodyPart> parts)
     {

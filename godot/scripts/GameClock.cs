@@ -19,7 +19,6 @@ public sealed partial class GameClock : Node
 
     private Config _cfg;
 
-    private static readonly double[] Speeds = { 1.0, 3.0, 8.0 };
     public int SpeedIndex { get; private set; } = 0;
 
     public bool Paused => Engine.TimeScale == 0;
@@ -64,15 +63,15 @@ public sealed partial class GameClock : Node
         _phaseElapsed = Math.Max(0, phaseElapsed);
         _travelElapsed = Math.Max(0, travelElapsed);
         _warningFired = warningFired;
-        SpeedIndex = Math.Clamp(speedIndex, 0, Speeds.Length - 1);
+        SpeedIndex = Math.Clamp(speedIndex, 0, GameTimeScaleOptions.MaxIndex);
         _userPaused = false;
-        Engine.TimeScale = Speeds[SpeedIndex];
+        Engine.TimeScale = GameTimeScaleOptions.SpeedAt(SpeedIndex);
     }
 
     public event Action<DayPhase>? OnPhaseChanged;
     public event Action? OnExploreWarning;
 
-    public double CurrentSpeed => Speeds[SpeedIndex];
+    public double CurrentSpeed => GameTimeScaleOptions.SpeedAt(SpeedIndex);
 
     public double GetExploreTimeRemaining()
     {
@@ -206,7 +205,7 @@ public sealed partial class GameClock : Node
 
     public void SetSpeedIndex(int index)
     {
-        SpeedIndex = Mathf.Clamp(index, 0, Speeds.Length - 1);
+        SpeedIndex = Mathf.Clamp(index, 0, GameTimeScaleOptions.MaxIndex);
         if (DayPhaseSegments.IsFrozen(CurrentPhase))
             return;
         _userPaused = false;
@@ -229,7 +228,7 @@ public sealed partial class GameClock : Node
             return;
         }
 
-        Engine.TimeScale = CurrentPhase == DayPhase.DayTravel ? 8.0 : Speeds[SpeedIndex];
+        Engine.TimeScale = CurrentPhase == DayPhase.DayTravel ? 8.0 : GameTimeScaleOptions.SpeedAt(SpeedIndex);
     }
 
     public Color CurrentAmbientColor()
@@ -284,5 +283,5 @@ public sealed partial class GameClock : Node
         return h * 60 + m;
     }
 
-    public string SpeedLabel() => Paused ? "暂停" : $"{(int)Speeds[SpeedIndex]}x";
+    public string SpeedLabel() => GameTimeScaleOptions.PausedLabel(SpeedIndex, Paused);
 }

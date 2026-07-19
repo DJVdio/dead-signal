@@ -51,6 +51,8 @@
     <Compile Include="..\..\godot\scripts\RaidResolution.cs" Link="Consumed\RaidResolution.cs" />
     <!-- 围栏/大门可破坏结构纯逻辑（无 Godot 依赖）：等级→血量表 + 承伤/摧毁判定。 -->
     <Compile Include="..\..\godot\scripts\CampStructure.cs" Link="Consumed\CampStructure.cs" />
+    <!-- 营地 hover 文案纯拼装：把家具/结构目录的 authored 简介与当前状态接入玩家可见提示。 -->
+    <Compile Include="..\..\godot\scripts\CampHoverText.cs" Link="Consumed\CampHoverText.cs" />
     <!-- 敌人砸墙破防纯逻辑（无 Godot 依赖）：矩形最近点/边缘距离 + 攻击站位 + 够不够得着决策 + 按边缘择结构。 -->
     <Compile Include="..\..\godot\scripts\BreachLogic.cs" Link="Consumed\BreachLogic.cs" />
     <Compile Include="..\..\godot\scripts\BreachSlots.cs" Link="Consumed\BreachSlots.cs" />
@@ -88,6 +90,10 @@
     <Compile Include="..\..\godot\scripts\ExplorationWalls.cs" Link="Consumed\ExplorationWalls.cs" />
     <!-- 开火噪音纯逻辑（无 Godot 依赖）：谁听得见（活着/当前无目标/敌对/在半径内）+ 武器噪音取值。空间侧广播归 Actor.EmitNoise。 -->
     <Compile Include="..\..\godot\scripts\NoiseLogic.cs" Link="Consumed\NoiseLogic.cs" />
+    <!-- 实时潜行/负重噪音纯逻辑（无 Godot 依赖）：服饰潜行值 + 负重移速连乘、耗子 L3 黑暗/先手倍率。 -->
+    <Compile Include="..\..\godot\scripts\StealthLogic.cs" Link="Consumed\StealthLogic.cs" />
+    <!-- 噪音玩家提示事件纯逻辑（无 Godot 依赖）：有限缓冲/中文来源文案；环形绘制在 NoiseCueOverlay。 -->
+    <Compile Include="..\..\godot\scripts\NoiseCue.cs" Link="Consumed\NoiseCue.cs" />
     <!-- 视野场纯逻辑（无 Godot 依赖，遮暗渲染/视野外隐藏判定核）：观察者并集点可见 + 网格逐格心遮暗位图（遮挡谓词由 Godot 层 raycast 供给）。 -->
     <Compile Include="..\..\godot\scripts\VisionField.cs" Link="Consumed\VisionField.cs" />
     <!-- 移动路径线纯几何（无 Godot 依赖）：导航真实路径点+推进下标+角色位置 → 剩余折线 → 按弧长切虚线短划（拐角拆段不切角）。绘制归 PathOverlay。 -->
@@ -122,6 +128,8 @@
     <Compile Include="..\..\godot\scripts\LightSource.cs" Link="Consumed\LightSource.cs" />
     <Compile Include="..\..\godot\scripts\LightField.cs" Link="Consumed\LightField.cs" />
     <Compile Include="..\..\godot\scripts\HeldLightState.cs" Link="Consumed\HeldLightState.cs" />
+    <!-- 劫掠者战斗火把投影纯逻辑：战斗态→PlacedLight，Godot 场景只消费结果。 -->
+    <Compile Include="..\..\godot\scripts\RaiderTorchLogic.cs" Link="Consumed\RaiderTorchLogic.cs" />
     <!-- 神秘商人纯逻辑（无 Godot 依赖）：货架/售卖条目 MerchantShelf·MerchantOffer + 交易判定/实扣实产 MerchantTrade + 来访调度状态机 MerchantSchedule。 -->
     <Compile Include="..\..\godot\scripts\MerchantShelf.cs" Link="Consumed\MerchantShelf.cs" />
     <Compile Include="..\..\godot\scripts\MerchantTrade.cs" Link="Consumed\MerchantTrade.cs" />
@@ -136,7 +144,7 @@
     <Compile Include="..\..\godot\scripts\GoldfingerDiscovery.cs" Link="Consumed\GoldfingerDiscovery.cs" />
     <!-- 探索点搜刮缓存纯逻辑（无 Godot 依赖）：cacheId → flag/一批掉落/环境叙事（河边小屋/联合收割机仓库/城市之巅瞭望观景台/守林人小屋）。 -->
     <Compile Include="..\..\godot\scripts\ExplorationCache.cs" Link="Consumed\ExplorationCache.cs" />
-    <!-- 金手指帮守备编制表（无 Godot 依赖）：他们是**人**不是丧尸——8 人各自的持械/伤情/是否站岗。
+    <!-- 金手指帮守备编制表（无 Godot 依赖）：他们是**人**不是丧尸——4 人各自的持械/伤情/是否站岗。
          同一张表也被 DeadSignal.Sim Link 走（校准 harness 必须与运行时读同一份，抄一份就会漂移）。 -->
     <Compile Include="..\..\godot\scripts\GoldfingerGang.cs" Link="Consumed\GoldfingerGang.cs" />
     <!-- [SPEC-T51] 斯图尔特家族庄园的劫掠者编制表（无 Godot 依赖）：7 人各自的持械/着装/是否站岗 + 哨位布点 + 噪音招怪几何。
@@ -151,6 +159,8 @@
     <!-- [T57] 调查点网状解锁图纯逻辑（无 Godot 依赖）：world_graph.json → 图 + 「前置去过 且 探索度>50%」门槛 + 反死锁/反孤岛/反环校验。
          ⚠️ 图本身是**数据**（godot/data/world_graph.json，wiki 上有对应表）；本文件只写规则，重排路线不用改代码。 -->
     <Compile Include="..\..\godot\scripts\WorldGraph.cs" Link="Consumed\WorldGraph.cs" />
+    <!-- 探索期输入门控/坐标契约与目的地威胁档位（纯逻辑，Godot 层只消费）。 -->
+    <Compile Include="..\..\godot\scripts\ExplorationInteraction.cs" Link="Consumed\ExplorationInteraction.cs" />
     <!-- 瞭望台望远镜瞭望尸潮发现点纯逻辑（无 Godot 依赖）：discoveryId → 置 HordeTimeline.SightedFlag + 环境叙事。 -->
     <Compile Include="..\..\godot\scripts\LookoutSighting.cs" Link="Consumed\LookoutSighting.cs" />
     <!-- 叙事调查点框架纯逻辑（无 Godot 依赖，[SPEC-B12] 极乐迪斯科式）：注册表 id → (标题+多屏文本+去重旗标)，一次性/可重读；各图样例点位。 -->
@@ -162,6 +172,8 @@
     <Compile Include="..\..\godot\scripts\ZombieActivation.cs" Link="Consumed\ZombieActivation.cs" />
     <!-- 武器持械模型纯逻辑（无 Godot 依赖）：左右手持械 → GripMode 推导 / 断手禁持 / 主手武器选取。 -->
     <Compile Include="..\..\godot\scripts\WeaponLoadout.cs" Link="Consumed\WeaponLoadout.cs" />
+    <!-- 断肢装备掉落幂等账本：Body.Sever 的部位子树 → 手/脚装备槽。 -->
+    <Compile Include="..\..\godot\scripts\SeveredEquipmentDrop.cs" Link="Consumed\SeveredEquipmentDrop.cs" />
     <!-- 持握态战斗消费纯逻辑（无 Godot 依赖）：grip 攻速系数并入残疾×饥饿的有效间隔 + 双持远程误差角 ×1.25。 -->
     <Compile Include="..\..\godot\scripts\GripCombat.cs" Link="Consumed\GripCombat.cs" />
     <!-- §6 穿戴槽纯逻辑（无 Godot 依赖）：11 槽占用/多槽/成对/断肢禁装/替换/卸装 + 护甲覆盖聚合 + 装备目录映射表。 -->
@@ -183,6 +195,8 @@
     <!-- 克莉丝汀 authored 三级专属效果纯逻辑（无 Godot 依赖）：相位 25%/35% 不掉饥饿 + 商人买入 6.25% 折扣 + 卖出价率 60→70 + 升级轴（在营存活 3 天 / 灭金手指帮旗标）。 -->
     <Compile Include="..\..\godot\scripts\ChristinePerk.cs" Link="Consumed\ChristinePerk.cs" />
     <Compile Include="..\..\godot\scripts\ReadingProgress.cs" Link="Consumed\ReadingProgress.cs" />
+    <!-- 读书面板逐角色视图模型纯逻辑（无 Godot 依赖）：BookDisplayOption / ReaderOption / ReadingAssignmentView。 -->
+    <Compile Include="..\..\godot\scripts\ReadingAssignmentView.cs" Link="Consumed\ReadingAssignmentView.cs" />
     <!-- authored 背景在躯体上的开局痕迹（无 Godot 依赖）：山姆开局左手缺小指+无名指（九岁救诺蒂被野狗咬掉）。 -->
     <Compile Include="..\..\godot\scripts\SurvivorBackstory.cs" Link="Consumed\SurvivorBackstory.cs" />
     <!-- 配方系统核心纯逻辑（无 Godot 依赖）：工作台三工具槽 + RecipeData/RecipeBook 草稿表 + CanCraft 四门槛判定 + Resolve 产出契约。 -->
@@ -193,12 +207,17 @@
     <Compile Include="..\..\godot\scripts\CraftingLogic.cs" Link="Consumed\CraftingLogic.cs" />
     <!-- 工时制在制品纯逻辑（无 Godot 依赖）：工时进度推进(人在台+生产相位才推进)/中断续作/封顶完工。 -->
     <Compile Include="..\..\godot\scripts\CraftingJob.cs" Link="Consumed\CraftingJob.cs" />
+    <!-- 0.5 游戏小时手术在制状态机：稳定角色/目标键、暂停、中断、幂等结算。 -->
+    <Compile Include="..\..\godot\scripts\SurgeryJob.cs" Link="Consumed\SurgeryJob.cs" />
     <!-- [批次21·T25] 工时的**总工时乘算轴**（《木匠入门》做家具 ×0.95，连乘不覆盖）+ 可摆放物事实源（PlaceableItems）。 -->
     <Compile Include="..\..\godot\scripts\CraftWorkTime.cs" Link="Consumed\CraftWorkTime.cs" />
     <!-- [A4] 书→近战攻速被动的消费层乘子汇总（进阶木匠→消防斧攻速+8%）。纯逻辑，先红后绿。 -->
     <Compile Include="..\..\godot\scripts\MeleeBookEffect.cs" Link="Consumed\MeleeBookEffect.cs" />
+    <Compile Include="..\..\godot\scripts\BookPassiveEffects.cs" Link="Consumed\BookPassiveEffects.cs" />
     <!-- [批次21·T25] 桌子（玩家可造可摆的纯家具：非实心、可跨越、守 64px 禁建带）。 -->
     <Compile Include="..\..\godot\scripts\TableSpec.cs" Link="Consumed\TableSpec.cs" />
+    <!-- 沙发（升级座位）纯逻辑：座位类型 + 读速×1.12/恢复×1.09 + 可摆放规格。 -->
+    <Compile Include="..\..\godot\scripts\SofaSpec.cs" Link="Consumed\SofaSpec.cs" />
     <!-- 制作面板纯展示逻辑（无 Godot 依赖）：配方按工具分组 + 工具需求文案/满足判定 + 库存材料计数聚合。 -->
     <Compile Include="..\..\godot\scripts\CraftingPanelFormat.cs" Link="Consumed\CraftingPanelFormat.cs" />
     <!-- 武器改装模型纯逻辑（无 Godot 依赖）：改装项/部位/大类 + 数值增量 + 合成校验(同部位冲突/不适用/锐击枪托覆盖) + 三类武器改装目录。 -->
@@ -226,9 +245,13 @@
     <Compile Include="..\..\godot\scripts\BedSpec.cs" Link="Consumed\BedSpec.cs" />
     <!-- 批次21·T26 圈套陷阱纯逻辑（impl-traps，无 Godot 依赖）：TrapSpec 规格（可摆放矮物/守禁建带/可跨越）+ TrapLogic 几率递减（第n个=max(5%,30%−5%×(n−1))）与每相位独立掷点。 -->
     <Compile Include="..\..\godot\scripts\TrapLogic.cs" Link="Consumed\TrapLogic.cs" />
+    <!-- 多设施并行生产作业板纯逻辑（无 Godot 依赖）：各设施独立任务槽、工人唯一占用、完工/暂停/释放。 -->
+    <Compile Include="..\..\godot\scripts\FacilityJobBoard.cs" Link="Consumed\FacilityJobBoard.cs" />
+    <!-- 真实独立武器台：稳定设施身份、固定锚点与武器配方路由。 -->
+    <Compile Include="..\..\godot\scripts\WeaponBench.cs" Link="Consumed\WeaponBench.cs" />
     <!-- [T67] 采集/种植/诱捕（impl-forage，无 Godot 依赖）：BirdTrapSpec/BirdTrapLogic 捕鸟陷阱 + CropPlotSpec/CropPlotLogic 菜畦 + ForageLogic 野外采集。 -->
     <Compile Include="..\..\godot\scripts\Farming.cs" Link="Consumed\Farming.cs" />
-    <!-- [T67] 宰杀（impl-forage）：ButcherStation 两档设施 + 刀槽 + ButcheryLogic（速度**加算**＝用户拍板的例外；老鼠/鸟 → 肉 + 碎皮革/羽毛）。 -->
+    <!-- [T67] 宰杀（impl-forage）：ButcherStation 两档设施 + 刀槽 + ButcheryLogic（速度**加算**＝用户拍板的例外；老鼠/兔子/鸟 → 肉 + 碎皮革/羽毛）。 -->
     <Compile Include="..\..\godot\scripts\Butchery.cs" Link="Consumed\Butchery.cs" />
     <!-- 批次6 夜防「警戒力 vs 潜行力」对抗纯逻辑（watch-contest，无 Godot 依赖）：警戒力/潜行力合成 + Resolve 掷点对抗 + 未发现后果(先手/偷窃) + 三档响应名册 RespondersFor。 -->
     <Compile Include="..\..\godot\scripts\NightWatchContest.cs" Link="Consumed\NightWatchContest.cs" />
@@ -236,6 +259,8 @@
     <Compile Include="..\..\godot\scripts\RadioMainline.cs" Link="Consumed\RadioMainline.cs" />
     <!-- 批次9 营地废墟挖掘纯逻辑（camp-rubble，无 Godot 依赖）：RubbleSite 有状态(进度/drops/彩蛋槽/cleared) + RubbleField 注册表/批量 Advance/一次性 Harvest；复用 LootItem 做 drops。 -->
     <Compile Include="..\..\godot\scripts\RubbleDig.cs" Link="Consumed\RubbleDig.cs" />
+    <!-- 夜袭事件调度纯逻辑（无 Godot 依赖）：人袭 12.5%/前3h 互斥丧尸 22.5%/前5h，可存档不重掷。 -->
+    <Compile Include="..\..\godot\scripts\NightEventSchedule.cs" Link="Consumed\NightEventSchedule.cs" />
     <!-- 批次6 夜防对抗运行时编排辅助纯逻辑（night-response，无 Godot 依赖）：岗哨加成映射/威胁分档/营地多守卫对抗聚合。 -->
     <Compile Include="..\..\godot\scripts\NightRaidLogic.cs" Link="Consumed\NightRaidLogic.cs" />
     <!-- 批次11 三结局 CG 定稿+全灭结局路由纯逻辑（endgame-flow，无 Godot 依赖）：CG①尸潮/②军袭全灭变体/③南逃 分段文本 + ForGameOver 路由。 -->
@@ -324,6 +349,7 @@
     <Compile Include="..\..\godot\scripts\SouthTrialConfig.cs" Link="Consumed\SouthTrialConfig.cs" />
     <Compile Include="..\..\godot\scripts\PerkConfig.cs" Link="Consumed\PerkConfig.cs" />
     <Compile Include="..\..\godot\scripts\MerchantConfig.cs" Link="Consumed\MerchantConfig.cs" />
+    <Compile Include="..\..\godot\scripts\GameTimeScaleOptions.cs" Link="Consumed\GameTimeScaleOptions.cs" />
   </ItemGroup>
 
 </Project>

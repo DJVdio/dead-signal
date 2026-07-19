@@ -55,6 +55,9 @@ public sealed partial class CampMain
                 TravelElapsed = _clock.TravelElapsed,
                 WarningFired = _clock.WarningFired,
                 SpeedIndex = _clock.SpeedIndex,
+                NightEventKind = _nightEventSchedule.EventKind,
+                NightEventTriggerGameHour = _nightEventSchedule.TriggerGameHour,
+                NightEventFired = _nightEventSchedule.Fired,
             },
             // 剧情/发现/提示/搜刮完成度——半个存档都在这一个字典里（那些系统自身零字段）。
             StoryFlags = _storyFlags.Snapshot().ToDictionary(kv => kv.Key, kv => kv.Value),
@@ -97,7 +100,9 @@ public sealed partial class CampMain
             WorkbenchTools = SaveMapper.ToSave(_workbench),
             CookwareInstalled = SaveMapper.ToSave(_cookStation),   // [批次21·T14] 烹饪台上装了锅没有、装了烤架没有
             ButcherKnife = _butcherStation.Slotted,   // [T67] 宰杀设施刀槽里那把刀（刀已离库，不存就凭空蒸发）
-            CraftingJob = SaveMapper.ToSave(_craftingJob, _craftingJobWorker?.Id ?? -1),
+            CraftingJob = null,
+            FacilityJobs = SaveMapper.ToSave(_facilityJobs),
+            SurgeryJob = _surgeryJob?.Snapshot(),
             SandbagSeq = _sandbagSeq,
             TrapSeq = _trapSeq,   // [批次21·T26] 陷阱命名序号（数量不存——从 PlacedFurniture 数出来，见 SaveData.TrapSeq）
             BirdTrapSeq = _birdTrapSeq,   // [T75] 捕鸟陷阱命名序号（同圈套：数量从 PlacedFurniture 数出来，只存序号防重名）
@@ -142,6 +147,18 @@ public sealed partial class CampMain
                 Y = bench.Rect.Position.Y,
                 W = bench.Rect.Size.X,
                 H = bench.Rect.Size.Y,
+            });
+        }
+
+        if (_furniture.TryGetValue(WeaponBench.FurnitureKey, out FurnitureInstance? weaponBench))
+        {
+            list.Add(new PlacedFurnitureSave
+            {
+                Key = WeaponBench.FurnitureKey,
+                X = weaponBench.Rect.Position.X,
+                Y = weaponBench.Rect.Position.Y,
+                W = weaponBench.Rect.Size.X,
+                H = weaponBench.Rect.Size.Y,
             });
         }
 
@@ -344,10 +361,9 @@ public sealed partial class CampMain
     /// 把 <see cref="_coldLoadData"/> 灌回营地。走的是与「游戏内就地覆盖读档」完全相同的 <see cref="ApplySave"/>，
     /// 因此人/物资/结构/剧情等 <b>玩法状态全部正确</b>。
     /// <para>
-    /// 🔴 <b>遗留（GUI 目视验收，21②）</b>：<see cref="ApplySave"/> 的 <c>_clock.Restore</c> 刻意不发
-    /// <see cref="OnGamePhaseChanged"/>（那里含聚餐/健康日推进/关卡加载等重玩法副作用，绝不能为"刷视觉"而触发）。
-    /// 于是冷启动直读<b>夜晚档</b>时，视野遮暗层 / 环境光仍是 <c>_Ready</c> 的白天默认，要到下一次自然相位切换才更新。
-    /// 这是纯视觉的过渡瑕疵（玩法数据无误），需抽出「只刷相位视觉、不带玩法副作用」的再入点、且只能实机目视校准。
+    /// <see cref="ApplySave"/> 的 <c>_clock.Restore</c> 刻意不发 <see cref="OnGamePhaseChanged"/>，
+    /// 避免重复结算聚餐/健康日推进/关卡加载。恢复后只调用 <c>RefreshPhaseVisuals</c>，
+    /// 使冷启动直读夜晚档时的环境色与视野遮暗当帧对齐，不带玩法副作用。
     /// </para>
     /// </summary>
     private void StartFromColdLoad()
@@ -373,6 +389,12 @@ public sealed partial class CampMain
         //    发事件会让订阅方把一个已经结算过的相位再结算一遍。
         _clock.Restore(s.World.Day, s.World.Phase, s.World.PhaseElapsed,
                        s.World.TravelElapsed, s.World.WarningFired, s.World.SpeedIndex);
+        _nightEventSchedule = NightEventSchedule.Restore(
+            s.World.NightEventKind, s.World.NightEventTriggerGameHour, s.World.NightEventFired);
+        // Restore 刻意不发 OnPhaseChanged：读档不得重结算聚餐/健康日/关卡切换。
+        // 但冷启动的 VisionMask 仍是 _Ready 的白天默认，环境色也应在灌档当帧对齐；
+        // 因此只走纯表现再入点，不广播任何玩法事件。
+        RefreshPhaseVisuals(_clock.CurrentPhase);
 
         // 2) 剧情 flag（半个存档）。
         RestoreStoryFlags(s.StoryFlags);
@@ -394,6 +416,7 @@ public sealed partial class CampMain
         // 4) 人。
         RestoreSurvivors(s.Survivors);
         RestoreDog(s.Dog);
+        RestoreProductionWorkers();
 
         // 5) 尸体（相位计数先于尸体——见 CorpseYard.RestorePhaseTick 的注释）。
         RestoreCorpses(s.Corpses);
@@ -446,10 +469,14 @@ public sealed partial class CampMain
         // 玩家自己摆的家具（改装台）：按存档里的位置重新立起来（含碰撞/导航洞/可点击容器）。
         RestorePlacedFurniture(camp.PlacedFurniture);
 
-        _craftingJob = SaveMapper.FromSave(camp.CraftingJob);
-        _craftingJobWorker = camp.CraftingJob is { WorkerId: >= 0 } cj
-            ? _survivors.FirstOrDefault(p => p.Id == cj.WorkerId)
-            : null;
+        _facilityJobs = SaveMapper.FromSave(camp.FacilityJobs);
+        if (_facilityJobs.Count == 0 && camp.CraftingJob is { WorkerId: >= 0 } legacy)
+        {
+            CraftingJob? oldJob = SaveMapper.FromSave(legacy);
+            _facilityJobs = FacilityJobBoard.FromLegacySingleJob(oldJob, legacy.WorkerId);
+        }
+        _surgeryJob = camp.SurgeryJob is not null ? SurgeryJob.Restore(camp.SurgeryJob) : null;
+        _surgeryLastMinuteKey = -1; // 读档首帧以当前时钟为新基准，绝不把离线/加载耗时算进手术。
 
         _sandbagSeq = camp.SandbagSeq;
 
@@ -482,6 +509,22 @@ public sealed partial class CampMain
             inst.State = CampStructureState.Restore(saved.Tier, saved.Hp);
             inst.Door = saved.DoorState;
             inst.Lock = saved.LockTier;
+        }
+    }
+
+    /// <summary>生产任务先随 Camp 恢复，但工人实体要到 RestoreSurvivors 后才存在；此处统一重挂角色与站位。</summary>
+    private void RestoreProductionWorkers()
+    {
+        SyncProductionAssignments();
+        foreach (FacilityJobSlot slot in _facilityJobs.Jobs)
+        {
+            Pawn? worker = _survivors.FirstOrDefault(p => p.Id == slot.WorkerId);
+            if (worker is not null && FacilityRectForSlot(slot.SlotKey) is Rect2 rect)
+            {
+                worker.Role = PawnRole.Producing;
+                worker.ProducingStationing = true;
+                worker.CommandMoveTo(NearestEdgeStandPoint(rect, worker.GlobalPosition));
+            }
         }
     }
 
@@ -582,7 +625,7 @@ public sealed partial class CampMain
         var visuals = new List<Node2D>();
         AddOccluderVisual(rect, style, seed: 19 + SandbagSeqOf(name), height: CoverPropHeight, cell: 48f, collect: visuals);
 
-        // 半身掩体登记：贴着它的双方都吃 25% 远程无效（读档后这份收益必须还在，否则玩家的工事白垒了）。
+        // 半身掩体登记：贴着它的双方都按 Wiki 配置获得远程无效概率（读档后这份收益必须还在，否则玩家的工事白垒了）。
         _coverField.Add(rect.Position.X, rect.Position.Y, rect.Size.X, rect.Size.Y,
             SandbagSpec.CoverChance, SandbagSpec.BlocksMelee);
 
@@ -644,7 +687,7 @@ public sealed partial class CampMain
 
         foreach (CorpseSave c in s.Corpses)
         {
-            _corpseYard.RestoreCorpse(
+            Corpse? restored = _corpseYard.RestoreCorpse(
                 new Vector2((float)c.X, (float)c.Y),
                 new CorpseCell(c.CellX, c.CellY),
                 new Color(c.TintR, c.TintG, c.TintB),
@@ -652,6 +695,12 @@ public sealed partial class CampMain
                 c.ContainerId,
                 c.SpawnPhaseTick,
                 c.Loot);
+            // 读档后的尸体必须重新进入可点击容器表；否则装备（包括断肢遗落物）虽在 CorpseSave
+            // 里恢复了，玩家却永远点不到，形成“数据在、消费链断”的静默丢失。
+            if (restored is { Loot.Count: > 0 } && !string.IsNullOrEmpty(restored.ContainerId))
+            {
+                RegisterCorpseContainer(restored);
+            }
         }
     }
 

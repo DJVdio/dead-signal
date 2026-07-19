@@ -269,6 +269,13 @@ public class AmmoTests
         }
     }
 
+    [Fact]
+    public void 子弹零件保留为枪弹材料_但制作配方已删除()
+    {
+        Assert.True(Materials.Has(BulletParts.Key), "子弹零件仍是四种枪弹的共同材料");
+        Assert.DoesNotContain(RecipeBook.All, r => r.OutputKey == BulletParts.Key);
+    }
+
     // ── 弓/弩：「1 类别 : 4 材料」的开火接线（Actor.ResolveRangedWeapon 的纯逻辑等价物）───────
     [Fact]
     public void 弓_自动搭上最差的那种箭_好箭留着()

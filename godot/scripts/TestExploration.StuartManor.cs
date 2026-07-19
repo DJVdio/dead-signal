@@ -95,6 +95,7 @@ public sealed partial class TestExploration
         var forageC = new Color(0.42f, 0.62f, 0.36f);
         AddDiscoveryPoint(ForageLogic.StuartGardenPotatoId, new Vector2(2400, 800), markerColor: forageC, label: "菜地土豆");
         AddDiscoveryPoint(ForageLogic.StuartFurrowPotatoId, new Vector2(2500, 920), markerColor: forageC, label: "垄尾漏刨");
+        AddDiscoveryPoint(ForageLogic.StuartRhubarbId, new Vector2(2320, 900), markerColor: forageC, label: "菜地边大黄");
     }
 
     /// <summary>门口横梁的占位视觉（两根门柱 + 一道横梁 + 几条垂下的绳）：纯 Polygon2D，无碰撞。</summary>

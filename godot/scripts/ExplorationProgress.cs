@@ -66,8 +66,7 @@ public static class ExplorationProgress
     public const string WatchersCabinName = "守望者森林小屋";
 
     /// <summary>
-    /// 规模标签（含预计探索天数，文案克制）：小·约1-2天 / 中·约3-5天 / 大·约5天+。
-    /// 单一事实源在 <see cref="DisplayNames"/>。
+    /// 规模标签；预计探索量以 Wiki 配置为准，单一事实源在 <see cref="DisplayNames"/>。
     /// </summary>
     public static string TierLabel(SizeTier tier) => DisplayNames.Of(tier);
 

@@ -44,7 +44,7 @@ public sealed partial class TestItemIcons : SceneTree
         inventory.Add(Materials.Find("ammo_arrow_handmade")!.Value.ToItem(9));
         inventory.Add(Item.Light("flashlight", "手电"));
         inventory.Add(Item.Food(4));
-        inventory.Add(Item.Weapon("狙击枪")); // 有映射但 PNG 还没生成 ⇒ 应回落占位图
+        inventory.Add(Item.Weapon("狙击枪")); // 狙击枪图标映射与 PNG 均已登记
 
         var panel = new StashPanel();
         Root.AddChild(panel);

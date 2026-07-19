@@ -28,16 +28,16 @@ public readonly record struct MaxHpErosion(
 /// <summary>失血分级（按储血量余量百分比）。阈值拟定待调。</summary>
 public enum BloodLossTier
 {
-    /// <summary>≥75%：无失血影响。</summary>
+    /// <summary>高于 Wiki 配置的无影响阈值：无失血影响。</summary>
     None,
 
-    /// <summary>&lt;75%：轻度出血——攻速/移速小幅降低。</summary>
+    /// <summary>低于 Wiki 配置的轻度阈值：攻速/移速小幅降低。</summary>
     Mild,
 
-    /// <summary>&lt;50%：中度出血——debuff 加重。</summary>
+    /// <summary>低于 Wiki 配置的中度阈值：debuff 加重。</summary>
     Moderate,
 
-    /// <summary>&lt;25%：重度出血——昏迷（丧失行动）。</summary>
+    /// <summary>低于 Wiki 配置的重度阈值：昏迷（丧失行动）。</summary>
     Severe,
 
     /// <summary>=0：出血致死。</summary>
@@ -161,6 +161,19 @@ public sealed class Body
     /// <summary>该部位当前的出血**等级**（null = 该部位没有出血）。</summary>
     public BleedModel.BleedSeverity? BleedSeverityOn(string part)
         => _bleeding.TryGetValue(part, out BleedWound w) ? w.Severity : null;
+
+    /// <summary>把指定部位当前的大流血降为中流血；无伤口或本来不是大流血时幂等无效。</summary>
+    public bool DowngradeLargeBleed(string part)
+    {
+        if (!_bleeding.TryGetValue(part, out BleedWound wound)
+            || wound.Severity != BleedModel.BleedSeverity.Large)
+        {
+            return false;
+        }
+
+        _bleeding[part] = wound with { Severity = BleedModel.BleedSeverity.Medium };
+        return true;
+    }
 
     /// <summary>该部位那处出血的**流血速率乘数**（武器侧的轴，如锯齿剑刃 1.4）；无出血则 0。</summary>
     public double BleedRateMultiplierOn(string part)
@@ -362,7 +375,7 @@ public sealed class Body
     }
 
     /// <summary>
-    /// 标记某肢骨折**已治疗**（手术成功、进入愈合中）：能力惩罚由未治疗档减半（−30%→−15%，用户口径）。
+    /// 标记某肢骨折**已治疗**（手术成功、进入愈合中）：能力惩罚改用 Wiki 配置的已治疗档。
     /// 由 Godot 医疗层在骨折手术成功时调用（愈合完成再调 <see cref="HealFracture"/> 归零）。幂等；仅对已骨折的肢有意义。
     /// </summary>
     public void MarkFractureTreated(string part)
@@ -394,7 +407,7 @@ public sealed class Body
             : Sever(fractureIdentity);
 
     /// <summary>
-    /// **上肢**骨折对操作能力的乘算系数（用户口径：单处上肢骨折 −30% 操作/含攻速；已治疗减半为 −15%）。
+    /// **上肢**骨折对操作能力的乘算系数；未治疗/已治疗档读取 Wiki 配置。
     /// 每条**尚存的上肢**（左/右）骨折乘一次系数（未治疗 <paramref name="untreatedMult"/> / 已治疗 <paramref name="treatedMult"/>），
     /// 两上肢都折则乘算叠加，结果锁下限 <paramref name="floor"/>。
     /// <para>
@@ -407,7 +420,7 @@ public sealed class Body
         => FractureCapabilityFactor(untreatedMult, treatedMult, floor, upper: true);
 
     /// <summary>
-    /// **下肢**骨折对移动能力的乘算系数（用户口径：单处下肢骨折 −30% 移速；已治疗减半为 −15%）。
+    /// **下肢**骨折对移动能力的乘算系数；未治疗/已治疗档读取 Wiki 配置。
     /// 每条尚存的下肢（左/右）骨折乘一次系数（未治疗/已治疗），两下肢都折乘算叠加，锁下限 <paramref name="floor"/>。
     /// 大腿/小腿/脚/脚趾任一命中导致的下肢骨折均计入（整肢裁定）。
     /// </summary>
@@ -465,6 +478,38 @@ public sealed class Body
     public bool IsFullyBlind =>
         _parts.Values.Where(p => p.Category == BodyPartCategory.Eye).All(p => IsDisabled(p.Name))
         && _parts.Values.Any(p => p.Category == BodyPartCategory.Eye);
+
+    /// <summary>
+    /// 当前视力能力比例 [0,1]：逐眼按“当前 HP / 初始 MaxHP”求平均；切除/永久损毁的眼为 0。
+    /// 没有眼部定义的身体（机器、特殊生物等）保持中性 1，不让人类器官规则误伤其它 body 模板。
+    /// </summary>
+    public double VisionCapability => SensoryCapability(p => p.Category == BodyPartCategory.Eye);
+
+    /// <summary>
+    /// 当前听力能力比例 [0,1]：逐耳按“当前 HP / 初始 MaxHP”求平均；切除/永久损毁的耳为 0。
+    /// 耳目前属于 <see cref="BodyPartCategory.Minor"/>，0 HP 不会进入 <see cref="_disabled"/>，因此这里必须直接读 HP / <see cref="IsGone"/>。
+    /// 没有耳部定义的身体保持中性 1。
+    /// </summary>
+    public double HearingCapability => SensoryCapability(p => p.Region == BodyRegion.Ear);
+
+    private double SensoryCapability(Func<BodyPart, bool> predicate)
+    {
+        BodyPart[] organs = _parts.Values.Where(predicate).ToArray();
+        if (organs.Length == 0)
+            return 1.0;
+
+        double total = 0;
+        foreach (BodyPart organ in organs)
+        {
+            if (IsGone(organ.Name))
+                continue;
+            double baseline = Math.Max(0, organ.MaxHp);
+            total += baseline > 0
+                ? Math.Clamp(HpOf(organ.Name) / baseline, 0.0, 1.0)
+                : 0.0;
+        }
+        return total / organs.Length;
+    }
 
     /// <summary>
     /// 对部位施加伤害（扣 HP，下限 0）。归零触发对应后果：致死部位→死亡、四肢→致残、眼→该眼失明。
@@ -598,12 +643,12 @@ public sealed class Body
 
     // ---- 残疾能力惩罚与假肢（切除/损毁部位 → 操作/移动净惩罚；假肢部分恢复）----
 
-    // 单肢（一手/一腿）= 全局能力的 50%。数值外置 body.json（BodyConfig.Disability）。
+    // 单肢能力比例外置 body.json（BodyConfig.Disability）。
     private static double SingleLimbPenalty => CombatCatalog.Section<BodyConfig>().Disability.SingleLimbPenalty;
 
     private readonly List<Prosthetic> _prosthetics = new();
 
-    /// <summary>操作/移动能力净惩罚（0.0~1.0）。由 <see cref="RecalculatePenalties"/> 依切除部位 + 假肢重算。</summary>
+    /// <summary>操作/移动能力净惩罚。由 <see cref="RecalculatePenalties"/> 依切除部位 + 假肢重算。</summary>
     public DisabilityModifiers DisabilityModifiers { get; } = new();
 
     /// <summary>已装备的假肢（取代被切除肢体，恢复部分能力）。</summary>
@@ -620,30 +665,26 @@ public sealed class Body
     }
 
     /// <summary>
-    /// 重算残疾净惩罚。口径：单手/单腿失去各 -50%（两手/两腿累加至 -100%）；未失去的手按其失去手指累加
-    /// -7%/指（该手上限 -50%，断手 -50% 覆盖手指累加）；手部失去时手指一并消失、不计额外。
-    /// 假肢按等级恢复"单肢能力 × RestoreRatio"（即全局 -50% × RestoreRatio），逐个抵扣一只失去的对应肢体。
+    /// 重算残疾净惩罚。单肢、手指、脚趾惩罚与假肢恢复均读取 Wiki 配置；手部失去时手指一并消失、不计额外。
     /// </summary>
-    // 每根手指 -7% / 每根脚趾 -2%（该手/脚累加）。数值外置 body.json（BodyConfig.Disability）。
+    // 手指/脚趾惩罚外置 body.json（BodyConfig.Disability）。
     private static double FingerPenalty => CombatCatalog.Section<BodyConfig>().Disability.FingerPenalty;
     private static double ToePenalty => CombatCatalog.Section<BodyConfig>().Disability.ToePenalty;
 
     public void RecalculatePenalties()
     {
-        // 操作：以手为单位（假肢=手），未失去的手按失去手指累加 -7%/指。
+        // 操作：以手为单位（假肢=手），未失去的手按失去手指累加配置值。
         DisabilityModifiers.OperationPenalty =
             LimbPenalty(BodyRegion.Hand, BodyRegion.Hand, BodyRegion.Finger, FingerPenalty);
         // 移动：以脚为单位（脚趾挂脚下，切/毁腿连带脚 gone → 该侧 0.5），假肢作用于整腿（ReplacesRegion=Leg）。
-        // 未失去的脚按失去脚趾累加 -2%/趾。
+        // 未失去的脚按失去脚趾累加配置值。
         DisabilityModifiers.MobilityPenalty =
             LimbPenalty(BodyRegion.Foot, BodyRegion.Leg, BodyRegion.Toe, ToePenalty);
     }
 
     /// <summary>
-    /// 计算某能力净惩罚。以 <paramref name="unitRegion"/> 部位为单位（手/脚）：该单位失去（切除/损毁）→ -50%；
-    /// 未失去时按其失去子部位 <paramref name="digitRegion"/> 累加 <paramref name="digitPenalty"/>/个（该单位上限 -50%，
-    /// 单位失去覆盖子部位累加）。假肢按 <paramref name="restoreRegion"/> 匹配（手→Hand / 脚→Leg），
-    /// 恢复 = 单肢能力(50%) × RestoreRatio，逐个抵扣一个失去的单位。总上限锁 100%。
+    /// 计算某能力净惩罚。单位、子部位与假肢恢复比例均按 Wiki 配置计算；假肢按
+    /// <paramref name="restoreRegion"/> 匹配（手→Hand / 脚→Leg），总上限按配置规则锁定。
     /// </summary>
     private double LimbPenalty(BodyRegion unitRegion, BodyRegion restoreRegion, BodyRegion digitRegion, double digitPenalty)
     {
@@ -664,7 +705,7 @@ public sealed class Body
                 penalty = SingleLimbPenalty;
                 if (restoreIdx < restores.Count)
                 {
-                    // 假肢恢复 = 单肢能力 × RestoreRatio；净惩罚 = -50% + 恢复，下限锁 0。
+                    // 假肢恢复 = 单肢能力 × RestoreRatio；净惩罚按配置规则计算。
                     penalty = Math.Max(0, SingleLimbPenalty - restores[restoreIdx] * SingleLimbPenalty);
                     restoreIdx++;
                 }
@@ -673,13 +714,13 @@ public sealed class Body
             {
                 int digitsGone = _parts.Values.Count(p =>
                     p.Region == digitRegion && p.Parent == unit.Name && IsGone(p.Name));
-                penalty = Math.Min(SingleLimbPenalty, digitsGone * digitPenalty); // 单位失去 -50% 覆盖子部位累加
+                penalty = Math.Min(SingleLimbPenalty, digitsGone * digitPenalty); // 单位失去时覆盖子部位累加
             }
 
             total += penalty;
         }
 
-        return Math.Min(1.0, total); // 两侧全失 = -100%，上限锁 100%。
+        return Math.Min(1.0, total); // 两侧全失时锁定能力惩罚上限。
     }
 
     // ---- 存档：状态快照与恢复（见 BodySnapshot） ----
@@ -748,7 +789,7 @@ public sealed class Body
 
             // [T58] 等级按下标对齐取；**老存档没有 BleedingLevels ⇒ 回落成"小流血"**。
             // 老档里同一部位会**重复出现 N 次**（那时一处伤口一条）⇒ RegisterBleed 会把它们**逐个合并**：
-            // 1 次 ⇒ 小、2 次 ⇒ 中、3 次（旧的封顶）⇒ 大。旧封顶速率 3×1.0 = 3.0 ＝ 新大流血速率 3.0，
+            // 按命中次数与当前分级规则合并；旧的多伤口封顶口径已由 BleedModel 统一接管，
             // **一分不差**。新档写的是不重复的部位名 + 真实等级，走的是同一条路径（合并对单条是恒等）。
             var level = i < s.BleedingLevels.Count && s.BleedingLevels[i] > 0
                 ? (BleedModel.BleedSeverity)Math.Clamp(s.BleedingLevels[i], 1, 3)

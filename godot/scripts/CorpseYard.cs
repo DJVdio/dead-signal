@@ -114,6 +114,9 @@ public sealed partial class CorpseYard : Node
         }
 
         corpse.Loot.AddRange(CorpseLoot.Strip(actor.WornArmor, actor.HeldWeapons));
+        // 幸存者断肢背包内的装备随尸体可搜出（Pawn 的 _severedBackpackItems）；
+        // 非 Pawn 单位走基类空列表，零开销。
+        corpse.Loot.AddRange(actor.SeveredBackpackItems);
         if (corpse.Loot.Count > 0)
         {
             // 只有**身上真有东西**的尸体才拿 id（= 才会被登记成可搜刮点）。衣不蔽体的那些不进容器表——

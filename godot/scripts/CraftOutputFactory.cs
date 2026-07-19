@@ -25,6 +25,9 @@ public static class CraftOutputFactory
         // [批次25·T44] 消防斧。漏登记它 ⇒ 造出来的消防斧会静默落进最后那条"家具/杂项"分支，
         // 变成一堆**不能装备**的杂物材料（不报错、不崩，只是永远拿不起来）。
         "axe",
+        // [wiki-character-sync] 狙击枪修复配方输出：CraftOutputFactory 按 outputKey 识别为 Weapon 并以 DisplayName 查 WeaponTable。
+        // DisplayName = "狙击枪" ⇒ Item.Weapon("狙击枪") ⇒ WeaponTable.SniperRifle()。
+        "repair_sniper_rifle",
     };
     // 箭（4 种）不必登记：它们的产物 key 同时是**材料键**（ammo_arrow_*），
     // 走上面 Materials.Has(outputKey) 那条分支自动落地为一堆材料。
@@ -44,6 +47,7 @@ public static class CraftOutputFactory
             "cotton_hat", "horror_armor",
             "snow_goggles",   // [T71] 自制简易墨镜（木缝雪镜，读《尖峰时刻》解锁）
             "ankle_guard",    // [A2] 护踝鞋具（读《尖峰时刻》解锁；落成 Item.Armor(护踝鞋具)，穿戴登记在 ApparelSlots 脚槽·成对）
+            "heavy_trousers", "heavy_cape", "snow_boots",
         }.Concat(DogGearCatalog.AllKeys));
     // 光源类产物（火把）：落地为 Item.Light，refKey=产物 key（对齐 LightSource 目录）。手电不可制作，不列此表。
     private static readonly IReadOnlySet<string> LightOutputs = new HashSet<string> { "torch" };
@@ -99,6 +103,7 @@ public static class CraftOutputFactory
         // ⇒ 造出来的床在库存里一句描述都没有（本表是它唯一的落点）。
         BedSpec.ItemKey => BedSpec.ItemDescription,
         TableSpec.ItemKey => TableSpec.ItemDescription,
+        SofaSpec.ItemKey => SofaSpec.ItemDescription,
         _ => "",
     };
 }

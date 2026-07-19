@@ -10,17 +10,17 @@ namespace DeadSignal.Godot;
 ///  - 环境光 <see cref="AmbientLight"/>：昼夜相位 → 基础光照 L∈[0,1]（室内无窗恒暗豁免相位）。
 ///  - 光源贡献 <see cref="SourceContribution"/>：单个光源按距离线性衰减的贡献（供调用方逐光源算，取最强）。
 ///  - 合成 <see cref="CombineLight"/>：局部光照 = max(环境光, 最强光源贡献)，clamp[0,1]。
-///  - 锥形 <see cref="ConeFor"/>：L 越低 → 视距越短 + 锥角越窄（白天满档 R0/半角 60°，黑暗 0.35R0/半角 30°）。
+///  - 锥形 <see cref="ConeFor"/>：L 越低 → 视距越短 + 锥角越窄；当前端点以 Wiki 配置为准。
 ///  - 判定 <see cref="CanSee"/>：occluded 短路 → 视距 → 半角，三重与。occluded 由 Godot 层 raycast 传入。
 ///  - 暴露代价 <see cref="ExposureRangeMultiplier"/>：黑暗中持光源者被他人发现的距离加成系数。
 ///
 /// 空间执行（raycast 遮挡采样/遮暗渲染/揭示隐藏）归 Godot 运行时层，本类只出纯函数。
 /// 坐标用 <see cref="System.Numerics.Vector2"/>（非 Godot.Vector2）以保零依赖；消费方转换即可。
-/// 所有数值常量皆「拟定待调」，由 Sim/目视校准。
+/// 当前可调数值以 Wiki 配置为准；公式与空间判定保留在本文件。
 /// </summary>
 public static class VisionLogic
 {
-    // ── 环境光基线（拟定待调）───────────────────────────────────────────────
+    // ── 环境光基线（当前值以 Wiki 配置为准）─────────────────────────────────
     /// <summary>白昼相位环境光（满档）。</summary>
     public const float DaylightAmbient = 1.0f;
     /// <summary>黎明/黄昏聚餐相位环境光（暮光）。</summary>
@@ -30,7 +30,7 @@ public static class VisionLogic
     /// <summary>室内无窗恒暗区域环境光（关卡标记，压过相位）。</summary>
     public const float IndoorsDarkAmbient = 0.10f;
 
-    // ── 锥形曲线端点（拟定待调）─────────────────────────────────────────────
+    // ── 锥形曲线端点（当前值以 Wiki 配置为准）────────────────────────────────
     /// <summary>白天满档视距 R0（默认基准；ConeFor 重载可传自定义 baseRange 缩放）。</summary>
     public const float BaseRange = 300f;
     /// <summary>全黑时视距相对 R0 的下限系数。</summary>
@@ -41,10 +41,8 @@ public static class VisionLogic
     public const float DarkHalfAngleDeg = 30f;
 
     // ── 暴露代价 ─────────────────────────────────────────────────
-    /// <summary>全黑中持满强度光源时，被发现距离的最大加成（0.7 = 最多 +70% 视距被别人看见）。
-    /// 校准依据（param-calibration，visioncal 解析）：夜间持火把(当时火把 I=0.70)代价 =1+本值×0.70×(1-0.15)。0.6→+35.7%（＜目标 40%）；
-    /// 上调 0.7→+41.7%，使"持火把自身视距 134→241(+80%) 换 被发现距离 +41.7%"成为有意义的攻守权衡（差距≥40% 达标）。
-    /// ⚠ 本段校准在火把亮度 I=0.70 时做；此后用户把火把亮度手改为 0.50（LightSource TorchKey），故实际暴露代价现已低于本段推算，MaxExposureBonus 本身未随之重标。</summary>
+    /// <summary>全黑中持满强度光源时，被发现距离的最大加成，当前值以 Wiki 配置为准。
+    /// **历史报告/非配置源**：下方曾保留旧火把亮度与校准推算，仅用于追溯调参背景，不代表当前数值。</summary>
     public const float MaxExposureBonus = 0.7f;
 
     private const float Epsilon = 1e-4f;
@@ -65,7 +63,7 @@ public static class VisionLogic
         }
 
         /// <summary>
-        /// 按角色个体系数缩放：视距×rangeMult、半角×angleMult（供角色技能，如道格 +10% 视角、布鲁斯 +10% 视距）。
+        /// 按角色个体系数缩放：视距×rangeMult、半角×angleMult（供角色技能接入；具体倍率以 Wiki 配置为准）。
         /// 与光照/基准 R0 正交——先 <see cref="ConeFor(float,float)"/> 出基础锥，再 .Scaled 叠个体系数。
         /// Range 下限 0；半角 clamp[0,180]（180 = 全向）。
         /// </summary>

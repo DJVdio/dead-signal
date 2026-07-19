@@ -97,13 +97,13 @@
       "name": "兔子肉",
       "calories": 11,
       "portions": 2,
-      "description": "兔兔这么可爱！",
-      "_id": "rabbit",
+      "description": "剥下来的兔肉。兔兔这么可爱，吃起来倒是很顶饱。",
+      "_id": "rabbit_meat",
       "_anchor": "godot/scripts/CookingLogic.cs :: FoodCalories（热量点）+ godot/scripts/Materials.cs（名称/说明）",
       "group": "食材",
       "userNote": "",
       "sync": "",
-      "_icon": "food/rabbit"
+      "_icon": "food/rabbit_meat"
     },
     {
       "name": "鱼",
@@ -176,6 +176,30 @@
       "userNote": "",
       "sync": "",
       "_icon": "food/mushroom"
+    },
+    {
+      "name": "葛根",
+      "calories": 6,
+      "portions": 3,
+      "description": "埋在土里的根，挖出来时沾着一股清苦的土腥味。",
+      "_id": "kudzu_root",
+      "_anchor": "godot/scripts/CookingLogic.cs :: FoodCalories（热量点）+ godot/scripts/Materials.cs（名称/说明）",
+      "group": "食材",
+      "userNote": "",
+      "sync": "",
+      "_icon": "materials/kudzu_root"
+    },
+    {
+      "name": "大黄",
+      "calories": 3,
+      "portions": 6,
+      "description": "叶子比想象中宽，根比想象中苦。至少这次你认对了。",
+      "_id": "rhubarb",
+      "_anchor": "godot/scripts/CookingLogic.cs :: FoodCalories（热量点）+ godot/scripts/Materials.cs（名称/说明）",
+      "group": "食材",
+      "userNote": "",
+      "sync": "",
+      "_icon": "materials/rhubarb"
     },
     {
       "name": "老鼠肉",

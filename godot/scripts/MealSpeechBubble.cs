@@ -6,7 +6,7 @@ namespace DeadSignal.Godot;
 /// 聚餐吃饭动画期间在角色头顶悬停的世界内聊天气泡（替代旧 MealPanel 里的文本行）：
 /// 一个带边框的小面板 + 台词文字，在生成点悬停数秒后淡出自毁。挂到 <b>iso 可视层</b>
 /// （<c>_isoLayer</c>），坐标已由营地层用 <c>Iso.Project(pawn.GlobalPosition)</c> 投影 + 头顶偏移算好。
-/// 坐着/站着是否冒泡由 <see cref="MealBubbleDelivery"/> 掷点（站着 −50%），此节点只负责"冒出来的那条"的呈现。
+/// 坐着/站着是否冒泡由 <see cref="MealBubbleDelivery"/> 按配置掷点，此节点只负责"冒出来的那条"的呈现。
 /// </summary>
 public sealed partial class MealSpeechBubble : Node2D
 {

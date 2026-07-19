@@ -57,7 +57,7 @@ public sealed class MaterialConfigMigrationTests
         { "nails", 0.05 },
         { "bandage", 0.1 },
         { "herbal_bandage", 0.1 },
-        { "herbal_salve", 0.1 },
+        { "herbal_salve", 0.15 },
         { "needle_thread", 0.05 },
         { "antibiotics", 0.05 },
         { "medicine", 0.05 },
@@ -66,6 +66,7 @@ public sealed class MaterialConfigMigrationTests
         { "laojunxu", 0.05 },
         { "bullet_parts", 0.05 },
         { "rabbit", 1.5 },
+        { "rabbit_meat", 0.15 },
         { "ration", 1.0 },
         { "fish", 1.0 },
         { "flour", 1.0 },
@@ -74,6 +75,8 @@ public sealed class MaterialConfigMigrationTests
         { "pigeon", 0.3 },
         { "potato", 0.3 },
         { "mushroom", 0.05 },
+        { "kudzu_root", 0.2 },
+        { "rhubarb", 0.2 },
         { "rat_meat", 0.15 },
         { "bird_meat", 0.15 },
         { "feather", 0.02 },
@@ -86,9 +89,10 @@ public sealed class MaterialConfigMigrationTests
         { "ammo_arrow_stick", 0.03 },
         { "ammo_arrow_handmade", 0.03 },
         { "ammo_arrow_carbon", 0.03 },
-        { "dandelion_tea", 0.5 },
-        { "rosehip_tea", 0.5 },
+        { "dandelion_tea", 0.25 },
+        { "rosehip_tea", 0.25 },
         { "silver", 0.01 },
+        { "damaged_sniper_rifle", 7.5 },
     };
 
     [Fact]

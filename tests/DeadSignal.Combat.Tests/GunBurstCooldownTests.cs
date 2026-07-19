@@ -84,18 +84,16 @@ public class GunBurstCooldownTests
     }
 
     /// <summary>
-    /// 冲锋枪失衡校准（用户拍板：削冷却、不削伤害，保住三连发手感）：冷却 1.8 → 2.6 秒。
-    /// 伤害区间 10~18 与三连发保持原样——批次18「锐器下移」只作用于近战，
-    /// 枪械经用户拍板<b>不降下限</b>（子弹没有"擦破皮"这一说），故此处伤害断言依旧有效。见 <c>WeaponRecalibTests</c>。
+    /// 冲锋枪当前接受值：三连发、冷却 2.7 秒、伤害 4.5~16、穿透 25%。
     /// </summary>
     [Fact]
     public void Smg_CooldownIsRebalanced_DamageUntouched()
     {
         var smg = WeaponTable.Smg();
         Assert.Equal(2.7, smg.AttackInterval, 3);   // T29 用户手改（2.6 → 2.7）
-        Assert.Equal(6, smg.DamageMin);    // 本测试主张的是"冷却重平衡时伤害没被我方代偿"，该意图不变
-        Assert.Equal(18, smg.DamageMax);
-        Assert.Equal(0.27, smg.Penetration, 3);     // T29 用户手改（0.18 → 0.27）
+        Assert.Equal(4.5, smg.DamageMin);
+        Assert.Equal(16, smg.DamageMax);
+        Assert.Equal(0.25, smg.Penetration, 3);
         Assert.Equal(3, smg.BurstCount);
     }
 }

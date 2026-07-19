@@ -4,8 +4,7 @@ using Xunit;
 namespace DeadSignal.Combat.Tests;
 
 /// <summary>
-/// 多弹丸（pellet）建模 + 自制霰弹枪。用户口径（原话）：
-/// 「霰弹枪采用 8 颗弹丸单独计算的 10% 穿透力武器，射程较短，伤害衰减严重，锥形扩散较大」。
+/// 多弹丸（pellet）建模 + 自制霰弹枪。用户口径：弹丸独立计算，射程较短，伤害衰减严重，锥形扩散较大。
 ///
 /// 「单独计算」= 每颗弹丸走**完整独立**判定链：独立选命中部位 → 独立过护甲三段判定 → 独立结算伤害。
 /// 8 颗可打中不同部位、各自被挡/半伤/全伤，穿透逐颗生效。**不是**"一次伤害 ×8"。
@@ -17,7 +16,7 @@ public class ShotgunPelletTests
 {
     private static BodyPart Chest() => HumanBody.Parts().First(p => p.Name == HumanBody.Chest);
 
-    /// <summary>只有布衣一层（锐防 6 / 钝防 3），穿透 15%（T29 用户手改）→ 挡下门槛 = 6×0.85/2 = 2.55。</summary>
+    /// <summary>只有布衣一层；防护与穿透均从 Wiki 配置读取。</summary>
     private static IReadOnlyList<ArmorLayer> Shirt() => new[] { ArmorTable.LongSleeveShirt() };
 
     // ---- 向后兼容：所有既有武器 PelletCount = 1 ----
@@ -47,7 +46,7 @@ public class ShotgunPelletTests
     public void 单弹丸走齐射路径与单发路径随机流位级一致()
     {
         Weapon dagger = WeaponTable.Dagger(); // PelletCount=1
-        double[] rolls = { 5.0, 2.0 };        // 攻 roll、防 roll（布衣一层）
+        double[] rolls = { 3.5, 2.0 };        // 攻 roll、防 roll（布衣一层）
 
         var seqA = new SequenceRandomSource(rolls);
         CombatResult single = new CombatResolver(seqA).Resolve(dagger, Shirt(), Chest());
@@ -90,16 +89,16 @@ public class ShotgunPelletTests
 
     /// <summary>
     /// 每颗弹丸**独立**过护甲三段判定：同一次射击里可以有的被挡下、有的半伤、有的全伤。
-    /// 布衣锐防 6、穿透 10% → 防 roll ∈ [0, 5.4]；攻 &lt; 防/2 挡下、防/2 ≤ 攻 &lt; 防 半伤、攻 ≥ 防 全伤。
+    /// 防御 roll 上限由 Wiki 布衣防护值与当前武器穿透动态计算；攻防三段判定保持不变。
     /// </summary>
     [Fact]
     public void 每颗弹丸独立过护甲三段判定()
     {
-        Weapon shotgun = WeaponTable.ImprovisedShotgun(); // 2~6 伤害（T21 用户手改，原 1~5）
+        Weapon shotgun = WeaponTable.ImprovisedShotgun(); // 2~10 伤害（当前接受值）
         BodyPart chest = Chest();
 
         // 三颗：①攻2 vs 防5.0 → 2 < 2.5 挡下；②攻3 vs 防5.0 → 2.5 ≤ 3 < 5 半伤；③攻6 vs 防2.0 → 全伤。
-        // 其余 5 颗喂全伤（攻6 vs 防0）。每颗 2 次 roll（攻、防）。攻击 roll 必须落在新区间 2~6 内。
+        // 其余 5 颗喂全伤（攻6 vs 防0）。每颗 2 次 roll（攻、防）。攻击 roll 必须落在当前区间 2~10 内。
         var rng = new SequenceRandomSource(
             2, 5.0,
             3, 5.0,
@@ -170,11 +169,10 @@ public class ShotgunPelletTests
         // 锥形扩散较大：误差角大于全表任何一把远程武器。
         Assert.All(otherGuns, g => Assert.True(sg.BaseSpreadDegrees > g.BaseSpreadDegrees, $"扩散应大于{g.Name}"));
 
-        // 单颗弹丸伤害必须显著低于板甲的挡下门槛（50×(1−0.15)/2 = 21.25）——这是"对板甲极差"的数学根源。
-        // ⚠ T29：旧断言是「个位数」（DamageMax ≤ 9）。用户把单颗上限提到 12 ⇒ 那条字面说法不再成立，
-        // 但它真正要守的东西（"一颗弹丸打不穿板甲"）依然成立且更该被直接钉住，故改钉门槛本身。
-        Assert.True(sg.DamageMax < 21.25 * 0.6,
-            $"单颗弹丸上限 {sg.DamageMax} 必须远低于板甲挡下门槛 21.25，否则霰弹就成了破甲武器");
+        // 单颗弹丸伤害必须显著低于板甲的挡下门槛；门槛从 Wiki 护甲值与武器穿透现算。
+        double plateThreshold = ArmorTable.Plate().SharpDefense * (1 - sg.Penetration) / 2;
+        Assert.True(sg.DamageMax < plateThreshold * 0.6,
+            $"单颗弹丸上限 {sg.DamageMax} 必须远低于板甲挡下门槛 {plateThreshold:F2}，否则霰弹就成了破甲武器");
         Assert.True(sg.DamageMin >= 1);
     }
 
@@ -218,11 +216,7 @@ public class ShotgunPelletTests
 
     /// <summary>
     /// 涌现效果（用户预期的定位）：板甲挡下绝大多数、布衣几乎挡不住、丧尸腐皮更挡不住。
-    /// 挡下门槛 = 护甲值×(1−穿透)/2 → 板甲 21.25 ≫ 弹丸上限 12；布衣 2.55 只夹得住最低那几档掷点。
-    ///
-    /// ⚠ T29：用户把单颗弹丸 2~6 → <b>2~12</b>、穿透 10% → <b>15%</b>，霰弹对甲**变强了**：
-    /// 板甲挡下率从 ~86% 掉到 <b>73.6%</b>。"对板甲极差"这条定位仍然成立（三档序没变、板甲仍挡掉近四分之三），
-    /// 但<b>严苛程度是用户主动放宽的</b> ⇒ 阈值由 &gt;0.80 下调到 &gt;0.70，钉的是"板甲仍挡下绝大多数"这个立意本身。
+    /// 挡下门槛由 Wiki 护甲值与武器穿透动态决定；"对板甲极差"定位不写死配置数值。
     /// </summary>
     [Fact]
     public void 涌现效果_对板甲极差对无甲极强()
@@ -249,13 +243,11 @@ public class ShotgunPelletTests
         double cloth = BlockRate(Shirt());
         double zombie = BlockRate(ArmorTable.ZombieHide());
 
-        // [T59] 逐层口径改为「重掷+取min」后，板甲组（板甲+布衣，2 层）不再白吃"层数减伤"
-        // ⇒ 挡下率从 ~71% 降到 **67.4%**。方向正确（减伤重新由防御力说了算），门槛随之下调。
+        // [T59] 逐层口径改为「重掷+取min」后，板甲组不再白吃"层数减伤"。
+        // 减伤重新由防御力说了算，具体结果随 Wiki 配置变化。
         Assert.True(plate > 0.62, $"板甲应挡下绝大多数弹丸，实测 {plate:P1}");
 
-        // ⚠ T21：旧断言是 InRange(cloth, 0.05, 0.35)「布衣挡下相当一部分」。
-        // 用户把单颗弹丸下限从 1 提到 2 之后，布衣的挡下门槛（防6×(1−穿透0.1)/2 = 2.7）
-        // 只夹得住掷点 2 那一档 ⇒ 布衣挡下率跌到 ~2.3%，旧区间的下界 5% 已不成立。
+        // 布衣挡下率受单颗伤害区间、穿透、护甲值共同影响；不要在测试说明中复制配置值。
         // 这是提下限的直接后果，且方向明确（"薄衣挡不住霰弹"更符合直觉）⇒ 改钉新事实：
         // 布衣几乎挡不住，但仍略好于丧尸腐皮（腐皮防更低）。
         Assert.InRange(cloth, 0.005, 0.05);

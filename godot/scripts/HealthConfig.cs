@@ -36,19 +36,19 @@ public readonly record struct SurgerySupplyNumbers(int Points, double InfectionC
 public sealed class HealthConfig : IGameConfigSection
 {
     // ── 感染：每伤口感染几率基数（按流血【等级】离散查表，与部位无关）+ 免疫窗 + 恶化/治疗速率 ──
-    /// <summary>大流血伤口感染几率基数（25%）。</summary>
+    /// <summary>大流血伤口感染几率基数；当前值以 Wiki 配置为准。</summary>
     public double InfectionBaseChanceLarge { get; init; } = 0.25;
-    /// <summary>中流血伤口感染几率基数（15%）。</summary>
+    /// <summary>中流血伤口感染几率基数；当前值以 Wiki 配置为准。</summary>
     public double InfectionBaseChanceMedium { get; init; } = 0.15;
-    /// <summary>小流血伤口感染几率基数（5%；未知等级/旧档也从宽按此）。</summary>
+    /// <summary>小流血伤口感染几率基数；当前值以 Wiki 配置为准，未知等级/旧档从宽按此。</summary>
     public double InfectionBaseChanceSmall { get; init; } = 0.05;
-    /// <summary>已手术（止血中）伤口的感染几率折减系数（相对未手术开放伤口）：处理过减半。</summary>
+    /// <summary>已手术（止血中）伤口的感染几率折减系数；当前值以 Wiki 配置为准。</summary>
     public double OperatedInfectionFactor { get; init; } = 0.5;
-    /// <summary>免疫窗激活期间的感染几率乘子：×0.05（−95%）。</summary>
+    /// <summary>免疫窗激活期间的感染几率乘子；当前值以 Wiki 配置为准。</summary>
     public double ImmuneWindowInfectionFactor { get; init; } = 0.05;
-    /// <summary>免疫条满后置一段免疫窗，窗时长（天）：24h＝1.0 天。</summary>
+    /// <summary>免疫条满后置一段免疫窗，窗时长由 Wiki 配置提供。</summary>
     public double ImmuneWindowDays { get; init; } = 1.0;
-    /// <summary>感染死亡进度每日累积速率（1/6 天≈0.1667/日 → 未用药约第 6 昼夜封顶）。</summary>
+    /// <summary>感染死亡进度每日累积速率；当前值以 Wiki 配置为准。</summary>
     public double InfectionWorsenPerDay { get; init; } = 1.0 / 6.0;
     /// <summary>治疗（免疫）进度基准积累速率（每日，效率 1.0 满效值）。</summary>
     public double CureProgressBaseRate { get; init; } = 0.67;
@@ -62,7 +62,7 @@ public sealed class HealthConfig : IGameConfigSection
     // ── 流血 / 骨折 / 疾病：恶化与愈合速率、休养系数、非致命封顶、擦伤自愈线 ──
     /// <summary>未手术出血逐日加重。</summary>
     public double BleedWorsenPerDay { get; init; } = 0.10;
-    /// <summary>已手术出血逐日愈合（×效率/100）。</summary>
+    /// <summary>已手术出血逐日愈合（按恢复效率缩放）。</summary>
     public double BleedHealPerDay { get; init; } = 0.20;
     /// <summary>未手术骨折逐日畸形化（封顶致残）。</summary>
     public double FractureMalunionPerDay { get; init; } = 0.05;
@@ -88,13 +88,13 @@ public sealed class HealthConfig : IGameConfigSection
     public int SurgeryFailThreshold { get; init; } = 10;
     /// <summary>手术门槛：有效池 P &lt; 此值 → 不允许手术。</summary>
     public int SurgeryMinPoints { get; init; } = 15;
-    /// <summary>自体手术能力系数：对自己动手，池 ×0.60。</summary>
+    /// <summary>自体手术能力系数；当前值以 Wiki 配置为准。</summary>
     public double SelfSurgeryFactor { get; init; } = 0.60;
     /// <summary>手术成功即刻恢复量：任何成功手术当场对该伤 severity 立减此值。</summary>
     public double ImmediateHealOnSuccess { get; init; } = 0.05;
-    /// <summary>睡床加算恢复速度（百分点，加算非乘算）。</summary>
+    /// <summary>睡床恢复速度加成；合并口径与当前值以 Wiki 配置为准。</summary>
     public double BedSleepHealBonusPct { get; init; } = 10.0;
-    /// <summary>[SPEC-B14-补2] 玫瑰果茶恢复加成（百分点，加算非乘算）：喝下后 24 小时内本昼夜恢复效率 +本值 pp（数值真源，原 Pawn.RosehipTeaHealBonusPct const）。</summary>
+    /// <summary>[SPEC-B14-补2] 玫瑰果茶恢复加成；持续时间、幅度与合并口径以 Wiki 配置为准（数值真源，原 Pawn.RosehipTeaHealBonusPct const）。</summary>
     public double RosehipTeaHealBonusPct { get; init; } = 9.0;
     /// <summary>重做手术冷却（昼夜）：距上次手术 &gt; 此值才可重做。</summary>
     public int RedoSurgeryCooldownDays { get; init; } = 1;

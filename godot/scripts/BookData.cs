@@ -141,7 +141,7 @@ public static class BookLibrary
     /// 🔴 <b>它是整条弓箭线的第一块砖</b>：捕鸟陷阱 → 鸟 →【宰杀】→ 鸟肉 + <b>羽毛</b> → <b>三种箭</b>。
     /// 没读这本书 ⇒ 拿不到鸟 ⇒ 拿不到羽毛 ⇒ <b>一支箭都造不出来</b>。
     /// 它<b>开局就在营地共享库存里</b>（<c>camp.json</c> 住宅·柜子），与《野外生存指南》同架——
-    /// 于是"开局先读哪一本"成了个真选择：<b>野外生存指南给你弓，农场主给你箭</b>，两本都读要 8 小时。
+    /// 于是"开局先读哪一本"成了个真选择：<b>野外生存指南给你弓，农场主给你箭</b>；阅读工时以 Wiki 配置为准。
     /// </para>
     /// </summary>
     public static BookData FarmerHundredQuestions() => new(
@@ -180,14 +180,14 @@ public static class BookLibrary
         description: "量两遍，锯一遍。做椅子的耐心和活下去的耐心，原来是同一种。");
 
     /// <summary>
-    /// 《进阶木匠技术》（木工进阶书，draft）——**前置**《木匠入门》：没读完前置照样能读，但读速极慢（×0.2）。
-    /// 读完解锁什么**待用户指定**（暂作占位、不挂配方产出）。
+    /// 《进阶木匠技术》（木工进阶书，draft）——**前置**《木匠入门》：没读完前置照样能读，但读速按配置衰减。
+    /// 读完解锁沙发、加固门/围栏，并给消防斧攻速加成（具体效果由对应消费层登记）。
     /// </summary>
     public static BookData AdvancedCarpentry() => new(
         id: "advanced_carpentry",
         title: "进阶木匠技术",
         body: AdvancedCarpentryBody,
-        grantsRecipeStub: null, // 解锁效果待用户指定（占位书）
+        grantsRecipeStub: "recipe:" + SofaSpec.RecipeId, // 桩：配方门槛已实装（RecipeBook.RequiredBookIds）
         readHours: 12, // [T59] 用户在 wiki 上定的（原 28h）
         prerequisiteBookId: "carpentry_basics", // 前置链首条数据：没读入门读得极慢
         description: "它先教你把家里的门加固一道，再顺手教你把消防斧抡得更快。没写的是：这两样，迟早要在同一个晚上用上。");
@@ -218,11 +218,7 @@ public static class BookLibrary
     /// <para>
     /// <b>效果</b>（用户写在数值表『书籍』页「效果」列）：
     /// <list type="bullet">
-    /// <item>箭矢回收率 <b>25% → 50%</b>（<see cref="Archery.ArrowRecoveryRate"/>）。</item>
-    /// <item>🔴 [T68] <b>弹道速度 +20%</b>（用户把原「射程 +10%」换成了这条）——<b>引擎新轴</b>（<c>Projectile.Speed</c> 常量），
-    ///       <b>未落地、已挂起统一立项</b>；原「射程 +10%」按用户意图删除（<see cref="Archery.BookRangeMult"/> 现为 1.0＝无效果）。</item>
-    /// <item>弓弩<b>锥形角 −10%</b>（散布收窄＝更准，<see cref="Archery.BookSpreadMult"/>）。</item>
-    /// <item>弓弩<b>攻速 +2%</b>（<see cref="Archery.BookAttackSpeedMult"/>；折到出手间隔上是 ×1/1.02）。</item>
+    /// <item>箭矢回收、弹道速度、散布与攻速效果以 Wiki 配置为准。</item>
     /// </list>
     /// 散布/攻速两项在 <see cref="Archery.Combine"/> 里与**箭的同轴系数连乘**（乘算不加算，CLAUDE.md 铁律），
     /// 且只碰弓弩——读了射艺书不会让你的步枪打得更远。
@@ -236,7 +232,7 @@ public static class BookLibrary
     /// 引擎只吃一个值，"读没读过"由调用方从读者的已读书集里取。本书照抄该模式。
     /// </para>
     /// <para>
-    /// <b>不可制作</b>（无配方，只能搜刮）：书就该是捡的。基础 25% 的回收率意味着弓弩养起来很吃力，
+    /// <b>不可制作</b>（无配方，只能搜刮）：书就该是捡的。基础回收率以 Wiki 配置为准，
     /// 而这本书正好把它减半——于是它是**弓弩流的硬前置**：找不到它，你就养不起一个弓手。
     /// </para>
     /// </summary>
@@ -321,8 +317,8 @@ public static class BookLibrary
     // 🔴 **占位正文 —— 待用户 authored，别替他写。**（同 MechanicalBeautyBody 的口径）
     private const string BowCraftingGuideBody =
         "一本讲怎么把一根木头变成一张弓的手册：选材、开背、上弦、调力。\n"
-        + "读完它，你就能自己做反曲弓和长弓了。\n"
-        + "（正文待补。）";
+        + "弓背要顺着木纹开，弦槽不能伤到木芯；拉力不是越大越好，能稳定回到原位才算一张能用的弓。\n\n"
+        + "读完它，你就能自己做反曲弓和长弓了。";
 
     /// <summary>《尖峰时刻》书 id（稳定键）。它是一本滑雪极限运动书，读完解锁「自制简易墨镜」。</summary>
     public const string PeakHourId = "peak_hour";
@@ -332,7 +328,7 @@ public static class BookLibrary
     /// <para>
     /// <b>解锁「自制简易墨镜」</b>（木缝雪镜；门槛真源在 <c>RecipeBook</c> 的 <c>snow_goggles</c> 配方
     /// <c>RequiredBookIds</c>，<see cref="GrantsRecipeStub"/> 只是叙事标记）。用户既 authored 了这本书，
-    /// 又 authored 了它解锁的护甲（数值表『护甲表』new_armor_2：眼镜槽·护双眼·12/6·0.1kg），本条把两者接起来。
+    /// 又 authored 了它解锁的护甲，本条把书籍效果与该装备接起来；护甲数值以 Wiki 配置为准。
     /// </para>
     /// <para>
     /// 🔴 <b>正文＝用户明确授权代笔</b>（本会话罕见的 authored 授权：用户点名让我方补这一本的正文）。
@@ -353,6 +349,28 @@ public static class BookLibrary
         readHours: 6,                             // [T71] 用户在 wiki 上定的
         description: "一个滑雪的人，写他怎么在崩塌的雪坡上让自己不慌。他管这叫全世界最没用的本事——直到世界真的开始崩塌。");
 
+    /// <summary>《尖峰时刻·二》——读完解锁厚重裤子与厚重披风。</summary>
+    public const string PeakHourTwoId = "peak_hour_2";
+
+    public static BookData PeakHourTwo() => new(
+        id: PeakHourTwoId,
+        title: "尖峰时刻·二",
+        body: PeakHourTwoBody,
+        grantsRecipeStub: "recipe:heavy_trousers,heavy_cape",
+        readHours: 6,
+        description: "卧槽，他还敢去第二次！");
+
+    /// <summary>《尖峰时刻·三》——读完辨认葛根、大黄，并解锁雪地靴。</summary>
+    public const string PeakHourThreeId = "peak_hour_3";
+
+    public static BookData PeakHourThree() => new(
+        id: PeakHourThreeId,
+        title: "尖峰时刻·三",
+        body: PeakHourThreeBody,
+        grantsRecipeStub: "recipe:snow_boots",
+        readHours: 6,
+        description: "红牛赞助，他出钱，你出命。");
+
     // [T71] 用户明确授权代笔的正文（滑雪极限运动·末世基调）。末句「那时候我以为这是全世界最没用的本事」
     // 是刻意的钩子——把极限运动接向末世求生，不点破，保留"发现现场自己体会"的处理。
     private const string PeakHourBody =
@@ -363,6 +381,192 @@ public static class BookLibrary
         "可开春我又站在了索道顶端。\n\n" +
         "后来我才想明白：我不是在跟山较劲。我是在练一件事——当脚下的一切都开始失控，怎么让自己不慌。\n\n" +
         "那时候我以为这是全世界最没用的本事。";
+
+    private const string PeakHourTwoBody =
+        "第二次上山，我带的是一条厚裤子和一块能挡风的旧布。\n\n" +
+        "雪不会因为你穿得像个英雄就少落一片，但它会从裤脚、腰背和袖口一点点把热量拿走。" +
+        "保暖不是舒服，是让你的腿在下一次迈步时还听你的话。\n\n" +
+        "我把几层布料叠起来，用绳结把重量分散到腰上和肩上。披风挡不住牙，" +
+        "却能让你在风里多站一会儿。山上没有观众，能走回来就是唯一的奖牌。";
+
+    private const string PeakHourThreeBody =
+        "雪线以下也有东西活着，只是它们不肯把名字写在叶子上。\n\n" +
+        "葛根的藤和大黄的叶子，各有各的样子。认错一株，最轻的后果是白费力气，" +
+        "更糟的后果不会在书里替你负责。先看形，再看生长的位置，最后才伸手。\n\n" +
+        "至于靴子，先护住脚趾。脚趾冻僵以后，最短的路也会变成一场远征。";
+
+    /// <summary>《枪械维修指南》书 id（稳定键）。</summary>
+    public const string GunsmithRepairGuideId = "gunsmith_repair_guide";
+
+    /// <summary>
+    /// 《枪械维修指南》——神秘商人独家货源，与损坏的狙击枪互斥刷新。读完解锁狙击枪修复配方。
+    /// <para>
+    /// 正文＝占位，待用户 authored。只陈述机制，不编作者/来历/世界观。
+    /// 阅读时长拟定 8h（同《裁缝手记》/《土法化学笔记》/《木匠入门》等技术工具书）。
+    /// </para>
+    /// <para>
+    /// 投放：神秘商人（与损坏的狙击枪互斥刷新，不能同次/同一轮一起出现）。
+    /// </para>
+    /// </summary>
+    public static BookData GunsmithRepairGuide() => new(
+        id: GunsmithRepairGuideId,
+        title: "枪械维修指南",
+        body: GunsmithRepairGuideBody,
+        grantsRecipeStub: "recipe:repair_sniper_rifle,rifle,pistol",
+        readHours: 12,
+        description: "一支枪，和一根烧火棍的区别，往往只差几个螺丝。这本书教你分清哪个该拧紧，哪个该扔掉。");
+
+    // 🔴 占位正文 —— 待用户 authored（同 MechanicalBeautyBody / BowCraftingGuideBody 口径）
+    private const string GunsmithRepairGuideBody =
+        "不是每一杆老枪都能被你修好——但知道怎么判断它值不值得修，本身就是一门手艺。\n\n" +
+        "先看枪管：膛线磨平了就是一根铁管子，救不回来。再看枪机：卡死的不一定废，" +
+        "多半是某个簧片断了，换掉就能再响。至于瞄具——裂几道镜片不要紧，" +
+        "你只要还能把准星和目标的影子叠在一起，它就还算得上一支枪。\n\n" +
+        "读完它，你就能把一杆卡死的狙击枪重新修响——前提是你找得到零件。";
+
+    // Wiki 是设计真源：用户新增行的内部稳定键就是 new_book_1..16。不可另造一套语义 id，
+    // 否则抽取器会同时保留两行同名书，逐角色已读与配方门槛也会各认各的。
+    public const string StreetFightingGuideId = "new_book_1";
+    public const string MedicalFacilityStandardsId = "new_book_2";
+    public const string EssenceOfSalesId = "new_book_3";
+    public const string HundredFamilyRecipesId = "new_book_4";
+    public const string LittleMouseDigsHolesId = "new_book_5";
+    public const string ItalianChronicleId = "new_book_6";
+    public const string FamilyFirstAidManualId = "new_book_7";
+    public const string SharpesAutobiographyId = "new_book_8";
+    public const string SpanishChronicleId = "new_book_9";
+    public const string DjangoUnchainedId = "new_book_10";
+    public const string IrishChronicleId = "new_book_11";
+    public const string BritishChronicleId = "new_book_12";
+    public const string VietnameseChronicleId = "new_book_13";
+    public const string StoneBreakingGuideId = "new_book_14";
+    public const string MalayChronicleId = "new_book_15";
+    public const string TurkishChronicleId = "new_book_16";
+
+    public static BookData StreetFightingGuide() => new(
+        StreetFightingGuideId, "街头格斗指南",
+        "街上没有裁判，也没有人等你摆好架势。\n\n" +
+        "棍棒要抢中线，匕首要藏在视线下面。别追着四肢浪费力气：先打躯干让人喘不上气，再找头部结束争斗。" +
+        "书页边上反复写着同一句话——能跑就跑；跑不了，第一下就别留情。",
+        readHours: 6,
+        description: "没有擂台、没有回合，也没有胜者采访。它教的只有一件事：在狭窄的街上，怎么用最短的一下让对方倒下。");
+
+    public static BookData MedicalFacilityStandards() => new(
+        MedicalFacilityStandardsId, "医疗单位建筑规范",
+        "病菌喜欢接缝、裂缝和扫帚够不到的直角。墙角改成弧面，地面向排水口留一点坡度，床与床之间留出清洁通道。\n\n" +
+        "这些要求从前看起来像官僚主义：尺寸精确到厘米，清洁流程精确到分钟。如今没有检查员了，" +
+        "可少一处积血、少一块发霉的纱布，仍可能让整间营地少抬出去一个人。",
+        readHours: 12,
+        description: "简单地将墙角改成弧线，居然能少藏这么多污物。文明有时只是一群人认真讨论该怎么拖地。");
+
+    public static BookData EssenceOfSales() => new(
+        EssenceOfSalesId, "销售的本质",
+        "价格不是写在货物上的数字，而是两个人对同一件东西有多着急。\n\n" +
+        "先问，后报；先让对方说出缺什么，再告诉他你手里的东西为什么刚好值这个价。别急着填补沉默——" +
+        "很多让步，都是卖家为了结束安静自己送出去的。末页只留了一行：成交之后还能再见面，才叫买卖。",
+        readHours: 6,
+        description: "教你把一句“就这些”说得像最后的库存。末世没有市场部，但讨价还价从未失业。");
+
+    public static BookData HundredFamilyRecipes() => new(
+        HundredFamilyRecipesId, "百家菜谱",
+        "这不是名厨的菜谱，是一百户人家写下的省粮办法。剩饭怎么回锅，硬面包怎么泡软，骨头煮到第几遍还肯交出一点味道。\n\n" +
+        "每页的分量都很小，办法却很细：先切碎，再慢煮；先让香味出来，再让饥饿相信碗里比看上去更多。" +
+        "做饭的人省下的每一点，都够另一个人把今天熬过去。",
+        readHours: 6,
+        description: "一百户人家的锅底经验：怎么让同样一把粮食，多盛出一只不那么空的碗。");
+
+    public static BookData LittleMouseDigsHoles() => new(
+        LittleMouseDigsHolesId, "小老鼠爱打洞",
+        "小老鼠为什么沿着墙根跑？因为开阔地上有猫头鹰。它为什么总钻同一个洞？因为熟悉的路最快。\n\n" +
+        "彩色插图把洞口、粪粒、啃痕和脚印画得清清楚楚。给孩子看的问题都很简单，答案却正好能告诉大人：" +
+        "套索该放在哪条路上，才不会只抓到一夜的风。",
+        readHours: 3,
+        description: "一本儿童科普读物。孩子看老鼠怎样回家，大人看晚饭会从哪里经过。");
+
+    public static BookData ItalianChronicle() => new(
+        ItalianChronicleId, "意大利编年史",
+        "城邦彼此戒备的年代，弩手需要在装填时活过对面的第一轮箭雨。工匠于是把小盾固定在弩身上，" +
+        "让武器既能发射，也能遮住最要命的正面。\n\n" +
+        "图稿详列盾面的弧度、重心与固定点。盾做得太大，弩便抬不起来；做得太小，只够替死人挡雨。",
+        grantsRecipeStub: "mod:crossbow_shield", readHours: 6,
+        description: "一部战争编年史，真正有用的是页边那些弩盾草图：历史会重复，来箭的方向也差不多。");
+
+    public static BookData FamilyFirstAidManual() => new(
+        FamilyFirstAidManualId, "家庭急救手册",
+        "先确认呼吸，再止血，再处理那些看起来更吓人的伤。把器械按使用顺序摆好，动手前就决定下一步，" +
+        "不要让病人躺在那儿等你翻目录。\n\n" +
+        "书里的手术并不高明，只讲清洁、准备和熟练。可在时间与感染一同追上来的时候，少一次犹豫就多一分活路。",
+        readHours: 8,
+        description: "写给普通家庭的急救书。它不能让你成为医生，只能让你的手在必须动刀时少抖一会儿。");
+
+    public static BookData SharpesAutobiography() => new(
+        SharpesAutobiographyId, "夏普斯自传",
+        "长刃需要空间，短剑和刺剑只需要一道缝。夏普斯写自己如何盯住对手的肩膀，而不是盯剑尖：肩先动，剑才到。\n\n" +
+        "他从不把躲闪写成后退。侧半步，让开锋刃，再把自己的剑留在能反击的位置。活下来的秘诀并不光彩——" +
+        "只是每次都比死人早看见一点。",
+        readHours: 6,
+        description: "一个老兵写下的不是胜仗，而是他如何一次次从剑尖旁边挪开半步。");
+
+    public static BookData SpanishChronicle() => new(
+        SpanishChronicleId, "西班牙编年史",
+        "帝国缺枪的时候，乡镇工坊就用水管、弹簧和旧枪托拼出能响的东西。图纸不漂亮，公差也不统一，" +
+        "但每个零件都能用手边的工具修出来。\n\n" +
+        "猎枪、霰弹枪与短手枪各占一章。共同的警告写在每章开头：第一次试射时，把脸放远一点。",
+        grantsRecipeStub: "recipe:improvised_hunting_gun,improvised_shotgun,improvised_pistol", readHours: 8,
+        description: "从缺枪少械的旧战争里抄来的土制枪图谱。粗糙、危险，但比赤手空拳多一个选择。");
+
+    public static BookData DjangoUnchained() => new(
+        DjangoUnchainedId, "被解救的姜戈",
+        "一册被翻得起毛的通俗故事。主角戴着夸张的帽子，穿一双硬得能踢开门的马靴，袖口里藏着一把小得可笑的手枪。\n\n" +
+        "故事把复仇写得痛快，把准备工作写得很短。可夹页上的服装尺寸、枪械剖面和改装笔记倒很认真——" +
+        "上一位读者显然不只把它当故事看。",
+        grantsRecipeStub: "recipe:dentist_pistol,cowboy_hat,riding_boots", readHours: 20,
+        description: "复仇故事、牛仔行头和一把藏得住的小手枪。有人读它消遣，有人照着页边的图开始做东西。");
+
+    public static BookData IrishChronicle() => new(
+        IrishChronicleId, "爱尔兰编年史",
+        "坏天气、贫瘠土和太多张等着吃饭的嘴，让人学会把土豆种得比日历更可靠。先催芽，再切块，" +
+        "让每一块都带着芽眼；覆土不要一次压死，苗长一截就再培一层。\n\n" +
+        "书里没有让作物凭空长快的奇迹，只有一套把等待提前做完的办法。十二小时不算多，挨饿时却很长。",
+        readHours: 8,
+        description: "一部饥荒与土地的旧记录。夹在历史里的种植法，能让土豆少在泥里睡半天。");
+
+    public static BookData BritishChronicle() => new(
+        BritishChronicleId, "英国编年史",
+        "紫杉木要顺纹劈开，弓背留白木，弓腹留心木。一张长弓的力量不是来自粗，而是来自两层木质在拉伸与压缩之间各守本分。\n\n" +
+        "编年史写国王和战役，附录却写弓匠、弓弦与练习场。那些没有留下名字的人，造出了能越过整片泥地的箭。",
+        grantsRecipeStub: "recipe:longbow", readHours: 4,
+        description: "正文记国王，附录记长弓。如今国王没什么用，附录倒还能救命。");
+
+    public static BookData VietnameseChronicle() => new(
+        VietnameseChronicleId, "越南编年史",
+        "没有足够钢板，就把小片金属、厚布与能找到的硬材料一层层叠起来。护甲不必挡住所有东西，" +
+        "只要让最先碰到你的那一下慢一点、偏一点。\n\n" +
+        "书中反复强调重量要分散，接缝要错开。穿得动的防护才叫装甲；把人压在原地的，只是一口还没合盖的棺材。",
+        grantsRecipeStub: "recipe:simple_armor", readHours: 3,
+        description: "一部在匮乏中作战的记录，夹着用零碎材料拼装护具的办法。简陋不等于毫无用处。");
+
+    public static BookData StoneBreakingGuide() => new(
+        StoneBreakingGuideId, "胸口碎大石：从入门到入土",
+        "第一章讲呼吸，第二章讲绷紧肌肉，第三章讲怎么挑一块看起来吓人、实际容易裂的石头。\n\n" +
+        "真正挨下重击时，诀窍只剩两个：别把气吐光，别让力量全落在一点。作者在页脚郑重声明，" +
+        "本书不能保证读者活着学完；书名已经尽到告知义务。",
+        readHours: 4,
+        description: "一本把江湖把式写得过分认真的小册子。偶尔，它真能教你在重物砸下来时少断几根骨头。");
+
+    public static BookData MalayChronicle() => new(
+        MalayChronicleId, "马来编年史",
+        "甲板窄、舱门低，长兵器施展不开。水手把两把短刃分在左右手：一把逼开对方的刀，一把从空隙里进去。\n\n" +
+        "双持不是两只手各打各的。肩、胯和脚步必须共用同一个节奏，否则第二把刀只会拖慢第一把。",
+        readHours: 6,
+        description: "海峡与甲板上的近战记录。两把锐器并不会让人快一倍，但至少可以少慢一点。");
+
+    public static BookData TurkishChronicle() => new(
+        TurkishChronicleId, "土耳其编年史",
+        "一手持短枪，一手留着刀，旧骑兵把换武器的时间省成了一个动作。枪负责逼人停步，刀负责处理已经靠近的麻烦。\n\n" +
+        "诀窍在于两件武器互不争抢身体：射击时刀手压住摆动，近战时枪手替突刺稳住肩线。各让出一点，反而都更听话。",
+        readHours: 6,
+        description: "关于枪与刀如何同时留在手里的旧战术。看着别扭，练熟后却比临阵换家伙可靠。");
 
     public static IReadOnlyList<BookData> All() => new[]
     {
@@ -376,8 +580,27 @@ public static class BookLibrary
         MechanicalBeauty(),
         BowCraftingGuide(),   // [T59] 用户新加
         PeakHour(),           // [T71] 用户新加（滑雪极限运动·解锁自制简易墨镜）
+        PeakHourTwo(),        // Wiki 新增：厚重裤子 / 厚重披风
+        PeakHourThree(),      // Wiki 新增：葛根 / 大黄识别与雪地靴
         GoldfingerDiaryA(),
         GoldfingerDiaryB(),
+        GunsmithRepairGuide(), // [wiki-character-sync] 神秘商人独家货品
+        StreetFightingGuide(),
+        MedicalFacilityStandards(),
+        EssenceOfSales(),
+        HundredFamilyRecipes(),
+        LittleMouseDigsHoles(),
+        ItalianChronicle(),
+        FamilyFirstAidManual(),
+        SharpesAutobiography(),
+        SpanishChronicle(),
+        DjangoUnchained(),
+        IrishChronicle(),
+        BritishChronicle(),
+        VietnameseChronicle(),
+        StoneBreakingGuide(),
+        MalayChronicle(),
+        TurkishChronicle(),
     };
 
     /// <summary>
@@ -397,14 +620,13 @@ public static class BookLibrary
     public static IReadOnlyList<BookData> Diaries()
         => All().Where(b => b.IsDiary).ToList();
 
-    // 🔴 **占位正文 —— 待用户 authored，别替他写。**
-    // 用户只给了书名《机械之美》和一句「用武器零件造」。这里只陈述这本书**在机制上是什么**
-    // （读完解锁两把弩），不编作者、不编来历、不编世界观 —— 那些是 authored 内容，只有用户能写。
-    // 别的书的正文都是有文风的散文；这一段刻意保持干巴巴，正是为了让人一眼看出"它还没写"。
     private const string MechanicalBeautyBody =
-        "（正文待补）一本讲机括与传动的书。读完它的人能用零件装出单手轻弩与双手重弩。";
+        "机括不是魔法，是一连串互相咬合、彼此借力的零件。\n\n" +
+        "先把弩臂固定，再让弦经过滑轮与卡扣；每一处松动，都会把力送回你的手指。" +
+        "武器零件不是越多越好，关键是让它们在扣下扳机的那一刻同时到位。\n\n" +
+        "照着图装，你能做出单手轻弩，也能做出需要双手稳住的重弩。";
 
-    // draft 待用户改 —— 技艺书《弓与箭之道》：不解锁配方，读完把箭矢回收率 25% → 50%
+    // 技艺书《弓与箭之道》：不解锁配方，读完后的箭矢效果以 Wiki 配置为准。
     private const string WayOfBowAndArrowBody =
         "一本薄薄的射艺小册，封面上是一张画得极认真的弓。扉页题着一句话：\n\n" +
         "\"射出去的箭，一半的功夫在把它捡回来。\"\n\n" +

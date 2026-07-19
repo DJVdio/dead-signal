@@ -103,7 +103,14 @@ public sealed partial class TestExploration : ExplorationLevel
     // 批次4 光照：探索关固定光源场（预置油灯）。供玩家遮暗渲染（VisionMask.SetSourceProvider）与
     // 关内丧尸感知（ConfigurePerception 的 localLightAt）按位置查询最强光源贡献。位置/盏数拟定待调。
     private readonly LightField _levelLights = new();
+    // 动态光源不常驻固定场：幸存者手持光 + 劫掠者战斗火把按帧投影，避免把移动者的位置写死进场景。
+    private readonly List<PlacedLight> _dynamicLightsScratch = new();
     private readonly List<(Node2D container, Vector2 pos)> _discoveryVisuals = new();
+
+    // 点击式探索交互共用发现点几何。Area2D 仍保留（走进点仍可触发），右键则由 CampMain
+    // 查询这里的矩形后派人走到位，再经 TriggerDiscovery 走同一条 OnDiscovery 路由。
+    private sealed record DiscoveryTarget(string Id, Rect2 Rect, bool Repeatable);
+    private readonly List<DiscoveryTarget> _discoveryTargets = new();
 
     // 探索发现点：本关内已触发过的 discoveryId（防同一关内重复上报；跨关持久去重由 CampMain 的 flag 负责）。
     private readonly HashSet<string> _firedDiscoveries = new();
@@ -242,6 +249,58 @@ public sealed partial class TestExploration : ExplorationLevel
     }
 
     /// <summary>
+    /// 返回鼠标点命中的可交互发现点。一次性点已触发后不再命中；物资缓存和战斗尸体
+    /// 允许重复命中，以便搜到一半走开后继续搜。门等容器仍由 CampMain 自己查询。
+    /// </summary>
+    public bool TryGetDiscoveryTarget(Vector2 worldPoint, out string discoveryId, out Rect2 rect)
+    {
+        DiscoveryTarget? best = null;
+        float bestDistance = float.MaxValue;
+        foreach (DiscoveryTarget target in _discoveryTargets)
+        {
+            if (!target.Rect.Grow(8f).HasPoint(worldPoint))
+                continue;
+            if (!target.Repeatable && _firedDiscoveries.Contains(target.Id))
+                continue;
+
+            float distance = target.Rect.GetCenter().DistanceSquaredTo(worldPoint);
+            if (distance < bestDistance)
+            {
+                best = target;
+                bestDistance = distance;
+            }
+        }
+
+        if (best is { } hit)
+        {
+            discoveryId = hit.Id;
+            rect = hit.Rect;
+            return true;
+        }
+
+        discoveryId = "";
+        rect = default;
+        return false;
+    }
+
+    /// <summary>点击/到达后触发发现点，和 Area2D 踏入使用完全相同的去重语义。</summary>
+    public bool TriggerDiscovery(string discoveryId, Pawn finder)
+    {
+        DiscoveryTarget? target = _discoveryTargets.FirstOrDefault(t => t.Id == discoveryId);
+        if (target is null)
+            return false;
+        if (!target.Repeatable && !_firedDiscoveries.Add(discoveryId))
+            return false;
+
+        RaiseDiscovery(discoveryId, finder);
+        return true;
+    }
+
+    private static bool IsRepeatableDiscovery(string discoveryId)
+        => ExplorationInteractionLogic.IsRepeatableDiscovery(discoveryId)
+           || !string.IsNullOrEmpty(ExplorationCache.FlagForCache(discoveryId));
+
+    /// <summary>
     /// 本关是否<b>室内恒暗</b>（压过昼夜相位，环境光锁死在 <see cref="VisionLogic.IndoorsDarkAmbient"/>＝0.10）。
     /// 判据在纯逻辑 <see cref="ExplorationLighting.IsIndoorsDark"/>（单一事实源，单测与运行时读同一个）。
     /// <para>
@@ -269,11 +328,37 @@ public sealed partial class TestExploration : ExplorationLevel
         _levelLights.AddFixed(LightSource.LampKey, LevelW * 0.5f, LevelH * 0.4f); // 关内中段
     }
 
-    /// <summary>关内某点合成局部光照 L∈[0,1]（环境光与固定光源取 max），供丧尸感知 ConeFor 消费。</summary>
+    /// <summary>关内某点合成局部光照 L∈[0,1]（环境光与固定/动态光源取 max），供敌方感知 ConeFor 消费。</summary>
     private float SampleLevelLight(Vector2 pos)
         => VisionLogic.CombineLight(
             VisionLogic.AmbientLight(Clock.CurrentPhase, LevelIndoorsDark),
-            _levelLights.StrongestAt(pos.X, pos.Y));
+            _levelLights.StrongestAt(pos.X, pos.Y, CurrentDynamicLights()));
+
+    /// <summary>
+    /// 当前场景的移动光源快照：玩家/探索队手持光与交战中的劫掠者火把。
+    /// 返回复用缓冲，只在消费方完成当前查询前有效，不向调用方暴露可修改集合。
+    /// </summary>
+    private IEnumerable<PlacedLight> CurrentDynamicLights()
+    {
+        _dynamicLightsScratch.Clear();
+        foreach (Pawn p in ExpeditionTeam)
+        {
+            if (p.Alive && p.HeldLight.ActiveHeld is LightProfile lp)
+            {
+                _dynamicLightsScratch.Add(new PlacedLight(p.GlobalPosition.X, p.GlobalPosition.Y, lp));
+            }
+        }
+
+        foreach (Raider r in _levelRaiders)
+        {
+            if (r.Alive && r.ActiveTorchLight is { } torch)
+            {
+                _dynamicLightsScratch.Add(torch);
+            }
+        }
+
+        return _dynamicLightsScratch;
+    }
 
     private void SetupVisionMask()
     {
@@ -288,7 +373,7 @@ public sealed partial class TestExploration : ExplorationLevel
         });
         _visionMask.SetAmbientProvider(() => VisionLogic.AmbientLight(Clock.CurrentPhase, LevelIndoorsDark));
         // 光源场：玩家侧遮暗按局部光照（灯旁视野更远），VisionMask 内部 CombineLight(ambient, 源贡献)。
-        _visionMask.SetSourceProvider(pos => _levelLights.StrongestAt(pos.X, pos.Y));
+        _visionMask.SetSourceProvider(pos => _levelLights.StrongestAt(pos.X, pos.Y, CurrentDynamicLights()));
         _visionMask.SetRevealablesProvider(Revealables);
         // 羁绊视野系数（道格锥角/布鲁斯视距·锥角按等级缩放）：CampMain 注入 BondScaleCone，与营地侧同口径，
         // 使道格带布鲁斯出探索的视野技能端到端生效。未注入（无羁绊上下文）则不缩放。
@@ -301,7 +386,7 @@ public sealed partial class TestExploration : ExplorationLevel
     /// 视野检测层的可揭示物：存活丧尸 + <b>存活的敌对幸存者</b>（隐 Actor 节点即隐其地面标记）+ 发现点视觉容器。
     /// <para>
     /// 🔴 Raider 此前<b>不在这个列表里</b>（既有洞，超市那 4 个据点幸存者一直中招）⇒ 他们不受视野遮罩管辖、
-    /// <b>隔着墙也看得见</b>。金手指帮的 8 个守备现在也是 Raider（还站岗），漏掉他们等于把"绕开哨兵视野锥摸进去"
+    /// <b>隔着墙也看得见</b>。金手指帮的 4 个守备现在也是 Raider（还站岗），漏掉他们等于把"绕开哨兵视野锥摸进去"
     /// 直接废掉——玩家一进关就把全据点的红点数清楚了，还潜入什么。
     /// </para>
     /// </summary>
@@ -352,7 +437,7 @@ public sealed partial class TestExploration : ExplorationLevel
         _zombies.Clear();
 
         // 敌对幸存者同样要拆干净：不 Clear 的话，下一趟探索的 LevelHostiles 会遍历到上一关已释放的节点。
-        // （既有洞：超市那 4 个 Raider 一直没被清；金手指帮 8 个守备也走这条列表 ⇒ 一并收口。）
+        // （既有洞：超市那 4 个 Raider 一直没被清；金手指帮 4 个守备也走这条列表 ⇒ 一并收口。）
         foreach (var r in _levelRaiders)
         {
             if (IsInstanceValid(r))
@@ -779,7 +864,7 @@ public sealed partial class TestExploration : ExplorationLevel
     }
 
     /// <summary>
-    /// 本关存活敌对单位＝存活丧尸 + 关内敌对幸存者（超市骗局伏击的据点幸存者 / <b>金手指帮的 8 名守备</b>）——
+    /// 本关存活敌对单位＝存活丧尸 + 关内敌对幸存者（超市骗局伏击的据点幸存者 / <b>金手指帮的 4 名守备</b>）——
     /// 供随队布鲁斯经 CampMain 敌对 provider 自主缠斗、视野揭示。
     /// </summary>
     public override IEnumerable<Actor> LevelHostiles()
@@ -940,8 +1025,17 @@ public sealed partial class TestExploration : ExplorationLevel
         };
         var wander = new Rect2(WallT + 40, WallT + 40, LevelW - WallT * 2 - 80, LevelH - WallT * 2 - 80);
 
-        foreach (Vector2 spot in spots)
+        // 默认散布关也从世界图的 enemyCount 读数；旧关卡的专属 authored 布点在上方
+        // 各自分支中保留，不把通用档位硬套到医院/教堂/村庄等特殊地图。
+        int configuredCount = WorldMapPanel.Graph.Find(DestinationName)?.EnemyCount ?? -1;
+        int count = configuredCount >= 0
+            ? Mathf.Clamp(configuredCount, 0, spots.Length)
+            : spots.Length;
+        for (int i = 0; i < count; i++)
+        {
+            Vector2 spot = spots[i];
             SpawnZombieAt(spot, wander);
+        }
     }
 
     /// <summary>[SPEC-B13] 在给定点位各造一只丧尸、共享一个覆盖全关的徘徊区（用于东部新村/加油站等按分区手铺敌对的关卡）。</summary>
@@ -1170,14 +1264,20 @@ public sealed partial class TestExploration : ExplorationLevel
 
         _discoveryVisuals.Add((visual, pos));
 
+        Vector2 triggerSize = zoneSize ?? new Vector2(70, 70);
+        _discoveryTargets.Add(new DiscoveryTarget(
+            discoveryId,
+            new Rect2(pos - triggerSize / 2f, triggerSize),
+            IsRepeatableDiscovery(discoveryId)));
+
         var zone = new Area2D { Position = pos };
-        zone.AddChild(new CollisionShape2D { Shape = new RectangleShape2D { Size = zoneSize ?? new Vector2(70, 70) } });
+        zone.AddChild(new CollisionShape2D { Shape = new RectangleShape2D { Size = triggerSize } });
         zone.CollisionMask = 0b0001u; // 与返回区一致：只感知玩家 Pawn 所在层
         zone.BodyEntered += body =>
         {
             // 踏进去的那个人要透传出去——物资搜刮点是**他**站在那儿一件件往外掏（逐件搜刮，见 LootSession）。
-            if (body is Pawn finder && _firedDiscoveries.Add(discoveryId))
-                RaiseDiscovery(discoveryId, finder);
+            if (body is Pawn finder)
+                TriggerDiscovery(discoveryId, finder);
         };
         AddChild(zone);
     }
@@ -1236,8 +1336,14 @@ public sealed partial class TestExploration : ExplorationLevel
 
         _discoveryVisuals.Add((visual, pos));
 
+        Vector2 triggerSize = new(56, 56);
+        _discoveryTargets.Add(new DiscoveryTarget(
+            containerName,
+            new Rect2(pos - triggerSize / 2f, triggerSize),
+            Repeatable: true));
+
         var zone = new Area2D { Position = pos };
-        zone.AddChild(new CollisionShape2D { Shape = new RectangleShape2D { Size = new Vector2(56, 56) } });
+        zone.AddChild(new CollisionShape2D { Shape = new RectangleShape2D { Size = triggerSize } });
         zone.CollisionMask = 0b0001u;   // 同发现点/返回区：只感知玩家 Pawn 所在层
         zone.BodyEntered += body =>
         {

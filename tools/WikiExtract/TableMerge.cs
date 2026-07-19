@@ -125,7 +125,7 @@ internal static class TableMerge
                     && Math.Abs(Program.Round(Convert.ToDouble(edited)) - Program.Round(Convert.ToDouble(seededVal))) > 1e-9)
                 {
                     Drift.Add($"  [数值漂移] {fresh.Label}·{Name(row, id)}·{col.Label}：表 = {edited} ≠ 代码 = {Program.Round(Convert.ToDouble(seededVal))}"
-                              + $"　⇒ 把表里的值同步进 {row.GetValueOrDefault("_anchor")}");
+                              + $"　⇒ 把表里的值同步进 {Target(col, row)}");
                 }
 
                 // 🔴 **布尔列被改了也要报**。此前 bool 完全不在报告覆盖里 —— 用户把「可双持」从否改成是，
@@ -135,7 +135,7 @@ internal static class TableMerge
                 {
                     Drift.Add($"  [开关改动] {fresh.Label}·{Name(row, id)}·{col.Label}："
                               + $"表 = {(editedFlag ? "是" : "否")} ≠ 代码 = {(seedFlag ? "是" : "否")}"
-                              + $"　⇒ 把表里的值同步进 {row.GetValueOrDefault("_anchor")}");
+                              + $"　⇒ 把表里的值同步进 {Target(col, row)}");
                 }
 
                 // 文本类（含 **chip**）被改了也要报。
@@ -171,7 +171,7 @@ internal static class TableMerge
                     Drift.Add($"  [文本改动] {fresh.Label}·{Name(row, id)}·{col.Label} 被改过了"
                               + $"　⇒ 表：「{Clip(editedText)}」"
                               + $"　⇒ 代码：「{Clip(seedText)}」"
-                              + $"　⇒ 该同步进 {row.GetValueOrDefault("_anchor")}");
+                              + $"　⇒ 该同步进 {Target(col, row)}");
                 }
 
                 row[col.Key] = edited;   // 表赢：用户改的一律保留
@@ -262,6 +262,12 @@ internal static class TableMerge
             return null;   // 类型对不上（用户在数字格里打了字之类）：当作空，不炸掉整次抽取
         }
     }
+
+    /// <summary>
+    /// 列级代码真源优先于行级锚点：例如武器重量落在 ItemRegistry，而同一行的战斗数值落在 WeaponTable。
+    /// </summary>
+    private static object? Target(Col col, Dictionary<string, object?> row)
+        => col.CodeSource ?? row.GetValueOrDefault("_anchor");
 
     /// <summary>把连续空白（空格/换行/全角空格）压成一个，用于比较——排版差异不是内容改动。</summary>
     private static string Squash(string s)

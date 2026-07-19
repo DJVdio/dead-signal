@@ -212,11 +212,11 @@ public class CookingTests
     [Fact]
     public void 裸台十五点_做不了_而且一个字都不说()
     {
-        // 兔子 11 + 土豆 4 = 15 点，差一点（裸台每份 16）。
+        // 兔子肉 11 + 土豆 4 = 15 点，差一点（裸台每份 16）。
         // （[T59] 原本这里用「蒲公英 1」当那 1 点零头；蒲公英已不是食材，改用别的食材凑同一个 15 点——
         //   这条测的是**热量算术与沉默**，不是蒲公英。）
         CookPlan plan = CookingLogic.Plan(
-            true, Pot(("rabbit", 1), ("potato", 1)), Slots(), Plenty);
+            true, Pot(("rabbit_meat", 1), ("potato", 1)), Slots(), Plenty);
 
         Assert.False(plan.CanCook);
         Assert.Equal(15, plan.TotalCalories);
@@ -230,10 +230,10 @@ public class CookingTests
     [Fact]
     public void 裸台三十一点_只做一份_零头十五点静默蒸发()
     {
-        // 罐头 16 + 兔子 11 + 土豆 4 = 31 点。
+        // 罐头 16 + 兔子肉 11 + 土豆 4 = 31 点。
         // （[T59] 原本是「口粮 30 + 蒲公英 1」；蒲公英已不是食材，换一组食材凑同一个 31 点。）
         CookPlan plan = CookingLogic.Plan(
-            true, Pot(("canned_food", 1), ("rabbit", 1), ("potato", 1)), Slots(), Plenty);
+            true, Pot(("canned_food", 1), ("rabbit_meat", 1), ("potato", 1)), Slots(), Plenty);
 
         Assert.True(plan.CanCook);
         Assert.Equal(31, plan.TotalCalories);
@@ -266,8 +266,8 @@ public class CookingTests
         Assert.Equal(12, twelve.PortionCost);
         Assert.Equal(1, twelve.Portions);
 
-        // 23 点（老鼠 3 + 罐头 0…用兔子 11 + 老鼠 2×6 = 23）→ 一到两份之间，只做一份。
-        CookPlan twentyThree = CookingLogic.Plan(true, Pot(("rabbit", 1), ("rat_meat", 2)), full, Plenty);
+        // 23 点（兔子肉 11 + 老鼠肉 2×6 = 23）→ 一到两份之间，只做一份。
+        CookPlan twentyThree = CookingLogic.Plan(true, Pot(("rabbit_meat", 1), ("rat_meat", 2)), full, Plenty);
         Assert.Equal(23, twentyThree.TotalCalories);
         Assert.Equal(1, twentyThree.Portions);
 

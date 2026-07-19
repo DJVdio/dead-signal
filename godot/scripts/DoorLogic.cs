@@ -174,8 +174,8 @@ public static class DoorLogic
         => CanOperateDoors(faction, isAnimal) && state == DoorState.Locked && lockpickCount > 0;
 
     /// <summary>
-    /// 撬一次要花多久（秒）。数值「拟定待调」，但<b>随锁的档次单调递增</b>是规则。
-    /// <see cref="LockTier.None"/> = 没装锁，0 秒（不会进撬锁流程，此处只钉边界）。
+    /// 撬一次要花多久（秒）。具体耗时以 Wiki 配置为准，但<b>随锁的档次单调递增</b>是规则。
+    /// <see cref="LockTier.None"/> = 没装锁，不进入撬锁流程，此处只钉边界。
     /// </summary>
     public static double PickSeconds(LockTier tier) => tier switch
     {
@@ -187,13 +187,11 @@ public static class DoorLogic
     };
 
     /// <summary>
-    /// 撬一次的成功率。数值「拟定待调」，但<b>随锁的档次单调递减、且恒 &gt; 0</b> 是规则——
+    /// 撬一次的成功率。具体概率以 Wiki 配置为准，但<b>随锁的档次单调递减、且恒 &gt; 0</b> 是规则——
     /// 再硬的锁也必须撬得开（成功率一旦为 0，玩家就会被一扇门永久卡死）。
     /// <para>
-    /// <b>期望代价</b>（= 单次耗时 / 成功率，及断丝 (1−p)/p 根）：
-    /// 简单锁 ≈ 5.7 秒 / 0.4 根丝；普通锁 ≈ 13.3 秒 / 1.2 根丝；坚固锁 ≈ <b>32 秒 / 3 根丝</b>。
-    /// 对照砸开一扇木门（60HP ÷ 12 伤害 ≈ 5 击 ≈ 5 秒）：<b>砸永远更快，撬永远更静</b>——这就是用户要的那个取舍。
-    /// 坚固锁前蹲 32 秒是**真的要命**：门外那群东西并不会停下来等你。
+    /// <b>期望代价</b>由单次耗时、成功率和断丝概率共同决定；<b>砸永远更快，撬永远更静</b>——
+    /// 这是用户要的那个取舍。具体比较值以 Wiki 配置和实机校准为准。
     /// </para>
     /// </summary>
     public static double PickChance(LockTier tier) => tier switch
