@@ -227,15 +227,15 @@ internal static class Characters
         Add("皮特", "升级门槛", "pete_l3_departure_ceiling", "升 3 级 出行计数的饥饿上限", PetePerk.DepartureHungerCeiling, "饥饿值", peteSrc + ".DepartureHungerCeiling", cfgKey: "PeteDepartureHungerCeiling");
         Add("皮特", "升级门槛", "pete_l3_departures", "升 3 级 所需合格出行次数", PetePerk.Level3DepartureCount, "次", peteSrc + ".Level3DepartureCount", cfgKey: "PeteLevel3DepartureCount");
 
-        // —— 耗子·下水道拾荒（数值用户原话·非拟定；L3 两条为未接线的引擎新轴）——
+        // —— 耗子·下水道拾荒（数值用户原话·非拟定；L3 已接入探索感知与攻击消费层）——
         const string ratSrc = "godot/scripts/SurvivorPerks.cs :: RatPerk";
         Add("耗子", "升级门槛", "rat_l2_items", "升 2 级 累计搜出件数", RatPerk.Level2ThresholdItems, "件", ratSrc + ".Level2ThresholdItems", settled: true, cfgKey: "RatLevel2ThresholdItems");
         Add("耗子", "升级门槛", "rat_l3_items", "升 3 级 累计搜出件数", RatPerk.Level3ThresholdItems, "件", ratSrc + ".Level3ThresholdItems", settled: true, cfgKey: "RatLevel3ThresholdItems");
         Add("耗子", "感知", "rat_l1_noise", "1 级 动作噪音半径乘子（脚步/开门/撬锁/拆除）", RatPerk.Level1ActionNoiseMultiplier, "倍", ratSrc + ".Level1ActionNoiseMultiplier", settled: true, cfgKey: "RatLevel1ActionNoiseMultiplier");
         Add("耗子", "操作与生产", "rat_l1_loot", "1 级 翻找搜刮速度加成", Pct(RatPerk.Level1LootSpeedBonus), "%", ratSrc + ".Level1LootSpeedBonus", settled: true, cfgKey: "RatLevel1LootSpeedBonus", pct: true);
         Add("耗子", "操作与生产", "rat_l2_loot", "2 级 翻找搜刮速度再加成（指定加算例外）", Pct(RatPerk.Level2LootSpeedBonus), "%", ratSrc + ".Level2LootSpeedBonus", settled: true, cfgKey: "RatLevel2LootSpeedBonus", pct: true);
-        Add("耗子", "感知", "rat_l3_darkness", "3 级 黑暗隐匿点加成（未接线）", Pct(RatPerk.Level3DarknessStealthBonus), "%", ratSrc + ".Level3DarknessStealthBonus", settled: true, cfgKey: "RatLevel3DarknessStealthBonus", pct: true);
-        Add("耗子", "战斗", "rat_l3_ambush", "3 级 破隐先手额外伤害（未接线）", Pct(RatPerk.Level3AmbushDamageBonus), "%", ratSrc + ".Level3AmbushDamageBonus", settled: true, cfgKey: "RatLevel3AmbushDamageBonus", pct: true);
+        Add("耗子", "感知", "rat_l3_darkness", "3 级 黑暗隐匿点加成", Pct(RatPerk.Level3DarknessStealthBonus), "%", ratSrc + ".Level3DarknessStealthBonus", settled: true, cfgKey: "RatLevel3DarknessStealthBonus", pct: true);
+        Add("耗子", "战斗", "rat_l3_ambush", "3 级 破隐先手额外伤害", Pct(RatPerk.Level3AmbushDamageBonus), "%", ratSrc + ".Level3AmbushDamageBonus", settled: true, cfgKey: "RatLevel3AmbushDamageBonus", pct: true);
 
         // —— 神秘商人（两位商人共用同一套价率与调度）——
         var sched = new MerchantSchedule(new SystemRandomSource(), currentDay: 0);
@@ -468,18 +468,18 @@ internal static class Characters
                      + "战斗、开枪、破坏这些不减；翻找搜刮速度 +" + Pct(RatPerk.Level1LootSpeedBonus) + "%。",
         ["perkL2"] = $"累计搜出 {RatPerk.Level2ThresholdItems} 件。翻找搜刮速度再 +{Pct(RatPerk.Level2LootSpeedBonus)}%（合计 +{Pct(RatPerk.Level1LootSpeedBonus + RatPerk.Level2LootSpeedBonus)}% ⇒ {1 + RatPerk.Level1LootSpeedBonus + RatPerk.Level2LootSpeedBonus:0.##} 倍）；"
                      + "并且她翻找东西不会产生任何噪音。",
-        ["perkL3"] = $"累计搜出 {RatPerk.Level3ThresholdItems} 件。黑暗带来的隐匿点 +{Pct(RatPerk.Level3DarknessStealthBonus)}%；破隐先手攻击额外再造成 +{Pct(RatPerk.Level3AmbushDamageBonus)}% 伤害。\n"
-                     + "⚠️ 这两条是引擎里还没有的新轴（玩家探索关没有「隐匿分」、CombatResolver 没有攻方伤害乘子也没有「未被发现」概念）——常量已落但**尚未接线**，目前只展示、不生效，等后续统一立项。",
+        ["perkL3"] = $"累计搜出 {RatPerk.Level3ThresholdItems} 件。黑暗带来的隐匿点 +{Pct(RatPerk.Level3DarknessStealthBonus)}%；破隐先手攻击额外再造成 +{Pct(RatPerk.Level3AmbushDamageBonus)}% 伤害。"
+                     + "黑暗隐匿、服装、负重、掩体四项会共同影响被发现距离；未被敌方感知时的第一次攻击获得破隐先手加成。",
         ["join"] = $"探索到「{RatRecruit.DestinationName}」最深处遇到她，弹招募对话。婉拒不关门（可再来谈，直到她答应）；"
                    + "答应后回营时正式入队（出行队伍名单已定，不在关内临时增员，同护士/村庄救援口径）。",
         ["gear"] = "刺剑+开局三件套",
         ["backstory"] = "🔴 用户只给了四条事实：浑身恶臭、穿着潮湿破布夹克、是个女人、没有名字叫「耗子」、可招募。\n\n"
                         + "她的前史 / 性格 / 为什么在下水道 / 和谁认识——用户一个字都没写，代码不许编造，一律留白等你手写。",
         ["relations"] = "（待你手写。）",
-        ["storyline"] = "搜刮速度加成、动作噪音减免（L1/L2）已生效；L3 的黑暗隐匿点 +50% 与破隐先手 +35% 伤害是引擎新轴，未接线（护栏测试钉死其「未接线」状态）。",
+        ["storyline"] = "搜刮速度加成、动作噪音减免（L1/L2）已生效；L3 的黑暗隐匿点 +50% 与破隐先手 +35% 伤害已接入探索感知与攻击消费层。",
         ["notes"] = "数值为用户原话·非拟定（75/250 件、−40% 噪音、+50% 搜刮、再 +100%）。"
                     + "L2 搜刮速度 2.50 倍 是用户明确指定的**加算例外**（同一 perk 自己的两级台阶按总量口述），不是漏网的加算残留，别顺手改成乘算。"
-                    + "L3 两条效果未接线。数字在隔壁「角色数值」分区。",
+                    + "数字在隔壁「角色数值」分区。",
         ["draft"] = true,
         ["_id"] = "rat",
         ["_anchor"] = "godot/scripts/SurvivorPerks.cs :: RatPerk + RatRecruit.cs（下水道最深处招募）",

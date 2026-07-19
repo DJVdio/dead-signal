@@ -2,7 +2,7 @@
   "id": "butchery",
   "label": "宰杀配方",
   "source": "godot/scripts/Butchery.cs",
-  "note": "宰杀不是普通单产物制作：一只猎物上案板后，同时产出肉和副产物。简易宰杀点处理老鼠/鸟；宰杀台按 Wiki 的三条基础产出处理老鼠、兔子、鸟，并保留 20% 双倍产出判定。",
+  "note": "宰杀不是普通单产物制作：一只猎物上案板后，同时产出肉和副产物。简易宰杀点和宰杀台都处理老鼠、兔子、鸟；宰杀台另保留 20% 双倍产出判定。",
   "columns": [
     {
       "key": "name",
@@ -95,7 +95,7 @@
       "_anchor": "godot/scripts/Butchery.cs :: ButcheryLogic（Id = \"simple_rat\"）",
       "userNote": "",
       "sync": "",
-      "_icon": "butchery/simple_rat"
+      "_icon": "food/rat"
     },
     {
       "name": "简易宰杀点：鸟",
@@ -109,7 +109,7 @@
       "_anchor": "godot/scripts/Butchery.cs :: ButcheryLogic（Id = \"simple_pigeon\"）",
       "userNote": "",
       "sync": "",
-      "_icon": "butchery/simple_pigeon"
+      "_icon": "food/pigeon"
     },
     {
       "name": "宰杀台：老鼠",
@@ -123,7 +123,7 @@
       "_anchor": "godot/scripts/Butchery.cs :: ButcheryLogic（Id = \"table_rat\"）",
       "userNote": "",
       "sync": "",
-      "_icon": "butchery/table_rat"
+      "_icon": "food/rat"
     },
     {
       "name": "宰杀台：兔子",
@@ -137,7 +137,7 @@
       "_anchor": "godot/scripts/Butchery.cs :: ButcheryLogic（Id = \"table_rabbit\"）",
       "userNote": "",
       "sync": "",
-      "_icon": "butchery/table_rabbit"
+      "_icon": "food/rabbit"
     },
     {
       "name": "宰杀台：鸟",
@@ -151,7 +151,21 @@
       "_anchor": "godot/scripts/Butchery.cs :: ButcheryLogic（Id = \"table_pigeon\"）",
       "userNote": "",
       "sync": "",
-      "_icon": "butchery/table_pigeon"
+      "_icon": "food/pigeon"
+    },
+    {
+      "name": "简易宰杀点：兔子",
+      "facility": "简易宰杀点",
+      "input": "兔子",
+      "outputs": "碎皮革*3、兔子肉*1",
+      "baseWorkMinutes": 60,
+      "doubleYieldChance": 0,
+      "description": "简易宰杀点基础产出，不触发双倍判定。",
+      "_id": "simple_rabbit",
+      "_anchor": "godot/scripts/Butchery.cs :: ButcheryLogic（Id = \"simple_rabbit\"）",
+      "userNote": "",
+      "sync": "",
+      "_icon": "food/rabbit"
     }
   ]
 }

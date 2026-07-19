@@ -28,6 +28,8 @@ public static class CraftOutputFactory
         // [wiki-character-sync] 狙击枪修复配方输出：CraftOutputFactory 按 outputKey 识别为 Weapon 并以 DisplayName 查 WeaponTable。
         // DisplayName = "狙击枪" ⇒ Item.Weapon("狙击枪") ⇒ WeaponTable.SniperRifle()。
         "repair_sniper_rifle",
+        // [missing-book-items] 同批新增/接管的四把可制作枪；漏登记会静默落成不可装备的杂项材料。
+        "improvised_pistol", "dentist_pistol", "rifle", "pistol",
     };
     // 箭（4 种）不必登记：它们的产物 key 同时是**材料键**（ammo_arrow_*），
     // 走上面 Materials.Has(outputKey) 那条分支自动落地为一堆材料。
@@ -48,6 +50,8 @@ public static class CraftOutputFactory
             "snow_goggles",   // [T71] 自制简易墨镜（木缝雪镜，读《尖峰时刻》解锁）
             "ankle_guard",    // [A2] 护踝鞋具（读《尖峰时刻》解锁；落成 Item.Armor(护踝鞋具)，穿戴登记在 ApparelSlots 脚槽·成对）
             "heavy_trousers", "heavy_cape", "snow_boots",
+            // [missing-book-items] 《被解救的姜戈》/《越南编年史》解锁的可制作穿戴品。
+            "cowboy_hat", "riding_boots", "simple_armor",
         }.Concat(DogGearCatalog.AllKeys));
     // 光源类产物（火把）：落地为 Item.Light，refKey=产物 key（对齐 LightSource 目录）。手电不可制作，不列此表。
     private static readonly IReadOnlySet<string> LightOutputs = new HashSet<string> { "torch" };

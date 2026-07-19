@@ -13,7 +13,7 @@ namespace DeadSignal.Godot;
 // 【T67】宰杀 —— 用户拍板的一道**新工序**，卡在"猎物"和"饭"之间。
 //
 // 用户 authored 说明（当前配方、工时、速度、概率与产出数值以 Wiki 配置为准）：
-//   老鼠和鸟不能直接入锅，必须先经过宰杀；简易宰杀点可升级为宰杀台；
+//   老鼠、兔子和鸟不能直接入锅，必须先经过宰杀；简易宰杀点可升级为宰杀台；
 //   两档设施各有一个刀槽，只允许放入匕首或骨刀；宰杀台有双倍产出机制，
 //   设施与刀的速度贡献采用本文件后文说明的加算例外。
 //
@@ -217,7 +217,8 @@ public static class ButcheryLogic
     public const double TableDoubleYieldChance = 0.20;
 
     /// <summary>
-    /// 宰杀配方清单：简易宰杀点沿用老鼠/鸟两条旧工序；宰杀台使用 Wiki 新给的三条基础产出。
+    /// 宰杀配方清单：两档设施都处理老鼠/兔子/鸟；宰杀台另有速度与双倍产出优势。
+    /// 简易宰杀点的兔子沿用既有兔子基础产出，不另造一套数值。
     /// 声明顺序也是 Wiki 展示顺序，新条目只追加，不改已有随机流。
     /// </summary>
     private static readonly IReadOnlyList<ButcherRecipe> _recipes = new[]
@@ -227,6 +228,7 @@ public static class ButcheryLogic
         new ButcherRecipe("table_rat", ButcherTier.Table, "rat", "老鼠", Materials.RatMeatKey, 1, Materials.LeatherScrapKey, 2),
         new ButcherRecipe("table_rabbit", ButcherTier.Table, "rabbit", "兔子", Materials.RabbitMeatKey, 1, Materials.LeatherScrapKey, 3),
         new ButcherRecipe("table_pigeon", ButcherTier.Table, "pigeon", "鸟", Materials.BirdMeatKey, 1, Materials.FeatherKey, 1),
+        new ButcherRecipe("simple_rabbit", ButcherTier.SimplePoint, "rabbit", "兔子", Materials.RabbitMeatKey, 1, Materials.LeatherScrapKey, 3),
     };
 
     private static readonly IReadOnlyDictionary<(ButcherTier Tier, string QuarryKey), ButcherRecipe> _recipesByKey =

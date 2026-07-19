@@ -148,7 +148,7 @@ public static class Materials
         new MaterialDef("dandelion_tea", "蒲公英茶", "奶奶的最爱", MaterialCategory.Medical),
         // [SPEC-B14-补2] 玫瑰果茶：饮用后 24 游戏小时伤病恢复速度 +9pp。
         new MaterialDef("rosehip_tea", "玫瑰果茶", "酸酸甜甜，抚慰你受伤的身体。", MaterialCategory.Medical),
-        // —— 货币（draft）：末日流通的硬通货，神秘商人交易媒介。量级/掉落来源待用户设计。——
+        // —— 货币（draft）：末日流通的硬通货，神秘商人交易媒介。量级/掉落来源待用户调参（见 TODO §6）。——
         new MaterialDef(CurrencyKey, "白银", "闪闪亮亮，末世前铸的白银，如今废土上唯一还认的硬通货。", MaterialCategory.Currency),
         // —— [批次18] 子弹零件：四种子弹的**唯一**共同原料（用户拍板新增的材料）。——
         // 归「精密零件」而非「弹药」类：它不是弹药，是造弹药的料（弹药分区只列真能打出去的东西）。
@@ -234,7 +234,7 @@ public static class Materials
         // 鸟肉：热量点 **5**，同样原样继承自「鸟」（原「鸽子」）。
         new MaterialDef("bird_meat", "鸟肉", "两条细腿，一小块胸脯。", MaterialCategory.Food),
 
-        // 兔子肉：宰杀台的产物，热量点原样继承自整只兔子（11 点）。
+        // 兔子肉：两档宰杀设施的产物，热量点原样继承自整只兔子（11 点）。
         new MaterialDef("rabbit_meat", "兔子肉", "剥下来的兔肉。兔兔这么可爱，吃起来倒是很顶饱。", MaterialCategory.Food),
 
         // 羽毛：**箭的尾羽**。三种箭全都吃它（用户在 wiki 上亲手改的），也就是说——
@@ -261,7 +261,7 @@ public static class Materials
     /// <summary>鸟肉的材料标识键 —— 宰杀鸟的主产物（5 热量点，继承自鸟）。</summary>
     public const string BirdMeatKey = "bird_meat";
 
-    /// <summary>兔子肉的材料标识键 —— 宰杀台宰杀兔子的主产物（11 热量点，继承自兔子）。</summary>
+    /// <summary>兔子肉的材料标识键 —— 两档宰杀设施处理兔子的主产物（11 热量点，继承自兔子）。</summary>
     public const string RabbitMeatKey = "rabbit_meat";
 
     /// <summary>葛根的材料标识键——读《尖峰时刻·三》后可在野外交互采集。</summary>

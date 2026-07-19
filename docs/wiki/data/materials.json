@@ -337,7 +337,7 @@
     },
     {
       "name": "损坏的狙击枪",
-      "category": "杂项",
+      "category": "有机杂料",
       "weight": 7.5,
       "description": "枪管是好的，枪机却卡死了，瞄具镜片裂了几道。它不再是武器了，只是个念想——除非你找得到能修它的人。",
       "_id": "damaged_sniper_rifle",
@@ -345,7 +345,7 @@
       "_anchor": "godot/scripts/Materials.cs :: Materials（重量在 godot/scripts/CarryWeight.cs :: ItemWeights）",
       "userNote": "",
       "sync": "",
-      "_icon": "materials/damaged_sniper_rifle"
+      "_icon": "weapons/sniper_rifle"
     },
     {
       "name": "老鼠",
@@ -393,7 +393,7 @@
       "_anchor": "godot/scripts/Materials.cs :: Materials（重量在 godot/scripts/CarryWeight.cs :: ItemWeights）",
       "userNote": "",
       "sync": "",
-      "_icon": "materials/feather"
+      "_icon": "food/pigeon"
     },
     {
       "name": "碎皮革",
@@ -405,7 +405,7 @@
       "_anchor": "godot/scripts/Materials.cs :: Materials（重量在 godot/scripts/CarryWeight.cs :: ItemWeights）",
       "userNote": "",
       "sync": "",
-      "_icon": "materials/leather_scrap"
+      "_icon": "materials/leather"
     }
   ]
 }

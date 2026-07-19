@@ -103,7 +103,7 @@
       "group": "食材",
       "userNote": "",
       "sync": "",
-      "_icon": "food/rabbit_meat"
+      "_icon": "food/rabbit"
     },
     {
       "name": "鱼",
@@ -187,7 +187,7 @@
       "group": "食材",
       "userNote": "",
       "sync": "",
-      "_icon": "materials/kudzu_root"
+      "_icon": "materials/laojunxu"
     },
     {
       "name": "大黄",
@@ -199,7 +199,7 @@
       "group": "食材",
       "userNote": "",
       "sync": "",
-      "_icon": "materials/rhubarb"
+      "_icon": "materials/laojunxu"
     },
     {
       "name": "老鼠肉",
@@ -211,7 +211,7 @@
       "group": "食材",
       "userNote": "",
       "sync": "",
-      "_icon": "food/rat_meat"
+      "_icon": "food/rat"
     },
     {
       "name": "鸟肉",
@@ -223,7 +223,7 @@
       "group": "食材",
       "userNote": "",
       "sync": "",
-      "_icon": "food/bird_meat"
+      "_icon": "food/pigeon"
     },
     {
       "name": "玫瑰果",
@@ -244,10 +244,10 @@
       "note": "基础值。装了炊具会更少。份数 = 总热量 ÷ 这个数，向下取整——凑不满一份就做不成，多出来的零头浪费掉（游戏里不提示）。",
       "_id": "base_portion_cost",
       "_anchor": "godot/scripts/CookingLogic.cs :: CookingLogic.BasePortionCost",
+      "_icon": "",
       "group": "烹饪",
       "userNote": "",
-      "sync": "",
-      "_icon": "food/base_portion_cost"
+      "sync": ""
     },
     {
       "label": "装上「锅」省下的热量",
@@ -256,10 +256,10 @@
       "note": "烹饪台两个槽位之一。装上它，每做一份饭就少要这么多热量。与烤架**各是各的数**，可以分别调。",
       "_id": "pot_discount",
       "_anchor": "godot/scripts/CookingLogic.cs :: CookingLogic.PotDiscount",
+      "_icon": "",
       "group": "烹饪",
       "userNote": "",
-      "sync": "",
-      "_icon": "food/pot_discount"
+      "sync": ""
     },
     {
       "label": "装上「烤架」省下的热量",
@@ -268,10 +268,10 @@
       "note": "烹饪台另一个槽位。两个槽都装满，一份饭省下的就是这两个数相加。与锅**各是各的数**，可以分别调。",
       "_id": "grill_discount",
       "_anchor": "godot/scripts/CookingLogic.cs :: CookingLogic.GrillDiscount",
+      "_icon": "",
       "group": "烹饪",
       "userNote": "",
-      "sync": "",
-      "_icon": "food/grill_discount"
+      "sync": ""
     },
     {
       "label": "做一份饭的工时",
@@ -280,10 +280,10 @@
       "note": "得有人站在烹饪台前把活干完。做两份就干两份的活——没有「一锅端」的规模效应。",
       "_id": "work_minutes_per_portion",
       "_anchor": "godot/scripts/CookingLogic.cs :: CookingLogic.WorkMinutesPerPortion",
+      "_icon": "",
       "group": "烹饪",
       "userNote": "",
-      "sync": "",
-      "_icon": "food/work_minutes_per_portion"
+      "sync": ""
     }
   ]
 }

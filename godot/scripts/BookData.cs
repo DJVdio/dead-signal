@@ -473,7 +473,7 @@ public static class BookLibrary
         "每页的分量都很小，办法却很细：先切碎，再慢煮；先让香味出来，再让饥饿相信碗里比看上去更多。" +
         "做饭的人省下的每一点，都够另一个人把今天熬过去。",
         readHours: 6,
-        description: "一百户人家的锅底经验：怎么让同样一把粮食，多盛出一只不那么空的碗。");
+        description: "一百户人家的锅底经验。");
 
     public static BookData LittleMouseDigsHoles() => new(
         LittleMouseDigsHolesId, "小老鼠爱打洞",
@@ -481,7 +481,7 @@ public static class BookLibrary
         "彩色插图把洞口、粪粒、啃痕和脚印画得清清楚楚。给孩子看的问题都很简单，答案却正好能告诉大人：" +
         "套索该放在哪条路上，才不会只抓到一夜的风。",
         readHours: 3,
-        description: "一本儿童科普读物。孩子看老鼠怎样回家，大人看晚饭会从哪里经过。");
+        description: "一本儿童科普读物。");
 
     public static BookData ItalianChronicle() => new(
         ItalianChronicleId, "意大利编年史",
@@ -489,7 +489,7 @@ public static class BookLibrary
         "让武器既能发射，也能遮住最要命的正面。\n\n" +
         "图稿详列盾面的弧度、重心与固定点。盾做得太大，弩便抬不起来；做得太小，只够替死人挡雨。",
         grantsRecipeStub: "mod:crossbow_shield", readHours: 6,
-        description: "一部战争编年史，真正有用的是页边那些弩盾草图：历史会重复，来箭的方向也差不多。");
+        description: "历史会重复，敌袭的方向也差不多。");
 
     public static BookData FamilyFirstAidManual() => new(
         FamilyFirstAidManualId, "家庭急救手册",
@@ -497,7 +497,7 @@ public static class BookLibrary
         "不要让病人躺在那儿等你翻目录。\n\n" +
         "书里的手术并不高明，只讲清洁、准备和熟练。可在时间与感染一同追上来的时候，少一次犹豫就多一分活路。",
         readHours: 8,
-        description: "写给普通家庭的急救书。它不能让你成为医生，只能让你的手在必须动刀时少抖一会儿。");
+        description: "写给普通家庭的急救书。它不能让你成为医生，但能让你的手在必须动刀时少抖一会儿。");
 
     public static BookData SharpesAutobiography() => new(
         SharpesAutobiographyId, "夏普斯自传",
@@ -505,7 +505,7 @@ public static class BookLibrary
         "他从不把躲闪写成后退。侧半步，让开锋刃，再把自己的剑留在能反击的位置。活下来的秘诀并不光彩——" +
         "只是每次都比死人早看见一点。",
         readHours: 6,
-        description: "一个老兵写下的不是胜仗，而是他如何一次次从剑尖旁边挪开半步。");
+        description: "如水一般。");
 
     public static BookData SpanishChronicle() => new(
         SpanishChronicleId, "西班牙编年史",
@@ -513,7 +513,7 @@ public static class BookLibrary
         "但每个零件都能用手边的工具修出来。\n\n" +
         "猎枪、霰弹枪与短手枪各占一章。共同的警告写在每章开头：第一次试射时，把脸放远一点。",
         grantsRecipeStub: "recipe:improvised_hunting_gun,improvised_shotgun,improvised_pistol", readHours: 8,
-        description: "从缺枪少械的旧战争里抄来的土制枪图谱。粗糙、危险，但比赤手空拳多一个选择。");
+        description: "粗糙、危险，但比赤手空拳多一个选择。");
 
     public static BookData DjangoUnchained() => new(
         DjangoUnchainedId, "被解救的姜戈",
@@ -521,7 +521,7 @@ public static class BookLibrary
         "故事把复仇写得痛快，把准备工作写得很短。可夹页上的服装尺寸、枪械剖面和改装笔记倒很认真——" +
         "上一位读者显然不只把它当故事看。",
         grantsRecipeStub: "recipe:dentist_pistol,cowboy_hat,riding_boots", readHours: 20,
-        description: "复仇故事、牛仔行头和一把藏得住的小手枪。有人读它消遣，有人照着页边的图开始做东西。");
+        description: "被解救的只有姜戈。");
 
     public static BookData IrishChronicle() => new(
         IrishChronicleId, "爱尔兰编年史",
@@ -529,14 +529,14 @@ public static class BookLibrary
         "让每一块都带着芽眼；覆土不要一次压死，苗长一截就再培一层。\n\n" +
         "书里没有让作物凭空长快的奇迹，只有一套把等待提前做完的办法。十二小时不算多，挨饿时却很长。",
         readHours: 8,
-        description: "一部饥荒与土地的旧记录。夹在历史里的种植法，能让土豆少在泥里睡半天。");
+        description: "一部饥荒与土地的旧记录。");
 
     public static BookData BritishChronicle() => new(
         BritishChronicleId, "英国编年史",
         "紫杉木要顺纹劈开，弓背留白木，弓腹留心木。一张长弓的力量不是来自粗，而是来自两层木质在拉伸与压缩之间各守本分。\n\n" +
         "编年史写国王和战役，附录却写弓匠、弓弦与练习场。那些没有留下名字的人，造出了能越过整片泥地的箭。",
         grantsRecipeStub: "recipe:longbow", readHours: 4,
-        description: "正文记国王，附录记长弓。如今国王没什么用，附录倒还能救命。");
+        description: "从这里学会了竖中指。");
 
     public static BookData VietnameseChronicle() => new(
         VietnameseChronicleId, "越南编年史",
@@ -544,7 +544,7 @@ public static class BookLibrary
         "只要让最先碰到你的那一下慢一点、偏一点。\n\n" +
         "书中反复强调重量要分散，接缝要错开。穿得动的防护才叫装甲；把人压在原地的，只是一口还没合盖的棺材。",
         grantsRecipeStub: "recipe:simple_armor", readHours: 3,
-        description: "一部在匮乏中作战的记录，夹着用零碎材料拼装护具的办法。简陋不等于毫无用处。");
+        description: "越南最爱藤甲兵。");
 
     public static BookData StoneBreakingGuide() => new(
         StoneBreakingGuideId, "胸口碎大石：从入门到入土",
@@ -552,21 +552,21 @@ public static class BookLibrary
         "真正挨下重击时，诀窍只剩两个：别把气吐光，别让力量全落在一点。作者在页脚郑重声明，" +
         "本书不能保证读者活着学完；书名已经尽到告知义务。",
         readHours: 4,
-        description: "一本把江湖把式写得过分认真的小册子。偶尔，它真能教你在重物砸下来时少断几根骨头。");
+        description: "万一，我是说万一，他不是江湖骗子呢？");
 
     public static BookData MalayChronicle() => new(
         MalayChronicleId, "马来编年史",
         "甲板窄、舱门低，长兵器施展不开。水手把两把短刃分在左右手：一把逼开对方的刀，一把从空隙里进去。\n\n" +
         "双持不是两只手各打各的。肩、胯和脚步必须共用同一个节奏，否则第二把刀只会拖慢第一把。",
         readHours: 6,
-        description: "海峡与甲板上的近战记录。两把锐器并不会让人快一倍，但至少可以少慢一点。");
+        description: "海峡与甲板上的近战记录。");
 
     public static BookData TurkishChronicle() => new(
         TurkishChronicleId, "土耳其编年史",
         "一手持短枪，一手留着刀，旧骑兵把换武器的时间省成了一个动作。枪负责逼人停步，刀负责处理已经靠近的麻烦。\n\n" +
         "诀窍在于两件武器互不争抢身体：射击时刀手压住摆动，近战时枪手替突刺稳住肩线。各让出一点，反而都更听话。",
         readHours: 6,
-        description: "关于枪与刀如何同时留在手里的旧战术。看着别扭，练熟后却比临阵换家伙可靠。");
+        description: "刀刀烈火，枪枪好运！");
 
     public static IReadOnlyList<BookData> All() => new[]
     {

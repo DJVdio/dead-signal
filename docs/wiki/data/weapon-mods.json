@@ -106,7 +106,7 @@
       "description": "",
       "userNote": "",
       "sync": "",
-      "_icon": "weapon-mods/lightened_stock"
+      "_icon": "materials/wood"
     },
     {
       "name": "截短枪管",
@@ -122,7 +122,7 @@
       "description": "",
       "userNote": "",
       "sync": "",
-      "_icon": "weapon-mods/sawn_off_barrel"
+      "_icon": "weapons/improvised_shotgun"
     },
     {
       "name": "加长枪管",
@@ -138,7 +138,7 @@
       "description": "",
       "userNote": "",
       "sync": "",
-      "_icon": "weapon-mods/extended_barrel"
+      "_icon": "weapons/rifle"
     },
     {
       "name": "刺刀型",
@@ -154,7 +154,7 @@
       "description": "",
       "userNote": "",
       "sync": "",
-      "_icon": "weapon-mods/bayonet"
+      "_icon": "weapons/dagger"
     },
     {
       "name": "利爪型",
@@ -170,7 +170,7 @@
       "description": "",
       "userNote": "",
       "sync": "",
-      "_icon": "weapon-mods/claw_stock"
+      "_icon": "weapons/bone_knife"
     },
     {
       "name": "创伤型",
@@ -186,7 +186,7 @@
       "description": "",
       "userNote": "",
       "sync": "",
-      "_icon": "weapon-mods/trauma_stock"
+      "_icon": "weapons/club"
     },
     {
       "name": "锋刃型",
@@ -202,7 +202,7 @@
       "description": "",
       "userNote": "",
       "sync": "",
-      "_icon": "weapon-mods/blade_stock"
+      "_icon": "weapons/dagger"
     },
     {
       "name": "锯齿剑刃",
@@ -218,7 +218,7 @@
       "description": "",
       "userNote": "",
       "sync": "",
-      "_icon": "weapon-mods/serrated_blade"
+      "_icon": "weapons/long_sword"
     },
     {
       "name": "锋刃研磨",
@@ -234,7 +234,7 @@
       "description": "",
       "userNote": "",
       "sync": "",
-      "_icon": "weapon-mods/honed_edge"
+      "_icon": "weapons/long_sword"
     },
     {
       "name": "镂空剑刃",
@@ -250,7 +250,7 @@
       "description": "",
       "userNote": "",
       "sync": "",
-      "_icon": "weapon-mods/fuller_blade"
+      "_icon": "weapons/long_sword"
     },
     {
       "name": "加重剑柄",
@@ -266,7 +266,7 @@
       "description": "",
       "userNote": "",
       "sync": "",
-      "_icon": "weapon-mods/weighted_handle"
+      "_icon": "materials/wood"
     },
     {
       "name": "轻质化剑柄",
@@ -282,7 +282,7 @@
       "description": "",
       "userNote": "",
       "sync": "",
-      "_icon": "weapon-mods/lightened_handle"
+      "_icon": "materials/wood"
     },
     {
       "name": "防滑缠手",
@@ -298,7 +298,7 @@
       "description": "",
       "userNote": "",
       "sync": "",
-      "_icon": "weapon-mods/grip_wrap_blade"
+      "_icon": "materials/rope"
     },
     {
       "name": "护手挡格",
@@ -314,7 +314,7 @@
       "description": "",
       "userNote": "",
       "sync": "",
-      "_icon": "weapon-mods/handguard"
+      "_icon": "armor/work_gloves"
     },
     {
       "name": "铁丝强化",
@@ -330,7 +330,7 @@
       "description": "",
       "userNote": "",
       "sync": "",
-      "_icon": "weapon-mods/wire_wrap"
+      "_icon": "materials/wire"
     },
     {
       "name": "钉子强化",
@@ -346,7 +346,7 @@
       "description": "",
       "userNote": "",
       "sync": "",
-      "_icon": "weapon-mods/nail_studs"
+      "_icon": "materials/nails"
     },
     {
       "name": "弓臂缠手",
@@ -362,7 +362,7 @@
       "description": "",
       "userNote": "",
       "sync": "",
-      "_icon": "weapon-mods/limb_wrap"
+      "_icon": "materials/cloth"
     },
     {
       "name": "复合弓臂",
@@ -378,7 +378,7 @@
       "description": "",
       "userNote": "",
       "sync": "",
-      "_icon": "weapon-mods/compound_limbs"
+      "_icon": "weapons/compound_bow"
     },
     {
       "name": "重磅弓弦",
@@ -394,7 +394,7 @@
       "description": "",
       "userNote": "",
       "sync": "",
-      "_icon": "weapon-mods/heavy_bowstring"
+      "_icon": "materials/rope"
     },
     {
       "name": "弩盾",
@@ -410,7 +410,7 @@
       "description": "",
       "userNote": "",
       "sync": "",
-      "_icon": "weapon-mods/crossbow_shield"
+      "_icon": "armor/plate_armor"
     }
   ]
 }

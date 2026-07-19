@@ -94,7 +94,7 @@
 ```
 src/DeadSignal.Combat/           战斗规则引擎（纯 C# 类库，零依赖；空间问题不进这里）
 src/DeadSignal.Sim/              蒙特卡洛模拟器 + 逐回合对决战报（拉数值表校准方向）
-tests/DeadSignal.Combat.Tests/   xUnit 单测（224 个文件、约 3103 个 [Fact]/[Theory]，2026-07-17 点数；
+tests/DeadSignal.Combat.Tests/   xUnit 单测（数量持续增长，以实际 dotnet test 为准；
                                  引擎 + Link 进来的消费层纯逻辑）
 godot/                           Godot 4.7 工程 —— RimWorld 式操控的可玩场景
   scripts/                       消费层：营地/战斗表现/UI/装备/制作/守卫/剧情 编排 + 纯逻辑

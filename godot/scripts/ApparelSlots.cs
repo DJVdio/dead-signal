@@ -471,6 +471,11 @@ public static class ApparelCatalog
         Add(ArmorTable.HeavyCape(), EquipSlot.PlateLayer);
         AddPaired(ArmorTable.SnowBoots(), EquipSlot.LeftFoot, EquipSlot.RightFoot, HumanBody.LeftFoot, HumanBody.RightFoot);
 
+        // [missing-book-items] 牛仔帽 / 马靴 / 简易装甲
+        Add(ArmorTable.CowboyHat(), EquipSlot.Head);
+        AddPaired(ArmorTable.RidingBoots(), EquipSlot.LeftFoot, EquipSlot.RightFoot, HumanBody.LeftFoot, HumanBody.RightFoot);
+        Add(ArmorTable.SimpleArmor(), EquipSlot.PlateLayer);
+
         // 实时潜行/噪音效果直接从 authored 夜防服饰表投影，避免另抄一张数值表。
         // 已有 ReadingSpeed（如平光眼镜）保留，新的两条效果只追加，不覆盖旧效果。
         foreach ((string name, float stealthScore) in NightWatchContest.ApparelStealth)

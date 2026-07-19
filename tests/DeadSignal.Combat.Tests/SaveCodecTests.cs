@@ -122,6 +122,9 @@ public class SaveCodecTests
         data.World.Day = 12;
         data.World.Phase = DayPhase.DuskMeal;
         data.World.PhaseElapsed = 33.25;
+        data.World.NightEventKind = NightEventKind.HumanRaid;
+        data.World.NightEventTriggerGameHour = 2.25;
+        data.World.NightEventFired = false;
         data.StoryFlags["radio_mainline"] = "3";
         data.Camp.Food = 27;
         data.Camp.Structures.Add(new StructureSave
@@ -147,6 +150,9 @@ public class SaveCodecTests
         Assert.Equal(12, back.World.Day);
         Assert.Equal(DayPhase.DuskMeal, back.World.Phase);
         Assert.Equal(33.25, back.World.PhaseElapsed, 6);
+        Assert.Equal(NightEventKind.HumanRaid, back.World.NightEventKind);
+        Assert.Equal(2.25, back.World.NightEventTriggerGameHour, 6);
+        Assert.False(back.World.NightEventFired);
         Assert.Equal("3", back.StoryFlags["radio_mainline"]);
         Assert.Equal(27, back.Camp.Food);
         Assert.Equal(StructureTier.FenceSheetMetal, back.Camp.Structures[0].Tier);

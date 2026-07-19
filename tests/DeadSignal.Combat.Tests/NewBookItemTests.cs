@@ -7,6 +7,26 @@ namespace DeadSignal.Combat.Tests;
 
 public sealed class NewBookItemTests
 {
+    [Theory]
+    [InlineData("new_book_4", "一百户人家的锅底经验。")]
+    [InlineData("new_book_5", "一本儿童科普读物。")]
+    [InlineData("new_book_6", "历史会重复，敌袭的方向也差不多。")]
+    [InlineData("new_book_7", "写给普通家庭的急救书。它不能让你成为医生，但能让你的手在必须动刀时少抖一会儿。")]
+    [InlineData("new_book_8", "如水一般。")]
+    [InlineData("new_book_9", "粗糙、危险，但比赤手空拳多一个选择。")]
+    [InlineData("new_book_10", "被解救的只有姜戈。")]
+    [InlineData("new_book_11", "一部饥荒与土地的旧记录。")]
+    [InlineData("new_book_12", "从这里学会了竖中指。")]
+    [InlineData("new_book_13", "越南最爱藤甲兵。")]
+    [InlineData("new_book_14", "万一，我是说万一，他不是江湖骗子呢？")]
+    [InlineData("new_book_15", "海峡与甲板上的近战记录。")]
+    [InlineData("new_book_16", "刀刀烈火，枪枪好运！")]
+    public void Wiki手写书籍简介已同步进游戏代码(string id, string expected)
+    {
+        BookData book = Assert.Single(BookLibrary.All().Where(b => b.Id == id));
+        Assert.Equal(expected, book.Description);
+    }
+
     [Fact]
     public void 西班牙编年史解锁自制手枪且接管自制猎枪和自制霰弹枪()
     {
@@ -77,6 +97,22 @@ public sealed class NewBookItemTests
             Assert.Contains(guide, recipe.RequiredBookIds);
             Assert.True(WeaponBench.IsWeaponRecipe(id));
         }
+    }
+
+    [Theory]
+    [InlineData("improvised_pistol", "自制手枪", ItemCategory.Weapon)]
+    [InlineData("dentist_pistol", "牙医小手枪", ItemCategory.Weapon)]
+    [InlineData("rifle", "步枪", ItemCategory.Weapon)]
+    [InlineData("pistol", "手枪", ItemCategory.Weapon)]
+    [InlineData("cowboy_hat", "牛仔帽", ItemCategory.Armor)]
+    [InlineData("riding_boots", "马靴", ItemCategory.Armor)]
+    [InlineData("simple_armor", "简易装甲", ItemCategory.Armor)]
+    public void 新增可制作装备产物落成真实武器或护甲而非杂项(
+        string outputKey, string displayName, ItemCategory category)
+    {
+        Item made = Assert.Single(CraftOutputFactory.Create(outputKey, 1));
+        Assert.Equal(category, made.Category);
+        Assert.Equal(displayName, made.DisplayName);
     }
 
     [Fact]

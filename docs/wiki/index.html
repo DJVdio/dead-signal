@@ -189,6 +189,7 @@
   td.name.sticky2 { left: 34px; }
   th.stick0 { position: sticky; left: 0; z-index: 3; }
   th.stick1 { position: sticky; left: 34px; z-index: 3; }
+  table.no-icons td.name.sticky2, table.no-icons th.stick1 { left: 0; }
 
   /* 表头拖拽重排列顺序：可拖的列给抓握手势；拖动中的源列淡出；落点用侧边高亮示意插到前/后。 */
   th.col-draggable { cursor: grab; }
@@ -921,16 +922,21 @@ function renderTable() {
   }
 
   const s = S.sort[S.current];
+  // 一整页若全是规则/状态行，本来就不该有图标：不画一列问号误导成“缺素材”。
+  const hasIcons = c.rows.some((r) => Boolean(r._icon));
 
   const table = document.createElement("table");
+  if (!hasIcons) table.classList.add("no-icons");
 
   const thead = document.createElement("thead");
   const tr = document.createElement("tr");
-  const thIcon = document.createElement("th");
-  thIcon.className = "stick0";
-  thIcon.title = "图标：" + iconDir() + "/" + S.current + "/<内部id>.png（缺图显示虚框占位）";
-  thIcon.textContent = "";
-  tr.appendChild(thIcon);
+  if (hasIcons) {
+    const thIcon = document.createElement("th");
+    thIcon.className = "stick0";
+    thIcon.title = "图标：" + iconDir() + "/<映射路径>.png（缺图显示虚框占位）";
+    thIcon.textContent = "";
+    tr.appendChild(thIcon);
+  }
 
   cols.forEach((col, ci) => {
     const th = document.createElement("th");
@@ -1015,7 +1021,7 @@ function renderTable() {
   table.appendChild(thead);
 
   const tbody = document.createElement("tbody");
-  const colspan = cols.length + 2;   // 图标列 + 删除列
+  const colspan = cols.length + 1 + (hasIcons ? 1 : 0); // 删除列 + 可选图标列
   // 分段计数：段名 → 行数（表头右侧标「N 条」）
   const secCount = new Map();
   if (sectionKey) for (const { r } of rows) {
@@ -1037,7 +1043,7 @@ function renderTable() {
     if (r.sync === SYNC.DELETED) trow.classList.add("tombstone");   // 待删除：划掉、变暗
     if (r.sync === SYNC.NEW || r.sync === SYNC.BADID) trow.classList.add("pending-new");
 
-    trow.appendChild(iconCell(r));
+    if (hasIcons) trow.appendChild(iconCell(r));
     for (const col of cols) trow.appendChild(cellFor(col, r, i));
     trow.appendChild(deleteCell(r, i));
     tbody.appendChild(trow);
@@ -1369,11 +1375,18 @@ function iconCell(r) {
   td.className = "icon";
   const rel = r._icon || "";
 
-  if (!rel || !S.icons.has(rel)) {
+  // 显式空串 = 这行本来就不是一个有实体图标的东西（规则/状态/天生攻击型态）。
+  // 留空即可，不要画问号把“无需图标”误报成“缺图”。
+  if (!rel) {
+    td.title = "此条目不需要图标";
+    return td;
+  }
+
+  if (!S.icons.has(rel)) {
     const ph = document.createElement("div");
     ph.className = "ph";
     ph.textContent = "?";
-    ph.title = rel ? "缺图标：" + iconDir() + "/" + rel + ".png" : "这条没有图标位";
+    ph.title = "缺图标：" + iconDir() + "/" + rel + ".png";
     td.appendChild(ph);
     return td;
   }

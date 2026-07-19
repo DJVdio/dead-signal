@@ -524,17 +524,38 @@ internal static class Program
         }).ToList();
 
         // 每个分区一个 JSON 文件（网页按 index.json 逐个加载；加分区＝多一个文件 + index 里多一行）。
+        bool categoryDataChanged = false;
         foreach (Category c in categories)
         {
             string path = Path.Combine(dataDir, c.Id + ".json");
-            File.WriteAllText(path, Serialize(c), new UTF8Encoding(false));
+            string serialized = Serialize(c);
+            categoryDataChanged |= !File.Exists(path)
+                                   || !string.Equals(File.ReadAllText(path), serialized, StringComparison.Ordinal);
+            File.WriteAllText(path, serialized, new UTF8Encoding(false));
             Console.WriteLine($"  {c.Id,-14} {c.Rows.Count,4} 条  → docs/wiki/data/{c.Id}.json");
         }
 
         // index.json：分区注册表。网页只读它就知道有哪些分区、各自的文件名。
+        // generatedAt 只在生成内容真的变化时更新。否则每跑一次都写当前时间，index.json 与 bundle.js
+        // 会在跨秒的连续两次抽取间产生纯时间戳漂移，破坏抽取器应有的幂等门禁。
+        string indexPath = Path.Combine(dataDir, "index.json");
+        string now = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+        string generatedAt = now;
+        if (File.Exists(indexPath))
+        {
+            try
+            {
+                generatedAt = JsonNode.Parse(File.ReadAllText(indexPath))?["generatedAt"]?.GetValue<string>() ?? now;
+            }
+            catch (JsonException)
+            {
+                // 旧索引损坏时按内容变化处理，下面会用当前时间重建。
+            }
+        }
+
         var index = new JsonObject
         {
-            ["generatedAt"] = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
+            ["generatedAt"] = generatedAt,
             ["iconDir"] = "godot/assets/items",   // 图标约定：<iconDir>/<分区id>/<内部id>.png，缺图走占位
             // 🔴 DPS 的持握系数**由引擎带下来**，网页不许在 JS 里写死 0.70 / 1.15 之类的数。
             // 网页据此做「改一格、DPS 立刻跟着变」的实时预览；加载时它还会拿自己算的结果
@@ -560,7 +581,14 @@ internal static class Program
                 ["source"] = c.Source,
             }).ToArray()),
         };
-        File.WriteAllText(Path.Combine(dataDir, "index.json"), index.ToJsonString(JsonOpts), new UTF8Encoding(false));
+        string serializedIndex = index.ToJsonString(JsonOpts);
+        if (categoryDataChanged || !File.Exists(indexPath)
+                                || !string.Equals(File.ReadAllText(indexPath), serializedIndex, StringComparison.Ordinal))
+        {
+            index["generatedAt"] = now;
+            serializedIndex = index.ToJsonString(JsonOpts);
+        }
+        File.WriteAllText(indexPath, serializedIndex, new UTF8Encoding(false));
 
         // icon-manifest.json：**要画哪些图标**的清单（给美术侧 scout-assets 的契约）。
         // 每行就是一个该存在的文件：godot/assets/items/<分区>/<文件名>.png。中文键的条目拿不出文件名，不列。

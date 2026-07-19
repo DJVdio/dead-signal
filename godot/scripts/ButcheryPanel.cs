@@ -6,7 +6,7 @@ using Godot;
 namespace DeadSignal.Godot;
 
 /// <summary>
-/// 宰杀设施面板（模态）：往刀槽装匕首/骨刀 → 把老鼠/鸟宰成肉 + 副产物。**只发事件、不直接执行**
+/// 宰杀设施面板（模态）：往刀槽装匕首/骨刀 → 把老鼠/兔子/鸟宰成肉 + 副产物。**只发事件、不直接执行**
 /// （扣猎物 / 起工时任务 / 产物入库都由营地接入的 <c>CampMain.Butchery.cs</c> 做，走 <see cref="ButcheryRuntime"/>）。
 /// 骨架照 <see cref="CookingPanel"/>（CanvasLayer + <see cref="UiStyle.BuildModalShell"/>）；冻结/恢复时标由 CampMain 管。
 ///

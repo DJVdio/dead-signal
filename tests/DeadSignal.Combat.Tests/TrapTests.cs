@@ -119,7 +119,7 @@ public class TrapTests
     /// <summary>
     /// ⚠️ [T67] <b>本条已按用户的新规格改写意图（原名「产出的两个键_都是既有食材_能直接下锅」）。</b>
     /// 用户原话「<b>老鼠和鸟不能直接入锅了，而是要先宰杀</b>」⇒ <b>老鼠已下不了锅</b>，
-    /// 它要过一遍案板（老鼠 → 老鼠肉 + 碎皮革）才变成饭；现在兔子也要在宰杀台上变成兔子肉。
+    /// 它要过一遍案板（老鼠 → 老鼠肉 + 碎皮革）才变成饭；兔子也要在任一档宰杀设施上变成兔子肉。
     /// <para>不变的是那条经济链的底线：<b>陷阱抓到的东西必须"有出路"</b> —— 要么直接下得了锅，要么上得了案板。
     /// 任一边都没有，这条链就断了（那正是"死物品"）。</para>
     /// </summary>
@@ -137,10 +137,11 @@ public class TrapTests
         Assert.True(ButcheryLogic.IsButcherable(TrapLogic.RatKey), "老鼠必须宰得了——否则它成了死物品");
         Assert.Equal(6, FoodCalories.Of(Materials.RatMeatKey));   // 用户给定的 6 点，原样搬到了老鼠肉上
 
-        // 兔子：现在要在宰杀台上处理；简易点不接兔子，避免扩大简易点能力。
+        // 兔子：两档宰杀设施都能处理，简易点不能再把它卡成死物品。
         Assert.False(FoodCalories.Has(TrapLogic.RabbitKey));
         Assert.True(FoodCalories.Has("rabbit_meat"));
         Assert.Equal(11, FoodCalories.Of("rabbit_meat"));
+        Assert.True(ButcheryLogic.IsButcherable(TrapLogic.RabbitKey));
         Assert.True(ButcheryLogic.IsButcherable(ButcherTier.Table, TrapLogic.RabbitKey));
         Assert.True(TrapLogic.RabbitShare < 0.5, "兔子比老鼠值钱，不该比老鼠还常见");
     }
