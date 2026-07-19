@@ -45,6 +45,55 @@ public class BodyTests
     }
 
     [Fact]
+    public void 眼耳损毁_分别降低视力与听力_双侧全毁归零()
+    {
+        var body = HumanBody.NewBody();
+        Assert.Equal(1.0, body.VisionCapability, 9);
+        Assert.Equal(1.0, body.HearingCapability, 9);
+
+        body.ApplyDamage(HumanBody.LeftEye, body.MaxHpOf(HumanBody.LeftEye));
+        body.ApplyDamage(HumanBody.LeftEar, body.MaxHpOf(HumanBody.LeftEar));
+        Assert.Equal(0.5, body.VisionCapability, 9);
+        Assert.Equal(0.5, body.HearingCapability, 9);
+
+        body.ApplyDamage(HumanBody.RightEye, body.MaxHpOf(HumanBody.RightEye));
+        body.ApplyDamage(HumanBody.RightEar, body.MaxHpOf(HumanBody.RightEar));
+        Assert.Equal(0.0, body.VisionCapability, 9);
+        Assert.Equal(0.0, body.HearingCapability, 9);
+    }
+
+    [Fact]
+    public void 单眼单耳半血_只折损各自四分之一总能力()
+    {
+        var body = HumanBody.NewBody();
+        body.ApplyDamage(HumanBody.LeftEye, body.MaxHpOf(HumanBody.LeftEye) / 2);
+        body.ApplyDamage(HumanBody.LeftEar, body.MaxHpOf(HumanBody.LeftEar) / 2);
+
+        Assert.Equal(0.75, body.VisionCapability, 9);
+        Assert.Equal(0.75, body.HearingCapability, 9);
+    }
+
+    [Fact]
+    public void 无眼耳模板_感官能力保持中性一()
+    {
+        var body = new Body(new[]
+        {
+            new BodyPart
+            {
+                Name = "核心",
+                MaxHp = 10,
+                VolumeWeight = 1,
+                Region = BodyRegion.Torso,
+                MacroRegion = BodyMacroRegion.Torso,
+                Category = BodyPartCategory.Vital,
+            },
+        });
+
+        Assert.Equal(1.0, body.VisionCapability, 9);
+        Assert.Equal(1.0, body.HearingCapability, 9);
+    }
+
+    [Fact]
     public void Sever_Arm_TakesHandWithIt_AndDropsEquipment()
     {
         var body = HumanBody.NewBody();

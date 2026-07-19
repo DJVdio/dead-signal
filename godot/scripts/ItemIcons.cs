@@ -92,6 +92,10 @@ public static class ItemIcons
         // 「栓动猎枪」已按用户在数值表上的删除撤下（原图标 weapons/hunting_shotgun）。
         ["狙击枪"] = new(Weapons, "sniper_rifle", "skoll/winchester-rifle"),
         ["自制霰弹枪"] = new(Weapons, "improvised_shotgun", "delapouite/sawed-off-shotgun"),
+        ["自制手枪"] = new(Weapons, "improvised_pistol", "skoll/colt-m1911"),
+        ["牙医小手枪"] = new(Weapons, "dentist_pistol", "skoll/colt-m1911"),
+        ["improvised_pistol"] = new(Weapons, "improvised_pistol_output", "skoll/colt-m1911"),
+        ["dentist_pistol"] = new(Weapons, "dentist_pistol_output", "skoll/colt-m1911"),
 
         // —— 武器：弓与弩（game-icons 只有 3 种弓弩剪影，8 把同族共用；slug 各自独立，日后可逐把换专属图）——
         ["短弓"] = new(Weapons, "short_bow", "lorc/pocket-bow"),
@@ -141,6 +145,12 @@ public static class ItemIcons
         ["厚重裤子"] = new(Armor, "heavy_trousers", "irongamer/armored-pants"),
         ["厚重披风"] = new(Armor, "heavy_cape", "lorc/hooded-cloak"),
         ["雪地靴"] = new(Armor, "snow_boots", "delapouite/winter-boot"),
+        ["牛仔帽"] = new(Armor, "cowboy_hat", "delapouite/cowboy-hat"),
+        ["马靴"] = new(Armor, "riding_boots", "delapouite/riding-boot"),
+        ["简易装甲"] = new(Armor, "simple_armor", "lorc/armor-vest"),
+        ["cowboy_hat"] = new(Armor, "cowboy_hat_output", "delapouite/cowboy-hat"),
+        ["riding_boots"] = new(Armor, "riding_boots_output", "delapouite/riding-boot"),
+        ["simple_armor"] = new(Armor, "simple_armor_output", "lorc/armor-vest"),
 
         // —— 护甲：布鲁斯的狗装五件套（DogGearCatalog；口袋狗衣不提供防护，只加负重）——
         ["布制狗衣"] = new(Armor, "dog_cloth_vest", "lorc/armor-vest"),
@@ -225,6 +235,22 @@ public static class ItemIcons
         ["peak_hour_3"] = new(Books, "book_peak_hour_3", "lorc/mountains"),
         // [wiki-character-sync] 《枪械维修指南》：神秘商人的互斥书籍货品。
         ["gunsmith_repair_guide"] = new(Books, "book_gunsmith_repair", "lorc/gears"),
+        ["new_book_1"] = new(Books, "book_new_01", "delapouite/book-cover"),
+        ["new_book_2"] = new(Books, "book_new_02", "delapouite/book-cover"),
+        ["new_book_3"] = new(Books, "book_new_03", "delapouite/book-cover"),
+        ["new_book_4"] = new(Books, "book_new_04", "delapouite/book-cover"),
+        ["new_book_5"] = new(Books, "book_new_05", "delapouite/book-cover"),
+        ["new_book_6"] = new(Books, "book_new_06", "delapouite/book-cover"),
+        ["new_book_7"] = new(Books, "book_new_07", "delapouite/book-cover"),
+        ["new_book_8"] = new(Books, "book_new_08", "delapouite/book-cover"),
+        ["new_book_9"] = new(Books, "book_new_09", "delapouite/book-cover"),
+        ["new_book_10"] = new(Books, "book_new_10", "delapouite/book-cover"),
+        ["new_book_11"] = new(Books, "book_new_11", "delapouite/book-cover"),
+        ["new_book_12"] = new(Books, "book_new_12", "delapouite/book-cover"),
+        ["new_book_13"] = new(Books, "book_new_13", "delapouite/book-cover"),
+        ["new_book_14"] = new(Books, "book_new_14", "delapouite/book-cover"),
+        ["new_book_15"] = new(Books, "book_new_15", "delapouite/book-cover"),
+        ["new_book_16"] = new(Books, "book_new_16", "delapouite/book-cover"),
         ["goldfinger_diary_a"] = new(Books, "book_diary_a", "delapouite/book-pile"),
         ["goldfinger_diary_b"] = new(Books, "book_diary_b", "lorc/papers"),
 
@@ -239,6 +265,8 @@ public static class ItemIcons
         ["bed"] = new(Furniture, "bed", "delapouite/bed"),
         ["table"] = new(Furniture, "table", "delapouite/table"),            // [批次21·T25] 桌子
         ["mod_bench"] = new(Furniture, "mod_bench", "lorc/anvil"),
+        // 武器台暂无专属美术，先复用工作案语义的铁砧剪影；稳定 slug 允许日后无代码换图。
+        [WeaponBench.ItemKey] = new(Furniture, "weapon_bench", "lorc/anvil"),
         ["cook_station"] = new(Furniture, "cook_station", "delapouite/gas-stove"),
         ["cooking_pot"] = new(Furniture, "cooking_pot", "delapouite/cooking-pot"),
         ["cooking_grill"] = new(Furniture, "cooking_grill", "delapouite/barbecue"),

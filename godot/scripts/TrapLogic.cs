@@ -158,13 +158,14 @@ public static class TrapLogic
     /// <para>具体档位与触底位置以 Wiki 配置为准；触底后<b>再多放也不再下降</b>。</para>
     /// <para><paramref name="ordinal"/> ≤ 0（没有这个陷阱）⇒ 0，<b>不白送基准几率</b>。</para>
     /// </summary>
-    public static double ChanceOf(int ordinal)
+    public static double ChanceOf(int ordinal, double baseChanceBonus = 0.0)
     {
         if (ordinal <= 0)
         {
             return 0.0;
         }
-        return Math.Max(MinChance, BaseChance - ChanceStep * (ordinal - 1));
+        double bonus = Math.Max(0.0, baseChanceBonus);
+        return Math.Min(1.0, Math.Max(MinChance, BaseChance - ChanceStep * (ordinal - 1)) + bonus);
     }
 
     /// <summary>
@@ -191,7 +192,7 @@ public static class TrapLogic
     /// </summary>
     /// <param name="trapCount">场上陷阱数（消费层数 <see cref="TrapSpec.IsTrapFurniture"/> 得来）。</param>
     /// <param name="rng">可注入随机源（项目铁律：测试用 <see cref="SequenceRandomSource"/> 复现）。</param>
-    public static IReadOnlyList<string> RollPhase(int trapCount, IRandomSource rng)
+    public static IReadOnlyList<string> RollPhase(int trapCount, IRandomSource rng, double baseChanceBonus = 0.0)
     {
         var caught = new List<string>();
         if (trapCount <= 0 || rng is null)
@@ -201,7 +202,7 @@ public static class TrapLogic
 
         for (int n = 1; n <= trapCount; n++)
         {
-            if (rng.Range(0.0, 1.0) >= ChanceOf(n))
+            if (rng.Range(0.0, 1.0) >= ChanceOf(n, baseChanceBonus))
             {
                 continue;   // 这个陷阱本相位空着——不掷物种点
             }
@@ -222,9 +223,10 @@ public static class TrapRuntime
     /// <b>结算一个昼夜段</b>：场上 <paramref name="trapCount"/> 个圈套陷阱各掷一次点，捕到的老鼠/兔子<b>逐只入库</b>，返回本段捕到的猎物（材料键，可空）。
     /// <b>一个陷阱都没有就彻底静默</b>（<see cref="TrapLogic.RollPhase"/> 在 count≤0 时一次点都不掷）。
     /// </summary>
-    public static IReadOnlyList<string> ResolveCatch(int trapCount, InventoryStore inventory, IRandomSource rng)
+    public static IReadOnlyList<string> ResolveCatch(int trapCount, InventoryStore inventory, IRandomSource rng,
+        double baseChanceBonus = 0.0)
     {
-        IReadOnlyList<string> caught = TrapLogic.RollPhase(trapCount, rng);
+        IReadOnlyList<string> caught = TrapLogic.RollPhase(trapCount, rng, baseChanceBonus);
         if (inventory is null || caught.Count == 0)
         {
             return caught;

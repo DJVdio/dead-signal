@@ -104,6 +104,10 @@ public sealed class WorldSave
     public double TravelElapsed { get; set; }
     public bool WarningFired { get; set; }
     public int SpeedIndex { get; set; }
+    /// <summary>当夜排程；读档必须原样恢复，禁止再次掷骰。</summary>
+    public NightEventKind NightEventKind { get; set; }
+    public double NightEventTriggerGameHour { get; set; }
+    public bool NightEventFired { get; set; }
 }
 
 /// <summary>营地全貌。</summary>
@@ -131,8 +135,16 @@ public sealed class CampSave
     /// </summary>
     public ButcherKnife ButcherKnife { get; set; } = ButcherKnife.None;
 
-    /// <summary>在制品（没有就 null）。</summary>
+    /// <summary>v3 旧单槽，仅供确定性迁移到 <see cref="FacilityJobs"/>；新档恒为 null。</summary>
     public CraftingJobSave? CraftingJob { get; set; }
+
+    /// <summary>各真实设施的独立在制任务，按稳定槽键排序保存。</summary>
+    public List<FacilityJobSave> FacilityJobs { get; set; } = new();
+
+    /// <summary>
+    /// 进行中的手术（没有就 null）。只保存角色 id、伤情/部位稳定键与工时；旧档缺字段自然等于没有手术，语义无损。
+    /// </summary>
+    public SurgeryJobSnapshot? SurgeryJob { get; set; }
 
     /// <summary>围栏/大门/门——<b>按格</b>逐个存（血量 + 档位 + 门的开关闩锁）。</summary>
     public List<StructureSave> Structures { get; set; } = new();
@@ -276,6 +288,16 @@ public sealed class CraftingJobSave
     public int ElapsedWorkMinutes { get; set; }
 
     /// <summary>谁在做（Pawn.Id；无人接手为 -1）。</summary>
+    public int WorkerId { get; set; } = -1;
+}
+
+public sealed class FacilityJobSave
+{
+    public string SlotKey { get; set; } = "";
+    public string RecipeId { get; set; } = "";
+    public int Times { get; set; }
+    public int TotalWorkMinutes { get; set; }
+    public int ElapsedWorkMinutes { get; set; }
     public int WorkerId { get; set; } = -1;
 }
 

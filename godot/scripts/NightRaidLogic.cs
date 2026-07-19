@@ -81,6 +81,7 @@ public static class NightRaidLogic
     /// 疲劳调整后的警戒力（对抗消费点单一真源，运行时与 Sim 校准同调）：在 <see cref="NightWatchContest.ComputeAlertness"/> 基础上，
     /// 若 <paramref name="fatigued"/> 则把**听力项**乘 <see cref="FatigueHearingMult"/>（视力项的疲劳已由调用方经视锥 <see cref="VisionLogic.VisionCone.Scaled"/> 体现，
     /// 此处只补听力路径，二者共同构成疲劳劣化，不与全局警戒标量叠罚）。<paramref name="visionAcuity"/> 须由调用方用疲劳缩放后的视锥算出。
+    /// <paramref name="visionCapability"/> 与 <paramref name="hearingCapability"/> 分别只缩放自己的感官轴；默认 1 保持既有调用零回归。
     /// </summary>
     public static float FatigueAdjustedAlertness(
         float visionAcuity,
@@ -88,16 +89,24 @@ public static class NightRaidLogic
         float structureBonus,
         float watchEfficiency,
         bool fatigued,
-        float hearingRange)
+        float hearingRange,
+        float visionCapability = 1f,
+        float hearingCapability = 1f)
     {
+        float visionCapabilityClamped = Math.Clamp(visionCapability, 0f, 1f);
+        float hearingCapabilityClamped = Math.Clamp(hearingCapability, 0f, 1f);
+        float sensedVisionAcuity = Math.Clamp(visionAcuity, 0f, 1f) * visionCapabilityClamped;
         float alert = NightWatchContest.ComputeAlertness(
-            visionAcuity, distance, structureBonus, fatigueMultiplier: 1f, watchEfficiency, hearingRange);
-        if (!fatigued)
-            return alert;
-        // 精确扣掉听力贡献里被疲劳削去的那一份（= HearingW×falloff×watchEff×(1−系数)），等价于「听力项 ×系数」，不重算整式（防公式漂移）。
+            sensedVisionAcuity, distance, structureBonus, fatigueMultiplier: 1f, watchEfficiency, hearingRange);
+
+        // ComputeAlertness 按完整听力算基线；这里精确扣掉听损缺失的份额，再仅对“实际剩余听力”施疲劳。
+        // 站岗效率仍在两条感官轴之外统一乘算；岗哨结构加成保持既有独立加法项，不被器官伤情误伤。
         float hearingContrib = NightWatchContest.HearingWeight
             * NightWatchContest.HearingFalloff(distance, hearingRange)
             * Math.Max(0f, watchEfficiency);
-        return Math.Max(0f, alert - hearingContrib * (1f - FatigueHearingMult));
+        alert -= hearingContrib * (1f - hearingCapabilityClamped);
+        if (fatigued)
+            alert -= hearingContrib * hearingCapabilityClamped * (1f - FatigueHearingMult);
+        return Math.Max(0f, alert);
     }
 }

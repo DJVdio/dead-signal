@@ -97,7 +97,7 @@ public sealed partial class CampMain : Node2D
         SpawnButcherPoint(rect);
         RebakeNavigation();   // 它实心、挖了导航洞、不可跨越 —— 寻路图得知道
         EndButcherPointPlacement();
-        _campToast.Show("简易宰杀点支好了。刀槽里放把匕首或骨刀，就能把老鼠、鸟宰成肉和皮。", CampToast.Ok);
+        _campToast.Show("简易宰杀点支好了。刀槽里放把匕首或骨刀，就能把老鼠、兔子、鸟宰成肉和皮。", CampToast.Ok);
     }
 
     /// <summary>退出摆放简易宰杀点模式（落位成功 / 右键作罢 都走这儿）。</summary>
@@ -182,7 +182,7 @@ public sealed partial class CampMain : Node2D
             CurrentButcherTier,
             ControllableCrafters(),   // 掌刀的人：同制作/掌勺，取存活且可控的幸存者
             _inventory,
-            _craftingJob);            // 全营单任务队列：有人正忙着别的活 ⇒ 不接新单
+            JobAt(FacilityJobKeys.MainButcherStation));
 
     private void CloseButchery()
     {
@@ -257,9 +257,9 @@ public sealed partial class CampMain : Node2D
     /// </summary>
     private void OnButcherRequested(string quarryKey, Pawn worker)
     {
-        if (_craftingJob is not null)
+        if (!CanStartFacilityJob(FacilityJobKeys.MainButcherStation, worker, out string busyWhy))
         {
-            _campToast.Show("有人正忙着别的活——完工之后再宰。", CampToast.Bad);
+            _campToast.Show(busyWhy, CampToast.Bad);
             RefreshButchery();
             return;
         }
@@ -278,10 +278,9 @@ public sealed partial class CampMain : Node2D
         }
 
         int minutes = ButcheryLogic.MinutesFor(CurrentButcherTier, _butcherStation.Slotted);
-        _craftingJob = new CraftingJob(ButcherJobPrefix + quarryKey, minutes);
-        _craftingJobWorker = worker;
+        StartFacilityJob(FacilityJobKeys.MainButcherStation,
+            new CraftingJob(ButcherJobPrefix + quarryKey, minutes), worker);
         _craftLastMinuteKey = -1;
-        _craftMinuteBudget = 0f;
 
         string quarryName = Materials.Find(quarryKey)?.DisplayName ?? quarryKey;
         string work = CraftingPanelFormat.FormatWorkDuration(minutes);

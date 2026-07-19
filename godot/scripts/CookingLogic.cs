@@ -93,8 +93,8 @@ public static class FoodCalories
         //    走法与 [T59] 蒲公英**完全同源**（那次是"从食物表删、材料保留"），判据也是同一句：
         //    **「是不是食材」问的是 FoodCalories.Has，不是 MaterialCategory。**
         //    ⚠️ 热量点**一点没蒸发**：宰杀只改变材料形态，肉的热量配置沿用设计表。
-        //    ⚠️ 兔子现在也进入宰杀链：宰杀台把 rabbit 变成 rabbit_meat，热量值以 Wiki 配置为准。
-        new FoodDef("rabbit_meat", 11),      // 兔子肉（宰杀台产物，热量值以 Wiki 配置为准）
+        //    ⚠️ 兔子现在也进入宰杀链：任一档宰杀设施都能把 rabbit 变成 rabbit_meat，热量值以 Wiki 配置为准。
+        new FoodDef("rabbit_meat", 11),      // 兔子肉（宰杀产物，热量值以 Wiki 配置为准）
         new FoodDef("fish", 8),              // 鱼
 
         // ——— 存粮 / 罐头 ———
@@ -312,9 +312,9 @@ public static class CookingLogic
     /// 当前每份饭要多少热量：基础需求**逐件**减去已装炊具各自的减免，具体值以 Wiki 配置为准。
     /// <para>保留下限，防止减免把需求变成非正数。</para>
     /// </summary>
-    public static int PortionCost(IReadOnlySet<CookwareSlot>? installed)
+    public static int PortionCost(IReadOnlySet<CookwareSlot>? installed, int bookReduction = 0)
     {
-        int cost = BasePortionCost;
+        int cost = BasePortionCost - Math.Max(0, bookReduction);
         foreach (CookwareSlot slot in installed ?? (IReadOnlySet<CookwareSlot>)new HashSet<CookwareSlot>())
         {
             cost -= DiscountOf(slot);   // 逐件减：锅和烤架各有各的数，不再共用一个常量
@@ -363,12 +363,13 @@ public static class CookingLogic
         bool hasStation,
         IReadOnlyDictionary<string, int>? pot,
         IReadOnlySet<CookwareSlot>? installed,
-        Func<string, int> availableMaterial)
+        Func<string, int> availableMaterial,
+        int bookCaloriesReduction = 0)
     {
         if (availableMaterial is null) throw new ArgumentNullException(nameof(availableMaterial));
 
         var blocks = new List<CookBlock>();
-        int cost = PortionCost(installed);
+        int cost = PortionCost(installed, bookCaloriesReduction);
 
         if (!hasStation)
         {

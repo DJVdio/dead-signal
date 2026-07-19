@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using DeadSignal.Combat;
 using Godot;
 
@@ -24,6 +25,12 @@ public abstract partial class Actor : CharacterBody2D
 
     /// <summary>防御方躯体（细部位 HP/切除/损毁/失血）。由子类工厂在 Create 时装配。</summary>
     protected Body Body = null!;
+
+    /// <summary>当前眼部功能比例，供感知/警戒消费层读取；身体模板无眼时为中性 1。</summary>
+    public double VisionCapability => Body.VisionCapability;
+
+    /// <summary>当前耳部功能比例，供感知/警戒消费层读取；身体模板无耳时为中性 1。</summary>
+    public double HearingCapability => Body.HearingCapability;
 
     /// <summary>非战斗致死标记（如饿死）：绕过 Body 战斗死亡表示，走统一死亡路径。</summary>
     private bool _nonCombatDead;
@@ -678,6 +685,17 @@ public abstract partial class Actor : CharacterBody2D
             CombatEffectCfg.FractureCapabilityFloor);
         double interval = GripCombat.EffectiveInterval(baseCooldown ?? AttackCooldown, operation, ActiveGrip);
 
+        // 《马来编年史》：仅双持两把锐器且读者本人持有时，把双持速度系数从 0.70 改成 0.80。
+        // GripCombat 已应用默认 0.70，这里乘 0.70/0.80 把间隔换算到新系数；默认路径严格为 1。
+        if (this is Pawn dualReader)
+        {
+            bool bothSharp = dualReader.HeldWeapons.Count == 2
+                && dualReader.HeldWeapons.All(w => w.DamageType == DamageType.Sharp);
+            double desired = BookPassiveEffects.DualSharpAttackSpeedMultiplier(bothSharp, dualReader.HasReadBook);
+            if (bothSharp && desired != BookPassiveEffects.DefaultDualWieldAttackSpeedMultiplier)
+                interval *= BookPassiveEffects.DefaultDualWieldAttackSpeedMultiplier / desired;
+        }
+
         // [A4] 书→近战攻速被动（消费层乘子汇总，见 MeleeBookEffect）；具体效果见 Wiki 配置表。
         // 仅 Pawn 有 ReadBookSet（IsBookRead 对非 Pawn 恒 false）⇒ 丧尸等零回归。武器名走当前生效武器；base 武器 Sim 读不到本乘子。
         interval *= AttackWeapon is null ? 1.0
@@ -961,6 +979,12 @@ public abstract partial class Actor : CharacterBody2D
         // 命中判定交给弹道实时层（路径首个碰撞体，含撞墙落空）——引擎只出纯函数采样方向。
         // 双持两把单手武器时远程误差角取 Wiki 配置；单手/双手一把不变。近战不经此路径。
         double spread = GripCombat.EffectiveSpreadDegrees(weapon.BaseSpreadDegrees, ActiveGrip);
+        if (this is Pawn mixedReader)
+        {
+            IReadOnlyList<Weapon> held = mixedReader.HeldWeapons;
+            bool mixed = held.Count == 2 && held.Any(w => w.IsRanged) && held.Any(w => !w.IsRanged);
+            spread *= BookPassiveEffects.MixedGripRangedSpreadMultiplier(mixed, mixedReader.HasReadBook);
+        }
         double aimDeg = Mathf.RadToDeg(toTarget.Angle());
 
         // 子弹最大飞行距离对齐武器 MaxRange × 岗位射程倍率（开火判定同源；超此距离衰减归 0）。
@@ -1017,6 +1041,12 @@ public abstract partial class Actor : CharacterBody2D
     /// 该入口只存在 Godot 实时层，不进入 CombatResolver/Sim 的既有结算路径。
     /// </summary>
     protected virtual double AttackDamageMultiplier(Actor target, Weapon weapon) => 1.0;
+
+    /// <summary>命中部位选定后的攻方伤害倍率；基类中性，幸存者按个人已读书覆写。</summary>
+    protected virtual double HitLocationDamageMultiplier(Weapon weapon, BodyPart part) => 1.0;
+
+    /// <summary>本次攻击的穿透倍率；基类中性，幸存者的混合持械书籍效果覆写。</summary>
+    protected virtual double AttackPenetrationMultiplier(Weapon weapon) => 1.0;
 
     /// <summary>目标当前是否已被敌方感知/主动攻击破隐。</summary>
     public bool IsDetectedByHostile => _detectedByHostile;
@@ -1403,7 +1433,7 @@ public abstract partial class Actor : CharacterBody2D
     /// 基类恒 <c>false</c>（无闪避轴，零回归）；高闪避单位（<see cref="Dog"/> 布鲁斯）覆盖按闪避概率掷免。
     /// 随机走引擎注入的 <see cref="IRandomSource"/>（<paramref name="rng"/>=<c>combat.Rng</c>，可复现）。
     /// </summary>
-    protected virtual bool EvadeIncoming(IRandomSource rng) => false;
+    protected virtual bool EvadeIncoming(IRandomSource rng, Weapon incomingWeapon, bool ranged) => false;
 
     // ---- 专属效果承伤乘子（synergy-wiring 注入，批次5 道格&布鲁斯；null=1.0 零回归）----
     /// <summary>本单位承伤额外系数（道格&布鲁斯 authored 光环）。具体等级与乘子以 Wiki 配置为准。</summary>
@@ -1453,7 +1483,7 @@ public abstract partial class Actor : CharacterBody2D
         }
         // 闪避：高闪避单位（布鲁斯）命中前掷免整次攻击（整次躲开、不结算伤害/效果/表现）。基类恒不闪避（零回归）。
         // 现引擎无闪避轴，按用户口径以最小侵入落在 Godot 层承伤入口；随机走引擎注入的 IRandomSource（可复现）。
-        if (EvadeIncoming(combat.Rng))
+        if (EvadeIncoming(combat.Rng, weapon, ranged))
         {
             return;
         }
@@ -1505,12 +1535,20 @@ public abstract partial class Actor : CharacterBody2D
             concResist *= Math.Max(0.0, concussionMult());
         // 护甲后减伤（山姆 1 级"比常人耐揍"）：不折进 damageFactor（那是护甲前），单独喂进结算，甲吃完才乘。null → 0（零回归）。
         double postArmorReduction = _incomingDamageReduction is { } red ? red() : 0.0;
+        if (weapon.DamageType == DamageType.Blunt && IsBookRead(BookLibrary.StoneBreakingGuideId))
+        {
+            double keep = BookPassiveEffects.NaturalBluntDamageMultiplier(
+                isNaturalBlunt: true, combat.Rng.Range(0.0, 1.0), IsBookRead);
+            postArmorReduction = 1.0 - (1.0 - postArmorReduction) * keep;
+        }
         // [T69] 护手挡格：持械手（含手指）被选为受击部位时，按几率整发否决。几率来自防御方（this）手里那把改装武器；
         // 判定必须落在**选部位之后**，故连同"持械手部位集"喂进 ResolveHit（承伤入口这里只知整次攻击、不知打哪个部位）。
         // 零漂移：无护手挡格 ⇒ chance 0 ⇒ ResolveHit 里短路、不掷点。
         double handGuardChance = AttackWeapon is null ? 0.0 : ModdedWeaponRegistry.HandGuardNegateChanceOf(AttackWeapon.Name);
         AttackOutcome hit = combat.ResolveHit(weapon, DefenderArmor, Body, damageFactor, concResist, postArmorReduction,
-            handGuardChance, handGuardChance > 0 ? WeaponHandParts : null);
+            handGuardChance, handGuardChance > 0 ? WeaponHandParts : null,
+            attacker is null ? null : attacker.HitLocationDamageMultiplier,
+            attacker?.AttackPenetrationMultiplier(weapon) ?? 1.0);
         if (hit.Bled && _downgradeLargeBleedProvider?.Invoke() == true)
         {
             Body.DowngradeLargeBleed(hit.PartName);

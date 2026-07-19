@@ -22,7 +22,7 @@ namespace DeadSignal.Combat.Tests;
 [Collection(ModdedWeaponRegistryCollection.Name)]
 public class GunModBenchTests
 {
-    // 全表 6 把枪（弓弩没有枪托，见 WeaponTable：弓的 StockMelee* 恒 null；栓动猎枪已被用户删除）。
+    // 全表 8 把枪（弓弩没有枪托，见 WeaponTable：弓的 StockMelee* 恒 null；栓动猎枪已被用户删除）。
     private static IReadOnlyList<Weapon> Firearms() =>
         WeaponTable.Arsenal().Where(w => w.IsRanged && w.HasMeleeProfile).ToList();
 
@@ -36,7 +36,7 @@ public class GunModBenchTests
     [Fact]
     public void AllFirearms_HaveStockMeleeProfile()
     {
-        Assert.Equal(6, Firearms().Count);
+        Assert.Equal(8, Firearms().Count);
         Assert.All(Firearms(), w => Assert.NotNull(w.MeleeProfile()));
     }
 

@@ -41,7 +41,7 @@ public sealed partial class MedicalPanel : CanvasLayer
     public event Action<Pawn, HealthCondition, IReadOnlyList<string>, bool, Pawn>? AmputationRequested;
 
     /// <summary>[SPEC-B14-补8] 给缺失的肢体安装假肢（也是手术）：emit (病人, 取代区域 手/腿, 假肢等级, 止血耗材, 是否床上, 施术者)。营地走 PerformProstheticSurgery 判成败，成功才装上。</summary>
-    public event Action<Pawn, BodyRegion, ProstheticGrade, IReadOnlyList<string>, bool, Pawn>? ProstheticSurgeryRequested;
+    public event Action<Pawn, string, BodyRegion, ProstheticGrade, IReadOnlyList<string>, bool, Pawn>? ProstheticSurgeryRequested;
 
     /// <summary>点「关闭」：CampMain 据此隐藏面板并恢复时标。</summary>
     public event Action? Closed;
@@ -381,11 +381,12 @@ public sealed partial class MedicalPanel : CanvasLayer
                 btn.Text = $"装{label}";
                 btn.CustomMinimumSize = new Vector2(84, 28);
                 BodyRegion region = slot.ReplacesRegion;
+                string unitPartName = slot.UnitPartName;
                 ProstheticGrade capturedGrade = grade;
                 btn.Pressed += () =>
                 {
                     if (_patient is not null && _surgeon is not null)
-                        ProstheticSurgeryRequested?.Invoke(_patient, region, capturedGrade, Array.Empty<string>(), _onBed, _surgeon);
+                        ProstheticSurgeryRequested?.Invoke(_patient, unitPartName, region, capturedGrade, Array.Empty<string>(), _onBed, _surgeon);
                 };
                 UiStyle.StyleButton(btn, new Color(0.4f, 0.5f, 0.4f), fontSize: 12);
                 row.AddChild(btn);

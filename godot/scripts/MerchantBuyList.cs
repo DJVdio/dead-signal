@@ -96,18 +96,20 @@ public static class MerchantBuyList
     }
 
     /// <summary>
-    /// 某物品的**单位收购价**（玩家所得，**分**）= 基准价 × 卖出价率% 分级取整（走 <see cref="MerchantTrade.SellPrice"/>）。不可收购=0。
+    /// 某物品的**单位收购价**（玩家所得，**分**）= 基准价 × 卖出价率% × 卖价乘数 分级取整（走 <see cref="MerchantTrade.SellPrice"/>）。不可收购=0。
     /// <paramref name="sellRatePercentOverride"/> 非空时用它替代默认 60%（克莉丝汀 L3 在营传 70）；默认 <c>null</c> ⇒ 60%，零回归。
+    /// <paramref name="sellPriceMultiplier"/> 书籍被动卖价乘数（默认 1.0），与 <paramref name="sellRatePercentOverride"/> 乘算。
     /// </summary>
-    public static int SellUnitPrice(Item item, int? sellRatePercentOverride = null)
-        => MerchantTrade.SellPrice(BasePriceOf(item), sellRatePercentOverride);
+    public static int SellUnitPrice(Item item, int? sellRatePercentOverride = null, double sellPriceMultiplier = 1.0)
+        => MerchantTrade.SellPrice(BasePriceOf(item), sellRatePercentOverride, sellPriceMultiplier);
 
     /// <summary>
     /// 把库存里可收购之物聚合成卖出面板行：食物合并为一行（总份数）；材料按键聚合（每键一行，量=该键总持有）。
     /// 只列白名单内且持有量&gt;0 者，按"食物在前、材料按库存首次出现顺序"排列。
     /// </summary>
     /// <param name="sellRatePercentOverride">克莉丝汀 L3 卖出价率覆盖（默认 null＝读取 Wiki 配置；她在营 L3 使用 authored 配置），展示价须与 <see cref="MerchantTrade.SellOne"/> 实付一致。</param>
-    public static IReadOnlyList<SellRow> SellableRows(InventoryStore store, int? sellRatePercentOverride = null)
+    /// <param name="sellPriceMultiplier">书籍被动卖价乘数（默认 1.0），展示价与实付同源。</param>
+    public static IReadOnlyList<SellRow> SellableRows(InventoryStore store, int? sellRatePercentOverride = null, double sellPriceMultiplier = 1.0)
     {
         var rows = new List<SellRow>();
         if (store == null)
@@ -119,7 +121,7 @@ public static class MerchantBuyList
         if (totalFood > 0)
         {
             var foodUnit = Item.Food(1);
-            rows.Add(new SellRow(ItemCategory.Food, null, "食物", totalFood, SellUnitPrice(foodUnit, sellRatePercentOverride)));
+            rows.Add(new SellRow(ItemCategory.Food, null, "食物", totalFood, SellUnitPrice(foodUnit, sellRatePercentOverride, sellPriceMultiplier)));
         }
 
         // 材料按键聚合，保持库存首次出现顺序（去重）。
@@ -137,7 +139,7 @@ public static class MerchantBuyList
             int owned = store.MaterialCount(it.RefKey);
             if (owned > 0)
             {
-                rows.Add(new SellRow(ItemCategory.Material, it.RefKey, it.DisplayName, owned, SellUnitPrice(it, sellRatePercentOverride)));
+                rows.Add(new SellRow(ItemCategory.Material, it.RefKey, it.DisplayName, owned, SellUnitPrice(it, sellRatePercentOverride, sellPriceMultiplier)));
             }
         }
 

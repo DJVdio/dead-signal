@@ -75,6 +75,12 @@ public static class WeaponTable
     /// </summary>
     public static Weapon BoneKnife() => CombatCatalog.Weapon("bone_knife");
 
+    /// <summary>自制手枪：土制手枪，比真手枪弱。解锁自《西班牙编年史》。</summary>
+    public static Weapon ImprovisedPistol() => CombatCatalog.Weapon("improvised_pistol");
+
+    /// <summary>牙医小手枪：小型隐蔽手枪，可双持。解锁自《被解救的姜戈》。</summary>
+    public static Weapon DentistPistol() => CombatCatalog.Weapon("dentist_pistol");
+
     // ---- 近战钝器 ----
     //
     // 【钝器的存在理由 = 砸建筑】用户拍板：「钝器对建筑伤害应该要远高于锐器，这应当是钝器的一个优势」。
@@ -368,6 +374,9 @@ public static class WeaponTable
         // [T56] 骨刀 —— 同样**追加在末尾**（它在源码里写在近战锐器那一段，读起来才顺；这里只按历史排队）。
         // 它从前有配方却不在本表 ⇒ 造得出来、拿不起来（详见 BoneKnife() 注释）。
         BoneKnife(),
+        // [missing-book-items] 自制手枪 / 牙医小手枪 —— 追加末尾不插队。
+        ImprovisedPistol(),
+        DentistPistol(),
     };
 
     // ---- 玩家可见风味文案（黑色幽默）：武器名 → 一行描述 ----

@@ -162,7 +162,7 @@ public sealed partial class CampMain
     private int TrapCount() => _furniture.Keys.Count(TrapSpec.IsTrapFurniture);
 
     /// <summary>
-    /// <b>一个昼夜段的陷阱结算</b>：场上每个陷阱各掷一次点，抓到的老鼠/兔子<b>直接入共享库存</b>（可下锅，见 <see cref="FoodCalories"/>）。
+    /// <b>一个昼夜段的陷阱结算</b>：场上每个陷阱各掷一次点，抓到的老鼠/兔子<b>直接入共享库存</b>（两者都要先宰杀，不能直接下锅）。
     /// <para>由 <c>CampMain.cs</c> 的 <see cref="OnGamePhaseChanged"/> 一行调用，且<b>只在 <see cref="TrapLogic.RollsOnPhase"/> 为真的两个昼夜段边界</b>
     /// （白天 <see cref="DayPhase.DawnMeal"/> + 夜晚 <see cref="DayPhase.DuskMeal"/>）触发 ⇒ <b>一天 2 次</b>（用户拍板：白天 1 次 + 夜晚 1 次）。
     /// 频率的唯一事实源在 <see cref="TrapLogic.RollsOnPhase"/>；这里不自己判相位，避免"一个写 2、一个按 8 触发"的两处漂移。</para>
@@ -174,7 +174,9 @@ public sealed partial class CampMain
     {
         // 掷点 + 逐只入库都走纯编排 TrapRuntime.ResolveCatch（消费层与单测同一段代码，见其类注）。
         // 没陷阱 / 本段全空手 ⇒ caught 为空 ⇒ 静默（空陷阱是常态，天天播报只会变成噪音）。
-        IReadOnlyList<string> caught = TrapRuntime.ResolveCatch(TrapCount(), _inventory, _trapRng);
+        double bonus = BookPassiveEffects.SnareBaseChanceBonus(
+            new[] { AnyCamperHasReadBook(BookLibrary.LittleMouseDigsHolesId) });
+        IReadOnlyList<string> caught = TrapRuntime.ResolveCatch(TrapCount(), _inventory, _trapRng, bonus);
         if (caught.Count == 0)
         {
             return;

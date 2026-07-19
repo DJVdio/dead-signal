@@ -84,13 +84,13 @@ public sealed class ForageFarmingButcheryTests
         Assert.Equal(11, FoodCalories.Of(Materials.RabbitMeatKey)); // ← 兔子原来的 11 点
     }
 
-    /// <summary>⚠️ <b>兔子改为宰杀台专属工序</b>：简易宰杀点仍只处理老鼠和鸟；兔子必须交给宰杀台。</summary>
+    /// <summary>⚠️ <b>兔子现在两档设施都能宰</b>：简易宰杀点也处理兔子（原本只限宰杀台）。</summary>
     [Fact]
-    public void 兔子先宰杀再下锅_仅宰杀台可处理()
+    public void 兔子先宰杀再下锅_两档设施都可处理()
     {
         Assert.False(FoodCalories.Has("rabbit"));
         Assert.True(FoodCalories.Has(Materials.RabbitMeatKey));
-        Assert.False(ButcheryLogic.IsButcherable("rabbit"), "简易宰杀点不接兔子");
+        Assert.True(ButcheryLogic.IsButcherable("rabbit"), "简易宰杀点也应接兔子");
         Assert.True(ButcheryLogic.IsButcherable(ButcherTier.Table, "rabbit"), "宰杀台必须接兔子");
     }
 
@@ -186,6 +186,19 @@ public sealed class ForageFarmingButcheryTests
         Assert.Equal(1, y.Value.ByproductQuantity);
     }
 
+    [Fact]
+    public void 简易宰杀点宰兔子_沿用既有兔子基础产出且不掷双倍点()
+    {
+        ButcherYield? y = ButcheryLogic.Resolve(
+            ButcherTier.SimplePoint, ButcherKnife.BoneKnife, "rabbit", new SequenceRandomSource(0.0));
+        Assert.NotNull(y);
+        Assert.Equal(Materials.RabbitMeatKey, y!.Value.MeatKey);
+        Assert.Equal(1, y.Value.MeatQuantity);
+        Assert.Equal(Materials.LeatherScrapKey, y.Value.ByproductKey);
+        Assert.Equal(3, y.Value.ByproductQuantity);
+        Assert.False(y.Value.Doubled);
+    }
+
     /// <summary>宰杀台的 20% 双倍产出：<b>掷中 ⇒ 肉和副产物一起翻倍</b>；简易宰杀点<b>一次点都不掷</b>。</summary>
     [Fact]
     public void 宰杀台百分之二十双倍产出_掷中则两样一起翻倍()
@@ -242,6 +255,22 @@ public sealed class ForageFarmingButcheryTests
         Assert.Equal(0, inv.MaterialCount("rabbit"));
         Assert.Equal(1, inv.MaterialCount(Materials.RabbitMeatKey));
         Assert.Equal(3, inv.MaterialCount(Materials.LeatherScrapKey));
+    }
+
+    [Fact]
+    public void 简易宰杀点运行时_兔子也会真扣猎物并产肉和碎皮革()
+    {
+        var inv = new InventoryStore();
+        inv.Add(Materials.Find("rabbit")!.Value.ToItem(1));
+
+        ButcherYield? y = ButcheryRuntime.Butcher(
+            ButcherTier.SimplePoint, ButcherKnife.BoneKnife, "rabbit", inv, new SequenceRandomSource(0.0));
+
+        Assert.NotNull(y);
+        Assert.Equal(0, inv.MaterialCount("rabbit"));
+        Assert.Equal(1, inv.MaterialCount(Materials.RabbitMeatKey));
+        Assert.Equal(3, inv.MaterialCount(Materials.LeatherScrapKey));
+        Assert.False(y!.Value.Doubled);
     }
 
     /// <summary>简易宰杀点<b>不掷双倍产出的点</b>（随机流干净——喂一个"必中"的随机源它也不该翻倍）。</summary>
@@ -580,7 +609,7 @@ public sealed class ForageFarmingButcheryTests
     // ══════════════════════════════ ⑥ 菜园：用户拍板的种植设定 + 不许变成无限食物 ══════════════════════════════
     //
     // 用户设定（一字不改）：菜园最多种 16 颗；土豆——种 1 土豆 → 84 游戏小时成熟 → 50% 出 2 / 50% 出 1；
-    //   成熟连续墙钟计时（昼夜都走、零维护、种下即倒计时）；种植动作 0.15 游戏小时/颗（走 CraftingJob 工时化）。
+    //   成熟连续墙钟计时（昼夜都走、零维护、种下即倒计时）；种植动作 0.25 游戏小时/颗（走 CraftingJob 工时化）。
 
     /// <summary>
     /// 🔴 <b>成熟 = 84 游戏小时连续倒计时</b>（用户拍板）：昼夜都走、零维护、种下即倒计时，到点即熟。
@@ -653,15 +682,15 @@ public sealed class ForageFarmingButcheryTests
         Assert.Equal(2.0, CropPlotLogic.ExpectedYieldPerPlant, 9);
         Assert.Equal(1.0, CropPlotLogic.NetExpectedYieldPerPlant, 9);
 
-        // 种植动作（人力，走 CraftingJob 工时化）= 0.15 游戏小时/颗 = 9 游戏分钟
-        Assert.Equal(0.15, CropPlotLogic.PlantActionGameHours, 9);
-        Assert.Equal(9, CropPlotLogic.PlantWorkMinutes);
+        // 种植动作（人力，走 CraftingJob 工时化）= 0.25 游戏小时/颗 = 15 游戏分钟
+        Assert.Equal(0.25, CropPlotLogic.PlantActionGameHours, 9);
+        Assert.Equal(15, CropPlotLogic.PlantWorkMinutes);
     }
 
     /// <summary>
     /// 🔴 <b>设计红线：菜园绝不能变成"无限食物"。</b>
     /// 四道闸换了形态但仍在：① 每颗要种薯（吃 1 土豆）② 要地皮（菜园占院子、守 64px 禁建带、与陷阱抢地）
-    /// ③ 要工时（0.15h/颗 种植动作）④ <b>16 颗上限 + 每颗收完要重新下种</b>（不是"菜园消失"，而是空出一格、再种要再吃 1 土豆 + 再等 84h）。
+    /// ③ 要工时（0.25h/颗 种植动作）④ <b>16 颗上限 + 每颗收完要重新下种</b>（不是"菜园消失"，而是空出一格、再种要再吃 1 土豆 + 再等 84h）。
     /// <para>这条钉死那本账：<b>满种净收益为正</b>（否则种地纯亏、机制没意义），
     /// 但<b>满种 16 颗的日均净热量必须远远喂不饱一个人</b>（一人一天两餐 = 2 × 16 = 32 点）。</para>
     /// </summary>

@@ -118,4 +118,59 @@ public sealed class NightRaidLogicTests
         float fat = NightRaidLogic.FatigueAdjustedAlertness(0.3f, far, 0f, 1f, true, NightWatchContest.HearingBaseRange);
         Assert.Equal(notFat, fat, 4);
     }
+
+    [Fact]
+    public void SensoryDamage_LowersOnlyItsOwnAlertnessAxis()
+    {
+        float full = NightRaidLogic.FatigueAdjustedAlertness(
+            0.8f, 50f, 0f, 1f, false, NightWatchContest.HearingBaseRange,
+            visionCapability: 1f, hearingCapability: 1f);
+        float oneEyeOneEar = NightRaidLogic.FatigueAdjustedAlertness(
+            0.8f, 50f, 0f, 1f, false, NightWatchContest.HearingBaseRange,
+            visionCapability: 0.5f, hearingCapability: 0.5f);
+        float blindDeaf = NightRaidLogic.FatigueAdjustedAlertness(
+            0.8f, 50f, 0f, 1f, false, NightWatchContest.HearingBaseRange,
+            visionCapability: 0f, hearingCapability: 0f);
+
+        Assert.True(full > oneEyeOneEar);
+        Assert.Equal(full * 0.5f, oneEyeOneEar, 4);
+        Assert.Equal(0f, blindDeaf, 4);
+
+        float blind = NightRaidLogic.FatigueAdjustedAlertness(
+            0.8f, 50f, 0f, 1f, false, NightWatchContest.HearingBaseRange,
+            visionCapability: 0f, hearingCapability: 1f);
+        float deaf = NightRaidLogic.FatigueAdjustedAlertness(
+            0.8f, 50f, 0f, 1f, false, NightWatchContest.HearingBaseRange,
+            visionCapability: 1f, hearingCapability: 0f);
+        float expectedVision = NightWatchContest.VisionWeight * 0.8f;
+        float expectedHearing = NightWatchContest.HearingWeight
+            * NightWatchContest.HearingFalloff(50f, NightWatchContest.HearingBaseRange);
+        Assert.Equal(expectedHearing, blind, 4); // 失明不碰听力轴
+        Assert.Equal(expectedVision, deaf, 4);   // 失聪不碰视力轴
+
+        float structureOnly = NightRaidLogic.FatigueAdjustedAlertness(
+            0.8f, 50f, 0.2f, 0.25f, false, NightWatchContest.HearingBaseRange,
+            visionCapability: 0f, hearingCapability: 0f);
+        Assert.Equal(0.2f, structureOnly, 4); // 器官损毁不误伤岗哨建筑加成
+
+        float halfEfficiency = NightRaidLogic.FatigueAdjustedAlertness(
+            0.8f, 50f, 0f, 0.5f, false, NightWatchContest.HearingBaseRange,
+            visionCapability: 1f, hearingCapability: 1f);
+        Assert.Equal(full * 0.5f, halfEfficiency, 4); // 站岗效率仍统一乘在两条感官贡献之外
+    }
+
+    [Fact]
+    public void HearingDamage_ThenFatigue_MultipliesRemainingHearingOnly()
+    {
+        const float distance = 50f;
+        const float watchEfficiency = 0.75f;
+        float notFatigued = NightRaidLogic.FatigueAdjustedAlertness(
+            0f, distance, 0f, watchEfficiency, false, NightWatchContest.HearingBaseRange,
+            visionCapability: 1f, hearingCapability: 0.5f);
+        float fatigued = NightRaidLogic.FatigueAdjustedAlertness(
+            0f, distance, 0f, watchEfficiency, true, NightWatchContest.HearingBaseRange,
+            visionCapability: 1f, hearingCapability: 0.5f);
+
+        Assert.Equal(notFatigued * NightRaidLogic.FatigueHearingMult, fatigued, 4);
+    }
 }

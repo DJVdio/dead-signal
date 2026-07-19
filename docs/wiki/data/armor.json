@@ -444,7 +444,7 @@
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.HorrorArmor()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
       "userNote": "",
       "sync": "",
-      "_icon": "armor/horror_armor"
+      "_icon": "armor/leather_armor"
     },
     {
       "name": "墨镜",
@@ -524,7 +524,7 @@
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.BallisticVest()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
       "userNote": "",
       "sync": "",
-      "_icon": "armor/ballistic_vest"
+      "_icon": "armor/cloth_vest"
     },
     {
       "name": "厚重裤子",
@@ -540,7 +540,7 @@
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.HeavyTrousers()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
       "userNote": "",
       "sync": "",
-      "_icon": "armor/heavy_trousers"
+      "_icon": "armor/trousers"
     },
     {
       "name": "厚重披风",
@@ -556,7 +556,7 @@
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.HeavyCape()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
       "userNote": "",
       "sync": "",
-      "_icon": "armor/heavy_cape"
+      "_icon": "armor/cloth_coat"
     },
     {
       "name": "雪地靴",
@@ -572,7 +572,55 @@
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.SnowBoots()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
       "userNote": "",
       "sync": "",
-      "_icon": "armor/snow_boots"
+      "_icon": "armor/ankle_guard"
+    },
+    {
+      "name": "牛仔帽",
+      "equipSlot": "头部",
+      "covers": "头",
+      "paired": false,
+      "sharpDefense": 10,
+      "bluntDefense": 6,
+      "weight": 0.4,
+      "description": "宽沿高顶，皮质的——姜戈那顶还要大一寸。",
+      "_id": "CowboyHat",
+      "_configId": "cowboy_hat",
+      "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.CowboyHat()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
+      "userNote": "",
+      "sync": "",
+      "_icon": "armor/cotton_hat"
+    },
+    {
+      "name": "马靴",
+      "equipSlot": "左脚、右脚",
+      "covers": "脚(含趾)（穿哪只护哪只，需两件护全）",
+      "paired": true,
+      "sharpDefense": 14,
+      "bluntDefense": 8,
+      "weight": 0.8,
+      "description": "硬皮长筒，踢得开门，也踢得开人。",
+      "_id": "RidingBoots",
+      "_configId": "riding_boots",
+      "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.RidingBoots()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
+      "userNote": "",
+      "sync": "",
+      "_icon": "armor/ankle_guard"
+    },
+    {
+      "name": "简易装甲",
+      "equipSlot": "装甲层",
+      "covers": "胸、腹",
+      "paired": false,
+      "sharpDefense": 18,
+      "bluntDefense": 10,
+      "weight": 5,
+      "description": "小片金属、厚布、能找到的一切硬料，一层叠一层。粗糙，但至少让第一下慢一点。",
+      "_id": "SimpleArmor",
+      "_configId": "simple_armor",
+      "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.SimpleArmor()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
+      "userNote": "",
+      "sync": "",
+      "_icon": "armor/leather_armor"
     }
   ]
 }

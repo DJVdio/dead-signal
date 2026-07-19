@@ -41,9 +41,10 @@ public class TwoHandEnforcementTests
         { "棍棒", false }, { "尖头锤", true }, { "破甲锤", true },
         // [T56] 骨刀：**单手、可双持**（用户拍板「保留双持」）——一片削出来的骨头，本来就该一手一把。
         { "骨刀", false },
-        // 枪 6
+        // 枪 8
         { "自制猎枪", true }, { "手枪", false }, { "冲锋枪", true }, { "步枪", true },
         { "狙击枪", true }, { "自制霰弹枪", true },
+        { "自制手枪", false }, { "牙医小手枪", false },
         // 弓弩 8
         { "短弓", true }, { "反曲弓", true }, { "长弓", true },
         { "竞技复合弓", true }, { "狩猎弓", true },

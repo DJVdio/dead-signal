@@ -1,0 +1,30 @@
+{
+  "note": "自动图标覆盖报告：有实体含义且声明了 _icon 的条目才计入；纯规则/状态行不应硬塞图标。",
+  "rows": 460,
+  "rowsWithIcon": 287,
+  "uniqueIcons": 147,
+  "availableIcons": 126,
+  "pendingIcons": [
+    "armor/plain_glasses",
+    "armor/snow_goggles",
+    "armor/sunglasses",
+    "characters/bruce",
+    "characters/christine",
+    "characters/doug",
+    "characters/elite_riot_police",
+    "characters/elite_soldier",
+    "characters/goldfinger_member",
+    "characters/gordon",
+    "characters/grandmother",
+    "characters/merchant_first",
+    "characters/merchant_second",
+    "characters/nightingale",
+    "characters/nordi",
+    "characters/pete",
+    "characters/raider",
+    "characters/rat",
+    "characters/sam",
+    "characters/supermarket_survivors",
+    "characters/zombie"
+  ]
+}

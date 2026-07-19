@@ -167,17 +167,108 @@ public sealed partial class CampMain : Node2D
     private const double PendingInteractTimeout = 18.0;     // 前往超时（秒）：超时未到达则放弃 + 提示
 
     // ---------------- 配方 / 制作（工作台接入） ----------------
+
+    private CraftingJob? JobAt(string slotKey) => _facilityJobs.FindBySlot(slotKey)?.Job;
+    private Pawn? WorkerAt(string slotKey)
+    {
+        FacilityJobSlot? slot = _facilityJobs.FindBySlot(slotKey);
+        return slot is null ? null : _survivors.FirstOrDefault(p => p.Id == slot.WorkerId);
+    }
+
+    private void SyncProductionAssignments()
+        => _roleManager.SetProductionAssignments(_facilityJobs.Jobs.Select(x => x.WorkerId));
+
+    private Rect2? FacilityRectForSlot(string slotKey)
+    {
+        string? role = slotKey switch
+        {
+            FacilityJobKeys.MainWorkbench => "workbench",
+            FacilityJobKeys.MainWeaponBench => "weaponbench",
+            FacilityJobKeys.MainModBench => "modbench",
+            FacilityJobKeys.MainCookStation => "cookstation",
+            FacilityJobKeys.MainButcherStation => "butcher",
+            _ => null,
+        };
+        if (role is not null)
+            return _containers.FirstOrDefault(c => c.Role == role)?.Rect;
+
+        const string cropPrefix = "cropplot:";
+        if (slotKey.StartsWith(cropPrefix, StringComparison.Ordinal))
+        {
+            string name = slotKey[cropPrefix.Length..];
+            return _containers.FirstOrDefault(c => c.Role == "cropplot" && c.Name == name)?.Rect;
+        }
+
+        const string worksitePrefix = "worksite:";
+        if (slotKey.StartsWith(worksitePrefix, StringComparison.Ordinal))
+        {
+            string target = slotKey[worksitePrefix.Length..];
+            if (SalvageLogic.StructureIndexOf(target) is int idx && idx >= 0 && idx < _structures.Count)
+                return _structures[idx].Rect;
+            if (SalvageLogic.FurnitureNameOf(target) is string furniture)
+                return _containers.FirstOrDefault(c => c.Name == furniture)?.Rect;
+        }
+        return null;
+    }
+
+    private bool CanStartFacilityJob(string slotKey, Pawn worker, out string why)
+    {
+        why = "";
+        if (worker.Role != PawnRole.Idle || !worker.Alive)
+        {
+            why = worker.Role == PawnRole.Guard ? "站岗的人不能参与生产。" : "这个角色正在执行别的任务。";
+            return false;
+        }
+        if (_facilityJobs.FindBySlot(slotKey) is not null)
+        {
+            why = "这座设施占用中。";
+            return false;
+        }
+        if (_facilityJobs.FindByWorker(worker.Id) is not null)
+        {
+            why = "这个角色已经在另一座设施生产。";
+            return false;
+        }
+        if (FacilityRectForSlot(slotKey) is null)
+        {
+            why = "对应的生产设施不在营地。";
+            return false;
+        }
+        return true;
+    }
+
+    private void StartFacilityJob(string slotKey, CraftingJob job, Pawn worker)
+    {
+        FacilityJobStartResult start = _facilityJobs.TryStart(slotKey, job, worker.Id, workerMayProduce: true);
+        if (!start.Started)
+            throw new InvalidOperationException($"生产任务登记失败：{start.Failure}");
+        _craftMinuteBudgets[slotKey] = 0f;
+        SyncProductionAssignments();
+        // SetProductionAssignments 只更新下一次相位重排的数据源；当前相位下单必须立刻占住角色，
+        // 否则 TickCraftingWorktime 会一直看到 Idle、直到跨相位才开始做工。
+        worker.Role = PawnRole.Producing;
+        if (FacilityRectForSlot(slotKey) is Rect2 rect)
+        {
+            worker.ProducingStationing = true;
+            worker.CommandMoveTo(NearestEdgeStandPoint(rect, worker.GlobalPosition));
+        }
+    }
     // 全营共享一台工作台的工具装配态（field 初始化，早于 ApplyStorageInitialStock 就绪，供工具搜到即装）。
     private readonly WorkbenchState _workbench = new();
     private CraftingPanel _craftingPanel = null!;
     private bool _craftingOpen;             // 制作面板是否开着（与库存互斥地持有时标冻结）
     private int _prevCraftingSpeed;         // 开制作面板前 GameClock 的速度档（关闭时按此还原）
     private bool _prevCraftingPaused;       // 开制作面板前世界是否暂停（还原保真）
-    // 工时制（批次6）：本工作台当前在制任务（单任务队列）；下单时开工扣料，夜间生产相位逐分钟推进，完工产出。
-    private CraftingJob? _craftingJob;
+    // 工时制：每座真实设施各一槽；FacilityJobBoard 同时焊死“一人不可被多槽占用”。
+    private FacilityJobBoard _facilityJobs = new();
+    private string _craftingPanelSlotKey = FacilityJobKeys.MainWorkbench;
     private int _craftLastMinuteKey = -1;   // 上帧游戏分钟键（ClockMinuteKey）；算夜间流逝分钟增量推进工时，非生产相位/无任务时置 -1
-    private Pawn? _craftingJobWorker;        // 本在制任务的下单者（生产者身份，供 3 级光环生产系数；完工/清任务时置 null）
-    private float _craftMinuteBudget;        // 工时推进的小数分钟预算（非整系数下累积不截断；复位点与 _craftLastMinuteKey 同步清零）
+    private readonly Dictionary<string, float> _craftMinuteBudgets = new(StringComparer.Ordinal);
+
+    // 手术工时：只持稳定 id/目标键的纯状态机。医疗面板点下后立即关闭并恢复世界时间；
+    // 患者流血仍由 Actor.Body.TickBleed 推进，本层绝不重复扣血。
+    private SurgeryJob? _surgeryJob;
+    private int _surgeryLastMinuteKey = -1;
 
     // ---------------- 批次9 开局营地废墟挖掘 ----------------
     // 废墟点纯逻辑注册表（工时进度 + 一次性收获，见 RubbleField / RubbleSite）。
@@ -213,12 +304,13 @@ public sealed partial class CampMain : Node2D
     // ---------------- 神秘商人（中立到访者 + 货币交易） ----------------
     // 商人夜晚到访、天亮离开（游戏白天=探险队视角、夜晚=营地视角，商人须与营地可操作窗口重合）；
     // 只卖《木匠入门》（架子数据驱动可扩展）；货币=白银，走共享库存实扣实产。
-    private const int MerchantStartingCurrency = 40; // draft：开局起步白银（**整银**，grant 时经 Silver.FromWhole 转分；让交易闭环开箱即跑；掉落来源/经济量级待用户设计，见 TODO）
+    private const int MerchantStartingCurrency = 40; // draft：开局起步白银（**整银**，grant 时经 Silver.FromWhole 转分；让交易闭环开箱即跑；掉落来源/经济量级待用户调参（见 TODO §6））
     private MerchantPanel _merchantPanel = null!;
     private MerchantSchedule _merchantSchedule = null!;
     private MerchantShelf _merchantShelf = null!; // 在冷启动 / 读档时初始化（含互斥随机选择）
     private Merchant? _merchant;                      // 当前在场商人（null=未来访）
     private ContainerRef? _merchantContainer;         // 商人停留点的可交互登记（离场时从 _containers 移除）
+    private Pawn? _merchantTrader;                    // 本次实际走到商人面前的交易者；逐角色已读书效果只看此人
     private bool _merchantOpen;                       // 交易面板是否开着（冻结时标）
     private int _prevMerchantSpeed;                   // 开面板前速度档
     private bool _prevMerchantPaused;                 // 开面板前是否暂停
@@ -311,6 +403,7 @@ public sealed partial class CampMain : Node2D
 
     /// <summary>营地里有没有改装台（武器改造的唯一场所；拆了就没了）。</summary>
     private bool HasModBench => _furniture.ContainsKey(WeaponModLogic.BenchFurnitureKey);
+    private bool HasWeaponBench => _furniture.ContainsKey(WeaponBench.FurnitureKey);
 
     // [T67] 宰杀设施在场判定（单座设施，落 _furniture 时键＝家具名，同烹饪台/改装台的既有做法）。
     private bool HasButcherPoint => _furniture.ContainsKey(ButcherStation.PointFurnitureKey);
@@ -332,8 +425,12 @@ public sealed partial class CampMain : Node2D
     private readonly HashSet<int> _respondingIds = new();   // 本次响应被点名参战的幸存者 id（三档响应名册译得）
     private int _pendingTheftAmount;                        // 夜里被静默偷走的食物份数（DawnMeal 晨间提示后清零）
     private readonly IRandomSource _raidContestRng = new SystemRandomSource(); // 对抗掷点（SPEC 口径 roll 走 IRandomSource）
+    // 夜事件掷点独占随机流：入夜只掷一次，不能因守卫数量/对抗掷点次数改变当夜事件类型与触发时刻。
+    private readonly IRandomSource _nightEventRng = new SystemRandomSource();
+    private NightEventSchedule _nightEventSchedule = NightEventSchedule.None;
+    // 岗哨初始扫视相位使用独立随机源，避免多一个守卫改变夜袭对抗的随机序列。
+    private readonly IRandomSource _guardSweepRng = new SystemRandomSource();
     private readonly Dictionary<int, float> _guardPostSightById = new();       // 守卫/犬 id → 岗位视野倍率（岗哨建筑加成源，StationGuards 采集）
-    private const float NightRaiderRaidChance = 0.35f;      // 合法夜袭击者潜入概率（拟定待调）
     private const int NightRaiderCountBase = 2;             // 袭击者基数（随天数缓增，拟定待调）
     // 对抗掷点时机：袭击者边缘生成时距守卫超出当前感知范围 → 单次掷点发现率很低。
     // 改为随尖兵**逼近**到各距离带（对最近守卫的距离）时分段各掷一次（帧率无关，检测累积）；深入到营心 StrikeDistance 仍未发现 → 未发现后果兑现。
@@ -450,6 +547,9 @@ public sealed partial class CampMain : Node2D
         public GuardPostStats Stats;
         public Vector2 StandPos;
         public string Name = "";
+        // 同一夜同一岗位只掷一次；重复调用 StationGuards 也不得让守卫瞬移式换相位。
+        public int SweepPhaseDay = int.MinValue;
+        public double SweepPhaseSeconds;
     }
 
     private CampConfig _cfg = new();
@@ -3411,6 +3511,10 @@ public sealed partial class CampMain : Node2D
         if (_returnWarningPopup.Visible && _clock.CurrentPhase == DayPhase.DayExplore)
             _returnWarningPopup.SetRemainingTime(_clock.GetExploreTimeRemaining());
 
+        // 每帧把敌袭战斗态同步给守卫：平时由岗哨 AI 扫视，战斗开始后玩家移动/瞄准完整接管。
+        SyncGuardCombatControl();
+        SyncProductionCombatControl();
+
         if (_raidActive)
             UpdateRaid(delta);
 
@@ -3443,6 +3547,12 @@ public sealed partial class CampMain : Node2D
 
         // 工时制夜间生产推进：面板冻结时标时 ClockMinuteKey 不变 → 无增量 → 世界冻结即不推进（正合期望）。
         TickCraftingWorktime();
+
+        // 0.5 游戏小时手术：世界钟走才推进；暂停冻结；患者失血死亡/目标伤情消失立即中断。
+        TickSurgeryWorktime();
+
+        // 常规夜袭在入夜瞬间排程、到游戏内时刻才落地；读档恢复同一排程，不重掷。
+        TickNightEventSchedule();
 
         // 废墟挖掘推进：挖掘者在场时逐游戏分钟推进；挖满→收获+清场显露空地。面板冻结时标时同样不推进。
         TickRubbleDig();
@@ -3686,14 +3796,58 @@ public sealed partial class CampMain : Node2D
     }
 
     /// <summary>
-    /// 当前场景可接收玩家指令的 Pawn。营地只有 Role=Idle；探索关则是本次远征队的
-    /// Role=Expedition。不要直接读取 <see cref="Pawn.IsControllable"/>，那会让探索队恒不可选。
+    /// 当前场景可接收玩家指令的 Pawn。营地通常只有 Role=Idle；站岗者仅在敌袭已经进入实时战斗后临时可控；
+    /// 探索关则是本次远征队的 Role=Expedition。不要直接读取 <see cref="Pawn.IsControllable"/>，那会让探索队恒不可选。
     /// </summary>
     private bool CanControlPawn(Pawn? pawn)
         => pawn is not null
            && _survivors.Contains(pawn)
            && pawn.Alive
-           && ExplorationInteractionLogic.CanControl(pawn.Role, _currentLevel is not null);
+           && (_currentLevel is not null
+               ? ExplorationInteractionLogic.CanControl(pawn.Role, true)
+               : pawn.IsControllable || GuardCombatControlAllowed(pawn) || ProductionCombatControlAllowed(pawn));
+
+    /// <summary>
+    /// 守卫平时由岗哨 AI 接管；只有敌袭已经进入战斗才交还玩家。
+    /// 人类夜袭在发现/潜行先手结算前仍不可控，不能靠手动移动提前泄露或规避潜入结果。
+    /// </summary>
+    private bool GuardCombatControlAllowed(Pawn pawn)
+        => pawn.Role == PawnRole.Guard
+           && _raidGuards.Contains(pawn)
+           && (_raidActive || _tutorialActive || _siegeActive
+               || (_nightRaidActive && _nightRaidResolved));
+
+    private void SyncGuardCombatControl()
+    {
+        foreach (Pawn guard in _raidGuards)
+        {
+            if (IsInstanceValid(guard) && guard.Alive)
+                guard.GuardCombatControlEnabled = GuardCombatControlAllowed(guard);
+        }
+    }
+
+    private bool ProductionCombatControlAllowed(Pawn pawn)
+        => pawn.Role == PawnRole.Producing
+           && _facilityJobs.FindByWorker(pawn.Id) is not null
+           && (_raidActive || _tutorialActive || _siegeActive
+               || (_nightRaidActive && _nightRaidResolved));
+
+    private void SyncProductionCombatControl()
+    {
+        foreach (FacilityJobSlot slot in _facilityJobs.Jobs)
+        {
+            Pawn? worker = _survivors.FirstOrDefault(p => p.Id == slot.WorkerId);
+            if (worker is null || !worker.Alive) continue;
+            bool allowed = ProductionCombatControlAllowed(worker);
+            bool wasAllowed = worker.ProductionCombatControlEnabled;
+            worker.ProductionCombatControlEnabled = allowed;
+            if (wasAllowed && !allowed && FacilityRectForSlot(slot.SlotKey) is Rect2 rect)
+            {
+                worker.ProducingStationing = true;
+                worker.CommandMoveTo(NearestEdgeStandPoint(rect, worker.GlobalPosition));
+            }
+        }
+    }
 
     /// <summary>
     /// 右键：命中容器且有可控选中角色（且导航已就绪）→ 记 <see cref="_pendingInteract"/> 并令其走向容器最近边缘，
@@ -5033,7 +5187,9 @@ public sealed partial class CampMain : Node2D
         int nurseLevel = NightingalePerk.LevelOf(_storyFlags); // 等级由持久化台数派生（她死后仍在，但下方 aliveInCamp 门控 L2）
         bool nurseAliveInCamp = nightingale is { Alive: true } && nightingale.Role != PawnRole.Expedition; // 在营存活=活着且未外出探索
         bool nurseL3Legacy = _storyFlags.Has(NurseRecruit.L3LegacyFlag);
-        double infectionMult = NightingalePerk.CampInfectionMultiplier(nurseLevel, nurseAliveInCamp, nurseL3Legacy);
+        double infectionMult = NightingalePerk.CampInfectionMultiplier(nurseLevel, nurseAliveInCamp, nurseL3Legacy)
+            * BookPassiveEffects.CampInfectionChanceMultiplier(
+                new[] { AnyCamperHasReadBook(BookLibrary.MedicalFacilityStandardsId) });
 
         // 南丁格尔床铺恢复加成与山姆本人恢复速度加成分别在每个患者结算时门控：前者是南丁格尔 L2 且在营，
         // 后者是山姆本人 L2 起。两者都只作用恢复，不改感染几率。
@@ -5176,6 +5332,7 @@ public sealed partial class CampMain : Node2D
         switch (_clock.CurrentPhase)
         {
             case DayPhase.DawnMeal:
+                _nightEventSchedule = NightEventSchedule.None;
                 _clock.TransitionTo(DayPhase.DayPrep);
                 break;
             case DayPhase.DuskMeal:
@@ -5360,11 +5517,17 @@ public sealed partial class CampMain : Node2D
                 // 教学关：第 2 夜一次性触发克莉丝汀反水关（StoryFlag 防重入）。这一晚是脚本人类袭击，
                 // 不叠加丧尸袭营（TriggerRaid 会因 _tutorialActive 早退）。
                 if (_clock.Day == 2 && !_storyFlags.Has("tutorial_raider_started"))
+                {
+                    _nightEventSchedule = NightEventSchedule.Restore(NightEventKind.ScriptNight, 0, true);
                     BeginChristineTutorial();
+                }
                 // 皮特事件：第 7 夜一开局脚本触发（男孩敲门求救 + 三选一）。同教学关口径独占本夜（进 else 链 ⇒
                 // 抑制围攻/夜袭，脚本夜不叠加常规威胁）；正文在 CampMain.PeteEvent.cs。
                 else if (_clock.Day == 7 && !_storyFlags.Has(PeteEventDoneFlag))
+                {
+                    _nightEventSchedule = NightEventSchedule.Restore(NightEventKind.ScriptNight, 0, true);
                     BeginPeteRescueEvent();
+                }
                 // 尸潮时限到期(day>=DeadlineDay)：**无限丧尸屠营 → 随机一名幸存者半残南逃 → 南逃谢幕**（用户 authored
                 // 强制终局，与军袭同一套单角色南逃谢幕，只是触发源＝丧尸[HordeSiege]。已推翻旧"可玩无限围攻直至全灭"路由，
                 // 详见 TryTriggerHordeSiegeEnding；旧 TriggerHordeSiege 保留为遗留、不再从 day-40 可达）。
@@ -5372,9 +5535,12 @@ public sealed partial class CampMain : Node2D
                 // 终局冻结门控：主线推进到终局抉择点后置 EndgameFreezeFlag → 结局流程接管，尸潮终局不再触发（置位方留待主线系统）。
                 else if (HordeTimeline.ShouldTriggerSiege(
                     _clock.Day, _storyFlags.Has(HordeTimeline.SightedFlag), _storyFlags.Has(HordeTimeline.EndgameFreezeFlag)))
+                {
+                    _nightEventSchedule = NightEventSchedule.Restore(NightEventKind.HordeNight, 0, true);
                     TryTriggerHordeSiegeEnding();
+                }
                 else
-                    MaybeTriggerNightRaiderRaid(); // 批次6：常规夜（非教学/非围攻）按概率触发袭击者潜入 + 警戒对抗
+                    _nightEventSchedule = NightEventSchedule.Roll(_nightEventRng);
                 break;
         }
 
@@ -6057,15 +6223,15 @@ public sealed partial class CampMain : Node2D
     {
         var guarded = new HashSet<int>(_roleManager.GuardAssignments.Values);
 
-        var readers = new List<ReadingPanel.PawnOption>();
+        var readers = new List<ReaderOption>();
         foreach (Pawn p in _survivors)
         {
             if (!p.Alive || !p.IsControllable || guarded.Contains(p.Id))
                 continue;
-            readers.Add(new ReadingPanel.PawnOption { Id = p.Id, Name = p.DisplayName });
+            readers.Add(new ReaderOption { Id = p.Id, Name = p.DisplayName });
         }
 
-        var books = new List<ReadingPanel.BookOption>();
+        var books = new List<BookDisplayOption>();
         foreach (BookData b in _bookRegistry.Values)
         {
             // 🔴 [T59] **日记不是书，不能派人去"读"**（用户拍板：书给角色读、日记给玩家读）。
@@ -6074,22 +6240,24 @@ public sealed partial class CampMain : Node2D
             // 日记照旧在库存里点开即看（ReaderPanel，游戏冻结），零角色时间。
             if (b.IsDiary)
                 continue;
-            if (b.IsRead)
-                continue; // "未读"按营地全局已读标记（per-reader 未读细分待用户定，见遗留）
             // 前置书标题：优先解析实例标题供「未读《X》」提示；解析不到退化到 id。
             string? preTitle = b.PrerequisiteBookId is { } preId ? (_bookResolver(preId)?.Title ?? preId) : null;
-            books.Add(new ReadingPanel.BookOption
+            books.Add(new BookDisplayOption
             {
                 BookId = b.Id,
                 Title = b.Title,
+                IsRead = false,
+                ReadHours = 0,
+                RequiredHours = b.ReadHours,
                 PrerequisiteBookId = b.PrerequisiteBookId,
                 PrerequisiteTitle = preTitle,
             });
         }
 
         // 前置满足判定按读者本人已读（引擎侧 AccrueReading 亦以 Pawn.HasReadBook 判读速配置，口径一致）。
-        _readingPanel.SetupReaders(readers, books,
-            (pawnId, bookId) => _survivors.FirstOrDefault(s => s.Id == pawnId)?.HasReadBook(bookId) ?? false);
+        _readingPanel.SetupCharacterBooks(readers, books,
+            (pawnId, bookId) => _survivors.FirstOrDefault(s => s.Id == pawnId)?.HasReadBook(bookId) ?? false,
+            (pawnId, bookId) => _survivors.FirstOrDefault(s => s.Id == pawnId)?.ReadingHoursFor(bookId) ?? 0.0);
     }
 
     private void OnReadingConfirmed(Dictionary<int, string> assignments)
@@ -6130,7 +6298,14 @@ public sealed partial class CampMain : Node2D
             if (guard != null)
             {
                 guard.ApplyGuardPost(post.Stats);
-                guard.Stationing = true;
+                if (post.SweepPhaseDay != _clock.Day)
+                {
+                    post.SweepPhaseSeconds = SentryLogic.RollSweepPhase(_guardSweepRng, SentrySweep.Default);
+                    post.SweepPhaseDay = _clock.Day;
+                }
+                // 中心朝向由营心指向岗位（向外警戒）；相位本夜本岗稳定，Pawn 到岗后按规律自行扫视。
+                float outwardFacing = (post.StandPos - _cameraCenter).Angle();
+                guard.BeginGuardDuty(post.StandPos, outwardFacing, post.SweepPhaseSeconds);
                 guard.CommandMoveTo(post.StandPos);
                 _raidGuards.Add(guard);
                 _guardPostSightById[guard.Id] = post.Stats.SightMultiplier;
@@ -6238,24 +6413,42 @@ public sealed partial class CampMain : Node2D
     // ============ 批次6 夜防对抗：袭击者潜入（警戒力 vs 潜行力）============
 
     /// <summary>
-    /// 常规夜（NightAct）尝试触发袭击者潜入：非教学/非围攻/未在进行中、<see cref="ShiftSchedule.RaidAllowedIn"/> 放行（常规仅夜里块）、
-    /// 开局两夜后（留给教学），按 <see cref="NightRaiderRaidChance"/> 概率生成一波并跑对抗。数值皆拟定待调。
+    /// 常规夜排程到点后触发袭击者潜入。概率与前三小时内的触发点已由 <see cref="NightEventSchedule"/>
+    /// 在入夜瞬间一次性掷定；这里不能再掷一次概率，否则实际概率会被重复相乘。
     /// </summary>
-    private void MaybeTriggerNightRaiderRaid()
+    private void TriggerScheduledNightRaiderRaid()
     {
         if (_nightRaidActive || _tutorialActive || _siegeActive || _raidActive)
             return;
-        if (_clock.Day < 3) // 开局前两夜留给教学/熟悉，拟定待调
-            return;
         if (!ShiftSchedule.RaidAllowedIn(_clock.CurrentPhase, authored: false))
-            return;
-        if (_raidContestRng.Range(0.0, 1.0) >= NightRaiderRaidChance)
             return;
 
         // 意图随机（拟定待调）：杀戮型（潜行先手 1.5x）/ 劫掠型（静默偷窃）各半。
         RaiderIntent intent = _raidContestRng.Range(0.0, 1.0) < 0.5 ? RaiderIntent.Killer : RaiderIntent.Looter;
         int count = NightRaiderCountBase + _clock.Day / 12; // 随天数缓增，拟定待调
         TriggerRaiderRaid(intent, count, authored: false);
+    }
+
+    /// <summary>把 NightAct 的真实相位进度换成从入夜起算的游戏小时，并在排程到点时仅触发一次。</summary>
+    private void TickNightEventSchedule()
+    {
+        if (_clock.CurrentPhase != DayPhase.NightAct || _nightLengthSeconds <= 0)
+            return;
+
+        const double nightGameHours = 12.0;
+        double currentNightGameHour = _clock.PhaseElapsed / _nightLengthSeconds * nightGameHours;
+        if (!_nightEventSchedule.ShouldTrigger(currentNightGameHour))
+            return;
+
+        // 先落 fired，再进入生成逻辑：即便战斗门控拒绝，也不会下一帧重复触发或读档重掷。
+        NightEventKind kind = _nightEventSchedule.EventKind;
+        _nightEventSchedule = _nightEventSchedule.WithFired();
+        _clock.SetSpeedIndex(0); // 任何袭击落地时自动回到 1 倍速。
+
+        if (kind == NightEventKind.HumanRaid)
+            TriggerScheduledNightRaiderRaid();
+        else if (kind == NightEventKind.ZombieRaid)
+            TriggerRaid();
     }
 
     /// <summary>
@@ -6344,7 +6537,9 @@ public sealed partial class CampMain : Node2D
         foreach (var w in watchers)
         {
             float gLight = SampleCampLight(w.actor.GlobalPosition);
-            VisionLogic.VisionCone cone = VisionLogic.ConeFor(gLight);
+            // 先叠观察者本人的羁绊视野，再叠疲劳：道格 L1 的视野角、布鲁斯 L1 视野角 / L2 视距
+            // 不只用于遮暗揭示，也必须进入岗哨「警戒力 vs 潜行力」的真实目击判定。
+            VisionLogic.VisionCone cone = BondScaleCone(w.actor, VisionLogic.ConeFor(gLight));
             // ★疲劳双路径（param-calibration 校准）：被唤醒守卫次相位——视力项经视锥缩窄(此处) + 听力项经系数削减(FatigueAdjustedAlertness)。
             bool fatigued = w.actor is Pawn wp && _activeFatigue.TryGetValue(wp.Id, out var fd) && fd.IsActive;
             if (fatigued && w.actor is Pawn wp2)
@@ -6356,7 +6551,9 @@ public sealed partial class CampMain : Node2D
             float structBonus = NightRaidLogic.StructureBonusFrom(_guardPostSightById.GetValueOrDefault(ActorId(w.actor), 1f));
             // 疲劳双路径：视力已经视锥削(上)，听力项经 FatigueHearingMult 削(此)——不叠全局警戒标量，避免双重惩罚（单一真源与 Sim 校准同调）。
             alertness.Add(NightRaidLogic.FatigueAdjustedAlertness(
-                acuity, dist, structBonus, w.watchEff, fatigued, NightWatchContest.HearingBaseRange));
+                acuity, dist, structBonus, w.watchEff, fatigued, NightWatchContest.HearingBaseRange,
+                visionCapability: (float)w.actor.VisionCapability,
+                hearingCapability: (float)w.actor.HearingCapability));
         }
 
         return NightRaidLogic.ResolveCampDetection(alertness, stealth, _raidContestRng);
@@ -6860,7 +7057,7 @@ public sealed partial class CampMain : Node2D
             if (IsInstanceValid(g) && g.Alive)
             {
                 g.ClearGuardPost();
-                g.Stationing = false;
+                g.EndGuardDuty();
             }
         }
         _raidGuards.Clear();
@@ -7737,7 +7934,13 @@ public sealed partial class CampMain : Node2D
 
         if (hit.Role == "workbench")
         {
-            OpenCrafting();
+            OpenCrafting(FacilityJobKeys.MainWorkbench);
+            return;
+        }
+
+        if (hit.Role == "weaponbench")
+        {
+            OpenCrafting(FacilityJobKeys.MainWeaponBench);
             return;
         }
 
@@ -7745,7 +7948,7 @@ public sealed partial class CampMain : Node2D
         // **改装只在这儿能做**——工作台的改装页会因"没有改装台"而整页灰掉（见 CraftingPanel）。
         if (hit.Role == "modbench")
         {
-            OpenCrafting(openModPage: true);
+            OpenCrafting(FacilityJobKeys.MainModBench, openModPage: true);
             return;
         }
 
@@ -7756,7 +7959,7 @@ public sealed partial class CampMain : Node2D
             return;
         }
 
-        // [T67] 宰杀设施：老鼠/鸟宰成肉 + 副产物（羽毛/碎皮革）；刀槽放匕首/骨刀。正文在 CampMain.Butchery.cs。
+        // [T67] 宰杀设施：老鼠/兔子/鸟宰成肉 + 副产物（羽毛/碎皮革）；刀槽放匕首/骨刀。正文在 CampMain.Butchery.cs。
         if (hit.Role == "butcher")
         {
             OpenButchery();
@@ -7777,7 +7980,7 @@ public sealed partial class CampMain : Node2D
 
         if (hit.Role == "merchant")
         {
-            OpenMerchantPanel();
+            OpenMerchantPanel(arriver);
             return;
         }
 
@@ -8393,6 +8596,11 @@ public sealed partial class CampMain : Node2D
     /// <summary>清商人在场引用 + 从可交互容器移除 + 作废正走向它的前往令（离场/意外消失共用）。</summary>
     private void OnMerchantGone()
     {
+        if (_merchantOpen)
+        {
+            CloseMerchant();
+        }
+        _merchantTrader = null;
         if (_merchantContainer != null)
         {
             _containers.Remove(_merchantContainer);
@@ -8406,8 +8614,9 @@ public sealed partial class CampMain : Node2D
     }
 
     /// <summary>打开交易面板（右键前往到位时调）：冻结时标 + 展示货架与当前持币量。</summary>
-    private void OpenMerchantPanel()
+    private void OpenMerchantPanel(Pawn trader)
     {
+        _merchantTrader = trader;
         if (!_merchantOpen)
         {
             CapturePanelTimeState(out _prevMerchantSpeed, out _prevMerchantPaused);
@@ -8426,9 +8635,12 @@ public sealed partial class CampMain : Node2D
         bool alive = ChristineAliveInCamp();
         double buyDiscount = ChristinePerk.MerchantBuyDiscount(level, alive);
         int sellRate = ChristinePerk.MerchantSellRatePercent(level, alive, MerchantTrade.SellRatePercent);
+        double sellPriceMultiplier = _merchantTrader is null
+            ? 1.0
+            : BookPassiveEffects.SellPriceMultiplier(_merchantTrader.HasReadBook);
         _merchantPanel.Show(
             _merchantShelf,
-            MerchantBuyList.SellableRows(_inventory, sellRate),
+            MerchantBuyList.SellableRows(_inventory, sellRate, sellPriceMultiplier),
             _inventory.MaterialCount(Materials.CurrencyKey),
             buyDiscount);
     }
@@ -8465,7 +8677,11 @@ public sealed partial class CampMain : Node2D
     {
         // 克莉丝汀 L3 在营 → 卖出价率由 Wiki 配置提供；展示价 row.UnitSellPrice 与实付同源。
         int sellRate = ChristinePerk.MerchantSellRatePercent(ChristineLevelNow(), ChristineAliveInCamp(), MerchantTrade.SellRatePercent);
-        switch (MerchantTrade.SellOne(_inventory, row.UnitItem, sellRatePercentOverride: sellRate))
+        double sellPriceMultiplier = _merchantTrader is null
+            ? 1.0
+            : BookPassiveEffects.SellPriceMultiplier(_merchantTrader.HasReadBook);
+        switch (MerchantTrade.SellOne(_inventory, row.UnitItem,
+                    sellRatePercentOverride: sellRate, sellPriceMultiplier: sellPriceMultiplier))
         {
             case SellStatus.Ok:
                 _campToast.Show($"卖出「{row.DisplayName}」，进账 {Silver.Format(row.UnitSellPrice)} 白银。", CampToast.Ok); // 分→两位小数（[SPEC-B14-补6]）
@@ -8489,6 +8705,7 @@ public sealed partial class CampMain : Node2D
         }
         _merchantPanel.Visible = false;
         _merchantOpen = false;
+        _merchantTrader = null;
         RestorePanelTimeState(_prevMerchantSpeed, _prevMerchantPaused);
     }
 
@@ -8861,19 +9078,24 @@ public sealed partial class CampMain : Node2D
     private bool IsBookRead(string bookId) =>
         _bookRegistry.TryGetValue(bookId, out BookData? b) && b.IsRead;
 
+    /// <summary>全营书籍被动只看仍存活且未外出的读者；多人阅读仍是同一个布尔门。</summary>
+    private bool AnyCamperHasReadBook(string bookId)
+        => _survivors.Any(p => p.Alive && p.Role != PawnRole.Expedition && p.HasReadBook(bookId));
+
     // ---------------- 配方 / 制作（工作台接入） ----------------
 
     /// <summary>
     /// 打开（或刷新）工作台制作面板：首次打开冻结时标。制作者=当前可控幸存者；书门槛按制作者本人已读（<see cref="Pawn.HasReadBook"/>）。
     /// <paramref name="openModPage"/>=true 时直接落在【改装】页（点营地里的改装台走这条）。
     /// </summary>
-    private void OpenCrafting(bool openModPage = false)
+    private void OpenCrafting(string slotKey = FacilityJobKeys.MainWorkbench, bool openModPage = false)
     {
         if (!_craftingOpen)
         {
             CapturePanelTimeState(out _prevCraftingSpeed, out _prevCraftingPaused);
             _craftingOpen = true;
         }
+        _craftingPanelSlotKey = slotKey;
         RefreshCrafting();
         if (openModPage)
         {
@@ -8886,13 +9108,16 @@ public sealed partial class CampMain : Node2D
     private void RefreshCrafting()
         => _craftingPanel.ShowFor(_workbench, ControllableCrafters(), _inventory,
             (pawn, id) => pawn.HasReadBook(id), // 书门槛按制作者本人已读（非营地全局）
-            _craftingJob,                        // 工时制：本工作台在制任务（顶部进度横幅/占用中置灰）
+            JobAt(_craftingPanelSlotKey),
             DogGearGate,                         // 制作者门槛：狗装备需道格 + 羁绊≥2 级（灰显+双保险）
-            HasModBench);                        // 改装门槛：没有改装台 ⇒ 改装页整页灰掉（用户拍板：改造只在改装台上做）
+            HasModBench,
+            recipeFilter: recipe => _craftingPanelSlotKey == FacilityJobKeys.MainWeaponBench
+                ? WeaponBench.IsWeaponRecipe(recipe.Id)
+                : !WeaponBench.IsWeaponRecipe(recipe.Id));
 
     /// <summary>当前可作制作者的幸存者（存活且空闲可控）。</summary>
     private List<Pawn> ControllableCrafters()
-        => _survivors.Where(p => p.Alive && p.IsControllable).ToList();
+        => _survivors.Where(p => p.Alive && p.IsControllable && p.Role != PawnRole.Guard).ToList();
 
     /// <summary>
     /// 狗装备制作者门槛判据（批次5，消费 <see cref="DougBruceBond.CanCraftDogGear"/>）：
@@ -8906,6 +9131,11 @@ public sealed partial class CampMain : Node2D
         if (gateKey == RecipeBook.ModBenchAbsentGate)
         {
             return HasModBench ? "营地已经有一台改装台了" : null;
+        }
+
+        if (gateKey == WeaponBench.AbsentGate)
+        {
+            return HasWeaponBench ? "营地已经有一台武器台了" : null;
         }
 
         // [批次21·T14] 烹饪台「一座就够」：同理——厨房只有那么一个角，第二座灶毫无用处。
@@ -8961,6 +9191,14 @@ public sealed partial class CampMain : Node2D
     /// </summary>
     private void OnCraftRequested(string recipeId, Pawn crafter)
     {
+        // 双保险：敌袭战斗中 Guard 虽可被玩家选中，但站岗职责绝不能与任何生产叠加。
+        if (crafter.Role == PawnRole.Guard)
+        {
+            _campToast.Show("站岗的人不能离岗生产。", CampToast.Bad);
+            RefreshCrafting();
+            return;
+        }
+
         RecipeData? recipe = RecipeBook.Find(recipeId);
         if (recipe is null)
         {
@@ -8968,10 +9206,20 @@ public sealed partial class CampMain : Node2D
             return;
         }
 
-        // 单任务队列：工作台被在制任务占用时不接新单（面板已置灰，此为双保险）。
-        if (_craftingJob is not null)
+        string slotKey = WeaponBench.IsWeaponRecipe(recipe.Id)
+            ? FacilityJobKeys.MainWeaponBench
+            : FacilityJobKeys.MainWorkbench;
+        if (_craftingPanelSlotKey != slotKey)
         {
-            _campToast.Show("工作台占用中：完工取出后再下新单。", CampToast.Bad);
+            _campToast.Show(WeaponBench.IsWeaponRecipe(recipe.Id)
+                ? "武器只能在武器台制作。"
+                : "这条配方不在武器台制作。", CampToast.Bad);
+            RefreshCrafting();
+            return;
+        }
+        if (!CanStartFacilityJob(slotKey, crafter, out string busyWhy))
+        {
+            _campToast.Show(busyWhy, CampToast.Bad);
             RefreshCrafting();
             return;
         }
@@ -8989,10 +9237,8 @@ public sealed partial class CampMain : Node2D
             return;
         }
 
-        _craftingJob = result.Job;
-        _craftingJobWorker = crafter; // 记下单者作生产者身份（3 级光环生产系数按其判定）
-        _craftLastMinuteKey = -1; // 重置增量基线，下一生产帧从当前分钟起算
-        _craftMinuteBudget = 0f;  // 清小数预算，新任务从零累积
+        StartFacilityJob(slotKey, result.Job!, crafter);
+        _craftLastMinuteKey = -1;
         // 报**这一单的真工时**（result.Job.TotalWorkMinutes），不是配方上那个死数——
         // 读过《木匠入门》的人做家具会打 95 折（CraftWorkTime），报配方原值等于当面骗人。
         int ordered = result.Job!.TotalWorkMinutes;
@@ -9013,17 +9259,16 @@ public sealed partial class CampMain : Node2D
     /// </summary>
     private void OnStashSalvageRequested(string itemKey)
     {
-        Pawn? worker = _selected.FirstOrDefault(p => p.IsControllable);
+        Pawn? worker = _selected.FirstOrDefault(p => p.IsControllable && p.Role != PawnRole.Guard);
         if (worker == null)
         {
             OpenStash("请先选中一个幸存者，再点「拆解」——拆东西也得有人动手。");
             return;
         }
 
-        // 单任务队列：工作台被在制任务（制作或另一件在拆的东西）占用时不接新单。
-        if (_craftingJob is not null)
+        if (!CanStartFacilityJob(FacilityJobKeys.MainWorkbench, worker, out string busyWhy))
         {
-            OpenStash("工作台占用中：等手头那件完工了再拆。");
+            OpenStash(busyWhy);
             return;
         }
 
@@ -9034,10 +9279,9 @@ public sealed partial class CampMain : Node2D
             return;
         }
 
-        _craftingJob = new CraftingJob(SalvageLogic.JobIdFor(itemKey), started.WorkMinutes);
-        _craftingJobWorker = worker;
-        _craftLastMinuteKey = -1; // 重置增量基线（同下单制作）
-        _craftMinuteBudget = 0f;
+        StartFacilityJob(FacilityJobKeys.MainWorkbench,
+            new CraftingJob(SalvageLogic.JobIdFor(itemKey), started.WorkMinutes), worker);
+        _craftLastMinuteKey = -1;
 
         string name = SalvageLogic.RecipeFor(itemKey)?.DisplayName ?? itemKey;
         string work = CraftingPanelFormat.FormatWorkDuration(started.WorkMinutes);
@@ -9055,12 +9299,6 @@ public sealed partial class CampMain : Node2D
     private bool CanSalvageTarget(ContainerRef c, out string? why)
     {
         why = null;
-
-        if (_craftingJob is not null)
-        {
-            why = "工作台占用中：等手头那件完工了再拆。";
-            return false;
-        }
 
         // 关内的门拆不了：拆除是**营地经济**（把自家造的东西拆回料），而关卡里的门不是你造的，
         // 你也不可能扛着一扇门走回家。它只有推开/关上（锁着的还能撬）。
@@ -9101,6 +9339,12 @@ public sealed partial class CampMain : Node2D
     /// </summary>
     private void BeginSalvageAt(Pawn worker, ContainerRef target)
     {
+        if (worker.Role == PawnRole.Guard)
+        {
+            _campToast.Show("站岗的人不能离岗拆解生产。", CampToast.Bad);
+            return;
+        }
+
         if (!CanSalvageTarget(target, out string? why))
         {
             _campToast.Show(why ?? "拆不了。", CampToast.Bad);
@@ -9120,10 +9364,14 @@ public sealed partial class CampMain : Node2D
             workMinutes = SalvageLogic.WorkMinutesOfFurniture(target.Name);
         }
 
-        _craftingJob = new CraftingJob(SalvageLogic.JobIdFor(jobTarget), workMinutes);
-        _craftingJobWorker = worker;
+        string slotKey = FacilityJobKeys.For("worksite", jobTarget);
+        if (!CanStartFacilityJob(slotKey, worker, out string busyWhy))
+        {
+            _campToast.Show(busyWhy, CampToast.Bad);
+            return;
+        }
+        StartFacilityJob(slotKey, new CraftingJob(SalvageLogic.JobIdFor(jobTarget), workMinutes), worker);
         _craftLastMinuteKey = -1;
-        _craftMinuteBudget = 0f;
 
         string work = CraftingPanelFormat.FormatWorkDuration(workMinutes);
         _campToast.Show($"{worker.DisplayName} 开始拆 {target.Name}（工时 {work}）。", CampToast.Ok);
@@ -9197,6 +9445,26 @@ public sealed partial class CampMain : Node2D
 
         // 可点击：选中角色右键前往 → 打开【改装】页（见 ExecuteContainerInteract 的 "modbench" 分支）。
         _containers.Add(new ContainerRef { Name = key, Rect = rect, Role = "modbench" });
+    }
+
+    private static Rect2 WeaponBenchAnchorRect => new(
+        WeaponBench.AnchorX, WeaponBench.AnchorY, WeaponBench.Width, WeaponBench.Height);
+
+    private void CompleteWeaponBenchBuild()
+    {
+        if (HasWeaponBench) return;
+        SpawnWeaponBench(WeaponBenchAnchorRect);
+        RebakeNavigation();
+        _campToast.Show("武器台造好了，固定落在车间里。", CampToast.Ok);
+    }
+
+    private void SpawnWeaponBench(Rect2 rect)
+    {
+        var style = new PixelStyle { color = new[] { 0.34, 0.32, 0.29 }, jitter = 0.12 };
+        var visuals = new List<Node2D>();
+        StaticBody2D body = AddSolid(rect, style, seed: 29, (float)_heights.prop, cell: 200f, visuals);
+        _furniture[WeaponBench.FurnitureKey] = new FurnitureInstance { Rect = rect, Body = body, Visuals = visuals };
+        _containers.Add(new ContainerRef { Name = WeaponBench.FurnitureKey, Rect = rect, Role = "weaponbench" });
     }
 
     // ================= 沙袋：建造 → 自由摆放 → 拆走重摆 =================
@@ -9423,14 +9691,14 @@ public sealed partial class CampMain : Node2D
     /// <summary>
     /// 工时制夜间生产推进（每帧，_Process 调）：仅当有在制任务且处夜间生产相位（NightAct）时，
     /// 按游戏分钟增量推进工时；满工时即完工产出。面板冻结时标时分钟键不变→零增量→不推进。
-    /// ★interim：workerPresent 暂等同于"处生产相位"——真正的"指派夜班生产者在工作台"判定归 night-response/shift-sleep（见 [HANDOFF]）。
+    /// 每槽按真实工人、真实设施矩形、Producing 角色与战斗态核对，离台/参战只暂停，不补算离线工时。
     /// </summary>
     private void TickCraftingWorktime()
     {
-        if (_craftingJob is null)
+        if (_facilityJobs.Count == 0)
         {
             _craftLastMinuteKey = -1;
-            _craftMinuteBudget = 0f;
+            _craftMinuteBudgets.Clear();
             return;
         }
 
@@ -9440,7 +9708,7 @@ public sealed partial class CampMain : Node2D
         if (!productionPhase || _craftLastMinuteKey < 0)
         {
             _craftLastMinuteKey = productionPhase ? key : -1;
-            if (!productionPhase) _craftMinuteBudget = 0f; // 中断相位清小数残值（不丢已推进的整分钟）
+            if (!productionPhase) _craftMinuteBudgets.Clear();
             return;
         }
 
@@ -9455,40 +9723,58 @@ public sealed partial class CampMain : Node2D
         // 操作能力 = Pawn.OperationCapability（残疾×饥饿×骨折的实时净值，健全且饱食者恰为 1.0 → 既有行为零回归）。
         // 山姆效果乘在这个**折损后的实际值**上（SamPerk.OperationCapabilityWithAura），而不是加到基准上——
         // 故断双手者操作能力为零时仍不能干活，残缺的代价不被光环补偿。
-        float mult = _craftingJobWorker is { } worker
-            ? (float)WorkEfficiencyOf(worker) * BondProductionMultFor(worker) * FatigueMultiplierFor(worker)
-            : 1f;
-        _craftMinuteBudget += delta * mult;
-        int wholeMinutes = (int)_craftMinuteBudget;
-        if (wholeMinutes <= 0) return;
-        _craftMinuteBudget -= wholeMinutes;
-
-        // canWork（批次6，接 craft-worktime HANDOFF）：指派夜班生产者(NightCrew)在其生产相位(IsWorkPhaseFor)且未被袭营拉去战斗（在台语义：
-        // 无战斗目标即视作在工作台）。被拉走(HasActiveTarget)→canWork=false，工时暂停不丢进度，袭营结束回台自动续作。
-        bool workerPresent = _craftingJobWorker is { Alive: true } w2
-            && ShiftSchedule.IsWorkPhaseFor(ShiftSchedule.ShiftFor(w2.Id, _todaysExpeditionIds), _clock.CurrentPhase)
-            && !w2.HasActiveTarget;
-        int applied = _craftingJob.Advance(wholeMinutes, canWork: workerPresent);
-        if (applied <= 0) return;
-
-        if (_craftingJob.IsComplete)
+        var completedKeys = new List<string>();
+        bool anyApplied = false;
+        foreach (FacilityJobSlot slot in _facilityJobs.Jobs)
         {
-            CompleteActiveCraftingJob();
+            Pawn? worker = _survivors.FirstOrDefault(p => p.Id == slot.WorkerId);
+            float mult = worker is not null
+                ? (float)WorkEfficiencyOf(worker) * BondProductionMultFor(worker) * FatigueMultiplierFor(worker)
+                : 1f;
+            float budget = _craftMinuteBudgets.GetValueOrDefault(slot.SlotKey) + delta * mult;
+            int wholeMinutes = (int)budget;
+            _craftMinuteBudgets[slot.SlotKey] = budget - wholeMinutes;
+            if (wholeMinutes <= 0) continue;
+
+            Rect2? rect = FacilityRectForSlot(slot.SlotKey);
+            bool atFacility = worker is { Alive: true } && rect is Rect2 r
+                && r.Grow(PendingArriveMargin).HasPoint(worker.GlobalPosition);
+            bool inCombat = worker?.HasActiveTarget == true || worker?.ProductionCombatControlEnabled == true;
+            bool scheduled = worker is { Role: PawnRole.Producing }
+                && ShiftSchedule.IsWorkPhaseFor(ShiftSchedule.ShiftFor(worker.Id, _todaysExpeditionIds), _clock.CurrentPhase);
+            int applied = _facilityJobs.Advance(slot.SlotKey, wholeMinutes,
+                workerAtAssignedFacility: atFacility,
+                productionPhaseAllowsWork: scheduled,
+                workerInCombat: inCombat);
+            anyApplied |= applied > 0;
+            if (slot.Job.IsComplete) completedKeys.Add(slot.SlotKey);
         }
-        else if (_craftingOpen)
+
+        foreach (string slotKey in completedKeys)
         {
-            RefreshCrafting(); // 面板开着时随进度更新横幅（1/分钟粒度）
+            FacilityJobSlot? completed = _facilityJobs.TakeCompleted(slotKey);
+            if (completed is null) continue;
+            _craftMinuteBudgets.Remove(slotKey);
+            Pawn? worker = _survivors.FirstOrDefault(p => p.Id == completed.WorkerId);
+            if (worker is not null)
+            {
+                worker.ProducingStationing = false;
+                worker.ProductionCombatControlEnabled = false;
+                if (worker.Role == PawnRole.Producing)
+                    worker.Role = PawnRole.Idle;
+            }
+            SyncProductionAssignments();
+            CompleteFacilityJob(completed);
         }
+
+        if (anyApplied && _craftingOpen) RefreshCrafting();
     }
 
     /// <summary>在制任务完工：产物按 <see cref="CraftOutputFactory"/> 分类入库、提示、清空任务、刷新面板。</summary>
-    private void CompleteActiveCraftingJob()
+    private void CompleteFacilityJob(FacilityJobSlot completed)
     {
-        CraftingJob job = _craftingJob!;
-        _craftingJob = null;
-        _craftingJobWorker = null;
-        _craftLastMinuteKey = -1;
-        _craftMinuteBudget = 0f;
+        CraftingJob job = completed.Job;
+        Pawn? completingWorker = _survivors.FirstOrDefault(p => p.Id == completed.WorkerId);
 
         // 拆解分流：任务 id 带 "salvage:" 前缀的不是配方，是"把东西变回材料"。三种拆法各走各的清场：
         //   door#<下标> → 门（返还 + DestroyStructure 抹掉本体）
@@ -9525,7 +9811,7 @@ public sealed partial class CampMain : Node2D
         // 种薯开工时已扣，这里只把下一个空格的 84h 计时器点亮（正文在 CampMain.Farming.cs）。
         if (job.RecipeId.StartsWith(CropPlotLogic.PlantJobPrefix, StringComparison.Ordinal))
         {
-            CompletePlantJob(job.RecipeId[CropPlotLogic.PlantJobPrefix.Length..]);
+            CompletePlantJob(job.RecipeId[CropPlotLogic.PlantJobPrefix.Length..], completingWorker);
             if (_craftingOpen) RefreshCrafting();
             return;
         }
@@ -9573,6 +9859,13 @@ public sealed partial class CampMain : Node2D
         if (recipe.Id == WeaponModLogic.BenchRecipeId)
         {
             CompleteModBenchBuild();
+            if (_craftingOpen) RefreshCrafting();
+            return;
+        }
+
+        if (recipe.Id == WeaponBench.RecipeId)
+        {
+            CompleteWeaponBenchBuild();
             if (_craftingOpen) RefreshCrafting();
             return;
         }
@@ -9644,10 +9937,17 @@ public sealed partial class CampMain : Node2D
     /// </summary>
     private void OnModApplyRequested(string baseWeaponRefKey, IReadOnlyList<string> modNames, Pawn crafter)
     {
-        // 单任务队列：手头有活就不接新单（面板已置灰，此为双保险）。
-        if (_craftingJob is not null)
+        if (modNames.Contains(WeaponModCatalog.CrossbowShield().Name)
+            && !BookPassiveEffects.WeaponModUnlocked("crossbow_shield", crafter.HasReadBook))
         {
-            _campToast.Show("工作台占用中：等手头那件完工了再改枪。", CampToast.Bad);
+            _campToast.Show("弩盾改装需要制作者先读完《意大利编年史》。", CampToast.Bad);
+            RefreshCrafting();
+            return;
+        }
+
+        if (!CanStartFacilityJob(FacilityJobKeys.MainModBench, crafter, out string busyWhy))
+        {
+            _campToast.Show(busyWhy, CampToast.Bad);
             return;
         }
 
@@ -9661,8 +9961,8 @@ public sealed partial class CampMain : Node2D
             return;
         }
 
-        _craftingJob = start.Job;
-        _craftingJobWorker = crafter;
+        StartFacilityJob(FacilityJobKeys.MainModBench, start.Job!, crafter);
+        _craftLastMinuteKey = -1;
 
         _campToast.Show(
             $"{crafter.DisplayName} 开始改装 {baseWeaponRefKey}（{start.Job!.TotalWorkMinutes} 分钟）",
@@ -9749,53 +10049,252 @@ public sealed partial class CampMain : Node2D
     }
 
     /// <summary>
+    /// 手术开工预检：只读伤情、床位、库存与施术者能力，绝不 roll、扣料、改伤情或累计护士台数。
+    /// 真正结算只在 <see cref="CompleteTimedSurgery"/> 取得状态机的一次性结算权后发生。
+    /// </summary>
+    private void TryBeginTimedSurgery(
+        SurgeryKind kind,
+        Pawn patient,
+        Pawn surgeon,
+        HealthCondition? condition,
+        (string Key, BodyRegion Region)? prostheticTarget,
+        ProstheticGrade? prostheticGrade,
+        IReadOnlyList<string> requestedMaterials)
+    {
+        if (_surgeryJob is not null)
+        {
+            _campToast.Show("已有一台手术正在进行。", CampToast.Bad);
+            return;
+        }
+        if (!patient.Alive || !surgeon.Alive)
+        {
+            _campToast.Show("病人或施术者已无法进行手术。", CampToast.Bad);
+            return;
+        }
+
+        if (kind == SurgeryKind.Treatment
+            && (condition is null
+                || !patient.Health.Conditions.Contains(condition)
+                || condition.Type is not (HealthConditionType.Bleeding or HealthConditionType.Fracture)))
+        {
+            _campToast.Show("目标伤情已经不存在，手术无法开始。", CampToast.Bad);
+            RefreshMedical();
+            return;
+        }
+        if (kind == SurgeryKind.Treatment && condition!.IsOperated && !patient.Health.CanRedoSurgery(condition))
+        {
+            _campToast.Show(SurgeryResult.RedoTooSoonMessage, CampToast.Bad);
+            return;
+        }
+        if (kind == SurgeryKind.Amputation
+            && (condition is null
+                || !patient.Health.Conditions.Contains(condition)
+                || condition.Type != HealthConditionType.Infection
+                || !condition.OnLimb))
+        {
+            _campToast.Show("目标感染已经不存在，截肢无法开始。", CampToast.Bad);
+            RefreshMedical();
+            return;
+        }
+        if (kind == SurgeryKind.Prosthetic
+            && (prostheticTarget is null
+                || prostheticGrade is null
+                || !patient.Inspect().ProstheticSlots.Any(s => s.CanEquip
+                    && s.UnitPartName == prostheticTarget.Value.Key
+                    && s.ReplacesRegion == prostheticTarget.Value.Region)))
+        {
+            _campToast.Show("目标缺肢已经不再是可安装状态。", CampToast.Bad);
+            RefreshMedical();
+            return;
+        }
+
+        HealthConditionType supplyTarget = kind == SurgeryKind.Treatment
+            ? condition!.Type
+            : HealthConditionType.Bleeding;
+        List<SurgerySupply> supplies = requestedMaterials
+            .Select(SurgeryCatalog.For)
+            .Where(s => s is { } supply && supply.CanTreat(supplyTarget))
+            .Select(s => s!.Value)
+            .ToList();
+        if (supplies.Any(s => s.Exclusive) && supplies.Count > 1)
+        {
+            _campToast.Show("急救包为独占耗材，不可与其他耗材叠加。", CampToast.Bad);
+            return;
+        }
+        List<string> materialKeys = supplies.Select(s => s.MaterialKey).ToList();
+        if (!HasSurgeryMaterials(materialKeys))
+        {
+            _campToast.Show("手术耗材不足。", CampToast.Bad);
+            RefreshMedical();
+            return;
+        }
+
+        // 与 HealthConditionSet 三个结算入口同一公式，但这里只预览门槛，零随机、零写入。
+        int alwaysBookPoints = MedicalBookPoints.SumAlways(surgeon.ReadBookIds);
+        int noSupplyBookPoints = materialKeys.Count == 0 ? MedicalBookPoints.SumWithoutSupplies(surgeon.ReadBookIds) : 0;
+        int basePoints = NightingalePerk.SurgeryBasePoints(
+            surgeon.Perks.IsNightingale, _storyFlags.Has(NurseRecruit.L3LegacyFlag));
+        int rawPoints = basePoints
+            + (RealOnBed(patient) ? HealthConditionSet.BedBonusPoints : 0)
+            + supplies.Sum(s => s.Points)
+            + alwaysBookPoints
+            + noSupplyBookPoints;
+        double selfFactor = ReferenceEquals(patient, surgeon) ? HealthConditionSet.SelfSurgeryFactor : 1.0;
+        int pool = (int)Math.Round(rawPoints * Math.Clamp(surgeon.OperationCapability, 0.0, 1.0) * selfFactor,
+            MidpointRounding.AwayFromZero);
+        if (pool < HealthConditionSet.SurgeryMinPoints)
+        {
+            _campToast.Show(SurgeryResult.NotAllowedMessage, CampToast.Bad);
+            return;
+        }
+
+        double speed = BookPassiveEffects.SurgerySpeedMultiplier(surgeon.HasReadBook);
+        _surgeryJob = kind == SurgeryKind.Prosthetic
+            ? SurgeryJob.ForProsthetic(surgeon.Id, patient.Id, prostheticTarget!.Value.Key,
+                prostheticTarget.Value.Region, prostheticGrade!.Value, materialKeys, speed)
+            : SurgeryJob.ForCondition(kind, surgeon.Id, patient.Id, condition!.Type, condition.BodyPart, materialKeys, speed);
+        _surgeryLastMinuteKey = _clock.ClockMinuteKey();
+
+        // 医疗面板是冻结模态；开工后必须关掉并恢复原时标，世界和既有 Body.TickBleed 才会继续走。
+        CloseMedical();
+        _campToast.Show(
+            $"{surgeon.DisplayName} 开始为 {patient.DisplayName} 手术（约 {_surgeryJob.TotalMinutes} 游戏分钟）",
+            CampToast.Ok);
+    }
+
+    private bool HasSurgeryMaterials(IEnumerable<string> materialKeys)
+        => materialKeys.GroupBy(k => k).All(g =>
+            CraftingService.MaterialTotal(_inventory.ByCategory(ItemCategory.Material), g.Key) >= g.Count());
+
+    private HealthCondition? FindSurgeryCondition(Pawn patient, SurgeryJob job)
+        => patient.Health.Conditions.FirstOrDefault(c =>
+            c.Type == job.ConditionType && c.BodyPart == job.BodyPartKey);
+
+    private bool SurgeryTargetExists(Pawn patient, SurgeryJob job)
+        => job.Kind == SurgeryKind.Prosthetic
+            ? patient.Inspect().ProstheticSlots.Any(s => s.CanEquip
+                && s.UnitPartName == job.BodyPartKey
+                && s.ReplacesRegion == job.ProstheticRegion)
+            : FindSurgeryCondition(patient, job) is not null;
+
+    /// <summary>按世界游戏分钟推进在制手术。这里不调用 TickBleed；Actor 的既有物理循环是唯一流血事实源。</summary>
+    private void TickSurgeryWorktime()
+    {
+        if (_surgeryJob is null)
+        {
+            _surgeryLastMinuteKey = -1;
+            return;
+        }
+
+        SurgeryJob job = _surgeryJob;
+        Pawn? patient = _survivors.FirstOrDefault(p => p.Id == job.PatientId);
+        Pawn? surgeon = _survivors.FirstOrDefault(p => p.Id == job.SurgeonId);
+        bool patientAlive = patient is { Alive: true };
+        bool targetExists = patient is not null && surgeon is { Alive: true } && SurgeryTargetExists(patient, job);
+
+        int key = _clock.ClockMinuteKey();
+        int elapsedMinutes = 0;
+        if (_surgeryLastMinuteKey < 0)
+        {
+            _surgeryLastMinuteKey = key;
+        }
+        else if (!_clock.Paused)
+        {
+            elapsedMinutes = key - _surgeryLastMinuteKey;
+            if (elapsedMinutes < 0) elapsedMinutes += 24 * 60;
+            _surgeryLastMinuteKey = key;
+        }
+
+        SurgeryAdvanceStatus status = job.Advance(elapsedMinutes, _clock.Paused, patientAlive, targetExists);
+        if (status == SurgeryAdvanceStatus.Interrupted)
+        {
+            _surgeryJob = null;
+            _surgeryLastMinuteKey = -1;
+            if (!_gameOver)
+                _campToast.Show("手术中断：病人、施术者或目标伤情已不再满足条件。", CampToast.Bad);
+            return;
+        }
+        if (status != SurgeryAdvanceStatus.Ready)
+            return;
+
+        // 到点仍需确认耗材没被其它行为花掉；不足则中断，绝不凭空扣负数或照常结算。
+        if (!HasSurgeryMaterials(job.MaterialKeys))
+        {
+            _surgeryJob = null;
+            _surgeryLastMinuteKey = -1;
+            _campToast.Show("手术中断：预留耗材已经不足。", CampToast.Bad);
+            return;
+        }
+        if (!job.TryClaimSettlement())
+            return;
+
+        _surgeryJob = null; // 先清在制，再调用副作用结算；即使下一帧重入也不可能重复扣料/计台数。
+        _surgeryLastMinuteKey = -1;
+        CompleteTimedSurgery(job, patient!, surgeon!, FindSurgeryCondition(patient!, job));
+    }
+
+    private void CompleteTimedSurgery(SurgeryJob job, Pawn patient, Pawn surgeon, HealthCondition? condition)
+    {
+        int bookBonus = MedicalBookPoints.SumAlways(surgeon.ReadBookIds);
+        int barehandedBookBonus = MedicalBookPoints.SumWithoutSupplies(surgeon.ReadBookIds);
+        bool self = ReferenceEquals(patient, surgeon);
+        int basePoints = NightingalePerk.SurgeryBasePoints(
+            surgeon.Perks.IsNightingale, _storyFlags.Has(NurseRecruit.L3LegacyFlag));
+
+        SurgeryResult result = job.Kind switch
+        {
+            SurgeryKind.Treatment => patient.Health.PerformSurgery(
+                condition!, job.MaterialKeys, RealOnBed(patient), _healthRng,
+                bookBonus, self, surgeon.OperationCapability, basePoints, barehandedBookBonus),
+            SurgeryKind.Amputation => patient.AmputateInfectedLimb(
+                condition!, job.MaterialKeys, RealOnBed(patient), _healthRng,
+                bookBonus, self, surgeon.OperationCapability, basePoints, barehandedBookBonus),
+            SurgeryKind.Prosthetic => patient.InstallProstheticSurgery(
+                job.ProstheticRegion!.Value, job.ProstheticGrade!.Value, job.MaterialKeys,
+                RealOnBed(patient), _healthRng,
+                bookBonus, self, surgeon.OperationCapability, basePoints, barehandedBookBonus),
+            _ => throw new ArgumentOutOfRangeException(),
+        };
+
+        if (result.Status is not (SurgeryStatus.Success or SurgeryStatus.Failed))
+        {
+            _campToast.Show(result.PlayerMessage ?? SurgeryResult.NotAllowedMessage, CampToast.Bad);
+            return;
+        }
+
+        // 真正施术才计一台；状态机的一次性结算权保证这里至多执行一次。
+        if (surgeon.Perks.IsNightingale)
+        {
+            int count = NightingalePerk.RecordSurgery(_storyFlags);
+            if (NightingalePerk.EvaluateLevel(count) >= 3)
+                _storyFlags.Set(NurseRecruit.L3LegacyFlag, "true");
+        }
+        ConsumeMaterials(result.ConsumedMaterials);
+
+        string message = job.Kind switch
+        {
+            SurgeryKind.Treatment => $"{surgeon.DisplayName} 为 {patient.DisplayName} 手术：{FuzzySurgeryOutcome(result)}",
+            SurgeryKind.Amputation => result.Success
+                ? $"{surgeon.DisplayName} 为 {patient.DisplayName} 截肢：切除了{job.BodyPartKey}，感染中止"
+                : $"{surgeon.DisplayName} 为 {patient.DisplayName} 截肢失败，得重来",
+            SurgeryKind.Prosthetic => result.Success
+                ? $"{surgeon.DisplayName} 为 {patient.DisplayName} 装上了假肢，行动恢复了些"
+                : $"{surgeon.DisplayName} 为 {patient.DisplayName} 安装假肢失败，得重来",
+            _ => "手术结束",
+        };
+        _campToast.Show(message, result.Success ? CampToast.Ok : CampToast.Bad);
+        GD.Print($"[手术结算] {surgeon.DisplayName}→{patient.DisplayName} {job.Kind}/{job.BodyPartKey} {(result.Success ? "成功" : "失败")}");
+    }
+
+    /// <summary>
     /// 面板「手术」→ 算 施术者医疗书加点 / 操作能力 / 是否自体，调 <see cref="HealthConditionSet.PerformSurgery"/>：
     /// 门槛未过→显示"现状不支持进行这场手术"（零消耗）；成功/失败→按 result 扣 <see cref="SurgeryResult.ConsumedMaterials"/>、
     /// 给模糊结果提示（**不显点数/roll/效率**）。随后刷新面板。
     /// </summary>
     private void OnSurgeryRequested(Pawn patient, HealthCondition condition, IReadOnlyList<string> materials, bool onBed, Pawn surgeon)
     {
-        // 医疗书加点分两桶喂进去：无条件那份恒计；「不投任何耗材才算」那份（《野外生存指南》+6）由引擎按**实际投入**的耗材决定加不加。
-        int bookBonus = MedicalBookPoints.SumAlways(surgeon.ReadBookIds);
-        int bookBonusBarehanded = MedicalBookPoints.SumWithoutSupplies(surgeon.ReadBookIds);
-        double capability = surgeon.OperationCapability;
-        bool self = ReferenceEquals(patient, surgeon);
-
-        // 南丁格尔护士三级特长（[SPEC-B13-补]）：手术**基础点数** per-surgeon——她本人 30、常人 15；L3 后全营遗产 +5（读永续旗标）。
-        // 不复活已删的通用医疗技能系统（authored 专属 perk，身份走 SurvivorPerks.IsNightingale）；数值 15/30/+5 为用户原话非拟定。
-        bool surgeonIsNightingale = surgeon.Perks.IsNightingale;
-        bool l3Legacy = _storyFlags.Has(NurseRecruit.L3LegacyFlag);
-        int basePoints = NightingalePerk.SurgeryBasePoints(surgeonIsNightingale, l3Legacy);
-
-        SurgeryResult result = patient.Health.PerformSurgery(
-            condition, materials, RealOnBed(patient), _healthRng,
-            surgeonBookBonus: bookBonus, selfSurgery: self, operationCapability: capability,
-            surgeryBasePoints: basePoints, surgeonBookBonusNoSupplies: bookBonusBarehanded);
-
-        // 升级轴＝她本人执行过的手术台数（[SPEC-B13-补2]，成败都计、重做每次计；门槛未过/重做冷却未真正施术不计）。
-        // 计数持久化走 StoryFlags（字符串承载整数，RadioMainline 回复日先例）；升到 L3 那一刻置永续遗产旗标（她死/离营后 3级效果仍生效）。
-        if (surgeonIsNightingale
-            && (result.Status == SurgeryStatus.Success || result.Status == SurgeryStatus.Failed))
-        {
-            int count = NightingalePerk.RecordSurgery(_storyFlags);
-            if (NightingalePerk.EvaluateLevel(count) >= 3)
-                _storyFlags.Set(NurseRecruit.L3LegacyFlag, "true");
-        }
-
-        if (result.Status == SurgeryStatus.NotAllowed)
-        {
-            _campToast.Show(result.PlayerMessage ?? SurgeryResult.NotAllowedMessage, CampToast.Bad);
-            RefreshMedical();
-            return;
-        }
-
-        ConsumeMaterials(result.ConsumedMaterials); // 成功失败都扣耗材
-
-        _campToast.Show(
-            $"{surgeon.DisplayName} 为 {patient.DisplayName} 手术：{FuzzySurgeryOutcome(result)}",
-            result.Success ? CampToast.Ok : CampToast.Bad);
-        GD.Print($"[手术] {surgeon.DisplayName}→{patient.DisplayName} {condition.Type} {(result.Success ? "成功" : "失败")}");
-        RefreshMedical();
+        _ = onBed; // 床位只认实时 BedRegistry，不信面板快照。
+        TryBeginTimedSurgery(SurgeryKind.Treatment, patient, surgeon, condition, null, null, materials);
     }
 
     /// <summary>
@@ -9804,83 +10303,18 @@ public sealed partial class CampMain : Node2D
     /// </summary>
     private void OnAmputationRequested(Pawn patient, HealthCondition infection, IReadOnlyList<string> materials, bool onBed, Pawn surgeon)
     {
-        int bookBonus = MedicalBookPoints.SumAlways(surgeon.ReadBookIds);
-        int bookBonusBarehanded = MedicalBookPoints.SumWithoutSupplies(surgeon.ReadBookIds);
-        double capability = surgeon.OperationCapability;
-        bool self = ReferenceEquals(patient, surgeon);
-        int basePoints = NightingalePerk.SurgeryBasePoints(surgeon.Perks.IsNightingale, _storyFlags.Has(NurseRecruit.L3LegacyFlag));
-
-        SurgeryResult result = patient.AmputateInfectedLimb(
-            infection, materials, RealOnBed(patient), _healthRng,
-            surgeonBookBonus: bookBonus, selfSurgery: self, operationCapability: capability, surgeryBasePoints: basePoints,
-            surgeonBookBonusNoSupplies: bookBonusBarehanded);
-
-        // 南丁格尔升级轴：真正施术（成功/失败）计一台。
-        if (surgeon.Perks.IsNightingale
-            && (result.Status == SurgeryStatus.Success || result.Status == SurgeryStatus.Failed))
-        {
-            int count = NightingalePerk.RecordSurgery(_storyFlags);
-            if (NightingalePerk.EvaluateLevel(count) >= 3)
-                _storyFlags.Set(NurseRecruit.L3LegacyFlag, "true");
-        }
-
-        if (result.Status == SurgeryStatus.NotAllowed)
-        {
-            _campToast.Show(result.PlayerMessage ?? SurgeryResult.NotAllowedMessage, CampToast.Bad);
-            RefreshMedical();
-            return;
-        }
-
-        ConsumeMaterials(result.ConsumedMaterials); // 成败都扣耗材
-        _campToast.Show(
-            result.Success
-                ? $"{surgeon.DisplayName} 为 {patient.DisplayName} 截肢：切除了{infection.BodyPart}，感染中止"
-                : $"{surgeon.DisplayName} 为 {patient.DisplayName} 截肢失败，得重来",
-            result.Success ? CampToast.Ok : CampToast.Bad);
-        GD.Print($"[截肢] {surgeon.DisplayName}→{patient.DisplayName} {infection.BodyPart} {(result.Success ? "成功" : "失败")}");
-        RefreshMedical();
+        _ = onBed;
+        TryBeginTimedSurgery(SurgeryKind.Amputation, patient, surgeon, infection, null, null, materials);
     }
 
     /// <summary>
     /// [SPEC-B14-补8] 面板「安装假肢」→ 走 <see cref="Pawn.InstallProstheticSurgery"/>（既有手术点数池/耗材/成败，护士基础点数同手术）：
     /// 成功=假肢就位（能力恢复）、失败=按手术失败惯例（假肢本体默认不损耗，可重试——现假肢非库存物品，本体消耗待假肢物品化后接，标待确认）。随后刷新面板。
     /// </summary>
-    private void OnProstheticSurgeryRequested(Pawn patient, BodyRegion region, ProstheticGrade grade, IReadOnlyList<string> materials, bool onBed, Pawn surgeon)
+    private void OnProstheticSurgeryRequested(Pawn patient, string bodyPartKey, BodyRegion region, ProstheticGrade grade, IReadOnlyList<string> materials, bool onBed, Pawn surgeon)
     {
-        int bookBonus = MedicalBookPoints.SumAlways(surgeon.ReadBookIds);
-        int bookBonusBarehanded = MedicalBookPoints.SumWithoutSupplies(surgeon.ReadBookIds);
-        double capability = surgeon.OperationCapability;
-        bool self = ReferenceEquals(patient, surgeon);
-        int basePoints = NightingalePerk.SurgeryBasePoints(surgeon.Perks.IsNightingale, _storyFlags.Has(NurseRecruit.L3LegacyFlag));
-
-        SurgeryResult result = patient.InstallProstheticSurgery(
-            region, grade, materials, RealOnBed(patient), _healthRng,
-            surgeonBookBonus: bookBonus, selfSurgery: self, operationCapability: capability, surgeryBasePoints: basePoints,
-            surgeonBookBonusNoSupplies: bookBonusBarehanded);
-
-        if (surgeon.Perks.IsNightingale
-            && (result.Status == SurgeryStatus.Success || result.Status == SurgeryStatus.Failed))
-        {
-            int count = NightingalePerk.RecordSurgery(_storyFlags);
-            if (NightingalePerk.EvaluateLevel(count) >= 3)
-                _storyFlags.Set(NurseRecruit.L3LegacyFlag, "true");
-        }
-
-        if (result.Status == SurgeryStatus.NotAllowed)
-        {
-            _campToast.Show(result.PlayerMessage ?? SurgeryResult.NotAllowedMessage, CampToast.Bad);
-            RefreshMedical();
-            return;
-        }
-
-        ConsumeMaterials(result.ConsumedMaterials); // 止血耗材成败都扣；假肢本体待物品化后于成功时扣（现无本体物品）
-        _campToast.Show(
-            result.Success
-                ? $"{surgeon.DisplayName} 为 {patient.DisplayName} 装上了假肢，行动恢复了些"
-                : $"{surgeon.DisplayName} 为 {patient.DisplayName} 安装假肢失败，得重来",
-            result.Success ? CampToast.Ok : CampToast.Bad);
-        GD.Print($"[假肢] {surgeon.DisplayName}→{patient.DisplayName} {region} {grade} {(result.Success ? "成功" : "失败")}");
-        RefreshMedical();
+        _ = onBed;
+        TryBeginTimedSurgery(SurgeryKind.Prosthetic, patient, surgeon, null, (bodyPartKey, region), grade, materials);
     }
 
     /// <summary>

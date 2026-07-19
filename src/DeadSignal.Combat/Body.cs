@@ -480,6 +480,38 @@ public sealed class Body
         && _parts.Values.Any(p => p.Category == BodyPartCategory.Eye);
 
     /// <summary>
+    /// 当前视力能力比例 [0,1]：逐眼按“当前 HP / 初始 MaxHP”求平均；切除/永久损毁的眼为 0。
+    /// 没有眼部定义的身体（机器、特殊生物等）保持中性 1，不让人类器官规则误伤其它 body 模板。
+    /// </summary>
+    public double VisionCapability => SensoryCapability(p => p.Category == BodyPartCategory.Eye);
+
+    /// <summary>
+    /// 当前听力能力比例 [0,1]：逐耳按“当前 HP / 初始 MaxHP”求平均；切除/永久损毁的耳为 0。
+    /// 耳目前属于 <see cref="BodyPartCategory.Minor"/>，0 HP 不会进入 <see cref="_disabled"/>，因此这里必须直接读 HP / <see cref="IsGone"/>。
+    /// 没有耳部定义的身体保持中性 1。
+    /// </summary>
+    public double HearingCapability => SensoryCapability(p => p.Region == BodyRegion.Ear);
+
+    private double SensoryCapability(Func<BodyPart, bool> predicate)
+    {
+        BodyPart[] organs = _parts.Values.Where(predicate).ToArray();
+        if (organs.Length == 0)
+            return 1.0;
+
+        double total = 0;
+        foreach (BodyPart organ in organs)
+        {
+            if (IsGone(organ.Name))
+                continue;
+            double baseline = Math.Max(0, organ.MaxHp);
+            total += baseline > 0
+                ? Math.Clamp(HpOf(organ.Name) / baseline, 0.0, 1.0)
+                : 0.0;
+        }
+        return total / organs.Length;
+    }
+
+    /// <summary>
     /// 对部位施加伤害（扣 HP，下限 0）。归零触发对应后果：致死部位→死亡、四肢→致残、眼→该眼失明。
     /// 已不存在（切除/损毁）的部位不再受伤。
     /// </summary>

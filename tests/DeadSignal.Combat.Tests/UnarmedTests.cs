@@ -168,7 +168,7 @@ public class UnarmedTests
         // 拳脚同爪击/撕咬——天生武器不入表 ⇒ Sim 的结算路径根本读不到它 ⇒ 既有基线不可能漂移。
         // 25 = 24 − 栓动猎枪（T29 用户从数值表删除） + 消防斧（[批次25·T44] 新建，**追加在末尾**）
         //      + 骨刀（[T56] 它早有配方却不在 Arsenal ⇒ 造得出来、拿不起来；补进表里，**同样追加在末尾**）。
-        Assert.Equal(25, WeaponTable.Arsenal().Count);
+        Assert.Equal(27, WeaponTable.Arsenal().Count);
         Assert.DoesNotContain(WeaponTable.Arsenal(), w => w.Name == WeaponTable.Fists().Name);
         Assert.DoesNotContain(WeaponTable.ArcheryArsenal(), w => w.Name == WeaponTable.Fists().Name);
     }

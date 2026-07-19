@@ -20,7 +20,7 @@ namespace DeadSignal.Combat.Tests;
 ///   <item><b>字面值锚定（A/B）</b>：抽样武器的每一类字段（double/bool/枚举/可空/弹药键/连发/弹丸）
 ///     逐条断言 == 迁移前的原始常量。<b>double 用位级相等</b>（0.075 → "0.075" → 0.075 一位不差）。</item>
 ///   <item><b>往返保真</b>：catalog 里每把武器再序列化→反序列化，逐字段位级相等 ⇒ 加载器不丢精度（值无关，永久护栏）。</item>
-///   <item><b>完整性/顺序</b>：28 把 id 全可取、Arsenal 25 把顺序不变、ArcheryArsenal 8 把、名字非空。</item>
+///   <item><b>完整性/顺序</b>：30 把 id 全可取、Arsenal 27 把既有顺序不变、ArcheryArsenal 8 把、名字非空。</item>
 ///   <item><b>枚举出字符串</b>：DamageType 序列化为 "Sharp"/"Blunt"（非序号 0/1）。</item>
 /// </list>
 /// <para>
@@ -46,14 +46,14 @@ public sealed class WeaponConfigMigrationTests
     }
 
     [Fact]
-    public void All_28_ids_resolve_with_nonempty_name()
+    public void All_30_ids_resolve_with_nonempty_name()
     {
         foreach (var id in AllIds)
         {
             var w = CombatCatalog.Weapon(id);
             Assert.False(string.IsNullOrEmpty(w.Name), $"{id} 名字不应为空");
         }
-        Assert.Equal(28, CombatCatalog.Weapons.Count);
+        Assert.Equal(30, CombatCatalog.Weapons.Count);
     }
 
     [Fact]
@@ -66,9 +66,10 @@ public sealed class WeaponConfigMigrationTests
     public void Arsenal_order_and_counts_unchanged()
     {
         var arsenal = WeaponTable.Arsenal();
-        Assert.Equal(25, arsenal.Count);
+        Assert.Equal(27, arsenal.Count);
         Assert.Equal("匕首", arsenal[0].Name);            // 历史首位
-        Assert.Equal("骨刀", arsenal[^1].Name);           // 历史末位（追加不插队）
+        Assert.Equal("骨刀", arsenal[^3].Name);           // 旧表历史末位；新武器只追加在它之后
+        Assert.Equal("牙医小手枪", arsenal[^1].Name);     // 当前追加末位
         Assert.Equal("自制霰弹枪", arsenal[15].Name);      // 第 16 位：原地替换短弓之后紧邻（随机流锚点）
         Assert.Equal(8, WeaponTable.ArcheryArsenal().Count);
     }
@@ -189,6 +190,7 @@ public sealed class WeaponConfigMigrationTests
         "improvised_hunting_gun", "pistol", "smg", "rifle", "sniper_rifle", "improvised_shotgun",
         "short_bow", "recurve_bow", "longbow", "competition_compound_bow", "hunting_bow",
         "light_crossbow", "heavy_crossbow", "compound_crossbow",
+        "improvised_pistol", "dentist_pistol",
         "zombie_claw", "dog_bite", "fists",
     };
 

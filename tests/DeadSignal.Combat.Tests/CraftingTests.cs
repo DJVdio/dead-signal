@@ -167,13 +167,16 @@ public class RecipeBookTests
     {
         Assert.Contains(RecipeBook.WildernessSurvivalGuideBookId, RecipeBook.Find("handmade_bow")!.RequiredBookIds);
 
-        foreach (string id in new[] { "recurve_bow", "longbow" })
-        {
-            RecipeData r = RecipeBook.Find(id)!;
-            Assert.Contains(RecipeBook.BowCraftingGuideBookId, r.RequiredBookIds);        // [T59] 改挂《弓制作指南》
-            Assert.DoesNotContain(RecipeBook.AdvancedCarpentryBookId, r.RequiredBookIds); // 已从进阶木匠搬走
-            Assert.DoesNotContain(RecipeBook.CarpentryBasicsBookId, r.RequiredBookIds);   // 更早就从入门书搬走了
-        }
+        RecipeData recurve = RecipeBook.Find("recurve_bow")!;
+        Assert.Contains(RecipeBook.BowCraftingGuideBookId, recurve.RequiredBookIds);
+        Assert.DoesNotContain(RecipeBook.AdvancedCarpentryBookId, recurve.RequiredBookIds);
+        Assert.DoesNotContain(RecipeBook.CarpentryBasicsBookId, recurve.RequiredBookIds);
+
+        RecipeData longbow = RecipeBook.Find("longbow")!;
+        Assert.Contains(RecipeBook.BritishChronicleBookId, longbow.RequiredBookIds);
+        Assert.DoesNotContain(RecipeBook.BowCraftingGuideBookId, longbow.RequiredBookIds);
+        Assert.DoesNotContain(RecipeBook.AdvancedCarpentryBookId, longbow.RequiredBookIds);
+        Assert.DoesNotContain(RecipeBook.CarpentryBasicsBookId, longbow.RequiredBookIds);
 
         foreach (string id in new[] { "light_crossbow", "heavy_crossbow" })
         {

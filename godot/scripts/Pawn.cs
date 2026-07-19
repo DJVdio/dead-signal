@@ -25,6 +25,44 @@ public sealed partial class Pawn : Actor
     /// </summary>
     public bool Stationing { get; set; }
 
+    // 营地岗哨运行时态：相位由 CampMain 每夜每个岗位只掷一次，Pawn 只按确定性波形转向。
+    // 使用 Numerics 坐标，避免让纯逻辑 SentryLogic 引入 Godot 类型。
+    private SentryPost? _guardDutyPost;
+    private SentrySweep _guardDutySweep = SentrySweep.Default;
+    private double _guardDutyElapsed;
+    /// <summary>敌袭已经进入实时战斗时由 CampMain 置 true；此时玩家移动/瞄准完全接管，不跑驻守取消逻辑。</summary>
+    public bool GuardCombatControlEnabled { get; set; }
+
+    /// <summary>正前往生产设施；到位后 Producing 会钉在设施前，避免接受其它移动令。</summary>
+    public bool ProducingStationing { get; set; }
+    /// <summary>敌袭战斗期间临时放行生产者参战；工时因离台/有战斗目标自动暂停。</summary>
+    public bool ProductionCombatControlEnabled { get; set; }
+
+    /// <summary>
+    /// 开始站岗：先走向岗位；到岗后按既定相位自动左右巡查。非战斗时不需要玩家逐个转头。
+    /// </summary>
+    public void BeginGuardDuty(Vector2 standPosition, float facingRadians, double sweepPhaseSeconds,
+        SentrySweep? sweep = null)
+    {
+        _guardDutyPost = new SentryPost(
+            new System.Numerics.Vector2(standPosition.X, standPosition.Y),
+            facingRadians,
+            sweepPhaseSeconds);
+        _guardDutySweep = sweep ?? SentrySweep.Default;
+        _guardDutyElapsed = 0.0;
+        GuardCombatControlEnabled = false;
+        Stationing = true;
+    }
+
+    /// <summary>结束站岗并清除岗位、扫视时钟和驻守移动态。</summary>
+    public void EndGuardDuty()
+    {
+        _guardDutyPost = null;
+        _guardDutyElapsed = 0.0;
+        GuardCombatControlEnabled = false;
+        Stationing = false;
+    }
+
     /// <summary>
     /// 饥饿刻度状态机（见 <see cref="HungerState"/>，数值化 0-6）。全部规则（衰减/进食/上限/惩罚）
     /// 归纯逻辑对象；Pawn 只持有并在昼夜切换/聚餐时驱动，并把能力惩罚经钩子喂给战斗消费点。
@@ -125,8 +163,21 @@ public sealed partial class Pawn : Actor
         return factor;
     }
 
+    protected override double HitLocationDamageMultiplier(Weapon weapon, BodyPart part)
+        => BookPassiveEffects.DamageMultiplier(weapon.Name, part.MacroRegion, HasReadBook);
+
+    protected override double AttackPenetrationMultiplier(Weapon weapon)
+    {
+        IReadOnlyList<Weapon> held = HeldWeapons;
+        bool mixed = held.Count == 2 && held.Any(w => w.IsRanged) && held.Any(w => !w.IsRanged);
+        return BookPassiveEffects.MixedGripMeleePenetrationMultiplier(
+            mixed && !weapon.IsRanged, HasReadBook);
+    }
+
     /// <summary>本 Pawn 逐书阅读进度（跨夜持久）。见 <see cref="ReadingProgress"/>。</summary>
     private readonly ReadingProgress _readingProgress = new();
+
+    public double ReadingHoursFor(string bookId) => _readingProgress.HoursOn(bookId);
 
     /// <summary>当前被指派在读的书 id（未在读为 <c>null</c>）。读满或结束后清空。</summary>
     public string? AssignedBookId { get; private set; }
@@ -278,13 +329,15 @@ public sealed partial class Pawn : Actor
     /// 皮特受击闪避：条件与概率由 <see cref="PetePerk.DodgeChance"/> / Wiki 配置表决定。
     /// 非皮特/未注入等级提供者 ⇒ 恒 false（基类零回归）。随机走引擎注入的 <see cref="IRandomSource"/>（可复现）。
     /// </summary>
-    protected override bool EvadeIncoming(IRandomSource rng)
+    protected override bool EvadeIncoming(IRandomSource rng, Weapon incomingWeapon, bool ranged)
     {
-        if (!Perks.IsPete || _peteLevelProvider is not { } level)
-        {
-            return false;
-        }
-        double chance = PetePerk.DodgeChance(level(), CarryLoad.CarriedKg);
+        double peteChance = Perks.IsPete && _peteLevelProvider is { } level
+            ? PetePerk.DodgeChance(level(), CarryLoad.CarriedKg)
+            : 0.0;
+        double bookChance = ranged ? 0.0 : BookPassiveEffects.MeleeDodgeChance(
+            PrimaryWeapon?.Name ?? "", HasReadBook);
+        // 两条独立闪避来源按概率乘算合并，避免加算越界，也只消耗一次随机点。
+        double chance = 1.0 - (1.0 - peteChance) * (1.0 - bookChance);
         return chance > 0.0 && rng.Range(0.0, 1.0) < chance;
     }
 
@@ -587,14 +640,30 @@ public sealed partial class Pawn : Actor
                 // 驻守途中放行移动令（走向岗位）；抵达即恢复原地驻守。非驻守时沿用原逻辑取消杂散移动令。
                 if (Stationing && IsNavigationFinished())
                     Stationing = false;
-                if (HasMoveOrder && !Stationing)
-                    CancelOrders();
-                if (CurrentAttackTarget is { Alive: true } tgt)
+                if (!GuardCombatControlEnabled)
                 {
-                    float dist = GlobalPosition.DistanceTo(tgt.GlobalPosition);
-                    if (dist > AttackRange + Radius + tgt.Radius)
+                    if (HasMoveOrder && !Stationing)
                         CancelOrders();
+                    // 到岗且未交战：自动按可预测的岗哨规律左右巡查；交战时让 Actor 的瞄准朝向接管。
+                    if (!Stationing && !HasActiveTarget && _guardDutyPost is { } post)
+                    {
+                        _guardDutyElapsed += delta;
+                        SetFacing(SentryLogic.FacingFor(SentryAction.HoldPost, post, FacingAngle,
+                            _guardDutyElapsed, _guardDutySweep));
+                    }
+                    if (CurrentAttackTarget is { Alive: true } tgt)
+                    {
+                        float dist = GlobalPosition.DistanceTo(tgt.GlobalPosition);
+                        if (dist > AttackRange + Radius + tgt.Radius)
+                            CancelOrders();
+                    }
                 }
+                break;
+            case PawnRole.Producing:
+                if (ProducingStationing && IsNavigationFinished())
+                    ProducingStationing = false;
+                if (!ProductionCombatControlEnabled && HasMoveOrder && !ProducingStationing)
+                    CancelOrders();
                 break;
             case PawnRole.Reading:
                 // 仿 Guard Stationing：走向座位途中放行移动令，抵达（导航完成）即坐下开读。

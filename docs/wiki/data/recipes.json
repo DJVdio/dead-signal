@@ -284,7 +284,7 @@
       "description": "",
       "userNote": "",
       "sync": "",
-      "_icon": "furniture/sofa"
+      "_icon": "furniture/chair"
     },
     {
       "name": "床",
@@ -472,7 +472,7 @@
       "materials": "铁*4、木料*2、武器零件*3",
       "tools": "卡尺",
       "craftLocation": "工作台（卡尺）",
-      "books": "《土法化学笔记》",
+      "books": "《西班牙编年史》",
       "workMinutes": 240,
       "crafterGate": "",
       "_id": "improvised_hunting_gun",
@@ -494,7 +494,7 @@
       "materials": "铁*3、木料*2、武器零件*3",
       "tools": "卡尺",
       "craftLocation": "工作台（卡尺）",
-      "books": "《土法化学笔记》",
+      "books": "《西班牙编年史》",
       "workMinutes": 210,
       "crafterGate": "",
       "_id": "improvised_shotgun",
@@ -714,7 +714,7 @@
       "materials": "木料*5、绳子*2",
       "tools": "",
       "craftLocation": "工作台（徒手）",
-      "books": "《弓制作指南》",
+      "books": "《英国编年史》",
       "workMinutes": 300,
       "crafterGate": "",
       "_id": "longbow",
@@ -1230,7 +1230,7 @@
       "description": "",
       "userNote": "",
       "sync": "",
-      "_icon": "armor/horror_armor"
+      "_icon": "armor/leather_armor"
     },
     {
       "name": "自制简易墨镜",
@@ -1252,7 +1252,7 @@
       "description": "",
       "userNote": "",
       "sync": "",
-      "_icon": "armor/snow_goggles"
+      "_icon": "armor/military_helmet"
     },
     {
       "name": "捕鸟陷阱",
@@ -1274,7 +1274,7 @@
       "description": "",
       "userNote": "",
       "sync": "",
-      "_icon": "furniture/bird_trap"
+      "_icon": "furniture/snare_trap"
     },
     {
       "name": "菜园",
@@ -1296,7 +1296,7 @@
       "description": "",
       "userNote": "",
       "sync": "",
-      "_icon": "furniture/crop_plot"
+      "_icon": "food/potato"
     },
     {
       "name": "简易宰杀点",
@@ -1318,7 +1318,7 @@
       "description": "",
       "userNote": "",
       "sync": "",
-      "_icon": "furniture/butcher_point"
+      "_icon": "weapons/bone_knife"
     },
     {
       "name": "宰杀台",
@@ -1340,7 +1340,7 @@
       "description": "",
       "userNote": "",
       "sync": "",
-      "_icon": "furniture/butcher_table"
+      "_icon": "weapons/bone_knife"
     },
     {
       "name": "缝合生皮",
@@ -1428,7 +1428,7 @@
       "description": "",
       "userNote": "",
       "sync": "",
-      "_icon": "armor/heavy_trousers"
+      "_icon": "armor/trousers"
     },
     {
       "name": "厚重披风",
@@ -1450,7 +1450,7 @@
       "description": "",
       "userNote": "",
       "sync": "",
-      "_icon": "armor/heavy_cape"
+      "_icon": "armor/cloth_coat"
     },
     {
       "name": "雪地靴",
@@ -1472,7 +1472,7 @@
       "description": "",
       "userNote": "",
       "sync": "",
-      "_icon": "armor/snow_boots"
+      "_icon": "armor/ankle_guard"
     },
     {
       "name": "狙击枪",
@@ -1495,6 +1495,182 @@
       "userNote": "",
       "sync": "",
       "_icon": "weapons/sniper_rifle"
+    },
+    {
+      "name": "自制手枪",
+      "category": "精工/弓弩",
+      "productType": "家具与设施",
+      "group": "家具与设施",
+      "output": "improvised_pistol",
+      "outputQty": 1,
+      "materials": "铁*2、木料*1、武器零件*2",
+      "tools": "卡尺",
+      "craftLocation": "工作台（卡尺）",
+      "books": "《西班牙编年史》",
+      "workMinutes": 180,
+      "crafterGate": "",
+      "_id": "improvised_pistol",
+      "_configId": "improvised_pistol",
+      "_crafterGateIds": "",
+      "_anchor": "godot/scripts/Recipe.cs :: RecipeBook（Id = \"improvised_pistol\"）",
+      "description": "",
+      "userNote": "",
+      "sync": "",
+      "_icon": "weapons/pistol"
+    },
+    {
+      "name": "牙医小手枪",
+      "category": "精工/弓弩",
+      "productType": "家具与设施",
+      "group": "家具与设施",
+      "output": "dentist_pistol",
+      "outputQty": 1,
+      "materials": "铁*1、木料*1、武器零件*2",
+      "tools": "卡尺",
+      "craftLocation": "工作台（卡尺）",
+      "books": "《被解救的姜戈》",
+      "workMinutes": 150,
+      "crafterGate": "",
+      "_id": "dentist_pistol",
+      "_configId": "dentist_pistol",
+      "_crafterGateIds": "",
+      "_anchor": "godot/scripts/Recipe.cs :: RecipeBook（Id = \"dentist_pistol\"）",
+      "description": "",
+      "userNote": "",
+      "sync": "",
+      "_icon": "weapons/pistol"
+    },
+    {
+      "name": "牛仔帽",
+      "category": "缝纫",
+      "productType": "家具与设施",
+      "group": "家具与设施",
+      "output": "cowboy_hat",
+      "outputQty": 1,
+      "materials": "皮革*2、布*1",
+      "tools": "",
+      "craftLocation": "工作台（徒手）",
+      "books": "《被解救的姜戈》",
+      "workMinutes": 90,
+      "crafterGate": "",
+      "_id": "cowboy_hat",
+      "_configId": "cowboy_hat",
+      "_crafterGateIds": "",
+      "_anchor": "godot/scripts/Recipe.cs :: RecipeBook（Id = \"cowboy_hat\"）",
+      "description": "",
+      "userNote": "",
+      "sync": "",
+      "_icon": "armor/cotton_hat"
+    },
+    {
+      "name": "马靴",
+      "category": "缝纫",
+      "productType": "家具与设施",
+      "group": "家具与设施",
+      "output": "riding_boots",
+      "outputQty": 1,
+      "materials": "皮革*3、布*1、绳子*1",
+      "tools": "",
+      "craftLocation": "工作台（徒手）",
+      "books": "《被解救的姜戈》",
+      "workMinutes": 120,
+      "crafterGate": "",
+      "_id": "riding_boots",
+      "_configId": "riding_boots",
+      "_crafterGateIds": "",
+      "_anchor": "godot/scripts/Recipe.cs :: RecipeBook（Id = \"riding_boots\"）",
+      "description": "",
+      "userNote": "",
+      "sync": "",
+      "_icon": "armor/ankle_guard"
+    },
+    {
+      "name": "简易装甲",
+      "category": "杂项",
+      "productType": "家具与设施",
+      "group": "家具与设施",
+      "output": "simple_armor",
+      "outputQty": 1,
+      "materials": "铁*3、布*4、皮革*2、绳子*2",
+      "tools": "",
+      "craftLocation": "工作台（徒手）",
+      "books": "《越南编年史》",
+      "workMinutes": 240,
+      "crafterGate": "",
+      "_id": "simple_armor",
+      "_configId": "simple_armor",
+      "_crafterGateIds": "",
+      "_anchor": "godot/scripts/Recipe.cs :: RecipeBook（Id = \"simple_armor\"）",
+      "description": "",
+      "userNote": "",
+      "sync": "",
+      "_icon": "armor/leather_armor"
+    },
+    {
+      "name": "武器台",
+      "category": "精工/弓弩",
+      "productType": "家具与设施",
+      "group": "家具与设施",
+      "output": "weapon_bench",
+      "outputQty": 1,
+      "materials": "木料*8、铁*4、钉子*6",
+      "tools": "卡尺",
+      "craftLocation": "工作台（卡尺）",
+      "books": "",
+      "workMinutes": 180,
+      "crafterGate": "营地里还没有武器台（已有就不能再造第二台）",
+      "_id": "weapon_bench",
+      "_configId": "weapon_bench",
+      "_crafterGateIds": "weapon_bench_absent",
+      "_anchor": "godot/scripts/Recipe.cs :: RecipeBook（Id = \"weapon_bench\"）",
+      "description": "",
+      "userNote": "",
+      "sync": "",
+      "_icon": "furniture/bench"
+    },
+    {
+      "name": "步枪",
+      "category": "精工/弓弩",
+      "productType": "武器",
+      "group": "武器",
+      "output": "rifle",
+      "outputQty": 1,
+      "materials": "铁*8、木料*3、武器零件*5",
+      "tools": "卡尺",
+      "craftLocation": "工作台（卡尺）",
+      "books": "《枪械维修指南》",
+      "workMinutes": 360,
+      "crafterGate": "",
+      "_id": "rifle",
+      "_configId": "rifle",
+      "_crafterGateIds": "",
+      "_anchor": "godot/scripts/Recipe.cs :: RecipeBook（Id = \"rifle\"）",
+      "description": "",
+      "userNote": "",
+      "sync": "",
+      "_icon": "weapons/rifle"
+    },
+    {
+      "name": "手枪",
+      "category": "精工/弓弩",
+      "productType": "武器",
+      "group": "武器",
+      "output": "pistol",
+      "outputQty": 1,
+      "materials": "铁*4、木料*1、武器零件*3",
+      "tools": "卡尺",
+      "craftLocation": "工作台（卡尺）",
+      "books": "《枪械维修指南》",
+      "workMinutes": 240,
+      "crafterGate": "",
+      "_id": "pistol",
+      "_configId": "pistol",
+      "_crafterGateIds": "",
+      "_anchor": "godot/scripts/Recipe.cs :: RecipeBook（Id = \"pistol\"）",
+      "description": "",
+      "userNote": "",
+      "sync": "",
+      "_icon": "weapons/pistol"
     }
   ]
 }

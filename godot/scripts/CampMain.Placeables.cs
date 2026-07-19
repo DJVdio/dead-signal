@@ -186,6 +186,13 @@ public sealed partial class CampMain
                 IsSolid = true,
                 Respawn = (_, rect) => SpawnModBench(rect),
             },
+            new()
+            {
+                TypeName = "武器台",
+                Match = key => key == WeaponBench.FurnitureKey,
+                IsSolid = true,
+                Respawn = (_, rect) => SpawnWeaponBench(rect),
+            },
         };
 
         // ── 焊死两份事实源 ──：库存「摆放」按钮读 PlaceableItems（纯逻辑）、本表驱动分派。

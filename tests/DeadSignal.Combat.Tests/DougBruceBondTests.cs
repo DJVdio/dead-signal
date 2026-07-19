@@ -8,6 +8,25 @@ namespace DeadSignal.Combat.Tests;
 /// </summary>
 public class DougBruceBondTests
 {
+    [Fact]
+    public void 夜袭警戒对抗_必须消费道格与布鲁斯的羁绊视锥()
+    {
+        DirectoryInfo? dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "DeadSignal.sln")))
+            dir = dir.Parent;
+        Assert.NotNull(dir);
+
+        string camp = File.ReadAllText(Path.Combine(dir!.FullName, "godot", "scripts", "CampMain.cs"));
+        int contestStart = camp.IndexOf("private bool RunNightRaidContest", StringComparison.Ordinal);
+        int contestEnd = camp.IndexOf("private void ShowRaidResponsePanel", contestStart, StringComparison.Ordinal);
+        Assert.True(contestStart >= 0 && contestEnd > contestStart);
+
+        string contest = camp[contestStart..contestEnd];
+        Assert.Contains("BondScaleCone(w.actor, VisionLogic.ConeFor(gLight))", contest);
+        Assert.Contains("visionCapability: (float)w.actor.VisionCapability", contest);
+        Assert.Contains("hearingCapability: (float)w.actor.HearingCapability", contest);
+    }
+
     // ── 等级推进：EvaluateLevel 阈值边界 ──────────────────────────────────────
     [Theory]
     [InlineData(-3, 1)]   // 负数按 0，仍 1 级

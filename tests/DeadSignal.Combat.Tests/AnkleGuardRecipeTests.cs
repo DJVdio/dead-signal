@@ -108,7 +108,7 @@ public class AnkleGuardRecipeTests
             .EnumerateArray()
             .Single(c => c.GetProperty("id").GetString() == "recipes");
         int rowCount = recipes.RootElement.GetProperty("rows").GetArrayLength();
-        Assert.Equal(61, rowCount);
+        Assert.Equal(69, rowCount);
         Assert.Equal(rowCount, indexCategory.GetProperty("count").GetInt32());
 
         string bundleText = File.ReadAllText(Path.Combine(dataDir, "bundle.js"));
@@ -120,7 +120,7 @@ public class AnkleGuardRecipeTests
             bundleText[(recipesStart + recipesMarker.Length)..recipesEnd]);
         Assert.Equal(rowCount, bundleRecipes.RootElement.GetProperty("rows").GetArrayLength());
         Assert.True(JsonNode.DeepEquals(JsonNode.Parse(recipesText), JsonNode.Parse(bundleRecipes.RootElement.GetRawText())));
-        Assert.Contains("\"id\": \"recipes\",\n      \"label\": \"配方\",\n      \"file\": \"recipes.json\",\n      \"count\": 61,", bundleText);
+        Assert.Contains("\"id\": \"recipes\",\n      \"label\": \"配方\",\n      \"file\": \"recipes.json\",\n      \"count\": 69,", bundleText);
     }
 
     private static string RepoRoot([CallerFilePath] string thisFile = "")

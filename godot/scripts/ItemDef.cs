@@ -81,6 +81,8 @@ public static class ItemRegistry
         // 「栓动猎枪」已按用户在数值表上的删除撤下。
         ["步枪"] = 7.5,
         ["狙击枪"] = 9.0,
+        ["自制手枪"] = 2.5,
+        ["牙医小手枪"] = 1.0,
 
         // 弓弩
         ["短弓"] = 0.8,
@@ -134,6 +136,7 @@ public static class ItemRegistry
         ArmorTable.HeavyTrousers(), ArmorTable.HeavyCape(), ArmorTable.SnowBoots(),
         ArmorTable.DogClothVest(), ArmorTable.DogLeatherVest(), ArmorTable.DogPocketVest(),
         ArmorTable.DogIronHelmet(), ArmorTable.DogWireHelmet(),
+        ArmorTable.CowboyHat(), ArmorTable.RidingBoots(), ArmorTable.SimpleArmor(),
     };
 
     /// <summary>

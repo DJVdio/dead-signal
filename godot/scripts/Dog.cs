@@ -266,9 +266,10 @@ public sealed partial class Dog : Actor
     }
 
     /// <summary>
-    /// 高闪避：每次来袭以 <see cref="DodgeChance"/> 概率整次躲开（近战/远程皆吃）。掷免走引擎注入的
+    /// 高闪避：每次来袭以 <see cref="DodgeChance"/> 概率整次躲开（近战/远程皆吃；武器与远近参数在狗这条通路不改变概率）。掷免走引擎注入的
     /// <see cref="IRandomSource"/>（与哨塔抵挡同源口径，可复现）。TODO(bruce-actor)：闪避表现（"闪避"飘字）
     /// 待接（当前静默躲开，机制优先）；数值/是否仅限近战待用户确认。
     /// </summary>
-    protected override bool EvadeIncoming(IRandomSource rng) => rng.Range(0.0, 1.0) < DodgeChance;
+    protected override bool EvadeIncoming(IRandomSource rng, Weapon incomingWeapon, bool ranged)
+        => rng.Range(0.0, 1.0) < DodgeChance;
 }

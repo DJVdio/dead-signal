@@ -42,7 +42,7 @@ public sealed class ArmorConfigMigrationTests
     }
 
     [Fact]
-    public void All_33_ids_resolve_with_nonempty_name()
+    public void All_39_ids_resolve_with_nonempty_name()
     {
         var section = CombatCatalog.Section<ArmorConfig>();
         foreach (var id in AllIds)
@@ -50,7 +50,7 @@ public sealed class ArmorConfigMigrationTests
             var a = section.Get(id);
             Assert.False(string.IsNullOrEmpty(a.Name), $"{id} 名字不应为空");
         }
-        Assert.Equal(36, section.ById.Count);
+        Assert.Equal(39, section.ById.Count);
     }
 
     [Fact]

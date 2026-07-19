@@ -1,6 +1,7 @@
 {
   "工作台": { "cost": { "wood": 16, "nails": 8 }, "buildMinutes": 180 },
   "改装台": { "cost": { "wood": 8, "iron": 4, "components": 2, "nails": 6 }, "buildMinutes": 200 },
+  "武器台": { "cost": { "wood": 8, "iron": 4, "nails": 6 }, "buildMinutes": 180 },
   "烹饪台": { "cost": { "stone": 8, "wood": 6, "iron": 3, "nails": 4 }, "buildMinutes": 180 },
   "住宅-柜子": { "cost": { "wood": 10, "nails": 6 }, "buildMinutes": 120 },
   "住宅-衣柜": { "cost": { "wood": 12, "nails": 6 }, "buildMinutes": 140 },

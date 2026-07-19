@@ -106,7 +106,7 @@ public sealed partial class CampMain : Node2D
             ControllableCrafters(),   // 掌勺的人：同制作，取存活且可控的幸存者
             _inventory,
             HasCookStation,
-            _craftingJob);            // 全营单任务队列：有人正忙着别的活 ⇒ 不接新单
+            JobAt(FacilityJobKeys.MainCookStation));
 
     private void CloseCooking()
     {
@@ -172,15 +172,16 @@ public sealed partial class CampMain : Node2D
     /// </summary>
     private void OnCookRequested(IReadOnlyDictionary<string, int> pot, Pawn cook)
     {
-        if (_craftingJob is not null)
+        if (!CanStartFacilityJob(FacilityJobKeys.MainCookStation, cook, out string busyWhy))
         {
-            _campToast.Show("有人正忙着别的活——完工之后再开火。", CampToast.Bad);
+            _campToast.Show(busyWhy, CampToast.Bad);
             RefreshCooking();
             return;
         }
 
         CookPlan plan = CookingLogic.Plan(
-            HasCookStation, pot, _cookStation.Installed, _inventory.MaterialCount);
+            HasCookStation, pot, _cookStation.Installed, _inventory.MaterialCount,
+            BookPassiveEffects.FoodCaloriesReduction(cook.HasReadBook));
 
         if (!plan.CanCook)
         {
@@ -211,10 +212,9 @@ public sealed partial class CampMain : Node2D
         }
 
         int minutes = CookingLogic.WorkMinutesFor(plan.Portions);
-        _craftingJob = new CraftingJob(CookingLogic.JobIdFor(plan.Portions), minutes);
-        _craftingJobWorker = cook;
+        StartFacilityJob(FacilityJobKeys.MainCookStation,
+            new CraftingJob(CookingLogic.JobIdFor(plan.Portions), minutes), cook);
         _craftLastMinuteKey = -1;
-        _craftMinuteBudget = 0f;
 
         string work = CraftingPanelFormat.FormatWorkDuration(minutes);
         _campToast.Show($"下锅了：食物 ×{plan.Portions}（工时 {work}，夜间生产）", CampToast.Ok);

@@ -490,5 +490,77 @@
       "damaged_sniper_rifle": 1,
       "weapon_parts": 3
     }
+  },
+  "improvised_pistol": {
+    "OutputQuantity": 1,
+    "WorkMinutes": 180,
+    "MaterialCosts": {
+      "iron": 2,
+      "wood": 1,
+      "weapon_parts": 2
+    }
+  },
+  "dentist_pistol": {
+    "OutputQuantity": 1,
+    "WorkMinutes": 150,
+    "MaterialCosts": {
+      "iron": 1,
+      "wood": 1,
+      "weapon_parts": 2
+    }
+  },
+  "cowboy_hat": {
+    "OutputQuantity": 1,
+    "WorkMinutes": 90,
+    "MaterialCosts": {
+      "leather": 2,
+      "cloth": 1
+    }
+  },
+  "riding_boots": {
+    "OutputQuantity": 1,
+    "WorkMinutes": 120,
+    "MaterialCosts": {
+      "leather": 3,
+      "cloth": 1,
+      "rope": 1
+    }
+  },
+  "simple_armor": {
+    "OutputQuantity": 1,
+    "WorkMinutes": 240,
+    "MaterialCosts": {
+      "iron": 3,
+      "cloth": 4,
+      "leather": 2,
+      "rope": 2
+    }
+  },
+  "weapon_bench": {
+    "OutputQuantity": 1,
+    "WorkMinutes": 180,
+    "MaterialCosts": {
+      "wood": 8,
+      "iron": 4,
+      "nails": 6
+    }
+  },
+  "rifle": {
+    "OutputQuantity": 1,
+    "WorkMinutes": 360,
+    "MaterialCosts": {
+      "iron": 8,
+      "wood": 3,
+      "weapon_parts": 5
+    }
+  },
+  "pistol": {
+    "OutputQuantity": 1,
+    "WorkMinutes": 240,
+    "MaterialCosts": {
+      "iron": 4,
+      "wood": 1,
+      "weapon_parts": 3
+    }
   }
 }

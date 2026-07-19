@@ -39,7 +39,7 @@ namespace DeadSignal.Godot;
 /// 圈套陷阱套的是<b>地上跑的</b>（老鼠 / 兔子）；捕鸟陷阱扣的是<b>天上飞的</b>（<b>鸟</b>，即原「鸽子」）。
 /// 两者的产物<b>都要过案板</b>（老鼠 → 老鼠肉 + 碎皮革；鸟 → 鸟肉 + <b>羽毛</b>），
 /// 而<b>只有鸟身上出羽毛</b> ⇒ **捕鸟陷阱是营地唯一可持续的箭矢原料来源**：
-/// 它的位置在**军备**这条线上，不只在灶台上。（兔子是圈套的另一个产物，用户没让它进案板 ⇒ 仍可直接下锅。）
+/// 它的位置在**军备**这条线上，不只在灶台上。（兔子是圈套的另一个产物，也必须先上任一档宰杀设施再下锅。）
 /// 两者的<b>几率递减各数各的</b>（各按自己的实例名前缀数），但它们<b>抢同一块地皮</b>
 /// —— 院子就这么大，多扎一个网就少一个套子。这就是它们之间真正的取舍。</para>
 ///
@@ -352,6 +352,10 @@ public static class CropPlotLogic
     /// <summary>刚下种：剩余游戏小时 = <see cref="GrowGameHours"/> = 84。</summary>
     public static double InitialRemainingHours => GrowGameHours;
 
+    /// <summary>按下种者已读书效果计算新种薯计时；既有存量计时不追溯改写。</summary>
+    public static double InitialRemainingHoursFor(int growHoursReduction)
+        => Math.Max(0.0, GrowGameHours - Math.Max(0, growHoursReduction));
+
     /// <summary>
     /// 走过 <paramref name="elapsedGameHours"/> 游戏小时：剩余 − 流逝，<b>不跌破 0</b>
     /// （熟了就一直熟着等你来收，不会烂在地里——烂菜是引擎新轴，本单不开）。负流逝按 0 处理。
@@ -371,8 +375,8 @@ public static class CropPlotLogic
     /// <summary>制作队列里"种一颗"任务 id 的前缀（同 <c>cook:</c>／<c>salvage:</c> 的分流范式）：<c>plant:菜园#3</c>。</summary>
     public const string PlantJobPrefix = "plant:";
 
-    /// <summary>种一颗的人力动作耗时（<b>用户拍板：0.15 游戏小时/颗</b>）。占用一个幸存者 0.15h。</summary>
-    public const double PlantActionGameHours = 0.15;
+    /// <summary>种一颗的人力动作耗时（<b>用户拍板：0.25 游戏小时/颗</b>）。占用一个幸存者 0.25h。</summary>
+    public const double PlantActionGameHours = 0.25;
 
     /// <summary>种一颗动作折成 <see cref="CraftingJob"/> 的工时；当前值以 Wiki 配置为准。</summary>
     public const int PlantWorkMinutes = (int)(PlantActionGameHours * 60);   // = 9
@@ -534,7 +538,7 @@ public static class CropPlotRuntime
     /// <b>种植工时满、完工</b>：把下一个空格的计时器置成 <see cref="CropPlotLogic.InitialRemainingHours"/>=84（开始 84 游戏小时倒计时）。
     /// 返回落种的格号；满种（理论上不该发生，开工前已 <see cref="CanPlant"/> 校验过）返回 0（种薯已扣，但这里没格可落——消费层据此如实报）。
     /// </summary>
-    public static int CompletePlant(StoryFlags flags, string plotName)
+    public static int CompletePlant(StoryFlags flags, string plotName, int growHoursReduction = 0)
     {
         int slot = NextFreeSlot(flags, plotName);
         if (slot == 0)
@@ -542,7 +546,7 @@ public static class CropPlotRuntime
             return 0;
         }
         flags.Set(SlotFlag(plotName, slot),
-            CropPlotLogic.InitialRemainingHours.ToString("R", CultureInfo.InvariantCulture));
+            CropPlotLogic.InitialRemainingHoursFor(growHoursReduction).ToString("R", CultureInfo.InvariantCulture));
         return slot;
     }
 

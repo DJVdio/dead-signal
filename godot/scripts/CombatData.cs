@@ -218,7 +218,9 @@ public sealed class CombatEngine
         double concussionResistFactor = 1.0,
         double incomingDamageReduction = 0.0,
         double handGuardNegateChance = 0.0,
-        IReadOnlySet<string>? weaponHandParts = null)
+        IReadOnlySet<string>? weaponHandParts = null,
+        System.Func<Weapon, BodyPart, double>? hitDamageMultiplier = null,
+        double penetrationMultiplier = 1.0)
     {
         // 远程距离衰减：只在系数 <1 时建缩放副本，满伤/近战路径沿用原武器、逐字节零改动（零回归）。
         Weapon effective = damageFactor < 1.0 ? ScaleWeaponDamage(weapon, damageFactor) : weapon;
@@ -229,6 +231,14 @@ public sealed class CombatEngine
             .ToList();
 
         BodyPart part = _hitSelector.Select(candidates);
+
+        // 读书等消费层效果中，有些必须等部位选定后才知道是否生效（如只强化头/躯干）。
+        // 默认回调为空且穿透乘子=1，既有路径不建副本、不消耗随机流。
+        double locationDamageMultiplier = hitDamageMultiplier?.Invoke(effective, part) ?? 1.0;
+        if (locationDamageMultiplier != 1.0 || penetrationMultiplier != 1.0)
+        {
+            effective = TransformWeapon(effective, locationDamageMultiplier, penetrationMultiplier);
+        }
 
         // [T69] 护手挡格否决：命中选中的是持械手（含手指）时，按几率整发判无效（不结算伤害/效果）。
         // 零漂移：chance ≤ 0（绝大多数武器）或命中非持械手 ⇒ WeaponModDefense.HandGuardNegates 短路、不掷点。
@@ -287,12 +297,14 @@ public sealed class CombatEngine
     /// 其余字段原样保留）。远程距离衰减用。<see cref="Weapon"/> 为 sealed class 无 <c>with</c> 表达式：
     /// **若 Weapon 新增字段，须在此同步拷贝**，否则副本会静默丢字段。
     /// </summary>
-    private static Weapon ScaleWeaponDamage(Weapon w, double factor) => new()
+    private static Weapon ScaleWeaponDamage(Weapon w, double factor) => TransformWeapon(w, factor, 1.0);
+
+    private static Weapon TransformWeapon(Weapon w, double damageFactor, double penetrationFactor) => new()
     {
         Name = w.Name,
-        DamageMin = w.DamageMin * factor,
-        DamageMax = w.DamageMax * factor,
-        Penetration = w.Penetration,
+        DamageMin = w.DamageMin * damageFactor,
+        DamageMax = w.DamageMax * damageFactor,
+        Penetration = System.Math.Clamp(w.Penetration * penetrationFactor, 0.0, 1.0),
         DamageType = w.DamageType,
         TwoHanded = w.TwoHanded,
         CanDualWield = w.CanDualWield,

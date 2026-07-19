@@ -65,12 +65,14 @@ public static class MerchantTrade
     public static int BuyPrice(int baseCents) => Math.Max(0, baseCents) * BuyRatePercent / 100;
 
     /// <summary>
-    /// 某基准价（**分**）的**卖出价**（玩家所得，分）= 基准价 × 卖出价率%（分级取整，≥0）。
+    /// 某基准价（**分**）的**卖出价**（玩家所得，分）= 基准价 × 卖出价率% × 卖价乘数（分级取整，≥0）。
     /// <paramref name="sellRatePercentOverride"/> 非空时用它替代默认 <see cref="SellRatePercent"/>（克莉丝汀 L3 传 70）；
     /// 默认 <c>null</c> ⇒ 走 <see cref="SellRatePercent"/>(60)，零回归。
+    /// <paramref name="sellPriceMultiplier"/> 书籍被动卖价乘数（《销售的本质》读后=1.03，默认 1.0），
+    /// 与 <paramref name="sellRatePercentOverride"/> 乘算，仅最终取整一次；展示价与实付同源。
     /// </summary>
-    public static int SellPrice(int baseCents, int? sellRatePercentOverride = null)
-        => Math.Max(0, baseCents) * (sellRatePercentOverride ?? SellRatePercent) / 100;
+    public static int SellPrice(int baseCents, int? sellRatePercentOverride = null, double sellPriceMultiplier = 1.0)
+        => (int)(Math.Max(0, baseCents) * (sellRatePercentOverride ?? SellRatePercent) / 100.0 * sellPriceMultiplier);
 
     /// <summary>
     /// 应用买入折扣后的**实付买价**（分）= <paramref name="price"/> × (1 − <paramref name="buyDiscount"/>)，分级向下取整、≥0。
@@ -134,14 +136,15 @@ public static class MerchantTrade
     /// 判定与实扣同源，不会半途扣物不给钱。<paramref name="currencyKey"/> 默认白银。
     /// </summary>
     /// <param name="sellRatePercentOverride">克莉丝汀 L3 卖出价率覆盖（默认 null＝走 <see cref="SellRatePercent"/>=60，零回归；她在营 L3 传 70）。</param>
-    public static SellStatus SellOne(InventoryStore store, Item unit, string? currencyKey = null, int? sellRatePercentOverride = null)
+    /// <param name="sellPriceMultiplier">书籍被动卖价乘数（默认 1.0），实付价 <see cref="MerchantBuyList.SellUnitPrice"/> 使用同值，展示与实付同源。</param>
+    public static SellStatus SellOne(InventoryStore store, Item unit, string? currencyKey = null, int? sellRatePercentOverride = null, double sellPriceMultiplier = 1.0)
     {
         if (store == null || unit == null || !MerchantBuyList.CanSell(unit))
         {
             return SellStatus.NotBuying;
         }
 
-        int unitPrice = MerchantBuyList.SellUnitPrice(unit, sellRatePercentOverride);
+        int unitPrice = MerchantBuyList.SellUnitPrice(unit, sellRatePercentOverride, sellPriceMultiplier);
         bool spent = unit.Category == ItemCategory.Food
             ? store.TrySpendFood(1)
             : store.TrySpendMaterial(unit.RefKey!, 1);

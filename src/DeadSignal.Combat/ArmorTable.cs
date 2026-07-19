@@ -263,6 +263,16 @@ public static class ArmorTable
     /// <summary>雪地靴（成对·脚槽，护双脚及脚趾）：数值来自 Wiki。</summary>
     public static ArmorLayer SnowBoots() => Cfg("snow_boots");
 
+    // ---- [missing-book-items] 新增护甲（牛仔帽/马靴/简易装甲） ----
+    /// <summary>牛仔帽（头槽，护头）：宽沿高顶皮质帽。</summary>
+    public static ArmorLayer CowboyHat() => Cfg("cowboy_hat");
+
+    /// <summary>马靴（成对·脚槽，护小腿+脚含趾）：硬皮长筒靴。</summary>
+    public static ArmorLayer RidingBoots() => Cfg("riding_boots");
+
+    /// <summary>简易装甲（装甲层，护胸+腹）：小片金属与厚布叠成的简陋装甲。</summary>
+    public static ArmorLayer SimpleArmor() => Cfg("simple_armor");
+
     // ---- 生物·天生（不可穿戴）----
 
     /// <summary>丧尸：一层腐烂硬皮，覆盖全身（表『防护部位』= 全身 → CoversParts=null）。</summary>

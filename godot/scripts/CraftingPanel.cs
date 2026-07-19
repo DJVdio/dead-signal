@@ -58,6 +58,7 @@ public sealed partial class CraftingPanel : CanvasLayer
     // 制作者门槛判据（狗装备等）：(制作者, 门槛键) → null=满足 / 文案=挡（供灰显）。null=未接线，
     // 交由 CraftingLogic.CanCraft **fail-closed** 拦下带门槛的配方（见其 crafterGate 参数）。
     private Func<Pawn, string, string?>? _crafterGate;
+    private Func<RecipeData, bool> _recipeFilter = _ => true;
     private CraftingJob? _activeJob; // 工时制：本工作台当前在制任务（单任务队列）；非 null 时工作台占用，其余配方不可下单
 
     // ---- 面板自身瞬态 ----
@@ -190,7 +191,8 @@ public sealed partial class CraftingPanel : CanvasLayer
         Func<Pawn, string, bool> hasReadBook,
         CraftingJob? activeJob = null,
         Func<Pawn, string, string?>? crafterGate = null,
-        bool hasModBench = false)
+        bool hasModBench = false,
+        Func<RecipeData, bool>? recipeFilter = null)
     {
         _workbench = workbench ?? new WorkbenchState();
         _crafters = crafters ?? Array.Empty<Pawn>();
@@ -199,6 +201,7 @@ public sealed partial class CraftingPanel : CanvasLayer
         _crafterGate = crafterGate;
         _activeJob = activeJob;
         _hasModBench = hasModBench;
+        _recipeFilter = recipeFilter ?? (_ => true);
 
         // 制作者候选：保留已选（若仍在名单），否则取第一个。
         if (_selectedCrafter is null || !_crafters.Contains(_selectedCrafter))
@@ -284,7 +287,7 @@ public sealed partial class CraftingPanel : CanvasLayer
         }
 
         IReadOnlySet<ToolSlot> installed = _workbench.InstalledTools;
-        foreach (RecipeToolGroup group in CraftingPanelFormat.GroupByTool(RecipeBook.All))
+        foreach (RecipeToolGroup group in CraftingPanelFormat.GroupByTool(RecipeBook.All.Where(_recipeFilter).ToList()))
         {
             bool toolsOk = CraftingPanelFormat.ToolsInstalled(group.Tools, installed);
             AddCraftGroupHeader(group, toolsOk);
@@ -570,11 +573,16 @@ public sealed partial class CraftingPanel : CanvasLayer
             {
                 bool selected = _selectedMods.Contains(mod.Name);
                 bool blockedByPart = !selected && occupied.Contains(mod.Part);
-                check.Disabled = blockedByPart;
-                check.AddThemeColorOverride("font_color", blockedByPart ? DimColor : TextColor);
+                bool bookLocked = _selectedCrafter is null
+                    || !BookPassiveEffects.WeaponModUnlocked(mod.Id,
+                        id => _hasReadBook(_selectedCrafter, id));
+                check.Disabled = blockedByPart || bookLocked;
+                check.AddThemeColorOverride("font_color", blockedByPart || bookLocked ? DimColor : TextColor);
                 if (note is not null)
                 {
-                    note.Text = "    " + mod.Note + (blockedByPart ? "（该部位已选其它改装）" : "");
+                    note.Text = "    " + mod.Note
+                        + (bookLocked ? "（需该制作者读完《意大利编年史》）" : "")
+                        + (blockedByPart ? "（该部位已选其它改装）" : "");
                 }
             }
             if (_selectedMods.Count == 0)

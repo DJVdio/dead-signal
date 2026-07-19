@@ -210,6 +210,21 @@ public static class RecipeBook
     /// </summary>
     public const string CookStationPresentGate = "cook_station_present";
 
+    /// <summary>《西班牙编年史》书 id（对齐 BookLibrary.SpanishChronicleId）。解锁自制手枪 + 接管自制猎枪/自制霰弹枪。</summary>
+    public const string SpanishChronicleBookId = BookLibrary.SpanishChronicleId;
+
+    /// <summary>《被解救的姜戈》书 id（对齐 BookLibrary.DjangoUnchainedId）。解锁牙医小手枪/牛仔帽/马靴。</summary>
+    public const string DjangoUnchainedBookId = BookLibrary.DjangoUnchainedId;
+
+    /// <summary>《越南编年史》书 id（对齐 BookLibrary.VietnameseChronicleId）。解锁简易装甲。</summary>
+    public const string VietnameseChronicleBookId = BookLibrary.VietnameseChronicleId;
+
+    /// <summary>《英国编年史》书 id（对齐 BookLibrary.BritishChronicleId）。接管长弓。</summary>
+    public const string BritishChronicleBookId = BookLibrary.BritishChronicleId;
+
+    /// <summary>《意大利编年史》书 id（对齐 BookLibrary.ItalianChronicleId）。门槛弩盾改装。</summary>
+    public const string ItalianChronicleBookId = BookLibrary.ItalianChronicleId;
+
     private static IReadOnlySet<ToolSlot> Tools(params ToolSlot[] slots) => new HashSet<ToolSlot>(slots);
     private static IReadOnlyList<string> Books(params string[] ids) => new List<string>(ids);
 
@@ -347,7 +362,7 @@ public static class RecipeBook
         // （[T46] 废金属与金属锭合并成「铁」后，原「金属锭 2」按 1 锭 = 2 铁折成 铁 4，见下方自制霰弹枪那条的换算论证。）
         // 工时 240 分（短弓 120 / 木椅 150），造一把枪本就该比削张弓费事——但**不是全表最长**：
         // 双手重弩 320 分才是（见下方 heavy_crossbow）。数值皆拟定待调，真源 godot/data/config/recipes.json。
-        R("improvised_hunting_gun", "自制猎枪", RecipeCategory.Precision, "improvised_hunting_gun", Tools(ToolSlot.Calipers), Books(FolkChemistryNotesBookId)),
+        R("improvised_hunting_gun", "自制猎枪", RecipeCategory.Precision, "improvised_hunting_gun", Tools(ToolSlot.Calipers), Books(SpanishChronicleBookId)),
 
         // 自制霰弹枪（多弹丸武器）：**全表最好造的枪**——它就是一根钢管 + 击针，没有线膛、没有精密瞄具。
         // 故比自制猎枪更便宜也更快：**铁只要 3**（猎枪要 4：线膛与精密件费料）、机械零件只要 1 个（简单击发）、
@@ -357,7 +372,7 @@ public static class RecipeBook
         //    这也是"1 锭 = 2 铁"这个换算率的由来：若按 1:1 直接相加，猎枪只要铁 2，**反而比霰弹枪还便宜**，档位当场倒挂。
         // 同样需卡尺精工 + 读过《土法化学笔记》（懂火药的人才造得了枪）。材料全取自现有 Materials 目录，未新造。
         // 枪本身不吃火药——火药是**弹药**（鹿弹 ammo_buck）的成本，见下方弹药配方。数值皆拟定待调。
-        R("improvised_shotgun", "自制霰弹枪", RecipeCategory.Precision, "improvised_shotgun", Tools(ToolSlot.Calipers), Books(FolkChemistryNotesBookId)),
+        R("improvised_shotgun", "自制霰弹枪", RecipeCategory.Precision, "improvised_shotgun", Tools(ToolSlot.Calipers), Books(SpanishChronicleBookId)),
 
         // ── [批次21·T7/T10] 改装台：**武器改造的唯一场所**（用户拍板「在工作台可以制作改装台，在改装台落地武器改造」）──
         // 在**工作台**上造出来 → 进库存 → 由玩家**自己摆到营地里**（同沙袋的"造→摆"两段式）。
@@ -476,7 +491,7 @@ public static class RecipeBook
         R("recurve_bow", "反曲弓", RecipeCategory.Precision, "recurve_bow", Tools(), Books(BowCraftingGuideBookId)),
 
         // 长弓：射程之王。一张比人还高的弓 → 料最多的**纯木**配方（木料 5 + 绳 2），工时 240。
-        R("longbow", "长弓", RecipeCategory.Precision, "longbow", Tools(), Books(BowCraftingGuideBookId)),
+        R("longbow", "长弓", RecipeCategory.Precision, "longbow", Tools(), Books(BritishChronicleBookId)),
 
         // ── 两把弩：[SPEC-B21·T26 追加] 书门槛 → 《**机械之美**》（用户拍板的新书；书名是他给的）──
         //
@@ -721,6 +736,40 @@ public static class RecipeBook
         // 书：《枪械维修指南》解锁（神秘商人货源）。
         // 工时 240 分（对标自制猎枪的工时——修一支精密枪不比造一支土枪省事）。
         R("repair_sniper_rifle", "狙击枪", RecipeCategory.Precision, "repair_sniper_rifle",
+            Tools(ToolSlot.Calipers), Books(GunsmithRepairGuideBookId)),
+
+        // ══════════════ [missing-book-items] 5 件新物品及配方（追加末尾不插队）══════════════
+        //
+        // 自制手枪：土制手枪，比真手枪弱。解锁自《西班牙编年史》。
+        R("improvised_pistol", "自制手枪", RecipeCategory.Precision, "improvised_pistol",
+            Tools(ToolSlot.Calipers), Books(SpanishChronicleBookId)),
+
+        // 牙医小手枪：《被解救的姜戈》解锁。小型隐蔽手枪，可双持。
+        R("dentist_pistol", "牙医小手枪", RecipeCategory.Precision, "dentist_pistol",
+            Tools(ToolSlot.Calipers), Books(DjangoUnchainedBookId)),
+
+        // 牛仔帽：头槽布甲。《被解救的姜戈》解锁。
+        R("cowboy_hat", "牛仔帽", RecipeCategory.Tailoring, "cowboy_hat",
+            Tools(), Books(DjangoUnchainedBookId)),
+
+        // 马靴：成对脚槽。《被解救的姜戈》解锁。
+        R("riding_boots", "马靴", RecipeCategory.Tailoring, "riding_boots",
+            Tools(), Books(DjangoUnchainedBookId)),
+
+        // 简易装甲：装甲层护胸腹。《越南编年史》解锁。
+        R("simple_armor", "简易装甲", RecipeCategory.Misc, "simple_armor",
+            Tools(), Books(VietnameseChronicleBookId)),
+
+        // 真实独立武器台：先在普通工作台造好，完工后固定落在车间；武器配方随后只在武器台下单。
+        // 成本与工时取 recipes.json，方便用户在 Wiki 调整。
+        R(WeaponBench.RecipeId, WeaponBench.FurnitureKey, RecipeCategory.Precision, WeaponBench.ItemKey,
+            Tools(ToolSlot.Calipers), Books(), Books(WeaponBench.AbsentGate)),
+
+        // 《枪械维修指南》在 Wiki 明确解锁狙击枪、步枪、手枪。狙击枪沿用上面的损坏枪修复；
+        // 步枪/手枪此前没有配方入口，补为武器台精工配方。材料与工时是可在 Wiki 继续调的初值。
+        R("rifle", "步枪", RecipeCategory.Precision, "rifle",
+            Tools(ToolSlot.Calipers), Books(GunsmithRepairGuideBookId)),
+        R("pistol", "手枪", RecipeCategory.Precision, "pistol",
             Tools(ToolSlot.Calipers), Books(GunsmithRepairGuideBookId)),
     };
 

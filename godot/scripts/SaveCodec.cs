@@ -54,7 +54,7 @@ public static class SaveCodec
     // （铁 = 废×1 + 锭×<see cref="SaveMigration.IngotToIronRatio"/>），不存在"猜一个不知道的字段"那种半兼容风险。
     // ⇒ 这里恰恰**不是**上面警告的"山姆的手指长回来了"，而是"两堆金属并成一堆，一克不少"。
     // 迁移入口：<see cref="SaveMigration.Migrate"/>（在 Deserialize 的版本闸门之前跑）。
-    public const int CurrentVersion = 3;
+    public const int CurrentVersion = 4;
 
     private static readonly JsonSerializerOptions Options = new()
     {

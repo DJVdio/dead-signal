@@ -262,6 +262,7 @@ public static class DisplayNames
         PawnRole.Expedition => "外出探索",
         PawnRole.Sleeping => "睡觉",
         PawnRole.Guard => "站岗",
+        PawnRole.Producing => "生产",
         PawnRole.Reading => "读书",
         PawnRole.Bedrest => "卧床养病",
         _ => Unknown,

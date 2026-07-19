@@ -113,9 +113,11 @@ public sealed class BoneKnifeAndHuntingBowTests
     /// 插队会打乱其后所有武器的随机流 ⇒ 既有基线当场漂移。
     /// </summary>
     [Fact]
-    public void 骨刀_追加在Arsenal末尾_不插队()
+    public void 骨刀_保持旧表末位_后续新武器继续追加不插队()
     {
-        Assert.Equal("骨刀", WeaponTable.Arsenal()[^1].Name);
+        IReadOnlyList<Weapon> arsenal = WeaponTable.Arsenal();
+        Assert.Equal("骨刀", arsenal[^3].Name);
+        Assert.Equal(new[] { "自制手枪", "牙医小手枪" }, arsenal.Skip(arsenal.Count - 2).Select(w => w.Name));
     }
 
     /// <summary>用户拍板：<b>保留双持</b>。</summary>

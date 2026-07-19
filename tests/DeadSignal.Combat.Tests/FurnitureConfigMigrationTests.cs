@@ -38,6 +38,7 @@ public sealed class FurnitureConfigMigrationTests
         new Dictionary<string, (Dictionary<string, int>, int)>
         {
             ["工作台"] = (new() { ["wood"] = 16, ["nails"] = 8 }, 180),
+            ["武器台"] = (new() { ["wood"] = 8, ["iron"] = 4, ["nails"] = 6 }, 180),
             ["改装台"] = (new() { ["wood"] = 8, ["iron"] = 4, ["components"] = 2, ["nails"] = 6 }, 200),
             ["烹饪台"] = (new() { ["stone"] = 8, ["wood"] = 6, ["iron"] = 3, ["nails"] = 4 }, 180),
             ["住宅-柜子"] = (new() { ["wood"] = 10, ["nails"] = 6 }, 120),

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-18 15:23:13",
+  "generatedAt": "2026-07-19 15:56:11",
   "iconDir": "godot/assets/items",
   "multiselectOptions": {
     "fitsWeapons": [
@@ -27,7 +27,9 @@
       "双手重弩",
       "复合弩",
       "消防斧",
-      "骨刀"
+      "骨刀",
+      "自制手枪",
+      "牙医小手枪"
     ]
   },
   "dpsGripFactors": {
@@ -40,14 +42,14 @@
       "id": "weapons",
       "label": "武器",
       "file": "weapons.json",
-      "count": 28,
+      "count": 30,
       "source": "src/DeadSignal.Combat/WeaponTable.cs"
     },
     {
       "id": "armor",
       "label": "护甲服装",
       "file": "armor.json",
-      "count": 30,
+      "count": 33,
       "source": "src/DeadSignal.Combat/ArmorTable.cs（防护数值）+ godot/scripts/ApparelSlots.cs（穿在哪、护到哪）"
     },
     {
@@ -82,14 +84,14 @@
       "id": "recipes",
       "label": "配方",
       "file": "recipes.json",
-      "count": 61,
+      "count": 69,
       "source": "godot/scripts/Recipe.cs"
     },
     {
       "id": "butchery",
       "label": "宰杀配方",
       "file": "butchery.json",
-      "count": 5,
+      "count": 6,
       "source": "godot/scripts/Butchery.cs"
     },
     {
@@ -103,7 +105,7 @@
       "id": "books",
       "label": "书籍与日记",
       "file": "books.json",
-      "count": 15,
+      "count": 31,
       "source": "godot/scripts/BookData.cs · godot/scripts/BookData.cs"
     },
     {
@@ -117,7 +119,7 @@
       "id": "furniture",
       "label": "家具建造",
       "file": "furniture.json",
-      "count": 15,
+      "count": 16,
       "source": "godot/scripts/FurnitureBuildCost.cs"
     },
     {

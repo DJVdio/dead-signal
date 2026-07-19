@@ -79,7 +79,7 @@ public class NewEquipmentDataTests
 
         // ⚠️ Arsenal 总数只是附加护栏；本测试真正意图是"栓动猎枪不许回来"。
         //    以后再加武器，改这个数字就行；但 DoesNotContain 那条一个字都不许动。
-        Assert.Equal(25, WeaponTable.Arsenal().Count);
+        Assert.Equal(27, WeaponTable.Arsenal().Count);
     }
 
     // ---- 粗布外套：外套层，防护劣于皮甲 ----

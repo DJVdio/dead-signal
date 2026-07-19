@@ -2,7 +2,7 @@
 // 用途：以 file:// 直接打开 index.html 时的降级数据源（浏览器不允许 fetch 本地文件）。
 window.WIKI_BUNDLE = {
   index: {
-  "generatedAt": "2026-07-18 15:23:13",
+  "generatedAt": "2026-07-19 15:56:11",
   "iconDir": "godot/assets/items",
   "multiselectOptions": {
     "fitsWeapons": [
@@ -30,7 +30,9 @@ window.WIKI_BUNDLE = {
       "双手重弩",
       "复合弩",
       "消防斧",
-      "骨刀"
+      "骨刀",
+      "自制手枪",
+      "牙医小手枪"
     ]
   },
   "dpsGripFactors": {
@@ -43,14 +45,14 @@ window.WIKI_BUNDLE = {
       "id": "weapons",
       "label": "武器",
       "file": "weapons.json",
-      "count": 28,
+      "count": 30,
       "source": "src/DeadSignal.Combat/WeaponTable.cs"
     },
     {
       "id": "armor",
       "label": "护甲服装",
       "file": "armor.json",
-      "count": 30,
+      "count": 33,
       "source": "src/DeadSignal.Combat/ArmorTable.cs（防护数值）+ godot/scripts/ApparelSlots.cs（穿在哪、护到哪）"
     },
     {
@@ -85,14 +87,14 @@ window.WIKI_BUNDLE = {
       "id": "recipes",
       "label": "配方",
       "file": "recipes.json",
-      "count": 61,
+      "count": 69,
       "source": "godot/scripts/Recipe.cs"
     },
     {
       "id": "butchery",
       "label": "宰杀配方",
       "file": "butchery.json",
-      "count": 5,
+      "count": 6,
       "source": "godot/scripts/Butchery.cs"
     },
     {
@@ -106,7 +108,7 @@ window.WIKI_BUNDLE = {
       "id": "books",
       "label": "书籍与日记",
       "file": "books.json",
-      "count": 15,
+      "count": 31,
       "source": "godot/scripts/BookData.cs · godot/scripts/BookData.cs"
     },
     {
@@ -120,7 +122,7 @@ window.WIKI_BUNDLE = {
       "id": "furniture",
       "label": "家具建造",
       "file": "furniture.json",
-      "count": 15,
+      "count": 16,
       "source": "godot/scripts/FurnitureBuildCost.cs"
     },
     {
@@ -787,6 +789,90 @@ window.WIKI_BUNDLE = {
       "userNote": "",
       "sync": "",
       "_icon": "weapons/bone_knife"
+    },
+    {
+      "name": "自制手枪",
+      "kind": "枪械",
+      "damageType": "锐",
+      "damageMin": 3,
+      "damageMax": 11,
+      "penetration": 0.15,
+      "bleedRate": 1,
+      "bleedOnHit": 0,
+      "attackInterval": 3,
+      "burstCount": 1,
+      "burstInterval": 0,
+      "pelletCount": 1,
+      "ammo": "短子弹",
+      "ammoPerAttack": 1,
+      "twoHanded": false,
+      "canDualWield": false,
+      "maxRange": 150,
+      "falloffStart": 40,
+      "falloffFloor": 0.4,
+      "spread": 6,
+      "noiseRadius": 400,
+      "flightSpeed": 450,
+      "dps": 2.3333,
+      "dpsVsLeather": 1.6101,
+      "dualDps": null,
+      "weight": 2.5,
+      "stockMin": 1,
+      "stockMax": 5,
+      "stockInterval": 1.6,
+      "stockPenetration": 0.02,
+      "stockNoiseRadius": 85,
+      "stockDamageType": "钝",
+      "structureFactor": 1,
+      "description": "用水管、弹簧和旧枪托拼出来的东西，至少能响——第一枪你最紧张，它也是。",
+      "_id": "ImprovisedPistol",
+      "_configId": "improvised_pistol",
+      "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.ImprovisedPistol()",
+      "userNote": "",
+      "sync": "",
+      "_icon": "weapons/pistol"
+    },
+    {
+      "name": "牙医小手枪",
+      "kind": "枪械",
+      "damageType": "锐",
+      "damageMin": 2,
+      "damageMax": 8,
+      "penetration": 0.1,
+      "bleedRate": 1,
+      "bleedOnHit": 0,
+      "attackInterval": 2.2,
+      "burstCount": 1,
+      "burstInterval": 0,
+      "pelletCount": 1,
+      "ammo": "短子弹",
+      "ammoPerAttack": 1,
+      "twoHanded": false,
+      "canDualWield": true,
+      "maxRange": 120,
+      "falloffStart": 30,
+      "falloffFloor": 0.35,
+      "spread": 8,
+      "noiseRadius": 300,
+      "flightSpeed": 400,
+      "dps": 2.2727,
+      "dpsVsLeather": 1.4219,
+      "dualDps": 3.1818,
+      "weight": 1,
+      "stockMin": 1,
+      "stockMax": 4,
+      "stockInterval": 1.4,
+      "stockPenetration": 0.01,
+      "stockNoiseRadius": 75,
+      "stockDamageType": "钝",
+      "structureFactor": 1,
+      "description": "小得能藏进袖口，也小得打不太准。不过，能藏进袖口这件事本身就很值钱。",
+      "_id": "DentistPistol",
+      "_configId": "dentist_pistol",
+      "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.DentistPistol()",
+      "userNote": "",
+      "sync": "",
+      "_icon": "weapons/pistol"
     },
     {
       "name": "棍棒",
@@ -1540,9 +1626,9 @@ window.WIKI_BUNDLE = {
       "_id": "ZombieClaw",
       "_configId": "zombie_claw",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.ZombieClaw()",
+      "_icon": "",
       "userNote": "",
-      "sync": "",
-      "_icon": "weapons/zombie_claw"
+      "sync": ""
     },
     {
       "name": "撕咬",
@@ -1582,9 +1668,9 @@ window.WIKI_BUNDLE = {
       "_id": "DogBite",
       "_configId": "dog_bite",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.DogBite()",
+      "_icon": "",
       "userNote": "",
-      "sync": "",
-      "_icon": "weapons/dog_bite"
+      "sync": ""
     },
     {
       "name": "拳脚",
@@ -1624,9 +1710,9 @@ window.WIKI_BUNDLE = {
       "_id": "Fists",
       "_configId": "fists",
       "_anchor": "src/DeadSignal.Combat/WeaponTable.cs :: WeaponTable.Fists()",
+      "_icon": "",
       "userNote": "",
-      "sync": "",
-      "_icon": "weapons/fists"
+      "sync": ""
     }
   ]
 },
@@ -2076,7 +2162,7 @@ window.WIKI_BUNDLE = {
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.HorrorArmor()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
       "userNote": "",
       "sync": "",
-      "_icon": "armor/horror_armor"
+      "_icon": "armor/leather_armor"
     },
     {
       "name": "墨镜",
@@ -2156,7 +2242,7 @@ window.WIKI_BUNDLE = {
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.BallisticVest()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
       "userNote": "",
       "sync": "",
-      "_icon": "armor/ballistic_vest"
+      "_icon": "armor/cloth_vest"
     },
     {
       "name": "厚重裤子",
@@ -2172,7 +2258,7 @@ window.WIKI_BUNDLE = {
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.HeavyTrousers()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
       "userNote": "",
       "sync": "",
-      "_icon": "armor/heavy_trousers"
+      "_icon": "armor/trousers"
     },
     {
       "name": "厚重披风",
@@ -2188,7 +2274,7 @@ window.WIKI_BUNDLE = {
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.HeavyCape()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
       "userNote": "",
       "sync": "",
-      "_icon": "armor/heavy_cape"
+      "_icon": "armor/cloth_coat"
     },
     {
       "name": "雪地靴",
@@ -2204,7 +2290,55 @@ window.WIKI_BUNDLE = {
       "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.SnowBoots()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
       "userNote": "",
       "sync": "",
-      "_icon": "armor/snow_boots"
+      "_icon": "armor/ankle_guard"
+    },
+    {
+      "name": "牛仔帽",
+      "equipSlot": "头部",
+      "covers": "头",
+      "paired": false,
+      "sharpDefense": 10,
+      "bluntDefense": 6,
+      "weight": 0.4,
+      "description": "宽沿高顶，皮质的——姜戈那顶还要大一寸。",
+      "_id": "CowboyHat",
+      "_configId": "cowboy_hat",
+      "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.CowboyHat()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
+      "userNote": "",
+      "sync": "",
+      "_icon": "armor/cotton_hat"
+    },
+    {
+      "name": "马靴",
+      "equipSlot": "左脚、右脚",
+      "covers": "脚(含趾)（穿哪只护哪只，需两件护全）",
+      "paired": true,
+      "sharpDefense": 14,
+      "bluntDefense": 8,
+      "weight": 0.8,
+      "description": "硬皮长筒，踢得开门，也踢得开人。",
+      "_id": "RidingBoots",
+      "_configId": "riding_boots",
+      "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.RidingBoots()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
+      "userNote": "",
+      "sync": "",
+      "_icon": "armor/ankle_guard"
+    },
+    {
+      "name": "简易装甲",
+      "equipSlot": "装甲层",
+      "covers": "胸、腹",
+      "paired": false,
+      "sharpDefense": 18,
+      "bluntDefense": 10,
+      "weight": 5,
+      "description": "小片金属、厚布、能找到的一切硬料，一层叠一层。粗糙，但至少让第一下慢一点。",
+      "_id": "SimpleArmor",
+      "_configId": "simple_armor",
+      "_anchor": "src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.SimpleArmor()（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
+      "userNote": "",
+      "sync": "",
+      "_icon": "armor/leather_armor"
     }
   ]
 },
@@ -2982,7 +3116,7 @@ window.WIKI_BUNDLE = {
     },
     {
       "name": "损坏的狙击枪",
-      "category": "杂项",
+      "category": "有机杂料",
       "weight": 7.5,
       "description": "枪管是好的，枪机却卡死了，瞄具镜片裂了几道。它不再是武器了，只是个念想——除非你找得到能修它的人。",
       "_id": "damaged_sniper_rifle",
@@ -2990,7 +3124,7 @@ window.WIKI_BUNDLE = {
       "_anchor": "godot/scripts/Materials.cs :: Materials（重量在 godot/scripts/CarryWeight.cs :: ItemWeights）",
       "userNote": "",
       "sync": "",
-      "_icon": "materials/damaged_sniper_rifle"
+      "_icon": "weapons/sniper_rifle"
     },
     {
       "name": "老鼠",
@@ -3038,7 +3172,7 @@ window.WIKI_BUNDLE = {
       "_anchor": "godot/scripts/Materials.cs :: Materials（重量在 godot/scripts/CarryWeight.cs :: ItemWeights）",
       "userNote": "",
       "sync": "",
-      "_icon": "materials/feather"
+      "_icon": "food/pigeon"
     },
     {
       "name": "碎皮革",
@@ -3050,7 +3184,7 @@ window.WIKI_BUNDLE = {
       "_anchor": "godot/scripts/Materials.cs :: Materials（重量在 godot/scripts/CarryWeight.cs :: ItemWeights）",
       "userNote": "",
       "sync": "",
-      "_icon": "materials/leather_scrap"
+      "_icon": "materials/leather"
     }
   ]
 },
@@ -3670,7 +3804,7 @@ window.WIKI_BUNDLE = {
       "description": "",
       "userNote": "",
       "sync": "",
-      "_icon": "furniture/sofa"
+      "_icon": "furniture/chair"
     },
     {
       "name": "床",
@@ -3858,7 +3992,7 @@ window.WIKI_BUNDLE = {
       "materials": "铁*4、木料*2、武器零件*3",
       "tools": "卡尺",
       "craftLocation": "工作台（卡尺）",
-      "books": "《土法化学笔记》",
+      "books": "《西班牙编年史》",
       "workMinutes": 240,
       "crafterGate": "",
       "_id": "improvised_hunting_gun",
@@ -3880,7 +4014,7 @@ window.WIKI_BUNDLE = {
       "materials": "铁*3、木料*2、武器零件*3",
       "tools": "卡尺",
       "craftLocation": "工作台（卡尺）",
-      "books": "《土法化学笔记》",
+      "books": "《西班牙编年史》",
       "workMinutes": 210,
       "crafterGate": "",
       "_id": "improvised_shotgun",
@@ -4100,7 +4234,7 @@ window.WIKI_BUNDLE = {
       "materials": "木料*5、绳子*2",
       "tools": "",
       "craftLocation": "工作台（徒手）",
-      "books": "《弓制作指南》",
+      "books": "《英国编年史》",
       "workMinutes": 300,
       "crafterGate": "",
       "_id": "longbow",
@@ -4616,7 +4750,7 @@ window.WIKI_BUNDLE = {
       "description": "",
       "userNote": "",
       "sync": "",
-      "_icon": "armor/horror_armor"
+      "_icon": "armor/leather_armor"
     },
     {
       "name": "自制简易墨镜",
@@ -4638,7 +4772,7 @@ window.WIKI_BUNDLE = {
       "description": "",
       "userNote": "",
       "sync": "",
-      "_icon": "armor/snow_goggles"
+      "_icon": "armor/military_helmet"
     },
     {
       "name": "捕鸟陷阱",
@@ -4660,7 +4794,7 @@ window.WIKI_BUNDLE = {
       "description": "",
       "userNote": "",
       "sync": "",
-      "_icon": "furniture/bird_trap"
+      "_icon": "furniture/snare_trap"
     },
     {
       "name": "菜园",
@@ -4682,7 +4816,7 @@ window.WIKI_BUNDLE = {
       "description": "",
       "userNote": "",
       "sync": "",
-      "_icon": "furniture/crop_plot"
+      "_icon": "food/potato"
     },
     {
       "name": "简易宰杀点",
@@ -4704,7 +4838,7 @@ window.WIKI_BUNDLE = {
       "description": "",
       "userNote": "",
       "sync": "",
-      "_icon": "furniture/butcher_point"
+      "_icon": "weapons/bone_knife"
     },
     {
       "name": "宰杀台",
@@ -4726,7 +4860,7 @@ window.WIKI_BUNDLE = {
       "description": "",
       "userNote": "",
       "sync": "",
-      "_icon": "furniture/butcher_table"
+      "_icon": "weapons/bone_knife"
     },
     {
       "name": "缝合生皮",
@@ -4814,7 +4948,7 @@ window.WIKI_BUNDLE = {
       "description": "",
       "userNote": "",
       "sync": "",
-      "_icon": "armor/heavy_trousers"
+      "_icon": "armor/trousers"
     },
     {
       "name": "厚重披风",
@@ -4836,7 +4970,7 @@ window.WIKI_BUNDLE = {
       "description": "",
       "userNote": "",
       "sync": "",
-      "_icon": "armor/heavy_cape"
+      "_icon": "armor/cloth_coat"
     },
     {
       "name": "雪地靴",
@@ -4858,7 +4992,7 @@ window.WIKI_BUNDLE = {
       "description": "",
       "userNote": "",
       "sync": "",
-      "_icon": "armor/snow_boots"
+      "_icon": "armor/ankle_guard"
     },
     {
       "name": "狙击枪",
@@ -4881,6 +5015,182 @@ window.WIKI_BUNDLE = {
       "userNote": "",
       "sync": "",
       "_icon": "weapons/sniper_rifle"
+    },
+    {
+      "name": "自制手枪",
+      "category": "精工/弓弩",
+      "productType": "家具与设施",
+      "group": "家具与设施",
+      "output": "improvised_pistol",
+      "outputQty": 1,
+      "materials": "铁*2、木料*1、武器零件*2",
+      "tools": "卡尺",
+      "craftLocation": "工作台（卡尺）",
+      "books": "《西班牙编年史》",
+      "workMinutes": 180,
+      "crafterGate": "",
+      "_id": "improvised_pistol",
+      "_configId": "improvised_pistol",
+      "_crafterGateIds": "",
+      "_anchor": "godot/scripts/Recipe.cs :: RecipeBook（Id = \"improvised_pistol\"）",
+      "description": "",
+      "userNote": "",
+      "sync": "",
+      "_icon": "weapons/pistol"
+    },
+    {
+      "name": "牙医小手枪",
+      "category": "精工/弓弩",
+      "productType": "家具与设施",
+      "group": "家具与设施",
+      "output": "dentist_pistol",
+      "outputQty": 1,
+      "materials": "铁*1、木料*1、武器零件*2",
+      "tools": "卡尺",
+      "craftLocation": "工作台（卡尺）",
+      "books": "《被解救的姜戈》",
+      "workMinutes": 150,
+      "crafterGate": "",
+      "_id": "dentist_pistol",
+      "_configId": "dentist_pistol",
+      "_crafterGateIds": "",
+      "_anchor": "godot/scripts/Recipe.cs :: RecipeBook（Id = \"dentist_pistol\"）",
+      "description": "",
+      "userNote": "",
+      "sync": "",
+      "_icon": "weapons/pistol"
+    },
+    {
+      "name": "牛仔帽",
+      "category": "缝纫",
+      "productType": "家具与设施",
+      "group": "家具与设施",
+      "output": "cowboy_hat",
+      "outputQty": 1,
+      "materials": "皮革*2、布*1",
+      "tools": "",
+      "craftLocation": "工作台（徒手）",
+      "books": "《被解救的姜戈》",
+      "workMinutes": 90,
+      "crafterGate": "",
+      "_id": "cowboy_hat",
+      "_configId": "cowboy_hat",
+      "_crafterGateIds": "",
+      "_anchor": "godot/scripts/Recipe.cs :: RecipeBook（Id = \"cowboy_hat\"）",
+      "description": "",
+      "userNote": "",
+      "sync": "",
+      "_icon": "armor/cotton_hat"
+    },
+    {
+      "name": "马靴",
+      "category": "缝纫",
+      "productType": "家具与设施",
+      "group": "家具与设施",
+      "output": "riding_boots",
+      "outputQty": 1,
+      "materials": "皮革*3、布*1、绳子*1",
+      "tools": "",
+      "craftLocation": "工作台（徒手）",
+      "books": "《被解救的姜戈》",
+      "workMinutes": 120,
+      "crafterGate": "",
+      "_id": "riding_boots",
+      "_configId": "riding_boots",
+      "_crafterGateIds": "",
+      "_anchor": "godot/scripts/Recipe.cs :: RecipeBook（Id = \"riding_boots\"）",
+      "description": "",
+      "userNote": "",
+      "sync": "",
+      "_icon": "armor/ankle_guard"
+    },
+    {
+      "name": "简易装甲",
+      "category": "杂项",
+      "productType": "家具与设施",
+      "group": "家具与设施",
+      "output": "simple_armor",
+      "outputQty": 1,
+      "materials": "铁*3、布*4、皮革*2、绳子*2",
+      "tools": "",
+      "craftLocation": "工作台（徒手）",
+      "books": "《越南编年史》",
+      "workMinutes": 240,
+      "crafterGate": "",
+      "_id": "simple_armor",
+      "_configId": "simple_armor",
+      "_crafterGateIds": "",
+      "_anchor": "godot/scripts/Recipe.cs :: RecipeBook（Id = \"simple_armor\"）",
+      "description": "",
+      "userNote": "",
+      "sync": "",
+      "_icon": "armor/leather_armor"
+    },
+    {
+      "name": "武器台",
+      "category": "精工/弓弩",
+      "productType": "家具与设施",
+      "group": "家具与设施",
+      "output": "weapon_bench",
+      "outputQty": 1,
+      "materials": "木料*8、铁*4、钉子*6",
+      "tools": "卡尺",
+      "craftLocation": "工作台（卡尺）",
+      "books": "",
+      "workMinutes": 180,
+      "crafterGate": "营地里还没有武器台（已有就不能再造第二台）",
+      "_id": "weapon_bench",
+      "_configId": "weapon_bench",
+      "_crafterGateIds": "weapon_bench_absent",
+      "_anchor": "godot/scripts/Recipe.cs :: RecipeBook（Id = \"weapon_bench\"）",
+      "description": "",
+      "userNote": "",
+      "sync": "",
+      "_icon": "furniture/bench"
+    },
+    {
+      "name": "步枪",
+      "category": "精工/弓弩",
+      "productType": "武器",
+      "group": "武器",
+      "output": "rifle",
+      "outputQty": 1,
+      "materials": "铁*8、木料*3、武器零件*5",
+      "tools": "卡尺",
+      "craftLocation": "工作台（卡尺）",
+      "books": "《枪械维修指南》",
+      "workMinutes": 360,
+      "crafterGate": "",
+      "_id": "rifle",
+      "_configId": "rifle",
+      "_crafterGateIds": "",
+      "_anchor": "godot/scripts/Recipe.cs :: RecipeBook（Id = \"rifle\"）",
+      "description": "",
+      "userNote": "",
+      "sync": "",
+      "_icon": "weapons/rifle"
+    },
+    {
+      "name": "手枪",
+      "category": "精工/弓弩",
+      "productType": "武器",
+      "group": "武器",
+      "output": "pistol",
+      "outputQty": 1,
+      "materials": "铁*4、木料*1、武器零件*3",
+      "tools": "卡尺",
+      "craftLocation": "工作台（卡尺）",
+      "books": "《枪械维修指南》",
+      "workMinutes": 240,
+      "crafterGate": "",
+      "_id": "pistol",
+      "_configId": "pistol",
+      "_crafterGateIds": "",
+      "_anchor": "godot/scripts/Recipe.cs :: RecipeBook（Id = \"pistol\"）",
+      "description": "",
+      "userNote": "",
+      "sync": "",
+      "_icon": "weapons/pistol"
     }
   ]
 },
@@ -4888,7 +5198,7 @@ window.WIKI_BUNDLE = {
   "id": "butchery",
   "label": "宰杀配方",
   "source": "godot/scripts/Butchery.cs",
-  "note": "宰杀不是普通单产物制作：一只猎物上案板后，同时产出肉和副产物。简易宰杀点处理老鼠/鸟；宰杀台按 Wiki 的三条基础产出处理老鼠、兔子、鸟，并保留 20% 双倍产出判定。",
+  "note": "宰杀不是普通单产物制作：一只猎物上案板后，同时产出肉和副产物。简易宰杀点和宰杀台都处理老鼠、兔子、鸟；宰杀台另保留 20% 双倍产出判定。",
   "columns": [
     {
       "key": "name",
@@ -4981,7 +5291,7 @@ window.WIKI_BUNDLE = {
       "_anchor": "godot/scripts/Butchery.cs :: ButcheryLogic（Id = \"simple_rat\"）",
       "userNote": "",
       "sync": "",
-      "_icon": "butchery/simple_rat"
+      "_icon": "food/rat"
     },
     {
       "name": "简易宰杀点：鸟",
@@ -4995,7 +5305,7 @@ window.WIKI_BUNDLE = {
       "_anchor": "godot/scripts/Butchery.cs :: ButcheryLogic（Id = \"simple_pigeon\"）",
       "userNote": "",
       "sync": "",
-      "_icon": "butchery/simple_pigeon"
+      "_icon": "food/pigeon"
     },
     {
       "name": "宰杀台：老鼠",
@@ -5009,7 +5319,7 @@ window.WIKI_BUNDLE = {
       "_anchor": "godot/scripts/Butchery.cs :: ButcheryLogic（Id = \"table_rat\"）",
       "userNote": "",
       "sync": "",
-      "_icon": "butchery/table_rat"
+      "_icon": "food/rat"
     },
     {
       "name": "宰杀台：兔子",
@@ -5023,7 +5333,7 @@ window.WIKI_BUNDLE = {
       "_anchor": "godot/scripts/Butchery.cs :: ButcheryLogic（Id = \"table_rabbit\"）",
       "userNote": "",
       "sync": "",
-      "_icon": "butchery/table_rabbit"
+      "_icon": "food/rabbit"
     },
     {
       "name": "宰杀台：鸟",
@@ -5037,7 +5347,21 @@ window.WIKI_BUNDLE = {
       "_anchor": "godot/scripts/Butchery.cs :: ButcheryLogic（Id = \"table_pigeon\"）",
       "userNote": "",
       "sync": "",
-      "_icon": "butchery/table_pigeon"
+      "_icon": "food/pigeon"
+    },
+    {
+      "name": "简易宰杀点：兔子",
+      "facility": "简易宰杀点",
+      "input": "兔子",
+      "outputs": "碎皮革*3、兔子肉*1",
+      "baseWorkMinutes": 60,
+      "doubleYieldChance": 0,
+      "description": "简易宰杀点基础产出，不触发双倍判定。",
+      "_id": "simple_rabbit",
+      "_anchor": "godot/scripts/Butchery.cs :: ButcheryLogic（Id = \"simple_rabbit\"）",
+      "userNote": "",
+      "sync": "",
+      "_icon": "food/rabbit"
     }
   ]
 },
@@ -5304,7 +5628,7 @@ window.WIKI_BUNDLE = {
     {
       "title": "土法化学笔记",
       "readHours": 8,
-      "unlocks": "解锁配方：胶水、火药、鞣制药水、自制猎枪、自制霰弹枪、短子弹、中子弹、鹿弹、长子弹",
+      "unlocks": "解锁配方：胶水、火药、鞣制药水、短子弹、中子弹、鹿弹、长子弹",
       "body": "封面被药水浸出几块焦黄，翻开一股刺鼻的酸味似乎还没散尽。\n\n\"配比错一分，是废料；错一钱，是要命。动手前先把窗户打开。\"\n\n笔记里记满了土法配方——如何把硝石、木炭和硫磺研成火药，如何调一锅鞣制生皮的药水。字迹潦草，却每一步都标着分量与火候。",
       "description": "配比错一分是废料，错一钱是要命。这本书最实在的一句，是叫你动手前先把窗户打开。",
       "_id": "folk_chemistry_notes",
@@ -5374,7 +5698,7 @@ window.WIKI_BUNDLE = {
     {
       "title": "弓制作指南",
       "readHours": 8,
-      "unlocks": "解锁配方：反曲弓、长弓",
+      "unlocks": "解锁配方：反曲弓",
       "body": "一本讲怎么把一根木头变成一张弓的手册：选材、开背、上弦、调力。\n弓背要顺着木纹开，弦槽不能伤到木芯；拉力不是越大越好，能稳定回到原位才算一张能用的弓。\n\n读完它，你就能自己做反曲弓和长弓了。",
       "description": "选材、开背、上弦、调力——把一根木头变成一张弓。做弓的人从不问你拿它打猎，还是打人。",
       "_id": "bow_crafting_guide",
@@ -5383,7 +5707,7 @@ window.WIKI_BUNDLE = {
       "group": "书籍",
       "userNote": "",
       "sync": "",
-      "_icon": "books/book_bowcraft"
+      "_icon": "books/book_archery"
     },
     {
       "title": "尖峰时刻",
@@ -5397,7 +5721,7 @@ window.WIKI_BUNDLE = {
       "group": "书籍",
       "userNote": "",
       "sync": "",
-      "_icon": "books/book_peak_hour"
+      "_icon": "books/book_wilderness"
     },
     {
       "title": "尖峰时刻·二",
@@ -5411,7 +5735,7 @@ window.WIKI_BUNDLE = {
       "group": "书籍",
       "userNote": "",
       "sync": "",
-      "_icon": "books/book_peak_hour_2"
+      "_icon": "books/book_wilderness"
     },
     {
       "title": "尖峰时刻·三",
@@ -5425,14 +5749,14 @@ window.WIKI_BUNDLE = {
       "group": "书籍",
       "userNote": "",
       "sync": "",
-      "_icon": "books/book_peak_hour_3"
+      "_icon": "books/book_wilderness"
     },
     {
       "title": "枪械维修指南",
-      "readHours": 8,
-      "unlocks": "解锁配方：狙击枪",
+      "readHours": 12,
+      "unlocks": "解锁配方：狙击枪、步枪、手枪",
       "body": "不是每一杆老枪都能被你修好——但知道怎么判断它值不值得修，本身就是一门手艺。\n\n先看枪管：膛线磨平了就是一根铁管子，救不回来。再看枪机：卡死的不一定废，多半是某个簧片断了，换掉就能再响。至于瞄具——裂几道镜片不要紧，你只要还能把准星和目标的影子叠在一起，它就还算得上一支枪。\n\n读完它，你就能把一杆卡死的狙击枪重新修响——前提是你找得到零件。",
-      "description": "一支打不响的枪，和一根烧火棍的区别，往往只差几个零件的位置。这本书教你分清哪个该拧紧，哪个该扔掉。",
+      "description": "一支枪，和一根烧火棍的区别，往往只差几个螺丝。这本书教你分清哪个该拧紧，哪个该扔掉。",
       "_id": "gunsmith_repair_guide",
       "_surgeryPoints": null,
       "_anchor": "godot/scripts/BookData.cs :: BookLibrary",
@@ -5440,6 +5764,230 @@ window.WIKI_BUNDLE = {
       "userNote": "",
       "sync": "",
       "_icon": "books/book_gunsmith_repair"
+    },
+    {
+      "title": "街头格斗指南",
+      "readHours": 6,
+      "unlocks": "被动：使用棍棒或匕首命中头部/躯干时，伤害 *1.15",
+      "body": "街上没有裁判，也没有人等你摆好架势。\n\n棍棒要抢中线，匕首要藏在视线下面。别追着四肢浪费力气：先打躯干让人喘不上气，再找头部结束争斗。书页边上反复写着同一句话——能跑就跑；跑不了，第一下就别留情。",
+      "description": "没有擂台、没有回合，也没有胜者采访。它教的只有一件事：在狭窄的街上，怎么用最短的一下让对方倒下。",
+      "_id": "new_book_1",
+      "_surgeryPoints": null,
+      "_anchor": "godot/scripts/BookData.cs :: BookLibrary",
+      "group": "书籍",
+      "userNote": "",
+      "sync": "",
+      "_icon": "books/book_wilderness"
+    },
+    {
+      "title": "医疗单位建筑规范",
+      "readHours": 12,
+      "unlocks": "全营被动（不叠加）：感染几率 *0.92",
+      "body": "病菌喜欢接缝、裂缝和扫帚够不到的直角。墙角改成弧面，地面向排水口留一点坡度，床与床之间留出清洁通道。\n\n这些要求从前看起来像官僚主义：尺寸精确到厘米，清洁流程精确到分钟。如今没有检查员了，可少一处积血、少一块发霉的纱布，仍可能让整间营地少抬出去一个人。",
+      "description": "简单地将墙角改成弧线，居然能少藏这么多污物。文明有时只是一群人认真讨论该怎么拖地。",
+      "_id": "new_book_2",
+      "_surgeryPoints": null,
+      "_anchor": "godot/scripts/BookData.cs :: BookLibrary",
+      "group": "书籍",
+      "userNote": "",
+      "sync": "",
+      "_icon": "books/book_wilderness"
+    },
+    {
+      "title": "销售的本质",
+      "readHours": 6,
+      "unlocks": "逐角色被动：由读过本书的人交易时，卖价 *1.03",
+      "body": "价格不是写在货物上的数字，而是两个人对同一件东西有多着急。\n\n先问，后报；先让对方说出缺什么，再告诉他你手里的东西为什么刚好值这个价。别急着填补沉默——很多让步，都是卖家为了结束安静自己送出去的。末页只留了一行：成交之后还能再见面，才叫买卖。",
+      "description": "教你把一句“就这些”说得像最后的库存。末世没有市场部，但讨价还价从未失业。",
+      "_id": "new_book_3",
+      "_surgeryPoints": null,
+      "_anchor": "godot/scripts/BookData.cs :: BookLibrary",
+      "group": "书籍",
+      "userNote": "",
+      "sync": "",
+      "_icon": "books/book_wilderness"
+    },
+    {
+      "title": "百家菜谱",
+      "readHours": 6,
+      "unlocks": "逐角色被动：由读过本书的人烹饪时，每份热量消耗 −1",
+      "body": "这不是名厨的菜谱，是一百户人家写下的省粮办法。剩饭怎么回锅，硬面包怎么泡软，骨头煮到第几遍还肯交出一点味道。\n\n每页的分量都很小，办法却很细：先切碎，再慢煮；先让香味出来，再让饥饿相信碗里比看上去更多。做饭的人省下的每一点，都够另一个人把今天熬过去。",
+      "description": "一百户人家的锅底经验：怎么让同样一把粮食，多盛出一只不那么空的碗。",
+      "_id": "new_book_4",
+      "_surgeryPoints": null,
+      "_anchor": "godot/scripts/BookData.cs :: BookLibrary",
+      "group": "书籍",
+      "userNote": "",
+      "sync": "",
+      "_icon": "books/book_wilderness"
+    },
+    {
+      "title": "小老鼠爱打洞",
+      "readHours": 3,
+      "unlocks": "全营被动（不叠加）：圈套基础捕获率 +5 个百分点",
+      "body": "小老鼠为什么沿着墙根跑？因为开阔地上有猫头鹰。它为什么总钻同一个洞？因为熟悉的路最快。\n\n彩色插图把洞口、粪粒、啃痕和脚印画得清清楚楚。给孩子看的问题都很简单，答案却正好能告诉大人：套索该放在哪条路上，才不会只抓到一夜的风。",
+      "description": "一本儿童科普读物。孩子看老鼠怎样回家，大人看晚饭会从哪里经过。",
+      "_id": "new_book_5",
+      "_surgeryPoints": null,
+      "_anchor": "godot/scripts/BookData.cs :: BookLibrary",
+      "group": "书籍",
+      "userNote": "",
+      "sync": "",
+      "_icon": "books/book_wilderness"
+    },
+    {
+      "title": "意大利编年史",
+      "readHours": 6,
+      "unlocks": "解锁改装：弩盾",
+      "body": "城邦彼此戒备的年代，弩手需要在装填时活过对面的第一轮箭雨。工匠于是把小盾固定在弩身上，让武器既能发射，也能遮住最要命的正面。\n\n图稿详列盾面的弧度、重心与固定点。盾做得太大，弩便抬不起来；做得太小，只够替死人挡雨。",
+      "description": "一部战争编年史，真正有用的是页边那些弩盾草图：历史会重复，来箭的方向也差不多。",
+      "_id": "new_book_6",
+      "_surgeryPoints": null,
+      "_anchor": "godot/scripts/BookData.cs :: BookLibrary",
+      "group": "书籍",
+      "userNote": "",
+      "sync": "",
+      "_icon": "books/book_wilderness"
+    },
+    {
+      "title": "家庭急救手册",
+      "readHours": 8,
+      "unlocks": "逐角色被动：读过本书的施术者手术速度 *1.25",
+      "body": "先确认呼吸，再止血，再处理那些看起来更吓人的伤。把器械按使用顺序摆好，动手前就决定下一步，不要让病人躺在那儿等你翻目录。\n\n书里的手术并不高明，只讲清洁、准备和熟练。可在时间与感染一同追上来的时候，少一次犹豫就多一分活路。",
+      "description": "写给普通家庭的急救书。它不能让你成为医生，只能让你的手在必须动刀时少抖一会儿。",
+      "_id": "new_book_7",
+      "_surgeryPoints": null,
+      "_anchor": "godot/scripts/BookData.cs :: BookLibrary",
+      "group": "书籍",
+      "userNote": "",
+      "sync": "",
+      "_icon": "books/book_wilderness"
+    },
+    {
+      "title": "夏普斯自传",
+      "readHours": 6,
+      "unlocks": "被动：使用短剑或刺剑时，近战闪避率 +10 个百分点",
+      "body": "长刃需要空间，短剑和刺剑只需要一道缝。夏普斯写自己如何盯住对手的肩膀，而不是盯剑尖：肩先动，剑才到。\n\n他从不把躲闪写成后退。侧半步，让开锋刃，再把自己的剑留在能反击的位置。活下来的秘诀并不光彩——只是每次都比死人早看见一点。",
+      "description": "一个老兵写下的不是胜仗，而是他如何一次次从剑尖旁边挪开半步。",
+      "_id": "new_book_8",
+      "_surgeryPoints": null,
+      "_anchor": "godot/scripts/BookData.cs :: BookLibrary",
+      "group": "书籍",
+      "userNote": "",
+      "sync": "",
+      "_icon": "books/book_wilderness"
+    },
+    {
+      "title": "西班牙编年史",
+      "readHours": 8,
+      "unlocks": "解锁配方：自制猎枪、自制霰弹枪、自制手枪",
+      "body": "帝国缺枪的时候，乡镇工坊就用水管、弹簧和旧枪托拼出能响的东西。图纸不漂亮，公差也不统一，但每个零件都能用手边的工具修出来。\n\n猎枪、霰弹枪与短手枪各占一章。共同的警告写在每章开头：第一次试射时，把脸放远一点。",
+      "description": "从缺枪少械的旧战争里抄来的土制枪图谱。粗糙、危险，但比赤手空拳多一个选择。",
+      "_id": "new_book_9",
+      "_surgeryPoints": null,
+      "_anchor": "godot/scripts/BookData.cs :: BookLibrary",
+      "group": "书籍",
+      "userNote": "",
+      "sync": "",
+      "_icon": "books/book_wilderness"
+    },
+    {
+      "title": "被解救的姜戈",
+      "readHours": 20,
+      "unlocks": "解锁配方：牙医小手枪、牛仔帽、马靴",
+      "body": "一册被翻得起毛的通俗故事。主角戴着夸张的帽子，穿一双硬得能踢开门的马靴，袖口里藏着一把小得可笑的手枪。\n\n故事把复仇写得痛快，把准备工作写得很短。可夹页上的服装尺寸、枪械剖面和改装笔记倒很认真——上一位读者显然不只把它当故事看。",
+      "description": "复仇故事、牛仔行头和一把藏得住的小手枪。有人读它消遣，有人照着页边的图开始做东西。",
+      "_id": "new_book_10",
+      "_surgeryPoints": null,
+      "_anchor": "godot/scripts/BookData.cs :: BookLibrary",
+      "group": "书籍",
+      "userNote": "",
+      "sync": "",
+      "_icon": "books/book_wilderness"
+    },
+    {
+      "title": "爱尔兰编年史",
+      "readHours": 8,
+      "unlocks": "被动：土豆生长时间 −12 游戏小时",
+      "body": "坏天气、贫瘠土和太多张等着吃饭的嘴，让人学会把土豆种得比日历更可靠。先催芽，再切块，让每一块都带着芽眼；覆土不要一次压死，苗长一截就再培一层。\n\n书里没有让作物凭空长快的奇迹，只有一套把等待提前做完的办法。十二小时不算多，挨饿时却很长。",
+      "description": "一部饥荒与土地的旧记录。夹在历史里的种植法，能让土豆少在泥里睡半天。",
+      "_id": "new_book_11",
+      "_surgeryPoints": null,
+      "_anchor": "godot/scripts/BookData.cs :: BookLibrary",
+      "group": "书籍",
+      "userNote": "",
+      "sync": "",
+      "_icon": "books/book_wilderness"
+    },
+    {
+      "title": "英国编年史",
+      "readHours": 4,
+      "unlocks": "解锁配方：长弓",
+      "body": "紫杉木要顺纹劈开，弓背留白木，弓腹留心木。一张长弓的力量不是来自粗，而是来自两层木质在拉伸与压缩之间各守本分。\n\n编年史写国王和战役，附录却写弓匠、弓弦与练习场。那些没有留下名字的人，造出了能越过整片泥地的箭。",
+      "description": "正文记国王，附录记长弓。如今国王没什么用，附录倒还能救命。",
+      "_id": "new_book_12",
+      "_surgeryPoints": null,
+      "_anchor": "godot/scripts/BookData.cs :: BookLibrary",
+      "group": "书籍",
+      "userNote": "",
+      "sync": "",
+      "_icon": "books/book_wilderness"
+    },
+    {
+      "title": "越南编年史",
+      "readHours": 3,
+      "unlocks": "解锁配方：简易装甲",
+      "body": "没有足够钢板，就把小片金属、厚布与能找到的硬材料一层层叠起来。护甲不必挡住所有东西，只要让最先碰到你的那一下慢一点、偏一点。\n\n书中反复强调重量要分散，接缝要错开。穿得动的防护才叫装甲；把人压在原地的，只是一口还没合盖的棺材。",
+      "description": "一部在匮乏中作战的记录，夹着用零碎材料拼装护具的办法。简陋不等于毫无用处。",
+      "_id": "new_book_13",
+      "_surgeryPoints": null,
+      "_anchor": "godot/scripts/BookData.cs :: BookLibrary",
+      "group": "书籍",
+      "userNote": "",
+      "sync": "",
+      "_icon": "books/book_wilderness"
+    },
+    {
+      "title": "胸口碎大石：从入门到入土",
+      "readHours": 4,
+      "unlocks": "被动：受到天生钝击时有 10% 几率把该次伤害 *0.50",
+      "body": "第一章讲呼吸，第二章讲绷紧肌肉，第三章讲怎么挑一块看起来吓人、实际容易裂的石头。\n\n真正挨下重击时，诀窍只剩两个：别把气吐光，别让力量全落在一点。作者在页脚郑重声明，本书不能保证读者活着学完；书名已经尽到告知义务。",
+      "description": "一本把江湖把式写得过分认真的小册子。偶尔，它真能教你在重物砸下来时少断几根骨头。",
+      "_id": "new_book_14",
+      "_surgeryPoints": null,
+      "_anchor": "godot/scripts/BookData.cs :: BookLibrary",
+      "group": "书籍",
+      "userNote": "",
+      "sync": "",
+      "_icon": "books/book_wilderness"
+    },
+    {
+      "title": "马来编年史",
+      "readHours": 6,
+      "unlocks": "被动：双持两把锐器时，攻速系数 0.70 → 0.80",
+      "body": "甲板窄、舱门低，长兵器施展不开。水手把两把短刃分在左右手：一把逼开对方的刀，一把从空隙里进去。\n\n双持不是两只手各打各的。肩、胯和脚步必须共用同一个节奏，否则第二把刀只会拖慢第一把。",
+      "description": "海峡与甲板上的近战记录。两把锐器并不会让人快一倍，但至少可以少慢一点。",
+      "_id": "new_book_15",
+      "_surgeryPoints": null,
+      "_anchor": "godot/scripts/BookData.cs :: BookLibrary",
+      "group": "书籍",
+      "userNote": "",
+      "sync": "",
+      "_icon": "books/book_wilderness"
+    },
+    {
+      "title": "土耳其编年史",
+      "readHours": 6,
+      "unlocks": "被动：同时持远程与近战武器时，远程散布 *0.90、近战穿透 *1.10",
+      "body": "一手持短枪，一手留着刀，旧骑兵把换武器的时间省成了一个动作。枪负责逼人停步，刀负责处理已经靠近的麻烦。\n\n诀窍在于两件武器互不争抢身体：射击时刀手压住摆动，近战时枪手替突刺稳住肩线。各让出一点，反而都更听话。",
+      "description": "关于枪与刀如何同时留在手里的旧战术。看着别扭，练熟后却比临阵换家伙可靠。",
+      "_id": "new_book_16",
+      "_surgeryPoints": null,
+      "_anchor": "godot/scripts/BookData.cs :: BookLibrary",
+      "group": "书籍",
+      "userNote": "",
+      "sync": "",
+      "_icon": "books/book_wilderness"
     },
     {
       "title": "一本卷边的日记（其一）",
@@ -5571,7 +6119,7 @@ window.WIKI_BUNDLE = {
       "description": "",
       "userNote": "",
       "sync": "",
-      "_icon": "weapon-mods/lightened_stock"
+      "_icon": "materials/wood"
     },
     {
       "name": "截短枪管",
@@ -5587,7 +6135,7 @@ window.WIKI_BUNDLE = {
       "description": "",
       "userNote": "",
       "sync": "",
-      "_icon": "weapon-mods/sawn_off_barrel"
+      "_icon": "weapons/improvised_shotgun"
     },
     {
       "name": "加长枪管",
@@ -5603,7 +6151,7 @@ window.WIKI_BUNDLE = {
       "description": "",
       "userNote": "",
       "sync": "",
-      "_icon": "weapon-mods/extended_barrel"
+      "_icon": "weapons/rifle"
     },
     {
       "name": "刺刀型",
@@ -5619,7 +6167,7 @@ window.WIKI_BUNDLE = {
       "description": "",
       "userNote": "",
       "sync": "",
-      "_icon": "weapon-mods/bayonet"
+      "_icon": "weapons/dagger"
     },
     {
       "name": "利爪型",
@@ -5635,7 +6183,7 @@ window.WIKI_BUNDLE = {
       "description": "",
       "userNote": "",
       "sync": "",
-      "_icon": "weapon-mods/claw_stock"
+      "_icon": "weapons/bone_knife"
     },
     {
       "name": "创伤型",
@@ -5651,7 +6199,7 @@ window.WIKI_BUNDLE = {
       "description": "",
       "userNote": "",
       "sync": "",
-      "_icon": "weapon-mods/trauma_stock"
+      "_icon": "weapons/club"
     },
     {
       "name": "锋刃型",
@@ -5667,7 +6215,7 @@ window.WIKI_BUNDLE = {
       "description": "",
       "userNote": "",
       "sync": "",
-      "_icon": "weapon-mods/blade_stock"
+      "_icon": "weapons/dagger"
     },
     {
       "name": "锯齿剑刃",
@@ -5683,7 +6231,7 @@ window.WIKI_BUNDLE = {
       "description": "",
       "userNote": "",
       "sync": "",
-      "_icon": "weapon-mods/serrated_blade"
+      "_icon": "weapons/long_sword"
     },
     {
       "name": "锋刃研磨",
@@ -5699,7 +6247,7 @@ window.WIKI_BUNDLE = {
       "description": "",
       "userNote": "",
       "sync": "",
-      "_icon": "weapon-mods/honed_edge"
+      "_icon": "weapons/long_sword"
     },
     {
       "name": "镂空剑刃",
@@ -5715,7 +6263,7 @@ window.WIKI_BUNDLE = {
       "description": "",
       "userNote": "",
       "sync": "",
-      "_icon": "weapon-mods/fuller_blade"
+      "_icon": "weapons/long_sword"
     },
     {
       "name": "加重剑柄",
@@ -5731,7 +6279,7 @@ window.WIKI_BUNDLE = {
       "description": "",
       "userNote": "",
       "sync": "",
-      "_icon": "weapon-mods/weighted_handle"
+      "_icon": "materials/wood"
     },
     {
       "name": "轻质化剑柄",
@@ -5747,7 +6295,7 @@ window.WIKI_BUNDLE = {
       "description": "",
       "userNote": "",
       "sync": "",
-      "_icon": "weapon-mods/lightened_handle"
+      "_icon": "materials/wood"
     },
     {
       "name": "防滑缠手",
@@ -5763,7 +6311,7 @@ window.WIKI_BUNDLE = {
       "description": "",
       "userNote": "",
       "sync": "",
-      "_icon": "weapon-mods/grip_wrap_blade"
+      "_icon": "materials/rope"
     },
     {
       "name": "护手挡格",
@@ -5779,7 +6327,7 @@ window.WIKI_BUNDLE = {
       "description": "",
       "userNote": "",
       "sync": "",
-      "_icon": "weapon-mods/handguard"
+      "_icon": "armor/work_gloves"
     },
     {
       "name": "铁丝强化",
@@ -5795,7 +6343,7 @@ window.WIKI_BUNDLE = {
       "description": "",
       "userNote": "",
       "sync": "",
-      "_icon": "weapon-mods/wire_wrap"
+      "_icon": "materials/wire"
     },
     {
       "name": "钉子强化",
@@ -5811,7 +6359,7 @@ window.WIKI_BUNDLE = {
       "description": "",
       "userNote": "",
       "sync": "",
-      "_icon": "weapon-mods/nail_studs"
+      "_icon": "materials/nails"
     },
     {
       "name": "弓臂缠手",
@@ -5827,7 +6375,7 @@ window.WIKI_BUNDLE = {
       "description": "",
       "userNote": "",
       "sync": "",
-      "_icon": "weapon-mods/limb_wrap"
+      "_icon": "materials/cloth"
     },
     {
       "name": "复合弓臂",
@@ -5843,7 +6391,7 @@ window.WIKI_BUNDLE = {
       "description": "",
       "userNote": "",
       "sync": "",
-      "_icon": "weapon-mods/compound_limbs"
+      "_icon": "weapons/compound_bow"
     },
     {
       "name": "重磅弓弦",
@@ -5859,7 +6407,7 @@ window.WIKI_BUNDLE = {
       "description": "",
       "userNote": "",
       "sync": "",
-      "_icon": "weapon-mods/heavy_bowstring"
+      "_icon": "materials/rope"
     },
     {
       "name": "弩盾",
@@ -5875,7 +6423,7 @@ window.WIKI_BUNDLE = {
       "description": "",
       "userNote": "",
       "sync": "",
-      "_icon": "weapon-mods/crossbow_shield"
+      "_icon": "armor/plate_armor"
     }
   ]
 },
@@ -5982,7 +6530,7 @@ window.WIKI_BUNDLE = {
       "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
       "userNote": "",
       "sync": "",
-      "_icon": ""
+      "_icon": "furniture/bench"
     },
     {
       "name": "改装台",
@@ -5995,7 +6543,20 @@ window.WIKI_BUNDLE = {
       "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
       "userNote": "",
       "sync": "",
-      "_icon": ""
+      "_icon": "furniture/mod_bench"
+    },
+    {
+      "name": "武器台",
+      "materials": "木料*8、铁*4、钉子*6",
+      "buildMinutes": 180,
+      "salvage": "木料*2、废木料*2、铁*2、钉子*3",
+      "description": "锯、锉、夹具和一块经得住锤打的厚台面。武器从这里造出来，至于拿去对付谁，台子不问。",
+      "_id": "武器台",
+      "_configId": "武器台",
+      "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
+      "userNote": "",
+      "sync": "",
+      "_icon": "furniture/bench"
     },
     {
       "name": "烹饪台",
@@ -6008,7 +6569,7 @@ window.WIKI_BUNDLE = {
       "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
       "userNote": "",
       "sync": "",
-      "_icon": ""
+      "_icon": "furniture/cook_station"
     },
     {
       "name": "住宅-柜子",
@@ -6021,7 +6582,7 @@ window.WIKI_BUNDLE = {
       "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
       "userNote": "",
       "sync": "",
-      "_icon": ""
+      "_icon": "furniture/table"
     },
     {
       "name": "住宅-衣柜",
@@ -6034,7 +6595,7 @@ window.WIKI_BUNDLE = {
       "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
       "userNote": "",
       "sync": "",
-      "_icon": ""
+      "_icon": "furniture/table"
     },
     {
       "name": "住宅-展示柜",
@@ -6047,7 +6608,7 @@ window.WIKI_BUNDLE = {
       "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
       "userNote": "",
       "sync": "",
-      "_icon": ""
+      "_icon": "furniture/table"
     },
     {
       "name": "床",
@@ -6060,7 +6621,7 @@ window.WIKI_BUNDLE = {
       "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
       "userNote": "",
       "sync": "",
-      "_icon": ""
+      "_icon": "furniture/bed"
     },
     {
       "name": "桌子",
@@ -6073,7 +6634,7 @@ window.WIKI_BUNDLE = {
       "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
       "userNote": "",
       "sync": "",
-      "_icon": ""
+      "_icon": "furniture/table"
     },
     {
       "name": "沙发",
@@ -6086,7 +6647,7 @@ window.WIKI_BUNDLE = {
       "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
       "userNote": "",
       "sync": "",
-      "_icon": ""
+      "_icon": "furniture/chair"
     },
     {
       "name": "沙袋",
@@ -6099,7 +6660,7 @@ window.WIKI_BUNDLE = {
       "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
       "userNote": "",
       "sync": "",
-      "_icon": ""
+      "_icon": "furniture/sandbag"
     },
     {
       "name": "陷阱",
@@ -6112,7 +6673,7 @@ window.WIKI_BUNDLE = {
       "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
       "userNote": "",
       "sync": "",
-      "_icon": ""
+      "_icon": "furniture/snare_trap"
     },
     {
       "name": "捕鸟陷阱",
@@ -6125,7 +6686,7 @@ window.WIKI_BUNDLE = {
       "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
       "userNote": "",
       "sync": "",
-      "_icon": ""
+      "_icon": "furniture/snare_trap"
     },
     {
       "name": "菜园",
@@ -6138,7 +6699,7 @@ window.WIKI_BUNDLE = {
       "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
       "userNote": "",
       "sync": "",
-      "_icon": ""
+      "_icon": "food/potato"
     },
     {
       "name": "简易宰杀点",
@@ -6151,7 +6712,7 @@ window.WIKI_BUNDLE = {
       "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
       "userNote": "",
       "sync": "",
-      "_icon": ""
+      "_icon": "weapons/bone_knife"
     },
     {
       "name": "宰杀台",
@@ -6164,7 +6725,7 @@ window.WIKI_BUNDLE = {
       "_anchor": "godot/scripts/FurnitureBuildCost.cs :: FurnitureBuildCost",
       "userNote": "",
       "sync": "",
-      "_icon": ""
+      "_icon": "weapons/bone_knife"
     }
   ]
 },
@@ -6273,7 +6834,7 @@ window.WIKI_BUNDLE = {
       "group": "食材",
       "userNote": "",
       "sync": "",
-      "_icon": "food/rabbit_meat"
+      "_icon": "food/rabbit"
     },
     {
       "name": "鱼",
@@ -6357,7 +6918,7 @@ window.WIKI_BUNDLE = {
       "group": "食材",
       "userNote": "",
       "sync": "",
-      "_icon": "materials/kudzu_root"
+      "_icon": "materials/laojunxu"
     },
     {
       "name": "大黄",
@@ -6369,7 +6930,7 @@ window.WIKI_BUNDLE = {
       "group": "食材",
       "userNote": "",
       "sync": "",
-      "_icon": "materials/rhubarb"
+      "_icon": "materials/laojunxu"
     },
     {
       "name": "老鼠肉",
@@ -6381,7 +6942,7 @@ window.WIKI_BUNDLE = {
       "group": "食材",
       "userNote": "",
       "sync": "",
-      "_icon": "food/rat_meat"
+      "_icon": "food/rat"
     },
     {
       "name": "鸟肉",
@@ -6393,7 +6954,7 @@ window.WIKI_BUNDLE = {
       "group": "食材",
       "userNote": "",
       "sync": "",
-      "_icon": "food/bird_meat"
+      "_icon": "food/pigeon"
     },
     {
       "name": "玫瑰果",
@@ -6414,10 +6975,10 @@ window.WIKI_BUNDLE = {
       "note": "基础值。装了炊具会更少。份数 = 总热量 ÷ 这个数，向下取整——凑不满一份就做不成，多出来的零头浪费掉（游戏里不提示）。",
       "_id": "base_portion_cost",
       "_anchor": "godot/scripts/CookingLogic.cs :: CookingLogic.BasePortionCost",
+      "_icon": "",
       "group": "烹饪",
       "userNote": "",
-      "sync": "",
-      "_icon": "food/base_portion_cost"
+      "sync": ""
     },
     {
       "label": "装上「锅」省下的热量",
@@ -6426,10 +6987,10 @@ window.WIKI_BUNDLE = {
       "note": "烹饪台两个槽位之一。装上它，每做一份饭就少要这么多热量。与烤架**各是各的数**，可以分别调。",
       "_id": "pot_discount",
       "_anchor": "godot/scripts/CookingLogic.cs :: CookingLogic.PotDiscount",
+      "_icon": "",
       "group": "烹饪",
       "userNote": "",
-      "sync": "",
-      "_icon": "food/pot_discount"
+      "sync": ""
     },
     {
       "label": "装上「烤架」省下的热量",
@@ -6438,10 +6999,10 @@ window.WIKI_BUNDLE = {
       "note": "烹饪台另一个槽位。两个槽都装满，一份饭省下的就是这两个数相加。与锅**各是各的数**，可以分别调。",
       "_id": "grill_discount",
       "_anchor": "godot/scripts/CookingLogic.cs :: CookingLogic.GrillDiscount",
+      "_icon": "",
       "group": "烹饪",
       "userNote": "",
-      "sync": "",
-      "_icon": "food/grill_discount"
+      "sync": ""
     },
     {
       "label": "做一份饭的工时",
@@ -6450,10 +7011,10 @@ window.WIKI_BUNDLE = {
       "note": "得有人站在烹饪台前把活干完。做两份就干两份的活——没有「一锅端」的规模效应。",
       "_id": "work_minutes_per_portion",
       "_anchor": "godot/scripts/CookingLogic.cs :: CookingLogic.WorkMinutesPerPortion",
+      "_icon": "",
       "group": "烹饪",
       "userNote": "",
-      "sync": "",
-      "_icon": "food/work_minutes_per_portion"
+      "sync": ""
     }
   ]
 },
@@ -6576,9 +7137,9 @@ window.WIKI_BUNDLE = {
     {
       "group": "种植",
       "label": "种一颗的人力工时",
-      "value": 9,
+      "value": 15,
       "unit": "游戏分钟",
-      "note": "下种是一次人力动作（走既有工时化）。满种 16 颗 = 144 游戏分钟一次性人力。",
+      "note": "下种是一次人力动作（走既有工时化）。满种 16 颗 = 240 游戏分钟一次性人力。",
       "_id": "crop_plant_action_minutes",
       "_anchor": "godot/scripts/Farming.cs :: CropPlotLogic.PlantWorkMinutes",
       "_icon": "",
@@ -7895,7 +8456,7 @@ window.WIKI_BUNDLE = {
       "description": "",
       "userNote": "",
       "sync": "",
-      "_icon": "food/rat"
+      "_icon": "characters/rat"
     },
     {
       "name": "布鲁斯",

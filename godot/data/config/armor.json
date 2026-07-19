@@ -503,5 +503,52 @@
     "Weight": 0,
     "Slot": "Skin",
     "CoversParts": null
+  },
+  "cowboy_hat": {
+    "Name": "牛仔帽",
+    "Description": "宽沿高顶，皮质的——姜戈那顶还要大一寸。",
+    "SharpDefense": 10,
+    "BluntDefense": 6,
+    "Weight": 0.4,
+    "Slot": "Skin",
+    "CoversParts": [
+      "头"
+    ]
+  },
+  "riding_boots": {
+    "Name": "马靴",
+    "Description": "硬皮长筒，踢得开门，也踢得开人。",
+    "SharpDefense": 14,
+    "BluntDefense": 8,
+    "Weight": 0.8,
+    "Slot": "Skin",
+    "CoversParts": [
+      "右小腿",
+      "右脚",
+      "右脚五趾",
+      "右脚四趾",
+      "右脚三趾",
+      "右脚二趾",
+      "右脚拇趾",
+      "左小腿",
+      "左脚",
+      "左脚五趾",
+      "左脚四趾",
+      "左脚三趾",
+      "左脚二趾",
+      "左脚拇趾"
+    ]
+  },
+  "simple_armor": {
+    "Name": "简易装甲",
+    "Description": "小片金属、厚布、能找到的一切硬料，一层叠一层。粗糙，但至少让第一下慢一点。",
+    "SharpDefense": 18,
+    "BluntDefense": 10,
+    "Weight": 5,
+    "Slot": "Plate",
+    "CoversParts": [
+      "胸",
+      "腹"
+    ]
   }
 }

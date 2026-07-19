@@ -195,6 +195,8 @@
     <!-- 克莉丝汀 authored 三级专属效果纯逻辑（无 Godot 依赖）：相位 25%/35% 不掉饥饿 + 商人买入 6.25% 折扣 + 卖出价率 60→70 + 升级轴（在营存活 3 天 / 灭金手指帮旗标）。 -->
     <Compile Include="..\..\godot\scripts\ChristinePerk.cs" Link="Consumed\ChristinePerk.cs" />
     <Compile Include="..\..\godot\scripts\ReadingProgress.cs" Link="Consumed\ReadingProgress.cs" />
+    <!-- 读书面板逐角色视图模型纯逻辑（无 Godot 依赖）：BookDisplayOption / ReaderOption / ReadingAssignmentView。 -->
+    <Compile Include="..\..\godot\scripts\ReadingAssignmentView.cs" Link="Consumed\ReadingAssignmentView.cs" />
     <!-- authored 背景在躯体上的开局痕迹（无 Godot 依赖）：山姆开局左手缺小指+无名指（九岁救诺蒂被野狗咬掉）。 -->
     <Compile Include="..\..\godot\scripts\SurvivorBackstory.cs" Link="Consumed\SurvivorBackstory.cs" />
     <!-- 配方系统核心纯逻辑（无 Godot 依赖）：工作台三工具槽 + RecipeData/RecipeBook 草稿表 + CanCraft 四门槛判定 + Resolve 产出契约。 -->
@@ -205,10 +207,13 @@
     <Compile Include="..\..\godot\scripts\CraftingLogic.cs" Link="Consumed\CraftingLogic.cs" />
     <!-- 工时制在制品纯逻辑（无 Godot 依赖）：工时进度推进(人在台+生产相位才推进)/中断续作/封顶完工。 -->
     <Compile Include="..\..\godot\scripts\CraftingJob.cs" Link="Consumed\CraftingJob.cs" />
+    <!-- 0.5 游戏小时手术在制状态机：稳定角色/目标键、暂停、中断、幂等结算。 -->
+    <Compile Include="..\..\godot\scripts\SurgeryJob.cs" Link="Consumed\SurgeryJob.cs" />
     <!-- [批次21·T25] 工时的**总工时乘算轴**（《木匠入门》做家具 ×0.95，连乘不覆盖）+ 可摆放物事实源（PlaceableItems）。 -->
     <Compile Include="..\..\godot\scripts\CraftWorkTime.cs" Link="Consumed\CraftWorkTime.cs" />
     <!-- [A4] 书→近战攻速被动的消费层乘子汇总（进阶木匠→消防斧攻速+8%）。纯逻辑，先红后绿。 -->
     <Compile Include="..\..\godot\scripts\MeleeBookEffect.cs" Link="Consumed\MeleeBookEffect.cs" />
+    <Compile Include="..\..\godot\scripts\BookPassiveEffects.cs" Link="Consumed\BookPassiveEffects.cs" />
     <!-- [批次21·T25] 桌子（玩家可造可摆的纯家具：非实心、可跨越、守 64px 禁建带）。 -->
     <Compile Include="..\..\godot\scripts\TableSpec.cs" Link="Consumed\TableSpec.cs" />
     <!-- 沙发（升级座位）纯逻辑：座位类型 + 读速×1.12/恢复×1.09 + 可摆放规格。 -->
@@ -240,9 +245,13 @@
     <Compile Include="..\..\godot\scripts\BedSpec.cs" Link="Consumed\BedSpec.cs" />
     <!-- 批次21·T26 圈套陷阱纯逻辑（impl-traps，无 Godot 依赖）：TrapSpec 规格（可摆放矮物/守禁建带/可跨越）+ TrapLogic 几率递减（第n个=max(5%,30%−5%×(n−1))）与每相位独立掷点。 -->
     <Compile Include="..\..\godot\scripts\TrapLogic.cs" Link="Consumed\TrapLogic.cs" />
+    <!-- 多设施并行生产作业板纯逻辑（无 Godot 依赖）：各设施独立任务槽、工人唯一占用、完工/暂停/释放。 -->
+    <Compile Include="..\..\godot\scripts\FacilityJobBoard.cs" Link="Consumed\FacilityJobBoard.cs" />
+    <!-- 真实独立武器台：稳定设施身份、固定锚点与武器配方路由。 -->
+    <Compile Include="..\..\godot\scripts\WeaponBench.cs" Link="Consumed\WeaponBench.cs" />
     <!-- [T67] 采集/种植/诱捕（impl-forage，无 Godot 依赖）：BirdTrapSpec/BirdTrapLogic 捕鸟陷阱 + CropPlotSpec/CropPlotLogic 菜畦 + ForageLogic 野外采集。 -->
     <Compile Include="..\..\godot\scripts\Farming.cs" Link="Consumed\Farming.cs" />
-    <!-- [T67] 宰杀（impl-forage）：ButcherStation 两档设施 + 刀槽 + ButcheryLogic（速度**加算**＝用户拍板的例外；老鼠/鸟 → 肉 + 碎皮革/羽毛）。 -->
+    <!-- [T67] 宰杀（impl-forage）：ButcherStation 两档设施 + 刀槽 + ButcheryLogic（速度**加算**＝用户拍板的例外；老鼠/兔子/鸟 → 肉 + 碎皮革/羽毛）。 -->
     <Compile Include="..\..\godot\scripts\Butchery.cs" Link="Consumed\Butchery.cs" />
     <!-- 批次6 夜防「警戒力 vs 潜行力」对抗纯逻辑（watch-contest，无 Godot 依赖）：警戒力/潜行力合成 + Resolve 掷点对抗 + 未发现后果(先手/偷窃) + 三档响应名册 RespondersFor。 -->
     <Compile Include="..\..\godot\scripts\NightWatchContest.cs" Link="Consumed\NightWatchContest.cs" />
@@ -250,6 +259,8 @@
     <Compile Include="..\..\godot\scripts\RadioMainline.cs" Link="Consumed\RadioMainline.cs" />
     <!-- 批次9 营地废墟挖掘纯逻辑（camp-rubble，无 Godot 依赖）：RubbleSite 有状态(进度/drops/彩蛋槽/cleared) + RubbleField 注册表/批量 Advance/一次性 Harvest；复用 LootItem 做 drops。 -->
     <Compile Include="..\..\godot\scripts\RubbleDig.cs" Link="Consumed\RubbleDig.cs" />
+    <!-- 夜袭事件调度纯逻辑（无 Godot 依赖）：人袭 12.5%/前3h 互斥丧尸 22.5%/前5h，可存档不重掷。 -->
+    <Compile Include="..\..\godot\scripts\NightEventSchedule.cs" Link="Consumed\NightEventSchedule.cs" />
     <!-- 批次6 夜防对抗运行时编排辅助纯逻辑（night-response，无 Godot 依赖）：岗哨加成映射/威胁分档/营地多守卫对抗聚合。 -->
     <Compile Include="..\..\godot\scripts\NightRaidLogic.cs" Link="Consumed\NightRaidLogic.cs" />
     <!-- 批次11 三结局 CG 定稿+全灭结局路由纯逻辑（endgame-flow，无 Godot 依赖）：CG①尸潮/②军袭全灭变体/③南逃 分段文本 + ForGameOver 路由。 -->
@@ -338,6 +349,7 @@
     <Compile Include="..\..\godot\scripts\SouthTrialConfig.cs" Link="Consumed\SouthTrialConfig.cs" />
     <Compile Include="..\..\godot\scripts\PerkConfig.cs" Link="Consumed\PerkConfig.cs" />
     <Compile Include="..\..\godot\scripts\MerchantConfig.cs" Link="Consumed\MerchantConfig.cs" />
+    <Compile Include="..\..\godot\scripts\GameTimeScaleOptions.cs" Link="Consumed\GameTimeScaleOptions.cs" />
   </ItemGroup>
 
 </Project>

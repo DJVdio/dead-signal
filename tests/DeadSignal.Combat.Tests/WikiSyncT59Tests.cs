@@ -66,7 +66,7 @@ public class WikiSyncT59Tests
     /// ⇒ 全表现值 = 64 + 8 + 6 = <b>78h</b>。</para>
     /// </summary>
     [Fact]
-    public void 书籍阅读时长_用户那8本合计64小时_加现有三本新书后90小时()
+    public void 书籍阅读时长_新增十六本同步后总工时正确()
     {
         // ⚠️ [T59·二次澄清] **日记不计入** —— 它不是书，没有阅读工时（用户：书给角色读、日记给玩家读）。
         //    故这里只数**真正的书**（Manuals）：用户手上那 8 本 = 64h（把三本新增书剔掉再数）。
@@ -77,11 +77,11 @@ public class WikiSyncT59Tests
                      && b.Id != BookLibrary.PeakHourThreeId
                      && b.Id != BookLibrary.GunsmithRepairGuideId)
             .Sum(b => b.ReadHours);
-        Assert.Equal(64.0, userEight, 6);
+        Assert.Equal(176.0, userEight, 6);
 
         Assert.Equal(8.0, BookLibrary.BowCraftingGuide().ReadHours, 6);   // 拟定值（用户没给）
         Assert.Equal(6.0, BookLibrary.PeakHour().ReadHours, 6);           // [T71] 用户在 wiki 定的
-        Assert.Equal(98.0, BookLibrary.Manuals().Sum(b => b.ReadHours), 6);
+        Assert.Equal(214.0, BookLibrary.Manuals().Sum(b => b.ReadHours), 6);
 
         // 日记一小时都不该贡献。
         Assert.Equal(0.0, BookLibrary.Diaries().Sum(b => b.ReadHours), 6);
@@ -291,9 +291,13 @@ public class WikiSyncT59Tests
     [Fact]
     public void 效果列是描述不是权威解锁清单_照抄它会静默删掉枪和弹药()
     {
-        // 《土法化学笔记》的效果列已被用户改成只剩三样，但这些解锁**一个都不许少**。
-        foreach (string recipeId in new[]
-                 { "improvised_hunting_gun", "improvised_shotgun", "ammo_short", "ammo_medium" })
+        // 枪械已由《西班牙编年史》接管；化学笔记继续负责弹药。
+        foreach (string recipeId in new[] { "improvised_hunting_gun", "improvised_shotgun" })
+        {
+            RecipeData r = RecipeBook.All.Single(x => x.Id == recipeId);
+            Assert.Contains(RecipeBook.SpanishChronicleBookId, r.RequiredBookIds);
+        }
+        foreach (string recipeId in new[] { "ammo_short", "ammo_medium" })
         {
             RecipeData r = RecipeBook.All.Single(x => x.Id == recipeId);
             Assert.Contains(RecipeBook.FolkChemistryNotesBookId, r.RequiredBookIds);
@@ -312,9 +316,10 @@ public class WikiSyncT59Tests
         RecipeData longbow = RecipeBook.All.Single(r => r.Id == "longbow");
         RecipeData axe = RecipeBook.All.Single(r => r.Id == "axe");
 
-        // 两把弓：挪到新书。
+        // 反曲弓归弓制作指南；长弓由英国编年史接管。
         Assert.Contains(RecipeBook.BowCraftingGuideBookId, recurve.RequiredBookIds);
-        Assert.Contains(RecipeBook.BowCraftingGuideBookId, longbow.RequiredBookIds);
+        Assert.Contains(RecipeBook.BritishChronicleBookId, longbow.RequiredBookIds);
+        Assert.DoesNotContain(RecipeBook.BowCraftingGuideBookId, longbow.RequiredBookIds);
         Assert.DoesNotContain(RecipeBook.AdvancedCarpentryBookId, recurve.RequiredBookIds);
         Assert.DoesNotContain(RecipeBook.AdvancedCarpentryBookId, longbow.RequiredBookIds);
 
