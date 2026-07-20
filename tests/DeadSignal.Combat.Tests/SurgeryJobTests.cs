@@ -4,6 +4,10 @@ namespace DeadSignal.Combat.Tests;
 
 public sealed class SurgeryJobTests
 {
+    private static void Arrive(SurgeryJob job, bool bedStillOccupied = true)
+        => Assert.Equal(SurgeryAdvanceStatus.InProgress,
+            job.TryStartOperating(surgeonArrived: true, patientAtLockedPosition: true, bedStillOccupied));
+
     [Fact]
     public void OrdinarySurgery_TakesThirtyGameMinutes()
     {
@@ -13,6 +17,7 @@ public sealed class SurgeryJobTests
             surgerySpeedMultiplier: 1.0);
 
         Assert.Equal(30, job.TotalMinutes);
+        Arrive(job);
         Assert.Equal(SurgeryAdvanceStatus.InProgress,
             job.Advance(29, clockPaused: false, patientAlive: true, targetExists: true));
         Assert.False(job.IsReady);
@@ -29,6 +34,7 @@ public sealed class SurgeryJobTests
             Array.Empty<string>(), surgerySpeedMultiplier: 1.25);
 
         Assert.Equal(24, job.TotalMinutes);
+        Arrive(job);
         job.Advance(23, clockPaused: false, patientAlive: true, targetExists: true);
         Assert.False(job.IsReady);
         job.Advance(1, clockPaused: false, patientAlive: true, targetExists: true);
@@ -42,6 +48,7 @@ public sealed class SurgeryJobTests
             SurgeryKind.Treatment, 1, 2, HealthConditionType.Bleeding, "躯干",
             Array.Empty<string>(), 1.0);
 
+        Arrive(job);
         Assert.Equal(SurgeryAdvanceStatus.Paused,
             job.Advance(20, clockPaused: true, patientAlive: true, targetExists: true));
         Assert.Equal(0, job.ElapsedMinutes);
@@ -55,6 +62,7 @@ public sealed class SurgeryJobTests
             SurgeryKind.Treatment, 1, 2, HealthConditionType.Bleeding, "颈部",
             new[] { "first_aid_kit" }, 1.0);
 
+        Arrive(job);
         job.Advance(12, clockPaused: false, patientAlive: true, targetExists: true);
         Assert.Equal(SurgeryAdvanceStatus.Interrupted,
             job.Advance(1, clockPaused: false, patientAlive: false, targetExists: true));
@@ -72,6 +80,7 @@ public sealed class SurgeryJobTests
         SurgeryJob job = SurgeryJob.ForCondition(
             SurgeryKind.Treatment, 1, 2, HealthConditionType.Bleeding, HumanBody.Chest,
             new[] { "bandage" }, 1.0);
+        Arrive(job);
         job.Advance(10, clockPaused: false, patientAlive: true, targetExists: true);
 
         // 运行时正是 Actor 调这条既有链；手术状态机不另扣血，下一次轮询只读取死亡结果并中断。
@@ -92,6 +101,7 @@ public sealed class SurgeryJobTests
             SurgeryKind.Amputation, 1, 2, HealthConditionType.Infection, "右下肢",
             new[] { "splint" }, 1.0);
 
+        Arrive(job);
         Assert.Equal(SurgeryAdvanceStatus.Interrupted,
             job.Advance(0, clockPaused: false, patientAlive: true, targetExists: false));
         Assert.True(job.IsInterrupted);
@@ -105,6 +115,7 @@ public sealed class SurgeryJobTests
             SurgeryKind.Treatment, 1, 2, HealthConditionType.Bleeding, "腹部",
             new[] { "bandage", "needle_thread" }, 1.0);
 
+        Arrive(job);
         job.Advance(30, clockPaused: false, patientAlive: true, targetExists: true);
 
         Assert.True(job.TryClaimSettlement());
@@ -118,6 +129,7 @@ public sealed class SurgeryJobTests
         SurgeryJob original = SurgeryJob.ForCondition(
             SurgeryKind.Treatment, surgeonId: 17, patientId: 23,
             HealthConditionType.Fracture, "右上肢", new[] { "splint", "bandage" }, 1.25);
+        Arrive(original);
         original.Advance(11, clockPaused: false, patientAlive: true, targetExists: true);
 
         SurgeryJob restored = SurgeryJob.Restore(original.Snapshot());
@@ -139,6 +151,7 @@ public sealed class SurgeryJobTests
         SurgeryJob job = SurgeryJob.ForProsthetic(
             surgeonId: 5, patientId: 8, bodyPartKey: "左手",
             BodyRegion.Hand, ProstheticGrade.Simple, Array.Empty<string>(), 1.0);
+        Arrive(job);
         job.Advance(9, clockPaused: false, patientAlive: true, targetExists: true);
         SaveData data = new();
         data.Camp.SurgeryJob = job.Snapshot();
@@ -152,5 +165,62 @@ public sealed class SurgeryJobTests
         Assert.Equal(BodyRegion.Hand, back.ProstheticRegion);
         Assert.Equal(ProstheticGrade.Simple, back.ProstheticGrade);
         Assert.Equal(9, back.ElapsedMinutes);
+    }
+
+    [Fact]
+    public void Approach_DoesNotAdvanceUntilSurgeonArrives()
+    {
+        SurgeryJob job = SurgeryJob.ForCondition(
+            SurgeryKind.Treatment, 1, 2, HealthConditionType.Bleeding, "胸部",
+            new[] { "bandage" }, 1.0, requiresBedRetention: false);
+
+        Assert.Equal(SurgeryAdvanceStatus.Approaching,
+            job.AdvanceSpatial(20, false, true, true, true, false, true, true));
+        Assert.Equal(0, job.ElapsedMinutes);
+
+        Arrive(job);
+        Assert.Equal(SurgeryAdvanceStatus.InProgress,
+            job.AdvanceSpatial(1, false, true, true, true, true, true, true));
+        Assert.Equal(1, job.ElapsedMinutes);
+    }
+
+    [Fact]
+    public void Operating_InterruptsWhenSurgeonLeavesPosition()
+    {
+        SurgeryJob job = SurgeryJob.ForCondition(
+            SurgeryKind.Treatment, 1, 2, HealthConditionType.Bleeding, "胸部",
+            Array.Empty<string>(), 1.0, requiresBedRetention: false);
+        Arrive(job);
+
+        Assert.Equal(SurgeryAdvanceStatus.Interrupted,
+            job.AdvanceSpatial(1, false, true, true, true, false, true, true));
+        Assert.Equal(0, job.ElapsedMinutes);
+    }
+
+    [Fact]
+    public void BedOperation_InterruptsWhenPatientLeavesLockedBed()
+    {
+        SurgeryJob job = SurgeryJob.ForCondition(
+            SurgeryKind.Treatment, 1, 2, HealthConditionType.Bleeding, "胸部",
+            Array.Empty<string>(), 1.0, requiresBedRetention: true);
+        Arrive(job);
+
+        Assert.Equal(SurgeryAdvanceStatus.Interrupted,
+            job.AdvanceSpatial(1, false, true, true, true, true, true, false));
+        Assert.Equal(0, job.ElapsedMinutes);
+    }
+
+    [Fact]
+    public void FloorOperation_DoesNotRequireBed()
+    {
+        SurgeryJob job = SurgeryJob.ForCondition(
+            SurgeryKind.Treatment, 1, 2, HealthConditionType.Bleeding, "胸部",
+            Array.Empty<string>(), 1.0, requiresBedRetention: false);
+
+        Assert.Equal(SurgeryAdvanceStatus.InProgress,
+            job.TryStartOperating(true, true, bedStillOccupied: false));
+        Assert.Equal(SurgeryAdvanceStatus.InProgress,
+            job.AdvanceSpatial(1, false, true, true, true, true, true, false));
+        Assert.Equal(1, job.ElapsedMinutes);
     }
 }

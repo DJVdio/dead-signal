@@ -269,6 +269,10 @@ public sealed partial class CampMain : Node2D
     // 患者流血仍由 Actor.Body.TickBleed 推进，本层绝不重复扣血。
     private SurgeryJob? _surgeryJob;
     private int _surgeryLastMinuteKey = -1;
+    private Vector2 _surgeryStandPoint;
+    private Vector2 _surgeryPatientLockedPosition;
+    private string? _surgeryLockedBedKey;
+    private double _surgeryApproachElapsed;
 
     // ---------------- 批次9 开局营地废墟挖掘 ----------------
     // 废墟点纯逻辑注册表（工时进度 + 一次性收获，见 RubbleField / RubbleSite）。
@@ -3856,6 +3860,13 @@ public sealed partial class CampMain : Node2D
     /// </summary>
     private void HandleRightClick(Vector2 cart)
     {
+        // 手术参与者收到玩家新命令，视为主动破坏姿态：先明确中断并释放两人，再按本次右键正常下令。
+        if (_surgeryJob is { } active && _selectedPawn is { } selected
+            && (active.SurgeonId == selected.Id || active.PatientId == selected.Id))
+        {
+            InterruptTimedSurgery("手术中断：玩家下达了新命令，施术者或病人离开手术姿态。");
+        }
+
         // 门 / 围栏 → **动作菜单**（撬锁 / 静默拆除 / 破坏）。用户拍板：
         //「右键点击敌营门时选择撬锁/破坏，点击围栏时静默拆除/破坏」。
         // 真有得选才弹菜单，否则右键 = 直接干那一件事（没锁的门就是"推开"，不弹菜单）。
@@ -10071,6 +10082,14 @@ public sealed partial class CampMain : Node2D
             _campToast.Show("病人或施术者已无法进行手术。", CampToast.Bad);
             return;
         }
+        bool selfSurgery = ReferenceEquals(patient, surgeon);
+        if ((!surgeon.IsControllable && !(selfSurgery && surgeon.Role == PawnRole.Bedrest))
+            || patient.SurgeryOccupied || surgeon.SurgeryOccupied
+            || (!selfSurgery && patient.Role is not (PawnRole.Idle or PawnRole.Bedrest)))
+        {
+            _campToast.Show("病人或施术者正在执行别的任务。", CampToast.Bad);
+            return;
+        }
 
         if (kind == SurgeryKind.Treatment
             && (condition is null
@@ -10139,7 +10158,7 @@ public sealed partial class CampMain : Node2D
             + supplies.Sum(s => s.Points)
             + alwaysBookPoints
             + noSupplyBookPoints;
-        double selfFactor = ReferenceEquals(patient, surgeon) ? HealthConditionSet.SelfSurgeryFactor : 1.0;
+        double selfFactor = selfSurgery ? HealthConditionSet.SelfSurgeryFactor : 1.0;
         int pool = (int)Math.Round(rawPoints * Math.Clamp(surgeon.OperationCapability, 0.0, 1.0) * selfFactor,
             MidpointRounding.AwayFromZero);
         if (pool < HealthConditionSet.SurgeryMinPoints)
@@ -10149,17 +10168,75 @@ public sealed partial class CampMain : Node2D
         }
 
         double speed = BookPassiveEffects.SurgerySpeedMultiplier(surgeon.HasReadBook);
-        _surgeryJob = kind == SurgeryKind.Prosthetic
+        string? lockedBed = _beds.BedOf(patient.Id);
+        SurgeryJob job = kind == SurgeryKind.Prosthetic
             ? SurgeryJob.ForProsthetic(surgeon.Id, patient.Id, prostheticTarget!.Value.Key,
-                prostheticTarget.Value.Region, prostheticGrade!.Value, materialKeys, speed)
-            : SurgeryJob.ForCondition(kind, surgeon.Id, patient.Id, condition!.Type, condition.BodyPart, materialKeys, speed);
-        _surgeryLastMinuteKey = _clock.ClockMinuteKey();
+                prostheticTarget.Value.Region, prostheticGrade!.Value, materialKeys, speed,
+                requiresBedRetention: lockedBed is not null)
+            : SurgeryJob.ForCondition(kind, surgeon.Id, patient.Id, condition!.Type, condition.BodyPart, materialKeys, speed,
+                requiresBedRetention: lockedBed is not null);
 
-        // 医疗面板是冻结模态；开工后必须关掉并恢复原时标，世界和既有 Body.TickBleed 才会继续走。
+        if (!BeginSurgeryApproach(job, patient, surgeon, lockedBed))
+            return;
+
+        // 医疗面板是冻结模态；下令后关闭并恢复原时标，医生先真实走到手术位，抵达后才计工时。
         CloseMedical();
         _campToast.Show(
-            $"{surgeon.DisplayName} 开始为 {patient.DisplayName} 手术（约 {_surgeryJob.TotalMinutes} 游戏分钟）",
+            selfSurgery
+                ? $"{surgeon.DisplayName} 正在准备自体手术。"
+                : $"{surgeon.DisplayName} 正在走向 {patient.DisplayName} 的手术位。",
             CampToast.Ok);
+    }
+
+    private bool BeginSurgeryApproach(SurgeryJob job, Pawn patient, Pawn surgeon, string? lockedBed)
+    {
+        Vector2 stand;
+        if (ReferenceEquals(patient, surgeon))
+        {
+            stand = surgeon.GlobalPosition;
+        }
+        else if (lockedBed is not null)
+        {
+            ContainerRef? bed = _containers.FirstOrDefault(c => c.Role == "bed" && c.Name == lockedBed);
+            if (bed is null)
+            {
+                _campToast.Show("找不到病人所在的床，手术无法开始。", CampToast.Bad);
+                return false;
+            }
+            // 病人已经躺在床边交互点；医生锁定同侧相邻位，沿床沿错开一个角色身位，避免两人互撞顶死。
+            Vector2 outward = patient.GlobalPosition - bed.Rect.GetCenter();
+            if (outward.LengthSquared() < 0.01f) outward = Vector2.Right;
+            Vector2 tangent = new(-outward.Y, outward.X);
+            if (tangent.Dot(surgeon.GlobalPosition - patient.GlobalPosition) < 0f) tangent = -tangent;
+            stand = patient.GlobalPosition + tangent.Normalized() * (surgeon.Radius + patient.Radius + 8f);
+        }
+        else
+        {
+            Vector2 outward = surgeon.GlobalPosition - patient.GlobalPosition;
+            if (outward.LengthSquared() < 0.01f) outward = Vector2.Right;
+            stand = patient.GlobalPosition + outward.Normalized() * (surgeon.Radius + patient.Radius + 8f);
+        }
+
+        if (!surgeon.CanReach(stand))
+        {
+            _campToast.Show("无法到达手术位。", CampToast.Bad);
+            return false;
+        }
+
+        _surgeryJob = job;
+        _surgeryStandPoint = stand;
+        _surgeryPatientLockedPosition = patient.GlobalPosition;
+        _surgeryLockedBedKey = lockedBed;
+        _surgeryApproachElapsed = 0;
+        _surgeryLastMinuteKey = -1;
+        patient.CancelOrders();
+        surgeon.CancelOrders();
+        patient.SurgeryOccupied = true;
+        surgeon.SurgeryOccupied = true;
+        ReleaseNightAssignmentsOf(patient);
+        if (!ReferenceEquals(patient, surgeon)) ReleaseNightAssignmentsOf(surgeon);
+        if (!ReferenceEquals(patient, surgeon)) surgeon.CommandMoveTo(stand);
+        return true;
     }
 
     private bool HasSurgeryMaterials(IEnumerable<string> materialKeys)
@@ -10190,7 +10267,54 @@ public sealed partial class CampMain : Node2D
         Pawn? patient = _survivors.FirstOrDefault(p => p.Id == job.PatientId);
         Pawn? surgeon = _survivors.FirstOrDefault(p => p.Id == job.SurgeonId);
         bool patientAlive = patient is { Alive: true };
-        bool targetExists = patient is not null && surgeon is { Alive: true } && SurgeryTargetExists(patient, job);
+        bool surgeonAlive = surgeon is { Alive: true };
+        bool targetExists = patient is not null && SurgeryTargetExists(patient, job);
+        bool patientAtPosition = patient is not null
+            && patient.GlobalPosition.DistanceTo(_surgeryPatientLockedPosition) <= 12f;
+        bool surgeonAtPosition = surgeon is not null
+            && surgeon.GlobalPosition.DistanceTo(_surgeryStandPoint) <= PendingArriveMargin;
+        bool bedStillOccupied = _surgeryLockedBedKey is null
+            || (_beds.BedOf(job.PatientId) == _surgeryLockedBedKey
+                && _beds.OccupantOf(_surgeryLockedBedKey) == job.PatientId);
+
+        if (!patientAlive || !surgeonAlive || !targetExists || !patientAtPosition || !bedStillOccupied)
+        {
+            InterruptTimedSurgery("手术中断：病人、施术者、床位或目标伤情已不再满足条件。");
+            return;
+        }
+
+        if (!job.IsOperating)
+        {
+            if (!HasSurgeryMaterials(job.MaterialKeys))
+            {
+                InterruptTimedSurgery("手术取消：抵达前耗材已经不足。");
+                return;
+            }
+            _surgeryApproachElapsed += GetProcessDeltaTime();
+            if (surgeonAtPosition && surgeon!.IsNavigationFinished())
+            {
+                SurgeryAdvanceStatus start = job.TryStartOperating(true, patientAtPosition, bedStillOccupied);
+                if (start == SurgeryAdvanceStatus.InProgress)
+                {
+                    surgeon.CancelOrders();
+                    _surgeryLastMinuteKey = _clock.ClockMinuteKey();
+                    _campToast.Show($"{surgeon.DisplayName} 已抵达手术位，开始为 {patient!.DisplayName} 手术（约 {job.TotalMinutes} 游戏分钟）。", CampToast.Ok);
+                }
+                return;
+            }
+            if (_surgeryApproachElapsed > PendingInteractTimeout
+                || (surgeon!.IsNavigationFinished() && _surgeryApproachElapsed > 0.5))
+            {
+                InterruptTimedSurgery("无法到达手术位，手术已取消。");
+            }
+            return;
+        }
+
+        if (!SurgerySpatiallyValid(surgeon!, patient!, surgeonAtPosition, patientAtPosition, bedStillOccupied))
+        {
+            InterruptTimedSurgery("手术中断：施术者或病人离开了手术位。");
+            return;
+        }
 
         int key = _clock.ClockMinuteKey();
         int elapsedMinutes = 0;
@@ -10205,13 +10329,11 @@ public sealed partial class CampMain : Node2D
             _surgeryLastMinuteKey = key;
         }
 
-        SurgeryAdvanceStatus status = job.Advance(elapsedMinutes, _clock.Paused, patientAlive, targetExists);
+        SurgeryAdvanceStatus status = job.AdvanceSpatial(elapsedMinutes, _clock.Paused,
+            patientAlive, surgeonAlive, targetExists, surgeonAtPosition, patientAtPosition, bedStillOccupied);
         if (status == SurgeryAdvanceStatus.Interrupted)
         {
-            _surgeryJob = null;
-            _surgeryLastMinuteKey = -1;
-            if (!_gameOver)
-                _campToast.Show("手术中断：病人、施术者或目标伤情已不再满足条件。", CampToast.Bad);
+            InterruptTimedSurgery("手术中断：施术者或病人离开了手术位。");
             return;
         }
         if (status != SurgeryAdvanceStatus.Ready)
@@ -10220,17 +10342,43 @@ public sealed partial class CampMain : Node2D
         // 到点仍需确认耗材没被其它行为花掉；不足则中断，绝不凭空扣负数或照常结算。
         if (!HasSurgeryMaterials(job.MaterialKeys))
         {
-            _surgeryJob = null;
-            _surgeryLastMinuteKey = -1;
-            _campToast.Show("手术中断：预留耗材已经不足。", CampToast.Bad);
+            InterruptTimedSurgery("手术中断：预留耗材已经不足。");
             return;
         }
         if (!job.TryClaimSettlement())
             return;
 
+        ReleaseSurgeryParticipants();
         _surgeryJob = null; // 先清在制，再调用副作用结算；即使下一帧重入也不可能重复扣料/计台数。
         _surgeryLastMinuteKey = -1;
         CompleteTimedSurgery(job, patient!, surgeon!, FindSurgeryCondition(patient!, job));
+    }
+
+    private static bool SurgerySpatiallyValid(Pawn surgeon, Pawn patient,
+        bool surgeonAtPosition, bool patientAtPosition, bool bedStillOccupied)
+        => surgeon.Alive && patient.Alive && surgeonAtPosition && patientAtPosition && bedStillOccupied;
+
+    private void InterruptTimedSurgery(string message)
+    {
+        ReleaseSurgeryParticipants();
+        _surgeryJob = null;
+        _surgeryLastMinuteKey = -1;
+        _surgeryLockedBedKey = null;
+        _surgeryApproachElapsed = 0;
+        if (!_gameOver) _campToast.Show(message, CampToast.Bad);
+    }
+
+    private void ReleaseSurgeryParticipants()
+    {
+        if (_surgeryJob is not { } job) return;
+        Pawn? patient = _survivors.FirstOrDefault(p => p.Id == job.PatientId);
+        Pawn? surgeon = _survivors.FirstOrDefault(p => p.Id == job.SurgeonId);
+        if (patient is not null) patient.SurgeryOccupied = false;
+        if (surgeon is not null)
+        {
+            surgeon.SurgeryOccupied = false;
+            surgeon.CancelOrders();
+        }
     }
 
     private void CompleteTimedSurgery(SurgeryJob job, Pawn patient, Pawn surgeon, HealthCondition? condition)

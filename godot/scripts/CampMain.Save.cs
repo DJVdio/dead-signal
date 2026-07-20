@@ -475,8 +475,12 @@ public sealed partial class CampMain
             CraftingJob? oldJob = SaveMapper.FromSave(legacy);
             _facilityJobs = FacilityJobBoard.FromLegacySingleJob(oldJob, legacy.WorkerId);
         }
-        _surgeryJob = camp.SurgeryJob is not null ? SurgeryJob.Restore(camp.SurgeryJob) : null;
-        _surgeryLastMinuteKey = -1; // 读档首帧以当前时钟为新基准，绝不把离线/加载耗时算进手术。
+        // 手术现在依赖运行时导航目标、医生站位、病人锁定位置和真实床位。旧档只保存工时，没有这些空间上下文；
+        // 因此读档一律安全中断，绝不把旧进度凭空接到任意位置继续。新开手术也遵循同一兼容口径。
+        _surgeryJob = null;
+        _surgeryLastMinuteKey = -1;
+        _surgeryLockedBedKey = null;
+        _surgeryApproachElapsed = 0;
 
         _sandbagSeq = camp.SandbagSeq;
 

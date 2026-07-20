@@ -17,6 +17,7 @@ public enum SurgeryKind
 
 public enum SurgeryAdvanceStatus
 {
+    Approaching,
     InProgress,
     Paused,
     Ready,
@@ -39,6 +40,8 @@ public sealed class SurgeryJobSnapshot
     public int ElapsedMinutes { get; set; }
     public bool Interrupted { get; set; }
     public bool Settled { get; set; }
+    public bool Operating { get; set; }
+    public bool RequiresBedRetention { get; set; }
 }
 
 /// <summary>
@@ -51,6 +54,7 @@ public sealed class SurgeryJob
 
     private bool _interrupted;
     private bool _settled;
+    private bool _operating;
 
     private SurgeryJob(
         SurgeryKind kind,
@@ -64,7 +68,9 @@ public sealed class SurgeryJob
         int totalMinutes,
         int elapsedMinutes,
         bool interrupted,
-        bool settled)
+        bool settled,
+        bool operating,
+        bool requiresBedRetention)
     {
         if (surgeonId < 0) throw new ArgumentOutOfRangeException(nameof(surgeonId));
         if (patientId < 0) throw new ArgumentOutOfRangeException(nameof(patientId));
@@ -88,6 +94,8 @@ public sealed class SurgeryJob
         ElapsedMinutes = Math.Clamp(elapsedMinutes, 0, totalMinutes);
         _interrupted = interrupted;
         _settled = settled;
+        _operating = operating;
+        RequiresBedRetention = requiresBedRetention;
     }
 
     public SurgeryKind Kind { get; }
@@ -104,6 +112,8 @@ public sealed class SurgeryJob
     public bool IsReady => !_interrupted && !_settled && ElapsedMinutes >= TotalMinutes;
     public bool IsInterrupted => _interrupted;
     public bool IsSettled => _settled;
+    public bool IsOperating => _operating && !_interrupted && !_settled;
+    public bool RequiresBedRetention { get; }
 
     public static int DurationMinutes(double surgerySpeedMultiplier)
     {
@@ -119,12 +129,14 @@ public sealed class SurgeryJob
         HealthConditionType conditionType,
         string? bodyPartKey,
         IEnumerable<string>? materialKeys,
-        double surgerySpeedMultiplier)
+        double surgerySpeedMultiplier,
+        bool requiresBedRetention = false)
     {
         if (kind == SurgeryKind.Prosthetic)
             throw new ArgumentException("假肢安装请使用 ForProsthetic", nameof(kind));
         return new SurgeryJob(kind, surgeonId, patientId, conditionType, bodyPartKey,
-            null, null, materialKeys, DurationMinutes(surgerySpeedMultiplier), 0, false, false);
+            null, null, materialKeys, DurationMinutes(surgerySpeedMultiplier), 0, false, false,
+            operating: false, requiresBedRetention: requiresBedRetention);
     }
 
     public static SurgeryJob ForProsthetic(
@@ -134,11 +146,59 @@ public sealed class SurgeryJob
         BodyRegion region,
         ProstheticGrade grade,
         IEnumerable<string>? materialKeys,
-        double surgerySpeedMultiplier)
+        double surgerySpeedMultiplier,
+        bool requiresBedRetention = false)
         => new(SurgeryKind.Prosthetic, surgeonId, patientId, null,
             string.IsNullOrWhiteSpace(bodyPartKey) ? throw new ArgumentException("假肢目标部位稳定键不可空", nameof(bodyPartKey)) : bodyPartKey,
             region, grade,
-            materialKeys, DurationMinutes(surgerySpeedMultiplier), 0, false, false);
+            materialKeys, DurationMinutes(surgerySpeedMultiplier), 0, false, false,
+            operating: false, requiresBedRetention: requiresBedRetention);
+
+    /// <summary>医生到达锁定手术位后开工。接近阶段不推进工时，也不开放结算。</summary>
+    public SurgeryAdvanceStatus TryStartOperating(
+        bool surgeonArrived,
+        bool patientAtLockedPosition,
+        bool bedStillOccupied)
+    {
+        if (_settled) return SurgeryAdvanceStatus.Settled;
+        if (_interrupted) return SurgeryAdvanceStatus.Interrupted;
+        if (!surgeonArrived || !patientAtLockedPosition || (RequiresBedRetention && !bedStillOccupied))
+            return SurgeryAdvanceStatus.Approaching;
+        _operating = true;
+        return SurgeryAdvanceStatus.InProgress;
+    }
+
+    /// <summary>
+    /// 带空间姿态的唯一运行时推进入口。未抵达时绝不推进；开工后医生/病人离开锁定位置，
+    /// 或开工时锁定的床位不再由病人占用，立即中断。
+    /// </summary>
+    public SurgeryAdvanceStatus AdvanceSpatial(
+        int gameMinutes,
+        bool clockPaused,
+        bool patientAlive,
+        bool surgeonAlive,
+        bool targetExists,
+        bool surgeonAtLockedPosition,
+        bool patientAtLockedPosition,
+        bool bedStillOccupied)
+    {
+        if (_settled) return SurgeryAdvanceStatus.Settled;
+        if (_interrupted) return SurgeryAdvanceStatus.Interrupted;
+        if (!patientAlive || !surgeonAlive || !targetExists)
+        {
+            _interrupted = true;
+            return SurgeryAdvanceStatus.Interrupted;
+        }
+        if (!_operating)
+            return SurgeryAdvanceStatus.Approaching;
+        if (!surgeonAtLockedPosition || !patientAtLockedPosition
+            || (RequiresBedRetention && !bedStillOccupied))
+        {
+            _interrupted = true;
+            return SurgeryAdvanceStatus.Interrupted;
+        }
+        return AdvanceCore(gameMinutes, clockPaused);
+    }
 
     /// <summary>
     /// 推进游戏分钟。患者死亡或目标消失优先中断；暂停仅冻结工时。
@@ -153,6 +213,12 @@ public sealed class SurgeryJob
             _interrupted = true;
             return SurgeryAdvanceStatus.Interrupted;
         }
+        if (!_operating) return SurgeryAdvanceStatus.Approaching;
+        return AdvanceCore(gameMinutes, clockPaused);
+    }
+
+    private SurgeryAdvanceStatus AdvanceCore(int gameMinutes, bool clockPaused)
+    {
         if (IsReady) return SurgeryAdvanceStatus.Ready;
         if (clockPaused) return SurgeryAdvanceStatus.Paused;
         if (gameMinutes > 0)
@@ -182,6 +248,8 @@ public sealed class SurgeryJob
         ElapsedMinutes = ElapsedMinutes,
         Interrupted = _interrupted,
         Settled = _settled,
+        Operating = _operating,
+        RequiresBedRetention = RequiresBedRetention,
     };
 
     public static SurgeryJob Restore(SurgeryJobSnapshot snapshot)
@@ -190,6 +258,6 @@ public sealed class SurgeryJob
         return new SurgeryJob(snapshot.Kind, snapshot.SurgeonId, snapshot.PatientId,
             snapshot.ConditionType, snapshot.BodyPartKey, snapshot.ProstheticRegion, snapshot.ProstheticGrade,
             snapshot.MaterialKeys, snapshot.TotalMinutes, snapshot.ElapsedMinutes,
-            snapshot.Interrupted, snapshot.Settled);
+            snapshot.Interrupted, snapshot.Settled, snapshot.Operating, snapshot.RequiresBedRetention);
     }
 }

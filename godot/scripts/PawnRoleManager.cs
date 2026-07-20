@@ -122,6 +122,14 @@ public sealed class PawnRoleManager
                 p.Role = PawnRole.Bedrest;
         }
 
+        // 手术接近/进行中的两人被医疗流程独占：床上病人保留 Bedrest，其余参与者维持 Idle 作为空间姿态，
+        // 但 Pawn.IsControllable 会因 SurgeryOccupied 闸门禁止玩家与其它任务并发占用。
+        foreach (var p in _allPawns)
+        {
+            if (p.SurgeryOccupied && p.Role != PawnRole.Bedrest)
+                p.Role = PawnRole.Idle;
+        }
+
         RolesChanged?.Invoke();
     }
 }

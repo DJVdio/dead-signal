@@ -16,7 +16,9 @@ public sealed partial class Pawn : Actor
     public string DisplayName { get; private set; } = "幸存者";
 
     public PawnRole Role { get; set; } = PawnRole.Idle;
-    public bool IsControllable => Role == PawnRole.Idle;
+    /// <summary>接近手术位或正在手术时由 CampMain 锁定；阻止生产、站岗、读书及并发玩家指令。</summary>
+    public bool SurgeryOccupied { get; set; }
+    public bool IsControllable => Role == PawnRole.Idle && !SurgeryOccupied;
     protected override bool CanAct => Role != PawnRole.Sleeping;
 
     /// <summary>
