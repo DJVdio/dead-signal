@@ -115,7 +115,7 @@ python3 tools/wiki-serve.py
 | 护甲服装 | 16 | `src/DeadSignal.Combat/ArmorTable.cs` |
 | 狗装备 | 5 | `godot/scripts/DogApparel.cs` + `ArmorTable.cs` |
 | 弹药与箭 | 8 | `Materials.cs` + `Ammo.cs` + `Archery.cs` |
-| 材料 | 22 | `godot/scripts/Materials.cs`（**采来的草药——蒲公英/玫瑰果/老君须——归这里**：它们是原料，要加工才成药） |
+| 材料 | 22 | `godot/scripts/Materials.cs`（**采来的草药——蒲公英/玫瑰果/老君须——归这里**：它们是原料，要加工后才可使用） |
 | 医疗与草药 | 10 | `Materials.cs` + `HealthConditions.cs`（成品药：药膏/药茶/绷带/抗生素） |
 | 配方 | 40 | `godot/scripts/Recipe.cs` |
 | 光源 | 4 | `godot/scripts/LightSource.cs` |

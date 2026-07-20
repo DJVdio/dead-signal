@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-19 16:38:41",
+  "generatedAt": "2026-07-20 00:28:32",
   "iconDir": "godot/assets/items",
   "multiselectOptions": {
     "fitsWeapons": [
@@ -77,7 +77,7 @@
       "id": "medical",
       "label": "医疗与草药",
       "file": "medical.json",
-      "count": 10,
+      "count": 9,
       "source": "godot/scripts/Materials.cs + godot/scripts/HealthConditions.cs"
     },
     {

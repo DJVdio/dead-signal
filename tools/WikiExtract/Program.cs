@@ -148,7 +148,7 @@ internal static class Program
 
     /// <summary>
     /// **采来的草药原料**（用户拍板：归「材料」分区，不进医疗分区）—— 它们是野外采集的原料，
-    /// 要加工才成药；成品（草药膏 / 蒲公英茶 / 玫瑰果茶 / 草药绷带）才留在医疗分区。
+    /// 要加工后才可使用；成品（草药膏 / 蒲公英茶 / 玫瑰果茶 / 草药绷带）才留在医疗分区。
     /// <para>
     /// 这只是 <b>wiki 的分区归类</b>：C# 里它们仍挂在 <c>MaterialCategory.Medical</c> 下（本工具不改业务代码）。
     /// 代码侧要不要跟着改类别由 impl-medicine 定；真改了这里也不用动 —— 它按 key 认人，不看 C# 的类别。
@@ -1360,7 +1360,7 @@ internal static class Program
         foreach (MaterialDef m in DeadSignal.Godot.Materials.All)
         {
             // 弹药与医疗品各自单列分区；但**采来的草药原料归「材料」**（用户拍板：蒲公英/玫瑰果/老君须
-            // 是采集来的原料，要加工才成药 —— 成品药膏/药茶才留在医疗分区）。
+            // 是采集来的原料，要加工后才可使用 —— 成品药膏/药茶才留在医疗分区）。
             if (m.Category is MaterialCategory.Ammo) continue;
             if (m.Category is MaterialCategory.Medical && !RawHerbKeys.Contains(m.Key)) continue;
             // 食材归「食物与食材」分区（那里才有热量点这一列）。
@@ -1432,9 +1432,6 @@ internal static class Program
             // 治疗效率：config 存分数(0.35)，wiki 也存分数（type:percent 只让前端渲染成 35%）⇒ **恒等**，不加 PercentTransform。
             new("efficacy", "治疗效率", "percent", Hint: "抗生素 100% 是满效；草药是它的零头。",
                 ConfigKey: "Efficacy", ConfigRoot: "Medicines"),
-            // 药效基数：health.json 的 Medicines.<key>.Potency（0..1；乘固定照护系数、再乘治疗效率得单次病情消退量）。
-            new("potency", "药效基数", "number", Hint: "这味药一次照护的病情消退基数 0..1（成药 0.6、抗生素/草药 0.5）。空 = 非药品。",
-                ConfigKey: "Potency", ConfigRoot: "Medicines"),
             // 恶化减缓：抽取器对 ≥1.0 的值显示空（"不影响恶化"的约定），与 config 恒等投影冲突 ⇒ 暂不双向，留 agent 手动。
             new("worsenMult", "恶化减缓", "mult", Hint: "当天的恶化速度要乘的倍数——越小越能拖住病情。空 = 不影响恶化。"),
             // 玫瑰果茶专属：喝下当日昼夜恢复效率 +N 个百分点（加算）。数值真源是 health.json **顶层**标量
@@ -1470,7 +1467,6 @@ internal static class Program
                 ["exclusive"] = s?.Exclusive,
                 ["infectionMult"] = s?.InfectionChanceMultiplier,   // 手术耗材才有；草药绷带 0.75、其余 1
                 ["efficacy"] = med?.Efficacy,
-                ["potency"] = med?.Potency,                         // 药品才有
                 // 玫瑰果茶专属·health.json 顶层全局单值（只读列）；别的物品该格留空
                 ["rosehipHealBonus"] = m.Key == "rosehip_tea"
                     ? GameConfigCatalog.Section<HealthConfig>().RosehipTeaHealBonusPct : (object?)null,
@@ -1493,7 +1489,6 @@ internal static class Program
         HealthConditionType.Bleeding => "流血",
         HealthConditionType.Fracture => "骨折",
         HealthConditionType.Infection => "感染",
-        HealthConditionType.Disease => "疾病",
         _ => t.ToString(),
     };
 

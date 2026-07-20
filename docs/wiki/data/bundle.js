@@ -2,7 +2,7 @@
 // 用途：以 file:// 直接打开 index.html 时的降级数据源（浏览器不允许 fetch 本地文件）。
 window.WIKI_BUNDLE = {
   index: {
-  "generatedAt": "2026-07-19 16:38:41",
+  "generatedAt": "2026-07-20 00:28:32",
   "iconDir": "godot/assets/items",
   "multiselectOptions": {
     "fitsWeapons": [
@@ -80,7 +80,7 @@ window.WIKI_BUNDLE = {
       "id": "medical",
       "label": "医疗与草药",
       "file": "medical.json",
-      "count": 10,
+      "count": 9,
       "source": "godot/scripts/Materials.cs + godot/scripts/HealthConditions.cs"
     },
     {
@@ -3242,14 +3242,6 @@ window.WIKI_BUNDLE = {
       "hint": "抗生素 100% 是满效；草药是它的零头。"
     },
     {
-      "key": "potency",
-      "label": "药效基数",
-      "type": "number",
-      "configKey": "Potency",
-      "configRoot": "Medicines",
-      "hint": "这味药一次照护的病情消退基数 0..1（成药 0.6、抗生素/草药 0.5）。空 = 非药品。"
-    },
-    {
       "key": "worsenMult",
       "label": "恶化减缓",
       "type": "mult",
@@ -3324,7 +3316,6 @@ window.WIKI_BUNDLE = {
       "exclusive": false,
       "infectionMult": 1,
       "efficacy": null,
-      "potency": null,
       "rosehipHealBonus": null,
       "worsenMult": null,
       "weight": 0.1,
@@ -3344,7 +3335,6 @@ window.WIKI_BUNDLE = {
       "exclusive": false,
       "infectionMult": 1,
       "efficacy": null,
-      "potency": null,
       "rosehipHealBonus": null,
       "worsenMult": null,
       "weight": 0.05,
@@ -3364,7 +3354,6 @@ window.WIKI_BUNDLE = {
       "exclusive": false,
       "infectionMult": 1,
       "efficacy": null,
-      "potency": null,
       "rosehipHealBonus": null,
       "worsenMult": null,
       "weight": 0.3,
@@ -3384,7 +3373,6 @@ window.WIKI_BUNDLE = {
       "exclusive": true,
       "infectionMult": 1,
       "efficacy": null,
-      "potency": null,
       "rosehipHealBonus": null,
       "worsenMult": null,
       "weight": 0.5,
@@ -3404,7 +3392,6 @@ window.WIKI_BUNDLE = {
       "exclusive": false,
       "infectionMult": 0.75,
       "efficacy": null,
-      "potency": null,
       "rosehipHealBonus": null,
       "worsenMult": null,
       "weight": 0.1,
@@ -3424,7 +3411,6 @@ window.WIKI_BUNDLE = {
       "exclusive": null,
       "infectionMult": null,
       "efficacy": 1,
-      "potency": 0.5,
       "rosehipHealBonus": null,
       "worsenMult": 0.5,
       "weight": 0.05,
@@ -3437,26 +3423,6 @@ window.WIKI_BUNDLE = {
       "_icon": "materials/antibiotics"
     },
     {
-      "name": "成药",
-      "use": "药品",
-      "treats": "疾病",
-      "surgeryPoints": null,
-      "exclusive": null,
-      "infectionMult": null,
-      "efficacy": 1,
-      "potency": 0.6,
-      "rosehipHealBonus": null,
-      "worsenMult": null,
-      "weight": 0.05,
-      "description": "杂七杂八的成药，缓解发热痢疾等病症——治不了大病，但能让你多撑一天。",
-      "_id": "medicine",
-      "_configId": "medicine",
-      "_anchor": "godot/scripts/Materials.cs（名称/说明）+ godot/scripts/HealthConditions.cs :: SurgeryCatalog / MedicineCatalog（数值）",
-      "userNote": "",
-      "sync": "",
-      "_icon": "materials/medicine"
-    },
-    {
       "name": "草药膏",
       "use": "药品",
       "treats": "感染",
@@ -3464,7 +3430,6 @@ window.WIKI_BUNDLE = {
       "exclusive": null,
       "infectionMult": null,
       "efficacy": 0.35,
-      "potency": 0.5,
       "rosehipHealBonus": null,
       "worsenMult": 0.75,
       "weight": 0.15,
@@ -3484,7 +3449,6 @@ window.WIKI_BUNDLE = {
       "exclusive": null,
       "infectionMult": null,
       "efficacy": 0.15,
-      "potency": 0.5,
       "rosehipHealBonus": null,
       "worsenMult": 0.85,
       "weight": 0.25,
@@ -3504,7 +3468,6 @@ window.WIKI_BUNDLE = {
       "exclusive": null,
       "infectionMult": null,
       "efficacy": null,
-      "potency": null,
       "rosehipHealBonus": 9,
       "worsenMult": null,
       "weight": 0.25,

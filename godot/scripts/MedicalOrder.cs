@@ -21,9 +21,6 @@ public enum MedicalUseKind
     /// <summary>感染疗程用药（抗生素/草药膏/蒲公英茶）：指派后每昼夜黎明自动扣一份，推进治疗进度与感染进度的竞速（<see cref="HealthConditionSet.AdvanceInfectionRace"/>）。</summary>
     InfectionCourse,
 
-    /// <summary>疾病单发用药（成药）：当场扣一份，severity 消退（<see cref="HealthConditionSet.TreatIllness"/>）。</summary>
-    DiseaseDose,
-
     /// <summary>恢复补剂（玫瑰果茶）：当场扣一份，一段时间内加算术后愈合的恢复效率（不治病，只加速养伤）。</summary>
     RecoveryTonic,
 
@@ -75,7 +72,6 @@ public static class MedicalOrderLogic
     {
         "bandage", "herbal_bandage", "needle_thread", "splint", "first_aid_kit", // 手术耗材（SurgeryCatalog）
         "antibiotics", "herbal_salve", "dandelion_tea",                          // 感染三档（MedicineCatalog）
-        "medicine",                                                              // 疾病成药（MedicineCatalog）
         RecoveryTonicKey,                                                        // 恢复补剂
     };
 
@@ -97,7 +93,6 @@ public static class MedicalOrderLogic
         return MedicineCatalog.For(materialKey) switch
         {
             { Treats: HealthConditionType.Infection } => MedicalUseKind.InfectionCourse,
-            { Treats: HealthConditionType.Disease } => MedicalUseKind.DiseaseDose,
             _ => null,
         };
     }
@@ -143,8 +138,6 @@ public static class MedicalOrderLogic
             // 同一档疗程已在跑 → 重复指派无意义；换另一档是终稿明说的混合策略（先垫治疗进度再接力），必须放行。
             MedicalUseKind.InfectionCourse when currentCourseKey == materialKey => MedicalRefusal.AlreadyActive,
             MedicalUseKind.InfectionCourse when !Has(set, HealthConditionType.Infection) => MedicalRefusal.NoTarget,
-
-            MedicalUseKind.DiseaseDose when !Has(set, HealthConditionType.Disease) => MedicalRefusal.NoTarget,
 
             MedicalUseKind.RecoveryTonic when rosehipActive => MedicalRefusal.AlreadyActive,
             // 补剂只加速术后流血/骨折的逐日愈合 ⇒ 没有这两类伤的人喝了什么也不会发生，别让他白扔一份。

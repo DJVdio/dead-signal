@@ -188,7 +188,6 @@ public static class ItemIcons
         ["splint"] = new(Mats, "splint", "delapouite/foot-plaster"),
         ["first_aid_kit"] = new(Mats, "first_aid_kit", "delapouite/first-aid-kit"),
         ["antibiotics"] = new(Mats, "antibiotics", "delapouite/medicine-pills"),
-        ["medicine"] = new(Mats, "medicine", "delapouite/medicines"),
         ["dandelion"] = new(Mats, "dandelion", "delapouite/dandelion-flower"),
         ["rosehip"] = new(Mats, "rosehip", "delapouite/raspberry"),
         ["kudzu_root"] = new(Mats, "kudzu_root", "delapouite/roots"),

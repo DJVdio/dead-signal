@@ -328,7 +328,7 @@ public static class ExplorationCache
     public const string HospitalSterileStoreId = "cache_hospital_sterile_store"; // 无菌耗材库（最深）
     public const string HospitalIcuId = "cache_hospital_icu";                  // ICU 重症监护（最深·医疗）
     public const string HospitalBloodBankId = "cache_hospital_blood_bank";     // 血库（最深·急救包）
-    public const string HospitalAnesthesiaId = "cache_hospital_anesthesia";    // 麻醉科（最深·成药）
+    public const string HospitalAnesthesiaId = "cache_hospital_anesthesia";    // 麻醉科（最深·零件）
     public const string HospitalSterilizerId = "cache_hospital_sterilizer";    // 器械灭菌室（最深·夹板）
     public const string HospitalChiefSafeId = "cache_hospital_chief_safe";     // 主任药品保险柜（最深·最高价值医疗）
     // [大图放大] 补 14 点（放大后画布空档；医疗集中身份保持——新点药品/耗材压在药房/手术层）：
@@ -357,7 +357,7 @@ public static class ExplorationCache
 
     // ==== [T61] 下水道（Small，5 处·**低危**）——用户原话：「规模小…**基本没有危险**…**很少量**的物资点，
     //      可以获得**蘑菇啊老鼠啊**之类的」。⇒ 收成必须**薄**，且以**食材**为主（蘑菇/老鼠），不是装备场。
-    //      🔴 别往这儿加武器/枪弹/成药：这地方的价值是**耗子**（可招募幸存者），不是战利品。
+    //      🔴 别往这儿加武器/枪弹/高价值药品：这地方的价值是**耗子**（可招募幸存者），不是战利品。
     public const string SewerEntryDebrisId = "cache_sewer_entry_debris";        // 检修梯下的杂物（近）
     public const string SewerDriftPileId = "cache_sewer_drift_pile";            // 水线上的漂浮杂物堆（近）
     public const string SewerDeadEndLockerId = "cache_sewer_deadend_locker";    // 西死胡同尽头的锈铁柜（支线·绕路的报酬）
@@ -2327,12 +2327,12 @@ public static class ExplorationCache
 
             HospitalNurseStationId when NotYet(flags, HospitalNurseStationFlag) => new CacheResult(
                 HospitalNurseStationFlag,
-                new[] { LootItem.Material("bandage", 2), LootItem.Material("medicine", 1) },
+                new[] { LootItem.Material("bandage", 2) },
                 HospitalNurseStationTitle, HospitalNurseStationNarrative),
 
             HospitalDoctorOfficeId when NotYet(flags, HospitalDoctorOfficeFlag) => new CacheResult(
                 HospitalDoctorOfficeFlag,
-                new[] { LootItem.Material("medicine", 1), LootItem.Material("components", 1) },
+                new[] { LootItem.Material("components", 1) },
                 HospitalDoctorOfficeTitle, HospitalDoctorOfficeNarrative),
 
             HospitalDirtyUtilityId when NotYet(flags, HospitalDirtyUtilityFlag) => new CacheResult(
@@ -2352,18 +2352,18 @@ public static class ExplorationCache
 
             HospitalMorgueId when NotYet(flags, HospitalMorgueFlag) => new CacheResult(
                 HospitalMorgueFlag,
-                new[] { LootItem.Material("bone", 2), LootItem.Material("medicine", 1) },
+                new[] { LootItem.Material("bone", 2) },
                 HospitalMorgueTitle, HospitalMorgueNarrative),
 
             // 药房(深, 7·医疗集中——高价值)：
             HospitalPharmacyCounterId when NotYet(flags, HospitalPharmacyCounterFlag) => new CacheResult(
                 HospitalPharmacyCounterFlag,
-                new[] { LootItem.Material("medicine", 2), LootItem.Material("bandage", 2) },
+                new[] { LootItem.Material("bandage", 2) },
                 HospitalPharmacyCounterTitle, HospitalPharmacyCounterNarrative),
 
             HospitalPharmacyShelfId when NotYet(flags, HospitalPharmacyShelfFlag) => new CacheResult(
                 HospitalPharmacyShelfFlag,
-                new[] { LootItem.Material("antibiotics", 1), LootItem.Material("medicine", 1) },
+                new[] { LootItem.Material("antibiotics", 1) },
                 HospitalPharmacyShelfTitle, HospitalPharmacyShelfNarrative),
 
             HospitalPharmacyFridgeId when NotYet(flags, HospitalPharmacyFridgeFlag) => new CacheResult(
@@ -2378,7 +2378,7 @@ public static class ExplorationCache
 
             HospitalNarcoticsCabinetId when NotYet(flags, HospitalNarcoticsCabinetFlag) => new CacheResult(
                 HospitalNarcoticsCabinetFlag,
-                new[] { LootItem.Material("medicine", 2), LootItem.Material("antibiotics", 1) },
+                new[] { LootItem.Material("antibiotics", 1) },
                 HospitalNarcoticsCabinetTitle, HospitalNarcoticsCabinetNarrative),
 
             HospitalDispensaryId when NotYet(flags, HospitalDispensaryFlag) => new CacheResult(
@@ -2409,17 +2409,17 @@ public static class ExplorationCache
 
             HospitalIcuId when NotYet(flags, HospitalIcuFlag) => new CacheResult(
                 HospitalIcuFlag,
-                new[] { LootItem.Material("antibiotics", 1), LootItem.Material("medicine", 1), LootItem.Material("components", 1) },
+                new[] { LootItem.Material("antibiotics", 1), LootItem.Material("components", 1) },
                 HospitalIcuTitle, HospitalIcuNarrative),
 
             HospitalBloodBankId when NotYet(flags, HospitalBloodBankFlag) => new CacheResult(
                 HospitalBloodBankFlag,
-                new[] { LootItem.Material("first_aid_kit", 1), LootItem.Material("medicine", 1) },
+                new[] { LootItem.Material("first_aid_kit", 1) },
                 HospitalBloodBankTitle, HospitalBloodBankNarrative),
 
             HospitalAnesthesiaId when NotYet(flags, HospitalAnesthesiaFlag) => new CacheResult(
                 HospitalAnesthesiaFlag,
-                new[] { LootItem.Material("medicine", 2), LootItem.Material("components", 1) },
+                new[] { LootItem.Material("components", 1) },
                 HospitalAnesthesiaTitle, HospitalAnesthesiaNarrative),
 
             HospitalSterilizerId when NotYet(flags, HospitalSterilizerFlag) => new CacheResult(
@@ -2462,12 +2462,12 @@ public static class ExplorationCache
 
             HospitalStaffLoungeId when NotYet(flags, HospitalStaffLoungeFlag) => new CacheResult(
                 HospitalStaffLoungeFlag,
-                new[] { LootItem.Food(1), LootItem.Material("medicine", 1) },
+                new[] { LootItem.Food(1) },
                 HospitalStaffLoungeTitle, HospitalStaffLoungeNarrative),
 
             HospitalIsolationWardId when NotYet(flags, HospitalIsolationWardFlag) => new CacheResult(
                 HospitalIsolationWardFlag,
-                new[] { LootItem.Material("bandage", 2), LootItem.Material("medicine", 1) },
+                new[] { LootItem.Material("bandage", 2) },
                 HospitalIsolationWardTitle, HospitalIsolationWardNarrative),
 
             // 药房（深，3·医疗集中）：
@@ -2483,23 +2483,23 @@ public static class ExplorationCache
 
             HospitalVaccineFridgeId when NotYet(flags, HospitalVaccineFridgeFlag) => new CacheResult(
                 HospitalVaccineFridgeFlag,
-                new[] { LootItem.Material("antibiotics", 1), LootItem.Material("medicine", 1) },
+                new[] { LootItem.Material("antibiotics", 1) },
                 HospitalVaccineFridgeTitle, HospitalVaccineFridgeNarrative),
 
             // 手术层（最深，4·手术耗材+高价值医疗）：
             HospitalRecoveryRoomId when NotYet(flags, HospitalRecoveryRoomFlag) => new CacheResult(
                 HospitalRecoveryRoomFlag,
-                new[] { LootItem.Material("first_aid_kit", 1), LootItem.Material("medicine", 1) },
+                new[] { LootItem.Material("first_aid_kit", 1) },
                 HospitalRecoveryRoomTitle, HospitalRecoveryRoomNarrative),
 
             HospitalPathologyLabId when NotYet(flags, HospitalPathologyLabFlag) => new CacheResult(
                 HospitalPathologyLabFlag,
-                new[] { LootItem.Material("components", 1), LootItem.Material("bone", 1), LootItem.Material("medicine", 1) },
+                new[] { LootItem.Material("components", 1), LootItem.Material("bone", 1) },
                 HospitalPathologyLabTitle, HospitalPathologyLabNarrative),
 
             HospitalOnCallRoomId when NotYet(flags, HospitalOnCallRoomFlag) => new CacheResult(
                 HospitalOnCallRoomFlag,
-                new[] { LootItem.Food(1), LootItem.Material("medicine", 1) },
+                new[] { LootItem.Food(1) },
                 HospitalOnCallRoomTitle, HospitalOnCallRoomNarrative),
 
             HospitalCentralSupplyId when NotYet(flags, HospitalCentralSupplyFlag) => new CacheResult(
@@ -2515,12 +2515,12 @@ public static class ExplorationCache
 
             PharmacyShelfId when NotYet(flags, PharmacyShelfFlag) => new CacheResult(
                 PharmacyShelfFlag,
-                new[] { LootItem.Material("medicine", 1), LootItem.Material("bandage", 1), LootItem.Material("cloth", 1) },
+                new[] { LootItem.Material("bandage", 1), LootItem.Material("cloth", 1) },
                 PharmacyShelfTitle, PharmacyShelfNarrative),
 
             PharmacyDispensaryId when NotYet(flags, PharmacyDispensaryFlag) => new CacheResult(
                 PharmacyDispensaryFlag,
-                new[] { LootItem.Material("antibiotics", 1), LootItem.Material("medicine", 1), LootItem.Material("needle_thread", 1) },
+                new[] { LootItem.Material("antibiotics", 1), LootItem.Material("needle_thread", 1) },
                 PharmacyDispensaryTitle, PharmacyDispensaryNarrative),
 
             PharmacyColdBoxId when NotYet(flags, PharmacyColdBoxFlag) => new CacheResult(
@@ -2577,7 +2577,6 @@ public static class ExplorationCache
                     LootItem.Material("first_aid_kit", 1),
                     LootItem.Material("bandage", 3),
                     LootItem.Material("splint", 1),
-                    LootItem.Material("medicine", 1),
                 },
                 FireStationMedCabinetTitle, FireStationMedCabinetNarrative),
 
@@ -2596,7 +2595,7 @@ public static class ExplorationCache
             // 🔴 用户原话：「过程中有**很少量**的物资点，可以获得**蘑菇啊老鼠啊**之类的。」
             //    ⇒ **蘑菇 + 老鼠是这地方的身份**（两者都是既有材料，见 Materials：mushroom / rat）。
             //    量级：**全 5 处合计 14 件**（小点带 13~22 件的**下沿** —— 这地方本来就穷，
-            //    它的价值是**耗子**，不是战利品）。**别往这儿加武器/枪弹/成药。**
+            //    它的价值是**耗子**，不是战利品）。**别往这儿加武器/枪弹/高价值药品。**
             SewerEntryDebrisId when NotYet(flags, SewerEntryDebrisFlag) => new CacheResult(
                 SewerEntryDebrisFlag,
                 new[]
@@ -2900,7 +2899,7 @@ public static class ExplorationCache
 
             RefugeeSickRoomId when NotYet(flags, RefugeeSickRoomFlag) => new CacheResult(
                 RefugeeSickRoomFlag,
-                new[] { LootItem.Material("bandage", 3), LootItem.Material("medicine", 1), LootItem.Material("cloth", 2) },
+                new[] { LootItem.Material("bandage", 3), LootItem.Material("cloth", 2) },
                 RefugeeSickRoomTitle, RefugeeSickRoomNarrative),
 
             RefugeeChildRoomId when NotYet(flags, RefugeeChildRoomFlag) => new CacheResult(
@@ -3409,9 +3408,9 @@ public static class ExplorationCache
     private const string HospitalWardLockerTitle = "住院部·病床储物柜";
     private const string HospitalWardLockerNarrative = "病房床头的储物柜一个个翻过去，多是住院病人来不及带走的私物。一份没动的病号餐，柜底压着的一卷绷带。";
     private const string HospitalNurseStationTitle = "住院部·护士站";
-    private const string HospitalNurseStationNarrative = "护士站的治疗车和药品抽屉还没被彻底搜空——几卷绷带，一板缓解发热的成药。医院深处的东西，开始值钱起来了。";
+    private const string HospitalNurseStationNarrative = "护士站的治疗车还没被彻底搜空——几卷绷带。医院深处的东西，开始值钱起来了。";
     private const string HospitalDoctorOfficeTitle = "住院部·医生办公室";
-    private const string HospitalDoctorOfficeNarrative = "值班医生的办公室里，处方笺散了一桌。抽屉锁被撬开，几盒样品成药和一台拆得下零件的仪器还在。";
+    private const string HospitalDoctorOfficeNarrative = "值班医生的办公室里，处方笺散了一桌。抽屉锁被撬开，一台拆得下零件的仪器还在。";
     private const string HospitalDirtyUtilityTitle = "住院部·污物处置间";
     private const string HospitalDirtyUtilityNarrative = "污物间的气味叫人作呕，没人愿意进来翻。屏住气，成捆待洗的旧布还能撕作碎布用。";
     private const string HospitalKitchenetteTitle = "住院部·配餐间";
@@ -3419,17 +3418,17 @@ public static class ExplorationCache
     private const string HospitalFloorStoreTitle = "住院部·楼层库房";
     private const string HospitalFloorStoreNarrative = "楼层的杂物库房堆着维修用料，成幅的窗帘布、一卷铁丝、半盒螺钉。医院自己的家底，也不全是药。";
     private const string HospitalMorgueTitle = "地下·太平间";
-    private const string HospitalMorgueNarrative = "顺着最阴冷的通道摸到地下太平间，停尸抽屉半开着，里头早已空了——不敢想那些尸体去了哪。冷柜边的柜子里，是一板镇定的成药和几段可用的骨料。";
+    private const string HospitalMorgueNarrative = "顺着最阴冷的通道摸到地下太平间，停尸抽屉半开着，里头早已空了——不敢想那些尸体去了哪。冷柜边只剩几段可用的骨料。";
     private const string HospitalPharmacyCounterTitle = "药房·前台";
-    private const string HospitalPharmacyCounterNarrative = "推开药房的卷帘，成排的药架扑面而来——这里是别人不敢深入、你拿命换来的地方。前台货架上还码着大量成药和整箱的绷带。";
+    private const string HospitalPharmacyCounterNarrative = "推开药房的卷帘，成排的空药架扑面而来——这里是别人不敢深入、你拿命换来的地方。前台只剩整箱绷带。";
     private const string HospitalPharmacyShelfTitle = "药房·处方药架";
-    private const string HospitalPharmacyShelfNarrative = "处方药区按字母排得整整齐齐，大半还在。翻出一板紧俏的抗生素和几盒对症的成药——在外头，这些能换命。";
+    private const string HospitalPharmacyShelfNarrative = "处方药区被翻得七零八落。最里面还压着一板紧俏的抗生素——在外头，这些能换命。";
     private const string HospitalPharmacyFridgeTitle = "药房·冷藏药柜";
     private const string HospitalPharmacyFridgeNarrative = "断电已久的冷藏药柜里，需低温保存的药大多失效，唯独一板密封的抗生素和一只封装完好的急救包还顶用。";
     private const string HospitalPharmacyBackTitle = "药房·药库后间";
     private const string HospitalPharmacyBackNarrative = "药房最里的储备药库，一道铁栅门拦着，锁孔里还插着断掉的撬棍——前人没得手。你撬开了。整整两板抗生素码在架上，是这一趟最实在的收获。";
     private const string HospitalNarcoticsCabinetTitle = "药房·管制药柜";
-    private const string HospitalNarcoticsCabinetNarrative = "墙上一只双锁的管制药柜，专锁麻醉镇痛之类的强效药。砸开它费了一番功夫——几盒成药，还有一板抗生素混在其中。";
+    private const string HospitalNarcoticsCabinetNarrative = "墙上一只双锁的管制药柜。砸开它费了一番功夫——只剩一板抗生素混在空盒里。";
     private const string HospitalDispensaryTitle = "药房·配药室";
     private const string HospitalDispensaryNarrative = "配药室的操作台上摊着没做完的配药活。抽屉里成排的缝合针线和整箱绷带还是无菌封装，正是流血救治的耗材。";
     private const string HospitalMedSupplyRoomTitle = "药房·医材库";
@@ -3441,11 +3440,11 @@ public static class ExplorationCache
     private const string HospitalSterileStoreTitle = "手术层·无菌耗材库";
     private const string HospitalSterileStoreNarrative = "手术层的无菌耗材库是整座医院最干净的角落。密封的急救包、夹板、成箱绷带层层码放——高价值，也高风险，越往深处丧尸越密。";
     private const string HospitalIcuTitle = "手术层·ICU 重症监护";
-    private const string HospitalIcuNarrative = "ICU 的一整排监护仪早已熄灭，管线垂落。床边药车里剩着一板抗生素和几盒成药，拆得下的监护模块里还有精密零件。";
+    private const string HospitalIcuNarrative = "ICU 的一整排监护仪早已熄灭，管线垂落。床边药车里剩着一板抗生素，拆得下的监护模块里还有精密零件。";
     private const string HospitalBloodBankTitle = "手术层·血库";
-    private const string HospitalBloodBankNarrative = "血库的冷藏架断电后一片狼藉，血袋大多报废。应急柜里倒是留着一只完整急救包和一板成药——最后的储备。";
+    private const string HospitalBloodBankNarrative = "血库的冷藏架断电后一片狼藉，血袋大多报废。应急柜里倒是留着一只完整急救包——最后的储备。";
     private const string HospitalAnesthesiaTitle = "手术层·麻醉科";
-    private const string HospitalAnesthesiaNarrative = "麻醉科的药品柜锁得最严，里头是各类镇痛镇静的成药。撬开搜刮一空，连麻醉机上的精密元件也一并拆走。";
+    private const string HospitalAnesthesiaNarrative = "麻醉科的药品柜早已空了。麻醉机上的精密元件倒还能拆走。";
     private const string HospitalSterilizerTitle = "手术层·器械灭菌室";
     private const string HospitalSterilizerNarrative = "灭菌室的高压锅炉冷了很久，成套器械泡在失效的消毒液里。挑出还能用的钢制夹板和一块器械托盘的碎金属。";
     private const string HospitalChiefSafeTitle = "手术层·主任药品保险柜";
@@ -3462,21 +3461,21 @@ public static class ExplorationCache
     private const string HospitalRecordsTitle = "住院部·病案室";
     private const string HospitalRecordsNarrative = "病案室成排的档案柜倒了一地，纸页铺满地面——除了引火没别的用。柜架上盘着的成捆布带和一卷装订铁丝还算实在。";
     private const string HospitalStaffLoungeTitle = "住院部·医护休息室";
-    private const string HospitalStaffLoungeNarrative = "值班医护的休息室里，储物柜半开着。没吃完的干粮还封着，抽屉里压着一板留作应急的成药。";
+    private const string HospitalStaffLoungeNarrative = "值班医护的休息室里，储物柜半开着。没吃完的干粮还封着。";
     private const string HospitalIsolationWardTitle = "住院部·隔离病房";
-    private const string HospitalIsolationWardNarrative = "走廊最深处那间隔离病房贴着褪色的封条，没人愿意进。屏息推门，治疗车上还剩几卷无菌绷带和一板成药——正因没人敢碰，才留到了现在。";
+    private const string HospitalIsolationWardNarrative = "走廊最深处那间隔离病房贴着褪色的封条，没人愿意进。屏息推门，治疗车上还剩几卷无菌绷带——正因没人敢碰，才留到了现在。";
     private const string HospitalCompoundingLabTitle = "药房·配置室";
     private const string HospitalCompoundingLabNarrative = "药房里间的配置室，操作台上摊着没做完的调配活。无菌封装的缝合针线成排码着，抽屉最里藏着一板紧俏的抗生素。";
     private const string HospitalIvPrepTitle = "药房·静配中心";
     private const string HospitalIvPrepNarrative = "静脉配液中心的层流台断电已久。密封的耗材还干净，一只完整急救包和几套缝合针线留在无菌柜里。";
     private const string HospitalVaccineFridgeTitle = "药房·疫苗冷库";
-    private const string HospitalVaccineFridgeNarrative = "疫苗冷库断电后大半报废，唯独门边应急架上一板密封抗生素和几盒常温成药还顶用。冷库的门很重，也正因此挡住了不少人。";
+    private const string HospitalVaccineFridgeNarrative = "疫苗冷库断电后大半报废，唯独门边应急架上一板密封抗生素还顶用。冷库的门很重，也正因此挡住了不少人。";
     private const string HospitalRecoveryRoomTitle = "手术层·术后恢复室";
-    private const string HospitalRecoveryRoomNarrative = "术后恢复室成排的推床空着，监护线垂在地上。床边药车里留着一只急救包和一板镇痛的成药——离手术室最近，也离最深的丧尸最近。";
+    private const string HospitalRecoveryRoomNarrative = "术后恢复室成排的推床空着，监护线垂在地上。床边药车里留着一只急救包——离手术室最近，也离最深的丧尸最近。";
     private const string HospitalPathologyLabTitle = "手术层·病理科";
-    private const string HospitalPathologyLabNarrative = "病理科的取材台冷冷发着金属光，标本柜早已无人问津。拆得下显微设备里的精密零件，柜底还压着几段骨料和一板成药。";
+    private const string HospitalPathologyLabNarrative = "病理科的取材台冷冷发着金属光，标本柜早已无人问津。显微设备里还有精密零件，柜底压着几段骨料。";
     private const string HospitalOnCallRoomTitle = "手术层·值班室";
-    private const string HospitalOnCallRoomNarrative = "外科值班室的行军床还铺着，主人像是随时会回来接班。床头柜里塞着没吃的干粮和一板顶班熬夜用的成药。";
+    private const string HospitalOnCallRoomNarrative = "外科值班室的行军床还铺着，主人像是随时会回来接班。床头柜里塞着没吃的干粮。";
     private const string HospitalCentralSupplyTitle = "手术层·中心供应室";
     private const string HospitalCentralSupplyNarrative = "中心供应室是全院无菌耗材的总仓——成箱夹板、绷带、缝合针线层层码到顶。搬空一格，够营地的流血救治撑上好一阵；只是它就压在手术层最深处，丧尸最密的地方。";
 
@@ -3484,7 +3483,7 @@ public static class ExplorationCache
     private const string PharmacyCounterTitle = "前台收银台";
     private const string PharmacyCounterNarrative = "收银台的抽屉半开着，硬币散了一地，没人要钱了。底下压着一盒拆开的绷带和店员没吃完的几块饼干——她大概是被叫走的，走得很急。";
     private const string PharmacyShelfTitle = "店面货架";
-    private const string PharmacyShelfNarrative = "临街的货架早被翻了个底朝天，感冒药、止痛片的空盒踩得粉碎。够不着的最高层还漏下几板常备成药，一卷纱布卡在货架缝里，倒是没人惦记。";
+    private const string PharmacyShelfNarrative = "临街的货架早被翻了个底朝天，空盒踩得粉碎。一卷纱布卡在货架缝里，倒是没人惦记。";
     private const string PharmacyDispensaryTitle = "后屋处方柜";
     private const string PharmacyDispensaryNarrative = "后屋的处方药柜上着锁，锁孔却是干净的——有人一直在用它。里头按字母排得整整齐齐，抗生素只剩最后一盒，旁边搁着消好毒的针线，像是随时准备给谁缝合。";
     private const string PharmacyColdBoxTitle = "后屋冷藏箱";
@@ -3514,7 +3513,7 @@ public static class ExplorationCache
     private const string FireStationMedCabinetTitle = "器材间·急救柜";
     private const string FireStationMedCabinetNarrative =
         "白色的急救柜靠墙立着，柜门上贴着「取用后登记」，底下那张登记表最后几行的字越写越潦草，再往后就是空白。" +
-        "柜里码得还算齐整：一个红十字急救包、几卷绷带、一副夹板、一小盒成药。救人的东西他们备得很足——只是最后没能给自己用上。";
+        "柜里码得还算齐整：一个红十字急救包、几卷绷带、一副夹板。救人的东西他们备得很足——只是最后没能给自己用上。";
 
     private const string FireStationBackyardShedTitle = "后院·杂物棚";
     private const string FireStationBackyardShedNarrative =

@@ -9,7 +9,7 @@ namespace DeadSignal.Combat.Tests;
 public class MarketHospitalCacheTests
 {
     private static readonly string[] Medical =
-        { "bandage", "needle_thread", "splint", "first_aid_kit", "antibiotics", "medicine" };
+        { "bandage", "needle_thread", "splint", "first_aid_kit", "antibiotics" };
 
     [Fact]
     public void Supermarket_Has11Points_AllResolveOnce()

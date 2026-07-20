@@ -14,11 +14,8 @@ namespace DeadSignal.Godot;
 //   ② **床是假的**：旧写法 `restedInBed = resting`，营地里根本没有床这个东西。
 //   ③ **休养不是玩家的选择**：它由角色隐式推导，玩家无从主动命令一个伤员"去躺着"。
 //
-// ★ 解法 —— 布尔 → 占比（**推广而非改写**）：
-//   一个人一昼夜要经过若干相位，每个相位他处于某种「休养质量」<see cref="RestQuality"/>（不休养/打地铺/睡床）。
-//   把这些相位累计起来（<see cref="RestLedger"/>），得到当日的 **休养占比 RestFraction** 与 **睡床占比 BedFraction**。
-//   喂给 <c>HealthConditionSet.TickDay(restFraction:, bedFraction:)</c> —— 旧的布尔 true/false 恰是占比 1.0/0.0
-//   的特例，**端点逐比特等价**，故既有结算零回归。白天睡觉自此天然计入。
+// ★ 解法：按游戏分钟累计休息与真实睡床时长。伤口/骨折只吃睡床轴；旧休养 ×1.5 已删除。
+//   休息分钟仅保留给自然补血基数，睡床分钟另提供最高 +10% 恢复加成。
 //
 // ★ 与双班硬日程（ShiftSchedule）的关系 —— **无新语义、全是现有模型的推论**：
 //   · 白天卧床**不顶掉任何工作时间**：白天营地本来就没有工时（生产仅 NightCrew×NightAct 推进，见
@@ -29,19 +26,6 @@ namespace DeadSignal.Godot;
 //   · 聚餐是模态相位，全员参加（爬起来吃饭，吃完继续躺）。
 //
 // 空间执行（走到床边/占床/起床）落 Godot 运行时层（CampMain）；本文件只出纯规则。数值全部「拟定待调」。
-
-/// <summary>某人在**某一个相位**里的休养质量。占比累计见 <see cref="RestLedger"/>。</summary>
-public enum RestQuality
-{
-    /// <summary>不休养：在勤（站岗/读书/生产）、出门在外、或只是待命。伤情该恶化恶化、术后该慢慢愈合。</summary>
-    None,
-
-    /// <summary>打地铺：在休养，但没床（床不够/没造）。吃休养加成，不吃睡床加成。</summary>
-    Floor,
-
-    /// <summary>睡床：在休养且占着一张床。休养加成 + 睡床加成全吃。</summary>
-    Bed,
-}
 
 /// <summary>玩家下「上床养病」令的判定结果。</summary>
 public enum BedrestOrderStatus
@@ -181,93 +165,81 @@ public sealed class BedRegistry
 }
 
 /// <summary>
-/// 一个幸存者**当日**的休养流水账：每过一个相位记一笔 <see cref="RestQuality"/>，
-/// 昼夜结算时出 <see cref="RestFraction"/>（休养占比）与 <see cref="BedFraction"/>（睡床占比）喂给 TickDay，
-/// 然后 <see cref="Reset"/> 开下一天的账。
-/// <para>
-/// 一天没记过任何相位（<see cref="PhasesCounted"/>=0）→ 两个占比都是 0（不休养），不做除零。
-/// </para>
+/// 一个幸存者当日的分钟流水账。昼夜结算时输出休息占比与睡床占比，然后清账。
 /// </summary>
 public sealed class RestLedger
 {
-    private int _phases;
-    private int _restPhases;
-    private int _bedPhases;
+    private int _minutes;
+    private int _restMinutes;
+    private int _bedMinutes;
 
-    /// <summary>本日已记账的相位数。</summary>
-    public int PhasesCounted => _phases;
+    /// <summary>本日已流逝的游戏分钟。</summary>
+    public int MinutesCounted => _minutes;
 
-    /// <summary>本日处于休养（地铺或床）的相位数。</summary>
-    public int RestPhases => _restPhases;
+    /// <summary>其中确实睡在床上的游戏分钟。</summary>
+    public int BedMinutes => _bedMinutes;
 
-    /// <summary>本日睡在**床上**的相位数。</summary>
-    public int BedPhases => _bedPhases;
+    /// <summary>其中主动卧床或日程睡眠的游戏分钟。仅供自然补血，不再乘伤口/骨折愈合速度。</summary>
+    public int RestMinutes => _restMinutes;
 
-    /// <summary>记一个相位的休养质量。</summary>
-    public void Record(RestQuality quality)
+    /// <summary>按游戏分钟记账。主动卧床但没床，也只增加分母，不产生恢复加成。</summary>
+    public void RecordMinutes(int minutes, bool onBed, bool resting = false)
     {
-        _phases++;
-        if (quality != RestQuality.None)
+        int safe = System.Math.Max(0, minutes);
+        _minutes += safe;
+        if (resting || onBed)
         {
-            _restPhases++;
+            _restMinutes += safe;
         }
-        if (quality == RestQuality.Bed)
+        if (onBed)
         {
-            _bedPhases++;
+            _bedMinutes += safe;
         }
     }
 
-    /// <summary>本日休养占比 0..1（休养相位 ÷ 已记相位）。喂 <c>TickDay(restFraction:)</c>。</summary>
-    public double RestFraction => _phases == 0 ? 0.0 : (double)_restPhases / _phases;
+    /// <summary>本日睡床占比 0..1（睡床分钟 ÷ 已流逝游戏分钟）。</summary>
+    public double BedFraction => _minutes == 0 ? 0.0 : (double)_bedMinutes / _minutes;
 
-    /// <summary>本日睡床占比 0..1（睡床相位 ÷ 已记相位）。喂 <c>TickDay(bedFraction:)</c>。</summary>
-    public double BedFraction => _phases == 0 ? 0.0 : (double)_bedPhases / _phases;
+    /// <summary>自然补血用休息占比；不参与伤口/骨折 ×1.5（该倍率已删除）。</summary>
+    public double RestFraction => _minutes == 0 ? 0.0 : (double)_restMinutes / _minutes;
 
     /// <summary>清账，开下一昼夜（每日黎明结算完调）。</summary>
     public void Reset()
     {
-        _phases = 0;
-        _restPhases = 0;
-        _bedPhases = 0;
+        _minutes = 0;
+        _restMinutes = 0;
+        _bedMinutes = 0;
     }
 
     /// <summary>读档：把当日累计的流水直接灌回来（存档跨相位，账不能丢）。</summary>
-    internal void Restore(int phases, int restPhases, int bedPhases)
+    internal void Restore(int minutes, int restMinutes, int bedMinutes)
     {
-        _phases = System.Math.Max(0, phases);
-        _restPhases = System.Math.Clamp(restPhases, 0, _phases);
-        _bedPhases = System.Math.Clamp(bedPhases, 0, _restPhases);
+        _minutes = System.Math.Max(0, minutes);
+        _restMinutes = System.Math.Clamp(restMinutes, 0, _minutes);
+        _bedMinutes = System.Math.Clamp(bedMinutes, 0, _minutes);
     }
 }
 
 /// <summary>卧床养病的纯规则（无 Godot 依赖、Link 进单测）。全静态纯函数。</summary>
 public static class BedrestLogic
 {
-    /// <summary>
-    /// 某人在某相位的休养质量。**这是全套规则的心脏**，白天睡觉的加成就落在这儿：
-    /// <list type="bullet">
-    /// <item><see cref="PawnRole.Bedrest"/>（玩家下令卧床养病）→ 有床睡床、没床打地铺。**任何相位都算**（含夜里，代价是不站岗不生产）。</item>
-    /// <item><see cref="PawnRole.Sleeping"/>（日程强制睡：白天留守者、夜里探险队）→ 同上。
-    ///       ⇒ **白天在营地睡的那三个相位（出发/探索/返回）自此天然吃到治疗加成**，无需任何额外下令。</item>
-    /// <item><see cref="PawnRole.Guard"/> 整夜值岗 → 不休养（沿用旧口径）。</item>
-    /// <item><see cref="PawnRole.Expedition"/> 人在野外 → 不休养（旧写法把他算作"休养"，是明显的错，顺手修掉）。</item>
-    /// <item><see cref="PawnRole.Reading"/> 夜里挑灯读书 → 不休养（在勤，旧写法同样误算为休养）。</item>
-    /// <item><see cref="PawnRole.Idle"/> 待命 → 不休养。**想休养就得下令去躺着** —— 这正是要玩家做的那个选择。</item>
-    /// </list>
-    /// 聚餐相位（模态，全员爬起来吃饭）不计入流水账，见 <see cref="CountsTowardLedger"/>。
-    /// </summary>
-    public static RestQuality QualityFor(PawnRole role, bool hasBed) => role switch
+    /// <summary>把昼夜相位映射为单调世界游戏分钟；白昼/夜晚各 720 分钟，冻结过渡相位不推进。</summary>
+    public static int WorldMinuteStamp(int day, DayPhase phase, double phaseElapsed, double dayLengthSeconds, double nightLengthSeconds)
     {
-        PawnRole.Bedrest or PawnRole.Sleeping => hasBed ? RestQuality.Bed : RestQuality.Floor,
-        _ => RestQuality.None,
-    };
+        int dayBase = System.Math.Max(0, day) * 1440;
+        static int SegmentMinutes(double elapsed, double length)
+            => length <= 0 ? 0 : System.Math.Clamp((int)System.Math.Floor(elapsed / length * 720.0), 0, 720);
 
-    /// <summary>
-    /// 该相位是否计入休养流水账：**聚餐相位不计**（模态过渡，全员在饭桌上，既不算休养也不算干活——
-    /// 计进去只会把两个占比一起稀释，凭空惩罚所有人）。其余 6 个相位皆计。
-    /// </summary>
-    public static bool CountsTowardLedger(DayPhase phase)
-        => ShiftSchedule.BlockOf(phase) != PhaseBlock.Meal;
+        return phase switch
+        {
+            DayPhase.DayPrep or DayPhase.DayTravel => dayBase,
+            DayPhase.DayExplore => dayBase + SegmentMinutes(phaseElapsed, dayLengthSeconds),
+            DayPhase.DayReturn or DayPhase.DuskMeal or DayPhase.NightPrep => dayBase + 720,
+            DayPhase.NightAct => dayBase + 720 + SegmentMinutes(phaseElapsed, nightLengthSeconds),
+            DayPhase.DawnMeal => dayBase + 1440,
+            _ => dayBase,
+        };
+    }
 
     /// <summary>
     /// 玩家能不能命令这个人「上床养病」。

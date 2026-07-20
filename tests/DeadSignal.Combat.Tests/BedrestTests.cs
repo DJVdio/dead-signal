@@ -42,154 +42,38 @@ public class BedrestTests
     }
 
     [Fact]
-    public void 占比1等价于旧布尔true_休养轴零回归()
-    {
-        double oldWay = HealAfterTick(resting: true, inBed: false, null, null);
-        double newWay = HealAfterTick(resting: false, inBed: false, restFraction: 1.0, bedFraction: 0.0);
-        Assert.Equal(oldWay, newWay); // 逐比特
-    }
+    public void 主动卧床没床_不再获得通用休养倍率()
+        => Assert.Equal(HealAfterTick(false, false, 0, 0), HealAfterTick(true, false, 1, 0), 12);
 
     [Fact]
-    public void 占比0等价于旧布尔false_休养轴零回归()
-    {
-        double oldWay = HealAfterTick(resting: false, inBed: false, null, null);
-        double newWay = HealAfterTick(resting: true, inBed: true, restFraction: 0.0, bedFraction: 0.0);
-        Assert.Equal(oldWay, newWay);
-    }
-
-    [Fact]
-    public void 睡床占比1等价于旧restedInBed_true_睡床轴零回归()
-    {
-        double oldWay = HealAfterTick(resting: true, inBed: true, null, null);
-        double newWay = HealAfterTick(resting: false, inBed: false, restFraction: 1.0, bedFraction: 1.0);
-        Assert.Equal(oldWay, newWay);
-    }
-
-    [Fact]
-    public void 不传占比时回落到布尔_既有调用零回归()
-    {
-        // 旧调用形态（只给布尔）必须与显式传等价占比完全一致——既有 1000+ 测试走的就是这条路。
-        Assert.Equal(
-            HealAfterTick(resting: true, inBed: true, null, null),
-            HealAfterTick(resting: true, inBed: true, restFraction: 1.0, bedFraction: 1.0));
-    }
-
-    // ---------------- 新能力：中间占比 ----------------
-
-    [Fact]
-    public void 休养半天的愈合量介于全休养与不休养之间()
-    {
-        double none = HealAfterTick(false, false, 0.0, 0.0);
-        double half = HealAfterTick(false, false, 0.5, 0.0);
-        double full = HealAfterTick(false, false, 1.0, 0.0);
-        Assert.True(none < half && half < full, $"期望 {none} < {half} < {full}");
-    }
-
-    [Fact]
-    public void 睡床比打地铺好_同样休养占比下床加成更高()
-    {
-        double floor = HealAfterTick(false, false, restFraction: 1.0, bedFraction: 0.0); // 打地铺
-        double bed = HealAfterTick(false, false, restFraction: 1.0, bedFraction: 1.0);   // 睡床
-        Assert.True(bed > floor, $"睡床({bed}) 应优于地铺({floor})");
-    }
-
-    // ---------------- 核心：白天睡觉必须吃到治疗加成（旧缺陷的回归钉） ----------------
-
-    [Fact]
-    public void 白天在营地睡的三个相位_计入休养与睡床占比()
-    {
-        // 留守者的一天：白天筹备(Idle) → 出发/探索/返回三相由日程强制 Sleeping → 夜间部署(Idle) → 夜间行动(站岗)。
-        // 旧模型：黎明结算只读一个布尔、且读到的是夜里的角色(Guard) ⇒ resting=false，白天白睡。
-        // 新模型：白天那三相 Sleeping + 有床 ⇒ 睡床占比 3/6 > 0，**白天睡觉吃到加成**。
-        var ledger = new RestLedger();
-        var day = new[]
-        {
-            (DayPhase.DayPrep, PawnRole.Idle),
-            (DayPhase.DayTravel, PawnRole.Sleeping),
-            (DayPhase.DayExplore, PawnRole.Sleeping),
-            (DayPhase.DayReturn, PawnRole.Sleeping),
-            (DayPhase.NightPrep, PawnRole.Idle),
-            (DayPhase.NightAct, PawnRole.Guard),
-        };
-        foreach ((DayPhase phase, PawnRole role) in day)
-        {
-            if (BedrestLogic.CountsTowardLedger(phase))
-            {
-                ledger.Record(BedrestLogic.QualityFor(role, hasBed: true));
-            }
-        }
-
-        Assert.Equal(6, ledger.PhasesCounted);
-        Assert.Equal(3, ledger.BedPhases);
-        Assert.Equal(0.5, ledger.RestFraction, 6);
-        Assert.Equal(0.5, ledger.BedFraction, 6);
-        Assert.True(ledger.BedFraction > 0, "白天睡觉必须吃到睡床加成——这正是旧模型丢掉的那一半");
-    }
-
-    [Fact]
-    public void 全天卧床养病者_占比拉满()
+    public void 睡床分钟按实际时长加权()
     {
         var ledger = new RestLedger();
-        foreach (DayPhase phase in System.Enum.GetValues<DayPhase>())
-        {
-            if (BedrestLogic.CountsTowardLedger(phase))
-            {
-                ledger.Record(BedrestLogic.QualityFor(PawnRole.Bedrest, hasBed: true));
-            }
-        }
-        Assert.Equal(1.0, ledger.RestFraction, 6);
-        Assert.Equal(1.0, ledger.BedFraction, 6);
+        ledger.RecordMinutes(60, onBed: true);
+        ledger.RecordMinutes(180, onBed: false);
+        Assert.Equal(240, ledger.MinutesCounted);
+        Assert.Equal(60, ledger.BedMinutes);
+        Assert.Equal(0.25, ledger.BedFraction, 12);
     }
 
     [Fact]
-    public void 没床的养病者只算地铺_休养满但睡床零()
+    public void 没床的主动卧床_床加成仍为零()
     {
         var ledger = new RestLedger();
-        ledger.Record(BedrestLogic.QualityFor(PawnRole.Bedrest, hasBed: false));
-        Assert.Equal(1.0, ledger.RestFraction, 6);
-        Assert.Equal(0.0, ledger.BedFraction, 6);
-    }
-
-    [Fact]
-    public void 聚餐相位不计入流水账_不稀释占比()
-    {
-        Assert.False(BedrestLogic.CountsTowardLedger(DayPhase.DawnMeal));
-        Assert.False(BedrestLogic.CountsTowardLedger(DayPhase.DuskMeal));
-        Assert.True(BedrestLogic.CountsTowardLedger(DayPhase.NightAct));
-        Assert.True(BedrestLogic.CountsTowardLedger(DayPhase.DayExplore));
-    }
-
-    [Fact]
-    public void 空账不除零()
-    {
-        var ledger = new RestLedger();
-        Assert.Equal(0.0, ledger.RestFraction);
-        Assert.Equal(0.0, ledger.BedFraction);
+        ledger.RecordMinutes(720, onBed: false);
+        Assert.Equal(0, ledger.BedMinutes);
+        Assert.Equal(0, ledger.BedFraction);
     }
 
     [Fact]
     public void 清账后重新开始()
     {
         var ledger = new RestLedger();
-        ledger.Record(RestQuality.Bed);
+        ledger.RecordMinutes(30, onBed: true);
         ledger.Reset();
-        Assert.Equal(0, ledger.PhasesCounted);
+        Assert.Equal(0, ledger.MinutesCounted);
         Assert.Equal(0.0, ledger.BedFraction);
     }
-
-    // ---------------- 休养质量：谁在休养、谁在干活 ----------------
-
-    [Theory]
-    [InlineData(PawnRole.Bedrest, true, RestQuality.Bed)]     // 下令养病 + 有床 → 睡床
-    [InlineData(PawnRole.Bedrest, false, RestQuality.Floor)]  // 下令养病 + 没床 → 地铺
-    [InlineData(PawnRole.Sleeping, true, RestQuality.Bed)]    // 日程强制睡（白天留守）+ 有床 → 睡床
-    [InlineData(PawnRole.Sleeping, false, RestQuality.Floor)]
-    [InlineData(PawnRole.Guard, true, RestQuality.None)]      // 整夜值岗 → 不休养（沿用旧口径）
-    [InlineData(PawnRole.Expedition, true, RestQuality.None)] // 人在野外 → 不休养（旧写法误算为休养，此处修正）
-    [InlineData(PawnRole.Reading, true, RestQuality.None)]    // 挑灯读书 → 在勤，不休养（同上，修正）
-    [InlineData(PawnRole.Idle, true, RestQuality.None)]       // 待命 ≠ 休养：想养病就得下令躺下
-    public void 休养质量按角色判定(PawnRole role, bool hasBed, RestQuality expected)
-        => Assert.Equal(expected, BedrestLogic.QualityFor(role, hasBed));
 
     // ---------------- 床位登记册：一人一床、一床一人 ----------------
 

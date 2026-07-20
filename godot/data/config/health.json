@@ -15,9 +15,6 @@
   "BleedHealPerDay": 0.2,
   "FractureMalunionPerDay": 0.05,
   "FractureHealPerDay": 0.24,
-  "DiseaseWorsenPerDay": 0.12,
-  "RestWorsenFactor": 0.5,
-  "RestHealBonus": 1.5,
   "MinorBleedSeverityCap": 0.6,
   "AbrasionSeverityThreshold": 0.2,
 
@@ -30,13 +27,11 @@
   "BedSleepHealBonusPct": 10,
   "RosehipTeaHealBonusPct": 9,
   "RedoSurgeryCooldownDays": 1,
-  "TreatmentPotencyFactor": 0.8,
 
   "Medicines": {
-    "antibiotics":   { "Potency": 0.5, "Efficacy": 1,    "WorsenMultiplier": 0.5 },
-    "herbal_salve":  { "Potency": 0.5, "Efficacy": 0.35, "WorsenMultiplier": 0.75 },
-    "dandelion_tea": { "Potency": 0.5, "Efficacy": 0.15, "WorsenMultiplier": 0.85 },
-    "medicine":      { "Potency": 0.6, "Efficacy": 1,    "WorsenMultiplier": 1 }
+    "antibiotics":   { "Efficacy": 1,    "WorsenMultiplier": 0.5 },
+    "herbal_salve":  { "Efficacy": 0.35, "WorsenMultiplier": 0.75 },
+    "dandelion_tea": { "Efficacy": 0.15, "WorsenMultiplier": 0.85 }
   },
 
   "SurgerySupplies": {

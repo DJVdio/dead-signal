@@ -14,19 +14,16 @@ namespace DeadSignal.Godot;
 ///   · 流血/骨折未手术：勾选适用手术耗材（库存 Medical 材料，急救包独占与散件互斥），点「手术」→ emit <see cref="SurgeryRequested"/>。
 ///   · 流血/骨折已手术：只显"恢复中"，不再给手术入口。
 ///   · 感染：点「用抗生素」→ emit <see cref="TreatRequested"/>（药按伤类定，抗生素治感染）。
-///   · 疾病：点「用成药」→ emit <see cref="TreatRequested"/>（成药治疾病）。
 ///
 /// **所有手术数值（点数/roll/效率）不对玩家展示**：伤情/结果只给模糊描述（轻微/较重/危急、恢复顺利/尚可/勉强）。
 /// 事件传 <see cref="Pawn"/> 与 <see cref="HealthCondition"/> 引用（同程序集）；营地据此算书加点/操作能力/自体系数再调
-/// <see cref="HealthConditionSet.PerformSurgery"/>/<see cref="HealthConditionSet.TreatIllness"/>，扣耗材、提示、刷新。
+/// <see cref="HealthConditionSet.PerformSurgery"/> 与感染疗程，扣耗材、提示、刷新。
 /// </summary>
 public sealed partial class MedicalPanel : CanvasLayer
 {
     /// <summary>点「手术」：emit (病人, 目标伤=流血/骨折, 投入耗材 key 列表, 是否床上, 施术者)。营地据此实做手术+扣材料。</summary>
     public event Action<Pawn, HealthCondition, IReadOnlyList<string>, bool, Pawn>? SurgeryRequested;
 
-    /// <summary>点「用药」：emit (病人, 目标病状=疾病, 所选药 key, 施术者)。**仅疾病走单发用药**（成药）；感染改疗程指派（见 <see cref="TreatmentAssigned"/>）。</summary>
-    public event Action<Pawn, HealthCondition, string, Pawn>? TreatRequested;
 
     /// <summary>[SPEC-B14-补3] 指派感染疗程：emit (病人, 所选药 key)。营地记指派，每昼夜黎明自动扣药累进治疗进度，直到治愈/断药/撤销。</summary>
     public event Action<Pawn, string>? TreatmentAssigned;
@@ -506,9 +503,6 @@ public sealed partial class MedicalPanel : CanvasLayer
                 BuildInfectionSection(card, c);
                 break;
 
-            case HealthConditionType.Disease:
-                BuildTreatSection(card, c, "medicine", "用成药");
-                break;
         }
 
         var sep = new HSeparator();
@@ -715,42 +709,6 @@ public sealed partial class MedicalPanel : CanvasLayer
         }
     }
 
-    // ---- 用药区（仅疾病单发）：一档药一行——名+库存，缺货则灰 ----
-    private void BuildTreatSection(VBoxContainer card, HealthCondition c, string medicineKey, string btnText)
-    {
-        MedicalUseOption opt = Evaluate(medicineKey);
-        int have = opt.Stock;
-        string medName = Materials.Find(medicineKey)?.DisplayName ?? medicineKey;
-
-        var row = new HBoxContainer();
-        row.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-        row.MouseFilter = Control.MouseFilterEnum.Pass;
-        row.AddThemeConstantOverride("separation", 8);
-
-        var hint = new Label();
-        hint.Text = $"{medName}{EfficacyTag(medicineKey)}" + (have > 0 ? $"（{have}）" : "（缺）");
-        hint.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-        hint.VerticalAlignment = VerticalAlignment.Center;
-        hint.AddThemeFontSizeOverride("font_size", 12);
-        hint.AddThemeColorOverride("font_color", have > 0 ? OkColor : BadColor);
-        row.AddChild(hint);
-
-        var btn = new Button();
-        btn.Text = btnText;
-        btn.CustomMinimumSize = new Vector2(120, 30);
-        ApplyUsability(btn, opt);
-        HealthCondition captured = c;
-        string capturedKey = medicineKey;
-        btn.Pressed += () =>
-        {
-            if (_patient is not null && _surgeon is not null)
-                TreatRequested?.Invoke(_patient, captured, capturedKey, _surgeon);
-        };
-        UiStyle.StyleButton(btn, new Color(0.4f, 0.5f, 0.4f), fontSize: 13);
-        row.AddChild(btn);
-        card.AddChild(row);
-    }
-
     /// <summary>药品治疗效率标注：单一事实源取自 <see cref="MedicineCatalog"/>；满效不啰嗦标注。</summary>
     private static string EfficacyTag(string medicineKey)
     {
@@ -769,7 +727,6 @@ public sealed partial class MedicalPanel : CanvasLayer
             HealthConditionType.Bleeding => c.IsOperated ? $"{part}：伤口已缝合，恢复中" : $"{part}：流血不止（{sev}）",
             HealthConditionType.Fracture => c.IsOperated ? $"{part}：已固定，恢复中" : $"{part}：骨折（{sev}）",
             HealthConditionType.Infection => $"{part}：伤口感染（{HealthConditionSet.InfectionStageWord(c.Severity)}）",
-            HealthConditionType.Disease => $"病症（{sev}）",
             _ => part,
         };
     }

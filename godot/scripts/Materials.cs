@@ -42,7 +42,7 @@ public enum MaterialCategory
     Misc,
 
     /// <summary>
-    /// 医疗：绷带 / 针线 / 夹板 / 急救包 等手术耗材（按 <c>SurgeryCatalog</c> 计点），抗生素 / 成药 等药品（按 <c>MedicineCatalog</c> 消费）。
+    /// 医疗：绷带 / 针线 / 夹板 / 急救包等手术耗材，以及抗生素 / 草药膏 / 蒲公英茶等感染药。
     /// <para>
     /// ⚠️ <b>本类目里还躺着三味"药材"：蒲公英 / 玫瑰果 / 老君须。它们是【材料】，不是药</b>（用户口径）——
     /// 采来的原料，得经配方熬成草药膏 / 蒲公英茶 / 玫瑰果茶 / 草药绷带才能用在人身上，直接吃是没用的。
@@ -135,9 +135,8 @@ public static class Materials
         new MaterialDef("first_aid_kit", "急救包", "“一包全搞定”——南丁格尔", MaterialCategory.Medical),
         // [SPEC-B14 / T72·A2叠加] 草药绷带：老君须敷料裹入绷带，止血手术的上位替代（供点 20，普通绷带 15）。[T72] **额外**再降该处感染几率 ×0.75（止血+消炎并存，见 SurgeryCatalog）。
         new MaterialDef("herbal_bandage", "草药绷带", "传统医学，据说能消炎杀菌", MaterialCategory.Medical),
-        // —— 药品（感染/疾病）——
+        // —— 感染用药 ——
         new MaterialDef("antibiotics", "抗生素", "现代医学的结晶", MaterialCategory.Medical),
-        new MaterialDef("medicine", "成药", "杂七杂八的成药，缓解发热痢疾等病症——治不了大病，但能让你多撑一天。", MaterialCategory.Medical),
         // —— [SPEC-B14] 草药医疗三档（原料 + 自制药）：治感染的民间方子，治疗效率远逊抗生素但可采集自制。——
         // 原料（野外探索点散布采集）：
         new MaterialDef("dandelion", "蒲公英", "田埂路边遍地的野草，晒干能煮茶，也是草药膏的配料。", MaterialCategory.Medical),

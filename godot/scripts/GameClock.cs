@@ -283,5 +283,9 @@ public sealed partial class GameClock : Node
         return h * 60 + m;
     }
 
+    /// <summary>单调递增的世界游戏分钟。过渡/冻结相位不推进；白昼、夜晚各 720 分钟。</summary>
+    public int WorldMinuteStamp()
+        => BedrestLogic.WorldMinuteStamp(Day, CurrentPhase, _phaseElapsed, _cfg.DayLengthSeconds, _cfg.NightLengthSeconds);
+
     public string SpeedLabel() => GameTimeScaleOptions.PausedLabel(SpeedIndex, Paused);
 }

@@ -735,12 +735,11 @@ public sealed partial class CampMain : Node2D
         _merchantPanel.SellRequested += OnMerchantSellRequested;
         _merchantPanel.Closed += CloseMerchant;
 
-        // 医疗面板（按 M 打开；冻结时标）。事件接 Health.PerformSurgery / TreatIllness 实做 + 扣耗材。
+        // 医疗面板（按 M 打开；冻结时标）。事件接手术与感染疗程。
         _medicalPanel = new MedicalPanel { Layer = 20 };
         AddChild(_medicalPanel);
         _medicalPanel.Visible = false;
         _medicalPanel.SurgeryRequested += OnSurgeryRequested;
-        _medicalPanel.TreatRequested += OnTreatRequested;
         _medicalPanel.TreatmentAssigned += OnInfectionCourseAssigned;
         _medicalPanel.TreatmentCancelled += OnInfectionCourseCancelled;
         _medicalPanel.RosehipTeaRequested += OnRosehipTeaRequested;
@@ -3552,6 +3551,9 @@ public sealed partial class CampMain : Node2D
         // 工时制夜间生产推进：面板冻结时标时 ClockMinuteKey 不变 → 无增量 → 世界冻结即不推进（正合期望）。
         TickCraftingWorktime();
 
+        // 恢复加成按游戏分钟记账；只有角色确实睡在真实床上的分钟计入分子。
+        TickBedSleepMinutes();
+
         // 0.5 游戏小时手术：世界钟走才推进；暂停冻结；患者失血死亡/目标伤情消失立即中断。
         TickSurgeryWorktime();
 
@@ -5216,7 +5218,7 @@ public sealed partial class CampMain : Node2D
             //   ② 床没建模，`restedInBed = resting` 是张空头支票；
             //   ③ 出门探险的人和挑灯读书的人也被算作"卧床休养"。
             // 现在三处都由流水账据实记账：每过一个相位记一笔（谁在睡、睡的是床还是地铺），黎明结账。
-            (double restFraction, double bedFraction) = RestArgsFor(p);
+            (double restFraction, double bedFraction) = RecoveryFractionsFor(p);
             double personalHealSpeedMult = healSpeedMult
                 * SamPerk.PersonalHealSpeedMultiplier(SamLevelNow(), p.Perks.IsSam);
             double bedHealBonusPct = NightingalePerk.BedSleepHealBonusPct(nurseLevel, nurseAliveInCamp);
@@ -5431,11 +5433,8 @@ public sealed partial class CampMain : Node2D
             return;
 
         _pendingInteract = null; // 相位切换：取消未完成的前往交互
-        // [批次21·impl-bedrest] 给**刚过去的那个相位**记一笔休养账。**必须在这儿、必须在最前面**：
-        // 此刻 PawnRoleManager 还没重排角色（CampMain 先订阅 OnPhaseChanged），p.Role 仍是离场相位的角色。
-        // 白天留守者被日程强制 Sleeping 的那三个相位，就是从这里进的账 ⇒ 白天睡觉自此吃到治疗加成。
-        RecordRestForOutgoingPhase();
-        _restLedgerPhase = phase;
+        // 相位边界先 flush 分钟账：此刻角色仍属于离场相位，避免边界最后一分钟被新角色状态吃掉。
+        TickBedSleepMinutes();
 
         UpdateFatigueTimers(phase); // 批次6：被唤醒者次相位疲劳 debuff 的施加/过期（每相位切换维护）
         // 尸体过三个相位烂没（用户拍板）：相位计数 +1 并清掉到期的战斗尸体，清理走 CorpseYard 的唯一回收出口
@@ -7845,7 +7844,7 @@ public sealed partial class CampMain : Node2D
                     list.Add(LootItem.Armor(s.id!));
                     break;
                 case "material" when !string.IsNullOrEmpty(s.id):
-                    // 材料（含医疗耗材/药品：绷带/针线/夹板/急救包/抗生素/成药，Materials.Key）→ 库存材料堆。
+                    // 材料（含医疗耗材/感染药）→ 库存材料堆。
                     list.Add(LootItem.Material(s.id!, s.qty > 0 ? s.qty : 1));
                     break;
                 case "tool" when !string.IsNullOrEmpty(s.id):
@@ -10463,38 +10462,6 @@ public sealed partial class CampMain : Node2D
     {
         _ = onBed;
         TryBeginTimedSurgery(SurgeryKind.Prosthetic, patient, surgeon, null, (bodyPartKey, region), grade, materials);
-    }
-
-    /// <summary>
-    /// 面板「用药」→ 用玩家所选药 <paramref name="medKey"/>（感染可选抗生素/草药膏/蒲公英茶，疾病用成药），调 <see cref="HealthConditionSet.TreatIllness"/>
-    /// （单次消退量 = Potency×照护系数×治疗效率；药品效果以 Wiki 配置为准）；见效则扣一份药、给模糊提示（好转/康复）。药不对症或缺药不消耗。随后刷新面板。
-    /// </summary>
-    private void OnTreatRequested(Pawn patient, HealthCondition condition, string medKey, Pawn surgeon)
-    {
-        if (CraftingService.MaterialTotal(_inventory.ByCategory(ItemCategory.Material), medKey) <= 0)
-        {
-            _campToast.Show($"缺{Materials.Find(medKey)?.DisplayName ?? medKey}", CampToast.Bad);
-            RefreshMedical();
-            return;
-        }
-
-        Medicine? medicine = MedicineCatalog.For(medKey);
-        TreatmentResult result = patient.Health.TreatIllness(condition, medicine);
-
-        if (result.Status == TreatmentStatus.NoEffect)
-        {
-            _campToast.Show("这药对症不上，没起作用。", CampToast.Bad);
-            RefreshMedical();
-            return;
-        }
-
-        ConsumeMaterials(new[] { medKey });
-        string msg = result.Status == TreatmentStatus.Cured
-            ? $"{patient.DisplayName} 康复了"
-            : $"{patient.DisplayName} 用药后有所好转，但尚未痊愈";
-        _campToast.Show(msg, CampToast.Ok);
-        GD.Print($"[用药] {surgeon.DisplayName}→{patient.DisplayName} {condition.Type} {result.Status}");
-        RefreshMedical();
     }
 
     /// <summary>[SPEC-B14-补3] 面板「指派感染疗程」→ 记该幸存者的感染疗程药档（每昼夜黎明自动用药，见 <see cref="AutoTreatInfectionCourse"/>）。当昼夜不立即用药。</summary>

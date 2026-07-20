@@ -31,9 +31,6 @@ public sealed class MedicalOrderTests
     private static HealthCondition Infection(string part = "左手", double sev = 0.3)
         => new(HealthConditionType.Infection, sev, part, onLimb: true);
 
-    private static HealthCondition Disease(double sev = 0.4)
-        => new(HealthConditionType.Disease, sev);
-
     /// <summary>库存查询：给定 key→数量，其余为 0。</summary>
     private static Func<string, int> Stock(params (string Key, int Count)[] entries)
     {
@@ -55,9 +52,9 @@ public sealed class MedicalOrderTests
     }
 
     [Fact]
-    public void 成药归类为疾病单发用药_玫瑰果茶归类为恢复补剂()
+    public void 成药已删除_玫瑰果茶归类为恢复补剂()
     {
-        Assert.Equal(MedicalUseKind.DiseaseDose, MedicalOrderLogic.KindOf("medicine"));
+        Assert.Null(MedicalOrderLogic.KindOf("medicine"));
         Assert.Equal(MedicalUseKind.RecoveryTonic, MedicalOrderLogic.KindOf("rosehip_tea"));
     }
 
@@ -181,10 +178,9 @@ public sealed class MedicalOrderTests
     }
 
     [Fact]
-    public void 成药只对疾病可用()
+    public void 成药不是医疗物资()
     {
-        Assert.True(MedicalOrderLogic.Evaluate("medicine", Set(Disease()), 1, false, null).Usable);
-        Assert.Equal(MedicalRefusal.NoTarget,
+        Assert.Equal(MedicalRefusal.NotMedical,
             MedicalOrderLogic.Evaluate("medicine", Set(Infection()), 1, false, null).Refusal);
     }
 
@@ -254,7 +250,7 @@ public sealed class MedicalOrderTests
         IReadOnlyList<MedicalUseOption> all = MedicalOrderLogic.OptionsFor(Set(Bleed()), Plenty, false, null);
         var keys = all.Select(o => o.MaterialKey).ToList();
 
-        Assert.Equal(10, keys.Count); // 5 手术耗材 + 3 感染药 + 成药 + 玫瑰果茶
+        Assert.Equal(9, keys.Count); // 5 手术耗材 + 3 感染药 + 玫瑰果茶
         Assert.DoesNotContain("dandelion", keys);
         Assert.DoesNotContain("rosehip", keys);
         Assert.DoesNotContain("laojunxu", keys);

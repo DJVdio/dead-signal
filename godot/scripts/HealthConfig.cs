@@ -7,9 +7,9 @@ namespace DeadSignal.Godot;
 
 // 注意：本文件为**纯 C# 逻辑**，不得引入任何 Godot 类型（被 Tests / WikiExtract 以 Link 编入）。
 
-/// <summary>一味感染/疾病药品的**可调数字**（Potency/Efficacy/WorsenMultiplier）。
+/// <summary>一味感染药的可调数字（Efficacy/WorsenMultiplier）。
 /// 「治哪种病状（Treats）」是 authored 语义，**留在 <see cref="MedicineCatalog"/> 代码里不外置**。</summary>
-public readonly record struct MedicineNumbers(double Potency, double Efficacy, double WorsenMultiplier);
+public readonly record struct MedicineNumbers(double Efficacy, double WorsenMultiplier);
 
 /// <summary>一味手术耗材的**可调数字**（Points 供点 / InfectionChanceMultiplier 敷用后感染乘子）。
 /// 「适用哪种伤（Treats）/ 是否独占（Exclusive）」是 authored 结构，**留在 <see cref="SurgeryCatalog"/> 代码里不外置**。</summary>
@@ -68,12 +68,6 @@ public sealed class HealthConfig : IGameConfigSection
     public double FractureMalunionPerDay { get; init; } = 0.05;
     /// <summary>已手术骨折逐日愈合（×效率/100）。</summary>
     public double FractureHealPerDay { get; init; } = 0.24;
-    /// <summary>疾病逐日恶化。</summary>
-    public double DiseaseWorsenPerDay { get; init; } = 0.12;
-    /// <summary>休养减缓感染/疾病恶化系数。</summary>
-    public double RestWorsenFactor { get; init; } = 0.5;
-    /// <summary>休养加速愈合系数。</summary>
-    public double RestHealBonus { get; init; } = 1.5;
     /// <summary>非致命失血伤口的严重度封顶（只溃烂感染、拖再久也不失血死）。</summary>
     public double MinorBleedSeverityCap { get; init; } = 0.6;
     /// <summary>擦伤级严重度阈值：初始 severity ≤ 此值的出血视作「很小的伤」，可自行闭合。</summary>
@@ -98,17 +92,14 @@ public sealed class HealthConfig : IGameConfigSection
     public double RosehipTeaHealBonusPct { get; init; } = 9.0;
     /// <summary>重做手术冷却（昼夜）：距上次手术 &gt; 此值才可重做。</summary>
     public int RedoSurgeryCooldownDays { get; init; } = 1;
-    /// <summary>单次药效固定照护基数（仅感染/疾病用药）。</summary>
-    public double TreatmentPotencyFactor { get; init; } = 0.8;
 
     // ── 三张目录的逐条可调数字（结构/authored 语义留在各 Catalog 代码里）──
-    /// <summary>药品可调数字：材料标识名 → (Potency, Efficacy, WorsenMultiplier)。治哪种病是 authored、留代码。</summary>
+    /// <summary>感染药可调数字：材料标识名 → (Efficacy, WorsenMultiplier)。</summary>
     public IReadOnlyDictionary<string, MedicineNumbers> Medicines { get; init; } = new Dictionary<string, MedicineNumbers>
     {
-        ["antibiotics"] = new(0.5, 1.00, 0.50),
-        ["herbal_salve"] = new(0.5, 0.35, 0.75),
-        ["dandelion_tea"] = new(0.5, 0.15, 0.85),
-        ["medicine"] = new(0.6, 1.00, 1.00),
+        ["antibiotics"] = new(1.00, 0.50),
+        ["herbal_salve"] = new(0.35, 0.75),
+        ["dandelion_tea"] = new(0.15, 0.85),
     };
 
     /// <summary>手术耗材可调数字：材料标识名 → (Points, InfectionChanceMultiplier)。适用伤类/独占是 authored、留代码。</summary>

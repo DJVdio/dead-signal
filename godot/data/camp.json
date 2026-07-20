@@ -192,8 +192,7 @@
         { "kind": "food", "qty": 2 },
         { "kind": "material", "id": "rope", "qty": 2 },
         { "kind": "material", "id": "bone", "qty": 3 },
-        { "kind": "material", "id": "first_aid_kit", "qty": 1 },
-        { "kind": "material", "id": "medicine", "qty": 1 }
+        { "kind": "material", "id": "first_aid_kit", "qty": 1 }
       ],
       "rect": [1760, 1170, 92, 74],
       "color": [0.60, 0.52, 0.22],

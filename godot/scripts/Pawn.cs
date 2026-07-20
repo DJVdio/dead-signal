@@ -389,7 +389,7 @@ public sealed partial class Pawn : Actor
     // 每个幸存者挂一份 HealthConditionSet（纯逻辑，见 HealthConditions.cs）：战斗产出的出血/骨折经
     // ArchiveWounds 建档进伤病集；营地每昼夜 AdvanceHealthDay 推进恶化/愈合，未手术必恶化——封顶
     // 致残(Sever 断肢)/致死(走统一非战斗死亡路径)。手术/用药（里程碑②）由医疗面板直接在 Health 上调
-    // PerformSurgery/TreatIllness。手术数值/点数不对玩家展示（UI 只显模糊描述）。
+    // PerformSurgery/感染疗程。手术数值/点数不对玩家展示（UI 只显模糊描述）。
 
     /// <summary>本幸存者的伤病集（出血/骨折/感染/疾病）。医疗面板直接在其上做手术/用药；营地昼夜推进它。</summary>
     public HealthConditionSet Health { get; } = new();
@@ -401,9 +401,7 @@ public sealed partial class Pawn : Actor
     public bool HasHealthConditions => Health.Conditions.Count > 0;
 
     /// <summary>
-    /// [批次21·impl-bedrest] 本昼夜的**休养流水账**：每过一个相位记一笔休养质量（不休养/地铺/床），
-    /// 黎明结算时折成 <see cref="RestLedger.RestFraction"/>/<see cref="RestLedger.BedFraction"/> 喂 <see cref="AdvanceHealthDay"/>，随后清账。
-    /// 白天在营地睡的相位就是从这里进的账 —— 旧模型整日只取一个布尔，那三个相位压根没人记。
+    /// 本昼夜的分钟流水账：记录已流逝、休息、真实睡床分钟。黎明折成占比结算并清账。
     /// </summary>
     public RestLedger Rest { get; } = new();
 
@@ -486,16 +484,15 @@ public sealed partial class Pawn : Actor
     /// 保持战斗层能力系数与医疗态一致。是否致死经返回值交营地统一走死亡路径。
     /// </summary>
     /// <param name="rng">感染 roll 随机源。</param>
-    /// <param name="resting">本昼夜是否卧床休养（减缓感染/疾病恶化、加速术后愈合）。**已被 <paramref name="restFraction"/> 取代**，仅在不传占比时回落。</param>
+    /// <param name="resting">兼容旧调用；伤口/骨折不再吃通用休养倍率。</param>
     /// <param name="healSpeedMultiplier">
     /// 恢复速度乘子（默认中性，零回归）：由调用方按角色传入 authored 效果。
     /// 作用于术后愈合量，与玫瑰果茶/睡床的加算百分点是正交两轴。
     /// </param>
     /// <param name="restFraction">
-    /// [批次21·impl-bedrest] 本昼夜**休养占比** 0..1（默认 null → 回落布尔，零回归）：由 <see cref="RestLedger"/> 按相位累计。
-    /// **白天在营地睡的相位自此计入** —— 旧模型整日只取一个布尔且在黎明读到昨夜的角色，白天睡整天等于白睡。
+    /// 本昼夜休息分钟占比 0..1；仅用于自然补血基数。
     /// </param>
-    /// <param name="bedFraction">[批次21·impl-bedrest] 本昼夜**睡床占比** 0..1（默认 null → 回落布尔）：地铺不吃这一轴，床要造。</param>
+    /// <param name="bedFraction">本昼夜真实睡床分钟占比 0..1；术后恢复只吃这一轴。</param>
     /// <param name="bedSleepHealBonusPct">睡床恢复效率覆盖值（默认 null → 健康系统默认 10；南丁格尔 L2 在营时可传 20）。</param>
     public HealthTickResult AdvanceHealthDay(IRandomSource rng, bool resting, bool restedInBed = false, double infectionChanceMultiplier = 1.0, double healSpeedMultiplier = 1.0,
         double? restFraction = null, double? bedFraction = null, double? bedSleepHealBonusPct = null)

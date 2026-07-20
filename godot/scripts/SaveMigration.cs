@@ -124,6 +124,15 @@ public static class SaveMigration
             MigrateLegacyCraftingJob(obj);
         }
 
+        // v4 → v5：旧流水只参与占比，故把三种相位计数按同权重搬成分钟计数，所得占比逐比特等价。
+        // Disease 没有合法替代：真含疾病的档明确拒读，不把病人静默治好。
+        if (FindDiseaseCondition(obj))
+        {
+            error = "存档迁移失败：档内有人患有已删除的「疾病」。为免静默改写伤病，这份存档没有被读取。";
+            return false;
+        }
+        MigrateRestLedgerToMinutes(obj);
+
         // [T64] 左上臂/右上臂 → 左手臂/右手臂。**版本无关**（理由见上面那段：v3 的档里也可能是老名字）。
         // 对已经是新名字的档，这一趟是 no-op ⇒ **幂等**，重复跑不会出错。
         RenameLegacyArmParts(obj);
@@ -147,6 +156,41 @@ public static class SaveMigration
         obj["Version"] = SaveCodec.CurrentVersion;
         migrated = obj.ToJsonString();
         return true;
+    }
+
+    private static void MigrateRestLedgerToMinutes(JsonNode node)
+    {
+        switch (node)
+        {
+            case JsonObject obj:
+                if (obj["RestPhases"] is JsonValue)
+                {
+                    obj["RestMinutes"] = ReadInt(obj, "RestPhases");
+                    obj["RestRestMinutes"] = ReadInt(obj, "RestRestPhases");
+                    obj["RestBedMinutes"] = ReadInt(obj, "RestBedPhases");
+                    obj.Remove("RestPhases");
+                    obj.Remove("RestRestPhases");
+                    obj.Remove("RestBedPhases");
+                }
+                foreach (JsonNode? child in obj.Select(kv => kv.Value).ToList())
+                    if (child is not null) MigrateRestLedgerToMinutes(child);
+                break;
+            case JsonArray arr:
+                foreach (JsonNode? child in arr.ToList())
+                    if (child is not null) MigrateRestLedgerToMinutes(child);
+                break;
+        }
+    }
+
+    private static bool FindDiseaseCondition(JsonNode node)
+    {
+        return node switch
+        {
+            JsonObject obj => (obj["Type"]?.GetValue<string>() == "Disease")
+                || obj.Any(kv => kv.Value is not null && FindDiseaseCondition(kv.Value)),
+            JsonArray arr => arr.Any(child => child is not null && FindDiseaseCondition(child)),
+            _ => false,
+        };
     }
 
     // ---- v2 → v3 ----

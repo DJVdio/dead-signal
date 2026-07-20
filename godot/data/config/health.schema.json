@@ -11,12 +11,12 @@
     "InfectionWorsenPerDay", "CureProgressBaseRate", "InfectionInitialSeverity",
     "WoundClosedThreshold", "InfectionWindowDays",
     "BleedWorsenPerDay", "BleedHealPerDay", "FractureMalunionPerDay", "FractureHealPerDay",
-    "DiseaseWorsenPerDay", "RestWorsenFactor", "RestHealBonus", "MinorBleedSeverityCap",
+    "MinorBleedSeverityCap",
     "AbrasionSeverityThreshold",
     "SurgeryBasePoints", "BedBonusPoints", "SurgeryFailThreshold", "SurgeryMinPoints",
     "SelfSurgeryFactor", "ImmediateHealOnSuccess", "BedSleepHealBonusPct",
     "RosehipTeaHealBonusPct",
-    "RedoSurgeryCooldownDays", "TreatmentPotencyFactor",
+    "RedoSurgeryCooldownDays",
     "Medicines", "SurgerySupplies", "MedicalBooks"
   ],
   "properties": {
@@ -35,9 +35,6 @@
     "BleedHealPerDay": { "type": "number", "minimum": 0, "description": "已手术出血逐日愈合（×效率/100）。" },
     "FractureMalunionPerDay": { "type": "number", "minimum": 0, "description": "未手术骨折逐日畸形化。" },
     "FractureHealPerDay": { "type": "number", "minimum": 0, "description": "已手术骨折逐日愈合（×效率/100）。" },
-    "DiseaseWorsenPerDay": { "type": "number", "minimum": 0, "description": "疾病逐日恶化。" },
-    "RestWorsenFactor": { "type": "number", "minimum": 0, "description": "休养减缓感染/疾病恶化系数。" },
-    "RestHealBonus": { "type": "number", "minimum": 0, "description": "休养加速愈合系数。" },
     "MinorBleedSeverityCap": { "type": "number", "minimum": 0, "description": "非致命失血伤口严重度封顶。" },
     "AbrasionSeverityThreshold": { "type": "number", "minimum": 0, "description": "擦伤级自愈阈值。" },
     "SurgeryBasePoints": { "type": "integer", "minimum": 0, "description": "手术基础点数。" },
@@ -49,16 +46,14 @@
     "BedSleepHealBonusPct": { "type": "number", "minimum": 0, "description": "睡床加算恢复速度（百分点）。" },
     "RosehipTeaHealBonusPct": { "type": "number", "minimum": 0, "description": "玫瑰果茶恢复加成（百分点，24 小时内本昼夜恢复效率 +本值 pp）。" },
     "RedoSurgeryCooldownDays": { "type": "integer", "minimum": 0, "description": "重做手术冷却（昼夜）。" },
-    "TreatmentPotencyFactor": { "type": "number", "minimum": 0, "description": "单次药效固定照护基数。" },
     "Medicines": {
       "type": "object",
       "description": "药品可调数字（治哪种病是 authored、留代码）。",
       "additionalProperties": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["Potency", "Efficacy", "WorsenMultiplier"],
+        "required": ["Efficacy", "WorsenMultiplier"],
         "properties": {
-          "Potency": { "type": "number", "minimum": 0, "description": "药效基数（疾病 severity 消退用）。" },
           "Efficacy": { "type": "number", "minimum": 0, "description": "治疗效率（感染免疫进度速率乘子）。" },
           "WorsenMultiplier": { "type": "number", "minimum": 0, "description": "感染恶化减缓乘子。" }
         }

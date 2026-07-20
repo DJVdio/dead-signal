@@ -97,7 +97,7 @@ public class StuartManorTests
         Assert.DoesNotContain(everything, l => l.Kind == LootKind.Book);
         Assert.DoesNotContain(everything, l => l.Kind == LootKind.Armor);
 
-        string[] banned = { Materials.CurrencyKey, "first_aid_kit", "antibiotics", "medicine", "gunpowder" };
+        string[] banned = { Materials.CurrencyKey, "first_aid_kit", "antibiotics", "gunpowder" };
         foreach (string key in banned)
         {
             Assert.DoesNotContain(everything, l => l.Kind == LootKind.Material && l.RefId == key);

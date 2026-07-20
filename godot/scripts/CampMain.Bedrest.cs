@@ -5,11 +5,11 @@ using Godot;
 namespace DeadSignal.Godot;
 
 /// <summary>
-/// <b>卧床养病的消费层接线</b>（批次21·impl-bedrest）——「控制角色上床养病和吃药」+「白天睡觉也要算治疗加成」。
+/// <b>卧床养病的消费层接线</b>——控制角色上床/起床，并按游戏分钟累计真实睡床时长。
 ///
 /// <para>
 /// 规则本身在 <see cref="BedrestLogic"/> / <see cref="BedRegistry"/> / <see cref="RestLedger"/> / <see cref="BedSpec"/>
-/// （纯逻辑、零 Godot 依赖、单测覆盖）；<b>本文件只做空间执行</b>：把床立在场上、让人走过去躺下、按相位记账。
+/// （纯逻辑、零 Godot 依赖、单测覆盖）；<b>本文件只做空间执行</b>：把床立在场上、让人走过去躺下、按分钟记账。
 /// </para>
 ///
 /// <para>
@@ -33,14 +33,9 @@ public sealed partial class CampMain
     private bool _placingBed;
 
     /// <summary>
-    /// 已记账到哪个相位 —— 即"各 Pawn 当前的 <see cref="Pawn.Role"/> 属于哪个相位"。
-    /// <para>
-    /// <b>为什么需要它</b>：<see cref="OnGamePhaseChanged"/> 触发时，<see cref="PawnRoleManager"/> <b>还没</b>重排角色
-    /// （CampMain 在 <c>_clock.OnPhaseChanged</c> 上先订阅，见 CampMain.cs:511 vs :661；CampMain.cs:5177 的注释也点了这一点）。
-    /// 所以那一刻读到的 <c>p.Role</c> 是**上一个相位**的角色 —— 正好拿来给刚过去的那个相位记账。
-    /// </para>
+    /// 上次已结算到的单调世界游戏分钟。-1 表示尚未建立基线。
     /// </summary>
-    private DayPhase _restLedgerPhase = DayPhase.DawnMeal;
+    private int _restLastWorldMinute = -1;
 
     /// <summary>床的放置规格（喂 <see cref="CheckFurniturePlacement"/>）。<b>非实心</b>——人得走得上去躺下。</summary>
     private static readonly PlaceableSpec BedPlaceSpec =
@@ -280,26 +275,27 @@ public sealed partial class CampMain
         return $"{c.Name}（空着）· 选中角色后右键前往躺下养病 —— 躺着的人夜里不站岗、不生产{noSel}";
     }
 
-    // ──────────────────────────────── 记账：白天睡觉也算治疗加成 ────────────────────────────────
+    // ──────────────────────────────── 分钟记账 ────────────────────────────────
 
     /// <summary>
-    /// <b>给刚过去的那个相位记一笔休养账。</b>在 <see cref="OnGamePhaseChanged"/> 的**最开头**调用 ——
-    /// 那一刻 <see cref="PawnRoleManager"/> 还没重排角色，<c>p.Role</c> 仍是**离场相位**的角色（见 <see cref="_restLedgerPhase"/> 的注释）。
-    ///
-    /// <para><b>这就是"白天睡觉吃到治疗加成"的落点</b>：留守者白天被日程强制 <see cref="PawnRole.Sleeping"/>
-    /// （PawnRoleManager.cs:74,82），那三个相位在这里逐个进账 ⇒ 黎明结算时休养占比 ≥ 3/6。
-    /// 旧模型整日只取一个布尔、且在黎明读到的是**昨夜**的角色 ⇒ 白天睡整天等于白睡。</para>
-    ///
-    /// <para><b>床位分配</b>：卧床养病者**独占**一张床（显式右键占的，别人抢不走 —— 这是床稀缺的代价）；
-    /// 日程强制睡眠者在记账时**临时认领一张空床**，记完就腾出来（TryClaim 只拿空床，抢不到就打地铺）。</para>
+    /// 把上次采样至今的游戏分钟记入每个人账本。主动卧床者独占床；日程睡眠者按同一分钟的空床数分配。
+    /// 全员结算完才释放，保证一张床一分钟最多算给一人。相位切换入口额外 flush，避免边界漏一分钟。
     /// </summary>
-    private void RecordRestForOutgoingPhase()
+    private void TickBedSleepMinutes()
     {
-        if (!BedrestLogic.CountsTowardLedger(_restLedgerPhase))
+        int now = _clock.WorldMinuteStamp();
+        if (_restLastWorldMinute < 0)
         {
-            return; // 聚餐是模态过渡（全员爬起来吃饭），不计入 —— 计进去只会把占比一起稀释，凭空惩罚所有人
+            _restLastWorldMinute = now;
+            return;
         }
 
+        int elapsed = now - _restLastWorldMinute;
+        _restLastWorldMinute = now;
+        if (elapsed <= 0)
+            return;
+
+        var temporarySleepers = new List<int>();
         foreach (Pawn p in _survivors)
         {
             if (!p.Alive)
@@ -311,19 +307,22 @@ public sealed partial class CampMain
             if (!hasBed && p.Role == PawnRole.Sleeping)
             {
                 hasBed = _beds.TryClaim(p.Id) != null; // 日程强制睡：临时占一张空床；没空床就打地铺
+                if (hasBed)
+                    temporarySleepers.Add(p.Id);
             }
 
-            p.Rest.Record(BedrestLogic.QualityFor(p.Role, hasBed));
+            bool sleeping = p.Role is PawnRole.Bedrest or PawnRole.Sleeping;
+            p.Rest.RecordMinutes(elapsed, sleeping && hasBed, sleeping);
 
-            if (!p.BedrestOrdered)
-            {
-                _beds.Release(p.Id); // 只有卧床养病者长期占床；睡完就把床腾出来
-            }
         }
+
+        // 所有人同一分钟结算完再释放，防止一张床在同一分钟被循环借给多个日程睡眠者。
+        foreach (int pawnId in temporarySleepers)
+            _beds.Release(pawnId);
     }
 
     /// <summary>本昼夜该幸存者的休养/睡床占比（喂 <c>Pawn.AdvanceHealthDay</c>）。黎明结算后由调用方 <c>Rest.Reset()</c> 清账。</summary>
-    private static (double RestFraction, double BedFraction) RestArgsFor(Pawn p)
+    private static (double RestFraction, double BedFraction) RecoveryFractionsFor(Pawn p)
         => (p.Rest.RestFraction, p.Rest.BedFraction);
 
     // ──────────────────────────────── 存档 ────────────────────────────────

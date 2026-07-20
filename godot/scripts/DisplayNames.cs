@@ -234,7 +234,6 @@ public static class DisplayNames
     public static string Of(MedicalUseKind kind) => kind switch
     {
         MedicalUseKind.InfectionCourse => "感染疗程用药",
-        MedicalUseKind.DiseaseDose => "疾病用药",
         MedicalUseKind.RecoveryTonic => "恢复补剂",
         MedicalUseKind.SurgerySupply => "手术耗材",
         _ => Unknown,
@@ -268,12 +267,4 @@ public static class DisplayNames
         _ => Unknown,
     };
 
-    /// <summary>[批次21·impl-bedrest] 休养质量（养病提示里区分"睡床"和"打地铺"——床是要造的，地铺不吃睡床加成）。</summary>
-    public static string Of(RestQuality quality) => quality switch
-    {
-        RestQuality.None => "没在休养",
-        RestQuality.Floor => "打地铺",
-        RestQuality.Bed => "睡床",
-        _ => Unknown,
-    };
 }

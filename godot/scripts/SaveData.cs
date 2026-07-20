@@ -397,10 +397,10 @@ public sealed class PawnSave
     /// </summary>
     public bool BedrestOrdered { get; set; }
 
-    /// <summary>[批次21·impl-bedrest] 当日休养流水账：已记相位数 / 其中休养的 / 其中睡床的。存档跨相位，账不能丢（否则读档等于当天白养）。</summary>
-    public int RestPhases { get; set; }
-    public int RestRestPhases { get; set; }
-    public int RestBedPhases { get; set; }
+    /// <summary>当日恢复流水账：已流逝游戏分钟 / 其中实际睡床分钟。</summary>
+    public int RestMinutes { get; set; }
+    public int RestRestMinutes { get; set; }
+    public int RestBedMinutes { get; set; }
 
     /// <summary>断肢时回到本人背包的装备（暂存，死者尸体可搜出）。旧档缺此字段→空列表。</summary>
     public List<LootItem> SeveredBackpack { get; set; } = new();
@@ -422,7 +422,6 @@ public sealed class ConditionSave
     public double Severity { get; set; }
 
     public int RecoveryEfficiency { get; set; }
-    public bool Tended { get; set; }
     public int DaysElapsed { get; set; }
 
     /// <summary>上次手术是第几天（重做手术冷却靠它；-1 = 没动过刀）。</summary>

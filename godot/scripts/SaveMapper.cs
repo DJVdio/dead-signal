@@ -240,7 +240,6 @@ public static class SaveMapper
         BleedLevel = c.BleedLevel,                                 // [感染重做] 流血等级随伤口存档（感染基数按等级查表）
         Severity = c.Severity,
         RecoveryEfficiency = c.RecoveryEfficiency,
-        Tended = c.Tended,
         DaysElapsed = c.DaysElapsed,
         LastSurgeryDay = c.LastSurgeryDay,
         InfectionChanceMultiplier = c.InfectionChanceMultiplier,   // [T72] 草药绷带的感染减免随伤口存档
@@ -257,7 +256,7 @@ public static class SaveMapper
     public static HealthCondition FromSave(ConditionSave s)
     {
         var c = new HealthCondition(s.Type, s.Severity, s.BodyPart, s.OnLimb, s.LethalBleed, s.SelfHealing, s.BleedLevel);
-        c.RestoreState(s.Severity, s.RecoveryEfficiency, s.Tended, s.DaysElapsed, s.LastSurgeryDay, s.InfectionChanceMultiplier);
+        c.RestoreState(s.Severity, s.RecoveryEfficiency, s.DaysElapsed, s.LastSurgeryDay, s.InfectionChanceMultiplier);
         return c;
     }
 

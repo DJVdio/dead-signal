@@ -50,9 +50,8 @@ public class EnumDisplayNameTests
             (typeof(LoadoutTier), v => DisplayNames.Of((LoadoutTier)v)),
             (typeof(SizeTier), v => DisplayNames.Of((SizeTier)v)),
             (typeof(NightRaidLogic.ThreatBand), v => DisplayNames.Of((NightRaidLogic.ThreatBand)v)),
-            // [批次21·impl-bedrest] 角色（幸存者卡片/悬停提示会显示"卧床养病""站岗"这些字）与休养质量（养病提示"睡床/打地铺"）。
+            // 卧床养病角色仍需显示名。
             (typeof(PawnRole), v => DisplayNames.Of((PawnRole)v)),
-            (typeof(RestQuality), v => DisplayNames.Of((RestQuality)v)),
             // [批次21·impl-cooking] 炊具槽位（烹饪台面板上写着"锅：已装""烤架：空"）。
             (typeof(CookwareSlot), v => DisplayNames.Of((CookwareSlot)v)),
             // [批次21·impl-medicine] 医疗物资用途，与"为什么不能给他用这个"（医务面板按钮置灰时把原因挂在提示上）。

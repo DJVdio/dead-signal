@@ -70,7 +70,6 @@ public static class MerchantBuyList
         ["splint"] = 8,
         ["first_aid_kit"] = 20,
         ["antibiotics"] = 15,
-        ["medicine"] = 10,
     };
 
     /// <summary>某物品是否在收购白名单：食物恒可；材料须在收购表内；其余类别（武器/护甲/书/光源/货币）不收。</summary>

@@ -60,7 +60,6 @@ public sealed class MaterialConfigMigrationTests
         { "herbal_salve", 0.15 },
         { "needle_thread", 0.05 },
         { "antibiotics", 0.05 },
-        { "medicine", 0.05 },
         { "dandelion", 0.05 },
         { "rosehip", 0.05 },
         { "laojunxu", 0.05 },

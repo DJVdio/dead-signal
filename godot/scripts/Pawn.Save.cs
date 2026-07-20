@@ -49,9 +49,9 @@ public sealed partial class Pawn
 
         // [批次21·impl-bedrest] 卧床令 + 当日休养流水账（漏了它，读档回来伤员自己爬起来、当天的觉白睡）。
         BedrestOrdered = BedrestOrdered,
-        RestPhases = Rest.PhasesCounted,
-        RestRestPhases = Rest.RestPhases,
-        RestBedPhases = Rest.BedPhases,
+        RestMinutes = Rest.MinutesCounted,
+        RestRestMinutes = Rest.RestMinutes,
+        RestBedMinutes = Rest.BedMinutes,
 
         SeveredBackpack = _severedBackpackItems.ToList(),
     };
@@ -87,7 +87,7 @@ public sealed partial class Pawn
 
         // [批次21·impl-bedrest] 卧床令 + 当日休养流水账。床位占用是营地级的（CampSave.BedOccupancy），不在这儿。
         BedrestOrdered = s.BedrestOrdered;
-        Rest.Restore(s.RestPhases, s.RestRestPhases, s.RestBedPhases);
+        Rest.Restore(s.RestMinutes, s.RestRestMinutes, s.RestBedMinutes);
 
         // 断肢背包：清空再填入存档值（幂等，读档时是全新 Pawn）。
         _severedBackpackItems.Clear();

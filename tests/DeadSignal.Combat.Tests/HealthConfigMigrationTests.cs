@@ -40,8 +40,6 @@ public sealed class HealthConfigMigrationTests
     private const double GImmuneWindowInfectionFactor = 0.05;
     private const double GInfectionWorsenPerDay = 1.0 / 6.0;
     private const double GCureProgressBaseRate = 0.67;
-    private const double GDiseaseWorsenPerDay = 0.12;
-    private const double GRestWorsenFactor = 0.5;
     private const double GFractureMalunionPerDay = 0.05;
     private const double GMinorBleedSeverityCap = 0.6;
     private const double GWoundClosedThreshold = 0.15;
@@ -50,7 +48,6 @@ public sealed class HealthConfigMigrationTests
     private const double GAbrasionSeverityThreshold = 0.2;
     private const double GBleedHealPerDay = 0.20;
     private const double GFractureHealPerDay = 0.24;
-    private const double GRestHealBonus = 1.5;
     private const int GSurgeryBasePoints = 15;
     private const int GBedBonusPoints = 10;
     private const int GSurgeryFailThreshold = 10;
@@ -60,7 +57,6 @@ public sealed class HealthConfigMigrationTests
     private const double GBedSleepHealBonusPct = 10.0;
     private const double GRosehipTeaHealBonusPct = 9.0;   // 原 Pawn.RosehipTeaHealBonusPct const（config-cleanup 外置）
     private const int GRedoSurgeryCooldownDays = 1;
-    private const double GTreatmentPotencyFactor = 0.8;
 
     private static HealthConfig Section() => GameConfigCatalog.Section<HealthConfig>();
 
@@ -86,8 +82,6 @@ public sealed class HealthConfigMigrationTests
         BitEqual(GImmuneWindowInfectionFactor, s.ImmuneWindowInfectionFactor);
         BitEqual(GInfectionWorsenPerDay, s.InfectionWorsenPerDay);
         BitEqual(GCureProgressBaseRate, s.CureProgressBaseRate);
-        BitEqual(GDiseaseWorsenPerDay, s.DiseaseWorsenPerDay);
-        BitEqual(GRestWorsenFactor, s.RestWorsenFactor);
         BitEqual(GFractureMalunionPerDay, s.FractureMalunionPerDay);
         BitEqual(GMinorBleedSeverityCap, s.MinorBleedSeverityCap);
         BitEqual(GWoundClosedThreshold, s.WoundClosedThreshold);
@@ -96,7 +90,6 @@ public sealed class HealthConfigMigrationTests
         BitEqual(GAbrasionSeverityThreshold, s.AbrasionSeverityThreshold);
         BitEqual(GBleedHealPerDay, s.BleedHealPerDay);
         BitEqual(GFractureHealPerDay, s.FractureHealPerDay);
-        BitEqual(GRestHealBonus, s.RestHealBonus);
         Assert.Equal(GSurgeryBasePoints, s.SurgeryBasePoints);
         Assert.Equal(GBedBonusPoints, s.BedBonusPoints);
         Assert.Equal(GSurgeryFailThreshold, s.SurgeryFailThreshold);
@@ -106,7 +99,6 @@ public sealed class HealthConfigMigrationTests
         BitEqual(GBedSleepHealBonusPct, s.BedSleepHealBonusPct);
         BitEqual(GRosehipTeaHealBonusPct, s.RosehipTeaHealBonusPct);
         Assert.Equal(GRedoSurgeryCooldownDays, s.RedoSurgeryCooldownDays);
-        BitEqual(GTreatmentPotencyFactor, s.TreatmentPotencyFactor);
     }
 
     // ── 字面值锚定（A/B）：三张目录的逐条数字 == 迁移前原始常量 ──
@@ -115,12 +107,11 @@ public sealed class HealthConfigMigrationTests
     {
         var s = Section();
 
-        // 药品三档双效（抗生素 1.00/0.50、草药膏 0.35/0.75、蒲公英茶 0.15/0.85、成药满效）。
-        Assert.Equal(4, s.Medicines.Count);
-        AssertMedicine(s, "antibiotics", 0.5, 1.00, 0.50);
-        AssertMedicine(s, "herbal_salve", 0.5, 0.35, 0.75);
-        AssertMedicine(s, "dandelion_tea", 0.5, 0.15, 0.85);
-        AssertMedicine(s, "medicine", 0.6, 1.00, 1.00);
+        // 感染药三档双效（抗生素 1.00/0.50、草药膏 0.35/0.75、蒲公英茶 0.15/0.85）。
+        Assert.Equal(3, s.Medicines.Count);
+        AssertMedicine(s, "antibiotics", 1.00, 0.50);
+        AssertMedicine(s, "herbal_salve", 0.35, 0.75);
+        AssertMedicine(s, "dandelion_tea", 0.15, 0.85);
 
         // 手术耗材供点 + 感染乘子（草药绷带 20 + 0.75）。
         Assert.Equal(5, s.SurgerySupplies.Count);
@@ -158,7 +149,6 @@ public sealed class HealthConfigMigrationTests
         Medicine anti = MedicineCatalog.For("antibiotics")!.Value;
         BitEqual(s.Medicines["antibiotics"].Efficacy, anti.Efficacy);
         BitEqual(s.Medicines["antibiotics"].WorsenMultiplier, anti.WorsenMultiplier);
-        BitEqual(s.Medicines["antibiotics"].Potency, anti.Potency);
 
         SurgerySupply herb = SurgeryCatalog.For("herbal_bandage")!.Value;
         Assert.Equal(s.SurgerySupplies["herbal_bandage"].Points, herb.Points);
@@ -173,7 +163,7 @@ public sealed class HealthConfigMigrationTests
     {
         Assert.Equal(HealthConditionType.Infection, MedicineCatalog.For("antibiotics")!.Value.Treats);
         Assert.Equal(HealthConditionType.Infection, MedicineCatalog.For("herbal_salve")!.Value.Treats);
-        Assert.Equal(HealthConditionType.Disease, MedicineCatalog.For("medicine")!.Value.Treats);
+        Assert.Null(MedicineCatalog.For("medicine"));
         Assert.True(MedicineCatalog.IsMedicine("antibiotics"));
         Assert.Null(MedicineCatalog.For("not_a_drug"));
 
@@ -213,7 +203,6 @@ public sealed class HealthConfigMigrationTests
         foreach (KeyValuePair<string, MedicineNumbers> kv in golden.Medicines)
         {
             MedicineNumbers b = back.Medicines[kv.Key];
-            BitEqual(kv.Value.Potency, b.Potency);
             BitEqual(kv.Value.Efficacy, b.Efficacy);
             BitEqual(kv.Value.WorsenMultiplier, b.WorsenMultiplier);
         }
@@ -264,10 +253,9 @@ public sealed class HealthConfigMigrationTests
     }
 
     // ── helpers ──
-    private static void AssertMedicine(HealthConfig s, string key, double potency, double efficacy, double worsen)
+    private static void AssertMedicine(HealthConfig s, string key, double efficacy, double worsen)
     {
         MedicineNumbers m = s.Medicines[key];
-        BitEqual(potency, m.Potency);
         BitEqual(efficacy, m.Efficacy);
         BitEqual(worsen, m.WorsenMultiplier);
     }

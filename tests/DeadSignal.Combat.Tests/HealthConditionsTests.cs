@@ -11,7 +11,7 @@ namespace DeadSignal.Combat.Tests;
 /// 覆盖：出血拖久致死、开放伤口按几率感染、感染恶化→致残(肢体)/致死(躯干)；
 /// **手术机制**（点数池=基础15+床10+材料，急救包独占，roll[0,池]=恢复效率，≤10失败，材料成功失败都耗）；
 /// **恢复效率驱动愈合**（手术成功后流血/骨折按效率逐日愈合，未手术不自愈、出血继续恶化）；
-/// 感染/疾病仍走药品 TreatIllness（抗生素/成药、医疗技能越高越有效、休养减缓恶化）；战斗态只读映射。
+/// 感染走三档药的治疗竞速；流血/骨折走手术；战斗态只读映射。
 /// 数值皆"拟定待调 draft"，测试锁的是规则形态与当前拟定值。
 /// </summary>
 public class HealthConditionsTests
@@ -250,8 +250,8 @@ public class HealthConditionsTests
         floor.TickDay(NoInfection(), resting: true, restedInBed: false);
 
         Assert.True(cb.Severity < cf.Severity, "睡床应比不睡床愈合更快");
-        // 加算(非乘算)：差 = BleedHealPerDay(0.20) × (10/100) × RestHealBonus(1.5) = 0.03
-        Assert.Equal(0.03, cf.Severity - cb.Severity, 3);
+        // 通用休养 ×1.5 已删除；差只来自床 +10pp：0.20 × 10% = 0.02。
+        Assert.Equal(0.02, cf.Severity - cb.Severity, 3);
     }
 
     [Fact]
@@ -260,8 +260,8 @@ public class HealthConditionsTests
         var (set, c) = SetWith(Bleed(0.5));
         set.PerformSurgery(c, new[] { "bandage" }, onBed: false, Roll(30)); // 即刻5% → 0.45
         set.TickDay(NoInfection(), resting: true, restedInBed: true);
-        // 0.50 - 即刻5%(0.05) - 睡床愈合[0.20×((30+10)/100)×1.5=0.12] = 0.33
-        Assert.Equal(0.33, c.Severity, 3);
+        // 0.50 - 即刻5%(0.05) - 睡床愈合[0.20×((30+10)/100)=0.08] = 0.37
+        Assert.Equal(0.37, c.Severity, 3);
     }
 
     [Fact]
@@ -272,8 +272,8 @@ public class HealthConditionsTests
         set.TickDay(NoInfection(), resting: true, restedInBed: true,
             bedSleepHealBonusPct: NightingalePerk.BedSleepHealBonusPct(nurseLevel: 2, nurseAliveInCamp: true));
 
-        // 0.45 - [0.20×((30+20)/100)×1.5=0.15] = 0.30
-        Assert.Equal(0.30, c.Severity, 3);
+        // 0.45 - [0.20×((30+20)/100)=0.10] = 0.35
+        Assert.Equal(0.35, c.Severity, 3);
     }
 
     [Fact]
@@ -282,8 +282,8 @@ public class HealthConditionsTests
         var (set, c) = SetWith(Bleed(0.5));
         set.PerformSurgery(c, new[] { "bandage" }, onBed: false, Roll(30)); // → 0.45
         set.TickDay(NoInfection(), resting: true); // restedInBed 默认 false
-        // 0.45 - [0.20×(30/100)×1.5=0.09] = 0.36（无睡床加算）
-        Assert.Equal(0.36, c.Severity, 3);
+        // 0.45 - [0.20×(30/100)=0.06] = 0.39（无睡床加算）
+        Assert.Equal(0.39, c.Severity, 3);
     }
 
     // ================= roll 边界：≤10 失败 =================
@@ -1065,40 +1065,6 @@ public class HealthConditionsTests
         Assert.True(set.IsDead);
     }
 
-    // ================= 疾病：药品治疗路径（感染改竞速后此处仅疾病）=================
-
-    [Fact]
-    public void Medicine_cures_disease()
-    {
-        var set = new HealthConditionSet();
-        var disease = new HealthCondition(HealthConditionType.Disease, 0.4, bodyPart: null, onLimb: false);
-        set.Add(disease);
-        TreatmentResult tr = set.TreatIllness(disease, MedicineCatalog.For("medicine"));
-        Assert.Equal(TreatmentStatus.Cured, tr.Status); // 0.4 - 0.6*0.8 = -0.08 ≤ 0 → 治愈
-        Assert.True(tr.Removed);
-        Assert.DoesNotContain(disease, set.Conditions);
-    }
-
-    // 注：旧 Resting_slows_infection_progression 已随补3独立竞速删除（感染进度不再受休养影响，
-    // 替代断言见 Resting_no_longer_slows_infection_progress）。疾病休养减缓仍保留（下方 Disease 相关）。
-
-    [Fact]
-    public void TreatIllness_has_no_effect_on_wrong_type_or_on_bleeding()
-    {
-        var set = new HealthConditionSet();
-        var infection = new HealthCondition(HealthConditionType.Infection, 0.5, "右手", onLimb: true);
-        set.Add(infection);
-        // 成药治不了感染。
-        Assert.Equal(TreatmentStatus.NoEffect,
-            set.TreatIllness(infection, MedicineCatalog.For("medicine")).Status);
-
-        // 流血不吃药（走手术）：TreatIllness 对它无效。
-        var bleed = Bleed(0.5); set.Add(bleed);
-        Assert.Equal(TreatmentStatus.NoEffect,
-            set.TreatIllness(bleed, MedicineCatalog.For("antibiotics")).Status);
-        Assert.Equal(0.5, bleed.Severity, 3);
-    }
-
     // ================= 目录：手术耗材 / 药品 =================
 
     [Fact]
@@ -1121,10 +1087,10 @@ public class HealthConditionsTests
     }
 
     [Fact]
-    public void Medicine_catalog_only_covers_infection_and_disease()
+    public void Medicine_catalog_only_covers_infection()
     {
         Assert.Equal(HealthConditionType.Infection, MedicineCatalog.For("antibiotics")!.Value.Treats);
-        Assert.Equal(HealthConditionType.Disease, MedicineCatalog.For("medicine")!.Value.Treats);
+        Assert.Null(MedicineCatalog.For("medicine"));
         Assert.Null(MedicineCatalog.For("bandage")); // 手术耗材不是药品
         Assert.Null(MedicineCatalog.For("splint"));
         Assert.Null(MedicineCatalog.For("wood"));
@@ -1133,7 +1099,7 @@ public class HealthConditionsTests
     [Fact]
     public void Surgery_and_medicine_items_exist_in_materials_medical_category()
     {
-        foreach (string key in new[] { "bandage", "needle_thread", "splint", "first_aid_kit", "antibiotics", "medicine" })
+        foreach (string key in new[] { "bandage", "needle_thread", "splint", "first_aid_kit", "antibiotics" })
         {
             Assert.True(Materials.Has(key), $"医疗物品缺失：{key}");
             Assert.Equal(MaterialCategory.Medical, Materials.Find(key)!.Value.Category);
@@ -1601,9 +1567,7 @@ public class HealthConditionsTests
         Assert.Equal(0.35, MedicineCatalog.For("herbal_salve")!.Value.Efficacy, 3);
         Assert.Equal(0.15, MedicineCatalog.For("dandelion_tea")!.Value.Efficacy, 3);
         Assert.Equal(1.00, MedicineCatalog.For("antibiotics")!.Value.Efficacy, 3);
-        // 成药只治疾病：对感染 TreatIllness 无效（感染改走竞速，不从此路一次性消退）。
-        var set = new HealthConditionSet(); var inf = FreshInfection(0.5, "右手"); set.Add(inf);
-        Assert.Equal(TreatmentStatus.NoEffect, set.TreatIllness(inf, MedicineCatalog.For("medicine")).Status);
+        Assert.Null(MedicineCatalog.For("medicine"));
     }
 
     // 新草药材料与产物均在 Medical 类目录中（供 UI 分组 / 配方引用 / 掉落投放）。
@@ -1729,9 +1693,8 @@ public class HealthConditionsTests
     {
         // [效率点数池·并入乘算通则] 睡床 +10pp 与玫瑰果茶 +9pp 是两条百分比加成，同池叠加**连乘**（1.10×1.09=1.199），
         // 不是加算（1+0.10+0.09=1.19）。单来源逐比特不变，仅多来源产生 +0.9pp 的乘算增益。
-        // RE=100、睡床(bf=1→+10pp)、玫瑰果茶(+9pp)、休养(RestHealBonus=1.5)：
-        //   乘算 effPct = 100 + 100×(1.10×1.09 − 1) = 119.9 → heal = 0.20×1.199×1.5 = 0.3597 → 0.9 − 0.3597 = 0.5403
-        //   旧加算 effPct = 119 → heal = 0.20×1.19×1.5 = 0.357 → 0.543（本测试在旧实现下红）
+        // RE=100、睡床(bf=1→+10pp)、玫瑰果茶(+9pp)：
+        // 乘算 effPct=119.9 → heal=0.20×1.199=0.2398 → 0.6602。通用休养 ×1.5 已删除。
         var set = new HealthConditionSet();
         var c = Bleed(0.9);
         set.Add(c);
@@ -1739,7 +1702,7 @@ public class HealthConditionsTests
 
         set.TickDay(NoInfection(), resting: true, restedInBed: true, infectionChanceMultiplier: 1.0, extraHealBonusPct: Pawn_RosehipBonus);
 
-        Assert.Equal(0.5403, c.Severity, 4);
+        Assert.Equal(0.6602, c.Severity, 4);
     }
 
     [Fact]
