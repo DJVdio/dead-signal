@@ -21,6 +21,7 @@ public sealed partial class EndingPanel : CanvasLayer
     private int _index = -1;
     private float _elapsed;
     private bool _finished; // 末段已过、已浮出收束按钮
+    private string _backgroundPath = string.Empty;
 
     private Label _titleLabel = null!;
     private Label _bodyLabel = null!;
@@ -36,6 +37,20 @@ public sealed partial class EndingPanel : CanvasLayer
         overlay.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
         overlay.MouseFilter = Control.MouseFilterEnum.Stop; // 吃掉一切点击，独占
         AddChild(overlay);
+
+        if (!string.IsNullOrEmpty(_backgroundPath) && ResourceLoader.Exists(_backgroundPath))
+        {
+            var background = new TextureRect
+            {
+                Texture = GD.Load<Texture2D>(_backgroundPath),
+                ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
+                StretchMode = TextureRect.StretchModeEnum.KeepAspectCovered,
+                MouseFilter = Control.MouseFilterEnum.Ignore,
+                Modulate = new Color(0.58f, 0.58f, 0.58f, 0.72f),
+            };
+            background.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
+            overlay.AddChild(background);
+        }
 
         _titleLabel = new Label();
         _titleLabel.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.CenterTop);
@@ -176,10 +191,15 @@ public sealed partial class EndingPanel : CanvasLayer
     /// 弹出并暂停：挂到指定 HUD 层，播放一份分段 CG（<paramref name="segments"/>），播完浮出收束按钮。
     /// 弹出即 <c>Engine.TimeScale = 0</c>（不设恢复——CG 播完即终局，唯一出口是重开/退出）。
     /// </summary>
-    public static void Show(CanvasLayer host, IReadOnlyList<string> segments, string title = "")
+    public static void Show(CanvasLayer host, IReadOnlyList<string> segments, string title = "", string backgroundPath = "")
     {
         Engine.TimeScale = 0;
-        var panel = new EndingPanel { _segments = segments ?? Array.Empty<string>(), _title = title ?? string.Empty };
+        var panel = new EndingPanel
+        {
+            _segments = segments ?? Array.Empty<string>(),
+            _title = title ?? string.Empty,
+            _backgroundPath = backgroundPath ?? string.Empty,
+        };
         host.AddChild(panel);
     }
 }

@@ -176,6 +176,7 @@
     <Compile Include="..\..\godot\scripts\EquipmentVisualCatalog.cs" Link="Consumed\EquipmentVisualCatalog.cs" />
     <!-- 角色动画状态机与武器动作分类（纯逻辑）：真实移动/攻击/受击/生产/阅读/坐卧态 → 唯一视觉状态。 -->
     <Compile Include="..\..\godot\scripts\ActorAnimationState.cs" Link="Consumed\ActorAnimationState.cs" />
+    <Compile Include="..\..\godot\scripts\ActorFrameCatalog.cs" Link="Consumed\ActorFrameCatalog.cs" />
     <!-- 战斗 VFX 分类纯逻辑：每把远程武器弹丸外形 + 护甲/锐钝/致命命中材质反馈。 -->
     <Compile Include="..\..\godot\scripts\CombatVfxCatalog.cs" Link="Consumed\CombatVfxCatalog.cs" />
     <!-- 音频表现目录纯逻辑：事件→合成配方、武器/命中映射与自适应音乐优先级。 -->

@@ -307,6 +307,9 @@ public sealed partial class CampMain
     {
         Engine.TimeScale = 0;
         GD.Print("[南逃谢幕] 抵达峡谷前：大桥没有落下，两个哨兵冷眼看着。播 CG-B 谢幕（终局）。");
-        EndingPanel.Show(_hud, EndingCg.SouthEscapeFarewell, EndingCg.SouthEscapeFarewellTitle);
+        string cg = SouthEscapeEnding.TriggerOf(_storyFlags) == SouthEscapeTrigger.HordeSiege
+            ? "res://assets/cg/horde-escape.png"
+            : "res://assets/cg/military-escape.png";
+        EndingPanel.Show(_hud, EndingCg.SouthEscapeFarewell, EndingCg.SouthEscapeFarewellTitle, cg);
     }
 }

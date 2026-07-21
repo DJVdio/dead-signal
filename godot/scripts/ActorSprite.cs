@@ -26,6 +26,7 @@ public sealed partial class ActorSprite : Node2D
     private static Texture2D? _namedActorAtlasB;
     private static Texture2D? _bruceAtlas;
     private static readonly Dictionary<string, Texture2D?> EquipmentAtlases = new(StringComparer.Ordinal);
+    private static readonly Dictionary<string, Texture2D?> AnimationAtlases = new(StringComparer.Ordinal);
 
     private Actor _actor = null!;
     private bool _bound;
@@ -432,8 +433,9 @@ public sealed partial class ActorSprite : Node2D
 
         DrawHeldEquipmentPass(r, directionColumn, behindBody: true);
 
+        bool animatedFrame = DrawAnimationFrame(r, tint);
         bool atlasStanding = false;
-        if (DrawAtlasStanding(r, tint))
+        if (animatedFrame || DrawAtlasStanding(r, tint))
         {
             atlasStanding = true;
         }
@@ -446,7 +448,8 @@ public sealed partial class ActorSprite : Node2D
             DrawWornEquipment(r, directionColumn);
 
         DrawHeldEquipmentPass(r, directionColumn, behindBody: false);
-        DrawActivityProp(r);
+        if (!animatedFrame)
+            DrawActivityProp(r);
         DrawSetTransform(Vector2.Zero, 0f, Vector2.One);
 
         if (_animationState == ActorAnimationState.Lie)
@@ -503,17 +506,55 @@ public sealed partial class ActorSprite : Node2D
                 new Vector2(0f, Mathf.Sin(loop * 6f) * r * 0.08f),
                 Mathf.Sin(loop * 3f) * 0.055f,
                 new Vector2(1f, 1f - Mathf.Max(0f, Mathf.Sin(loop * 6f)) * 0.035f)),
-            ActorAnimationState.ReadStanding => new PoseTransform(new Vector2(0f, Mathf.Sin(loop * 2.2f) * r * 0.025f), 0f, Vector2.One),
-            ActorAnimationState.ReadSeated => new PoseTransform(new Vector2(0f, r * 0.08f), 0f,
-                new Vector2(1.06f, 0.72f + Mathf.Sin(loop * 2.2f) * 0.008f)),
-            ActorAnimationState.Sit => new PoseTransform(new Vector2(0f, r * 0.08f), 0f,
-                new Vector2(1.06f, 0.72f + Mathf.Sin(loop * 2.5f) * 0.01f)),
+            ActorAnimationState.ReadStanding or ActorAnimationState.ReadSeated or ActorAnimationState.Sit
+                => new PoseTransform(Vector2.Zero, 0f, Vector2.One),
             ActorAnimationState.Lie => new PoseTransform(
-                new Vector2(0f, -r * 0.45f + Mathf.Sin(loop * 1.7f) * r * 0.025f),
-                Mathf.Cos(_drawAngle) >= 0f ? Mathf.Pi * 0.5f : -Mathf.Pi * 0.5f,
-                new Vector2(0.94f + Mathf.Sin(loop * 1.7f) * 0.008f, 0.94f)),
+                new Vector2(0f, Mathf.Sin(loop * 1.7f) * r * 0.025f), 0f,
+                new Vector2(1f + Mathf.Sin(loop * 1.7f) * 0.006f, 1f)),
             _ => new PoseTransform(Vector2.Zero, 0f, Vector2.One),
         };
+    }
+
+    /// <summary>从每名角色/泛用种类的 12 列逐帧图集画当前动作，不再用站立帧冒充坐卧和工作。</summary>
+    private bool DrawAnimationFrame(float r, Color tint)
+    {
+        string kind = _actor switch
+        {
+            Raider => "raider",
+            Zombie => "zombie",
+            Dog => "dog",
+            _ => "survivor",
+        };
+        string? displayName = _actor switch
+        {
+            Pawn pawn => pawn.DisplayName,
+            Raider raider => raider.DisplayName,
+            Dog dog => dog.DisplayName,
+            _ => null,
+        };
+        string path = ActorFrameCatalog.PathFor(displayName, kind);
+        if (!AnimationAtlases.TryGetValue(path, out Texture2D? atlas))
+        {
+            atlas = GD.Load<Texture2D>(path);
+            AnimationAtlases[path] = atlas;
+        }
+        if (atlas is null) return false;
+
+        float progress = _attackAnimDuration <= 0f
+            ? 1f
+            : 1f - Mathf.Clamp(_attackAnimTime / _attackAnimDuration, 0f, 1f);
+        int col = ActorFrameCatalog.ColumnFor(_animationState, _animationClock, progress);
+        int row = ActorFrameCatalog.RowForDirection(DirectionColumn());
+        float cellW = atlas.GetWidth() / (float)ActorFrameCatalog.Columns;
+        float cellH = atlas.GetHeight() / (float)ActorFrameCatalog.Rows;
+        var source = new Rect2(col * cellW, row * cellH, cellW, cellH);
+
+        float height = r * (_actor is Dog ? 5.0f : 5.5f);
+        float width = height * (cellW / cellH);
+        var destination = new Rect2(-width / 2f, -height, width, height);
+        Color authoredTint = Colors.White.Lerp(tint.Lightened(0.55f), 0.05f);
+        DrawTextureRectRegion(atlas, destination, source, authoredTint);
+        return true;
     }
 
     private PoseTransform AttackTransform(float r, Vector2 facing, float pulse, float progress)

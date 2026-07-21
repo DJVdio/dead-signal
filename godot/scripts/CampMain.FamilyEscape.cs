@@ -86,6 +86,7 @@ public sealed partial class CampMain
     {
         Engine.TimeScale = 0;
         GD.Print("[举家南逃 WIN] 全员抵达峡谷前：大桥落下，有人来迎。播 CG-WIN 谢幕（好结局）。");
-        EndingPanel.Show(_hud, FamilyEscapeWin.WinCg(), EndingCg.FamilyEscapeWinTitle);
+        EndingPanel.Show(_hud, FamilyEscapeWin.WinCg(), EndingCg.FamilyEscapeWinTitle,
+            "res://assets/cg/family-win.png");
     }
 }

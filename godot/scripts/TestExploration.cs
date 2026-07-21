@@ -171,6 +171,8 @@ public sealed partial class TestExploration : ExplorationLevel
         else if (DestinationName == ExplorationCache.PoliceStationName)
             SetupPoliceStation();
 
+        SetupFormalEnvironmentArt();
+
         // 叙事调查点（极乐迪斯科式，[SPEC-B12]）：按目的地迭代注册表铺 Area2D（与物资/主线点并存，命名空间隔离）。
         // 须在 SetupVisionMask 之前（视觉容器进 _discoveryVisuals，供视野外隐藏）。
         SetupNarrativeSpots();
@@ -187,6 +189,33 @@ public sealed partial class TestExploration : ExplorationLevel
         // 这里一次性烘焙全部墙体，不做 NavigationRegion 的增量重烘焙（那条路要等 NavigationServer 同步，
         // headless 下尤其容易读到滞后的旧 map）。
         BuildNavigation();
+    }
+
+    /// <summary>按目的地语义铺正式环境物件。仅表现，不新增碰撞、导航洞、搜刮点或剧情。</summary>
+    private void SetupFormalEnvironmentArt()
+    {
+        int first = DestinationName switch
+        {
+            string n when n.Contains("医院") || n.Contains("药店") || n.Contains("警察") || n.Contains("消防") => 4,
+            string n when n.Contains("加油") || n.Contains("广播") || n.Contains("仓库") || n.Contains("下水") => 8,
+            string n when n.Contains("村") || n.Contains("小屋") || n.Contains("庄园") || n.Contains("教堂") || n.Contains("营地") => 12,
+            _ => 0,
+        };
+        Vector2[] points =
+        {
+            new(LevelW * 0.16f, LevelH * 0.24f),
+            new(LevelW * 0.82f, LevelH * 0.28f),
+            new(LevelW * 0.20f, LevelH * 0.72f),
+            new(LevelW * 0.78f, LevelH * 0.76f),
+        };
+        for (int i = 0; i < points.Length; i++)
+            _isoLayer.AddChild(new ExplorationPropSprite
+            {
+                CartesianPosition = points[i],
+                AtlasIndex = first + i,
+                DisplaySize = Mathf.Clamp(Mathf.Min(LevelW, LevelH) * 0.085f, 105f, 190f),
+                ZIndex = 1,
+            });
     }
 
     /// <summary>
