@@ -1,13 +1,5 @@
-<!-- sim-provenance commit=369e57e0d415470e7802a8e007aec17040836074 commit-date=2026-07-21T06:44:49-04:00 settlement=dirty:6 input-sha256=52e1e853a269f93d2af4d140bf11588c8196230f32985800b14a231fff3fd939 report-sha256=044257bad83e690fe6784a0f5e7a33fe04c08070442093969980be11c4e64c8b -->
-> 🔴 **生成时 Sim 结算路径有 6 处未提交改动**，本报告反映的代码状态**没有任何 commit 保存过**，与 commit `369e57e`（2026-07-21）的实际输出**可能不同**：
->   M godot/scripts/CampMain.FamilyEscape.cs
->    M godot/scripts/CampMain.cs
->    M godot/scripts/FamilyEscapeWin.cs
->    M godot/scripts/HordeTimeline.cs
->    M godot/scripts/SouthEscapeEnding.cs
->    M src/DeadSignal.Sim/SimReport.cs
-> 这正是 `991b777` 那次 born-stale 的成因（报告在代码改完前生成、之后没重跑就一起提交，写 60.9%、真值 85.3%，还污染了 [T57] 拍板注释）。
-> ⚠️ **但「脏」未必「失效」**：若上面全是注释/无关改动，数值仍可信——**自己看清单判断，或在干净工作区重跑后再引用。**
+<!-- sim-provenance commit=55c77ef98138b15d92ab45e51326f1961aa30e8f commit-date=2026-07-21T08:55:49-04:00 settlement=clean input-sha256=52e1e853a269f93d2af4d140bf11588c8196230f32985800b14a231fff3fd939 report-sha256=044257bad83e690fe6784a0f5e7a33fe04c08070442093969980be11c4e64c8b -->
+> 📌 本报告由 commit `55c77ef`（2026-07-21）生成，**Sim 结算路径干净**（src/ + godot/scripts/ + godot/data/ 无未提交改动；docs/ 与 .tabb/ 脏不影响 Sim 输出） ⇒ `git checkout 55c77ef` 后重跑即可**原样复现**；对不上就是引擎变了、该重跑并复核结论。
 # 自制霰弹枪校准（多弹丸 · 8 颗单独计算）
 
 武器：单颗弹丸 2~10 × 8 颗　穿透 15 %　冷却 4.2s　射程 90　满伤段 18　末端衰减 20 %　扩散 ±18°
