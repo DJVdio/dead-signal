@@ -63,6 +63,8 @@ public sealed class VisualProductionAssetTests
     public void ExplorationAndAllThreeEndingBackgroundsExist()
     {
         AssertAsset("res://assets/world/exploration-props.png");
+        AssertAsset("res://assets/world/site-specific-exploration-props.png");
+        AssertPngSize("res://assets/world/site-specific-exploration-props.png", 1536, 1024);
         AssertAsset("res://assets/cg/military-escape.png");
         AssertAsset("res://assets/cg/horde-escape.png");
         AssertAsset("res://assets/cg/family-win.png");
@@ -95,6 +97,14 @@ public sealed class VisualProductionAssetTests
         Assert.DoesNotContain("SourceColumnForDirection", actor);
         Assert.Contains("SetupFormalEnvironmentArt();", level);
         Assert.Contains("new ExplorationPropSprite", level);
+        Assert.Contains("SetupSiteSpecificEnvironmentArt", level);
+        Assert.Contains("SiteSpecificAtlasPath", level);
+        foreach (string destination in new[]
+                 {
+                     "GasStationName", "NurseRecruit.DestinationName", "FireStationName",
+                     "BroadcastStationName", "HarvesterWarehouseName", "VillageRescue.DestinationName",
+                 })
+            Assert.Contains(destination, level);
         Assert.Contains("_backgroundPath", panel);
         Assert.Contains("horde-escape.png", bad);
         Assert.Contains("military-escape.png", bad);
@@ -116,6 +126,16 @@ public sealed class VisualProductionAssetTests
         Assert.Equal(0, height % ActorFrameCatalog.Rows);
         Assert.Equal(128, width / ActorFrameCatalog.Columns);
         Assert.Equal(147, height / ActorFrameCatalog.Rows);
+    }
+
+    private static void AssertPngSize(string resourcePath, int expectedWidth, int expectedHeight)
+    {
+        string path = Path.Combine(RepoRoot(), "godot", resourcePath[6..].Replace('/', Path.DirectorySeparatorChar));
+        using var stream = File.OpenRead(path);
+        using var reader = new BinaryReader(stream);
+        stream.Position = 16;
+        Assert.Equal(expectedWidth, ReadBigEndianInt32(reader));
+        Assert.Equal(expectedHeight, ReadBigEndianInt32(reader));
     }
 
     private static void AssertAttackPngGrid(string resourcePath)

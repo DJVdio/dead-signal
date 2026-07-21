@@ -202,11 +202,11 @@ public sealed partial class TestExploration
         AddSolidWall(new WallRect(2900f, 2150f, 18f, 400f), yardColor, zIndex: 4);  // 中竖墙·下段（中留缺口）
     }
 
-    /// <summary>画一栋占位民居（纯视觉方框 + 描边，无碰撞）：示意村庄里的其他房屋。</summary>
+    /// <summary>画一栋正式乡村民居（纯视觉、无碰撞）；尺寸仍只控制表现占幅。</summary>
     private void DrawHousePlaceholder(Vector2 center, Vector2 size)
     {
-        AddIsoBlock(new Rect2(center - size / 2f, size), new Color(0.30f, 0.27f, 0.23f), 4, height: 30f);
-        AddIsoBlock(new Rect2(center - size / 2f - new Vector2(6f, 6f), size + new Vector2(12f, 12f)), new Color(0.22f, 0.19f, 0.16f), 5, height: 38f, facade: false);
+        float displaySize = Mathf.Clamp(Mathf.Max(size.X, size.Y) * 0.9f, 125f, 210f);
+        AddSiteSpecificProp(center, 14, displaySize);
     }
 
     /// <summary>

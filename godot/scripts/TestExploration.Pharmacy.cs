@@ -28,8 +28,7 @@ public sealed partial class TestExploration
         AddRoomOutline(new Rect2(1560, 1080, 380, 340), new Color(0.27f, 0.26f, 0.24f, 0.95f), "库房", RoomEdge.Left);
         AddRoomOutline(new Rect2(1420, 700, 280, 240), new Color(0.24f, 0.25f, 0.27f, 0.95f), "阁楼", RoomEdge.Bottom);
 
-        // 柜台（纯视觉占位）：护士就守在它后头（店面内）。
-        AddIsoBlock(new Rect2(980, 1360, 360, 24), new Color(0.35f, 0.30f, 0.24f), 5, height: 12f);
+        // 柜台由地点专属图集在同一锚点绘制；这里只保留房间几何。
 
         // —— 护士相遇招募点（柜台后，NPC 非物资；踏入弹招募对话）——
         AddDiscoveryPoint(

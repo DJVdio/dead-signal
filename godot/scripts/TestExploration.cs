@@ -194,6 +194,9 @@ public sealed partial class TestExploration : ExplorationLevel
     /// <summary>按目的地语义铺正式环境物件。仅表现，不新增碰撞、导航洞、搜刮点或剧情。</summary>
     private void SetupFormalEnvironmentArt()
     {
+        if (SetupSiteSpecificEnvironmentArt())
+            return;
+
         int first = DestinationName switch
         {
             string n when n.Contains("医院") || n.Contains("药店") || n.Contains("警察") || n.Contains("消防") => 4,
@@ -217,6 +220,69 @@ public sealed partial class TestExploration : ExplorationLevel
                 ZIndex = 1,
             });
     }
+
+    /// <summary>
+    /// 六张重点探索图使用地点专属正式道具，不再按「城市/公共/工业/乡村」大类随机撒四件泛化物件。
+    /// 坐标贴合既有建筑、搜刮点与实体障碍；节点仍为纯视觉，不改变碰撞、导航、掉落或剧情。
+    /// </summary>
+    private bool SetupSiteSpecificEnvironmentArt()
+    {
+        // 村庄的民居与水井在关卡 authored 坐标处逐件铺设；只需阻止末尾再撒泛化四件套。
+        if (DestinationName == VillageRescue.DestinationName)
+            return true;
+
+        (int Index, Vector2 Position, float Size)[] props = DestinationName switch
+        {
+            ExplorationCache.GasStationName => new[]
+            {
+                (0, new Vector2(1400f, 1900f), 160f), // 加油机
+                (1, new Vector2(1320f, 1630f), 155f), // 西侧抛锚车
+                (1, new Vector2(1820f, 1590f), 155f), // 东侧抛锚车
+                (2, new Vector2(1400f, 950f), 180f),  // 油罐车
+                (3, new Vector2(820f, 1480f), 145f),  // 便利店柜台
+            },
+            NurseRecruit.DestinationName => new[]
+            {
+                (3, new Vector2(1150f, 1380f), 135f), // 店面柜台
+                (4, new Vector2(1720f, 1240f), 140f), // 药品货架
+                (5, new Vector2(1080f, 900f), 135f),  // 处方柜
+                (6, new Vector2(1250f, 900f), 125f),  // 药品冷藏箱
+            },
+            ExplorationCache.FireStationName => new[]
+            {
+                (7, new Vector2(760f, 1520f), 210f),  // 消防车
+            },
+            WorldMapPanel.BroadcastStationName => new[]
+            {
+                (8, new Vector2(2520f, 420f), 230f),  // 天线塔
+                (9, BroadcastTransmitterPosition, 170f),
+                (10, new Vector2(880f, 320f), 145f), // 机架
+                (11, new Vector2(400f, 1380f), 155f),// 发电机
+            },
+            ExplorationCache.HarvesterWarehouseName => new[]
+            {
+                (12, new Vector2(2350f, 1700f), 220f), // 收割机
+                (13, new Vector2(1120f, 1350f), 160f), // 货架通道
+                (13, new Vector2(1580f, 1350f), 160f),
+                (13, new Vector2(2040f, 1350f), 160f),
+            },
+            _ => System.Array.Empty<(int, Vector2, float)>(),
+        };
+
+        foreach ((int index, Vector2 position, float size) in props)
+            AddSiteSpecificProp(position, index, size);
+        return props.Length > 0;
+    }
+
+    private void AddSiteSpecificProp(Vector2 position, int atlasIndex, float displaySize)
+        => _isoLayer.AddChild(new ExplorationPropSprite
+        {
+            CartesianPosition = position,
+            AtlasIndex = atlasIndex,
+            AtlasPath = ExplorationPropSprite.SiteSpecificAtlasPath,
+            DisplaySize = displaySize,
+            ZIndex = 2,
+        });
 
     /// <summary>
     /// 装配视野遮暗层（探索关全程启用）：以探索队为观察者、环境光按当前相位（探索=白昼满档）算锥形，
@@ -1171,12 +1237,9 @@ public sealed partial class TestExploration : ExplorationLevel
     private void AddCachePoint(string cacheId, Vector2 pos, string label)
         => AddDiscoveryPoint(cacheId, pos, markerColor: new Color(0.55f, 0.48f, 0.36f), label: label);
 
-    /// <summary>画一口占位水井（纯视觉：石圈 + 井口深色，无碰撞）：村中心地标。</summary>
+    /// <summary>画一口正式乡村水井（纯视觉、无碰撞）：村中心与庄园地标。</summary>
     private void DrawWellPlaceholder(Vector2 center)
-    {
-        AddIsoBlock(new Rect2(center - new Vector2(40f, 40f), new Vector2(80f, 80f)), new Color(0.36f, 0.34f, 0.30f), 4, height: 16f);
-        AddIsoPolygon(Quad(center - new Vector2(26f, 26f), new Vector2(52f, 52f)), new Color(0.08f, 0.09f, 0.10f, 0.95f), 5);
-    }
+        => AddSiteSpecificProp(center, 15, 145f);
 
 
     /// <summary>

@@ -73,13 +73,11 @@ public sealed partial class TestExploration
         BuildBroadcastRoom(new Rect2(1900f, 1250f, 260f, 250f), wallC, RoomEdge.Left);    // 磁带库（东·成架磁带/遮尘布）
         BuildBroadcastRoom(new Rect2(2000f, 1750f, 360f, 230f), wallC, RoomEdge.Left);    // 车库（东南·台里的车与备用油）
 
-        // ═══════════════ 天线塔（东北角·纯视觉：塔基剪影 + 拉线示意）═══════════════
+        // ═══════════════ 天线塔（东北角；正式塔体由地点专属图集绘制）═══════════════
         AddZonePad(new Vector2(2360f, 200f), new Vector2(320f, 320f), new Color(0.17f, 0.18f, 0.20f, 0.6f));
-        AddIsoBlock(new Rect2(2480f, 240f, 80f, 220f), new Color(0.34f, 0.30f, 0.24f), 6, height: 32f);
 
-        // ═══════════════ 机房占位美术：发射机地台 + 塔基剪影（原口径保留，锚点不动）═══════════════
+        // ═══════════════ 机房地台（发射机本体由地点专属图集绘制，锚点不动）═══════════════
         AddIsoBlock(new Rect2(BroadcastTransmitterPosition.X - 200f, BroadcastTransmitterPosition.Y - 120f, 400f, 260f), new Color(0.20f, 0.21f, 0.24f), 5, height: 10f);
-        AddIsoBlock(new Rect2(BroadcastTransmitterPosition.X - 34f, BroadcastTransmitterPosition.Y - 110f, 68f, 56f), new Color(0.34f, 0.30f, 0.24f), 6, height: 28f);
 
         // ═══════════════ 发射机可交互占位（踏入发现区即上报 transmitter id → 推进主线）═══════════════
         AddDiscoveryPoint(

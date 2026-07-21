@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Godot;
 
 namespace DeadSignal.Godot;
@@ -5,18 +6,25 @@ namespace DeadSignal.Godot;
 /// <summary>探索关正式环境物件图集节点；纯视觉，不注册碰撞、导航或交互。</summary>
 public sealed partial class ExplorationPropSprite : Node2D
 {
-    private const string AtlasPath = "res://assets/world/exploration-props.png";
-    private static Texture2D? _atlas;
+    public const string DefaultAtlasPath = "res://assets/world/exploration-props.png";
+    public const string SiteSpecificAtlasPath = "res://assets/world/site-specific-exploration-props.png";
+    private static readonly Dictionary<string, Texture2D?> Atlases = new();
+    private Texture2D? _atlas;
 
     public Vector2 CartesianPosition;
     public int AtlasIndex;
     public float DisplaySize = 150f;
+    public string AtlasPath = DefaultAtlasPath;
 
     public override void _Ready()
     {
         Position = Iso.Project(CartesianPosition);
         TextureFilter = TextureFilterEnum.Nearest;
-        _atlas ??= GD.Load<Texture2D>(AtlasPath);
+        if (!Atlases.TryGetValue(AtlasPath, out _atlas))
+        {
+            _atlas = GD.Load<Texture2D>(AtlasPath);
+            Atlases[AtlasPath] = _atlas;
+        }
         QueueRedraw();
     }
 

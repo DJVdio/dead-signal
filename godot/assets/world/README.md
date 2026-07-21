@@ -89,6 +89,16 @@
 - 后处理：`#ff00ff` 色键去底，soft matte + despill，透明角已验证。
 - prompt 摘要：4×4 精确网格；城市＝废车/坏路灯/封板店面/翻倒垃圾桶，医疗公共＝接待台/药架/证物柜/消防器材架，工业＝油泵/发电机/托盘/电台控制台，乡村＝枯树/破篱笆/农车/破木屋；阴郁写实比例 faux-iso 像素风，禁止人物、文字、阴影与额外物件。
 
+## site-specific-exploration-props.png
+
+- 用途：六张重点探索地图的地点专属正式环境物件；加油站、南丁格尔药店、消防站、广播台、联合收割机仓库和南林村庄按 authored 坐标精确摆放，不再依赖大类随机四件套。
+- 规格：1536×1024 RGBA，精确 4×4，单格 384×256；行 1＝加油机/废车/油罐拖车/便利店柜台，行 2＝药架/处方柜/药品冷藏箱/消防车，行 3＝广播塔/发射控制台/机架/发电机，行 4＝收割机/托盘货架/破旧乡村木屋/石井。
+- 来源：OpenAI 内置 image generation，2026-07-21 生成；项目原创资产。
+- 后处理：以边缘采样出的洋红色键经官方 chroma helper 执行 soft matte + despill；验证尺寸、RGBA、四角透明和主体覆盖。`ExplorationPropSprite` 只替换视觉，不新增碰撞、导航洞、搜刮点或剧情。
+- 最终 prompt：
+
+  > Use case: stylized-concept. Asset type: production 2D faux-isometric pixel-art environment prop atlas for a dark zombie survival management game. Primary request: Create exactly sixteen independent site-specific exploration props arranged in a precise 4 by 4 grid. Grid contents, left to right: Row 1, roadside gas station: weathered red-and-cream fuel pump; abandoned damaged sedan; horizontal cylindrical fuel tanker trailer; small convenience-store checkout counter. Row 2, pharmacy and fire station: pharmacy medicine shelf; prescription cabinet with many small drawers; compact medical refrigerator; full-size red fire engine seen in faux-isometric three-quarter view. Row 3, broadcast station: steel lattice radio antenna tower base; large analog broadcast transmitter console; tall server/equipment rack; rugged diesel generator. Row 4, industrial warehouse and rural village: old combine harvester; loaded industrial pallet rack; small ruined rural wooden house; stone village well with wooden frame. Scene/backdrop: perfectly flat solid #ff00ff chroma-key background for local background removal. Style/medium: crisp hand-authored-looking gritty pixel art, faux-isometric 2:1 camera, realistic object proportions, restrained dark survival-game palette matching existing Dead Signal world art. Composition/framing: exactly 4 equal rows and 4 equal columns; one centered isolated complete prop per cell; consistent bottom-center ground anchors; generous padding; no overlap. Lighting/mood: neutral readable diffuse lighting baked into each prop, restrained highlights, no cast shadows. Constraints: background must be one uniform #ff00ff color with no texture, gradient, floor plane or lighting variation; no people, zombies, animals, labels, text, numbers, logos, trademarks, grid lines, cell borders, cast shadows, glow, watermark, extra objects, missing objects, cropped objects, merged cells, extra rows or extra columns. Do not use #ff00ff in any prop.
+
 ## animations/*.png
 
 - 用途：7 名具名幸存者、布鲁斯、泛用幸存者/劫掠者/普通丧尸/犬类的真正逐帧动作来源，共 12 张。
