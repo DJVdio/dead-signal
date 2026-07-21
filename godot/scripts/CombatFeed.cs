@@ -109,6 +109,9 @@ public static class CombatFeed
             target.GlobalPosition + new Vector2(0, -target.Radius - 10),
             mote.Text,
             color);
+        CombatVfxBurst.SpawnImpact(target.PresentationLayer,
+            Iso.Project(target.GlobalPosition) + new Vector2(0f, -target.Radius * 2.2f),
+            ImpactVfxKind.Wall, 0.85f);
     }
 
     /// <summary>内置飘字 presenter：吃 <see cref="CombatMoteText"/> 的中性串+色，落成 <see cref="FloatingText"/>。</summary>

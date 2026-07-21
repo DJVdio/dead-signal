@@ -84,6 +84,18 @@ public class NarrativeSpotTests
     }
 
     [Fact]
+    public void SevenAuthoredClickSpotsRequireExplicitInvestigation()
+    {
+        NarrativeSpot[] click = NarrativeSpotRegistry.All
+            .Where(s => s.Trigger == NarrativeTrigger.Click)
+            .ToArray();
+
+        Assert.Equal(7, click.Length);
+        Assert.All(click, s => Assert.False(s.Repeatable));
+        Assert.All(click, s => Assert.StartsWith("narrative_", s.Id));
+    }
+
+    [Fact]
     public void ForDestination_FiltersByMap_AndCoversAuthoredMaps()
     {
         // 各图样例都铺到了（[SPEC-B12] 每图分散铺设）。

@@ -10,7 +10,7 @@ namespace DeadSignal.Combat.Tests;
 /// <summary>
 /// 探索期输入/目的地威胁配置护栏。
 ///
-/// 探索关是 cartesian 平面，营地才使用 faux-isometric 投影；输入门控也不能复用
+/// 营地与探索关统一使用 faux-isometric 表现、逻辑仍是 cartesian 平面；输入门控不能复用
 /// <c>Pawn.IsControllable</c>（远征队角色的 Role=Expedition）。这些规则先由纯逻辑钉住，
 /// Godot 层只负责把鼠标世界坐标和发现点事件接到同一条路径。
 /// </summary>
@@ -26,12 +26,20 @@ public sealed class ExplorationInteractionTests
         => Assert.Equal(expected, ExplorationInteractionLogic.CanControl(role, inExploration));
 
     [Fact]
-    public void CartesianMousePosition_IsIdentity_WhileCampUsesInjectedIsoInverse()
+    public void NarrativeTrigger_ClickNeverFiresFromWalkingThrough()
+    {
+        Assert.True(ExplorationInteractionLogic.TriggersOnBodyEntered(NarrativeTrigger.Proximity));
+        Assert.False(ExplorationInteractionLogic.TriggersOnBodyEntered(NarrativeTrigger.Click));
+    }
+
+    [Fact]
+    public void FauxIsoMousePosition_UsesInjectedInverse_InCampAndExploration()
     {
         var screen = new System.Numerics.Vector2(31.5f, 42.25f);
-        Assert.Equal(screen, ExplorationInteractionLogic.WorldPoint(screen, inExploration: true, p => p + new System.Numerics.Vector2(999, 999)));
+        Assert.Equal(new System.Numerics.Vector2(1030.5f, 1041.25f),
+            ExplorationInteractionLogic.WorldPoint(screen, p => p + new System.Numerics.Vector2(999, 999)));
         Assert.Equal(new System.Numerics.Vector2(1030.5f, 1042.25f),
-            ExplorationInteractionLogic.WorldPoint(screen, inExploration: false, p => p + new System.Numerics.Vector2(999, 1000)));
+            ExplorationInteractionLogic.WorldPoint(screen, p => p + new System.Numerics.Vector2(999, 1000)));
     }
 
     [Fact]
@@ -62,6 +70,19 @@ public sealed class ExplorationInteractionTests
         Assert.Equal(3, ExplorationThreatProfile.EnemyCountFor(DangerTier.Low));
         Assert.Equal(6, ExplorationThreatProfile.EnemyCountFor(DangerTier.Medium));
         Assert.Equal(10, ExplorationThreatProfile.EnemyCountFor(DangerTier.High));
+    }
+
+    [Fact]
+    public void RuntimeWiresClickSpotsToRightClickArrivalAndExplorationHover()
+    {
+        string level = File.ReadAllText(Path.Combine(RepoRoot(), "godot", "scripts", "TestExploration.cs"));
+        string camp = File.ReadAllText(Path.Combine(RepoRoot(), "godot", "scripts", "CampMain.cs"));
+
+        Assert.Contains("trigger: spot.Trigger", level);
+        Assert.Contains("ExplorationInteractionLogic.TriggersOnBodyEntered(trigger)", level);
+        Assert.Contains("DiscoveryTrigger == NarrativeTrigger.Click", camp);
+        Assert.Contains("level.TriggerDiscovery(hit.Name, arriver)", camp);
+        Assert.Contains("!target.Visual.Visible", level);
     }
 
     private static string RepoRoot()

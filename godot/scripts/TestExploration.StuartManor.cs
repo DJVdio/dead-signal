@@ -105,34 +105,14 @@ public sealed partial class TestExploration
         Vector2 g = StuartGallows;
 
         // 横梁
-        AddChild(new Polygon2D
-        {
-            Polygon = Quad(g + new Vector2(-150f, -14f), new Vector2(300f, 14f)),
-            Color = wood,
-            ZIndex = 5,
-        });
+        AddIsoBlock(new Rect2(g + new Vector2(-150f, -14f), new Vector2(300f, 14f)), wood, 5, height: 34f);
         // 两根门柱
-        AddChild(new Polygon2D
-        {
-            Polygon = Quad(g + new Vector2(-160f, -14f), new Vector2(16f, 90f)),
-            Color = wood,
-            ZIndex = 5,
-        });
-        AddChild(new Polygon2D
-        {
-            Polygon = Quad(g + new Vector2(144f, -14f), new Vector2(16f, 90f)),
-            Color = wood,
-            ZIndex = 5,
-        });
+        AddIsoBlock(new Rect2(g + new Vector2(-160f, -14f), new Vector2(16f, 90f)), wood, 5, height: 28f);
+        AddIsoBlock(new Rect2(g + new Vector2(144f, -14f), new Vector2(16f, 90f)), wood, 5, height: 28f);
         // 垂下的绳（四条，间隔匀——"这个高度是有人算过的"）
         for (int i = 0; i < 4; i++)
         {
-            AddChild(new Polygon2D
-            {
-                Polygon = Quad(g + new Vector2(-108f + (i * 72f), 0f), new Vector2(3f, 46f)),
-                Color = new Color(0.42f, 0.38f, 0.30f, 0.95f),
-                ZIndex = 6,
-            });
+            AddIsoPolygon(Quad(g + new Vector2(-108f + (i * 72f), 0f), new Vector2(3f, 46f)), new Color(0.42f, 0.38f, 0.30f, 0.95f), 6);
         }
     }
 
@@ -178,7 +158,7 @@ public sealed partial class TestExploration
 
             _actorLayer.AddChild(r);
             _levelRaiders.Add(r);
-            _markers[r] = CreateActorMarker(r, new Color(0.72f, 0.26f, 0.22f)); // 暗红：敌对幸存者（与丧尸绿/己方一眼区分）
+            r.SetPresentationLayer(_isoLayer);
         }
     }
 

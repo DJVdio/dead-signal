@@ -26,10 +26,10 @@ public sealed partial class VisionMask : Node2D
 {
     public enum ProjectionMode
     {
-        /// <summary>cartesian 直绘（探索关：世界本身就是 top-down cartesian）。</summary>
+        /// <summary>cartesian 直绘（仅供特殊演出或调试画布）。</summary>
         Cartesian,
 
-        /// <summary>iso 投影（营地：世界经 <see cref="Iso.Project"/> 渲染）。</summary>
+        /// <summary>iso 投影（营地与常规探索关统一经 <see cref="Iso.Project"/> 渲染）。</summary>
         Iso,
     }
 

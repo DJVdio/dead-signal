@@ -172,6 +172,14 @@
     <Compile Include="..\..\godot\scripts\ZombieActivation.cs" Link="Consumed\ZombieActivation.cs" />
     <!-- 武器持械模型纯逻辑（无 Godot 依赖）：左右手持械 → GripMode 推导 / 断手禁持 / 主手武器选取。 -->
     <Compile Include="..\..\godot\scripts\WeaponLoadout.cs" Link="Consumed\WeaponLoadout.cs" />
+    <!-- 纸娃娃装备视觉目录（纯逻辑）：武器/光源图集行、改装变体回落、11 槽绘制层与背向遮挡规则。 -->
+    <Compile Include="..\..\godot\scripts\EquipmentVisualCatalog.cs" Link="Consumed\EquipmentVisualCatalog.cs" />
+    <!-- 角色动画状态机与武器动作分类（纯逻辑）：真实移动/攻击/受击/生产/阅读/坐卧态 → 唯一视觉状态。 -->
+    <Compile Include="..\..\godot\scripts\ActorAnimationState.cs" Link="Consumed\ActorAnimationState.cs" />
+    <!-- 战斗 VFX 分类纯逻辑：每把远程武器弹丸外形 + 护甲/锐钝/致命命中材质反馈。 -->
+    <Compile Include="..\..\godot\scripts\CombatVfxCatalog.cs" Link="Consumed\CombatVfxCatalog.cs" />
+    <!-- 音频表现目录纯逻辑：事件→合成配方、武器/命中映射与自适应音乐优先级。 -->
+    <Compile Include="..\..\godot\scripts\GameAudioCatalog.cs" Link="Consumed\GameAudioCatalog.cs" />
     <!-- 断肢装备掉落幂等账本：Body.Sever 的部位子树 → 手/脚装备槽。 -->
     <Compile Include="..\..\godot\scripts\SeveredEquipmentDrop.cs" Link="Consumed\SeveredEquipmentDrop.cs" />
     <!-- 持握态战斗消费纯逻辑（无 Godot 依赖）：grip 攻速系数并入残疾×饥饿的有效间隔 + 双持远程误差角 ×1.25。 -->

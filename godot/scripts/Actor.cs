@@ -236,6 +236,13 @@ public abstract partial class Actor : CharacterBody2D
     // ---- 视觉 sprite 挂载（挂到 iso_layer group 下；B1 并发提供该 group，worktree 独测可能缺失）----
     private ActorSprite? _sprite;
     private int _spriteRetries;
+    private Node2D? _preferredPresentationLayer;
+
+    /// <summary>当前角色所属的 faux-iso 表现层；弹丸与瞬时特效用它避开不可见 LogicLayer。</summary>
+    public Node2D? PresentationLayer
+        => _preferredPresentationLayer is { } preferred && IsInstanceValid(preferred)
+            ? preferred
+            : _sprite?.GetParent() as Node2D;
 
     // ---- 头顶状态图标条（E④）：与 sprite 同挂 iso_layer（Actor 本体在不可见 LogicLayer，做子节点会不可见）----
     private StatusIconStrip? _statusStrip;
@@ -620,11 +627,27 @@ public abstract partial class Actor : CharacterBody2D
     protected virtual PawnInspection BuildStatusInspection() =>
         PawnInspection.FromBody(Body, AttackWeapon, DefenderArmor, "");
 
-    /// <summary>在 iso_layer group 下挂人形 sprite；group 未就位则记一次重试。</summary>
+    /// <summary>
+    /// 指定当前场景的人形显示层。营地与探索关同时在树上时不能靠 group 的“第一个”猜测，
+    /// 否则探索角色会继续画进已隐藏的营地图层。
+    /// </summary>
+    public void SetPresentationLayer(Node2D layer)
+    {
+        _preferredPresentationLayer = layer;
+        if (_sprite != null && IsInstanceValid(_sprite) && _sprite.GetParent() != layer)
+            _sprite.Reparent(layer, keepGlobalTransform: false);
+        if (_statusStrip != null && IsInstanceValid(_statusStrip) && _statusStrip.GetParent() != layer)
+            _statusStrip.Reparent(layer, keepGlobalTransform: false);
+    }
+
+    /// <summary>在当前场景指定的 iso 层挂人形 sprite；未指定时才回退到 group。</summary>
     private void TryAttachSprite()
     {
         _spriteRetries++;
-        if (GetTree().GetFirstNodeInGroup("iso_layer") is Node2D layer)
+        Node2D? layer = _preferredPresentationLayer;
+        if (layer is null || !IsInstanceValid(layer))
+            layer = GetTree().GetFirstNodeInGroup("iso_layer") as Node2D;
+        if (layer is not null)
         {
             _sprite = new ActorSprite();
             layer.AddChild(_sprite);
@@ -805,6 +828,12 @@ public abstract partial class Actor : CharacterBody2D
             _attackTimer += (rounds - 1) * System.Math.Max(0, shot.BurstInterval);
         }
 
+        // 走到这里代表所有射程/弹药/围栏/操作能力门槛都已通过，这一下必然会真正打出。
+        // 视觉信号只记本次实际打法（枪托/拳脚也会覆盖手里枪的默认开火动作），绝不参与战斗结算。
+        VisualAttackKind = ActorAnimationCatalog.AttackFor(weapon.Name);
+        VisualAttackDurationSeconds = ActorAnimationCatalog.DurationSeconds(VisualAttackKind);
+        VisualAttackSequence++;
+
         if (fireRanged)
         {
             // 实扣弹药：按攻击消耗扣除；多弹丸数量不重复乘弹药消耗，具体口径以 Wiki 配置为准。
@@ -815,6 +844,7 @@ public abstract partial class Actor : CharacterBody2D
         else
         {
             // 贴脸枪托 / 空枪抡棍 / 本就近战武器：必中近战结算（枪托为上面派生的 MeleeProfile，不吃弹药）。
+            CombatVfxBurst.SpawnMelee(PresentationLayer, GlobalPosition, target.GlobalPosition, VisualAttackKind);
             target.ReceiveAttack(this, weapon, Combat, AttackDamageMultiplier(target, weapon));
 
             // 近战噪音（用户拍板：近战「会有一定的噪音」）：挥砍、闷响、扭打——砍人不是哑剧。
@@ -1000,6 +1030,13 @@ public abstract partial class Actor : CharacterBody2D
         // 弹丸可分别命中不同目标（贴脸打一群丧尸时尤其明显），也可分别撞墙落空。
         // PelletCount 默认 1 → 恰好一枚，与改造前逐行等价（既有武器零回归）。
         int pellets = System.Math.Max(1, weapon.PelletCount);
+        ProjectileVfxKind projectileKind = CombatVfxCatalog.ProjectileFor(weapon, ammoKey);
+        CombatVfxBurst.SpawnMuzzle(
+            PresentationLayer,
+            GlobalPosition + toTarget.Normalized() * (Radius + 2f),
+            toTarget.Normalized(),
+            projectileKind,
+            ActorAnimationCatalog.AttackFor(weapon.Name));
         for (int p = 0; p < pellets; p++)
         {
             double shotDeg = Combat.SampleShotDirectionDegrees(aimDeg, spread);
@@ -1417,15 +1454,30 @@ public abstract partial class Actor : CharacterBody2D
                 return false;
             }
             _firstStrikeAvailable = false;
+            VisualAttackKind = ActorAnimationCatalog.AttackFor(shot.Name);
+            VisualAttackDurationSeconds = ActorAnimationCatalog.DurationSeconds(VisualAttackKind);
+            VisualAttackSequence++;
             SpendAmmo(shot, ammoKey, plan.RoundsFired);
             FireProjectile(target, plan.RoundsFired, shot, ammoKey);
         }
         else
         {
             _firstStrikeAvailable = false;
+            PlayScriptedMeleeVisual(AttackWeapon, target);
             target.ReceiveAttack(this, AttackWeapon, Combat);
         }
         return true;
+    }
+
+    /// <summary>
+    /// 剧情/暗哨等绕过常规攻击状态机的近战表现入口。只推进动作序号并画挥击，不改冷却、命中或伤害。
+    /// </summary>
+    public void PlayScriptedMeleeVisual(Weapon weapon, Actor target)
+    {
+        VisualAttackKind = ActorAnimationCatalog.AttackFor(weapon.Name);
+        VisualAttackDurationSeconds = ActorAnimationCatalog.DurationSeconds(VisualAttackKind);
+        VisualAttackSequence++;
+        CombatVfxBurst.SpawnMelee(PresentationLayer, GlobalPosition, target.GlobalPosition, VisualAttackKind);
     }
 
     /// <summary>
@@ -1614,6 +1666,8 @@ public abstract partial class Actor : CharacterBody2D
 
     private void Die()
     {
+        // 死亡爆发属于 Actor 自身表现，放在这里可覆盖营地、探索关及任何未来场景；尸体生成仍由订阅方负责。
+        CombatVfxBurst.SpawnDeath(PresentationLayer, GlobalPosition, BodyTint, Radius);
         // AnyDied 先于 Died：尸体/战利品在**任何**死亡订阅方跑起来之前就已落定，
         // 避免某个订阅方（如全灭判定）中途弹面板/换场景，把落尸挤掉。
         AnyDied?.Invoke(this);
@@ -1626,6 +1680,15 @@ public abstract partial class Actor : CharacterBody2D
     public bool Selected { get; set; }
 
     public bool SleepingVisual { get; private set; }
+
+    /// <summary>每次真正出手递增一次；ActorSprite 观察序号启动一次性攻击动作。</summary>
+    public ulong VisualAttackSequence { get; private set; }
+
+    /// <summary>本次实际打法对应的动作骨架（贴脸枪托/拳脚按派生武器，而非手持武器）。</summary>
+    public WeaponAttackAnimation VisualAttackKind { get; private set; } = WeaponAttackAnimation.Unarmed;
+
+    /// <summary>本次攻击表现时长；与战斗冷却解耦，不影响任何数值。</summary>
+    public float VisualAttackDurationSeconds { get; private set; } = 0.22f;
 
     public void SetSleeping(bool sleeping)
     {

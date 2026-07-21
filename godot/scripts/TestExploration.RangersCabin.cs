@@ -80,28 +80,14 @@ public sealed partial class TestExploration
     /// <summary>后院老树占位（纯视觉）：树干 + 树冠 + 一段吊绳，示意哥顿上吊处。<paramref name="basePos"/>＝树根位置。</summary>
     private void AddBackyardTree(Vector2 basePos)
     {
-        AddChild(new Polygon2D // 树干
-        {
-            Polygon = Quad(basePos + new Vector2(-10, -60), new Vector2(20, 90)),
-            Color = new Color(0.30f, 0.22f, 0.14f),
-            ZIndex = 4,
-        });
-        AddChild(new Polygon2D // 树冠（粗略多边形）
-        {
-            Polygon = new Vector2[]
+        AddIsoBlock(new Rect2(basePos + new Vector2(-10, -60), new Vector2(20, 90)), new Color(0.30f, 0.22f, 0.14f), 4, height: 28f);
+        AddIsoPolygon(new Vector2[]
             {
                 basePos + new Vector2(-72, -60), basePos + new Vector2(-42, -132),
                 basePos + new Vector2(28, -152), basePos + new Vector2(82, -104),
                 basePos + new Vector2(58, -52),
             },
-            Color = new Color(0.20f, 0.30f, 0.18f, 0.95f),
-            ZIndex = 5,
-        });
-        AddChild(new Polygon2D // 横枝垂下的吊绳（示意上吊处，正上方即哥顿发现点）
-        {
-            Polygon = Quad(basePos + new Vector2(-2, -96), new Vector2(3, 58)),
-            Color = new Color(0.55f, 0.5f, 0.4f),
-            ZIndex = 5,
-        });
+            new Color(0.20f, 0.30f, 0.18f, 0.95f), 5);
+        AddIsoPolygon(Quad(basePos + new Vector2(-2, -96), new Vector2(3, 58)), new Color(0.55f, 0.5f, 0.4f), 5);
     }
 }

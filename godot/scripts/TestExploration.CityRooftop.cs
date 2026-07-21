@@ -24,13 +24,7 @@ public sealed partial class TestExploration
         AddZonePad(new Vector2(300, 360), new Vector2(2200, 640), new Color(0.24f, 0.25f, 0.28f, 0.4f));
 
         // 占位护栏：贴北墙一段横栏，示意"高层观景台面朝正北"（纯视觉，无碰撞；随望远镜锚点，放大后已居北缘正中）。
-        var railing = new Polygon2D
-        {
-            Polygon = Quad(new Vector2(LookoutTelescopePosition.X - 240f, LookoutTelescopePosition.Y - 34f), new Vector2(480f, 10f)),
-            Color = new Color(0.32f, 0.30f, 0.26f, 0.9f),
-            ZIndex = 6,
-        };
-        AddChild(railing);
+        AddIsoBlock(new Rect2(LookoutTelescopePosition.X - 240f, LookoutTelescopePosition.Y - 34f, 480f, 10f), new Color(0.32f, 0.30f, 0.26f), 6, height: 18f);
 
         // —— 天台机房 + 瞭望员值班室（东北设备房，门朝南＝正对天台开阔面）+ 南侧游客服务楼（近入口，门朝北通天台）——
         AddRoomOutline(new Rect2(1560, 560, 460, 340), new Color(0.28f, 0.30f, 0.32f, 0.95f), "天台机房", RoomEdge.Bottom);

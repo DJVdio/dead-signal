@@ -35,6 +35,8 @@ public sealed partial class MainMenu : Control
 
     public override void _Ready()
     {
+        GameAudioRuntime.SetMusic(MusicMood.Menu);
+        GameAudioRuntime.SetAmbience(AmbienceMood.Silence);
         SetAnchorsPreset(LayoutPreset.FullRect);
 
         var bg = new ColorRect();

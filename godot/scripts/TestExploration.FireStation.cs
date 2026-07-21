@@ -52,12 +52,7 @@ public sealed partial class TestExploration
         AddRoomOutline(new Rect2(980, 700, 460, 340), new Color(0.28f, 0.30f, 0.32f, 0.95f), "器材间", RoomEdge.Bottom);
 
         // 消防车（纯视觉占位）：车头朝外停在车库里，器材箱那一侧就是搜刮点。
-        AddChild(new Polygon2D
-        {
-            Polygon = Quad(new Vector2(600, 1480), new Vector2(320, 120)),
-            Color = new Color(0.46f, 0.16f, 0.14f, 0.95f), // 消防红（褪色）
-            ZIndex = 5,
-        });
+        AddIsoBlock(new Rect2(600, 1480, 320, 120), new Color(0.46f, 0.16f, 0.14f), 5, height: 20f);
 
         var bayC = new Color(0.55f, 0.5f, 0.42f);   // 车库（近）
         var gearC = new Color(0.62f, 0.42f, 0.30f); // 器材墙：偏红，全站唯一的武器（消防斧）就挂在这儿

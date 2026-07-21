@@ -42,6 +42,7 @@ public sealed partial class EscapeCorridor : ExplorationLevel
     private CameraController _camera = null!;
     private NavigationRegion2D _navRegion = null!;
     private Node2D _actorLayer = null!;
+    private Node2D _isoLayer = null!;
     private Area2D _canyonZone = null!;
     private Pawn? _escapee;                       // 单人坏结局：南逃者 / 全员 WIN：排头（玩家操控者）
     private readonly List<Pawn> _followers = new();// 全员 WIN：跟随者（自动跟排头）
@@ -50,7 +51,6 @@ public sealed partial class EscapeCorridor : ExplorationLevel
     private double _followThrottle; // 跟随者重发 CommandMoveTo 的节流累加（避免每帧抖 nav agent）
 
     private readonly List<Rect2> _obstructions = new();
-    private readonly Dictionary<Actor, Node2D> _markers = new();
 
     /// <summary>南逃者踏入峡谷终点区（谢幕触发点）。CampMain 订阅它 → 播 CG-B + EndingPanel。只触发一次。</summary>
     public event Action? OnReachedCanyon;
@@ -73,7 +73,7 @@ public sealed partial class EscapeCorridor : ExplorationLevel
         {
             // 单人坏结局：相机跟随南逃者（廊道比屏高，须跟随；CG 接管期间 CameraController 自行让位）。
             if (_escapee is { } e && IsInstanceValid(e))
-                _camera.FocusOn(e.GlobalPosition);
+                _camera.FocusOn(Iso.Project(e.GlobalPosition));
             return;
         }
 
@@ -87,7 +87,7 @@ public sealed partial class EscapeCorridor : ExplorationLevel
         foreach (Pawn p in living)
             centroid += p.GlobalPosition;
         centroid /= living.Count;
-        _camera.FocusOn(centroid);
+        _camera.FocusOn(Iso.Project(centroid));
 
         // 跟随者跟排头（节流重发路径令，避免每帧抖 nav agent）。排头由玩家右键操控。
         _followThrottle += delta;
@@ -131,14 +131,6 @@ public sealed partial class EscapeCorridor : ExplorationLevel
         return true;
     }
 
-    public override void _ExitTree()
-    {
-        foreach (var kv in _markers)
-            if (IsInstanceValid(kv.Value))
-                kv.Value.QueueFree();
-        _markers.Clear();
-    }
-
     public override void Cleanup()
     {
         // 南逃谢幕是强制终局，本关不"归营"卸载；EndingPanel 接管后唯一出口是重开/退出。留空实现即可。
@@ -148,14 +140,10 @@ public sealed partial class EscapeCorridor : ExplorationLevel
     private void BuildTerrain()
     {
         _actorLayer = new Node2D { Name = "Actors" };
-
-        var ground = new Polygon2D
-        {
-            Polygon = Quad(Vector2.Zero, new Vector2(LevelW, LevelH)),
-            Color = new Color(0.09f, 0.11f, 0.09f), // 深林地表（占位）
-            ZIndex = -20,
-        };
-        AddChild(ground);
+        _isoLayer = new Node2D { Name = "IsoLayer", YSortEnabled = true };
+        _isoLayer.AddToGroup("iso_layer");
+        AddChild(_isoLayer);
+        AddIsoSurface(new Rect2(0, 0, LevelW, LevelH), new Color(0.09f, 0.11f, 0.09f), -20);
 
         // 四面边界墙。
         AddWall(new Rect2(0, 0, LevelW, WallT), border: true);
@@ -184,50 +172,35 @@ public sealed partial class EscapeCorridor : ExplorationLevel
     {
         // 峡谷裂隙（横贯的深渊带·两分支共用）。
         float chasmY = CanyonZonePos.Y + 40f;
-        AddChild(new Polygon2D
-        {
-            Polygon = Quad(new Vector2(WallT, chasmY), new Vector2(LevelW - WallT * 2, 90f)),
-            Color = new Color(0.02f, 0.02f, 0.03f),
-            ZIndex = -8,
-        });
+        AddIsoPolygon(Quad(new Vector2(WallT, chasmY), new Vector2(LevelW - WallT * 2, 90f)), new Color(0.02f, 0.02f, 0.03f), -10);
 
         if (FamilyMode)
         {
             // 举家 WIN：大桥**落下**——桥板横搭裂隙、连通近岸对岸（占位）。
-            AddChild(new Polygon2D
-            {
-                Polygon = Quad(new Vector2(LaneCx - 70f, chasmY - 6f), new Vector2(140f, 102f)),
-                Color = new Color(0.42f, 0.34f, 0.22f),
-                ZIndex = -6,
-            });
+            AddIsoBlock(new Rect2(LaneCx - 70f, chasmY - 6f, 140f, 102f), new Color(0.42f, 0.34f, 0.22f), 0, 8f);
             // 迎接者（对岸桥头·暖色人形·占位，示意有人来迎）。
             foreach (float dx in new[] { -70f, 0f, 70f })
-                AddChild(new Polygon2D
+                _isoLayer.AddChild(new Polygon2D
                 {
                     Polygon = new Vector2[] { new(0, -18), new(9, 0), new(0, 18), new(-9, 0) },
                     Color = new Color(0.72f, 0.6f, 0.32f),
-                    Position = new Vector2(LaneCx + dx, chasmY - 150f),
-                    ZIndex = -5,
+                    Position = Iso.Project(new Vector2(LaneCx + dx, chasmY - 150f)),
+                    ZIndex = 0,
                 });
             return;
         }
 
         // 坏结局：「大桥没有落下」——对岸一截吊起的桥板（占位，斜置对岸之上，未搭到近岸）。
-        AddChild(new Polygon2D
-        {
-            Polygon = Quad(new Vector2(LaneCx - 70f, chasmY - 120f), new Vector2(140f, 60f)),
-            Color = new Color(0.32f, 0.26f, 0.18f),
-            ZIndex = -6,
-        });
+        AddIsoBlock(new Rect2(LaneCx - 70f, chasmY - 120f, 140f, 60f), new Color(0.32f, 0.26f, 0.18f), 0, 18f);
 
         // 两个哨兵（对岸桥头·冷眼看着·占位深色人形）。
         foreach (float dx in new[] { -80f, 80f })
-            AddChild(new Polygon2D
+            _isoLayer.AddChild(new Polygon2D
             {
                 Polygon = new Vector2[] { new(0, -18), new(9, 0), new(0, 18), new(-9, 0) },
                 Color = new Color(0.18f, 0.2f, 0.24f),
-                Position = new Vector2(LaneCx + dx, chasmY - 150f),
-                ZIndex = -5,
+                Position = Iso.Project(new Vector2(LaneCx + dx, chasmY - 150f)),
+                ZIndex = 0,
             });
     }
 
@@ -238,8 +211,8 @@ public sealed partial class EscapeCorridor : ExplorationLevel
         body.CollisionLayer = 0b0100u; // 墙层：挡移动 + 导航 obstruction（同 TestExploration 口径）
         body.CollisionMask = 0u;
         body.AddChild(new CollisionShape2D { Shape = new RectangleShape2D { Size = rect.Size } });
-        body.AddChild(new Polygon2D { Polygon = Quad(-rect.Size / 2, rect.Size), Color = c, ZIndex = -5 });
         AddChild(body);
+        AddIsoBlock(rect, c, 0, border ? 28f : 34f);
         if (!border)
             _obstructions.Add(rect);
     }
@@ -264,8 +237,8 @@ public sealed partial class EscapeCorridor : ExplorationLevel
 
     private void SetupCamera()
     {
-        _camera = new CameraController { Position = SpawnPoint };
-        _camera.SetBounds(new Rect2(0, 0, LevelW, LevelH));
+        _camera = new CameraController { Position = Iso.Project(SpawnPoint) };
+        _camera.SetBounds(Iso.ProjectBounds(new Rect2(0, 0, LevelW, LevelH)));
         AddChild(_camera);
         _camera.MakeCurrent();
     }
@@ -273,13 +246,9 @@ public sealed partial class EscapeCorridor : ExplorationLevel
     private void SetupCanyonEndpoint()
     {
         // 终点区视觉提示（南端·占位）。
-        AddChild(new Polygon2D
-        {
-            Polygon = Quad(Vector2.Zero, new Vector2(CanyonZoneSize, CanyonZoneSize)),
-            Color = new Color(0.5f, 0.45f, 0.2f, 0.28f),
-            Position = CanyonZonePos - new Vector2(CanyonZoneSize / 2f, CanyonZoneSize / 2f),
-            ZIndex = 9,
-        });
+        AddIsoPolygon(
+            Quad(CanyonZonePos - new Vector2(CanyonZoneSize / 2f, CanyonZoneSize / 2f), new Vector2(CanyonZoneSize, CanyonZoneSize)),
+            new Color(0.5f, 0.45f, 0.2f, 0.28f), 9);
 
         _canyonZone = new Area2D { Position = CanyonZonePos };
         _canyonZone.AddChild(new CollisionShape2D { Shape = new RectangleShape2D { Size = new Vector2(CanyonZoneSize, CanyonZoneSize) } });
@@ -308,7 +277,7 @@ public sealed partial class EscapeCorridor : ExplorationLevel
             _escapee = ExpeditionTeam[0];
             _escapee.Position = SpawnPoint;
             _escapee.Reparent(_actorLayer, keepGlobalTransform: false);
-            _markers[_escapee] = CreateActorMarker(_escapee, _escapee.BodyTint);
+            _escapee.SetPresentationLayer(_isoLayer);
             return;
         }
 
@@ -325,22 +294,66 @@ public sealed partial class EscapeCorridor : ExplorationLevel
                 ? SpawnPoint
                 : SpawnPoint + new Vector2(((i % 2) * 2 - 1) * 34f, -60f - ((i - 1) / 2) * 46f);
             p.Reparent(_actorLayer, keepGlobalTransform: false);
-            _markers[p] = CreateActorMarker(p, p.BodyTint);
+            p.SetPresentationLayer(_isoLayer);
             _team.Add(p);
             if (i == 0) _escapee = p; else _followers.Add(p);
         }
     }
 
-    private static Node2D CreateActorMarker(Actor actor, Color color)
+    private Polygon2D AddIsoPolygon(Vector2[] cartPolygon, Color color, int zIndex)
     {
-        var marker = new Polygon2D
+        Vector2 anchor = cartPolygon[0];
+        foreach (Vector2 p in cartPolygon)
+            if (p.X + p.Y > anchor.X + anchor.Y)
+                anchor = p;
+        Vector2 projectedAnchor = Iso.Project(anchor);
+        var polygon = new Polygon2D
         {
-            Polygon = new Vector2[] { new(0, -10), new(10, 0), new(0, 10), new(-10, 0) },
+            Position = projectedAnchor,
+            Polygon = Array.ConvertAll(cartPolygon, p => Iso.Project(p) - projectedAnchor),
             Color = color,
-            ZIndex = 10,
+            ZIndex = zIndex <= -10 || zIndex >= 7 ? zIndex : 0,
         };
-        actor.AddChild(marker);
-        return marker;
+        _isoLayer.AddChild(polygon);
+        return polygon;
+    }
+
+    private void AddIsoSurface(Rect2 rect, Color color, int zIndex, float cell = 96f)
+    {
+        _isoLayer.AddChild(new IsoTilePanel
+        {
+            FootprintCart = rect,
+            Style = new PixelStyle { color = new double[] { color.R, color.G, color.B }, jitter = 0.035 },
+            Seed = 101,
+            Cell = cell,
+            Height = 0f,
+            Facade = false,
+            ZIndex = zIndex,
+        });
+    }
+
+    private void AddIsoBlock(Rect2 rect, Color color, int zIndex, float height, bool facade = true, float cell = 48f)
+    {
+        int nx = Mathf.Max(1, Mathf.CeilToInt(rect.Size.X / cell));
+        int ny = Mathf.Max(1, Mathf.CeilToInt(rect.Size.Y / cell));
+        float width = rect.Size.X / nx;
+        float depth = rect.Size.Y / ny;
+        int worldZ = zIndex <= -10 ? zIndex : 0;
+        for (int y = 0; y < ny; y++)
+        for (int x = 0; x < nx; x++)
+        {
+            var sub = new Rect2(rect.Position + new Vector2(x * width, y * depth), new Vector2(width, depth));
+            _isoLayer.AddChild(new IsoTilePanel
+            {
+                FootprintCart = sub,
+                Style = new PixelStyle { color = new double[] { color.R, color.G, color.B }, jitter = 0.025 },
+                Seed = x * 7 + y * 13,
+                Cell = Mathf.Min(cell, 48f),
+                Height = height,
+                Facade = facade,
+                ZIndex = worldZ,
+            });
+        }
     }
 
     private static Vector2[] Quad(Vector2 pos, Vector2 size) => new[]

@@ -75,26 +75,11 @@ public sealed partial class TestExploration
 
         // ═══════════════ 天线塔（东北角·纯视觉：塔基剪影 + 拉线示意）═══════════════
         AddZonePad(new Vector2(2360f, 200f), new Vector2(320f, 320f), new Color(0.17f, 0.18f, 0.20f, 0.6f));
-        AddChild(new Polygon2D
-        {
-            Polygon = Quad(new Vector2(2480f, 240f), new Vector2(80f, 220f)),
-            Color = new Color(0.34f, 0.30f, 0.24f, 0.9f),
-            ZIndex = 6,
-        });
+        AddIsoBlock(new Rect2(2480f, 240f, 80f, 220f), new Color(0.34f, 0.30f, 0.24f), 6, height: 32f);
 
         // ═══════════════ 机房占位美术：发射机地台 + 塔基剪影（原口径保留，锚点不动）═══════════════
-        AddChild(new Polygon2D
-        {
-            Polygon = Quad(new Vector2(BroadcastTransmitterPosition.X - 200f, BroadcastTransmitterPosition.Y - 120f), new Vector2(400f, 260f)),
-            Color = new Color(0.20f, 0.21f, 0.24f, 0.85f),
-            ZIndex = 5,
-        });
-        AddChild(new Polygon2D
-        {
-            Polygon = Quad(new Vector2(BroadcastTransmitterPosition.X - 34f, BroadcastTransmitterPosition.Y - 110f), new Vector2(68f, 56f)),
-            Color = new Color(0.34f, 0.30f, 0.24f, 0.9f),
-            ZIndex = 6,
-        });
+        AddIsoBlock(new Rect2(BroadcastTransmitterPosition.X - 200f, BroadcastTransmitterPosition.Y - 120f, 400f, 260f), new Color(0.20f, 0.21f, 0.24f), 5, height: 10f);
+        AddIsoBlock(new Rect2(BroadcastTransmitterPosition.X - 34f, BroadcastTransmitterPosition.Y - 110f, 68f, 56f), new Color(0.34f, 0.30f, 0.24f), 6, height: 28f);
 
         // ═══════════════ 发射机可交互占位（踏入发现区即上报 transmitter id → 推进主线）═══════════════
         AddDiscoveryPoint(

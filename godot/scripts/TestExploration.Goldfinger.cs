@@ -66,7 +66,7 @@ public sealed partial class TestExploration
 
             _actorLayer.AddChild(r);
             _levelRaiders.Add(r);
-            _markers[r] = CreateActorMarker(r, new Color(0.72f, 0.26f, 0.22f)); // 暗红：敌对幸存者（与丧尸绿/己方一眼区分）
+            r.SetPresentationLayer(_isoLayer);
         }
     }
 

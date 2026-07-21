@@ -10,6 +10,10 @@ run/main_scene="res://scenes/MainMenu.tscn"
 config/features=PackedStringArray("4.7", "C#", "Forward Plus")
 config/icon="res://icon.svg"
 
+[autoload]
+
+AudioRuntime="*res://scenes/GameAudio.tscn"
+
 [dotnet]
 
 project/assembly_name="DeadSignal.Godot"

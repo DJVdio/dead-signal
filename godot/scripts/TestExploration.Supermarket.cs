@@ -34,7 +34,7 @@ public sealed partial class TestExploration
             r.Position = pos;
             _actorLayer.AddChild(r);
             _levelRaiders.Add(r);
-            _markers[r] = CreateActorMarker(r, new Color(0.72f, 0.26f, 0.22f)); // 暗红：敌对幸存者（同 Raider.Create 体色，与丧尸绿/己方一眼区分）
+            r.SetPresentationLayer(_isoLayer);
             first ??= r;
         }
 
@@ -56,6 +56,7 @@ public sealed partial class TestExploration
         }
         if (victim is null)
             return;
+        ambusher.PlayScriptedMeleeVisual(CombatData.Dagger(), victim);
         victim.ReceiveAttack(ambusher, CombatData.Dagger(), Combat, damageFactor: NightWatchContest.PreemptiveStrikeMultiplier);
         GD.Print($"[Supermarket] 背刺先手 ×{NightWatchContest.PreemptiveStrikeMultiplier:0.0} 命中 {victim.DisplayName}。");
     }

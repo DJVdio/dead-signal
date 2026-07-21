@@ -78,6 +78,7 @@ public sealed partial class Zombie : Actor
     private Func<IEnumerable<Actor>>? _survivorProvider;
     private double _wanderTimer;
     private bool _wasNight;
+    private double _groanTimer;
     private BreachController? _breach; // 门关闭后砸围栏/大门破防（袭营时由 CampMain 注入）
     private readonly RandomNumberGenerator _rng = new();
 
@@ -121,7 +122,12 @@ public sealed partial class Zombie : Actor
         return z;
     }
 
-    protected override void OnReady() => _rng.Randomize();
+    protected override void OnReady()
+    {
+        _rng.Randomize();
+        // 仅作听感错峰，不使用战斗随机源；实例号只决定第一次何时发声。
+        _groanTimer = 3.5 + GetInstanceId() % 500 / 100.0;
+    }
 
     /// <summary>
     /// 袭营时注入破防能力（门关闭后到不了营内幸存者→走到最近围栏/大门前砸墙）。委托由 CampMain 提供
@@ -158,6 +164,7 @@ public sealed partial class Zombie : Actor
 
     protected override void Think(double delta)
     {
+        TickAmbientVoice(delta);
         // [SPEC-T60] 探索关走威胁模型（普通丧尸感知唤醒 / 门后特殊丧尸开门激活）；营地丧尸走原昼夜休眠（零回归）。
         if (_explorationMode)
         {
@@ -165,6 +172,17 @@ public sealed partial class Zombie : Actor
             return;
         }
         ThinkCamp(delta);
+    }
+
+    private void TickAmbientVoice(double delta)
+    {
+        // 休眠布景保持安静；探索中已唤醒、或营地夜间活跃的丧尸才低声呻吟。
+        bool active = _explorationMode ? _activated : Clock.IsNight;
+        if (!active) return;
+        _groanTimer -= Math.Max(0, delta);
+        if (_groanTimer > 0) return;
+        GameAudioRuntime.PlayWorld(AudioCue.ZombieGroan, GlobalPosition);
+        _groanTimer = 7.0 + GetInstanceId() % 600 / 100.0;
     }
 
     /// <summary>营地丧尸（含袭营）：白天原地休眠、夜晚游荡+感知追击。<b>本方法一字未改行为</b>（探索轴不接管此路）。</summary>

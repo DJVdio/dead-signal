@@ -15,8 +15,8 @@ namespace DeadSignal.Godot;
 /// 尸堆自然铺开成一片；「一扇门前只挤得下 3~4 只丧尸」是丧尸自己的碰撞体积造成的，与尸体格无关。）
 ///
 /// <para>
-/// 🔴 <b>本 Yard 只管营地</b>：探索关的尸体<b>不进这里</b>（关卡是 cartesian 坐标系、无 iso 人形层，
-/// 尸体格与营地那套坐标不通用），走 <c>CampMain.SpawnLevelCorpse</c> → 关内一个可搜刮触发点。
+/// 🔴 <b>本 Yard 只管营地</b>：探索关的尸体<b>不进这里</b>（两边显示都走 faux-iso，但关内不采用营地尸体格），
+/// 走 <c>CampMain.SpawnLevelCorpse</c> → 关内一个可搜刮触发点。
 /// 两边<b>共用</b>的是规则（<see cref="CorpseLoot.Strip"/> 扒什么、<see cref="CorpseNaming"/> 叫什么名字），
 /// 各自不同的只有空间执行。相位过期清理（<see cref="CorpseDecay"/>）同样只管营地——关内尸体<b>随关卡消失</b>
 /// （一次性进出，玩家不会在关里待过三个相位；扒不完就没了，同一条口径的两种时钟）。
@@ -186,7 +186,7 @@ public sealed partial class CorpseYard : Node
         }
 
         _field.Occupy(cell);
-        var corpse = Corpse.Spawn(isoLayer, Iso.Project(cartPos), cell, bodyTint, radius);
+        var corpse = Corpse.Spawn(isoLayer, Iso.Project(cartPos), cell, bodyTint, radius, animateArrival: false);
         corpse.CartPosition = cartPos;
         corpse.ContainerId = containerId;
         corpse.SpawnPhaseTick = spawnPhaseTick;

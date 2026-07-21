@@ -18,6 +18,8 @@ public sealed partial class Pawn : Actor
     public PawnRole Role { get; set; } = PawnRole.Idle;
     /// <summary>接近手术位或正在手术时由 CampMain 锁定；阻止生产、站岗、读书及并发玩家指令。</summary>
     public bool SurgeryOccupied { get; set; }
+    /// <summary>聚餐/手术等跨 Role 演出对姿势的临时覆盖；只供 ActorSprite 消费。</summary>
+    public PawnVisualActivity VisualActivity { get; set; }
     public bool IsControllable => Role == PawnRole.Idle && !SurgeryOccupied;
     protected override bool CanAct => Role != PawnRole.Sleeping;
 

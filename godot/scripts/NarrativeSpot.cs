@@ -23,7 +23,7 @@ public enum NarrativeTrigger
     /// <summary>靠近即触发：踏入触发 Area2D（walk-in，复用 AddDiscoveryPoint 先例）。</summary>
     Proximity,
 
-    /// <summary>点击调查：点击调查物 → 角色走近后触发（探索关现无点击拾取先例，落地待「探索关正式化」专项，见关卡层 [HANDOFF]）。</summary>
+    /// <summary>点击调查：右键调查物 → 角色走近后触发；单纯路过不会播放。</summary>
     Click,
 }
 
@@ -45,7 +45,7 @@ public sealed class NarrativeSpot
     /// <summary>关内世界坐标 Y。</summary>
     public required float Y { get; init; }
 
-    /// <summary>触发方式（Proximity 已落地；Click 为框架字段，渲染待「探索关正式化」）。</summary>
+    /// <summary>触发方式：Proximity 靠近触发；Click 只能右键寻路到位后触发。</summary>
     public required NarrativeTrigger Trigger { get; init; }
 
     /// <summary>地面标记旁的短标签（关卡层显示，如「祭台」「登记簿」）。</summary>

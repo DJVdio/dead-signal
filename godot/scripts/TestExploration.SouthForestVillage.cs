@@ -205,20 +205,8 @@ public sealed partial class TestExploration
     /// <summary>画一栋占位民居（纯视觉方框 + 描边，无碰撞）：示意村庄里的其他房屋。</summary>
     private void DrawHousePlaceholder(Vector2 center, Vector2 size)
     {
-        var body = new Polygon2D
-        {
-            Polygon = Quad(center - size / 2f, size),
-            Color = new Color(0.30f, 0.27f, 0.23f, 0.85f),
-            ZIndex = 4,
-        };
-        AddChild(body);
-        var roof = new Polygon2D
-        {
-            Polygon = Quad(center - size / 2f - new Vector2(6f, 6f), new Vector2(size.X + 12f, 10f)),
-            Color = new Color(0.22f, 0.19f, 0.16f, 0.9f),
-            ZIndex = 5,
-        };
-        AddChild(roof);
+        AddIsoBlock(new Rect2(center - size / 2f, size), new Color(0.30f, 0.27f, 0.23f), 4, height: 30f);
+        AddIsoBlock(new Rect2(center - size / 2f - new Vector2(6f, 6f), size + new Vector2(12f, 12f)), new Color(0.22f, 0.19f, 0.16f), 5, height: 38f, facade: false);
     }
 
     /// <summary>
@@ -237,45 +225,27 @@ public sealed partial class TestExploration
             AddSolidWall(wall, wallColor, zIndex: 4);
 
         // 地板底色（示意室内），ZIndex 低于占位标记。
-        var floor = new Polygon2D
-        {
-            Polygon = Quad(new Vector2(c.X - hw, c.Y - hh), new Vector2(hw * 2f, hh * 2f)),
-            Color = new Color(0.24f, 0.22f, 0.19f, 0.8f),
-            ZIndex = 3,
-        };
-        AddChild(floor);
+        AddIsoPolygon(Quad(new Vector2(c.X - hw, c.Y - hh), new Vector2(hw * 2f, hh * 2f)), new Color(0.24f, 0.22f, 0.19f, 0.8f), -10);
     }
 
     /// <summary>屋内占位：饿昏迷的道格（横卧色块）+ 守在身边的布鲁斯（小色块），纯视觉示意。</summary>
     private void DrawTrappedPlaceholders()
     {
         // 道格：屋内靠里，横卧姿态（宽扁色块）示意"倒地昏迷"。
-        var doug = new Polygon2D
-        {
-            Polygon = Quad(VillageHouseCenter + new Vector2(-46f, -30f), new Vector2(52f, 22f)),
-            Color = new Color(0.62f, 0.56f, 0.42f, 0.95f),
-            ZIndex = 7,
-        };
-        AddChild(doug);
+        AddIsoPolygon(Quad(VillageHouseCenter + new Vector2(-46f, -30f), new Vector2(52f, 22f)), new Color(0.62f, 0.56f, 0.42f, 0.95f), 7);
         // 布鲁斯：守在道格身侧的小色块。
-        var bruce = new Polygon2D
-        {
-            Polygon = Quad(VillageHouseCenter + new Vector2(24f, -14f), new Vector2(26f, 16f)),
-            Color = new Color(0.45f, 0.38f, 0.30f, 0.95f),
-            ZIndex = 7,
-        };
-        AddChild(bruce);
+        AddIsoPolygon(Quad(VillageHouseCenter + new Vector2(24f, -14f), new Vector2(26f, 16f)), new Color(0.45f, 0.38f, 0.30f, 0.95f), 7);
 
         var tag = new Label
         {
             Text = "？",
-            Position = VillageHouseCenter + new Vector2(-8f, -64f),
+            Position = Iso.Project(VillageHouseCenter) + new Vector2(-8f, -64f),
             ZIndex = 12,
         };
         tag.AddThemeFontSizeOverride("font_size", 15);
         tag.AddThemeColorOverride("font_color", new Color(0.9f, 0.85f, 0.7f));
         tag.AddThemeColorOverride("font_outline_color", new Color(0, 0, 0, 0.9f));
         tag.AddThemeConstantOverride("outline_size", 3);
-        AddChild(tag);
+        _isoLayer.AddChild(tag);
     }
 }

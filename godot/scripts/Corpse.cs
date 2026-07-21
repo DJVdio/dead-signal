@@ -23,6 +23,9 @@ public sealed partial class Corpse : Node2D
     private Color _body;
     private float _r = 12f;
     private float _angle;                 // 躺倒朝向（iso 屏幕弧度）
+    private float _arrivalAge;
+    private bool _animateArrival;
+    private const float ArrivalSeconds = 0.24f;
 
     /// <summary>本尸占的尸体格（回收时据此还格给 <see cref="CorpseField"/>）。</summary>
     public CorpseCell Cell { get; private set; }
@@ -55,13 +58,15 @@ public sealed partial class Corpse : Node2D
     /// 在 iso 层生成一具尸体。<paramref name="footIso"/>=落点（尸体格中心）的 iso 屏幕坐标；
     /// <paramref name="bodyTint"/>/<paramref name="radius"/> 取自死者（丧尸偏绿、活人偏肉色）。
     /// </summary>
-    public static Corpse Spawn(Node isoLayer, Vector2 footIso, CorpseCell cell, Color bodyTint, float radius)
+    public static Corpse Spawn(Node isoLayer, Vector2 footIso, CorpseCell cell, Color bodyTint, float radius,
+        bool animateArrival = true)
     {
         var c = new Corpse
         {
             Cell = cell,
             _body = bodyTint.Darkened(0.35f),   // 死了的颜色：压暗、去饱和
             _r = Mathf.Max(6f, radius),
+            _animateArrival = animateArrival,
         };
         isoLayer.AddChild(c);
         c.Position = footIso - new Vector2(0, YSortLift);
@@ -69,7 +74,23 @@ public sealed partial class Corpse : Node2D
         int h = cell.X * 73856093 ^ cell.Y * 19349663;
         c._angle = Mathf.Pi * 2f * ((h & 0xFFFF) / 65535f);
         c.ZIndex = 0;
+        if (animateArrival)
+        {
+            c.Modulate = new Color(1f, 1f, 1f, 0f);
+            c.Scale = new Vector2(0.82f, 0.82f);
+        }
         return c;
+    }
+
+    public override void _Process(double delta)
+    {
+        if (!_animateArrival) return;
+        _arrivalAge += (float)delta;
+        float t = Mathf.Clamp(_arrivalAge / ArrivalSeconds, 0f, 1f);
+        float eased = 1f - (1f - t) * (1f - t);
+        Modulate = new Color(1f, 1f, 1f, eased);
+        Scale = Vector2.One * Mathf.Lerp(0.82f, 1f, eased);
+        if (t >= 1f) _animateArrival = false;
     }
 
     public override void _Draw()

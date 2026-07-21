@@ -31,6 +31,9 @@ public sealed partial class Projectile : Node2D
     private float _rangeMultiplier = 1f;
     // 攻方专属先手倍率（默认中性；实时层注入，CombatResolver 保持原样）。
     private double _damageFactor = 1.0;
+    private Node2D? _visualLayer;
+    private ProjectileVfx? _visual;
+    private ProjectileVfxKind _vfxKind;
 
     // 命中掩码：墙(层3=0b0100) + 幸存者(层1) + 丧尸(层2) + 劫掠者(层4=0b1000)——覆盖全阵营层，
     // 弹道能命中任意阵营；具体是否结算由下方 Factions.IsHostile + 架肩豁免裁定（异阵营命中、同阵营豁免）。
@@ -67,6 +70,9 @@ public sealed partial class Projectile : Node2D
         };
         parent.AddChild(b);
         b.GlobalPosition = pos;
+        b._visualLayer = shooter.PresentationLayer;
+        b._vfxKind = CombatVfxCatalog.ProjectileFor(weapon, ammoKey);
+        b._visual = ProjectileVfx.Spawn(b._visualLayer, b._vfxKind, pos, dir);
         return b;
     }
 
@@ -123,6 +129,12 @@ public sealed partial class Projectile : Node2D
                     GuardPostMath.EffectiveRangeDistance(dist, _rangeMultiplier), _weapon);
                 victim.ReceiveAttack(_shooter, _weapon, _combat, factor * _damageFactor, ranged: true);
             }
+            else
+            {
+                Vector2 hitPosition = hit["position"].AsVector2();
+                CombatVfxBurst.SpawnImpact(_visualLayer, Iso.Project(hitPosition), ImpactVfxKind.Wall,
+                    _vfxKind == ProjectileVfxKind.Pellet ? 0.55f : 0.9f);
+            }
 
             // 命中体（敌方/远处友军/墙）即终止：命中已结算，撞墙则落空。
             Despawn();
@@ -130,9 +142,13 @@ public sealed partial class Projectile : Node2D
         }
 
         Position += _dir * step;
+        if (_visual is not null && IsInstanceValid(_visual))
+            _visual.UpdateCartesian(GlobalPosition, _dir);
         _traveled += step;
         if (_traveled >= _maxDist)
         {
+            CombatVfxBurst.SpawnImpact(_visualLayer, Iso.Project(GlobalPosition), ImpactVfxKind.Miss,
+                _vfxKind == ProjectileVfxKind.Pellet ? 0.45f : 0.7f);
             Despawn();
         }
     }
@@ -144,7 +160,15 @@ public sealed partial class Projectile : Node2D
     private void Despawn()
     {
         TryRecoverArrow();
+        if (_visual is not null && IsInstanceValid(_visual))
+            _visual.QueueFree();
         QueueFree();
+    }
+
+    public override void _ExitTree()
+    {
+        if (_visual is not null && IsInstanceValid(_visual))
+            _visual.QueueFree();
     }
 
     /// <summary>
@@ -181,9 +205,5 @@ public sealed partial class Projectile : Node2D
         _shooter.Ammo.Recover(_ammoKey, recovered);
     }
 
-    public override void _Draw()
-    {
-        DrawLine(Vector2.Zero, -_dir * 9f, new Color(1f, 0.85f, 0.45f, 0.9f), 2f);
-        DrawCircle(Vector2.Zero, 2.5f, new Color(1f, 0.95f, 0.6f));
-    }
+    // 本节点留在不可见的 cartesian LogicLayer 做物理；可见外形由 ProjectileVfx 投影到 faux-iso 层。
 }

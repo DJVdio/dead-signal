@@ -21,6 +21,12 @@ public sealed class PixelStyle
 /// </summary>
 public sealed partial class IsoTilePanel : Node2D
 {
+    private const string MaterialTexturePath = "res://assets/world/gritty-material-overlay.png";
+    private const string GroundDecalAtlasPath = "res://assets/world/ground-decals.png";
+    private static Texture2D? _materialTexture;
+    private static Texture2D? _groundDecalAtlas;
+    private static readonly int[] AmbientDecalIndices = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 13, 14 };
+
     public Rect2 FootprintCart;      // 世界 cartesian footprint
     public PixelStyle Style = new();
     public int Seed;
@@ -28,7 +34,14 @@ public sealed partial class IsoTilePanel : Node2D
     public float Height;             // 立面抬升高度（屏幕像素），0 = 平铺
     public bool Facade;              // 是否画前向左右立面
 
-    public override void _Ready() => Position = Iso.Project(FootprintCart.End);
+    public override void _Ready()
+    {
+        Position = Iso.Project(FootprintCart.End);
+        TextureFilter = TextureFilterEnum.Nearest;
+        TextureRepeat = TextureRepeatEnum.Enabled;
+        _materialTexture ??= GD.Load<Texture2D>(MaterialTexturePath);
+        _groundDecalAtlas ??= GD.Load<Texture2D>(GroundDecalAtlasPath);
+    }
 
     public override void _Draw()
     {
@@ -51,8 +64,14 @@ public sealed partial class IsoTilePanel : Node2D
             Color right = Shade(baseColor, 0.72f);
             Color left = Shade(baseColor, 0.55f);
 
-            DrawColoredPolygon(new[] { G(tr) + up, G(br) + up, G(br), G(tr) }, right);
-            DrawColoredPolygon(new[] { G(bl) + up, G(br) + up, G(br), G(bl) }, left);
+            DrawMaterialPolygon(
+                new[] { G(tr) + up, G(br) + up, G(br), G(tr) },
+                right,
+                FacadeUvs(FootprintCart.Size.Y, Height, Seed * 19f));
+            DrawMaterialPolygon(
+                new[] { G(bl) + up, G(br) + up, G(br), G(bl) },
+                left,
+                FacadeUvs(FootprintCart.Size.X, Height, Seed * 31f));
         }
 
         // 顶面：抬升 up 后平铺菱形。
@@ -79,9 +98,60 @@ public sealed partial class IsoTilePanel : Node2D
                     G(new Vector2(x0, y1)) + up,
                 };
                 float shade = (Hash(cx, cy) - 0.5f) * 2f * jitter;
-                DrawColoredPolygon(diamond, Shade(baseColor, 1f + shade));
+                var uvs = new[]
+                {
+                    MaterialUv(new Vector2(x0, y0)),
+                    MaterialUv(new Vector2(x1, y0)),
+                    MaterialUv(new Vector2(x1, y1)),
+                    MaterialUv(new Vector2(x0, y1)),
+                };
+                // 纹理均值约 0.78；1.22 的补偿让既有色板亮度基本不漂移，只增加正式材质颗粒。
+                DrawMaterialPolygon(diamond, Shade(baseColor, 1.22f + shade), uvs);
+
+                // 仅在平面上稀疏铺环境细节；立体块不贴。血迹/弹壳留给真实战斗反馈，避免凭空讲故事。
+                if (Height <= 0f && Hash(cx + 37, cy + 53) > 0.88f)
+                    DrawGroundDecal(G(new Vector2((x0 + x1) * 0.5f, (y0 + y1) * 0.5f)), cx, cy);
             }
         }
+    }
+
+    private void DrawMaterialPolygon(Vector2[] points, Color color, Vector2[] uvs)
+    {
+        if (_materialTexture is not null)
+            DrawColoredPolygon(points, color, uvs, _materialTexture);
+        else
+            DrawColoredPolygon(points, color);
+    }
+
+    private static Vector2 MaterialUv(Vector2 cart) => cart * 2f;
+
+    private static Vector2[] FacadeUvs(float width, float height, float offset)
+    {
+        float u0 = offset;
+        float v0 = offset * 0.37f;
+        return new[]
+        {
+            new Vector2(u0, v0),
+            new Vector2(u0 + width * 2f, v0),
+            new Vector2(u0 + width * 2f, v0 + height * 2f),
+            new Vector2(u0, v0 + height * 2f),
+        };
+    }
+
+    private void DrawGroundDecal(Vector2 center, int cx, int cy)
+    {
+        if (_groundDecalAtlas is null)
+            return;
+
+        int pick = Mathf.Abs(cx * 31 + cy * 17 + Seed * 13) % AmbientDecalIndices.Length;
+        int index = AmbientDecalIndices[pick];
+        int col = index % 4;
+        int row = index / 4;
+        float sourceW = _groundDecalAtlas.GetWidth() / 4f;
+        float sourceH = _groundDecalAtlas.GetHeight() / 4f;
+        var source = new Rect2(col * sourceW, row * sourceH, sourceW, sourceH);
+        float size = Mathf.Clamp(Cell * 0.72f, 34f, 58f);
+        DrawTextureRectRegion(_groundDecalAtlas, new Rect2(center - new Vector2(size, size) / 2f, new Vector2(size, size)), source);
     }
 
     private static Color Shade(Color c, float mul) => new(

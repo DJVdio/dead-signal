@@ -71,10 +71,10 @@ public sealed partial class TestExploration : ExplorationLevel
     private readonly Dictionary<string, List<Zombie>> _doorLockedZombies = new();
     // [SPEC-B13] 超市骗局：关内敌对幸存者（Raider 阵营）。轻信被诱入内圈伏击、或拒绝后闯内圈时按需生成（见 SpawnSupermarketRaiders）。
     private readonly List<Raider> _levelRaiders = new();
-    private readonly Dictionary<Actor, Node2D> _markers = new();
     private readonly List<Rect2> _obstructions = new();
     private Area2D _returnZone = null!;
     private Node2D _actorLayer = null!;
+    private Node2D _isoLayer = null!;
 
     /// <summary>导航区（<see cref="BuildNavigation"/> 建；开关门后 <see cref="RebakeNavigation"/> 换掉它的 polygon）。</summary>
     private NavigationRegion2D _navRegion = null!;
@@ -107,9 +107,10 @@ public sealed partial class TestExploration : ExplorationLevel
     private readonly List<PlacedLight> _dynamicLightsScratch = new();
     private readonly List<(Node2D container, Vector2 pos)> _discoveryVisuals = new();
 
-    // 点击式探索交互共用发现点几何。Area2D 仍保留（走进点仍可触发），右键则由 CampMain
-    // 查询这里的矩形后派人走到位，再经 TriggerDiscovery 走同一条 OnDiscovery 路由。
-    private sealed record DiscoveryTarget(string Id, Rect2 Rect, bool Repeatable);
+    // 点击式探索交互共用发现点几何。Proximity 保留 Area2D 踏入；Click 只允许 CampMain 右键寻路到位后
+    // 经 TriggerDiscovery 进入同一条 OnDiscovery 路由。Visual 用来阻止玩家点击尚未被视野揭示的点。
+    private sealed record DiscoveryTarget(
+        string Id, string Label, Rect2 Rect, bool Repeatable, NarrativeTrigger Trigger, Node2D Visual);
     private readonly List<DiscoveryTarget> _discoveryTargets = new();
 
     // 探索发现点：本关内已触发过的 discoveryId（防同一关内重复上报；跨关持久去重由 CampMain 的 flag 负责）。
@@ -190,7 +191,7 @@ public sealed partial class TestExploration : ExplorationLevel
 
     /// <summary>
     /// 装配视野遮暗层（探索关全程启用）：以探索队为观察者、环境光按当前相位（探索=白昼满档）算锥形，
-    /// 视野外网格遮暗 + 视野外丧尸/发现点隐藏。遮罩覆盖全关、cartesian 直绘（探索关本就 top-down cartesian）。
+    /// 视野外网格遮暗 + 视野外丧尸/发现点隐藏。判定仍在 cartesian 平面，绘制统一走 faux-iso 投影。
     /// </summary>
     // ---- 半身掩体（桌子/货架/沙袋）：远程 25% 整发无效 ----
 
@@ -227,12 +228,7 @@ public sealed partial class TestExploration : ExplorationLevel
         foreach ((float x, float y, float w, float h) c in covers)
         {
             _coverField.Add(c.x, c.y, c.w, c.h);
-            AddChild(new Polygon2D
-            {
-                Polygon = Quad(new Vector2(c.x, c.y), new Vector2(c.w, c.h)),
-                Color = CoverColor,
-                ZIndex = 2, // 贴地（低于墙/人形），一眼看出是矮物而非墙
-            });
+            AddIsoBlock(new Rect2(c.x, c.y, c.w, c.h), CoverColor, 2, height: 8f);
         }
 
         // 场级接线：一切 Actor 的承伤入口经此查询（双向对称）。退场置 null，见 _ExitTree。
@@ -252,12 +248,15 @@ public sealed partial class TestExploration : ExplorationLevel
     /// 返回鼠标点命中的可交互发现点。一次性点已触发后不再命中；物资缓存和战斗尸体
     /// 允许重复命中，以便搜到一半走开后继续搜。门等容器仍由 CampMain 自己查询。
     /// </summary>
-    public bool TryGetDiscoveryTarget(Vector2 worldPoint, out string discoveryId, out Rect2 rect)
+    public bool TryGetDiscoveryTarget(Vector2 worldPoint, out string discoveryId, out Rect2 rect,
+        out string label, out NarrativeTrigger trigger)
     {
         DiscoveryTarget? best = null;
         float bestDistance = float.MaxValue;
         foreach (DiscoveryTarget target in _discoveryTargets)
         {
+            if (!IsInstanceValid(target.Visual) || !target.Visual.Visible)
+                continue; // 视野外尚未揭示：既不显示 hover，也不能隔墙下令调查
             if (!target.Rect.Grow(8f).HasPoint(worldPoint))
                 continue;
             if (!target.Repeatable && _firedDiscoveries.Contains(target.Id))
@@ -275,13 +274,21 @@ public sealed partial class TestExploration : ExplorationLevel
         {
             discoveryId = hit.Id;
             rect = hit.Rect;
+            label = hit.Label;
+            trigger = hit.Trigger;
             return true;
         }
 
         discoveryId = "";
         rect = default;
+        label = "";
+        trigger = NarrativeTrigger.Proximity;
         return false;
     }
+
+    /// <summary>兼容只关心几何的调用方。</summary>
+    public bool TryGetDiscoveryTarget(Vector2 worldPoint, out string discoveryId, out Rect2 rect)
+        => TryGetDiscoveryTarget(worldPoint, out discoveryId, out rect, out _, out _);
 
     /// <summary>点击/到达后触发发现点，和 Area2D 踏入使用完全相同的去重语义。</summary>
     public bool TriggerDiscovery(string discoveryId, Pawn finder)
@@ -364,7 +371,7 @@ public sealed partial class TestExploration : ExplorationLevel
     {
         SetupLevelLights();
         _visionMask = new VisionMask();
-        _visionMask.Configure(new Rect2(0, 0, LevelW, LevelH), VisionMask.ProjectionMode.Cartesian);
+        _visionMask.Configure(new Rect2(0, 0, LevelW, LevelH), VisionMask.ProjectionMode.Iso);
         // 观察者＝存活探索队 + 随队布鲁斯（狗随队时也揭示视野，其感知锥同规则）。
         _visionMask.SetViewersProvider(() =>
         {
@@ -400,7 +407,7 @@ public sealed partial class TestExploration : ExplorationLevel
             yield return (captured.GlobalPosition, v =>
             {
                 if (IsInstanceValid(captured))
-                    captured.Visible = v;
+                    captured.SetVisualHidden(!v);
             });
         }
 
@@ -412,7 +419,7 @@ public sealed partial class TestExploration : ExplorationLevel
             yield return (captured.GlobalPosition, v =>
             {
                 if (IsInstanceValid(captured))
-                    captured.Visible = v;
+                    captured.SetVisualHidden(!v);
             });
         }
 
@@ -445,23 +452,15 @@ public sealed partial class TestExploration : ExplorationLevel
         }
         _levelRaiders.Clear();
 
-        foreach (var kv in _markers)
-        {
-            if (IsInstanceValid(kv.Value))
-                kv.Value.QueueFree();
-        }
-        _markers.Clear();
     }
 
     private void BuildTerrain()
     {
-        var ground = new Polygon2D
-        {
-            Polygon = Quad(Vector2.Zero, new Vector2(LevelW, LevelH)),
-            Color = new Color(0.22f, 0.25f, 0.20f),
-            ZIndex = -20,
-        };
-        AddChild(ground);
+        _isoLayer = new Node2D { Name = "IsoLayer", YSortEnabled = true };
+        _isoLayer.AddToGroup("iso_layer");
+        AddChild(_isoLayer);
+
+        AddIsoSurface(new Rect2(0, 0, LevelW, LevelH), new Color(0.22f, 0.25f, 0.20f), -20);
 
         AddWall(new Rect2(0, 0, LevelW, WallT), border: true);
         AddWall(new Rect2(0, LevelH - WallT, LevelW, WallT), border: true);
@@ -493,14 +492,8 @@ public sealed partial class TestExploration : ExplorationLevel
         body.CollisionMask = 0u;
         body.AddChild(new CollisionShape2D { Shape = new RectangleShape2D { Size = rect.Size } });
 
-        var vis = new Polygon2D
-        {
-            Polygon = Quad(-rect.Size / 2, rect.Size),
-            Color = c,
-            ZIndex = -5,
-        };
-        body.AddChild(vis);
         AddChild(body);
+        AddIsoBlock(rect, c, -5, height: border ? 28f : 20f);
 
         if (!border)
             _obstructions.Add(rect);
@@ -522,13 +515,8 @@ public sealed partial class TestExploration : ExplorationLevel
         body.CollisionLayer = VisionOcclusion.WallMask;
         body.CollisionMask = 0u;
         body.AddChild(new CollisionShape2D { Shape = new RectangleShape2D { Size = rect.Size } });
-        body.AddChild(new Polygon2D
-        {
-            Polygon = Quad(-rect.Size / 2, rect.Size),
-            Color = color,
-            ZIndex = zIndex,
-        });
         AddChild(body);
+        AddIsoBlock(rect, color, zIndex, height: 24f);
 
         _obstructions.Add(rect);
     }
@@ -587,13 +575,7 @@ public sealed partial class TestExploration : ExplorationLevel
         body.CollisionMask = 0u;
         body.AddChild(new CollisionShape2D { Shape = new RectangleShape2D { Size = rect.Size } });
 
-        var panel = new Polygon2D
-        {
-            Polygon = Quad(-rect.Size / 2, rect.Size),
-            Color = color,
-            ZIndex = -4, // 压在墙(-5)之上：关着的门看得出是"门"，不是墙
-        };
-        body.AddChild(panel);
+        var panel = AddIsoPolygon(Quad(rect.Position, rect.Size), color, -4);
         AddChild(body);
 
         var inst = new LevelDoorInstance
@@ -682,6 +664,7 @@ public sealed partial class TestExploration : ExplorationLevel
                 return false;
             d.State = DoorState.Open;
             SetLevelDoorBlocking(d, false);
+            CombatVfxBurst.SpawnDoor(_isoLayer, d.Rect.GetCenter(), opening: true);
             ActivateDoorLockedZombies(d.Name); // [SPEC-T60] 撬开锁门＝唤醒门后特殊丧尸（警察拘留区那只）
             return true;
         }
@@ -723,6 +706,7 @@ public sealed partial class TestExploration : ExplorationLevel
         {
             door.State = DoorState.Open;
             SetLevelDoorBlocking(door, false);
+            CombatVfxBurst.SpawnDoor(_isoLayer, door.Rect.GetCenter(), opening: true);
             ActivateDoorLockedZombies(door.Name); // [SPEC-T60] 推开门＝唤醒门后特殊丧尸
             message = $"推开了{door.Name}。";
             return true;
@@ -736,6 +720,7 @@ public sealed partial class TestExploration : ExplorationLevel
 
         door.State = DoorState.Closed;
         SetLevelDoorBlocking(door, true);
+        CombatVfxBurst.SpawnDoor(_isoLayer, door.Rect.GetCenter(), opening: false);
         message = $"关上了{door.Name}。——门后的东西暂时过不来了。";
         return true;
     }
@@ -768,8 +753,8 @@ public sealed partial class TestExploration : ExplorationLevel
 
     private void SetupCamera()
     {
-        _camera = new CameraController { Position = new Vector2(LevelW / 2, LevelH / 2) };
-        _camera.SetBounds(new Rect2(0, 0, LevelW, LevelH));
+        _camera = new CameraController { Position = Iso.Project(new Vector2(LevelW / 2, LevelH / 2)) };
+        _camera.SetBounds(Iso.ProjectBounds(new Rect2(0, 0, LevelW, LevelH)));
         AddChild(_camera);
         _camera.MakeCurrent();
     }
@@ -784,14 +769,7 @@ public sealed partial class TestExploration : ExplorationLevel
                 ? new Vector2(ExplorationWalls.PoliceEntry.X - 40f, ExplorationWalls.PoliceEntry.Y - 40f)
                 : new Vector2(LevelW / 2 - 40, LevelH - 120);
 
-        var visual = new Polygon2D
-        {
-            Polygon = Quad(Vector2.Zero, new Vector2(80, 80)),
-            Color = new Color(0.2f, 0.8f, 0.2f, 0.5f),
-            Position = pos,
-            ZIndex = 10,
-        };
-        AddChild(visual);
+        AddIsoPolygon(Quad(pos, new Vector2(80, 80)), new Color(0.2f, 0.8f, 0.2f, 0.5f), 10);
 
         var arrow = new Polygon2D
         {
@@ -802,10 +780,10 @@ public sealed partial class TestExploration : ExplorationLevel
                 new(20, -20),
             },
             Color = new Color(0.3f, 0.9f, 0.3f),
-            Position = pos,
+            Position = Iso.Project(pos + new Vector2(40f, 40f)),
             ZIndex = 11,
         };
-        AddChild(arrow);
+        _isoLayer.AddChild(arrow);
 
         _returnZone = new Area2D { Position = pos + new Vector2(40, 40) };
         var shape = new CollisionShape2D { Shape = new RectangleShape2D { Size = new Vector2(80, 80) } };
@@ -840,7 +818,7 @@ public sealed partial class TestExploration : ExplorationLevel
             Pawn p = ExpeditionTeam[i];
             p.Position = spawn + new Vector2(i * stepX, i * stepY);
             p.Reparent(_actorLayer, keepGlobalTransform: false);
-            _markers[p] = CreateActorMarker(p, p.BodyTint);
+            p.SetPresentationLayer(_isoLayer);
         }
 
         // 随队布鲁斯（若带上）：放在队伍旁、reparent 进关卡 actor 层。跟随道格/自主缠斗（关内敌对经 CampMain
@@ -849,7 +827,7 @@ public sealed partial class TestExploration : ExplorationLevel
         {
             dog.Position = spawn + new Vector2(ExpeditionTeam.Count * stepX, ExpeditionTeam.Count * stepY);
             dog.Reparent(_actorLayer, keepGlobalTransform: false);
-            _markers[dog] = CreateActorMarker(dog, dog.BodyTint);
+            dog.SetPresentationLayer(_isoLayer);
         }
     }
 
@@ -1079,7 +1057,7 @@ public sealed partial class TestExploration : ExplorationLevel
         z.MarkExploration(doorLocked);
         _actorLayer.AddChild(z);
         _zombies.Add(z);
-        _markers[z] = CreateActorMarker(z, new Color(0.45f, 0.6f, 0.35f));
+        z.SetPresentationLayer(_isoLayer);
         return z;
     }
 
@@ -1126,12 +1104,12 @@ public sealed partial class TestExploration : ExplorationLevel
         foreach (WallRect wall in ExplorationWalls.RoomOutlineWalls(room, doorEdges))
             AddSolidWall(wall, color, zIndex: 6);
 
-        var tag = new Label { Text = label, Position = rect.Position + new Vector2(6, -20), ZIndex = 12 };
+        var tag = new Label { Text = label, Position = Iso.Project(rect.Position) + new Vector2(6, -24), ZIndex = 12 };
         tag.AddThemeFontSizeOverride("font_size", 12);
         tag.AddThemeColorOverride("font_color", new Color(0.85f, 0.8f, 0.65f));
         tag.AddThemeColorOverride("font_outline_color", new Color(0, 0, 0, 0.9f));
         tag.AddThemeConstantOverride("outline_size", 3);
-        AddChild(tag);
+        _isoLayer.AddChild(tag);
     }
 
 
@@ -1143,13 +1121,7 @@ public sealed partial class TestExploration : ExplorationLevel
     /// <summary>[SPEC-B13] 占位分区地台：一片半透明方形地台示意某个区域（纯视觉、无碰撞，同瞭望台/广播台占位口径）。</summary>
     private void AddZonePad(Vector2 topLeft, Vector2 size, Color color)
     {
-        var pad = new Polygon2D
-        {
-            Polygon = Quad(topLeft, size),
-            Color = color,
-            ZIndex = 4,
-        };
-        AddChild(pad);
+        AddIsoPolygon(Quad(topLeft, size), color, -10);
     }
 
 
@@ -1173,20 +1145,8 @@ public sealed partial class TestExploration : ExplorationLevel
     /// <summary>画一口占位水井（纯视觉：石圈 + 井口深色，无碰撞）：村中心地标。</summary>
     private void DrawWellPlaceholder(Vector2 center)
     {
-        var ring = new Polygon2D
-        {
-            Polygon = Quad(center - new Vector2(40f, 40f), new Vector2(80f, 80f)),
-            Color = new Color(0.36f, 0.34f, 0.30f, 0.95f),
-            ZIndex = 4,
-        };
-        AddChild(ring);
-        var mouth = new Polygon2D
-        {
-            Polygon = Quad(center - new Vector2(26f, 26f), new Vector2(52f, 52f)),
-            Color = new Color(0.08f, 0.09f, 0.10f, 0.95f),
-            ZIndex = 5,
-        };
-        AddChild(mouth);
+        AddIsoBlock(new Rect2(center - new Vector2(40f, 40f), new Vector2(80f, 80f)), new Color(0.36f, 0.34f, 0.30f), 4, height: 16f);
+        AddIsoPolygon(Quad(center - new Vector2(26f, 26f), new Vector2(52f, 52f)), new Color(0.08f, 0.09f, 0.10f, 0.95f), 5);
     }
 
 
@@ -1227,7 +1187,7 @@ public sealed partial class TestExploration : ExplorationLevel
         _villageBarkCooldown -= delta;
         if (_villageBarkCooldown <= 0.0)
         {
-            FloatingText.Spawn(this, VillageDoorPosition + new Vector2(0f, -46f), VillageRescue.BarkText, new Color(0.95f, 0.9f, 0.55f));
+            FloatingText.Spawn(_isoLayer, Iso.Project(VillageDoorPosition) + new Vector2(0f, -46f), VillageRescue.BarkText, new Color(0.95f, 0.9f, 0.55f));
             _villageBarkCooldown = VillageRescue.BarkIntervalSeconds;
         }
     }
@@ -1235,17 +1195,17 @@ public sealed partial class TestExploration : ExplorationLevel
     /// <summary>造一个发现点：地面标记 + 文字标签 + 触发 Area2D（踏入一次即上报，本关内不重复）。
     /// 标记+标签挂在一个容器 Node2D 下，登记进 <see cref="_discoveryVisuals"/> 供视野检测层隐藏（视野外不揭示）；
     /// 触发 Area2D 独立不受隐藏影响（视野外踏入仍可发现，"看不见但撞上了"）。</summary>
-    private void AddDiscoveryPoint(string discoveryId, Vector2 pos, Color markerColor, string label, Vector2? zoneSize = null)
+    private void AddDiscoveryPoint(string discoveryId, Vector2 pos, Color markerColor, string label,
+        Vector2? zoneSize = null, NarrativeTrigger trigger = NarrativeTrigger.Proximity)
     {
         // 视觉容器（隐藏用）：标记+标签挂其下，隐藏容器即隐藏两者。
-        var visual = new Node2D();
-        AddChild(visual);
+        var visual = new Node2D { Position = Iso.Project(pos) };
+        _isoLayer.AddChild(visual);
 
         var mark = new Polygon2D
         {
-            Polygon = Quad(new Vector2(-14, -14), new Vector2(28, 28)),
+            Polygon = ProjectRelativeQuad(pos, new Vector2(28, 28)),
             Color = new Color(markerColor.R, markerColor.G, markerColor.B, 0.6f),
-            Position = pos,
             ZIndex = 8,
         };
         visual.AddChild(mark);
@@ -1253,7 +1213,7 @@ public sealed partial class TestExploration : ExplorationLevel
         var tag = new Label
         {
             Text = label,
-            Position = pos + new Vector2(-16, -40),
+            Position = new Vector2(-16, -40),
             ZIndex = 12,
         };
         tag.AddThemeFontSizeOverride("font_size", 13);
@@ -1267,29 +1227,35 @@ public sealed partial class TestExploration : ExplorationLevel
         Vector2 triggerSize = zoneSize ?? new Vector2(70, 70);
         _discoveryTargets.Add(new DiscoveryTarget(
             discoveryId,
+            label,
             new Rect2(pos - triggerSize / 2f, triggerSize),
-            IsRepeatableDiscovery(discoveryId)));
+            IsRepeatableDiscovery(discoveryId),
+            trigger,
+            visual));
 
-        var zone = new Area2D { Position = pos };
-        zone.AddChild(new CollisionShape2D { Shape = new RectangleShape2D { Size = triggerSize } });
-        zone.CollisionMask = 0b0001u; // 与返回区一致：只感知玩家 Pawn 所在层
-        zone.BodyEntered += body =>
+        if (ExplorationInteractionLogic.TriggersOnBodyEntered(trigger))
         {
-            // 踏进去的那个人要透传出去——物资搜刮点是**他**站在那儿一件件往外掏（逐件搜刮，见 LootSession）。
-            if (body is Pawn finder)
-                TriggerDiscovery(discoveryId, finder);
-        };
-        AddChild(zone);
+            var zone = new Area2D { Position = pos };
+            zone.AddChild(new CollisionShape2D { Shape = new RectangleShape2D { Size = triggerSize } });
+            zone.CollisionMask = 0b0001u; // 与返回区一致：只感知玩家 Pawn 所在层
+            zone.BodyEntered += body =>
+            {
+                // 踏进去的那个人要透传出去——物资搜刮点是**他**站在那儿一件件往外掏（逐件搜刮，见 LootSession）。
+                if (body is Pawn finder)
+                    TriggerDiscovery(discoveryId, finder);
+            };
+            AddChild(zone);
+        }
     }
 
     /// <summary>
     /// 在<b>关内</b>落一具可搜刮的尸体（<c>CampMain.SpawnLevelCorpse</c> 在敌人倒下时调）——
     /// 「探索关杀敌也要落尸、也要能搜刮」（用户拍板）。
     ///
-    /// <para><b>坐标系</b>：探索关是<b>平面 cartesian</b>（与营地的 faux-iso 无关，见 docs/TODO.md「探索关正式化专项」②），
+    /// <para><b>坐标系</b>：探索关玩法仍是<b>平面 cartesian</b>，尸体显示则与全关统一走 faux-iso 投影。
     /// 所以尸体点直接落在死者<b>咽气的那个点</b>上——<paramref name="worldPos"/> 是全局坐标，这里 <c>ToLocal</c>
     /// 换算成关内坐标。营地那套「尸体格 / 不堆叠推挤 / iso 投影」（<see cref="CorpseYard"/>）在这儿一概不适用，
-    /// 也<b>不该</b>硬搬：关内没有 iso 人形层可挂。</para>
+    /// 营地的尸体格仍不硬搬：关内尸体保留原地搜刮语义，只共享显示投影。</para>
     ///
     /// <para><b>不发明新交互</b>：完全复用本关既有的搜刮范式（<see cref="AddDiscoveryPoint"/> 的
     /// marker + 标签 + 踏入 Area2D）——关内一切搜刮点都是"踏进去开搜"，尸体只是<b>又一个可搜刮容器</b>。
@@ -1310,14 +1276,13 @@ public sealed partial class TestExploration : ExplorationLevel
         Vector2 pos = ToLocal(worldPos);
 
         // 视觉容器（同发现点：进 _discoveryVisuals ⇒ 视野外不揭示——看不见的尸体不该在雾里发光）。
-        var visual = new Node2D();
-        AddChild(visual);
+        var visual = new Node2D { Position = Iso.Project(pos) };
+        _isoLayer.AddChild(visual);
 
         var mark = new Polygon2D
         {
-            Polygon = Quad(new Vector2(-12, -12), new Vector2(24, 24)),
+            Polygon = ProjectRelativeQuad(pos, new Vector2(24, 24)),
             Color = new Color(0.45f, 0.16f, 0.16f, 0.65f),   // 暗血红：一具躺着的尸体（区别于物资棕黄/叙事冷青）
-            Position = pos,
             ZIndex = 7,                                       // 压在地面之上、人形(10)之下——人从尸体上走过去
         };
         visual.AddChild(mark);
@@ -1325,7 +1290,7 @@ public sealed partial class TestExploration : ExplorationLevel
         var tag = new Label
         {
             Text = containerName,   // 「据点幸存者的尸体 #1」——玩家一眼看见这儿躺着谁
-            Position = pos + new Vector2(-16, -38),
+            Position = new Vector2(-16, -38),
             ZIndex = 12,
         };
         tag.AddThemeFontSizeOverride("font_size", 12);
@@ -1339,8 +1304,11 @@ public sealed partial class TestExploration : ExplorationLevel
         Vector2 triggerSize = new(56, 56);
         _discoveryTargets.Add(new DiscoveryTarget(
             containerName,
+            containerName,
             new Rect2(pos - triggerSize / 2f, triggerSize),
-            Repeatable: true));
+            Repeatable: true,
+            NarrativeTrigger.Proximity,
+            visual));
 
         var zone = new Area2D { Position = pos };
         zone.AddChild(new CollisionShape2D { Shape = new RectangleShape2D { Size = triggerSize } });
@@ -1360,9 +1328,8 @@ public sealed partial class TestExploration : ExplorationLevel
     /// （marker + label + Area2D → RaiseDiscovery），叙事点用**冷青**标记区别于物资(棕黄)/剧情尸体(红)。
     /// 触发解析在 <c>CampMain.OnExplorationDiscovery</c> 走 <see cref="NarrativeSpotRegistry.Resolve"/>（分页弹叙事、冻结时标＝不走时间）。
     ///
-    /// 触发式：Proximity（靠近即触发）已落地＝walk-in。Click（点击调查物→角色走近后触发）探索关**无拾取先例**——
-    /// [HANDOFF] 探索关正式化专项（TODO#8）：届时把 <c>spot.Trigger == NarrativeTrigger.Click</c> 的点改为鼠标拾取 + 寻路到达触发；
-    /// 当前统一渲染为 proximity（walk-in 即可达、可测），Trigger 字段已在注册表如实标注，切换时读它即可。
+    /// 触发式：Proximity 连接 Area2D.BodyEntered；Click 不连接踏入事件，只进入右键命中表，角色寻路到位后触发。
+    /// 两者共用标记、视野揭示、去重与 OnDiscovery 解析，但输入语义互不混淆。
     /// </summary>
     private void SetupNarrativeSpots()
     {
@@ -1372,23 +1339,77 @@ public sealed partial class TestExploration : ExplorationLevel
                 spot.Id,
                 new Vector2(spot.X, spot.Y),
                 markerColor: new Color(0.40f, 0.62f, 0.72f), // 冷青：叙事调查点（区别于物资棕黄/剧情红）
-                label: spot.Label);
+                label: spot.Label,
+                trigger: spot.Trigger);
         }
     }
 
-    private static Node2D CreateActorMarker(Actor actor, Color color)
+    /// <summary>把 cartesian 多边形投影后挂到探索显示层。只改表现，不参与碰撞/导航。</summary>
+    private Polygon2D AddIsoPolygon(Vector2[] cartPolygon, Color color, int zIndex)
     {
-        var marker = new Polygon2D
+        Vector2 anchor = cartPolygon.OrderByDescending(p => p.X + p.Y).First();
+        Vector2 projectedAnchor = Iso.Project(anchor);
+        var polygon = new Polygon2D
         {
-            Polygon = new Vector2[]
-            {
-                new(0, -10), new(10, 0), new(0, 10), new(-10, 0),
-            },
+            Position = projectedAnchor,
+            Polygon = cartPolygon.Select(p => Iso.Project(p) - projectedAnchor).ToArray(),
             Color = color,
-            ZIndex = 10,
+            // 地台固定在人形下方；交互标记可显式放在上层；其余世界物件交给 YSort。
+            ZIndex = zIndex <= -10 || zIndex >= 7 ? zIndex : 0,
         };
-        actor.AddChild(marker);
-        return marker;
+        _isoLayer.AddChild(polygon);
+        return polygon;
+    }
+
+    /// <summary>把一块 cartesian footprint 画成 faux-iso 平台/立体块。</summary>
+    private void AddIsoSurface(Rect2 rect, Color color, int zIndex, float cell = 96f)
+    {
+        _isoLayer.AddChild(new IsoTilePanel
+        {
+            FootprintCart = rect,
+            Style = new PixelStyle { color = new double[] { color.R, color.G, color.B }, jitter = 0.035 },
+            Seed = 101,
+            Cell = cell,
+            Height = 0f,
+            Facade = false,
+            ZIndex = zIndex,
+        });
+    }
+
+    /// <summary>把一块 cartesian footprint 画成 faux-iso 立体块，并切片参与脚点 YSort。</summary>
+    private void AddIsoBlock(Rect2 rect, Color color, int zIndex, float height = 20f, bool facade = true, float cell = 48f)
+    {
+        int nx = Mathf.Max(1, Mathf.CeilToInt(rect.Size.X / cell));
+        int ny = Mathf.Max(1, Mathf.CeilToInt(rect.Size.Y / cell));
+        float width = rect.Size.X / nx;
+        float depth = rect.Size.Y / ny;
+        int worldZ = zIndex <= -10 ? zIndex : 0;
+
+        for (int y = 0; y < ny; y++)
+        {
+            for (int x = 0; x < nx; x++)
+            {
+                var sub = new Rect2(rect.Position + new Vector2(x * width, y * depth), new Vector2(width, depth));
+                _isoLayer.AddChild(new IsoTilePanel
+                {
+                    FootprintCart = sub,
+                    Style = new PixelStyle { color = new double[] { color.R, color.G, color.B }, jitter = 0.025 },
+                    Seed = Mathf.RoundToInt(rect.Position.X * 0.01f + rect.Position.Y * 0.03f) + x * 7 + y * 13,
+                    Cell = Mathf.Min(cell, 48f),
+                    Height = height,
+                    Facade = facade,
+                    ZIndex = worldZ,
+                });
+            }
+        }
+    }
+
+    /// <summary>以 cartesian 中心为锚，把一块小矩形投影成容器内局部坐标。</summary>
+    private static Vector2[] ProjectRelativeQuad(Vector2 center, Vector2 size)
+    {
+        Vector2 origin = center - size / 2f;
+        Vector2 anchor = Iso.Project(center);
+        return Quad(origin, size).Select(p => Iso.Project(p) - anchor).ToArray();
     }
 
     private static Vector2[] Quad(Vector2 pos, Vector2 size) => new[]

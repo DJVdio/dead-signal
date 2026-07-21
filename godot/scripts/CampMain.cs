@@ -87,6 +87,7 @@ public sealed partial class CampMain : Node2D
     private int _hudAlive = -1;
     private int _hudHordePhase = -1;   // 尸潮相位脏检信号（-1=未初始化；旗标翻转/到期不必每帧重算文案）
     private int _hudHordeDays = -1;     // 剩余天数脏检信号（仅随 _clock.Day 变）
+    private double _audioMoodElapsed;    // 自适应音乐脏检节流；听感状态不参与任何玩法 tick。
 
     private WorldMapPanel _worldMapPanel = null!;
     private ExpeditionPanel _expeditionPanel = null!;
@@ -326,6 +327,10 @@ public sealed partial class CampMain : Node2D
         public Rect2 Rect;
         public string Role = "";
         public List<LootItem> Loot = new();
+        /// <summary>关内发现点的玩家可见短标签；营地容器为空。</summary>
+        public string Hint = "";
+        /// <summary>关内发现点触发方式；仅 LevelDiscoveryRole 消费。</summary>
+        public NarrativeTrigger DiscoveryTrigger = NarrativeTrigger.Proximity;
         /// <summary>role=corpse：先弹的那段叙事的调查点 id（看过之后才退化成普通 loot）。其余 role 为空。</summary>
         public string NarrativeId = "";
     }
@@ -996,6 +1001,8 @@ public sealed partial class CampMain : Node2D
                     RegisterContainer(pr, r);
                 }
 
+                AddFormalPropVisual(pr, r);
+
                 // [T15] 家具减速场：登记那些**不进 _furniture** 的可跨越矮物（座位 + 门口的 authored 沙袋垒）。
                 // 判定归纯逻辑（FurnitureTraversal.IsLooseTraversableProp）—— **唯一登记点**，不在各分支里各加一行。
                 // 进 _furniture 的那些（床/玩家垒的沙袋/柜子…）由 RebuildTraversalField() 从 _furniture 统一收，
@@ -1482,6 +1489,43 @@ public sealed partial class CampMain : Node2D
         }
     }
 
+    /// <summary>
+    /// 给 camp.json 中可辨识的 authored 道具叠加正式图集外观。底下既有块体仍保留并独占所有玩法职责，
+    /// 因而替换素材不会改变碰撞、导航、掩体、拆除或容器判定。
+    /// </summary>
+    private void AddFormalPropVisual(PropSpec prop, Rect2 rect)
+    {
+        string name = prop.name ?? string.Empty;
+        int index = prop.role switch
+        {
+            "workbench" => 0,
+            "radio" => 1,
+            "storage" => 2,
+            "seat" when name.Contains("座垫", StringComparison.Ordinal) => 7,
+            "seat" => 6,
+            "cover" => 8,
+            "bed" => 9,
+            _ when name.Contains("衣柜", StringComparison.Ordinal) => 3,
+            _ when name.Contains("展示柜", StringComparison.Ordinal) => 4,
+            _ when name.Contains("草垛", StringComparison.Ordinal) => 5,
+            _ => -1,
+        };
+        if (index < 0)
+            return;
+
+        var visual = new IsoPropSprite
+        {
+            FootprintCart = rect,
+            AtlasIndex = index,
+            ZIndex = ZWorld,
+        };
+        _isoLayer.AddChild(visual);
+
+        // 可拆家具必须把正式贴图纳入同一份 Visuals 句柄账本，否则拆除后会留下幽灵外观。
+        if (name.Length > 0 && _furniture.TryGetValue(name, out FurnitureInstance? furniture))
+            furniture.Visuals.Add(visual);
+    }
+
     // ---------------- 可破坏结构（围栏/大门）：HP + 摧毁开口 ----------------
 
     /// <summary>
@@ -1697,6 +1741,8 @@ public sealed partial class CampMain : Node2D
         }
 
         SetDoorBlocking(door, nowBlocking, silent);
+        if (!silent)
+            CombatVfxBurst.SpawnDoor(_isoLayer, door.Rect.GetCenter(), opening: !nowBlocking);
     }
 
     /// <summary>
@@ -3153,8 +3199,8 @@ public sealed partial class CampMain : Node2D
     /// 扒得出东西的才登记成可点击容器。
     /// </para>
     /// <para>
-    /// <b>营地与探索关各走各的空间执行</b>（规则同一条，坐标系不同）：营地走 <see cref="CorpseYard"/>
-    /// （iso 人形层 + 尸体格 + 相位过期）；探索关是平面 cartesian、无 iso 人形层，走
+    /// <b>营地与探索关各走各的空间执行</b>（规则同一条、显示都走 faux-iso）：营地走 <see cref="CorpseYard"/>
+    /// （尸体格 + 相位过期）；探索关走
     /// <see cref="SpawnLevelCorpse"/>（关内一个可搜刮触发点，随关卡消失）。<b>出门探索恰恰是玩家该拿装备的
     /// 地方</b>——那 4 个持匕首的据点幸存者、日后关内任何持械敌人，杀了就该掉。
     /// （处决/放逐走各自的 QueueFree/淡出路径，不经死亡事件 → 既有「不留尸体」口径不受影响。）
@@ -3443,6 +3489,25 @@ public sealed partial class CampMain : Node2D
     {
         _ambient.Color = _clock.CurrentAmbientColor();
         bool exploring = _currentLevel != null;
+
+        _audioMoodElapsed += Math.Max(0, delta);
+        if (_audioMoodElapsed >= 0.25)
+        {
+            _audioMoodElapsed = 0;
+            bool explorationCombat = _currentLevel is not null
+                && _currentLevel.LevelHostiles().Any(h => h.Alive && h.HasActiveTarget);
+            bool combat = _raidActive || _nightRaidActive || _tutorialActive || _peteEventActive || explorationCombat;
+            bool horde = _siegeActive || _southEscapeActive;
+            bool ending = _gameOver && !_southEscapeActive;
+            GameAudioRuntime.SetMusic(GameAudioCatalog.MusicFor(
+                ending, horde, combat, exploring, _clock.IsNight));
+            string destination = _currentLevel?.DestinationName ?? "";
+            GameAudioRuntime.SetAmbience(GameAudioCatalog.AmbienceFor(
+                exploring,
+                destination == ExplorationCache.SewerName,
+                exploring && ExplorationLighting.IsIndoorsDark(destination),
+                _clock.IsNight));
+        }
 
         // [T15] 家具减速场跟住 _furniture 的增删（摆了张床/垒了垛沙袋/拆走一个柜子）。只在**件数变了**的帧重建，
         // 空闲营地零开销。放这儿而不是逐个调用点加一行 —— 那样每个新增家具的作者都得记得来登记一次，迟早漏。
@@ -3767,18 +3832,16 @@ public sealed partial class CampMain : Node2D
         }
         else if (mb is { ButtonIndex: MouseButton.Right, Pressed: true })
         {
-            // 营地右键走 iso 反投影；探索关是 top-down cartesian，不能再套 Iso.Unproject。
+            // 营地与常规探索关都先从 faux-iso 画布反投影回玩法 cartesian 平面。
             HandleRightClick(MouseWorldPoint());
         }
     }
 
     /// <summary>
-    /// 鼠标画布点到游戏世界点：探索关由当前 Camera 直接给出 cartesian；营地才反投影 faux-iso。
+    /// 鼠标画布点到游戏世界点：营地与探索关统一反投影 faux-iso。
     /// </summary>
     private Vector2 MouseWorldPoint()
-        => _currentLevel is not null
-            ? GetGlobalMousePosition()
-            : Iso.Unproject(GetGlobalMousePosition());
+        => Iso.Unproject(GetGlobalMousePosition());
 
     /// <summary>
     /// 左键点选（单选）：落点反投影回 cartesian。命中容器 → 保留当前选中不动（交互改由右键前往）；
@@ -4429,6 +4492,7 @@ public sealed partial class CampMain : Node2D
         _dismantling = null;
         d.pawn.EmitLockpickNoise(); // 静默作业的动静（30 —— 惊动不了任何东西，那正是它的意义）
         d.site.State.TakeDamage(SilentDismantleLogic.DamageFor(d.site.State.Tier)); // 满血一次性抹掉
+        CombatVfxBurst.SpawnWorkDust(_isoLayer, d.site.Rect.GetCenter(), 1.15f);
         if (d.site.State.IsDestroyed)
         {
             DestroyStructure(d.site); // 复用既有链路：移碰撞 + 重烘焙 ⇒ 一个货真价实的洞
@@ -4472,6 +4536,7 @@ public sealed partial class CampMain : Node2D
         // 一击：伤害与节奏皆由武器派生（与 AI 破防同一处真源）。
         Weapon w = b.pawn.CurrentAttackWeapon;
         b.site.State.TakeDamage(StructureDamage.PerHit(w));
+        CombatVfxBurst.SpawnImpact(_isoLayer, Iso.Project(b.site.Rect.GetCenter()), ImpactVfxKind.Wall, 1.2f);
         b.pawn.EmitBreachNoise(); // 180 —— 攻方自己制造的动静会把东西招来，玩家也一样
         if (b.site.State.IsDestroyed)
         {
@@ -4520,13 +4585,16 @@ public sealed partial class CampMain : Node2D
 
         // 发现点不登记进营地容器表（它们随关卡销毁、部分允许重复搜），由关卡持有几何与去重。
         if (inLevel && _currentLevel is TestExploration level
-            && level.TryGetDiscoveryTarget(cart, out string discoveryId, out Rect2 discoveryRect))
+            && level.TryGetDiscoveryTarget(cart, out string discoveryId, out Rect2 discoveryRect,
+                out string label, out NarrativeTrigger trigger))
         {
             return new ContainerRef
             {
                 Name = discoveryId,
                 Rect = discoveryRect,
                 Role = LevelDiscoveryRole,
+                Hint = label,
+                DiscoveryTrigger = trigger,
             };
         }
         return null;
@@ -4592,11 +4660,12 @@ public sealed partial class CampMain : Node2D
 
     /// <summary>
     /// 悬停辨识：反投影鼠标 → 命中容器则跟随鼠标显示按 role 定制的一行提示（无选中角色时追加"先选中角色"）；
-    /// 未命中 / 面板打开 / 探索中 → 隐藏。与 <see cref="UpdatePendingInteract"/> 各自独立，互不干扰。
+    /// 未命中 / 面板打开 → 隐藏。探索中只查询已被视野揭示的关内门/发现点，不会命中隐藏营地容器。
+    /// 与 <see cref="UpdatePendingInteract"/> 各自独立，互不干扰。
     /// </summary>
     private void UpdateHover()
     {
-        if (_stashOpen || _craftingOpen || _medicalOpen || _currentLevel != null)
+        if (_stashOpen || _craftingOpen || _medicalOpen)
         {
             _hud.HideHoverLabel();
             return;
@@ -4625,6 +4694,13 @@ public sealed partial class CampMain : Node2D
     private string HoverTextFor(ContainerRef c, bool hasSelection)
     {
         string noSel = hasSelection ? "" : "（先选中角色）";
+        if (c.Role == LevelDiscoveryRole)
+        {
+            string label = string.IsNullOrWhiteSpace(c.Hint) ? "发现点" : c.Hint;
+            return c.DiscoveryTrigger == NarrativeTrigger.Click
+                ? $"{label} · 调查点 · 选中角色后右键前往调查{noSel}"
+                : $"{label} · 发现点 · 选中角色后右键前往{noSel}";
+        }
         if (c.Role == "door" && DoorAt(c.Rect.GetCenter()) is { } door)
         {
             return DoorHoverText(door, hasSelection);
@@ -5077,6 +5153,12 @@ public sealed partial class CampMain : Node2D
         }
 
         // 到位后冒世界气泡（坐着必冒、站着倍率由配置提供）。
+        foreach (Pawn p in eaters)
+        {
+            p.Stationing = false;
+            if (p.Alive && seatedFlags.GetValueOrDefault(p))
+                p.VisualActivity = PawnVisualActivity.Sitting;
+        }
         EmitMealBubbles(eaters, seatedFlags, bubbles);
 
         // 进食窗口（让气泡飘一会儿）。
@@ -5090,6 +5172,7 @@ public sealed partial class CampMain : Node2D
         foreach (Pawn p in eaters)
         {
             p.Stationing = false;
+            p.VisualActivity = PawnVisualActivity.None;
         }
 
         FinishMeal();
@@ -6172,6 +6255,7 @@ public sealed partial class CampMain : Node2D
             {
                 p.Reparent(_actorLayer, keepGlobalTransform: false);
                 p.Position = _cameraCenter;
+                p.SetPresentationLayer(_isoLayer);
             }
         }
 
@@ -6180,6 +6264,7 @@ public sealed partial class CampMain : Node2D
         {
             bruce.Reparent(_actorLayer, keepGlobalTransform: false);
             bruce.Position = _cameraCenter + new Vector2(-8f, 24f);
+            bruce.SetPresentationLayer(_isoLayer);
         }
         _bruceExpedition = false;
 
@@ -6661,6 +6746,7 @@ public sealed partial class CampMain : Node2D
         if (victim is null)
             return;
         double mult = NightWatchContest.PreemptiveDamageMultiplier(_nightRaidIntent); // Killer → 1.5
+        raider.PlayScriptedMeleeVisual(CombatData.Dagger(), victim);
         victim.ReceiveAttack(raider, CombatData.Dagger(), _combat, damageFactor: mult);
         _campToast.Show($"{victim.DisplayName} 在睡梦中遭到潜行偷袭！", CampToast.Bad);
         GD.Print($"[NightRaid] 潜行先手 ×{mult:0.0} 命中 {victim.DisplayName}。");
@@ -8163,6 +8249,8 @@ public sealed partial class CampMain : Node2D
         {
             RatPerk.RecordScavenged(_storyFlags);
         }
+
+        CombatVfxBurst.SpawnLoot(searcher.PresentationLayer, searcher.GlobalPosition);
 
         var one = new[] { item };
         int food = CollectLoot(one, out List<ToolSlot> tools, out string leftBehind);
@@ -9785,6 +9873,8 @@ public sealed partial class CampMain : Node2D
     {
         CraftingJob job = completed.Job;
         Pawn? completingWorker = _survivors.FirstOrDefault(p => p.Id == completed.WorkerId);
+        if (completingWorker is not null)
+            CombatVfxBurst.SpawnWorkDust(completingWorker.PresentationLayer, completingWorker.GlobalPosition, 1.4f);
 
         // 拆解分流：任务 id 带 "salvage:" 前缀的不是配方，是"把东西变回材料"。三种拆法各走各的清场：
         //   door#<下标> → 门（返还 + DestroyStructure 抹掉本体）
@@ -10296,6 +10386,10 @@ public sealed partial class CampMain : Node2D
                 if (start == SurgeryAdvanceStatus.InProgress)
                 {
                     surgeon.CancelOrders();
+                    patient!.VisualActivity = PawnVisualActivity.Lying;
+                    surgeon.VisualActivity = ReferenceEquals(patient, surgeon)
+                        ? PawnVisualActivity.Lying
+                        : PawnVisualActivity.Working;
                     _surgeryLastMinuteKey = _clock.ClockMinuteKey();
                     _campToast.Show($"{surgeon.DisplayName} 已抵达手术位，开始为 {patient!.DisplayName} 手术（约 {job.TotalMinutes} 游戏分钟）。", CampToast.Ok);
                 }
@@ -10372,10 +10466,15 @@ public sealed partial class CampMain : Node2D
         if (_surgeryJob is not { } job) return;
         Pawn? patient = _survivors.FirstOrDefault(p => p.Id == job.PatientId);
         Pawn? surgeon = _survivors.FirstOrDefault(p => p.Id == job.SurgeonId);
-        if (patient is not null) patient.SurgeryOccupied = false;
+        if (patient is not null)
+        {
+            patient.SurgeryOccupied = false;
+            patient.VisualActivity = PawnVisualActivity.None;
+        }
         if (surgeon is not null)
         {
             surgeon.SurgeryOccupied = false;
+            surgeon.VisualActivity = PawnVisualActivity.None;
             surgeon.CancelOrders();
         }
     }

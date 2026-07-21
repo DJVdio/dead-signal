@@ -37,6 +37,7 @@ public sealed partial class NoiseCueOverlay : Node2D
     {
         NoiseCue cue = new(new System.Numerics.Vector2(cartOrigin.X, cartOrigin.Y), radius, kind, ratSource);
         NoiseCueFeed.Publish(cue);
+        GameAudioRuntime.PlayNoise(source, cartOrigin, ratSource);
 
         if (!GodotObject.IsInstanceValid(source) || source.GetTree() is not SceneTree tree)
         {
