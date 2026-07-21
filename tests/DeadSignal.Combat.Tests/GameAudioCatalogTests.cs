@@ -5,13 +5,31 @@ namespace DeadSignal.Combat.Tests;
 
 public sealed class GameAudioCatalogTests
 {
-    private static string Read(string relative)
+    private static string Root()
     {
         DirectoryInfo? dir = new(AppContext.BaseDirectory);
         while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "DeadSignal.sln")))
             dir = dir.Parent;
         Assert.NotNull(dir);
-        return File.ReadAllText(Path.Combine(dir!.FullName, relative));
+        return dir!.FullName;
+    }
+
+    private static string Read(string relative)
+        => File.ReadAllText(Path.Combine(Root(), relative));
+
+    private static string LocalAsset(string resourcePath)
+        => Path.Combine(Root(), resourcePath.Replace("res://", "godot/"));
+
+    private static void AssertWav(string resourcePath, long minimumBytes)
+    {
+        string path = LocalAsset(resourcePath);
+        byte[] header = File.ReadAllBytes(path)[..44];
+        Assert.Equal("RIFF", System.Text.Encoding.ASCII.GetString(header, 0, 4));
+        Assert.Equal("WAVE", System.Text.Encoding.ASCII.GetString(header, 8, 4));
+        Assert.Equal(2, BitConverter.ToInt16(header, 22));
+        Assert.Equal(44_100, BitConverter.ToInt32(header, 24));
+        Assert.Equal(16, BitConverter.ToInt16(header, 34));
+        Assert.True(new FileInfo(path).Length >= minimumBytes, $"音频过短或为空：{path}");
     }
 
     [Fact]
@@ -26,6 +44,30 @@ public sealed class GameAudioCatalogTests
             Assert.InRange(p.NoiseAmount, 0f, 1f);
             Assert.InRange(p.VolumeDb, -30f, 0f);
         }
+    }
+
+    [Fact]
+    public void FormalAudioLibraryCoversEveryAdaptiveStateAndCue()
+    {
+        foreach (MusicMood mood in Enum.GetValues<MusicMood>().Where(x => x != MusicMood.Silence))
+            AssertWav(GameAudioCatalog.MusicAsset(mood), 4_000_000);
+
+        foreach (AmbienceMood mood in Enum.GetValues<AmbienceMood>().Where(x => x != AmbienceMood.Silence))
+            AssertWav(GameAudioCatalog.AmbienceAsset(mood), 2_500_000);
+
+        foreach (AudioCue cue in Enum.GetValues<AudioCue>())
+            for (int variant = 0; variant < GameAudioCatalog.SfxVariantCount; variant++)
+                AssertWav(GameAudioCatalog.SfxAsset(cue, variant), 10_000);
+    }
+
+    [Fact]
+    public void FormalAssetCatalogRejectsSilenceAndInvalidVariants()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => GameAudioCatalog.MusicAsset(MusicMood.Silence));
+        Assert.Throws<ArgumentOutOfRangeException>(() => GameAudioCatalog.AmbienceAsset(AmbienceMood.Silence));
+        Assert.Throws<ArgumentOutOfRangeException>(() => GameAudioCatalog.SfxAsset(AudioCue.Loot, -1));
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            GameAudioCatalog.SfxAsset(AudioCue.Loot, GameAudioCatalog.SfxVariantCount));
     }
 
     [Fact]
@@ -81,6 +123,7 @@ public sealed class GameAudioCatalogTests
         string noise = Read("godot/scripts/NoiseCueOverlay.cs");
         string zombie = Read("godot/scripts/Zombie.cs");
         string camp = Read("godot/scripts/CampMain.cs");
+        string runtime = Read("godot/scripts/GameAudioRuntime.cs");
 
         Assert.Contains("AudioRuntime=\"*res://scenes/GameAudio.tscn\"", project);
         Assert.Contains("GameAudioCatalog.MuzzleCue", vfx);
@@ -89,5 +132,10 @@ public sealed class GameAudioCatalogTests
         Assert.Contains("AudioCue.ZombieGroan", zombie);
         Assert.Contains("GameAudioCatalog.MusicFor", camp);
         Assert.Contains("GameAudioCatalog.AmbienceFor", camp);
+        Assert.Contains("GameAudioCatalog.MusicAsset", runtime);
+        Assert.Contains("GameAudioCatalog.AmbienceAsset", runtime);
+        Assert.Contains("GameAudioCatalog.SfxAsset", runtime);
+        Assert.Contains("LoadOneShot", runtime);
+        Assert.Contains("LoadLoop", runtime);
     }
 }

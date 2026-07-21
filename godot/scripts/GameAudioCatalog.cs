@@ -70,6 +70,64 @@ public readonly record struct AudioProfile(
 
 public static class GameAudioCatalog
 {
+    public const string AssetRoot = "res://assets/audio";
+    public const int SfxVariantCount = 3;
+
+    public static string MusicAsset(MusicMood mood) => mood switch
+    {
+        MusicMood.Menu => $"{AssetRoot}/music/menu.wav",
+        MusicMood.CampDay => $"{AssetRoot}/music/camp-day.wav",
+        MusicMood.CampNight => $"{AssetRoot}/music/camp-night.wav",
+        MusicMood.Exploration => $"{AssetRoot}/music/exploration.wav",
+        MusicMood.Combat => $"{AssetRoot}/music/combat.wav",
+        MusicMood.Horde => $"{AssetRoot}/music/horde.wav",
+        MusicMood.Ending => $"{AssetRoot}/music/ending.wav",
+        _ => throw new ArgumentOutOfRangeException(nameof(mood), mood, null),
+    };
+
+    public static string AmbienceAsset(AmbienceMood mood) => mood switch
+    {
+        AmbienceMood.CampDay => $"{AssetRoot}/ambience/camp-day.wav",
+        AmbienceMood.CampNight => $"{AssetRoot}/ambience/camp-night.wav",
+        AmbienceMood.Outdoor => $"{AssetRoot}/ambience/outdoor.wav",
+        AmbienceMood.Interior => $"{AssetRoot}/ambience/interior.wav",
+        AmbienceMood.Sewer => $"{AssetRoot}/ambience/sewer.wav",
+        _ => throw new ArgumentOutOfRangeException(nameof(mood), mood, null),
+    };
+
+    public static string SfxAsset(AudioCue cue, int variantIndex)
+    {
+        if (variantIndex is < 0 or >= SfxVariantCount)
+            throw new ArgumentOutOfRangeException(nameof(variantIndex), variantIndex, null);
+        string stem = cue switch
+        {
+            AudioCue.FootstepHuman => "footstep-human",
+            AudioCue.FootstepDog => "footstep-dog",
+            AudioCue.FootstepZombie => "footstep-zombie",
+            AudioCue.PistolShot => "pistol-shot",
+            AudioCue.RifleShot => "rifle-shot",
+            AudioCue.ShotgunShot => "shotgun-shot",
+            AudioCue.BowRelease => "bow-release",
+            AudioCue.CrossbowRelease => "crossbow-release",
+            AudioCue.MeleeLight => "melee-light",
+            AudioCue.MeleeHeavy => "melee-heavy",
+            AudioCue.ArmorImpact => "armor-impact",
+            AudioCue.FleshSharpImpact => "flesh-sharp-impact",
+            AudioCue.FleshBluntImpact => "flesh-blunt-impact",
+            AudioCue.FatalImpact => "fatal-impact",
+            AudioCue.StructureImpact => "structure-impact",
+            AudioCue.DoorOpen => "door-open",
+            AudioCue.DoorClose => "door-close",
+            AudioCue.Lockpick => "lockpick",
+            AudioCue.Work => "work",
+            AudioCue.Loot => "loot",
+            AudioCue.Death => "death",
+            AudioCue.ZombieGroan => "zombie-groan",
+            _ => throw new ArgumentOutOfRangeException(nameof(cue), cue, null),
+        };
+        return $"{AssetRoot}/sfx/{stem}/{variantIndex + 1:00}.wav";
+    }
+
     public static AudioProfile Profile(AudioCue cue) => cue switch
     {
         AudioCue.FootstepHuman => new(0.12f, 105, 72, 0.55f, 2.8f, -17, AudioWaveform.Triangle),

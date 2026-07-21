@@ -5,7 +5,8 @@ using Godot;
 namespace DeadSignal.Godot;
 
 /// <summary>
-/// 全局音频运行时：用确定性的程序化波形生成原创占位音效与氛围音乐，提供空间音效、总线和音乐交叉淡化。
+/// 全局音频运行时：播放仓库内的原创正式音频资产，提供空间音效、总线和音乐交叉淡化。
+/// 旧程序化波形只在正式资源缺失或导入失败时兜底，避免静默失声。
 /// 它只消费表现事件；不会读写生命、弹药、库存、噪音半径或随机结算。
 /// </summary>
 public sealed partial class GameAudioRuntime : Node
@@ -14,9 +15,9 @@ public sealed partial class GameAudioRuntime : Node
     private const float SilentDb = -60f;
     private const float CrossfadeDbPerSecond = 28f;
     private static GameAudioRuntime? _instance;
-    private static readonly Dictionary<AudioCue, AudioStreamWav> SfxCache = new();
-    private static readonly Dictionary<MusicMood, AudioStreamWav> MusicCache = new();
-    private static readonly Dictionary<AmbienceMood, AudioStreamWav> AmbienceCache = new();
+    private static readonly Dictionary<AudioCue, AudioStream[]> SfxCache = new();
+    private static readonly Dictionary<MusicMood, AudioStream> MusicCache = new();
+    private static readonly Dictionary<AmbienceMood, AudioStream> AmbienceCache = new();
 
     private AudioStreamPlayer _musicA = null!;
     private AudioStreamPlayer _musicB = null!;
@@ -59,9 +60,11 @@ public sealed partial class GameAudioRuntime : Node
         ReleasePlayer(_musicA);
         ReleasePlayer(_musicB);
         ReleasePlayer(_ambience);
-        foreach (AudioStreamWav stream in SfxCache.Values) stream.Dispose();
-        foreach (AudioStreamWav stream in MusicCache.Values) stream.Dispose();
-        foreach (AudioStreamWav stream in AmbienceCache.Values) stream.Dispose();
+        foreach (AudioStream[] variants in SfxCache.Values)
+            foreach (AudioStream stream in variants)
+                stream.Dispose();
+        foreach (AudioStream stream in MusicCache.Values) stream.Dispose();
+        foreach (AudioStream stream in AmbienceCache.Values) stream.Dispose();
         SfxCache.Clear();
         MusicCache.Clear();
         AmbienceCache.Clear();
@@ -155,9 +158,9 @@ public sealed partial class GameAudioRuntime : Node
         _activeMusic.VolumeDb = SilentDb;
         if (mood != MusicMood.Silence)
         {
-            _activeMusic.Stream = MusicCache.TryGetValue(mood, out AudioStreamWav? cached)
+            _activeMusic.Stream = MusicCache.TryGetValue(mood, out AudioStream? cached)
                 ? cached
-                : MusicCache[mood] = BuildMusic(mood);
+                : MusicCache[mood] = LoadLoop(GameAudioCatalog.MusicAsset(mood), () => BuildMusic(mood));
             _activeMusic.Play();
         }
     }
@@ -171,9 +174,9 @@ public sealed partial class GameAudioRuntime : Node
             _ambience.VolumeDb = SilentDb;
             return;
         }
-        _ambience.Stream = AmbienceCache.TryGetValue(mood, out AudioStreamWav? cached)
+        _ambience.Stream = AmbienceCache.TryGetValue(mood, out AudioStream? cached)
             ? cached
-            : AmbienceCache[mood] = BuildAmbience(mood);
+            : AmbienceCache[mood] = LoadLoop(GameAudioCatalog.AmbienceAsset(mood), () => BuildAmbience(mood));
         _ambience.VolumeDb = GameAudioCatalog.AmbienceVolumeDb(mood);
         _ambience.Play();
     }
@@ -183,7 +186,7 @@ public sealed partial class GameAudioRuntime : Node
         AudioProfile profile = GameAudioCatalog.Profile(cue);
         var player = new AudioStreamPlayer2D
         {
-            Stream = Sfx(cue),
+            Stream = Sfx(cue, NextVariant()),
             Position = isoPosition,
             Bus = "SFX",
             VolumeDb = profile.VolumeDb + gainDb,
@@ -201,7 +204,7 @@ public sealed partial class GameAudioRuntime : Node
         AudioProfile profile = GameAudioCatalog.Profile(cue);
         var player = new AudioStreamPlayer
         {
-            Stream = Sfx(cue),
+            Stream = Sfx(cue, NextVariant()),
             Bus = "SFX",
             VolumeDb = profile.VolumeDb + gainDb,
             PitchScale = VariationPitch(),
@@ -214,13 +217,46 @@ public sealed partial class GameAudioRuntime : Node
     private float VariationPitch()
     {
         _playSequence++;
-        return 0.96f + (_playSequence % 7) * 0.013f;
+        return 0.975f + (_playSequence % 5) * 0.0125f;
     }
 
-    private static AudioStreamWav Sfx(AudioCue cue)
-        => SfxCache.TryGetValue(cue, out AudioStreamWav? stream)
-            ? stream
-            : SfxCache[cue] = BuildSfx(cue, GameAudioCatalog.Profile(cue));
+    private int NextVariant()
+        => (int)(_playSequence % GameAudioCatalog.SfxVariantCount);
+
+    private static AudioStream Sfx(AudioCue cue, int variantIndex)
+    {
+        if (!SfxCache.TryGetValue(cue, out AudioStream[]? variants))
+        {
+            variants = new AudioStream[GameAudioCatalog.SfxVariantCount];
+            for (int i = 0; i < variants.Length; i++)
+            {
+                string path = GameAudioCatalog.SfxAsset(cue, i);
+                variants[i] = LoadOneShot(path, () => BuildSfx(cue, GameAudioCatalog.Profile(cue)));
+            }
+            SfxCache[cue] = variants;
+        }
+        return variants[variantIndex];
+    }
+
+    private static AudioStream LoadOneShot(string path, Func<AudioStreamWav> fallback)
+        => ResourceLoader.Exists(path) ? GD.Load<AudioStream>(path) : fallback();
+
+    private static AudioStream LoadLoop(string path, Func<AudioStreamWav> fallback)
+    {
+        AudioStream stream = ResourceLoader.Exists(path) ? GD.Load<AudioStream>(path) : fallback();
+        if (stream is AudioStreamWav wav)
+        {
+            wav.LoopMode = AudioStreamWav.LoopModeEnum.Forward;
+            wav.LoopBegin = 0;
+            wav.LoopEnd = (int)(wav.GetLength() * wav.MixRate);
+        }
+        else if (stream is AudioStreamOggVorbis ogg)
+        {
+            ogg.Loop = true;
+            ogg.LoopOffset = 0;
+        }
+        return stream;
+    }
 
     private static AudioStreamWav BuildSfx(AudioCue cue, AudioProfile profile)
     {
