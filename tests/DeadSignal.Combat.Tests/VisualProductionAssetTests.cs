@@ -25,11 +25,6 @@ public sealed class VisualProductionAssetTests
             Assert.InRange(ActorFrameCatalog.ColumnFor(state, 1.25, 0.75f), 0, ActorFrameCatalog.Columns - 1);
         for (int direction = 0; direction < 8; direction++)
             Assert.Equal(direction, ActorFrameCatalog.RowForDirection(direction));
-        for (int action = 0; action < ActorFrameCatalog.Columns; action++)
-        {
-            Assert.Equal(action, ActorFrameCatalog.SourceColumnForDirection(6, action));
-            Assert.Equal(ActorFrameCatalog.Columns - 1 - action, ActorFrameCatalog.SourceColumnForDirection(7, action));
-        }
     }
 
     [Fact]
@@ -60,6 +55,7 @@ public sealed class VisualProductionAssetTests
         string bad = Read("godot/scripts/CampMain.SouthEscape.cs");
         string win = Read("godot/scripts/CampMain.FamilyEscape.cs");
         Assert.Contains("DrawAnimationFrame", actor);
+        Assert.DoesNotContain("SourceColumnForDirection", actor);
         Assert.Contains("SetupFormalEnvironmentArt();", level);
         Assert.Contains("new ExplorationPropSprite", level);
         Assert.Contains("_backgroundPath", panel);

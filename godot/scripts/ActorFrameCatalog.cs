@@ -25,10 +25,6 @@ public static class ActorFrameCatalog
     public static int RowForDirection(int directionColumn)
         => Math.Clamp(directionColumn, 0, Rows - 1);
 
-    /// <summary>东南行由西南整行镜像而来；整行镜像会反转动作列，取样时反向映射回来。</summary>
-    public static int SourceColumnForDirection(int directionColumn, int actionColumn)
-        => directionColumn == Rows - 1 ? Columns - 1 - actionColumn : actionColumn;
-
     public static int ColumnFor(ActorAnimationState state, double clock, float attackProgress) => state switch
     {
         ActorAnimationState.Walk => 1 + ((int)Math.Floor(clock * 7.5) % 3 + 3) % 3,
