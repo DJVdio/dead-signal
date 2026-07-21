@@ -75,6 +75,7 @@ public sealed partial class ActorSprite : Node2D
     private float _attackAnimTime;
     private float _attackAnimDuration = 0.22f;
     private WeaponAttackAnimation _attackAnimation = WeaponAttackAnimation.Unarmed;
+    private WeaponAttackPose _attackPose = WeaponAttackPose.None;
     private float _hitPoseTime;
     private ActorAnimationState _animationState;
 
@@ -255,6 +256,7 @@ public sealed partial class ActorSprite : Node2D
         {
             _lastAttackSequence = _actor.VisualAttackSequence;
             _attackAnimation = _actor.VisualAttackKind;
+            _attackPose = _actor.VisualAttackPose;
             _attackAnimDuration = Mathf.Max(0.08f, _actor.VisualAttackDurationSeconds);
             _attackAnimTime = _attackAnimDuration;
         }
@@ -532,7 +534,12 @@ public sealed partial class ActorSprite : Node2D
             Dog dog => dog.DisplayName,
             _ => null,
         };
-        string path = ActorFrameCatalog.PathFor(displayName, kind);
+        bool useWeaponPose = _animationState == ActorAnimationState.Attack
+            && _attackPose != WeaponAttackPose.None
+            && _actor is Pawn or Raider;
+        string path = useWeaponPose
+            ? ActorAttackFrameCatalog.PathFor(displayName, kind)
+            : ActorFrameCatalog.PathFor(displayName, kind);
         if (!AnimationAtlases.TryGetValue(path, out Texture2D? atlas))
         {
             atlas = GD.Load<Texture2D>(path);
@@ -543,10 +550,16 @@ public sealed partial class ActorSprite : Node2D
         float progress = _attackAnimDuration <= 0f
             ? 1f
             : 1f - Mathf.Clamp(_attackAnimTime / _attackAnimDuration, 0f, 1f);
-        int row = ActorFrameCatalog.RowForDirection(DirectionColumn());
-        int col = ActorFrameCatalog.ColumnFor(_animationState, _animationClock, progress);
-        float cellW = atlas.GetWidth() / (float)ActorFrameCatalog.Columns;
-        float cellH = atlas.GetHeight() / (float)ActorFrameCatalog.Rows;
+        int row = useWeaponPose
+            ? ActorAttackFrameCatalog.RowForDirection(DirectionColumn())
+            : ActorFrameCatalog.RowForDirection(DirectionColumn());
+        int col = useWeaponPose
+            ? ActorAttackFrameCatalog.ColumnFor(_attackPose)
+            : ActorFrameCatalog.ColumnFor(_animationState, _animationClock, progress);
+        int columns = useWeaponPose ? ActorAttackFrameCatalog.Columns : ActorFrameCatalog.Columns;
+        int rows = useWeaponPose ? ActorAttackFrameCatalog.Rows : ActorFrameCatalog.Rows;
+        float cellW = atlas.GetWidth() / (float)columns;
+        float cellH = atlas.GetHeight() / (float)rows;
         var source = new Rect2(col * cellW, row * cellH, cellW, cellH);
 
         float height = r * (_actor is Dog ? 5.0f : 5.5f);
@@ -764,6 +777,21 @@ public sealed partial class ActorSprite : Node2D
         Vector2 center = new Vector2(0f, -r * 2.20f) + f * r * 0.22f;
         if (!twoHandGrip)
             center += p * handSide * r * 0.50f;
+        if (_animationState == ActorAnimationState.Attack && visual.Kind == EquipmentVisualKind.Weapon)
+        {
+            // 身体已换成对应持械关键帧，真实装备图也随手部向出手方向移动；只改绘制锚点，不碰命中/射程。
+            center += _attackPose switch
+            {
+                WeaponAttackPose.OneHandSwing => f * r * 0.25f + p * handSide * r * 0.10f,
+                WeaponAttackPose.OneHandThrust => f * r * 0.70f,
+                WeaponAttackPose.OneHandShot => f * r * 0.58f + Vector2.Up * r * 0.10f,
+                WeaponAttackPose.TwoHandSwing => f * r * 0.24f + Vector2.Up * r * 0.20f,
+                WeaponAttackPose.TwoHandThrust => f * r * 0.82f,
+                WeaponAttackPose.TwoHandShot => f * r * 0.62f + Vector2.Up * r * 0.12f,
+                WeaponAttackPose.BowShot => f * r * 0.28f + Vector2.Up * r * 0.08f,
+                _ => Vector2.Zero,
+            };
+        }
 
         float size = r * 4.9f * visual.DisplayScale;
         var destination = new Rect2(center - new Vector2(size, size) / 2f, new Vector2(size, size));

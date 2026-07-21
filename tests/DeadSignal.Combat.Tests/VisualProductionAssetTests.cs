@@ -38,6 +38,22 @@ public sealed class VisualProductionAssetTests
     }
 
     [Fact]
+    public void EveryArmedHumanHasAnExactSevenActionByEightDirectionAtlas()
+    {
+        string[] names = { "山姆", "诺蒂", "克莉丝汀", "耗子", "道格", "南丁格尔", "皮特" };
+        foreach (string name in names)
+            AssertAttackPngGrid(ActorAttackFrameCatalog.PathFor(name, "survivor"));
+        foreach (string kind in new[] { "survivor", "raider" })
+            AssertAttackPngGrid(ActorAttackFrameCatalog.PathFor(null, kind));
+
+        foreach (WeaponAttackPose pose in Enum.GetValues<WeaponAttackPose>())
+        {
+            if (pose == WeaponAttackPose.None) continue;
+            Assert.InRange(ActorAttackFrameCatalog.ColumnFor(pose), 0, ActorAttackFrameCatalog.Columns - 1);
+        }
+    }
+
+    [Fact]
     public void ExplorationAndAllThreeEndingBackgroundsExist()
     {
         AssertAsset("res://assets/world/exploration-props.png");
@@ -79,6 +95,18 @@ public sealed class VisualProductionAssetTests
         Assert.Equal(0, height % ActorFrameCatalog.Rows);
         Assert.Equal(128, width / ActorFrameCatalog.Columns);
         Assert.Equal(147, height / ActorFrameCatalog.Rows);
+    }
+
+    private static void AssertAttackPngGrid(string resourcePath)
+    {
+        string path = Path.Combine(RepoRoot(), "godot", resourcePath[6..].Replace('/', Path.DirectorySeparatorChar));
+        using var stream = File.OpenRead(path);
+        using var reader = new BinaryReader(stream);
+        stream.Position = 16;
+        int width = ReadBigEndianInt32(reader);
+        int height = ReadBigEndianInt32(reader);
+        Assert.Equal(128 * ActorAttackFrameCatalog.Columns, width);
+        Assert.Equal(147 * ActorAttackFrameCatalog.Rows, height);
     }
 
     private static int ReadBigEndianInt32(BinaryReader reader)

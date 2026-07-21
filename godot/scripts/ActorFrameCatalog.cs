@@ -38,3 +38,38 @@ public static class ActorFrameCatalog
         _ => 0,
     };
 }
+
+/// <summary>七类持械动作 × 八方向；只供能真正持械的人类角色使用。</summary>
+public static class ActorAttackFrameCatalog
+{
+    public const int Columns = 7;
+    public const int Rows = 8;
+    public const string Root = "res://assets/world/attacks";
+
+    public static string PathFor(string? displayName, string actorKind) => displayName switch
+    {
+        "山姆" => $"{Root}/sam.png",
+        "诺蒂" => $"{Root}/notty.png",
+        "克莉丝汀" => $"{Root}/christine.png",
+        "耗子" => $"{Root}/rat.png",
+        "道格" => $"{Root}/doug.png",
+        "南丁格尔" => $"{Root}/nightingale.png",
+        "皮特" => $"{Root}/pete.png",
+        _ => $"{Root}/{actorKind}.png",
+    };
+
+    public static int RowForDirection(int directionColumn)
+        => Math.Clamp(directionColumn, 0, Rows - 1);
+
+    public static int ColumnFor(WeaponAttackPose pose) => pose switch
+    {
+        WeaponAttackPose.OneHandSwing => 0,
+        WeaponAttackPose.OneHandThrust => 1,
+        WeaponAttackPose.OneHandShot => 2,
+        WeaponAttackPose.TwoHandSwing => 3,
+        WeaponAttackPose.TwoHandThrust => 4,
+        WeaponAttackPose.TwoHandShot => 5,
+        WeaponAttackPose.BowShot => 6,
+        _ => 0,
+    };
+}

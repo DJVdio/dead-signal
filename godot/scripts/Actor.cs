@@ -831,6 +831,7 @@ public abstract partial class Actor : CharacterBody2D
         // 走到这里代表所有射程/弹药/围栏/操作能力门槛都已通过，这一下必然会真正打出。
         // 视觉信号只记本次实际打法（枪托/拳脚也会覆盖手里枪的默认开火动作），绝不参与战斗结算。
         VisualAttackKind = ActorAnimationCatalog.AttackFor(weapon.Name);
+        VisualAttackPose = ActorAnimationCatalog.PoseFor(weapon.Name, weapon.TwoHanded);
         VisualAttackDurationSeconds = ActorAnimationCatalog.DurationSeconds(VisualAttackKind);
         VisualAttackSequence++;
 
@@ -1455,6 +1456,7 @@ public abstract partial class Actor : CharacterBody2D
             }
             _firstStrikeAvailable = false;
             VisualAttackKind = ActorAnimationCatalog.AttackFor(shot.Name);
+            VisualAttackPose = ActorAnimationCatalog.PoseFor(shot.Name, shot.TwoHanded);
             VisualAttackDurationSeconds = ActorAnimationCatalog.DurationSeconds(VisualAttackKind);
             VisualAttackSequence++;
             SpendAmmo(shot, ammoKey, plan.RoundsFired);
@@ -1475,6 +1477,7 @@ public abstract partial class Actor : CharacterBody2D
     public void PlayScriptedMeleeVisual(Weapon weapon, Actor target)
     {
         VisualAttackKind = ActorAnimationCatalog.AttackFor(weapon.Name);
+        VisualAttackPose = ActorAnimationCatalog.PoseFor(weapon.Name, weapon.TwoHanded);
         VisualAttackDurationSeconds = ActorAnimationCatalog.DurationSeconds(VisualAttackKind);
         VisualAttackSequence++;
         CombatVfxBurst.SpawnMelee(PresentationLayer, GlobalPosition, target.GlobalPosition, VisualAttackKind);
@@ -1686,6 +1689,9 @@ public abstract partial class Actor : CharacterBody2D
 
     /// <summary>本次实际打法对应的动作骨架（贴脸枪托/拳脚按派生武器，而非手持武器）。</summary>
     public WeaponAttackAnimation VisualAttackKind { get; private set; } = WeaponAttackAnimation.Unarmed;
+
+    /// <summary>本次实际打法对应的七类持械身体姿势；空手、丧尸和犬类为 None。</summary>
+    public WeaponAttackPose VisualAttackPose { get; private set; } = WeaponAttackPose.None;
 
     /// <summary>本次攻击表现时长；与战斗冷却解耦，不影响任何数值。</summary>
     public float VisualAttackDurationSeconds { get; private set; } = 0.22f;

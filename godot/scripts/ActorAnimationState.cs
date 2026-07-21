@@ -31,6 +31,19 @@ public enum WeaponAttackAnimation
     CrossbowRecoil,
 }
 
+/// <summary>人类持械时使用的身体姿势；与音效/VFX 的攻击骨架分开，弩仍可保留专属表现。</summary>
+public enum WeaponAttackPose
+{
+    None,
+    OneHandSwing,
+    OneHandThrust,
+    OneHandShot,
+    TwoHandSwing,
+    TwoHandThrust,
+    TwoHandShot,
+    BowShot,
+}
+
 /// <summary>剧情/设施临时占用对常规 Role 的视觉覆盖。</summary>
 public enum PawnVisualActivity
 {
@@ -101,6 +114,32 @@ public static class ActorAnimationCatalog
             "单手轻弩" or "双手重弩" or "复合弩" => WeaponAttackAnimation.CrossbowRecoil,
             _ => WeaponAttackAnimation.Unarmed,
         };
+    }
+
+    /// <summary>按实际打出的武器选择七类持械身体动作；改装名与实例后缀沿用基础武器。</summary>
+    public static WeaponAttackPose PoseFor(string? weaponName)
+    {
+        string name = BaseName(weaponName);
+        return name switch
+        {
+            "短剑" or "棍棒" => WeaponAttackPose.OneHandSwing,
+            "匕首" or "骨刀" or "刺剑" => WeaponAttackPose.OneHandThrust,
+            "手枪" or "自制手枪" or "牙医小手枪" or "单手轻弩" => WeaponAttackPose.OneHandShot,
+            "长剑" or "重剑" or "消防斧" or "尖头锤" or "破甲锤" => WeaponAttackPose.TwoHandSwing,
+            "草叉" => WeaponAttackPose.TwoHandThrust,
+            "自制猎枪" or "冲锋枪" or "步枪" or "狙击枪" or "自制霰弹枪"
+                or "双手重弩" or "复合弩" => WeaponAttackPose.TwoHandShot,
+            "短弓" or "反曲弓" or "长弓" or "竞技复合弓" or "狩猎弓" => WeaponAttackPose.BowShot,
+            _ => WeaponAttackPose.None,
+        };
+    }
+
+    /// <summary>枪托近战沿用派生武器的单双手语义，其余武器仍按名称目录归类。</summary>
+    public static WeaponAttackPose PoseFor(string? weaponName, bool twoHanded)
+    {
+        if (weaponName?.Contains("（枪托）", StringComparison.Ordinal) == true)
+            return twoHanded ? WeaponAttackPose.TwoHandSwing : WeaponAttackPose.OneHandSwing;
+        return PoseFor(weaponName);
     }
 
     public static float DurationSeconds(WeaponAttackAnimation animation) => animation switch

@@ -91,18 +91,69 @@ public sealed class ActorAnimationStateTests
     }
 
     [Fact]
+    public void EveryArsenalWeaponHasOneOfTheSevenVisibleHeldAttackPoses()
+    {
+        var expected = new Dictionary<string, WeaponAttackPose>
+        {
+            ["短剑"] = WeaponAttackPose.OneHandSwing,
+            ["棍棒"] = WeaponAttackPose.OneHandSwing,
+            ["匕首"] = WeaponAttackPose.OneHandThrust,
+            ["骨刀"] = WeaponAttackPose.OneHandThrust,
+            ["刺剑"] = WeaponAttackPose.OneHandThrust,
+            ["手枪"] = WeaponAttackPose.OneHandShot,
+            ["自制手枪"] = WeaponAttackPose.OneHandShot,
+            ["牙医小手枪"] = WeaponAttackPose.OneHandShot,
+            ["单手轻弩"] = WeaponAttackPose.OneHandShot,
+            ["长剑"] = WeaponAttackPose.TwoHandSwing,
+            ["重剑"] = WeaponAttackPose.TwoHandSwing,
+            ["消防斧"] = WeaponAttackPose.TwoHandSwing,
+            ["尖头锤"] = WeaponAttackPose.TwoHandSwing,
+            ["破甲锤"] = WeaponAttackPose.TwoHandSwing,
+            ["草叉"] = WeaponAttackPose.TwoHandThrust,
+            ["自制猎枪"] = WeaponAttackPose.TwoHandShot,
+            ["冲锋枪"] = WeaponAttackPose.TwoHandShot,
+            ["步枪"] = WeaponAttackPose.TwoHandShot,
+            ["狙击枪"] = WeaponAttackPose.TwoHandShot,
+            ["自制霰弹枪"] = WeaponAttackPose.TwoHandShot,
+            ["双手重弩"] = WeaponAttackPose.TwoHandShot,
+            ["复合弩"] = WeaponAttackPose.TwoHandShot,
+            ["短弓"] = WeaponAttackPose.BowShot,
+            ["反曲弓"] = WeaponAttackPose.BowShot,
+            ["长弓"] = WeaponAttackPose.BowShot,
+            ["竞技复合弓"] = WeaponAttackPose.BowShot,
+            ["狩猎弓"] = WeaponAttackPose.BowShot,
+        };
+
+        foreach (var pair in expected)
+            Assert.Equal(pair.Value, ActorAnimationCatalog.PoseFor(pair.Key));
+
+        Assert.Equal(
+            expected.Keys.OrderBy(x => x),
+            WeaponTable.Arsenal().Select(w => w.Name).OrderBy(x => x));
+        Assert.Equal(WeaponAttackPose.TwoHandShot, ActorAnimationCatalog.PoseFor("步枪（刺刀型）#7"));
+        Assert.Equal(WeaponAttackPose.OneHandSwing, ActorAnimationCatalog.PoseFor("手枪（枪托）", false));
+        Assert.Equal(WeaponAttackPose.TwoHandSwing, ActorAnimationCatalog.PoseFor("步枪（枪托）", true));
+        Assert.Equal(WeaponAttackPose.None, ActorAnimationCatalog.PoseFor("撕咬"));
+        Assert.Equal(WeaponAttackPose.None, ActorAnimationCatalog.PoseFor(null));
+    }
+
+    [Fact]
     public void RuntimeSignalsOnlyDeliveredAttacksAndCarriesPaperDollThroughThePose()
     {
         string actor = Script("Actor.cs");
         string sprite = Script("ActorSprite.cs");
 
         Assert.Contains("VisualAttackSequence++;", actor);
+        Assert.Contains("VisualAttackPose = ActorAnimationCatalog.PoseFor", actor);
         Assert.Contains("OnAttackDelivered(AttackWeapon);", actor);
         Assert.True(actor.IndexOf("VisualAttackSequence++;", StringComparison.Ordinal)
                     < actor.IndexOf("OnAttackDelivered(AttackWeapon);", StringComparison.Ordinal));
         Assert.Contains("DrawSetTransform(pose.Offset, pose.Rotation, pose.Scale);", sprite);
         Assert.Contains("DrawWornEquipment(r, directionColumn);", sprite);
         Assert.Contains("DrawHeldEquipmentPass(r, directionColumn, behindBody: false);", sprite);
+        Assert.Contains("ActorAttackFrameCatalog.PathFor", sprite);
+        Assert.Contains("visual.Kind == EquipmentVisualKind.Weapon", sprite);
+        Assert.Contains("WeaponAttackPose.TwoHandThrust => f * r * 0.82f", sprite);
     }
 
     [Fact]
