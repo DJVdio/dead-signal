@@ -68,6 +68,13 @@ public sealed class VisualProductionAssetTests
         AssertAsset("res://assets/cg/military-escape.png");
         AssertAsset("res://assets/cg/horde-escape.png");
         AssertAsset("res://assets/cg/family-win.png");
+        foreach (string cinematic in new[]
+                 {
+                     "res://assets/world/cinematics/horde-overview.png",
+                     "res://assets/world/cinematics/canyon-bridge-raised.png",
+                     "res://assets/world/cinematics/canyon-bridge-lowered.png",
+                 })
+            AssertPngSize(cinematic, 1672, 941);
     }
 
     [Fact]
@@ -109,6 +116,21 @@ public sealed class VisualProductionAssetTests
         Assert.Contains("horde-escape.png", bad);
         Assert.Contains("military-escape.png", bad);
         Assert.Contains("family-win.png", win);
+    }
+
+    [Fact]
+    public void RuntimeWiresBothRisingOverviewCinematics()
+    {
+        string lookout = Read("godot/scripts/HordeLookoutCinematic.cs");
+        string corridor = Read("godot/scripts/EscapeCorridor.cs");
+        Assert.Contains("OverviewTexturePath", lookout);
+        Assert.Contains("HordeRiseDurationSeconds", lookout);
+        Assert.Contains("DrawOverviewBackground", lookout);
+        Assert.Contains("RaisedBridgeBackdropPath", corridor);
+        Assert.Contains("LoweredBridgeBackdropPath", corridor);
+        Assert.Contains("BeginCanyonOverview", corridor);
+        Assert.Contains("CinematicHold = true", corridor);
+        Assert.Contains("CanyonTargetZoom", corridor);
     }
 
     private static void AssertAsset(string resourcePath)

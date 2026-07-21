@@ -17,12 +17,16 @@ namespace DeadSignal.Godot;
 ///     首个 Pawn 踏入终点即触发、峡谷＝「未落下的大桥」+「两个哨兵冷眼」（<see cref="BuildCanyonProps"/> dark 分支）。
 ///   · 举家 WIN（FamilyMode=true）：放**全员**（列成一列）、跟随者自动跟排头、相机取景**全队**、**全员到齐**才触发、
 ///     峡谷＝「大桥落下」+「迎接者」（<see cref="BuildCanyonProps"/> WIN 分支）。
-/// 美术为**占位**（用户日后 author）：密林＝两侧深色障碍带夹出中央窄道。
+/// 峡谷终点使用正式全景背景；到齐后先冻结世界并将相机缓慢升高俯瞰全局，再交棒给结局面板。
+/// 密林廊道仍由统一世界材质与实体障碍构成。
 /// 自包含（仿 <see cref="TestExploration"/>）：自建地形/相机/导航/终点区，不铺发现点、不放敌人、不铺战斗。
 /// </para>
 /// </summary>
 public sealed partial class EscapeCorridor : ExplorationLevel
 {
+    public const string RaisedBridgeBackdropPath = "res://assets/world/cinematics/canyon-bridge-raised.png";
+    public const string LoweredBridgeBackdropPath = "res://assets/world/cinematics/canyon-bridge-lowered.png";
+
     /// <summary>
     /// 全员行军模式（举家南逃 WIN）：放全员、跟随者自动跟排头、相机取景全队、**全员到齐**才触发终点。
     /// 默认 false＝单人坏结局（放 [0]、跟单人、首个到达即触发）——CampMain 在 Initialize 前置位。
@@ -37,6 +41,7 @@ public sealed partial class EscapeCorridor : ExplorationLevel
 
     private static readonly Vector2 SpawnPoint = new(LaneCx, 220f);              // 南逃者出生（北端）
     private static readonly Vector2 CanyonZonePos = new(LaneCx, LevelH - 200f);  // 峡谷终点区（南端）
+    private static readonly Vector2 CanyonBackdropCenter = new(LaneCx, LevelH - 160f);
     private const float CanyonZoneSize = 150f;
 
     private CameraController _camera = null!;
@@ -49,6 +54,12 @@ public sealed partial class EscapeCorridor : ExplorationLevel
     private readonly List<Pawn> _team = new();     // 全员 WIN：全队（含排头，用于取景/到齐判定）
     private bool _reached; // 终点只触发一次
     private double _followThrottle; // 跟随者重发 CommandMoveTo 的节流累加（避免每帧抖 nav agent）
+    private bool _canyonOverviewActive;
+    private bool _canyonOverviewEmitted;
+    private float _canyonOverviewElapsed;
+    private ulong _lastOverviewMs;
+    private Vector2 _overviewStartPosition;
+    private Vector2 _overviewStartZoom;
 
     private readonly List<Rect2> _obstructions = new();
 
@@ -68,6 +79,12 @@ public sealed partial class EscapeCorridor : ExplorationLevel
     {
         if (_camera == null || !IsInstanceValid(_camera))
             return;
+
+        if (_canyonOverviewActive)
+        {
+            TickCanyonOverview();
+            return;
+        }
 
         if (!FamilyMode)
         {
@@ -107,10 +124,7 @@ public sealed partial class EscapeCorridor : ExplorationLevel
 
         // 全员到齐：所有存活队员都进了终点区 → 触发一次谢幕。
         if (!_reached && AllInCanyonZone(living))
-        {
-            _reached = true;
-            Callable.From(() => OnReachedCanyon?.Invoke()).CallDeferred();
-        }
+            BeginCanyonOverview();
     }
 
     private List<Pawn> LivingTeam()
@@ -166,10 +180,29 @@ public sealed partial class EscapeCorridor : ExplorationLevel
         BuildCanyonProps();
     }
 
-    // —— 峡谷终点占位美术（authored 占位，用户日后换真美术）——
-    //   坏结局 dark：未落下的大桥 + 两个哨兵冷眼；举家 WIN：大桥落下（搭到近岸）+ 迎接者（暖色·招手）。
+    // —— 峡谷终点正式美术 ——
+    //   坏结局 dark：未落下的大桥 + 两个哨兵冷眼；举家 WIN：大桥落下（搭到近岸）+ 三名迎接者。
     private void BuildCanyonProps()
     {
+        string path = FamilyMode ? LoweredBridgeBackdropPath : RaisedBridgeBackdropPath;
+        Texture2D? texture = GD.Load<Texture2D>(path);
+        if (texture is not null)
+        {
+            const float displayWidth = 1600f;
+            float scale = displayWidth / texture.GetWidth();
+            _isoLayer.AddChild(new Sprite2D
+            {
+                Texture = texture,
+                Position = Iso.Project(CanyonBackdropCenter),
+                Scale = new Vector2(scale, scale),
+                Centered = true,
+                TextureFilter = TextureFilterEnum.Nearest,
+                ZIndex = -15,
+            });
+            return;
+        }
+
+        // 资源加载失败时保留旧矢量语义，避免终局出现空白。
         // 峡谷裂隙（横贯的深渊带·两分支共用）。
         float chasmY = CanyonZonePos.Y + 40f;
         AddIsoPolygon(Quad(new Vector2(WallT, chasmY), new Vector2(LevelW - WallT * 2, 90f)), new Color(0.02f, 0.02f, 0.03f), -10);
@@ -245,11 +278,6 @@ public sealed partial class EscapeCorridor : ExplorationLevel
 
     private void SetupCanyonEndpoint()
     {
-        // 终点区视觉提示（南端·占位）。
-        AddIsoPolygon(
-            Quad(CanyonZonePos - new Vector2(CanyonZoneSize / 2f, CanyonZoneSize / 2f), new Vector2(CanyonZoneSize, CanyonZoneSize)),
-            new Color(0.5f, 0.45f, 0.2f, 0.28f), 9);
-
         _canyonZone = new Area2D { Position = CanyonZonePos };
         _canyonZone.AddChild(new CollisionShape2D { Shape = new RectangleShape2D { Size = new Vector2(CanyonZoneSize, CanyonZoneSize) } });
         _canyonZone.CollisionMask = 0b0001u; // 侦测 Pawn（同 TestExploration 返回区口径）
@@ -262,8 +290,44 @@ public sealed partial class EscapeCorridor : ExplorationLevel
         // 全员 WIN：终点触发改由 _Process「全员到齐」判定，Area2D 单体 BodyEntered 不作数（否则首个到达即误触）。
         if (FamilyMode || _reached || body is not Pawn)
             return;
+        BeginCanyonOverview();
+    }
+
+    /// <summary>终点到达后冻结角色与世界，用真实时钟把相机从角色近景缓慢升到峡谷全局俯瞰。</summary>
+    private void BeginCanyonOverview()
+    {
+        if (_reached || _canyonOverviewActive)
+            return;
         _reached = true;
-        Callable.From(() => OnReachedCanyon?.Invoke()).CallDeferred();
+        _canyonOverviewActive = true;
+        _canyonOverviewElapsed = 0f;
+        _lastOverviewMs = Time.GetTicksMsec();
+        _overviewStartPosition = _camera.Position;
+        _overviewStartZoom = _camera.Zoom;
+        _camera.CinematicHold = true;
+        ProcessMode = ProcessModeEnum.Always;
+        Engine.TimeScale = 0f;
+    }
+
+    private void TickCanyonOverview()
+    {
+        ulong now = Time.GetTicksMsec();
+        float dt = (now - _lastOverviewMs) / 1000f;
+        _lastOverviewMs = now;
+        _canyonOverviewElapsed += Mathf.Min(dt, 0.1f);
+
+        float eased = CinematicOverview.EasedProgress(
+            _canyonOverviewElapsed, 0f, CinematicOverview.CanyonRiseDurationSeconds);
+        Vector2 targetPosition = Iso.Project(CanyonBackdropCenter) + new Vector2(0f, -55f);
+        var targetZoom = new Vector2(CinematicOverview.CanyonTargetZoom, CinematicOverview.CanyonTargetZoom);
+        _camera.Position = _overviewStartPosition.Lerp(targetPosition, eased);
+        _camera.Zoom = _overviewStartZoom.Lerp(targetZoom, eased);
+
+        if (eased >= 1f && !_canyonOverviewEmitted)
+        {
+            _canyonOverviewEmitted = true;
+            Callable.From(() => OnReachedCanyon?.Invoke()).CallDeferred();
+        }
     }
 
     private void PlaceEscapee()

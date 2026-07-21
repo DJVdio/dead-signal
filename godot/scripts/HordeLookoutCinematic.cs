@@ -5,7 +5,7 @@ using Godot;
 namespace DeadSignal.Godot;
 
 /// <summary>
-/// 「望远镜瞭望尸潮」全屏演出（占位美术、全程序化自绘，不需外部资产）。
+/// 「望远镜瞭望尸潮」全屏演出：正式俯瞰背景 + 程序化移动尸群与双筒遮罩。
 ///
 /// 语义：瞭望台关卡内与望远镜交互 → 弹出本演出。透过望远镜（双圆遮罩+暗角）远眺正北——
 /// 地平线上黑压压的「上百万」尸潮缓缓向镜头（南）蠕动：远处压缩成一堵蠕动的暗墙，越近个体越大越疏，
@@ -78,6 +78,8 @@ public sealed partial class HordeLookoutCinematic : CanvasLayer
 /// </summary>
 public sealed partial class HordeVista : Control
 {
+    public const string OverviewTexturePath = "res://assets/world/cinematics/horde-overview.png";
+
     // —— 时长/淡入淡出（秒，拟定待调，落在派单的 8~15s 区间）——
     private const float DurationSec = 11f;
     private const float FadeInSec = 0.5f;
@@ -117,6 +119,7 @@ public sealed partial class HordeVista : Control
 
     private readonly RandomNumberGenerator _rng = new();
     private Label _skipHint = null!;
+    private Texture2D? _overviewTexture;
 
     // —— 调色（暗、冷、脏，克制压抑）——
     private static readonly Color SkyTop = new(0.02f, 0.03f, 0.045f);
@@ -136,6 +139,7 @@ public sealed partial class HordeVista : Control
         _rng.Randomize();
         BuildDotField();
         BuildStragglers();
+        _overviewTexture = GD.Load<Texture2D>(OverviewTexturePath);
 
         _skipHint = new Label { Text = "按任意键跳过" };
         _skipHint.AddThemeFontSizeOverride("font_size", 13);
@@ -339,20 +343,46 @@ public sealed partial class HordeVista : Control
             return;
         }
 
-        // 镜头呼吸/漂移：整景轻微横纵晃动，缓慢深呼吸缩放（只作用于内景，遮罩固定）。
+        // 先在双筒近景中观察；随后镜头缓慢升高，中央裁切逐渐扩为完整俯瞰，双筒边框同时退出。
+        float overview = CinematicOverview.EasedProgress(
+            _elapsed,
+            CinematicOverview.HordeRiseStartSeconds,
+            CinematicOverview.HordeRiseDurationSeconds);
         float breathX = Mathf.Sin(_elapsed * 0.55f) * 3.5f;
         float breathY = Mathf.Cos(_elapsed * 0.4f) * 2.2f;
         float pulse = 1f + Mathf.Sin(_elapsed * 0.5f) * 0.03f;
         float hy = _horizonY + breathY;
 
-        DrawSkyAndGround(hy);
-        DrawHordeMass(hy, breathX, pulse);
-        DrawStragglers(hy, breathX, pulse);
-        DrawVignette();
-        DrawMask();
-        DrawReticle();
-        DrawLensRim();
+        if (_overviewTexture is not null)
+            DrawOverviewBackground(overview);
+        else
+            DrawSkyAndGround(hy);
+        float movingOverlayAlpha = Mathf.Lerp(1f, 0.28f, overview);
+        DrawHordeMass(hy, breathX, pulse, movingOverlayAlpha);
+        DrawStragglers(hy, breathX, pulse, movingOverlayAlpha);
+        float lensAlpha = 1f - overview;
+        DrawVignette(lensAlpha);
+        DrawMask(lensAlpha);
+        DrawReticle(lensAlpha);
+        DrawLensRim(lensAlpha);
         DrawFadeCover();
+    }
+
+    private void DrawOverviewBackground(float overview)
+    {
+        if (_overviewTexture is null)
+            return;
+        float w = _overviewTexture.GetWidth();
+        float h = _overviewTexture.GetHeight();
+        float cropScale = Mathf.Lerp(0.52f, 1f, overview);
+        var cropSize = new Vector2(w * cropScale, h * cropScale);
+        // 近景稍偏下，先看见尸群个体；升高后回到整张全局构图。
+        var center = new Vector2(w * 0.5f, Mathf.Lerp(h * 0.63f, h * 0.5f, overview));
+        var source = new Rect2(center - cropSize / 2f, cropSize);
+        source.Position = new Vector2(
+            Mathf.Clamp(source.Position.X, 0f, w - source.Size.X),
+            Mathf.Clamp(source.Position.Y, 0f, h - source.Size.Y));
+        DrawTextureRectRegion(_overviewTexture, new Rect2(Vector2.Zero, _size), source);
     }
 
     private void DrawSkyAndGround(float hy)
@@ -377,16 +407,16 @@ public sealed partial class HordeVista : Control
     }
 
     /// <summary>远处压缩成一堵蠕动暗墙（地平线密带），近处个体渐大渐疏——「上百万」尸潮向镜头缓移。</summary>
-    private void DrawHordeMass(float hy, float breathX, float pulse)
+    private void DrawHordeMass(float hy, float breathX, float pulse, float alphaMultiplier)
     {
         float mid = _size.X * 0.5f;
         float bottom = _size.Y * 0.98f;
 
         // 地平线暗墙：贴地平线一条被无数远尸压实的暗带（密度上重下轻）。
         DrawRect(new Rect2(0, hy, _size.X, _radius * 0.16f),
-            new Color(HordeCol.R, HordeCol.G, HordeCol.B, 0.92f));
+            new Color(HordeCol.R, HordeCol.G, HordeCol.B, 0.92f * alphaMultiplier));
         DrawRect(new Rect2(0, hy + _radius * 0.16f, _size.X, _radius * 0.1f),
-            new Color(HordeCol.R, HordeCol.G, HordeCol.B, 0.5f));
+            new Color(HordeCol.R, HordeCol.G, HordeCol.B, 0.5f * alphaMultiplier));
 
         for (int i = 0; i < _u.Length; i++)
         {
@@ -400,14 +430,14 @@ public sealed partial class HordeVista : Control
             float sz = Mathf.Lerp(1.1f, 4.4f, u) * _sizeJit[i] * pulse;
             float a = Mathf.Lerp(0.5f, 0.95f, u);
             Color c = HordeCol.Lerp(new Color(0.09f, 0.1f, 0.09f), u);
-            c.A = a;
+            c.A = a * alphaMultiplier;
             // 站立个体：略高于宽的暗块（像素风）。
             DrawRect(new Rect2(x - sz * 0.5f, y - sz * 0.7f, sz, sz * 1.4f), c);
         }
     }
 
     /// <summary>前景零星掉队者剪影（头+躯干+分腿），给出尺度参照，蹒跚南下。</summary>
-    private void DrawStragglers(float hy, float breathX, float pulse)
+    private void DrawStragglers(float hy, float breathX, float pulse, float alphaMultiplier)
     {
         float mid = _size.X * 0.5f;
         float bottom = _size.Y * 1.02f;
@@ -419,13 +449,13 @@ public sealed partial class HordeVista : Control
             float sway = Mathf.Sin(_elapsed * 0.9f + _sphase[i]) * 5f;
             float x = mid + _sx[i] * ext + sway + breathX;
             float scale = Mathf.Lerp(6f, 15f, u) * pulse;
-            DrawSilhouette(new Vector2(x, y), scale, _elapsed + _sphase[i]);
+            DrawSilhouette(new Vector2(x, y), scale, _elapsed + _sphase[i], alphaMultiplier);
         }
     }
 
-    private void DrawSilhouette(Vector2 foot, float s, float t)
+    private void DrawSilhouette(Vector2 foot, float s, float t, float alphaMultiplier)
     {
-        Color body = new(0.03f, 0.035f, 0.03f, 0.96f);
+        Color body = new(0.03f, 0.035f, 0.03f, 0.96f * alphaMultiplier);
         float lurch = Mathf.Sin(t * 2.4f) * s * 0.12f; // 蹒跚左右倾
         // 躯干（压扁椭圆近似成矩形叠头）。
         DrawRect(new Rect2(foot.X - s * 0.28f + lurch, foot.Y - s * 1.7f, s * 0.56f, s * 1.25f), body);
@@ -437,7 +467,7 @@ public sealed partial class HordeVista : Control
     }
 
     /// <summary>圆内暗角：由内向外叠黑环，越近镜缘越暗（望远镜观感）。</summary>
-    private void DrawVignette()
+    private void DrawVignette(float alphaMultiplier)
     {
         const int rings = 14;
         foreach (float cx in new[] { _cx1, _cx2 })
@@ -447,16 +477,18 @@ public sealed partial class HordeVista : Control
             {
                 float f = i / (float)(rings - 1);
                 float rr = Mathf.Lerp(_radius * 0.52f, _radius, f);
-                float a = Mathf.Lerp(0f, 0.55f, f * f);
+                float a = Mathf.Lerp(0f, 0.55f, f * f) * alphaMultiplier;
                 DrawArc(center, rr, 0f, Mathf.Tau, 56, new Color(0, 0, 0, a),
                     _radius * 0.5f / rings * 2.2f, false);
             }
         }
     }
 
-    private void DrawMask()
+    private void DrawMask(float alphaMultiplier)
     {
-        var black = new Color(0, 0, 0, 1);
+        if (alphaMultiplier <= 0.001f)
+            return;
+        var black = new Color(0, 0, 0, alphaMultiplier);
         foreach (Rect2 r in _maskRects)
         {
             DrawRect(r, black);
@@ -464,12 +496,13 @@ public sealed partial class HordeVista : Control
     }
 
     /// <summary>望远镜准星：中央十字丝 + 短刻度（低透明，克制）。</summary>
-    private void DrawReticle()
+    private void DrawReticle(float alphaMultiplier)
     {
+        Color reticle = new(Reticle.R, Reticle.G, Reticle.B, Reticle.A * alphaMultiplier);
         float mid = _size.X * 0.5f;
         float span = _radius * 0.68f;
-        DrawLine(new Vector2(_cx1 - span, _cy), new Vector2(_cx2 + span, _cy), Reticle, 1f);
-        DrawLine(new Vector2(mid, _cy - span), new Vector2(mid, _cy + span), Reticle, 1f);
+        DrawLine(new Vector2(_cx1 - span, _cy), new Vector2(_cx2 + span, _cy), reticle, 1f);
+        DrawLine(new Vector2(mid, _cy - span), new Vector2(mid, _cy + span), reticle, 1f);
         for (int i = -3; i <= 3; i++)
         {
             if (i == 0)
@@ -477,14 +510,15 @@ public sealed partial class HordeVista : Control
                 continue;
             }
             float x = mid + i * span * 0.22f;
-            DrawLine(new Vector2(x, _cy - 4f), new Vector2(x, _cy + 4f), Reticle, 1f);
+            DrawLine(new Vector2(x, _cy - 4f), new Vector2(x, _cy + 4f), reticle, 1f);
         }
     }
 
-    private void DrawLensRim()
+    private void DrawLensRim(float alphaMultiplier)
     {
-        DrawArc(new Vector2(_cx1, _cy), _radius, 0f, Mathf.Tau, 72, LensRim, 2f, true);
-        DrawArc(new Vector2(_cx2, _cy), _radius, 0f, Mathf.Tau, 72, LensRim, 2f, true);
+        Color rim = new(LensRim.R, LensRim.G, LensRim.B, LensRim.A * alphaMultiplier);
+        DrawArc(new Vector2(_cx1, _cy), _radius, 0f, Mathf.Tau, 72, rim, 2f, true);
+        DrawArc(new Vector2(_cx2, _cy), _radius, 0f, Mathf.Tau, 72, rim, 2f, true);
     }
 
     /// <summary>首尾黑场：淡入(1→0)/淡出(0→1) 一层全屏黑，收尾全黑时干净交棒后续剧情面板。</summary>
