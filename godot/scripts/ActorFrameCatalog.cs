@@ -2,11 +2,11 @@ using System;
 
 namespace DeadSignal.Godot;
 
-/// <summary>逐帧角色图集目录。AI 原图稳定为 12 列动作 × 7 行方向；东南方向复用东向行。</summary>
+/// <summary>逐帧角色图集目录。12 列动作 × 8 行方向，与站立图集方向顺序一致。</summary>
 public static class ActorFrameCatalog
 {
     public const int Columns = 12;
-    public const int Rows = 7;
+    public const int Rows = 8;
     public const string Root = "res://assets/world/animations";
 
     public static string PathFor(string? displayName, string actorKind) => displayName switch
@@ -24,6 +24,10 @@ public static class ActorFrameCatalog
 
     public static int RowForDirection(int directionColumn)
         => Math.Clamp(directionColumn, 0, Rows - 1);
+
+    /// <summary>东南行由西南整行镜像而来；整行镜像会反转动作列，取样时反向映射回来。</summary>
+    public static int SourceColumnForDirection(int directionColumn, int actionColumn)
+        => directionColumn == Rows - 1 ? Columns - 1 - actionColumn : actionColumn;
 
     public static int ColumnFor(ActorAnimationState state, double clock, float attackProgress) => state switch
     {

@@ -543,8 +543,9 @@ public sealed partial class ActorSprite : Node2D
         float progress = _attackAnimDuration <= 0f
             ? 1f
             : 1f - Mathf.Clamp(_attackAnimTime / _attackAnimDuration, 0f, 1f);
-        int col = ActorFrameCatalog.ColumnFor(_animationState, _animationClock, progress);
         int row = ActorFrameCatalog.RowForDirection(DirectionColumn());
+        int actionCol = ActorFrameCatalog.ColumnFor(_animationState, _animationClock, progress);
+        int col = ActorFrameCatalog.SourceColumnForDirection(row, actionCol);
         float cellW = atlas.GetWidth() / (float)ActorFrameCatalog.Columns;
         float cellH = atlas.GetHeight() / (float)ActorFrameCatalog.Rows;
         var source = new Rect2(col * cellW, row * cellH, cellW, cellH);

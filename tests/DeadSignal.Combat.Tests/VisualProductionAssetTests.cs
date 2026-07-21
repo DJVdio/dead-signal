@@ -24,7 +24,22 @@ public sealed class VisualProductionAssetTests
         foreach (ActorAnimationState state in Enum.GetValues<ActorAnimationState>())
             Assert.InRange(ActorFrameCatalog.ColumnFor(state, 1.25, 0.75f), 0, ActorFrameCatalog.Columns - 1);
         for (int direction = 0; direction < 8; direction++)
-            Assert.InRange(ActorFrameCatalog.RowForDirection(direction), 0, ActorFrameCatalog.Rows - 1);
+            Assert.Equal(direction, ActorFrameCatalog.RowForDirection(direction));
+        for (int action = 0; action < ActorFrameCatalog.Columns; action++)
+        {
+            Assert.Equal(action, ActorFrameCatalog.SourceColumnForDirection(6, action));
+            Assert.Equal(ActorFrameCatalog.Columns - 1 - action, ActorFrameCatalog.SourceColumnForDirection(7, action));
+        }
+    }
+
+    [Fact]
+    public void EveryFrameAtlasIsAnExactTwelveByEightGrid()
+    {
+        string[] names = { "山姆", "诺蒂", "克莉丝汀", "耗子", "道格", "南丁格尔", "皮特", "布鲁斯" };
+        foreach (string name in names)
+            AssertPngGrid(ActorFrameCatalog.PathFor(name, "survivor"));
+        foreach (string kind in new[] { "survivor", "raider", "zombie", "dog" })
+            AssertPngGrid(ActorFrameCatalog.PathFor(null, kind));
     }
 
     [Fact]
@@ -55,6 +70,28 @@ public sealed class VisualProductionAssetTests
 
     private static void AssertAsset(string resourcePath)
         => Assert.True(File.Exists(Path.Combine(RepoRoot(), "godot", resourcePath[6..].Replace('/', Path.DirectorySeparatorChar))), resourcePath);
+
+    private static void AssertPngGrid(string resourcePath)
+    {
+        string path = Path.Combine(RepoRoot(), "godot", resourcePath[6..].Replace('/', Path.DirectorySeparatorChar));
+        using var stream = File.OpenRead(path);
+        using var reader = new BinaryReader(stream);
+        stream.Position = 16;
+        int width = ReadBigEndianInt32(reader);
+        int height = ReadBigEndianInt32(reader);
+        Assert.Equal(0, width % ActorFrameCatalog.Columns);
+        Assert.Equal(0, height % ActorFrameCatalog.Rows);
+        Assert.Equal(128, width / ActorFrameCatalog.Columns);
+        Assert.Equal(147, height / ActorFrameCatalog.Rows);
+    }
+
+    private static int ReadBigEndianInt32(BinaryReader reader)
+    {
+        byte[] bytes = reader.ReadBytes(4);
+        if (BitConverter.IsLittleEndian)
+            Array.Reverse(bytes);
+        return BitConverter.ToInt32(bytes, 0);
+    }
 
     private static string Read(string relative) => File.ReadAllText(Path.Combine(RepoRoot(), relative));
 
