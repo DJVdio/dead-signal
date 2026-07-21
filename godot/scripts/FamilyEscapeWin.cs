@@ -57,11 +57,20 @@ public static class FamilyEscapeWin
 
     /// <summary>
     /// 记录**全营南逃名单**并置 WIN 达成 flag（好结局 outcome）。名/ id 分两串平行存（<see cref="RecordSep"/> 分隔）。
-    /// 幂等覆盖（重复调用以最后一次为准）；flags 为空或名单为空则不置 WIN flag（无人可逃不算达成）。
+    /// <b>首次终局结果锁死</b>：坏结局已经激活，或 WIN 已经记录时不再覆盖；
+    /// flags 为空或名单为空则不置 WIN flag（无人可逃不算达成）。
     /// </summary>
     public static void RecordFamily(StoryFlags flags, IReadOnlyList<Member> roster)
     {
-        if (flags == null || roster == null || roster.Count == 0) return;
+        if (flags == null
+            || roster == null
+            || roster.Count == 0
+            || SouthEscapeEnding.IsSequenceActive(flags)
+            || SouthEscapeEnding.HasEscapee(flags)
+            || HasWon(flags))
+        {
+            return;
+        }
         var names = new StringBuilder();
         var ids = new StringBuilder();
         for (int i = 0; i < roster.Count; i++)
@@ -104,10 +113,16 @@ public static class FamilyEscapeWin
     /// <summary>举家南逃是否已启程（WIN 序列已触发过）。</summary>
     public static bool HasDeparted(StoryFlags flags) => flags != null && flags.Has(DepartedFlag);
 
-    /// <summary>一次性置"已启程"：首次返回 true，其后恒 false（防重复触发 WIN 序列）。</summary>
+    /// <summary>一次性置"已启程"：首次返回 true，其后恒 false；坏结局已激活时也返回 false（防结局串线）。</summary>
     public static bool MarkDeparted(StoryFlags flags)
     {
-        if (flags == null || flags.Has(DepartedFlag)) return false;
+        if (flags == null
+            || flags.Has(DepartedFlag)
+            || SouthEscapeEnding.IsSequenceActive(flags)
+            || SouthEscapeEnding.HasEscapee(flags))
+        {
+            return false;
+        }
         flags.Set(DepartedFlag, "true");
         return true;
     }

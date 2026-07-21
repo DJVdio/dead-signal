@@ -24,18 +24,30 @@ namespace DeadSignal.Godot;
 public sealed partial class CampMain
 {
     /// <summary>
-    /// 🟢 启动「举家南逃 WIN」好结局序列。<see cref="ConfirmSouthDeparture"/> 二次确认通过后调（已由 <see cref="FamilyEscapeWin.MarkDeparted"/> 去重）。
-    /// 记录全营存活名单（第二幕延续点）+ 置 WIN outcome flag，进全员行军段。幂等（进行中再调无效）。
+    /// 🟢 启动「举家南逃 WIN」好结局序列。<see cref="ConfirmSouthDeparture"/> 二次确认通过后调。
+    /// 先确认全营仍有存活者，再由 <see cref="FamilyEscapeWin.MarkDeparted"/> 去重，记录全营名单并置 WIN outcome flag，
+    /// 最后进入全员行军段。没有存活者时返回 false，不消费启程 flag、不锁终局。
     /// </summary>
-    private void BeginFamilyEscapeWin()
+    private bool BeginFamilyEscapeWin()
     {
         if (_southEscapeActive)
-            return;
+            return false;
+
+        // 先确认至少一名存活者，再锁终局。否则确认面板与死亡事件同帧竞态时，会留下
+        // _gameOver=true / departed=true、却没有名单也无法载入走廊的半终局。
+        var family = _survivors.Where(s => s.Alive && IsInstanceValid(s)).ToList();
+        if (family.Count == 0)
+        {
+            GD.Print("[举家南逃 WIN] 启程时已无存活者，取消终局锁定；全灭由 GameOverCondition 接管。");
+            return false;
+        }
+        if (!FamilyEscapeWin.MarkDeparted(_storyFlags))
+            return false; // 已启程过或坏结局已锁定
+
         _southEscapeActive = true; // 复用南逃走廊相位停摆守卫（OnGamePhaseChanged 最前）
         _gameOver = true;          // 好结局终局：停掉全灭/围攻/其它路由
 
         // 全营存活者 = 举家南逃名单（全员延续到第二幕「峡谷营地」）。
-        var family = _survivors.Where(s => s.Alive && IsInstanceValid(s)).ToList();
         var roster = family
             .Select(p => new FamilyEscapeWin.Member(p.DisplayName, p.Id.ToString()))
             .ToList();
@@ -43,6 +55,7 @@ public sealed partial class CampMain
         GD.Print($"[举家南逃 WIN] 触发：全营 {family.Count} 人列队向南（名单已持久化，为第二幕全员延续留接口）。载入全员行军走廊。");
 
         LoadEscapeCorridorFamily(family);
+        return true;
     }
 
     /// <summary>

@@ -5,12 +5,12 @@ namespace DeadSignal.Godot;
 // 注意：本文件为**纯 C# 逻辑**，不得引入任何 Godot 类型
 // （与 GameOverCondition.cs / RaidWave.cs 一样被 DeadSignal.Combat.Tests 以 Link 方式编入单测）。
 //
-// 承载「尸潮时限」规则：游戏从第 1 天起隐性倒计时，到期尸潮抵达 → 无限波次围攻直至全灭。
+// 承载「尸潮时限」规则：游戏从第 1 天起隐性倒计时，到期尸潮抵达 → 强制屠营并进入单角色南逃谢幕。
 // 计时不依赖玩家是否发现——「城市之巅瞭望观景台」望远镜交互只置旗标 SightedFlag（解锁 UI 知情/显示），
-// 不影响时限推进。到期后是**无生还的终局**（有意为之的黑暗设定，不当平衡问题软化）。
+// 不影响时限推进。到期后是**坏结局强制终局**（有意为之的黑暗设定，不当平衡问题软化）。
 // 只出纯判定/调度，弹窗/生成/施伤归 Godot 运行时层（CampMain）。
 
-/// <summary>尸潮相位：未发现(隐性计时中) / 已望见(解锁显示，仍在计时) / 已抵达(终局无限围攻)。</summary>
+/// <summary>尸潮阶段：未发现(隐性计时中) / 已望见(解锁显示，仍在计时) / 已抵达(强制终局)。</summary>
 public enum HordePhase
 {
     Hidden,
@@ -39,7 +39,7 @@ public static class HordeTimeline
     /// <summary>望见尸潮的剧情旗标键（瞭望台望远镜交互置位；ui-countdown/loot-story 等只消费）。</summary>
     public const string SightedFlag = "horde_sighted";
 
-    /// <summary>尸潮已抵达（终局围攻已启动）的剧情旗标键（CampMain 触发终局时置位）。</summary>
+    /// <summary>尸潮已抵达（尸潮屠营南逃谢幕已启动）的剧情旗标键（CampMain 触发终局时置位）。</summary>
     public const string ArrivedFlag = "horde_arrived";
 
     /// <summary>
@@ -80,8 +80,10 @@ public static class HordeTimeline
         return Evaluate(day, sighted) == HordePhase.Arrived;
     }
 
-    // ---------------- 到期终局：无限围攻波次调度 ----------------
+    // ---------------- 遗留：旧可玩无限围攻波次调度 ----------------
     //
+    // 正史 day-40 入口已改走 CampMain.TryTriggerHordeSiegeEnding → 南逃谢幕；下列函数仅供旧
+    // TriggerHordeSiege 遗留运行时与数值测试保留，不再是到期终局入口。
     // 「无限量」的运行时安全实现：每波是有限批（可渲染，不一次性生成上百万实例把 Godot 撑爆），
     // 但波次**永不停轮**且规模逐波递增——残敌被压到阈值以下、或超过最长间隔即补下一波。
     // 无「守住」出口：唯一终止是 GameOverCondition 全灭。CampMain 逐帧喂当前残敌数/距上波时间，

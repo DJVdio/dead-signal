@@ -78,6 +78,35 @@ public sealed class SouthEscapeEndingTests
         Assert.True(SouthEscapeEnding.IsSequenceActive(restored));
     }
 
+    [Fact]
+    public void RecordEscapee_FirstTerminalOutcomeWinsAcrossSaveRestore()
+    {
+        var flags = new StoryFlags();
+        SouthEscapeEnding.RecordEscapee(flags, "山姆", "pawn_sam", SouthEscapeTrigger.MilitaryRaid);
+
+        // 模拟读档后旧入口再次被调用：终局身份与触发源必须保持首次结果，不能从军袭串成尸潮。
+        var restored = new StoryFlags(flags.Snapshot());
+        SouthEscapeEnding.RecordEscapee(restored, "诺蒂", "pawn_notty", SouthEscapeTrigger.HordeSiege);
+
+        Assert.Equal("山姆", SouthEscapeEnding.EscapeeName(restored));
+        Assert.Equal("pawn_sam", SouthEscapeEnding.EscapeeId(restored));
+        Assert.Equal(SouthEscapeTrigger.MilitaryRaid, SouthEscapeEnding.TriggerOf(restored));
+    }
+
+    [Fact]
+    public void RecordEscapee_CannotOverwriteFamilyDepartureOrWin()
+    {
+        var flags = new StoryFlags();
+        Assert.True(FamilyEscapeWin.MarkDeparted(flags));
+        FamilyEscapeWin.RecordFamily(flags, new[] { new FamilyEscapeWin.Member("克莉丝汀", "3") });
+
+        SouthEscapeEnding.RecordEscapee(flags, "山姆", "pawn_sam", SouthEscapeTrigger.HordeSiege);
+
+        Assert.True(FamilyEscapeWin.HasWon(flags));
+        Assert.False(SouthEscapeEnding.IsSequenceActive(flags));
+        Assert.False(SouthEscapeEnding.HasEscapee(flags));
+    }
+
     // —— 第 40 天尸潮终局路由（复用回归锁：CampMain.TryTriggerHordeSiegeEnding 的组合决策）——
 
     [Fact]

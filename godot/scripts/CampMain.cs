@@ -7617,17 +7617,19 @@ public sealed partial class CampMain : Node2D
     /// </summary>
     private bool TryTriggerMilitaryRaid()
     {
-        if (!RadioMainline.TryFireMilitaryRaidHook(_storyFlags, _clock.Day))
-            return false;
-
-        // 随机一名存活幸存者半残南逃（掷点走可注入源）；无人存活则兜底不启动（不应发生，全灭另有路由）。
+        // 先确认确有南逃者，再消费一次性军袭钩子。否则健康日结算刚好杀光全营时，不能留下
+        // “军袭已触发但终局序列没启动”的半终局持久态；全灭由 GameOverCondition 接管。
         var alive = _survivors.Where(s => s.Alive).ToList();
-        Pawn? escapee = SouthEscapeEnding.SelectEscapee(alive, _southEscapeRng);
-        if (escapee == null)
+        if (alive.Count == 0)
         {
             GD.Print($"[电台] 第 {_clock.Day} 天：军袭到期但无存活幸存者，跳过南逃谢幕。");
             return false;
         }
+        if (!RadioMainline.TryFireMilitaryRaidHook(_storyFlags, _clock.Day))
+            return false;
+
+        // 随机一名存活幸存者半残南逃（掷点走可注入源）。
+        Pawn escapee = SouthEscapeEnding.SelectEscapee(alive, _southEscapeRng)!;
 
         BeginSouthEscapeEnding(escapee, SouthEscapeTrigger.MilitaryRaid);
         return true;
@@ -7741,8 +7743,8 @@ public sealed partial class CampMain : Node2D
 
     /// <summary>
     /// 南逃启程二次确认（不可逆）。尸潮已至（时限到期或围攻已起）→ 错过窗口，路走不成（兜底叙事）。
-    /// 确认 → 一次性置启程 flag（<see cref="FamilyEscapeWin.MarkDeparted"/> 去重）→ **举家南逃 WIN 好结局序列**
-    /// （<see cref="BeginFamilyEscapeWin"/>：全员行军 → 大桥落下被迎接 → 胜利谢幕）。取代旧单人 text CG③ 占位。
+    /// 确认 → **举家南逃 WIN 好结局序列**（<see cref="BeginFamilyEscapeWin"/>：先确认全营非空并一次性置启程 flag，
+    /// 再全员行军 → 大桥落下被迎接 → 胜利谢幕）。取代旧单人 text CG③ 占位。
     /// </summary>
     private void ConfirmSouthDeparture()
     {
@@ -7776,11 +7778,9 @@ public sealed partial class CampMain : Node2D
                 PromptSouthDeparture(); // 再想想：回到启程入口
                 return;
             }
-            if (!FamilyEscapeWin.MarkDeparted(_storyFlags))
-                return; // 已启程过（幂等去重）
             // 🟢 好结局：举家南逃 WIN（全员行军 → 大桥落下被迎接 → 胜利谢幕）。取代旧单人 text CG③ 占位。
-            GD.Print($"[电台] 第 {_clock.Day} 天：南方三问通过，举家南逃启程（好结局 WIN），进全员行军序列。");
-            BeginFamilyEscapeWin();
+            if (BeginFamilyEscapeWin())
+                GD.Print($"[电台] 第 {_clock.Day} 天：南方三问通过，举家南逃启程（好结局 WIN），进全员行军序列。");
         };
     }
 

@@ -21,7 +21,7 @@ public enum SouthEscapeTrigger
     /// <summary>军袭结局：回复军方后军人带顶级装备屠尽全营，随机一名幸存者半残南逃。</summary>
     MilitaryRaid,
 
-    /// <summary>（预留·本单不实装）第 40 天无限尸潮结局：尸潮踏平营地，随机一名幸存者半残南逃。复用同一序列。</summary>
+    /// <summary>第 40 天尸潮结局：尸潮踏平营地，随机一名幸存者半残南逃。复用同一序列。</summary>
     HordeSiege,
 }
 
@@ -66,11 +66,19 @@ public static class SouthEscapeEnding
 
     /// <summary>
     /// 记录南逃者身份 + 触发上下文，并置序列态 flag。<paramref name="id"/> 可空（仅靠名字）。
-    /// 幂等覆盖（重复调用以最后一次为准）；flags 为空则无操作。
+    /// <b>首次终局结果锁死</b>：本序列已经激活，或举家南逃已经启程/获胜时，后续调用一律无操作，
+    /// 防止读档恢复或重复入口把逃亡者/触发源改写、以及好坏结局 flag 同时出现。flags 为空则无操作。
     /// </summary>
     public static void RecordEscapee(StoryFlags flags, string name, string? id, SouthEscapeTrigger trigger)
     {
-        if (flags == null) return;
+        if (flags == null
+            || IsSequenceActive(flags)
+            || HasEscapee(flags)
+            || FamilyEscapeWin.HasDeparted(flags)
+            || FamilyEscapeWin.HasWon(flags))
+        {
+            return;
+        }
         flags.Set(EscapeeNameKey, name);
         flags.Set(EscapeeIdKey, string.IsNullOrEmpty(id) ? null : id);
         flags.Set(TriggerKey, trigger.ToString());

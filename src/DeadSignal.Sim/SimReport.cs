@@ -2,6 +2,8 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
 
 // 全局 namespace：与本目录所有 harness（GoldfingerCalibration/Arena/…均无 namespace 声明）一致，
 // 免得它们调 SimReport 还要额外 using；其中 GoldfingerCalibration 被测试工程 Link，跨工程也要能无痛解析。
@@ -72,15 +74,27 @@ public static class SimReport
     public static readonly string[] SettlementScopePaths = { "src", "godot/scripts", "godot/data" };
 
     /// <summary>
+    /// 三份核心战斗报告真正依赖的输入范围。范围包含纯战斗引擎、全部 Sim harness 与战斗 JSON；
+    /// 不含结局/UI 等不会进入这些报告的 Godot 消费层，避免无关改动强迫重跑昂贵蒙特卡洛。
+    /// </summary>
+    public static readonly string[] CoreCombatReportInputPaths =
+    {
+        "src/DeadSignal.Combat",
+        "src/DeadSignal.Sim",
+        "godot/data/config",
+    };
+
+    /// <summary>
     /// 出处戳（机读一行 + 人读一段）。<b>确定性</b>：只由 commit 与结算路径是否脏决定，不含 wall-clock。
     /// </summary>
-    public static string Stamp()
+    public static string Stamp(string reportBodySha256 = "unknown")
     {
         // 机读定位用**完整 sha**（sweep-research-b：date 不唯一定位 commit，做 worktree 考古须能直接 checkout/worktree add
         // 到确切状态）；人读行用短 sha 更好认。
         string fullSha = Git("rev-parse", "HEAD");
         string shortSha = Git("rev-parse", "--short", "HEAD");
         string date = Git("show", "-s", "--format=%cI", "HEAD");
+        string inputSha = CoreCombatReportInputFingerprint();
 
         string dirt = Git(new[] { "status", "--porcelain", "--" }
             .Concat(SettlementScopePaths).ToArray());
@@ -99,7 +113,8 @@ public static class SimReport
 
         // 机读行：完整 sha（机器定位）+ commit-date（人读多旧）+ 结算脏文件数（不止 bool，好让日后门禁按数值判）。
         string machine =
-            $"{MachinePrefix}commit={fullSha} commit-date={date} settlement={(dirty ? $"dirty:{dirtyFiles.Length}" : "clean")} -->";
+            $"{MachinePrefix}commit={fullSha} commit-date={date} settlement={(dirty ? $"dirty:{dirtyFiles.Length}" : "clean")}" +
+            $" input-sha256={inputSha} report-sha256={reportBodySha256} -->";
         string sha = shortSha;
 
         if (!dirty)
@@ -137,7 +152,47 @@ public static class SimReport
             Directory.CreateDirectory(dir);
         }
 
-        File.WriteAllText(path, Stamp() + body);
+        string normalizedBody = body.TrimEnd('\r', '\n') + "\n";
+        File.WriteAllText(path, Stamp(ReportBodyFingerprint(normalizedBody)) + normalizedBody);
+    }
+
+    /// <summary>报告正文的确定性 SHA-256；用于发现报告表格被手改、截断或只重算了一部分。</summary>
+    public static string ReportBodyFingerprint(string body)
+        => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(body))).ToLowerInvariant();
+
+    /// <summary>
+    /// 计算核心战斗报告输入的确定性 SHA-256。路径和文件内容都参与摘要；新增、删除、改名或改内容都会使门禁变红。
+    /// </summary>
+    public static string CoreCombatReportInputFingerprint()
+    {
+        string root = Git("rev-parse", "--show-toplevel");
+        if (root.Length == 0)
+        {
+            return "unknown";
+        }
+
+        string listed = Git(new[] { "ls-files", "-z", "--cached", "--others", "--exclude-standard", "--" }
+            .Concat(CoreCombatReportInputPaths).ToArray());
+        string[] files = listed.Split('\0', StringSplitOptions.RemoveEmptyEntries)
+            .OrderBy(p => p, StringComparer.Ordinal)
+            .ToArray();
+        if (files.Length == 0)
+        {
+            return "unknown";
+        }
+
+        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        foreach (string relative in files)
+        {
+            string normalized = relative.Replace('\\', '/');
+            byte[] pathBytes = Encoding.UTF8.GetBytes(normalized);
+            hash.AppendData(pathBytes);
+            hash.AppendData(new byte[] { 0 });
+            hash.AppendData(File.ReadAllBytes(Path.Combine(root, relative)));
+            hash.AppendData(new byte[] { 0 });
+        }
+
+        return Convert.ToHexString(hash.GetHashAndReset()).ToLowerInvariant();
     }
 
     /// <summary>取 ISO 日期里的 <c>yyyy-MM-dd</c>（人读用；拿不到就原样回退，绝不抛）。</summary>
@@ -154,6 +209,11 @@ public static class SimReport
                 RedirectStandardError = true,
                 UseShellExecute = false,
             };
+            string? repoRoot = FindRepositoryRoot();
+            if (repoRoot is not null)
+            {
+                psi.WorkingDirectory = repoRoot;
+            }
             foreach (string a in args)
             {
                 psi.ArgumentList.Add(a);
@@ -178,5 +238,25 @@ public static class SimReport
         {
             return string.Empty;
         }
+    }
+
+    private static string? FindRepositoryRoot()
+    {
+        foreach (string start in new[] { Environment.CurrentDirectory, AppContext.BaseDirectory })
+        {
+            var dir = new DirectoryInfo(start);
+            while (dir is not null)
+            {
+                string marker = Path.Combine(dir.FullName, ".git");
+                if (Directory.Exists(marker) || File.Exists(marker))
+                {
+                    return dir.FullName;
+                }
+
+                dir = dir.Parent;
+            }
+        }
+
+        return null;
     }
 }

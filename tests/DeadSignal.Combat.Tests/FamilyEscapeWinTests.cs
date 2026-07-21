@@ -61,6 +61,21 @@ public sealed class FamilyEscapeWinTests
         Assert.False(FamilyEscapeWin.HasWon(bad));
     }
 
+    [Fact]
+    public void BadEnding_LocksOutFamilyDepartureAndWin()
+    {
+        var flags = new StoryFlags();
+        SouthEscapeEnding.RecordEscapee(flags, "山姆", "1", SouthEscapeTrigger.MilitaryRaid);
+
+        Assert.False(FamilyEscapeWin.MarkDeparted(flags));
+        FamilyEscapeWin.RecordFamily(flags, SampleRoster());
+
+        Assert.True(SouthEscapeEnding.IsSequenceActive(flags));
+        Assert.False(FamilyEscapeWin.HasDeparted(flags));
+        Assert.False(FamilyEscapeWin.HasWon(flags));
+        Assert.Empty(FamilyEscapeWin.Roster(flags));
+    }
+
     // —— 全营名单持久化：存档往返（Snapshot → 新 StoryFlags）——
 
     [Fact]

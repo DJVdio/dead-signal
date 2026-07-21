@@ -126,10 +126,48 @@ public sealed class CampaignEndingFlowTests
         Assert.Contains("BeginSouthEscapeEnding(escapee, SouthEscapeTrigger.HordeSiege)", badEnding);
 
         Assert.Contains("RadioMainline.ReopenAfterSouthFailure(_storyFlags)", camp);
-        Assert.Contains("FamilyEscapeWin.MarkDeparted(_storyFlags)", camp);
-        Assert.Contains("BeginFamilyEscapeWin();", camp);
+        Assert.Contains("FamilyEscapeWin.MarkDeparted(_storyFlags)", winEnding);
+        Assert.Contains("if (BeginFamilyEscapeWin())", camp);
         Assert.Contains("FamilyEscapeWin.RecordFamily(_storyFlags, roster)", winEnding);
         Assert.Contains("EndingPanel.Show(_hud, FamilyEscapeWin.WinCg()", winEnding);
+    }
+
+    [Fact]
+    public void CampMain_TerminalSequencesSuppressAutosave_AndMilitaryNarrationIsActuallyConsumed()
+    {
+        string camp = Source("godot/scripts/CampMain.SouthEscape.cs");
+        string save = Source("godot/scripts/CampMain.Save.cs");
+
+        // 终局入口先锁 _gameOver；同一昼夜边界末尾即使走到 AutosaveOnPhaseChange，也会直接返回。
+        Assert.Contains("_gameOver = true", camp);
+        Assert.Contains("if (_gameOver || !SaveRotation.ShouldAutosaveAt(phase))", save);
+
+        // 军袭 CG-A 的 authored 六段旁白已有真实消费者；尸潮没有适配新结局的专用旁白，保持无字幕演出。
+        Assert.Contains("? EndingCg.MilitaryRaidMassacre", camp);
+        Assert.Contains(": Array.Empty<string>()", camp);
+        Assert.Contains("PlayOpeningNarration(openingNarration", camp);
+    }
+
+    [Fact]
+    public void CampMain_DoesNotLockOrConsumeAnEndingWhenNobodyCanDepart()
+    {
+        string camp = Source("godot/scripts/CampMain.cs");
+        string family = Source("godot/scripts/CampMain.FamilyEscape.cs");
+
+        int militaryMethod = camp.IndexOf("private bool TryTriggerMilitaryRaid()", System.StringComparison.Ordinal);
+        int militaryAlive = camp.IndexOf("var alive = _survivors.Where(s => s.Alive).ToList();", militaryMethod, System.StringComparison.Ordinal);
+        int militaryFire = camp.IndexOf("RadioMainline.TryFireMilitaryRaidHook", militaryMethod, System.StringComparison.Ordinal);
+        Assert.True(militaryMethod >= 0 && militaryAlive > militaryMethod && militaryFire > militaryAlive,
+            "军袭必须先确认存在南逃者，再消费一次性到期钩子。");
+
+        int familyMethod = family.IndexOf("private bool BeginFamilyEscapeWin()", System.StringComparison.Ordinal);
+        int familyAlive = family.IndexOf("var family = _survivors.Where", familyMethod, System.StringComparison.Ordinal);
+        int familyEmptyGuard = family.IndexOf("if (family.Count == 0)", familyMethod, System.StringComparison.Ordinal);
+        int familyDeparted = family.IndexOf("FamilyEscapeWin.MarkDeparted(_storyFlags)", familyMethod, System.StringComparison.Ordinal);
+        int familyLock = family.IndexOf("_southEscapeActive = true", familyMethod, System.StringComparison.Ordinal);
+        Assert.True(familyMethod >= 0 && familyAlive > familyMethod && familyEmptyGuard > familyAlive
+                    && familyDeparted > familyEmptyGuard && familyLock > familyDeparted,
+            "举家南逃必须先确认至少一名存活者，再消费启程 flag 并锁定终局状态。");
     }
 
     private static StoryFlags ReachDecisionPoint()

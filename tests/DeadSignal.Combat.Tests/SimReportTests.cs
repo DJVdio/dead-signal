@@ -50,4 +50,13 @@ public class SimReportTests
     {
         Assert.NotEmpty(SimReport.SettlementScopePaths);
     }
+
+    [Theory]
+    [InlineData("src/DeadSignal.Combat")]
+    [InlineData("src/DeadSignal.Sim")]
+    [InlineData("godot/data/config")]
+    public void 核心报告输入指纹覆盖引擎Harness与战斗配置(string required)
+    {
+        Assert.Contains(required, SimReport.CoreCombatReportInputPaths);
+    }
 }
