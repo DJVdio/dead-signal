@@ -39,10 +39,12 @@ public static class ActorFrameCatalog
     };
 }
 
-/// <summary>七类持械动作 × 八方向；只供能真正持械的人类角色使用。</summary>
+/// <summary>七类持械动作 × 每类三帧 × 八方向；只供能真正持械的人类角色使用。</summary>
 public static class ActorAttackFrameCatalog
 {
-    public const int Columns = 7;
+    public const int Actions = 7;
+    public const int FramesPerAction = 3;
+    public const int Columns = Actions * FramesPerAction;
     public const int Rows = 8;
     public const string Root = "res://assets/world/attacks";
 
@@ -61,7 +63,7 @@ public static class ActorAttackFrameCatalog
     public static int RowForDirection(int directionColumn)
         => Math.Clamp(directionColumn, 0, Rows - 1);
 
-    public static int ColumnFor(WeaponAttackPose pose) => pose switch
+    public static int ActionFor(WeaponAttackPose pose) => pose switch
     {
         WeaponAttackPose.OneHandSwing => 0,
         WeaponAttackPose.OneHandThrust => 1,
@@ -72,4 +74,15 @@ public static class ActorAttackFrameCatalog
         WeaponAttackPose.BowShot => 6,
         _ => 0,
     };
+
+    public static int FrameFor(float progress)
+    {
+        float normalized = Math.Clamp(progress, 0f, 1f);
+        if (normalized < 0.28f) return 0;
+        if (normalized < 0.62f) return 1;
+        return 2;
+    }
+
+    public static int ColumnFor(WeaponAttackPose pose, float progress)
+        => ActionFor(pose) * FramesPerAction + FrameFor(progress);
 }

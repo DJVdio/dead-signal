@@ -154,6 +154,7 @@ public sealed class ActorAnimationStateTests
         Assert.Contains("ActorAttackFrameCatalog.PathFor", sprite);
         Assert.Contains("visual.Kind == EquipmentVisualKind.Weapon", sprite);
         Assert.Contains("WeaponAttackPose.TwoHandThrust => f * r * 0.82f", sprite);
+        Assert.Contains("ActorAttackFrameCatalog.FrameFor(AttackProgress())", sprite);
     }
 
     [Fact]

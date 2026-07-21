@@ -547,14 +547,12 @@ public sealed partial class ActorSprite : Node2D
         }
         if (atlas is null) return false;
 
-        float progress = _attackAnimDuration <= 0f
-            ? 1f
-            : 1f - Mathf.Clamp(_attackAnimTime / _attackAnimDuration, 0f, 1f);
+        float progress = AttackProgress();
         int row = useWeaponPose
             ? ActorAttackFrameCatalog.RowForDirection(DirectionColumn())
             : ActorFrameCatalog.RowForDirection(DirectionColumn());
         int col = useWeaponPose
-            ? ActorAttackFrameCatalog.ColumnFor(_attackPose)
+            ? ActorAttackFrameCatalog.ColumnFor(_attackPose, progress)
             : ActorFrameCatalog.ColumnFor(_animationState, _animationClock, progress);
         int columns = useWeaponPose ? ActorAttackFrameCatalog.Columns : ActorFrameCatalog.Columns;
         int rows = useWeaponPose ? ActorAttackFrameCatalog.Rows : ActorFrameCatalog.Rows;
@@ -569,6 +567,10 @@ public sealed partial class ActorSprite : Node2D
         DrawTextureRectRegion(atlas, destination, source, authoredTint);
         return true;
     }
+
+    private float AttackProgress() => _attackAnimDuration <= 0f
+        ? 1f
+        : 1f - Mathf.Clamp(_attackAnimTime / _attackAnimDuration, 0f, 1f);
 
     private PoseTransform AttackTransform(float r, Vector2 facing, float pulse, float progress)
     {
@@ -780,7 +782,7 @@ public sealed partial class ActorSprite : Node2D
         if (_animationState == ActorAnimationState.Attack && visual.Kind == EquipmentVisualKind.Weapon)
         {
             // 身体已换成对应持械关键帧，真实装备图也随手部向出手方向移动；只改绘制锚点，不碰命中/射程。
-            center += _attackPose switch
+            Vector2 deliveryOffset = _attackPose switch
             {
                 WeaponAttackPose.OneHandSwing => f * r * 0.25f + p * handSide * r * 0.10f,
                 WeaponAttackPose.OneHandThrust => f * r * 0.70f,
@@ -791,6 +793,13 @@ public sealed partial class ActorSprite : Node2D
                 WeaponAttackPose.BowShot => f * r * 0.28f + Vector2.Up * r * 0.08f,
                 _ => Vector2.Zero,
             };
+            float frameFactor = ActorAttackFrameCatalog.FrameFor(AttackProgress()) switch
+            {
+                0 => -0.20f, // 蓄力：武器略向身后收
+                1 => 1.00f,  // 出手：抵达最大延伸位置
+                _ => 0.35f,  // 收招：回到常规持握锚点
+            };
+            center += deliveryOffset * frameFactor;
         }
 
         float size = r * 4.9f * visual.DisplayScale;

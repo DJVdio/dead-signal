@@ -46,10 +46,16 @@ public sealed class VisualProductionAssetTests
         foreach (string kind in new[] { "survivor", "raider" })
             AssertAttackPngGrid(ActorAttackFrameCatalog.PathFor(null, kind));
 
+        Assert.Equal(0, ActorAttackFrameCatalog.FrameFor(0f));
+        Assert.Equal(0, ActorAttackFrameCatalog.FrameFor(0.279f));
+        Assert.Equal(1, ActorAttackFrameCatalog.FrameFor(0.28f));
+        Assert.Equal(1, ActorAttackFrameCatalog.FrameFor(0.619f));
+        Assert.Equal(2, ActorAttackFrameCatalog.FrameFor(0.62f));
+        Assert.Equal(2, ActorAttackFrameCatalog.FrameFor(1f));
         foreach (WeaponAttackPose pose in Enum.GetValues<WeaponAttackPose>())
         {
             if (pose == WeaponAttackPose.None) continue;
-            Assert.InRange(ActorAttackFrameCatalog.ColumnFor(pose), 0, ActorAttackFrameCatalog.Columns - 1);
+            Assert.InRange(ActorAttackFrameCatalog.ColumnFor(pose, 0.45f), 0, ActorAttackFrameCatalog.Columns - 1);
         }
     }
 
@@ -105,7 +111,7 @@ public sealed class VisualProductionAssetTests
         stream.Position = 16;
         int width = ReadBigEndianInt32(reader);
         int height = ReadBigEndianInt32(reader);
-        Assert.Equal(128 * ActorAttackFrameCatalog.Columns, width);
+        Assert.Equal(128 * ActorAttackFrameCatalog.Actions * ActorAttackFrameCatalog.FramesPerAction, width);
         Assert.Equal(147 * ActorAttackFrameCatalog.Rows, height);
     }
 
