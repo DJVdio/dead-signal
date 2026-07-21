@@ -3576,7 +3576,7 @@ window.WIKI_BUNDLE = {
       "label": "工时",
       "type": "hours",
       "configKey": "WorkMinutes",
-      "hint": "有人站在工作台前干这么久（游戏内时间）。一天有 8 个相位，夜里那个生产相位大约能推进几小时——超过它就得跨夜接着做。"
+      "hint": "有人站在工作台前干这么久（游戏内时间）。一天只有白天和黑夜两个相位；生产主要在黑夜推进，超过一夜就得接着做。"
     },
     {
       "key": "crafterGate",
@@ -9228,7 +9228,7 @@ window.WIKI_BUNDLE = {
     },
     {
       "group": "生存",
-      "label": "每个聚餐相位消耗",
+      "label": "每次聚餐消耗",
       "who": "布鲁斯",
       "value": 1,
       "unit": "刻",

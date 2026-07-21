@@ -28,9 +28,8 @@ namespace DeadSignal.Combat.Tests;
 /// ② 尸体容器名与<b>全部 authored 发现点 id</b> 结构性隔离（authored 一律 ascii snake_case，尸体名带中文
 /// 「的尸体 #」）⇒ 动态尸体永远不会误触发剧情点，剧情点也永远不会被当成尸体去搜。</para>
 ///
-/// <para><b>相位清理不适用于探索关</b>（<see cref="CorpseDecay"/>）：探索关是<b>一次性进出</b>的，玩家不会
-/// 在同一个关卡里待过三个相位；关内尸体不进 <c>CorpseYard</c>，而是<b>随关卡一起消失</b>（回营即没）。
-/// 后果与既有设计意图一致：<b>扒不完就没了</b>——同"三相位窗口"是同一条口径的两种时钟。
+/// <para>探索关尸体不进营地 <c>CorpseYard</c>，但位置、剩余遗物与半天计数跨关卡保存；
+/// 重访同一地点时恢复搜刮点，满三个半天才连同未取回物资一起消失。</para>
 /// 🔴 authored 剧情尸体（祖母/树上的哥顿/帮众/克莉丝汀）是<b>发现点</b>、不是本通道造出来的战斗尸体，两者
 /// 命名空间隔离（见下），本单一根汗毛都没碰。</para>
 /// </summary>
@@ -61,6 +60,9 @@ public class LevelCorpseLootTests
     {
         Assert.Equal("据点幸存者的尸体 #3", CorpseNaming.ContainerName("据点幸存者", 3));
         Assert.Equal("丧尸的尸体 #1", CorpseNaming.ContainerName("丧尸", 1));
+        Assert.Equal("丧尸的尸体 #远征1", CorpseNaming.ExplorationContainerName("丧尸", 1));
+        Assert.NotEqual(CorpseNaming.ContainerName("丧尸", 1), CorpseNaming.ExplorationContainerName("丧尸", 1));
+        Assert.True(CorpseNaming.IsCorpseContainer(CorpseNaming.ExplorationContainerName("丧尸", 1)));
     }
 
     // ============ ② 路由：动态尸体 vs authored 发现点，结构性隔离 ============

@@ -21,7 +21,7 @@ public sealed partial class Zombie : Actor
     // 保留正面威胁、潜行从侧后/掩体/暗处自然涌现，而非单纯削弱。
     //
     // ⚠ [SPEC-T60] 起**别再按"丧尸仅夜间活动"读这个数**：探索关丧尸不看昼夜（见类注释 / ThinkExploration），
-    //   而探索恒在 DayExplore＝白天段（DayPhaseSegments→PhaseBlock.Day），故同一个 R0 在探索期吃的是白昼光照：
+    //   而探索恒在 DayExplore＝白天段（DayPhaseSegments→DayNightPhase.Day），故同一个 R0 在探索期吃的是白昼光照：
     //     · 非暗关：环境光 1.0 → 视距**满档 490**、半角 60°（≈夜间 219 的 2.2 倍）。
     //     · 暗关（ExplorationLighting.IsIndoorsDark → IndoorsDarkAmbient 0.10）：490×0.415≈203、半角 33°。
     //   即"219"只是营地夜晚这一档的表现，不是全局有效视距。数值拟定待调，交 Sim/用户校准。

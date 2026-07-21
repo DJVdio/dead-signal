@@ -83,7 +83,7 @@ public readonly record struct PhaseMealOutcome(
     int SecondConsumed,
     int Remaining)
 {
-    /// <summary>本相位聚餐总消耗份数（第一餐 + 补餐）。接入层据此实扣库存。</summary>
+    /// <summary>本次聚餐总消耗份数（第一餐 + 补餐）。接入层据此实扣库存。</summary>
     public int TotalConsumed => First.Consumed + SecondConsumed;
 }
 
@@ -235,7 +235,7 @@ public static class FoodEconomy
     }
 
     /// <summary>
-    /// 一相位聚餐分粮结算（核心）：库存不足以喂饱全员时，按 <paramref name="strategy"/>（或 <paramref name="playerPriority"/>）
+    /// 一次聚餐分粮结算（核心）：库存不足以喂饱全员时，按 <paramref name="strategy"/>（或 <paramref name="playerPriority"/>）
     /// 决定谁吃到、谁挨饿，并给出扣减后余量与缺口。**不**改任何饥饿状态——只出决策明细，由接入层施加。
     /// </summary>
     /// <param name="stock">当前营地食物库存份数（负数按 0）。</param>
@@ -382,7 +382,7 @@ public static class FoodEconomy
     }
 
     /// <summary>
-    /// 一相位聚餐的总口粮需求份数（存活人数 × 每人口粮）。给 UI/预警用。
+    /// 一次聚餐的总口粮需求份数（存活人数 × 每人口粮）。给 UI/预警用。
     /// </summary>
     public static int DemandFor(int headCount, int rationPerCapita = DefaultRationPerCapita)
         => Math.Max(0, headCount) * Math.Max(1, rationPerCapita);

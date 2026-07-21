@@ -27,7 +27,7 @@ public class SaveRotationTests
     [Fact]
     public void 其余六个相位一概不存()
     {
-        // 一天要切 8 次相位，但只有两顿饭是存档点——否则就不是"一天两次"了。
+        // 一天只有白天/黑夜两个相位，两顿边界聚餐各存一次。
         DayPhase[] noSave =
         {
             DayPhase.DayPrep, DayPhase.DayTravel, DayPhase.DayExplore,
@@ -42,7 +42,7 @@ public class SaveRotationTests
     [Fact]
     public void 走完一整天恰好存两次()
     {
-        // 把一天的 8 个相位全走一遍，数一数落地了几次。这条直接钉死用户那句"一天存两次"。
+        // 把一天的全部内部流程节点走一遍，数一数落地了几次，钉死一天两次。
         DayPhase[] fullDay =
         {
             DayPhase.DawnMeal, DayPhase.DayPrep, DayPhase.DayTravel, DayPhase.DayExplore,

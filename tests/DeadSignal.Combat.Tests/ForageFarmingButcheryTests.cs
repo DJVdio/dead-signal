@@ -527,10 +527,10 @@ public sealed class ForageFarmingButcheryTests
     }
 
     /// <summary>
-    /// 🔴 <b>捕鸟陷阱运行时两层跑通（镜像 CropPlotRuntimeTests）</b>：一个捕鸟陷阱，走完一整天的 8 个 <see cref="DayPhase"/>，
+    /// 🔴 <b>捕鸟陷阱运行时两层跑通（镜像 CropPlotRuntimeTests）</b>：一个捕鸟陷阱走完一整天的全部内部流程节点，
     /// 消费层只在 <see cref="TrapLogic.RollsOnPhase"/> 为真的两段各掷一次点（<c>CampMain.cs</c> 用同一张谓词 gate）——
-    /// 断言<b>恰好掷 2 次</b>（不是 8 次）、且捕到的鸟<b>真的进了真库存</b>（<see cref="BirdTrapRuntime.ResolveCatch"/> 是消费层与本测试同一段代码）。
-    /// 随机源只给 2 个值：若相位门失效、8 个相位都掷 ⇒ 第 3 次抽取耗尽序列抛异常 ⇒ 反向钉死"一天只掷 2 次"。
+    /// 断言白天/黑夜各掷一次，且捕到的鸟<b>真的进了真库存</b>（<see cref="BirdTrapRuntime.ResolveCatch"/> 是消费层与本测试同一段代码）。
+    /// 随机源只给 2 个值：若流程门失效、其他节点也掷，第三次抽取会耗尽序列并抛异常。
     /// </summary>
     [Fact]
     public void 捕鸟陷阱运行时_一整天只掷两个昼夜段_鸟真的进库存()

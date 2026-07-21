@@ -20,7 +20,7 @@ public sealed partial class TestExploration
     /// 🔴 authored 调查点（播音台 / 走廊照片墙，<see cref="NarrativeSpot"/>）文本与坐标一字不动：播音室仍框住 (900,500)、照片墙仍框住 (1500,700)、
     /// 发射机仍钉在 <see cref="BroadcastTransmitterPosition"/>(1200,300)。本次只放大机制层的地形/物资/点位分布，不碰任何 authored 叙事。
     /// </para>
-    /// 取设备/推进状态/叙事接线由 <c>CampMain.OnExplorationDiscovery</c> 的挂点补齐（<see cref="RadioMainline.GrantTransmitter"/> + 取设备叙事）。
+    /// 取设备/携带态/叙事接线由 <c>CampMain.OnExplorationDiscovery</c> 补齐；活人回营后才提交 <see cref="RadioMainline.GrantTransmitter"/>。
     /// 十处普通物资搜刮点接 <see cref="ExplorationCache"/>。占位美术：机房/院子地台 + 天线塔基座剪影 + 发射机标记；正式关卡空间/美术待后续。
     /// </summary>
     private void SetupBroadcastStation()
@@ -80,11 +80,14 @@ public sealed partial class TestExploration
         AddIsoBlock(new Rect2(BroadcastTransmitterPosition.X - 200f, BroadcastTransmitterPosition.Y - 120f, 400f, 260f), new Color(0.20f, 0.21f, 0.24f), 5, height: 10f);
 
         // ═══════════════ 发射机可交互占位（踏入发现区即上报 transmitter id → 推进主线）═══════════════
-        AddDiscoveryPoint(
-            BroadcastTransmitterDiscoveryId,
-            BroadcastTransmitterPosition,
-            markerColor: new Color(0.40f, 0.65f, 0.55f),
-            label: "发射机");
+        if (TransmitterAvailableAtOrigin)
+        {
+            AddDiscoveryPoint(
+                BroadcastTransmitterDiscoveryId,
+                BroadcastTransmitterPosition,
+                markerColor: new Color(0.40f, 0.65f, 0.55f),
+                label: "发射机");
+        }
 
         // ═══════════════ 十处普通物资搜刮点（接 ExplorationCache；沿机房→脊廊→院内外屋铺开，近→深）═══════════════
         var lootC = new Color(0.5f, 0.48f, 0.44f);

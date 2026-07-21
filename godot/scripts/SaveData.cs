@@ -60,7 +60,7 @@ public sealed class SaveData
     /// <summary>布鲁斯（狗）。不在营地时为 null。</summary>
     public DogSave? Dog { get; set; }
 
-    /// <summary>场上尸体（含它们身上还没被扒走的东西 + 还剩几个相位就烂没）。</summary>
+    /// <summary>场上尸体（含它们身上还没被扒走的东西 + 还剩几个半天就烂没）。</summary>
     public CorpseYardSave Corpses { get; set; } = new();
 
     /// <summary>神秘商人：下次来访日 + 接替链。</summary>
@@ -85,7 +85,7 @@ public sealed class SaveMeta
     /// <summary>游戏内第几天（列表显示"第 12 天"）。</summary>
     public int Day { get; set; }
 
-    /// <summary>当时的相位（列表显示"黄昏聚餐"，走 <see cref="DisplayNames"/> 出中文）。</summary>
+    /// <summary>当时的内部流程节点（列表显示“黄昏聚餐”，走 <see cref="DisplayNames"/> 出中文）。</summary>
     public DayPhase Phase { get; set; }
 
     /// <summary>当时活着几个人（列表显示"4 人存活"）。</summary>
@@ -489,10 +489,10 @@ public sealed class DogSave
     public bool GuardStationing { get; set; }
 }
 
-/// <summary>尸场：相位计数 + 全部尸体。</summary>
+/// <summary>尸场：半天计数 + 全部尸体。</summary>
 public sealed class CorpseYardSave
 {
-    /// <summary>单调相位计数。<b>必须先摆回它，再摆尸体</b>——尸体的"还剩几个相位烂没"是差值算的。</summary>
+    /// <summary>单调半天计数。<b>必须先摆回它，再摆尸体</b>——尸体的剩余半天数由差值计算。</summary>
     public int PhaseTick { get; set; }
 
     /// <summary>尸体容器 id 水位（新尸体的编号从这儿接着往下走，免得和恢复出来的撞号）。</summary>
@@ -515,7 +515,7 @@ public sealed class CorpseSave
     public int CellX { get; set; }
     public int CellY { get; set; }
 
-    /// <summary>落地时的相位计数。与 <see cref="CorpseYardSave.PhaseTick"/> 的差值 = 已经躺了几个相位。</summary>
+    /// <summary>落地时的半天计数。与 <see cref="CorpseYardSave.PhaseTick"/> 的差值 = 已经躺了几个半天。</summary>
     public int SpawnPhaseTick { get; set; }
 
     /// <summary>身上还没被扒走的东西（穿什么扒什么）。</summary>
@@ -573,6 +573,25 @@ public sealed class ExpeditionSave
 
     /// <summary>本趟是否带了布鲁斯。</summary>
     public bool BruceAlong { get; set; }
+
+    /// <summary>探索关里尚未腐烂的战斗尸体；跨关卡保留，供后续探索队找回遗物。</summary>
+    public List<ExplorationCorpseSave> Corpses { get; set; } = new();
+
+    /// <summary>探索关动态尸体容器 id 的全局水位，避免重访地点时撞名覆盖遗物。</summary>
+    public int NextCorpseId { get; set; }
+}
+
+/// <summary>留在探索地点的一具战斗尸体及其未取回遗物。</summary>
+public sealed class ExplorationCorpseSave
+{
+    public string Destination { get; set; } = "";
+    public string ContainerId { get; set; } = "";
+    public int OwnerPawnId { get; set; } = -1;
+    public double X { get; set; }
+    public double Y { get; set; }
+    public int SpawnPhaseTick { get; set; }
+    public List<LootItem> Loot { get; set; } = new();
+    public bool HasTransmitter { get; set; }
 }
 
 /// <summary>authored 羁绊的累积量。</summary>

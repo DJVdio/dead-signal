@@ -153,7 +153,7 @@ public static class ItemWeights
 
     /// <summary>
     /// 一条战利品的重量——搜刮前预判"这堆背不背得下"用（与 <see cref="Of"/> 同口径）。
-    /// 工具（calipers/sawblade/beaker）落地进的是营地工作台而非背包，**不计重**。
+    /// 工具（calipers/sawblade/beaker）探索中随队携带、回营才装进工作台，但其自身**不计重**。
     /// </summary>
     public static double OfLoot(LootItem loot) => loot.Kind switch
     {

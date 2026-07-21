@@ -4,17 +4,17 @@ namespace DeadSignal.Godot;
 
 /// <summary>
 /// 一具尸体在过期清理表里的登记（纯数据）：<paramref name="Id"/> 容器 id（空=光尸体，没登记成可搜刮点）、
-/// <paramref name="SpawnPhaseTick"/> 落地时的相位计数、<paramref name="Authored"/> 是否是**手写剧情尸体**。
+/// <paramref name="SpawnPhaseTick"/> 落地时的半天计数、<paramref name="Authored"/> 是否是**手写剧情尸体**。
 /// </summary>
 public readonly record struct CorpseDecayEntry(string Id, int SpawnPhaseTick, bool Authored);
 
 /// <summary>
-/// 尸体按相位过期清理的纯逻辑（零 Godot 依赖，Link 进 DeadSignal.Combat.Tests）。
+/// 尸体按半天过期清理的纯逻辑（零 Godot 依赖，Link 进 DeadSignal.Combat.Tests）。
 ///
-/// 【规则·用户拍板】「过了三个相位尸体会被清理掉，缓解性能压力，也给了足够的时间去搜刮尸体」——
-/// 相位＝<see cref="DayPhase"/>（营地相位机，一个昼夜 8 个相位）。尸体落地时记下当时的**相位计数**
-/// （单调递增，每次相位切换 +1），此后经过 <see cref="LifetimePhases"/> 次相位切换即到期清理。
-/// 于是搜刮窗口 = 剩下的这个相位 + 之后两个完整相位：**尸潮打完你有大半天把战场扒干净，扒不完就是扒不完**。
+/// 【规则·用户拍板】「所有尸体统一保留三个相位，也就是三个半天」——相位计数只在
+/// <see cref="DayPhase.DawnMeal"/> / <see cref="DayPhase.DuskMeal"/> 两个半天边界推进，一个昼夜恰好 +2。
+/// 尸体落地时记下当时的半天计数，此后经过 <see cref="LifetimePhases"/> 个半天即到期清理。
+/// 探索队白天全灭后，尸体在次日白天仍可找回；到第三个半天边界才刷没。
 /// 这也顺带堵掉了刷装备（挂机刷不出无限的牛仔外套）——用世界的规则限制，而不是用随机数惩罚。
 ///
 /// 【🔴 authored 尸体永不清理】祖母的尸体（山姆被迫杀死的、尸变的祖母，camp.json 的 role=corpse prop）
@@ -30,8 +30,12 @@ public readonly record struct CorpseDecayEntry(string Id, int SpawnPhaseTick, bo
 /// </summary>
 public static class CorpseDecay
 {
-    /// <summary>尸体能挺过几次相位切换（用户拍板：3 个相位）。「拟定待调」</summary>
+    /// <summary>尸体能挺过几个半天（用户拍板：3 个半天）。</summary>
     public const int LifetimePhases = 3;
+
+    /// <summary>统一尸体时钟只在清晨/黄昏两个半天边界推进。</summary>
+    public static bool AdvancesOn(DayPhase phase) =>
+        phase is DayPhase.DawnMeal or DayPhase.DuskMeal;
 
     /// <summary>这具尸体到期了吗。authored（剧情）尸体<b>永远</b>不过期。</summary>
     public static bool IsExpired(CorpseDecayEntry entry, int currentPhaseTick)
@@ -44,7 +48,7 @@ public static class CorpseDecay
     }
 
     /// <summary>
-    /// 还剩几个相位可以来搜刮（0 = 这次相位切换就没了）。authored 尸体返回 <see cref="int.MaxValue"/>（永远有的是时间）。
+    /// 还剩几个半天可以来搜刮（0 = 这个半天边界就没了）。authored 尸体返回 <see cref="int.MaxValue"/>（永远有的是时间）。
     /// 供 UI/提示消费（如尸体悬停提示「快烂了」）。
     /// </summary>
     public static int PhasesRemaining(CorpseDecayEntry entry, int currentPhaseTick)
@@ -59,7 +63,7 @@ public static class CorpseDecay
     }
 
     /// <summary>
-    /// 这一次相位切换该清理掉哪些尸体（按登记顺序返回，确定性）。调用方拿着这张单子去销毁节点、还格、
+    /// 这个半天边界该清理掉哪些尸体（按登记顺序返回，确定性）。调用方拿着这张单子去销毁节点、还格、
     /// **注销可搜刮容器登记**（三件事必须一起做，否则玩家会去搜一具已经不在的尸体）。
     /// </summary>
     public static List<CorpseDecayEntry> Sweep(IEnumerable<CorpseDecayEntry> corpses, int currentPhaseTick)

@@ -25,7 +25,7 @@ public static class ChristineRequestLogic
     /// <summary>本餐有一次请求正等待玩家抉择（由请求气泡的 trigger 置，抉择后 <see cref="Resolve"/> 消费）。</summary>
     public const string PendingKey = "christine_req_pending";
 
-    /// <summary>已拒满则置：她将在下一次昼夜交替（相位切进聚餐）离开，不立即走。</summary>
+    /// <summary>已拒满则置：她将在下一次昼夜交替（进入聚餐边界流程）离开，不立即走。</summary>
     public const string LeavingKey = "christine_leaving_pending";
 
     /// <summary>累计"暂不"达此次数即离开。</summary>

@@ -4,7 +4,7 @@ using Xunit;
 namespace DeadSignal.Combat.Tests;
 
 /// <summary>
-/// 布鲁斯（狗）饥饿刻度纯逻辑单测：吃一份 +3 / 每聚餐相位 -1 / 到 0 饿死终态 / 能力惩罚复用人类阶梯。
+/// 布鲁斯（狗）饥饿刻度纯逻辑单测：吃一份 +3 / 每次聚餐 -1 / 到 0 饿死终态 / 能力惩罚复用人类阶梯。
 /// 数值全"拟定待调"，本组只钉规则形态（相对关系），不锁绝对数值。
 /// </summary>
 public class DogHungerStateTests

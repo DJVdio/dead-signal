@@ -7,16 +7,14 @@ using Xunit;
 namespace DeadSignal.Combat.Tests;
 
 /// <summary>
-/// 🔴 <b>昼夜段分类的唯一事实源 + 跨消费方焊死自检</b>（R2 相位统一）。
+/// 🔴 <b>白天/黑夜两相位的唯一事实源 + 跨消费方焊死自检</b>。
 ///
 /// <para>背景：此前"相位"被劈成三套语义不同的分类（哪几个算夜里 / 哪几个是每日 tick 点 / 哪几个世界冻结），
 /// 散在 9+ 处各写各的 inline 集合，「改一处漏一处」正是陷阱产出翻 4 倍那类 bug 的根。现全部收口到
 /// <see cref="DayPhaseSegments"/>。本组测试做两件事：</para>
 /// <list type="number">
-///   <item><b>钉死当前分类</b>：把 8 值 <see cref="DayPhase"/> 的段归属逐值写死（白天 4 / 夜晚 2 / 聚餐 2、
-///   冻结 5）。谁挪了 DawnMeal、加了第 9 个相位、或改错派生源，这里立刻报红。</item>
-///   <item><b>焊死各消费方</b>：foreach 全 8 相位，断言每个消费方的分类与规范源<b>逐值一致</b>——
-///   环境光==夜/暮/昼 ⟺ IsNight/IsMeal/IsDay、陷阱掷点/自动存档 ⟺ IsMeal、班别归块 ⟺ Segment。
+///   <item><b>钉死两相位</b>：所有内部流程节点只归白天或黑夜；清晨聚餐归白天、黄昏聚餐归黑夜。</item>
+///   <item><b>焊死各消费方</b>：遍历全部流程节点，断言环境光、陷阱、存档与班别都读取同一事实源。
 ///   任何消费方日后偷偷 inline 一份自己的相位集合并跑偏，这里必有一处打红。</item>
 /// </list>
 /// </summary>
@@ -27,35 +25,31 @@ public class DayPhaseSegmentsTests
     // ———————————————————————————— 钉死当前分类（规范源自身）————————————————————————————
 
     [Fact]
-    public void 枚举保持八值不动_不许悄悄增删相位()
-    {
-        // DayPhase 必须留 8 值驱动 GameClock 状态机 / 尸体腐烂按相位步进 / DisplayNames / 视野。
-        // 加第 9 个相位会同时打红这里与下面所有"穷尽覆盖"断言——逼加相位者必须显式分好段。
-        Assert.Equal(8, AllPhases.Length);
-    }
+    public void 玩法相位只有白天和黑夜()
+        => Assert.Equal(new[] { DayNightPhase.Day, DayNightPhase.Night }, Enum.GetValues<DayNightPhase>());
 
     [Fact]
-    public void 夜晚段恰为_NightPrep_NightAct()
+    public void 黑夜相位包含黄昏聚餐_夜间部署_夜间行动()
     {
         var night = AllPhases.Where(DayPhaseSegments.IsNight).ToHashSet();
-        Assert.Equal(new HashSet<DayPhase> { DayPhase.NightPrep, DayPhase.NightAct }, night);
+        Assert.Equal(new HashSet<DayPhase> { DayPhase.DuskMeal, DayPhase.NightPrep, DayPhase.NightAct }, night);
     }
 
     [Fact]
-    public void 聚餐段恰为_DawnMeal_DuskMeal_即每日两个tick点()
+    public void 聚餐边界流程恰为_DawnMeal_DuskMeal_即每日两个tick点()
     {
         var meal = AllPhases.Where(DayPhaseSegments.IsMeal).ToHashSet();
         Assert.Equal(new HashSet<DayPhase> { DayPhase.DawnMeal, DayPhase.DuskMeal }, meal);
     }
 
     [Fact]
-    public void 白天段恰为四个相位()
+    public void 白天相位包含清晨聚餐与全部白天流程()
     {
         var day = AllPhases.Where(DayPhaseSegments.IsDay).ToHashSet();
         Assert.Equal(
             new HashSet<DayPhase>
             {
-                DayPhase.DayPrep, DayPhase.DayTravel, DayPhase.DayExplore, DayPhase.DayReturn,
+                DayPhase.DawnMeal, DayPhase.DayPrep, DayPhase.DayTravel, DayPhase.DayExplore, DayPhase.DayReturn,
             },
             day);
     }
@@ -76,14 +70,11 @@ public class DayPhaseSegmentsTests
     }
 
     [Fact]
-    public void 每个相位恰属一个段_三段互斥且穷尽()
+    public void 每个流程节点恰属白天或黑夜之一()
     {
         foreach (var phase in AllPhases)
         {
-            int count = (DayPhaseSegments.IsNight(phase) ? 1 : 0)
-                        + (DayPhaseSegments.IsMeal(phase) ? 1 : 0)
-                        + (DayPhaseSegments.IsDay(phase) ? 1 : 0);
-            Assert.True(count == 1, $"相位 {phase} 落在 {count} 个段里（应恰好 1 个）。");
+            Assert.NotEqual(DayPhaseSegments.IsNight(phase), DayPhaseSegments.IsDay(phase));
         }
     }
 
@@ -92,21 +83,24 @@ public class DayPhaseSegmentsTests
     [Fact]
     public void 环境光分档与段分类逐值焊死()
     {
-        // VisionLogic.AmbientLight 的三档（暮光/微月/满档）必须严格映射到聚餐/夜晚/白天段。
+        // 聚餐使用暮光表现；其余节点严格映射黑夜/白天环境光。
         foreach (var phase in AllPhases)
         {
             float ambient = VisionLogic.AmbientLight(phase, indoorsDark: false);
 
-            Assert.Equal(DayPhaseSegments.IsNight(phase), ambient == VisionLogic.NightAmbient);
             Assert.Equal(DayPhaseSegments.IsMeal(phase), ambient == VisionLogic.TwilightAmbient);
-            Assert.Equal(DayPhaseSegments.IsDay(phase), ambient == VisionLogic.DaylightAmbient);
+            if (!DayPhaseSegments.IsMeal(phase))
+            {
+                Assert.Equal(DayPhaseSegments.IsNight(phase), ambient == VisionLogic.NightAmbient);
+                Assert.Equal(DayPhaseSegments.IsDay(phase), ambient == VisionLogic.DaylightAmbient);
+            }
         }
     }
 
     [Fact]
-    public void 陷阱掷点与聚餐段逐值焊死()
+    public void 陷阱掷点与聚餐边界流程逐值焊死()
     {
-        // 陷阱一天只在两顿聚餐各掷一次点（2/天）——早期误按 8 相位逐个掷点让产出翻 4 倍。
+        // 陷阱只在两个昼夜边界各掷一次点（2/天），不随内部流程节点重复结算。
         foreach (var phase in AllPhases)
             Assert.Equal(DayPhaseSegments.IsMeal(phase), TrapLogic.RollsOnPhase(phase));
 
@@ -115,7 +109,7 @@ public class DayPhaseSegmentsTests
     }
 
     [Fact]
-    public void 自动存档点与聚餐段逐值焊死()
+    public void 自动存档点与聚餐边界流程逐值焊死()
     {
         // 自动存档一天两次（清晨/黄昏聚餐），把一天切成"重做整白天/整夜晚"的干净读档粒度。
         foreach (var phase in AllPhases)
@@ -123,26 +117,30 @@ public class DayPhaseSegmentsTests
     }
 
     [Fact]
-    public void 班别归块与段分类逐值焊死()
+    public void 班别相位与两相位分类逐值焊死()
     {
-        // ShiftSchedule.BlockOf 是段分类的既有 API，现转发到规范源——两者对每个相位必须逐值一致。
+        // ShiftSchedule.PhaseOf 转发到规范源——两者对每个流程节点必须逐值一致。
         foreach (var phase in AllPhases)
         {
-            Assert.Equal(DayPhaseSegments.SegmentOf(phase), ShiftSchedule.BlockOf(phase));
+            Assert.Equal(DayPhaseSegments.PhaseOf(phase), ShiftSchedule.PhaseOf(phase));
 
-            Assert.Equal(DayPhaseSegments.IsNight(phase), ShiftSchedule.BlockOf(phase) == PhaseBlock.Night);
-            Assert.Equal(DayPhaseSegments.IsMeal(phase), ShiftSchedule.BlockOf(phase) == PhaseBlock.Meal);
-            Assert.Equal(DayPhaseSegments.IsDay(phase), ShiftSchedule.BlockOf(phase) == PhaseBlock.Day);
+            Assert.Equal(DayPhaseSegments.IsNight(phase), ShiftSchedule.PhaseOf(phase) == DayNightPhase.Night);
+            Assert.Equal(DayPhaseSegments.IsDay(phase), ShiftSchedule.PhaseOf(phase) == DayNightPhase.Day);
         }
     }
 
     [Fact]
-    public void 卧床休养的聚餐判据与聚餐段逐值焊死()
+    public void 卧床休养的聚餐判据与聚餐边界流程逐值焊死()
     {
-        // BedrestLogic 用 BlockOf==Meal 判"聚餐相位不算休养时段"——同一段语义，须与规范源一致。
+        // BedrestLogic 用 IsMeal 判“聚餐流程不算休养时段”——同一段语义，须与规范源一致。
         foreach (var phase in AllPhases)
             Assert.Equal(
                 DayPhaseSegments.IsMeal(phase),
-                ShiftSchedule.BlockOf(phase) == PhaseBlock.Meal);
+                BedrestLogic.CanOrderBedrest(
+                    alive: true,
+                    role: PawnRole.Idle,
+                    phase: phase,
+                    hasOwnBed: true,
+                    freeBeds: 0).Status == BedrestOrderStatus.MealPhase);
     }
 }

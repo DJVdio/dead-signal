@@ -18,7 +18,7 @@ namespace DeadSignal.Godot;
 //     ★「军袭事件本体不实装（CampMain 留 TODO 挂点 + 安全 no-op）」**亦已失效**：本体已实装并接线——
 //       CampMain.TryTriggerMilitaryRaid（CampMain.cs:7077，每日黎明经 CampMain.cs:5162 调）消费本类
 //       TryFireMilitaryRaidHook → SouthEscapeEnding.SelectEscapee → CampMain.BeginSouthEscapeEnding(…, MilitaryRaid)。
-//     ★取得发出设备、抵达终局抉择点时即冻结尸潮时限；回复军方后由军袭结局流程接管。
+//     ★由活着的探索队员把发出设备带回营地、抵达终局抉择点时即冻结尸潮时限；回复军方后由军袭结局流程接管。
 //   · 已呼叫南方 → 置**南逃线 flag**（结局③，唯一生路：南方求救→临时开放"前往峡谷的路"→考验→带少量物资南逃，
 //     后续 authored）。尸潮时限仍保持冻结，由南逃结局流程接管。
 //
@@ -132,7 +132,7 @@ public static class RadioMainline
     }
 
     /// <summary>
-    /// 在广播台取得发出设备：推进到 HasTransmitter（rank 跳升，即使未先收听也可——设备由探索取得）。
+    /// 探索队把广播台发出设备安全带回营地：推进到 HasTransmitter（rank 跳升，即使未先收听也可）。
     /// 此阶段即终局抉择点：同步置 <see cref="HordeTimeline.EndgameFreezeFlag"/>，此后尸潮时限与到期围攻由结局流程接管。
     /// 已持设备或已进终态则无操作（不降级、不覆盖终局抉择）。返回是否发生了推进（首次取得）。
     /// </summary>

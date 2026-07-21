@@ -265,7 +265,7 @@
          漏这一行 ⇒ wiki 抽取器直接编译失败 ⇒ 「表赢代码」那条流水线整条断掉。（由 impl-axe 顺手补上。） -->
     <Compile Include="..\..\godot\scripts\SaveMigration.cs" Link="Consumed\SaveMigration.cs" />
     <Compile Include="..\..\godot\scripts\SaveMapper.cs" Link="Consumed\SaveMapper.cs" />
-    <!-- 自动存档轮转策略（纯逻辑）：一天存两次=清晨/黄昏聚餐两个相位；保留最近 6 个（≈三天）。玩家无手动存档，故留一串历史档是设计前提。 -->
+    <!-- 自动存档轮转策略（纯逻辑）：一天存两次=清晨/黄昏两个相位边界；保留最近 6 个（≈三天）。玩家无手动存档，故留一串历史档是设计前提。 -->
     <Compile Include="..\..\godot\scripts\SaveRotation.cs" Link="Consumed\SaveRotation.cs" />
     <!-- 幸存者角色枚举（存档要存 Role，故 Link 进来）。 -->
     <Compile Include="..\..\godot\scripts\PawnRole.cs" Link="Consumed\PawnRole.cs" />

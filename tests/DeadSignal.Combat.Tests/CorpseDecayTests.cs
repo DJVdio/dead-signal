@@ -5,7 +5,7 @@ using DeadSignal.Godot;
 namespace DeadSignal.Combat.Tests;
 
 /// <summary>
-/// 尸体过三个相位自动清理（用户拍板：「过了三个相位尸体会被清理掉，缓解性能压力，也给了足够的时间去搜刮尸体」）。
+/// 尸体过三个半天自动清理（清晨/黄昏各推进一次，所有战斗尸体统一）。
 /// 🔴 authored 尸体（祖母/帮众/树上的哥顿）**永不清理**——她们是手写剧情，收走了剧情就凭空消失。
 /// </summary>
 public class CorpseDecayTests
@@ -22,8 +22,22 @@ public class CorpseDecayTests
     }
 
     [Theory]
+    [InlineData(DayPhase.DawnMeal, true)]
+    [InlineData(DayPhase.DuskMeal, true)]
+    [InlineData(DayPhase.DayPrep, false)]
+    [InlineData(DayPhase.DayTravel, false)]
+    [InlineData(DayPhase.DayExplore, false)]
+    [InlineData(DayPhase.DayReturn, false)]
+    [InlineData(DayPhase.NightPrep, false)]
+    [InlineData(DayPhase.NightAct, false)]
+    public void 尸体时钟只在半天边界推进(DayPhase phase, bool advances)
+    {
+        Assert.Equal(advances, CorpseDecay.AdvancesOn(phase));
+    }
+
+    [Theory]
     [InlineData(0, false)]   // 刚死那一刻
-    [InlineData(1, false)]   // 过了 1 次相位切换：还能扒
+    [InlineData(1, false)]   // 过了 1 个半天：还能扒
     [InlineData(2, false)]   // 过了 2 次：还能扒（最后的机会）
     [InlineData(3, true)]    // 过了 3 次：清理
     [InlineData(9, true)]    // 早该没了
@@ -52,10 +66,10 @@ public class CorpseDecayTests
     {
         var grandmother = Authored("祖母的尸体", spawnTick: 0);
 
-        // 一个昼夜 8 个相位 → 400 次相位切换 ≈ 50 天，远超一整局
+        // 一个昼夜 2 个半天 → 400 次推进 = 200 天，远超一整局
         for (int tick = 0; tick <= 400; tick++)
         {
-            Assert.False(CorpseDecay.IsExpired(grandmother, tick), $"祖母在第 {tick} 次相位切换时被清理了——那段叙事就没了");
+            Assert.False(CorpseDecay.IsExpired(grandmother, tick), $"祖母在第 {tick} 个半天被清理了——那段叙事就没了");
         }
         Assert.Equal(int.MaxValue, CorpseDecay.PhasesRemaining(grandmother, 400));
     }
@@ -102,7 +116,7 @@ public class CorpseDecayTests
     [Fact]
     public void HordeAftermath_WholeBatchExpiresTogether_ThreePhasesLater()
     {
-        // 一波尸潮：80 具尸体同一个相位倒下
+        // 一波尸潮：80 具尸体在同一个半天内倒下
         List<CorpseDecayEntry> horde = Enumerable.Range(0, 80).Select(i => Battle($"丧尸的尸体 #{i}", 12)).ToList();
 
         Assert.Empty(CorpseDecay.Sweep(horde, 14));         // 两个相位后：全都还在，随便扒

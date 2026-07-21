@@ -1517,7 +1517,7 @@ internal static class Program
             new("craftLocation", "制作地点", "chip", ReadOnly: true,
                 Hint: "自动派生（只读）：装了工具就在工作台、茶在烹饪台、宰杀台升级在宰杀台、陷阱/菜园/沙袋在野外空地徒手搭。要改，改配方的工具/门槛。"),
             new("books", "要读过的书"),
-            new("workMinutes", "工时", "hours", Hint: "有人站在工作台前干这么久（游戏内时间）。一天有 8 个相位，夜里那个生产相位大约能推进几小时——超过它就得跨夜接着做。", ConfigKey: "WorkMinutes"),
+            new("workMinutes", "工时", "hours", Hint: "有人站在工作台前干这么久（游戏内时间）。一天只有白天和黑夜两个相位；生产主要在黑夜推进，超过一夜就得接着做。", ConfigKey: "WorkMinutes"),
             new("crafterGate", "制作者门槛", Hint: "空 = 谁都能做。人话说明；引擎真正读的门槛 id 在置灰的「勿改」列里。"),
             new("_id", "内部 id", Internal: true),
             new("_configId", "config 键", Internal: true),

@@ -9,7 +9,7 @@ namespace DeadSignal.Godot;
 //
 // ★ 为什么要有这个文件 —— 修的是三处旧账（见 journal 里程碑1）：
 //   ① **休养是"整日一个布尔"**：CampMain 旧写法 `resting = p.Role != PawnRole.Guard`，且结算只在**黎明**跑一次。
-//      而黎明时 PawnRoleManager 不重排角色（聚餐相位直接 return）⇒ 那个布尔读到的是**昨晚夜里的角色**。
+//      而黎明时 PawnRoleManager 不重排角色（聚餐流程直接 return）⇒ 那个布尔读到的是**昨晚夜里的角色**。
 //      于是"白天在营地睡了整整三个相位"对治疗**零贡献** —— 这就是"白天睡觉吃不到治疗加成"的真正根因。
 //   ② **床是假的**：旧写法 `restedInBed = resting`，营地里根本没有床这个东西。
 //   ③ **休养不是玩家的选择**：它由角色隐式推导，玩家无从主动命令一个伤员"去躺着"。
@@ -23,7 +23,7 @@ namespace DeadSignal.Godot;
 //     所以"白天躺床上"= 把他本来就在睡的觉，睡到床上去 —— 代价为零，收益是床的加成。这不是白送：**床要造、要占**。
 //   · 夜里卧床**顶掉产出**：<see cref="PawnRole.Bedrest"/> 与 Guard/Reading 互斥（同为夜间指派角色，一人一个），
 //     养病者夜里不站岗、不生产、不读书。这才是卧床的真代价 —— 一张床换一个人的夜班。
-//   · 聚餐是模态相位，全员参加（爬起来吃饭，吃完继续躺）。
+//   · 聚餐是昼夜边界的模态流程，全员参加（爬起来吃饭，吃完继续躺）。
 //
 // 空间执行（走到床边/占床/起床）落 Godot 运行时层（CampMain）；本文件只出纯规则。数值全部「拟定待调」。
 
@@ -39,7 +39,7 @@ public enum BedrestOrderStatus
     /// <summary>营地里没有空床了（床是要造的，一人一张）。</summary>
     NoFreeBed,
 
-    /// <summary>聚餐相位是模态过渡，全员在饭桌上，此刻不下令（吃完再躺）。</summary>
+    /// <summary>聚餐流程是昼夜边界的模态过渡，全员在饭桌上，此刻不下令（吃完再躺）。</summary>
     MealPhase,
 
     /// <summary>人已经死了。</summary>
@@ -248,7 +248,7 @@ public static class BedrestLogic
     /// </summary>
     /// <param name="alive">还活着。</param>
     /// <param name="role">当前角色（出探险的人够不着）。</param>
-    /// <param name="phase">当前相位（聚餐是模态，不下令）。</param>
+    /// <param name="phase">当前内部流程节点（聚餐流程是模态，不下令）。</param>
     /// <param name="hasOwnBed">他已经占着一张床（幂等：再下一次令也允许，等于"回去躺着"）。</param>
     /// <param name="freeBeds">营地空床数。</param>
     public static BedrestOrder CanOrderBedrest(bool alive, PawnRole role, DayPhase phase, bool hasOwnBed, int freeBeds)
@@ -261,7 +261,7 @@ public static class BedrestLogic
         {
             return new BedrestOrder(BedrestOrderStatus.NotInCamp, "他在外面——等他回来再说。");
         }
-        if (ShiftSchedule.BlockOf(phase) == PhaseBlock.Meal)
+        if (DayPhaseSegments.IsMeal(phase))
         {
             return new BedrestOrder(BedrestOrderStatus.MealPhase, "都在饭桌上呢，吃完再躺。");
         }

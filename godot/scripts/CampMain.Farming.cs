@@ -204,7 +204,7 @@ public sealed partial class CampMain
     /// <b>每帧把 delta 折成游戏小时喂给 <see cref="CropPlotRuntime.TickGrowth"/></b>（由 <c>CampMain.cs</c> 的 <see cref="_Process"/> 一行调）。
     /// <para>
     /// 时间源用既有 <see cref="GameClock"/>：只在<b>昼/夜正相位</b>（DayExplore/NightAct，游戏钟真在走的两段）里推进，
-    /// 一相位铺 12 游戏小时；冻结相位（聚餐/筹备/回营）<c>Engine.TimeScale=0</c> ⇒ delta≈0 ⇒ 天然不长。
+    /// 白天/黑夜各铺 12 游戏小时；冻结流程（聚餐/筹备/回营）<c>Engine.TimeScale=0</c> ⇒ delta≈0 ⇒ 天然不长。
     /// <b>昼夜都走、不按相位掷点、零维护</b>（用户："种下就不用管、一直走时间"）。存档天然覆盖（计时器在 StoryFlags）。
     /// </para>
     /// <para>场上一座菜园都没有 ⇒ 整段跳过（空闲营地零开销、零分配）。</para>

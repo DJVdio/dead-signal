@@ -119,6 +119,10 @@ public sealed partial class CampMain : Node2D
     // 远征背包（**只在探索关内存在**，回营即倾倒进共享库存后清空）：这一趟搬得动的东西。
     // 营地里没有上限（家就是仓库）；出门在外才有"背不下就是拿不走"的硬上限（上限以 Wiki 配置为准）。
     private ExpeditionBag? _bag;
+    // 探索地点遗留尸体：跨关卡保留三个半天；普通遗物随尸体过期消失，关键设备过期后回广播站原点。
+    private readonly List<ExplorationCorpseSave> _explorationCorpses = new();
+    // 关键设备的本趟携带态：活人回营才提交 RadioMainline；全灭则转移到最后倒下的队员尸体。
+    private bool _expeditionHasTransmitter;
     // 书 id → 同一 BookData 实例（阅读面板 MarkRead 后已读态共享，故必须持同一实例）。
     private readonly Dictionary<string, BookData> _bookRegistry = new();
     private Func<string, BookData?> _bookResolver = _ => null;
@@ -2790,7 +2794,7 @@ public sealed partial class CampMain : Node2D
     /// <summary>
     /// 战利品落地。**营地**：直接入共享库存（家就是仓库，无上限）。**探索关内**：先进远征背包，受硬上限拦截——
     /// 背不下的整件留在原地，成堆材料只拿得走装得下的几件。回营时由 <see cref="DumpExpeditionBag"/> 统一倾倒进库存。
-    /// <para>工具（游标卡尺/锯片/烧杯）例外：不占背包（进的是营地工作台而非背包），搜到即装、不受上限限制。</para>
+    /// <para>工具（游标卡尺/锯片/烧杯）重量为 0，但探索中仍先进背包；只有活人回营后才装进工作台。</para>
     /// </summary>
     /// <returns>本次入账的食物份数（营地口径；探索中食物先留在背包，此处返 0）。</returns>
     private int CollectLoot(IReadOnlyList<LootItem> loot, out List<ToolSlot> tools, out string leftBehindNote)
@@ -2806,14 +2810,6 @@ public sealed partial class CampMain : Node2D
         var leftBehind = new List<string>();
         foreach (LootItem l in loot)
         {
-            if (l.Kind == LootKind.Tool)
-            {
-                ToolSlot? slot = ContainerLoot.ParseToolSlot(l.RefId);
-                if (slot != null)
-                    tools.Add(slot.Value);
-                continue;
-            }
-
             int taken = _bag.AddAsManyAsFit(l);
             if (taken < l.Quantity)
             {
@@ -3235,8 +3231,7 @@ public sealed partial class CampMain : Node2D
     //   · 怎么搜 → _containerLoot + BeginLootSession（逐件转出、走开即停手）——与关内物资搜刮点同一条链路。
     // 新增的只有空间执行：关内铺一个可踏入的尸体点（TestExploration.AddCorpseSearchPoint，cartesian 坐标系）。
     //
-    // ⏱ **不过相位清理**（CorpseDecay 只管营地）：探索关是一次性进出，玩家不会在关里待过三个相位——
-    //    关内尸体**随关卡一起消失**（回营即没）。后果与既有设计意图一致：**扒不完就没了**。
+    // ⏱ 探索尸体不进营地 CorpseYard，但位置/遗物/半天计数跨关卡保存；满三个半天才刷没。
     // 🔴 authored 剧情尸体（帮众/树上的哥顿/克莉丝汀/祖母）是**发现点**、不是本通道造出来的战斗尸体，
     //    命名空间结构性隔离（CorpseNaming：ascii id vs 中文「的尸体 #」），一根汗毛都没碰。
 
@@ -3348,10 +3343,10 @@ public sealed partial class CampMain : Node2D
             CampToast.Bad);
     }
 
-    /// <summary>关内已落的尸体容器名（回营时统一注销登记——尸体随关卡消失，不该把登记漏进营地/存档）。</summary>
+    /// <summary>本次已铺进关卡的尸体容器名；卸载时注销临时登记，持久态另存于 _explorationCorpses。</summary>
     private readonly List<string> _levelCorpseContainers = new();
 
-    /// <summary>关内尸体序号（单调递增；每趟探索归零——上一趟的尸体已随关卡没了，id 不会撞）。</summary>
+    /// <summary>关内尸体序号（跨探索单调递增并进存档；重访地点时不能与尚未腐烂的尸体撞名）。</summary>
     private int _levelCorpseSeq;
 
     /// <summary>
@@ -3404,17 +3399,26 @@ public sealed partial class CampMain : Node2D
             loot = combined;
         }
 
-        string container = CorpseNaming.ContainerName(CorpseYard.NameOf(actor), ++_levelCorpseSeq);
+        string container = CorpseNaming.ExplorationContainerName(CorpseYard.NameOf(actor), ++_levelCorpseSeq);
         _containerLoot.Register(container, loot);
         _levelCorpseContainers.Add(container);
         level.AddCorpseSearchPoint(container, actor.GlobalPosition);
+        _explorationCorpses.Add(new ExplorationCorpseSave
+        {
+            Destination = level.DestinationName,
+            ContainerId = container,
+            OwnerPawnId = actor is Pawn pawn ? pawn.Id : -1,
+            X = actor.GlobalPosition.X,
+            Y = actor.GlobalPosition.Y,
+            SpawnPhaseTick = _corpseYard.PhaseTick,
+            Loot = loot.ToList(),
+        });
 
         GD.Print($"[探索关·落尸] {container}：{string.Join("、", loot.Select(LootDisplay.NameOf))}");
     }
 
     /// <summary>
-    /// 回营：把这一趟关内尸体的容器登记<b>全部注销</b>。尸体是随关卡消失的（关卡节点已 QueueFree），
-    /// 登记留着就是泄漏——字典里挂一堆搜不到的尸体，还会跟着进存档。
+    /// 卸载探索关：把本关尸体容器的剩余物同步回跨关卡账本，再注销本次场景登记。
     /// </summary>
     private void ClearLevelCorpses()
     {
@@ -3423,7 +3427,40 @@ public sealed partial class CampMain : Node2D
             _containerLoot.Remove(container);
         }
         _levelCorpseContainers.Clear();
-        _levelCorpseSeq = 0;
+    }
+
+    private void SyncLevelCorpseLoot()
+    {
+        foreach (ExplorationCorpseSave corpse in _explorationCorpses)
+        {
+            if (_levelCorpseContainers.Contains(corpse.ContainerId))
+                corpse.Loot = _containerLoot.Remaining(corpse.ContainerId).ToList();
+        }
+        _explorationCorpses.RemoveAll(c => c.Loot.Count == 0 && !c.HasTransmitter);
+    }
+
+    private void RestoreLevelCorpses(TestExploration level)
+    {
+        foreach (ExplorationCorpseSave corpse in _explorationCorpses.Where(c => c.Destination == level.DestinationName))
+        {
+            if (corpse.Loot.Count == 0 && !corpse.HasTransmitter)
+                continue;
+            _containerLoot.Register(corpse.ContainerId, corpse.Loot);
+            _levelCorpseContainers.Add(corpse.ContainerId);
+            level.AddCorpseSearchPoint(corpse.ContainerId, new Vector2((float)corpse.X, (float)corpse.Y));
+        }
+    }
+
+    private void SweepExplorationCorpses()
+    {
+        List<ExplorationCorpseSave> expired = ExplorationRemains.SweepExpired(
+            _explorationCorpses, _corpseYard.PhaseTick);
+        foreach (ExplorationCorpseSave corpse in expired)
+        {
+            GD.Print(corpse.HasTransmitter
+                ? $"[探索遗体] {corpse.ContainerId} 已腐烂；关键设备回到广播站原位。"
+                : $"[探索遗体] {corpse.ContainerId} 已腐烂；未取回遗物消失。");
+        }
     }
 
     private void OnActorDied(Actor actor)
@@ -4813,9 +4850,9 @@ public sealed partial class CampMain : Node2D
         int left = _corpseYard?.PhasesRemainingFor(containerId) ?? -1;
         return left switch
         {
-            1 => " · 快烂没了，最后一个相位",
-            2 => " · 还能躺两个相位",
-            3 => " · 还能躺三个相位",
+            1 => " · 快烂没了，最后半天",
+            2 => " · 还能躺两个半天",
+            3 => " · 还能躺三个半天",
             _ => "",   // -1=不在场上（剧情尸体/已清走）；0=这次相位切换就没了（提示已无意义）
         };
     }
@@ -5050,8 +5087,8 @@ public sealed partial class CampMain : Node2D
                 living[i].ServeSecondMeal();
             }
         }
-        // 皮特升级轴 L1→L2「连续五天饥饿≥3」：**相位级**每聚餐相位喂本相位最终饥饿值给 PetePerk.RecordPhaseHunger
-        // （≥3 续连续、<3 清零、达 10 相位 latch L2 永久旗标）。放在补餐回升之后 ⇒ 记的是本相位结算完的最终刻度。
+        // 皮特升级轴 L1→L2「连续五天饥饿≥3」：每次聚餐把本次最终饥饿值喂给 PetePerk.RecordPhaseHunger
+        // （≥3 续连续、<3 清零、达 10 餐 latch L2 永久旗标）。放在补餐回升之后 ⇒ 记的是本次结算完的最终刻度。
         foreach (Pawn diner in living.Where(d => d.Perks.IsPete))
         {
             PetePerk.RecordPhaseHunger(_storyFlags, diner.Hunger.Value);
@@ -5063,7 +5100,7 @@ public sealed partial class CampMain : Node2D
             starved.StarveToDeath();
         }
 
-        // 布鲁斯（狗）进食：**不上桌**——不入分配面板/坐席/气泡，人类分配后从余粮自动喂。每聚餐相位 -1；
+        // 布鲁斯（狗）进食：**不上桌**——不入分配面板/坐席/气泡，人类分配后从余粮自动喂。每次聚餐 -1；
         // 未饱且尚有余粮则吃 1 份（+3、扣 1 粮，用户口径）；饿死走统一死亡路径。份额出自 §4 分粮同一存货。
         if (_bruce is { Alive: true } bruce)
         {
@@ -5296,7 +5333,7 @@ public sealed partial class CampMain : Node2D
             // [批次21·impl-bedrest] 休养/睡床由**整日一个布尔**换成**按相位累计的占比**（RestLedger，见 CampMain.Bedrest.cs）。
             //
             // 旧写法 `resting = p.Role != PawnRole.Guard` 有三处错：
-            //   ① 本方法在**黎明**跑，而 PawnRoleManager 在聚餐相位不重排角色 ⇒ 那个布尔读到的是**昨夜**的角色，
+            //   ① 本方法在**黎明**跑，而 PawnRoleManager 在聚餐流程不重排角色 ⇒ 那个布尔读到的是**昨夜**的角色，
             //      白天在营地睡的三个相位（出发/探索/返回）对它**零贡献** —— 这就是"白天睡觉吃不到治疗加成"的根因；
             //   ② 床没建模，`restedInBed = resting` 是张空头支票；
             //   ③ 出门探险的人和挑灯读书的人也被算作"卧床休养"。
@@ -5422,7 +5459,7 @@ public sealed partial class CampMain : Node2D
         AdvanceAfterMeal();
     }
 
-    /// <summary>聚餐结束后的相位推进（黎明→白天备战；黄昏→睡眠过渡）。抉择面板延迟场景亦复用它收尾。</summary>
+    /// <summary>聚餐结束后的流程推进（黎明→白天备战；黄昏→睡眠过渡）。抉择面板延迟场景亦复用它收尾。</summary>
     private void AdvanceAfterMeal()
     {
         switch (_clock.CurrentPhase)
@@ -5520,10 +5557,14 @@ public sealed partial class CampMain : Node2D
         TickBedSleepMinutes();
 
         UpdateFatigueTimers(phase); // 批次6：被唤醒者次相位疲劳 debuff 的施加/过期（每相位切换维护）
-        // 尸体过三个相位烂没（用户拍板）：相位计数 +1 并清掉到期的战斗尸体，清理走 CorpseYard 的唯一回收出口
+        // 尸体过三个半天烂没（用户拍板）：只在清晨/黄昏推进计数，清理走 CorpseYard 的唯一回收出口
         // ⇒ 必经 Recycled → DeregisterCorpseContainer（可搜刮点 + 藏物登记一并注销，不泄漏）。
-        // 🔴 祖母的尸体是 camp.json 的 role=corpse prop，从不进 CorpseYard ⇒ 永远不会被这条清理带走。
-        _corpseYard?.AdvancePhase();
+        // 所有战斗尸体统一按三个半天腐烂；祖母等 authored 尸体不进该时钟，永不被清理。
+        if (CorpseDecay.AdvancesOn(phase))
+        {
+            _corpseYard?.AdvancePhase();
+            SweepExplorationCorpses();
+        }
         // [批次21·T26 修复] 圈套陷阱：跟着**昼夜段**掷点（用户拍板，与吃饭/饥饿同频）。
         // 具体掷点频率与命中率由 TrapLogic/Wiki 配置裁定；不要在消费层复制数字。
         // 哪两个相位掷由 TrapLogic.RollsOnPhase 唯一裁定（与每日期望换算焊死同一规则，见 TrapLogic.RollsPerDay）。
@@ -5542,7 +5583,7 @@ public sealed partial class CampMain : Node2D
         _returnWarningPopup.Visible = false;
         _mealAllocPanel.Visible = false;
 
-        // 克莉丝汀累计 3 次"暂不"后不立即走：排期到下一次昼夜交替（相位切进聚餐）时自行离开。
+        // 克莉丝汀累计 3 次"暂不"后不立即走：排期到下一次昼夜交替（进入聚餐边界流程）时自行离开。
         // 置于结算前，使她不再计入本餐用餐者。走"自愿离开"清理（非 Died，不触发全灭判定）。
         if (DayPhaseSegments.IsMeal(phase)
             && ChristineRequestLogic.ConsumeLeaving(_storyFlags))
@@ -5642,7 +5683,7 @@ public sealed partial class CampMain : Node2D
         // 早于它去闩门就会在一个 Enabled=false 的 NavigationRegion 上重烘焙。
         SecureCampDoors(phase);
 
-        // 自动存档（**唯一的存档途径**，玩家没有手动存档）：只在清晨聚餐/黄昏聚餐两个相位落地，一天两次。
+        // 自动存档（**唯一的存档途径**，玩家没有手动存档）：只在清晨/黄昏两个昼夜边界落地，一天两次。
         // **必须是本方法的最后一步**——上面那些分支还在改世界（触发围攻/夜袭/闩门），
         // 早于它们存档，存下的就是一个"半个相位"的世界。战斗中欠着，打完再补（见 AutosaveOnPhaseChange）。
         AutosaveOnPhaseChange(phase);
@@ -5893,9 +5934,17 @@ public sealed partial class CampMain : Node2D
         // **可重复踏入**（关卡侧不去重）：掏到一半被咬跑了，回头还能接着掏——剩下的东西还在他身上。
         if (CorpseNaming.IsCorpseContainer(discoveryId))
         {
+            ExplorationCorpseSave? remains = _explorationCorpses.FirstOrDefault(c => c.ContainerId == discoveryId);
+            bool recoveredTransmitter = remains is not null && ExplorationRemains.RecoverTransmitter(remains);
+            if (recoveredTransmitter)
+            {
+                _expeditionHasTransmitter = true;
+                _campToast.Show("从遗体上找回了关键设备——得有人活着把它带回营地。", CampToast.Ok);
+            }
             if (_containerLoot.IsSearched(discoveryId))
             {
-                _campToast.Show($"{discoveryId}：已经搜过了。", CampToast.Bad);
+                if (!recoveredTransmitter)
+                    _campToast.Show($"{discoveryId}：已经搜过了。", CampToast.Bad);
                 return;
             }
             if (finder is { Alive: true } looter)
@@ -5925,12 +5974,18 @@ public sealed partial class CampMain : Node2D
         }
 
         // ——广播台「发出设备」挂点（电台主线）——
-        // 踏入发射机发现区即到此：取得发出设备 → 推进主线状态（Unknown/Heard→HasTransmitter）+ 弹取设备叙事（不给书）。
-        // 定点非随机（用户 D4 拍板：主线关键物资保底）。GrantTransmitter 幂等：已取得过返回 false → 不重复弹叙事。
+        // 踏入发射机发现区：先进入本趟携带态并弹叙事；只有活人回营才 GrantTransmitter 推进主线。
+        // 全灭则设备随最后倒下的队员尸体保留三个半天；尸体过期后设备回此 authored 原点。
         if (discoveryId == RadioMainline.TransmitterDiscoveryId)
         {
-            if (RadioMainline.GrantTransmitter(_storyFlags))
+            bool unavailable = RadioMainline.HasTransmitter(_storyFlags)
+                || _expeditionHasTransmitter
+                || ExplorationRemains.HasLostTransmitter(_explorationCorpses, ExplorationCache.BroadcastStationName);
+            if (!unavailable)
+            {
+                _expeditionHasTransmitter = true;
                 ShowDiscoveryNarrative(RadioMainline.TransmitterPickupTitle, RadioMainline.TransmitterPickupNarrative);
+            }
             return;
         }
 
@@ -5989,11 +6044,10 @@ public sealed partial class CampMain : Node2D
             DiscoveryResult d = r.Value;
             _storyFlags.Set(d.StoryFlag, "true"); // 持久去重：本 flag 已置则下次 Resolve 返回 null
 
-            // 日记入共享库存（同一 BookData 实例登记进 registry，回营阅读共享已读态）。
-            // 空 BookId = 该发现点无书（如克莉丝汀本人尸体点，日记A 归帮众尸体），跳过入库。
+            // 日记也必须随远征携带：活人回营后才进入共享库存；全灭则和背包一起留在队员尸体上。
+            // 空 BookId = 该发现点无书（如克莉丝汀本人尸体点，日记A 归帮众尸体），跳过。
             if (!string.IsNullOrEmpty(d.BookId))
-                LootApplication.Apply(
-                    new[] { LootItem.Book(d.BookId) }, _inventory, _bookRegistry, _bookResolver);
+                CollectLoot(new[] { LootItem.Book(d.BookId) }, out _, out _);
 
             ShowDiscoveryNarrative(d.Title, d.Narrative);
             return;
@@ -6190,7 +6244,11 @@ public sealed partial class CampMain : Node2D
         _currentLevel.Clock = _clock;
         // 关卡里新建的丧尸要拿到与营地单位相同的战斗引擎实例（否则 Inject 缺失、首帧 Think 崩）。
         if (_currentLevel is TestExploration testLevel)
+        {
             testLevel.Combat = _combat;
+            testLevel.TransmitterAvailableAtOrigin = !RadioMainline.HasTransmitter(_storyFlags)
+                && !ExplorationRemains.HasLostTransmitter(_explorationCorpses, ExplorationCache.BroadcastStationName);
+        }
         _currentLevel.ExpeditionTeam = _survivors.Where(s => s.Role == PawnRole.Expedition).ToList();
         // 随队布鲁斯（本次带狗且道格同队时）：关卡据此放置/回收+纳入敌人目标池/视野观察者。狗非 Pawn、不入 ExpeditionTeam。
         _currentLevel.CompanionDog = _bruceExpedition && _bruce is { Alive: true } ? _bruce : null;
@@ -6220,6 +6278,9 @@ public sealed partial class CampMain : Node2D
 
         _currentLevel.Initialize();
 
+        if (_currentLevel is TestExploration initializedLevel)
+            RestoreLevelCorpses(initializedLevel);
+
         // 关内可关的门（当前只有废弃医院）：Initialize 之后才有门实体，故在此登记成可右键前往的容器。
         RegisterLevelDoorContainers();
     }
@@ -6233,12 +6294,33 @@ public sealed partial class CampMain : Node2D
         _currentLevel!.OnDiscovery -= OnExplorationDiscovery;
         _currentLevel!.Cleanup();
 
-        // 远征背包倾倒进营地（这一趟真正搬回来的东西）。必须在关卡卸载路径的最前段——
-        // 后面的道格/护士入队钩子会改 _survivors，与背包无关但顺序上先落袋为安。
-        DumpExpeditionBag();
+        // 先把逐件搜刮后的剩余物同步回尸体账本；全灭时背包与关键设备再挂到最后倒下的队员尸体上。
+        SyncLevelCorpseLoot();
+        bool expeditionSurvived = _survivors.Any(p => p.Alive && _todaysExpeditionIds.Contains(p.Id));
+        if (expeditionSurvived)
+        {
+            DumpExpeditionBag();
+            if (_expeditionHasTransmitter)
+                RadioMainline.GrantTransmitter(_storyFlags);
+        }
+        else
+        {
+            ExplorationCorpseSave? carrier = ExplorationRemains.AttachPartyLoss(
+                _explorationCorpses,
+                _currentLevel.DestinationName,
+                _todaysExpeditionIds,
+                _bag?.Contents ?? Array.Empty<LootItem>(),
+                _expeditionHasTransmitter);
+            GD.Print(carrier is null
+                ? "[探索全灭] 未找到队员尸体；背包物资损失，关键设备将在原位重新出现。"
+                : $"[探索全灭] 背包与关键设备留在 {carrier.ContainerId}，三个半天内可找回。");
+            _bag = null;
+            foreach (Pawn survivor in _survivors)
+                survivor.ClearCarryLoad();
+        }
+        _expeditionHasTransmitter = false;
 
-        // 关内尸体的容器登记随关卡一起消失（T36）：**背包已经倒完了**，所以此刻注销只丢掉"没来得及扒的"，
-        // 不丢已经掏出来的东西。扒不完就是扒不完——同营地那条"三个相位就烂没"是同一口径的两种时钟。
+        // 场景登记随关卡卸载；尸体与未取回遗物仍在 _explorationCorpses，重访同一地点时恢复。
         ClearLevelCorpses();
 
         // 关内门的登记同样随关卡消失（[T49]）：不注销的话，回营后营地里会凭空多出几扇点得到、
@@ -7733,7 +7815,7 @@ public sealed partial class CampMain : Node2D
                 ? "[克莉丝汀] 答应出兵清剿金手指帮（请求线停播，待后续探索兑现）。"
                 : $"[克莉丝汀] 暂不出兵（累计回绝 {ChristineRequestLogic.DeclineCount(_storyFlags)}/{ChristineRequestLogic.DeclinesToLeave}）。");
             panel.QueueFree();
-            AdvanceAfterMeal(); // 抉择完成，接回被推迟的聚餐后相位推进
+            AdvanceAfterMeal(); // 抉择完成，接回被推迟的聚餐后流程推进
         };
     }
 

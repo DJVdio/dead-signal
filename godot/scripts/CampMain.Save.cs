@@ -80,6 +80,18 @@ public sealed partial class CampMain
                 TodaysExpeditionIds = _todaysExpeditionIds.ToList(),
                 Bag = _bag?.Contents.ToList() ?? new List<LootItem>(),
                 BruceAlong = _bruceExpedition,
+                Corpses = _explorationCorpses.Select(c => new ExplorationCorpseSave
+                {
+                    Destination = c.Destination,
+                    ContainerId = c.ContainerId,
+                    OwnerPawnId = c.OwnerPawnId,
+                    X = c.X,
+                    Y = c.Y,
+                    SpawnPhaseTick = c.SpawnPhaseTick,
+                    Loot = c.Loot.ToList(),
+                    HasTransmitter = c.HasTransmitter,
+                }).ToList(),
+                NextCorpseId = _levelCorpseSeq,
             },
             Bonds = new BondSave
             {
@@ -275,7 +287,7 @@ public sealed partial class CampMain
     }
 
     /// <summary>
-    /// 场上尸体。<b>相位计数必须一起存</b>——尸体"还剩几个相位就烂没"是它和 <c>SpawnPhaseTick</c> 的差值，
+    /// 场上尸体。<b>半天计数必须一起存</b>——尸体剩余寿命是它和 <c>SpawnPhaseTick</c> 的差值，
     /// 计数丢了，一地尸体要么读档就全烂光、要么永远不烂。
     /// </summary>
     private CorpseYardSave CaptureCorpses() => new()
@@ -435,6 +447,23 @@ public sealed partial class CampMain
             _todaysExpeditionIds.Add(id);
         }
         _bruceExpedition = s.Expedition.BruceAlong;
+        _explorationCorpses.Clear();
+        foreach (ExplorationCorpseSave corpse in s.Expedition.Corpses ?? new List<ExplorationCorpseSave>())
+        {
+            _explorationCorpses.Add(new ExplorationCorpseSave
+            {
+                Destination = corpse.Destination,
+                ContainerId = corpse.ContainerId,
+                OwnerPawnId = corpse.OwnerPawnId,
+                X = corpse.X,
+                Y = corpse.Y,
+                SpawnPhaseTick = corpse.SpawnPhaseTick,
+                Loot = corpse.Loot?.ToList() ?? new List<LootItem>(),
+                HasTransmitter = corpse.HasTransmitter,
+            });
+        }
+        _levelCorpseSeq = System.Math.Max(s.Expedition.NextCorpseId, _explorationCorpses.Count);
+        _expeditionHasTransmitter = false; // 自动存档只落在营地聚餐，不存在“探索途中携带态”。
         _bondDaysBothAlive = s.Bonds.BondDaysBothAlive;
 
         // 8) 派生量重建（不进存档的那些）：掩体场从结构+沙袋、导航从地图、护甲层已在 Pawn.ApplySave 里重建。
@@ -739,7 +768,7 @@ public sealed partial class CampMain
     private bool _autosavePending;
 
     /// <summary>
-    /// 自动存档：<b>清晨聚餐 / 黄昏聚餐 两个相位切换时各存一次</b>（一天两次，用户拍板）。
+    /// 自动存档：<b>清晨聚餐 / 黄昏聚餐 两个昼夜边界各存一次</b>（一天两次，用户拍板）。
     /// <para>
     /// <b>没有手动存档</b>——玩家没有"存档"这个动作，也就没法在冲进去之前先存一个。
     /// S/L 大法是从<b>源头</b>被堵死的，而不是靠在存档按钮上加限制。

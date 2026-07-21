@@ -18,8 +18,8 @@ namespace DeadSignal.Godot;
 /// 🔴 <b>本 Yard 只管营地</b>：探索关的尸体<b>不进这里</b>（两边显示都走 faux-iso，但关内不采用营地尸体格），
 /// 走 <c>CampMain.SpawnLevelCorpse</c> → 关内一个可搜刮触发点。
 /// 两边<b>共用</b>的是规则（<see cref="CorpseLoot.Strip"/> 扒什么、<see cref="CorpseNaming"/> 叫什么名字），
-/// 各自不同的只有空间执行。相位过期清理（<see cref="CorpseDecay"/>）同样只管营地——关内尸体<b>随关卡消失</b>
-/// （一次性进出，玩家不会在关里待过三个相位；扒不完就没了，同一条口径的两种时钟）。
+/// 各自不同的只有空间执行。两边共享 <see cref="CorpseDecay"/> 的三个半天寿命；探索尸体由营地层另存位置与遗物，
+/// 重访同一地点时恢复，不占营地尸体格。
 /// </para>
 /// </summary>
 public sealed partial class CorpseYard : Node
@@ -36,7 +36,7 @@ public sealed partial class CorpseYard : Node
     private readonly CorpseField _field = new();
     private readonly List<Corpse> _live = new();   // 生成顺序（表头最老），超限从头回收
     private int _nextId;                           // 尸体容器 id 序号（同名容器会互相顶掉登记，故必须唯一）
-    private int _phaseTick;                        // 单调相位计数（每次相位切换 +1），尸体据此到期
+    private int _phaseTick;                        // 单调半天计数（清晨/黄昏各 +1），尸体据此到期
 
     /// <summary>场上尸体数（= 被占的尸体格数）。</summary>
     public int Count => _live.Count;
@@ -46,7 +46,7 @@ public sealed partial class CorpseYard : Node
 
     /// <summary>
     /// 读档：把相位计数摆回存档那一刻。<b>必须在重建尸体之前调用</b>——
-    /// 尸体的"还剩几个相位烂没"是 <c>SpawnPhaseTick</c> 与本计数的差值，计数错了，一地尸体要么当场全烂光、
+    /// 尸体的"还剩几个半天烂没"是 <c>SpawnPhaseTick</c> 与本计数的差值，计数错了，一地尸体要么当场全烂光、
     /// 要么永远不烂。
     /// </summary>
     public void RestorePhaseTick(int phaseTick) => _phaseTick = Math.Max(0, phaseTick);
@@ -61,7 +61,7 @@ public sealed partial class CorpseYard : Node
     public IReadOnlyList<Corpse> Live => _live;
 
     /// <summary>
-    /// 这个可搜刮点还剩几个相位就烂没了（供悬停提示）。<b>不在场上的返回 -1</b>——
+    /// 这个可搜刮点还剩几个半天就烂没了（供悬停提示）。<b>不在场上的返回 -1</b>——
     /// 祖母那具 authored 尸体不是本 Yard 的尸体（她永远躺在那儿，没有倒计时），已清走的也一样。
     /// 「还剩多久」是纯粹的决策信息（我先扒哪具？值不值得为它多待一个相位），藏起来只会制造挫败感。
     /// </summary>
@@ -154,7 +154,7 @@ public sealed partial class CorpseYard : Node
 
         var corpse = Corpse.Spawn(isoLayer, Iso.Project(landing), placement.Cell, bodyTint, radius);
         corpse.CartPosition = landing;        // 容器命中矩形用的是 cartesian，不是 iso
-        corpse.SpawnPhaseTick = _phaseTick;   // 落地时的相位计数：此后过 CorpseDecay.LifetimePhases 个相位就烂没了
+        corpse.SpawnPhaseTick = _phaseTick;   // 落地时的半天计数：此后过 CorpseDecay.LifetimePhases 个半天就烂没了
         _live.Add(corpse);
 
         while (_live.Count > MaxCorpses)
@@ -174,7 +174,7 @@ public sealed partial class CorpseYard : Node
     /// <b>早就找好位置了</b>。重跑推挤会把整片尸堆挪位（因为恢复顺序未必等于当初的倒下顺序），
     /// 玩家读档后会发现尸体都不在他记得的地方。这里直接按存下来的格与坐标落回去。
     /// </para>
-    /// <para>调用前须先 <see cref="RestorePhaseTick"/>——尸体的"还剩几个相位烂没"是差值算的。</para>
+    /// <para>调用前须先 <see cref="RestorePhaseTick"/>——尸体的"还剩几个半天烂没"是差值算的。</para>
     /// </summary>
     public Corpse? RestoreCorpse(
         Vector2 cartPos, CorpseCell cell, Color bodyTint, float radius,
@@ -196,10 +196,10 @@ public sealed partial class CorpseYard : Node
     }
 
     /// <summary>
-    /// 相位切换（<see cref="DayPhase"/> 每变一次，营地层调一次）：相位计数 +1，并把**到期的尸体**清掉。
+    /// 半天边界（清晨/黄昏，营地层按 <see cref="CorpseDecay.AdvancesOn"/> 调用）：计数 +1，并把**到期的尸体**清掉。
     /// <para>
-    /// 用户拍板：尸体过三个相位自动清理——既缓解性能压力，也给了足够的时间去搜刮。搜刮窗口因此是硬的：
-    /// 尸潮打完那一地尸体，三个相位内扒不完，就是扒不完（也顺带堵掉了挂机刷装备）。
+    /// 用户拍板：尸体过三个半天自动清理——既缓解性能压力，也给足搜刮时间。窗口仍是硬的：
+    /// 三个半天内扒不完，就是扒不完（也顺带堵掉挂机刷装备）。
     /// </para>
     /// <para>
     /// 🔴 <b>祖母的尸体不经这里</b>：她是 camp.json 的 role=corpse 静态 prop（authored 剧情），从不进
@@ -211,7 +211,7 @@ public sealed partial class CorpseYard : Node
     {
         _phaseTick++;
 
-        // 一次相位切换扫一遍全场（≤ MaxCorpses=240 具，每相位一次，开销可忽略）；判定走纯逻辑。
+        // 每半天扫一遍全场（≤ MaxCorpses=240 具，开销可忽略）；判定走纯逻辑。
         for (int i = _live.Count - 1; i >= 0; i--)
         {
             Corpse c = _live[i];

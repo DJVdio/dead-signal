@@ -1195,7 +1195,7 @@ public class HealthConditionsTests
         Assert.Equal(3 * 0.15 * rate, set.ImmunityProgress, 9); // [感染重做] 免疫条 set 级·9 位精度：不得中途 round/floor
     }
 
-    // 相位级=整日等价（不取整）：8 个 dt=1/8 片累计 == 1 个 dt=1 片（进度累积无粒度损失）。
+    // 两个半天累计与整日等价（不取整）：2 个 dt=1/2 累计 == 1 个 dt=1（进度无粒度损失）。
     [Fact]
     public void Phase_level_steps_sum_equals_one_daily_step()
     {
@@ -1203,7 +1203,7 @@ public class HealthConditionsTests
         daily.AdvanceInfectionRace(1.0, true, MedicineCatalog.For("herbal_salve"));
 
         var phased = new HealthConditionSet(); var cp = FreshInfection(0.20); phased.Add(cp);
-        for (int i = 0; i < 8; i++) phased.AdvanceInfectionRace(1.0 / 8.0, true, MedicineCatalog.For("herbal_salve"));
+        for (int i = 0; i < 2; i++) phased.AdvanceInfectionRace(0.5, true, MedicineCatalog.For("herbal_salve"));
 
         Assert.Equal(cd.Severity, cp.Severity, 6);
         Assert.Equal(daily.ImmunityProgress, phased.ImmunityProgress, 6); // [感染重做] 免疫条 set 级：相位级=整日等价

@@ -8,7 +8,7 @@ namespace DeadSignal.Combat.Tests;
 /// 双班硬性日程 + 睡眠不足疲劳 debuff 纯逻辑单测（批次6，shift-sleep）。锁规则形态与当前拟定值：
 ///   · 班别 = 探险名单派生（探险=DayCrew / 其余=NightCrew）；亦可由 watch-contest 的 WatchDuty 桥接。
 ///   · 白天：探险队出门(Active) + 营地夜班强制睡(Sleeping·不可操作)；
-///     夜里：夜班站岗/生产(Active) + 探险队强制睡(Sleeping)；聚餐相位全员参加(Meal)。
+///     夜里：夜班站岗/生产(Active) + 探险队强制睡(Sleeping)；昼夜边界的聚餐流程全员参加(Meal)。
 ///   · 生产工时相位 = 夜班在 NightAct 在勤；常规袭营仅夜间，白天仅 authored 事件可破日程。
 ///   · 名册与「谁被唤醒」归 watch-contest（NightWatchContest.RespondersFor/AwokenSleepers）；
 ///     shift-sleep 只出「睡着与否/可操作与否/被唤醒者的疲劳 debuff」——DebuffsForAwoken 消费其 AwokenSleepers 出 debuff。
@@ -20,24 +20,19 @@ public class ShiftScheduleTests
     [Fact]
     public void BlockOf_DayPhases_AreDayBlock()
     {
-        Assert.Equal(PhaseBlock.Day, ShiftSchedule.BlockOf(DayPhase.DayPrep));
-        Assert.Equal(PhaseBlock.Day, ShiftSchedule.BlockOf(DayPhase.DayTravel));
-        Assert.Equal(PhaseBlock.Day, ShiftSchedule.BlockOf(DayPhase.DayExplore));
-        Assert.Equal(PhaseBlock.Day, ShiftSchedule.BlockOf(DayPhase.DayReturn));
+        Assert.Equal(DayNightPhase.Day, ShiftSchedule.PhaseOf(DayPhase.DawnMeal));
+        Assert.Equal(DayNightPhase.Day, ShiftSchedule.PhaseOf(DayPhase.DayPrep));
+        Assert.Equal(DayNightPhase.Day, ShiftSchedule.PhaseOf(DayPhase.DayTravel));
+        Assert.Equal(DayNightPhase.Day, ShiftSchedule.PhaseOf(DayPhase.DayExplore));
+        Assert.Equal(DayNightPhase.Day, ShiftSchedule.PhaseOf(DayPhase.DayReturn));
     }
 
     [Fact]
     public void BlockOf_NightPhases_AreNightBlock()
     {
-        Assert.Equal(PhaseBlock.Night, ShiftSchedule.BlockOf(DayPhase.NightPrep));
-        Assert.Equal(PhaseBlock.Night, ShiftSchedule.BlockOf(DayPhase.NightAct));
-    }
-
-    [Fact]
-    public void BlockOf_MealPhases_AreMealBlock()
-    {
-        Assert.Equal(PhaseBlock.Meal, ShiftSchedule.BlockOf(DayPhase.DawnMeal));
-        Assert.Equal(PhaseBlock.Meal, ShiftSchedule.BlockOf(DayPhase.DuskMeal));
+        Assert.Equal(DayNightPhase.Night, ShiftSchedule.PhaseOf(DayPhase.DuskMeal));
+        Assert.Equal(DayNightPhase.Night, ShiftSchedule.PhaseOf(DayPhase.NightPrep));
+        Assert.Equal(DayNightPhase.Night, ShiftSchedule.PhaseOf(DayPhase.NightAct));
     }
 
     // ---- 班别派生 ----

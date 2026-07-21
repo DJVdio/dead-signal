@@ -239,7 +239,7 @@ public class CarryCapacityTests
         Assert.Equal(ItemWeights.MaterialKg("wood") * 2, ItemWeights.OfLoot(LootItem.Material("wood", 2)), 6);
         Assert.Equal(ItemWeights.FoodPerPortionKg * 3, ItemWeights.OfLoot(LootItem.Food(3)), 6);
         Assert.Equal(ItemWeights.WeaponKg("步枪"), ItemWeights.OfLoot(LootItem.Weapon("步枪")), 6);
-        Assert.Equal(0.0, ItemWeights.OfLoot(LootItem.Tool("calipers")), 6); // 工具进工作台不进背包
+        Assert.Equal(0.0, ItemWeights.OfLoot(LootItem.Tool("calipers")), 6); // 工具随队携带，但自身不计重
     }
 
     // ---------- 远征背包：硬上限（基准值来自 Wiki 配置）----------

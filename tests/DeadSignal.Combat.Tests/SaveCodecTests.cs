@@ -105,7 +105,7 @@ public class SaveCodecTests
     [Fact]
     public void 枚举以字符串落盘而不是数字()
     {
-        // 数字枚举会在中间插入新值时静默错位：DayPhase 里加一个相位，
+        // 数字枚举会在中间插入新值时静默错位：DayPhase 里加一个内部流程节点，
         // 所有旧存档的"黄昏"就变成"夜间"了，而且不报错。
         var data = new SaveData();
         data.World.Phase = DayPhase.NightAct;
@@ -161,16 +161,16 @@ public class SaveCodecTests
     }
 
     [Fact]
-    public void 尸体还剩几个相位就烂没这件事读得回来()
+    public void 尸体还剩几个半天就烂没这件事读得回来()
     {
-        // 尸体的搜刮窗口是硬的（3 相位）。若 PhaseTick 没存对，一地尸体要么当场全烂光、要么永远不烂。
+        // 尸体的搜刮窗口是硬的（3 个半天）。若 PhaseTick 没存对，一地尸体要么当场全烂光、要么永远不烂。
         var data = new SaveData();
         data.Corpses.PhaseTick = 9;
         data.Corpses.NextId = 14;
         data.Corpses.Corpses.Add(new CorpseSave
         {
             ContainerId = "丧尸的尸体 #12",
-            SpawnPhaseTick = 8,            // 躺了 1 个相位，还剩 2 个
+            SpawnPhaseTick = 8,            // 躺了 1 个半天，还剩 2 个半天
             X = 1200, Y = 900,
             CellX = 37, CellY = 28,
             Loot = { LootItem.Armor("皮夹克"), LootItem.Weapon("匕首") },
@@ -188,6 +188,38 @@ public class SaveCodecTests
         // 尸体身上的东西（穿什么扒什么）也在
         Assert.Equal(2, c.Loot.Count);
         Assert.Equal("皮夹克", c.Loot[0].RefId);
+    }
+
+    [Fact]
+    public void 探索遗体_位置遗物关键设备与半天时钟能跨存档()
+    {
+        var data = new SaveData();
+        data.Corpses.PhaseTick = 12;
+        data.Expedition.NextCorpseId = 27;
+        data.Expedition.Corpses.Add(new ExplorationCorpseSave
+        {
+            Destination = ExplorationCache.BroadcastStationName,
+            ContainerId = "山姆的尸体 #远征27",
+            OwnerPawnId = 7,
+            X = 1200,
+            Y = 300,
+            SpawnPhaseTick = 11,
+            Loot = { LootItem.Food(2), LootItem.Weapon("消防斧") },
+            HasTransmitter = true,
+        });
+
+        SaveData back = SaveCodec.Deserialize(SaveCodec.Serialize(data)).Data!;
+
+        Assert.Equal(27, back.Expedition.NextCorpseId);
+        ExplorationCorpseSave corpse = Assert.Single(back.Expedition.Corpses);
+        Assert.Equal(ExplorationCache.BroadcastStationName, corpse.Destination);
+        Assert.Equal(7, corpse.OwnerPawnId);
+        Assert.Equal(11, corpse.SpawnPhaseTick);
+        Assert.Equal(2, corpse.Loot.Count);
+        Assert.True(corpse.HasTransmitter);
+        Assert.Equal(2, CorpseDecay.PhasesRemaining(
+            new CorpseDecayEntry(corpse.ContainerId, corpse.SpawnPhaseTick, Authored: false),
+            back.Corpses.PhaseTick));
     }
 
     [Fact]

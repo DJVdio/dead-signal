@@ -29,7 +29,7 @@
     <Compile Include="..\..\godot\scripts\Factions.cs" Link="Consumed\Factions.cs" />
     <!-- 开局起始相位决策纯逻辑（无 Godot 依赖）：startAtNight → 起始相位 + 是否显式置首日 Day=1。DayPhase 枚举随附。 -->
     <Compile Include="..\..\godot\scripts\DayPhase.cs" Link="Consumed\DayPhase.cs" />
-    <!-- 🔴 昼夜段分类的唯一事实源（SegmentOf/IsNight/IsMeal/IsDay/IsFrozen）：9+ 处 inline 相位集合收口于此，跨消费方焊死。 -->
+    <!-- 🔴 昼夜段分类的唯一事实源（PhaseOf/IsNight/IsMeal/IsDay/IsFrozen）：9+ 处 inline 相位集合收口于此，跨消费方焊死。 -->
     <Compile Include="..\..\godot\scripts\DayPhaseSegments.cs" Link="Consumed\DayPhaseSegments.cs" />
     <Compile Include="..\..\godot\scripts\StartupPhaseLogic.cs" Link="Consumed\StartupPhaseLogic.cs" />
     <!-- 面向玩家的枚举中文名总表 + HUD 状态行纯拼装：钉死「英文枚举名不许显示给玩家」（EnumDisplayNameTests）。 -->
@@ -303,6 +303,7 @@
     <!-- 尸体按相位过期清理纯逻辑（impl-corpse-push，无 Godot 依赖）：战斗尸体过 3 个相位（用户拍板）自动清理
          = 硬搜刮窗口 + 性能兜底；🔴 authored 剧情尸体（祖母/帮众/树上的哥顿）永不过期，收走了那段剧情就没了。 -->
     <Compile Include="..\..\godot\scripts\CorpseDecay.cs" Link="Consumed\CorpseDecay.cs" />
+    <Compile Include="..\..\godot\scripts\ExplorationRemains.cs" Link="Consumed\ExplorationRemains.cs" />
     <!-- 尸体战利品判定纯逻辑（impl-loot-clothes，无 Godot 依赖）：死者身上的衣服逐件掷骰 —— 软质衣物 50% /
          刚性护甲件 90% 完好取下，天生层(腐皮)永不掉且不掷骰。丧尸穿着生前的日常着装，那件衣服是重要的装备来源。 -->
     <Compile Include="..\..\godot\scripts\CorpseLoot.cs" Link="Consumed\CorpseLoot.cs" />
@@ -317,7 +318,7 @@
     <Compile Include="..\..\godot\scripts\SaveCodec.cs" Link="Consumed\SaveCodec.cs" />
     <Compile Include="..\..\godot\scripts\SaveMigration.cs" Link="Consumed\SaveMigration.cs" />
     <Compile Include="..\..\godot\scripts\SaveMapper.cs" Link="Consumed\SaveMapper.cs" />
-    <!-- 自动存档轮转策略（纯逻辑）：一天存两次=清晨/黄昏聚餐两个相位；保留最近 6 个（≈三天）。玩家无手动存档，故留一串历史档是设计前提。 -->
+    <!-- 自动存档轮转策略（纯逻辑）：一天存两次=清晨/黄昏两个相位边界；保留最近 6 个（≈三天）。玩家无手动存档，故留一串历史档是设计前提。 -->
     <Compile Include="..\..\godot\scripts\SaveRotation.cs" Link="Consumed\SaveRotation.cs" />
     <!-- 主菜单读档面板的可选性判定（纯逻辑）：某槽读取按钮灰不灰＝版本兼容且未损坏。磁盘枚举在 SaveManager（Godot 层，不 Link）。 -->
     <Compile Include="..\..\godot\scripts\MainMenuSlots.cs" Link="Consumed\MainMenuSlots.cs" />

@@ -133,7 +133,7 @@ public class EnumDisplayNameTests
 
     /// <summary>
     /// HUD 左上角状态行**不许出现英文枚举名**——这正是 <c>[DayPrep]</c> 的原案发地。
-    /// 八个相位逐个过一遍：显示的必须是中文相位名，且原英文名不得出现在整行里。
+    /// 全部内部流程节点逐个过一遍：显示必须是中文，且原英文名不得出现在整行里。
     /// </summary>
     [Theory]
     [InlineData(DayPhase.DawnMeal)]
@@ -167,7 +167,7 @@ public class EnumDisplayNameTests
     }
 
     /// <summary>
-    /// 八个相位的中文名逐字钉死（**这是玩家会读到的字**，改动须过用户）。
+    /// 全部内部流程节点的中文名逐字钉死（**这是玩家会读到的字**，改动须过用户）。
     /// 顺序即一天的流转：白天筹备 → 出发路上 → 外出探索 → 返回营地 → 黄昏聚餐 → 夜间部署 → 夜间行动 → 清晨聚餐。
     /// </summary>
     [Fact]

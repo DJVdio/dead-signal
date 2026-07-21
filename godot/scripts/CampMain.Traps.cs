@@ -165,7 +165,7 @@ public sealed partial class CampMain
     /// <b>一个昼夜段的陷阱结算</b>：场上每个陷阱各掷一次点，抓到的老鼠/兔子<b>直接入共享库存</b>（两者都要先宰杀，不能直接下锅）。
     /// <para>由 <c>CampMain.cs</c> 的 <see cref="OnGamePhaseChanged"/> 一行调用，且<b>只在 <see cref="TrapLogic.RollsOnPhase"/> 为真的两个昼夜段边界</b>
     /// （白天 <see cref="DayPhase.DawnMeal"/> + 夜晚 <see cref="DayPhase.DuskMeal"/>）触发 ⇒ <b>一天 2 次</b>（用户拍板：白天 1 次 + 夜晚 1 次）。
-    /// 频率的唯一事实源在 <see cref="TrapLogic.RollsOnPhase"/>；这里不自己判相位，避免"一个写 2、一个按 8 触发"的两处漂移。</para>
+    /// 频率的唯一事实源在 <see cref="TrapLogic.RollsOnPhase"/>；这里不自己判流程节点，避免触发次数出现两处漂移。</para>
     /// <para>
     /// <b>一个陷阱都没有就彻底静默</b>：不掷点、不入库、不弹提示（<see cref="TrapLogic.RollPhase"/> 在 count≤0 时一次点都不掷）。
     /// </para>

@@ -97,7 +97,7 @@ public sealed partial class Dog : Actor
     /// </summary>
     public Actor? EngagedTarget => CurrentAttackTarget is { Alive: true } t ? t : null;
 
-    // ---- 进食（犬类最简，用户口径：吃一份增加饥饿 / 每聚餐相位衰减 / 不上桌；当前数值以 Wiki 配置为准）----
+    // ---- 进食（犬类最简，用户口径：吃一份增加饥饿 / 每次聚餐衰减 / 不上桌；当前数值以 Wiki 配置为准）----
 
     /// <summary>布鲁斯的饥饿刻度（见 <see cref="DogHungerState"/>）。营地聚餐结算按余粮驱动，不占分配面板/坐席/气泡。</summary>
     public DogHungerState Hunger { get; } = new();
@@ -105,7 +105,7 @@ public sealed partial class Dog : Actor
     /// <summary>饥饿对战斗能力的惩罚（喂给 <see cref="Actor"/> 的钩子）：越饿攻速/移速越低（与人类同阶梯）。</summary>
     protected override double HungerAbilityPenalty => Hunger.AbilityPenalty;
 
-    /// <summary>一次聚餐相位的饥饿结算（进食与自然衰减数值以 Wiki 配置为准）。返回本次是否饿死。营地层每聚餐相位对布鲁斯调一次。</summary>
+    /// <summary>一次聚餐流程的饥饿结算（进食与自然衰减数值以 Wiki 配置为准）。返回本次是否饿死。营地层每次聚餐对布鲁斯调一次。</summary>
     public bool ResolveHungerPhase(bool ate) => Hunger.ResolvePhase(ate);
 
     /// <summary>饥饿刻度已归 0（饿死）。由聚餐结算据此走统一死亡路径。</summary>

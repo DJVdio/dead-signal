@@ -63,7 +63,7 @@ public static class SaveCodec
         // 人类可读 > 体积。存档要能直接打开看、能手改来复现 bug——这个阶段可调试性压倒一切。
         WriteIndented = true,
         // 枚举存**字符串**而非数字：数字会在枚举中间插一个新值时**静默错位**
-        // （DayPhase 里加一个相位，所有旧存档的"黄昏"就变成"夜间"了，还不报错）。
+        // （DayPhase 里加一个内部流程节点，所有旧存档的"黄昏"就会错位，还不报错）。
         Converters = { new JsonStringEnumConverter() },
         // 未知字段静默忽略（System.Text.Json 默认行为，此处显式写出以表明是有意的）：
         // 手改存档时留个注释字段不会把整个档读废。

@@ -44,6 +44,10 @@ public static class CorpseNaming
     public static string ContainerName(string who, int seq)
         => $"{(string.IsNullOrWhiteSpace(who) ? "无名者" : who)}{Marker}{Math.Max(1, seq)}";
 
+    /// <summary>探索关尸体使用独立「远征」序号域，避免与营地同名尸体在共享容器表中互相覆盖。</summary>
+    public static string ExplorationContainerName(string who, int seq)
+        => $"{(string.IsNullOrWhiteSpace(who) ? "无名者" : who)}{Marker}远征{Math.Max(1, seq)}";
+
     /// <summary>
     /// 这个 id 是一具尸体吗（探索关的发现点上报走同一个字符串，营地层据此把它路由到"搜尸体"而不是
     /// "解析剧情点/缓存点"）。空 id ⇒ false。

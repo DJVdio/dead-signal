@@ -7,7 +7,7 @@ namespace DeadSignal.Godot;
 
 // 注意：本文件为**纯逻辑**，不得引入任何 Godot 类型
 //（与 SandbagSpec.cs / BedSpec.cs / PlacementRules.cs 一样被 DeadSignal.Combat.Tests 以 Link 方式编入单测）。
-// 空间执行（把陷阱立到场上 / 每相位掷点 / 把猎物塞进库存）归 Godot 消费层（CampMain.Traps.cs），本文件只出**规则**；
+// 空间执行（把陷阱立到场上 / 每次昼夜边界掷点 / 把猎物塞进库存）归 Godot 消费层（CampMain.Traps.cs），本文件只出**规则**；
 // 当前可调数值统一以 Wiki 配置为准。
 
 /// <summary>
@@ -75,7 +75,7 @@ public static class TrapSpec
     /// <summary>这个家具名是不是一个玩家摆的陷阱（"陷阱#3" → true；"陷阱" / "沙袋#1" → false）。</summary>
     /// <remarks>
     /// 按<b>实例名前缀</b>认人：几率按"场上第 n 个"递减（<see cref="TrapLogic.ChanceOf"/>），
-    /// 故消费层每相位都要数一遍场上有几个陷阱 —— 这就是那把尺子。
+    /// 故消费层每次结算都要数一遍场上有几个陷阱 —— 这就是那把尺子。
     /// </remarks>
     public static bool IsTrapFurniture(string? furnitureName)
         => furnitureName is not null
@@ -83,20 +83,20 @@ public static class TrapSpec
 }
 
 /// <summary>
-/// <b>圈套陷阱的捕猎判定</b> —— 用户原话所定的“每相位捕获、随数量递减、设有最低值”规则的唯一落点；
+/// <b>圈套陷阱的捕猎判定</b> —— 用户原话所定的“白天/黑夜各结算一次、随数量递减、设有最低值”规则的唯一落点；
 /// 当前基准、递减步长与最低值统一以 Wiki 配置为准。
 ///
 /// <para>═══ <b>规则形态（含糊处的落地口径，已上抛用户）</b> ═══
 /// <list type="number">
 /// <item><b>第 n 个陷阱的几率 = max(<see cref="MinChance"/>, <see cref="BaseChance"/> − <see cref="ChanceStep"/>×(n−1))</b>（<see cref="ChanceOf"/>）。</item>
-/// <item><b>每个陷阱每相位各掷一次，彼此独立</b>（不是"全营地一次判定"）——三个陷阱一个相位掷三次点。</item>
+/// <item><b>每个陷阱在白天/黑夜边界各掷一次，彼此独立</b>（不是"全营地一次判定"）——三个陷阱一次结算掷三次点。</item>
 /// <item><b>边际递减</b>：新加的那个吃最低的那档，已放好的不受影响。</item>
     /// <item>抓到的是<b>老鼠或兔子</b>（比例 <see cref="RabbitShare"/> 以 Wiki 配置为准，用户只指定了物种范围）。</item>
 /// </list>
 /// </para>
 ///
 /// <para>═══ <b>为什么"第 n 个"不必绑定到具体某个陷阱</b>（一个省事的巧合，也是设计上的干净处）═══
-/// 一个相位的期望产出 = 前 n 项几率之和，<b>与"哪个陷阱排第几"无关</b>（加法可交换）。
+/// 单次结算的期望产出 = 前 n 项几率之和，<b>与"哪个陷阱排第几"无关</b>（加法可交换）。
 /// ⇒ 本模型只需要知道<b>场上有几个陷阱</b>，不需要给每个陷阱记住它的"出生序号"。
 /// 好处是<b>拆掉一个陷阱</b>时不会留下"幽灵档位"：剩余陷阱按当前数量重新套用公式，
 /// 而不是保留出生序号档位。存档也因此不必存序号——数一遍就有。
@@ -138,18 +138,18 @@ public static class TrapLogic
     public static double RabbitShare => GameConfigCatalog.Section<FarmingConfig>().SnareRabbitShare;
 
     /// <summary>
-    /// <b>陷阱在这个相位掷不掷点</b>——只在<b>两个昼夜段边界</b>各掷一次：白天段（<see cref="DayPhase.DawnMeal"/>）+
-    /// 夜晚段（<see cref="DayPhase.DuskMeal"/>）与白天段共同构成结算触发点（用户拍板：与吃饭/饥饿同频）。
+    /// <b>陷阱在这个流程节点掷不掷点</b>——只在<b>两个昼夜相位边界</b>各掷一次：白天（<see cref="DayPhase.DawnMeal"/>）+
+    /// 黑夜（<see cref="DayPhase.DuskMeal"/>）共同构成结算触发点（用户拍板：与吃饭/饥饿同频）。
     /// <para>🔴 <b>这是掷点频率的唯一事实源</b>：消费层（<c>CampMain.ResolveTrapsForPhase</c> / 捕鸟陷阱同款）
     /// 只在本谓词为真时才结算，<see cref="RollsPerDay"/> 也由它数出来 ⇒ <b>触发点 / 每日期望 / 常量三处焊死同一条规则</b>，
     /// 不会各写各的。谁改这行，一天掷几次点就跟着变，期望产出的算式不会悄悄失真。</para>
-    /// <para><b>为什么不是每个 <see cref="DayPhase"/> 都掷</b>：<see cref="DayPhase"/> 还包含出行/探索/返程等中间相位，
-    /// 但用户口中的"相位"指的是<b>昼夜段</b>（与聚餐同频）。**历史/非配置源**：早期误按全部中间相位逐个掷点，
+    /// <para><b>为什么不是每个 <see cref="DayPhase"/> 枚举值都掷</b>：<see cref="DayPhase"/> 表示出行/探索/返程等内部流程节点，
+    /// 玩法相位始终只有白天/黑夜。**历史/非配置源**：早期误按全部内部流程节点逐个掷点，
     /// 曾造成产出过高；现由 <see cref="RollsOnPhase"/> 统一裁定。</para>
     /// </summary>
     public static bool RollsOnPhase(DayPhase phase) => DayPhaseSegments.IsMeal(phase);
 
-    /// <summary>陷阱一天掷几次点 = 满足 <see cref="RollsOnPhase"/> 的相位数。
+    /// <summary>陷阱一天掷几次点 = 满足 <see cref="RollsOnPhase"/> 的边界流程数。
     /// <b>每日期望</b>的换算系数（<c>ExpectedCatchesPerPhase(n) × RollsPerDay</c>）。<b>从谓词数出而非写死</b> ⇒ 与触发点焊死。</summary>
     public static int RollsPerDay => Enum.GetValues<DayPhase>().Count(RollsOnPhase);
 
@@ -169,7 +169,7 @@ public static class TrapLogic
     }
 
     /// <summary>
-    /// <paramref name="trapCount"/> 个陷阱在<b>一个相位</b>里的期望捕获数 = 前 n 项几率之和。
+    /// <paramref name="trapCount"/> 个陷阱在<b>单次昼夜边界结算</b>里的期望捕获数 = 前 n 项几率之和。
     /// <para>具体期望值由前 n 项几率求和；边际收益在几率触底后受 Wiki 配置约束。</para>
     /// </summary>
     public static double ExpectedCatchesPerPhase(int trapCount)

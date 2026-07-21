@@ -370,7 +370,7 @@ public sealed partial class Pawn : Actor
     public IReadOnlySet<EquipSlot> DisabledApparelSlots => ApparelSlots.DisabledSlots(SeveredParts());
 
     /// <summary>
-    /// 一次昼夜相位聚餐净结算：无条件 -1，吃到饭再 +1（净零维持 / 净 -1 前进一级），一步 clamp。
+    /// 一次昼夜边界聚餐的净结算：无条件 -1，吃到饭再 +1（净零维持 / 净 -1 前进一级），一步 clamp。
     /// 避免旧两步"1→0 途中进食被短路"的跨 0 误杀。返回本次是否饿死（刻度归 0）。
     /// </summary>
     public bool ResolveHungerPhase(bool ate) => Hunger.ResolvePhase(ate);

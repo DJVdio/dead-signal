@@ -184,7 +184,7 @@ internal static class Characters
         Add("布鲁斯", "升级门槛", "dog_gear_unlock_level", "解锁狗装备所需羁绊等级", DougBruceBond.DogGearUnlockLevel, "级", bondSrc + ".DogGearUnlockLevel", settled: true);
         Add("布鲁斯", "生存", "dog_hunger_cap", "饥饿上限", DogHungerState.Cap, "刻", "godot/scripts/DogHungerState.cs :: Cap");
         Add("布鲁斯", "生存", "dog_hunger_eat", "吃一份食物回复（人只回 1）", DogHungerState.EatGain, "刻", "godot/scripts/DogHungerState.cs :: EatGain", settled: true);
-        Add("布鲁斯", "生存", "dog_hunger_drain", "每个聚餐相位消耗", 1, "刻", "godot/scripts/DogHungerState.cs :: ResolvePhase", settled: true);
+        Add("布鲁斯", "生存", "dog_hunger_drain", "每次聚餐消耗", 1, "刻", "godot/scripts/DogHungerState.cs :: ResolvePhase", settled: true);
 
         // —— 南丁格尔·医疗特长（数值为用户原话拍板，非拟定）——
         const string nurseSrc = "godot/scripts/SurvivorPerks.cs :: NightingalePerk";

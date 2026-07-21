@@ -195,7 +195,7 @@ public class BedrestTests
     }
 
     [Fact]
-    public void 聚餐相位不下令()
+    public void 聚餐流程不下令()
     {
         Assert.Equal(BedrestOrderStatus.MealPhase,
             BedrestLogic.CanOrderBedrest(true, PawnRole.Idle, DayPhase.DuskMeal, false, 5).Status);

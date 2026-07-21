@@ -7,6 +7,8 @@ namespace DeadSignal.Godot;
 
 public sealed partial class TestExploration : ExplorationLevel
 {
+    /// <summary>广播站原位是否仍有关键设备；设备随遗体遗失时为 false，遗体腐烂后恢复为 true。</summary>
+    public bool TransmitterAvailableAtOrigin { get; set; } = true;
     // 画布尺寸 per-destination：Initialize 时按 DestinationName 查 ExplorationLevelSize 取值；未登记的目的地回退默认 2400×1600
     // （当前仍走回退的只剩下水道与金手指帮据点，见 ExplorationLevelSize.Overrides）。
     // 🔴 改造前这两个是写死的 const 2400f/1600f。现在是**实例字段** ⇒ 所有实例方法对 LevelW/LevelH 的引用一字不改，
@@ -38,7 +40,7 @@ public sealed partial class TestExploration : ExplorationLevel
     // ——广播台：发出设备定点投放契约（RadioMainline 主线消费）——
     /// <summary>
     /// 广播台「发出设备」发现点 id（须与 <see cref="RadioMainline.TransmitterDiscoveryId"/> 一致）。踏入机房发现区即上报此 id。
-    /// 挂点在 <c>CampMain.OnExplorationDiscovery</c>：取得发出设备 → <see cref="RadioMainline.GrantTransmitter"/> 推进状态 + 弹取设备叙事（<see cref="RadioMainline.TransmitterPickupNarrative"/>）。
+    /// 挂点在 <c>CampMain.OnExplorationDiscovery</c>：取得设备先记为本趟携带态；活人回营后才由 <see cref="RadioMainline.GrantTransmitter"/> 提交主线。
     /// 定点非随机（用户 D4 拍板：主线关键物资保底/定点投放）。
     /// </summary>
     public const string BroadcastTransmitterDiscoveryId = RadioMainline.TransmitterDiscoveryId;

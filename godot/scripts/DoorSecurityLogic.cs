@@ -22,11 +22,11 @@ namespace DeadSignal.Godot;
 /// </para>
 ///
 /// <para>
-/// <b>为什么落在营地相位机而不是夜防/守卫调度</b>：本仓的"出门"<b>不是空间动作</b>——探索队是**场景切换**走的
+/// <b>为什么落在营地昼夜流程状态机而不是夜防/守卫调度</b>：本仓的"出门"<b>不是空间动作</b>——探索队是**场景切换**走的
 /// （<c>CampMain.LoadExplorationLevel</c> 把队员 reparent 进关卡场景），<b>没有人真的走过大门</b>。
 /// 而 <c>NightWatchContest</c> 是"袭营发生时"的对抗结算、<c>ShiftSchedule</c> 是纯函数（谁上白班谁上夜班），
 /// 二者都<b>不是时刻、不是事件源</b>。全仓唯一能表达"此刻队伍出发了 / 此刻天黑了"的东西，就是
-/// <see cref="DayPhase"/> 相位机。
+/// <see cref="DayPhase"/> 内部流程状态机。
 /// </para>
 /// </summary>
 public static class DoorSecurityLogic

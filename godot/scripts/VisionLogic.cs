@@ -23,7 +23,7 @@ public static class VisionLogic
     // ── 环境光基线（当前值以 Wiki 配置为准）─────────────────────────────────
     /// <summary>白昼相位环境光（满档）。</summary>
     public const float DaylightAmbient = 1.0f;
-    /// <summary>黎明/黄昏聚餐相位环境光（暮光）。</summary>
+    /// <summary>黎明/黄昏聚餐流程的环境光（暮光）。</summary>
     public const float TwilightAmbient = 0.45f;
     /// <summary>夜间相位环境光（有微弱月光，非全黑）。</summary>
     public const float NightAmbient = 0.15f;
@@ -83,13 +83,10 @@ public static class VisionLogic
         if (indoorsDark)
             return IndoorsDarkAmbient;
 
-        // 🔴 昼夜段分类走唯一事实源 DayPhaseSegments，不再 inline 抄相位集合（白天=满档 / 聚餐=暮光 / 夜晚=微月）。
-        return DayPhaseSegments.SegmentOf(phase) switch
-        {
-            PhaseBlock.Meal => TwilightAmbient,
-            PhaseBlock.Night => NightAmbient,
-            _ => DaylightAmbient, // PhaseBlock.Day
-        };
+        // 聚餐是昼夜边界的暮光表现，不是第三相位；其余节点读取白天/黑夜两相位事实源。
+        if (DayPhaseSegments.IsMeal(phase))
+            return TwilightAmbient;
+        return DayPhaseSegments.IsNight(phase) ? NightAmbient : DaylightAmbient;
     }
 
     /// <summary>

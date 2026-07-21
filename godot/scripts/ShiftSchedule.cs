@@ -7,7 +7,7 @@ namespace DeadSignal.Godot;
 // （与 HungerState.cs 一样被 DeadSignal.Combat.Tests 以 Link 方式编入单测）。
 // 承载「双班硬性日程 + 睡眠不足疲劳 debuff」的全部规则（批次6，shift-sleep）：
 //   · 班别 Shift = 探险名单派生：当日出探险=DayCrew（白天出门），其余=NightCrew（夜里站岗/生产）。
-//   · 硬日程：白天营地夜班强制睡（不可操作）、夜里探险队强制睡；聚餐相位全员参加（吃完继续睡）。
+//   · 硬日程：白天营地夜班强制睡（不可操作）、夜里探险队强制睡；昼夜边界的聚餐流程全员参加（吃完继续睡）。
 //   · 常规袭营仅夜间；白天仅 authored 剧情事件可破日程。
 //   · 被唤醒者次相位吃疲劳 debuff（效率/攻速/视距/视角系数降）。
 // ★职责划分（与 watch-contest 的 NightWatchContest.cs 对齐）：名册与「谁被唤醒」归 watch-contest
@@ -25,12 +25,11 @@ public enum Shift
     NightCrew,
 }
 
-/// <summary>相位在硬日程中的性质：白天块（探险出门/营地睡）、夜里块（站岗生产/探险睡）、聚餐块（全员参加）。</summary>
-public enum PhaseBlock
+/// <summary>玩法相位只有白天与黑夜；聚餐由独立流程谓词判断，不是第三相位。</summary>
+public enum DayNightPhase
 {
     Day,
     Night,
-    Meal,
 }
 
 /// <summary>某班别在某相位的日程态：强制睡（不可操作）/在勤活动/聚餐参加（模态）。</summary>
@@ -104,9 +103,9 @@ public static class ShiftSchedule
         IsActive = true,
     };
 
-    /// <summary>相位归块：聚餐块（黎明·黄昏聚餐）/ 夜里块（NightPrep·NightAct）/ 白天块（其余 4 相）。
-    /// 🔴 分类逻辑已收口到唯一事实源 <see cref="DayPhaseSegments.SegmentOf"/>，本方法只做转发别名（保留既有调用点/测试名）。</summary>
-    public static PhaseBlock BlockOf(DayPhase phase) => DayPhaseSegments.SegmentOf(phase);
+    /// <summary>流程节点归入白天/黑夜两相位。
+    /// 🔴 分类逻辑已收口到唯一事实源 <see cref="DayPhaseSegments.PhaseOf"/>，本方法只做转发别名（保留既有调用点/测试名）。</summary>
+    public static DayNightPhase PhaseOf(DayPhase phase) => DayPhaseSegments.PhaseOf(phase);
 
     /// <summary>班别派生：在当日探险名单内 → <see cref="Shift.DayCrew"/>；否则 <see cref="Shift.NightCrew"/>（站岗/生产）。</summary>
     public static Shift ShiftFor(int pawnId, IReadOnlyCollection<int> expeditionIds)
@@ -117,18 +116,19 @@ public static class ShiftSchedule
         => duty == WatchDuty.Expedition ? Shift.DayCrew : Shift.NightCrew;
 
     /// <summary>
-    /// 班别 × 相位的日程态：聚餐 → 全员 <see cref="PawnPhaseState.Meal"/>；
+    /// 班别 × 内部流程节点的日程态：聚餐 → 全员 <see cref="PawnPhaseState.Meal"/>；
     /// 白天块 → DayCrew 在勤(出门)、NightCrew 强制睡；夜里块 → NightCrew 在勤、DayCrew 强制睡。
     /// </summary>
     public static PawnPhaseState PhaseStateFor(Shift shift, DayPhase phase)
     {
-        switch (BlockOf(phase))
+        if (DayPhaseSegments.IsMeal(phase))
+            return PawnPhaseState.Meal;
+
+        switch (PhaseOf(phase))
         {
-            case PhaseBlock.Meal:
-                return PawnPhaseState.Meal;
-            case PhaseBlock.Day:
+            case DayNightPhase.Day:
                 return shift == Shift.DayCrew ? PawnPhaseState.Active : PawnPhaseState.Sleeping;
-            case PhaseBlock.Night:
+            case DayNightPhase.Night:
             default:
                 return shift == Shift.NightCrew ? PawnPhaseState.Active : PawnPhaseState.Sleeping;
         }
@@ -147,7 +147,7 @@ public static class ShiftSchedule
 
     /// <summary>常规袭营仅夜间（夜里块）合法；<paramref name="authored"/> 剧情事件可破日程、任意相位放行。</summary>
     public static bool RaidAllowedIn(DayPhase phase, bool authored)
-        => authored || BlockOf(phase) == PhaseBlock.Night;
+        => authored || (DayPhaseSegments.IsNight(phase) && !DayPhaseSegments.IsMeal(phase));
 
     /// <summary>被唤醒者的次相位 debuff：<paramref name="woken"/> → <see cref="StandardFatigue"/>；否则 <see cref="FatigueDebuff.None"/>。</summary>
     public static FatigueDebuff DebuffFor(bool woken)

@@ -163,7 +163,7 @@ public class TrapTests
     public void 一天只掷两次点_一个陷阱的每日期望是零点六()
     {
         // 🔴 用户拍板：陷阱一天掷 2 次点（白天 1 次 + 夜晚 1 次），**不是**每个 DayPhase 都掷。
-        // 早期误按 8 个 DayPhase 逐个掷点，产出翻 4 倍（"捕鸟陷阱太强"的根因）——这条钉死频率 = 2。
+        // 早期误按每个内部流程节点逐个掷点，产出翻倍；现在只按白天/黑夜各结算一次。
         Assert.Equal(2, TrapLogic.RollsPerDay);
         // 一个陷阱每天期望 = 0.30 × 2 = 0.60 只（旧 bug 值 0.30 × 8 = 2.4，已退役）。
         Assert.Equal(0.60, TrapLogic.ExpectedCatchesPerPhase(1) * TrapLogic.RollsPerDay, 10);
@@ -173,8 +173,8 @@ public class TrapTests
     public void 掷点只发生在两个昼夜段边界_白天黎明聚餐加夜晚黄昏聚餐()
     {
         // 掷点频率的**唯一事实源**：消费层 CampMain 只在 RollsOnPhase 为真时才结算陷阱，
-        // RollsPerDay 也由这张谓词数出来 ⇒ 全 8 个 DayPhase 里恰好 2 个为真（DawnMeal / DuskMeal）。
-        // 这条断言就是"一整天走完 8 个 DayPhase，陷阱只掷 2 次点"的可单测代理。
+        // RollsPerDay 也由这张谓词数出来 ⇒ 全部内部流程节点里恰好两个边界为真（DawnMeal / DuskMeal）。
+        // 这条断言钉死白天/黑夜各结算一次。
         var rollPhases = System.Enum.GetValues<DayPhase>()
             .Where(TrapLogic.RollsOnPhase)
             .ToArray();
@@ -182,7 +182,7 @@ public class TrapTests
         Assert.Equal(new[] { DayPhase.DawnMeal, DayPhase.DuskMeal }, rollPhases);
         Assert.Equal(TrapLogic.RollsPerDay, rollPhases.Length);   // 常量与谓词焊死：数出来必须一致
 
-        // 其余 6 个中间相位（出行/探索/返程/守夜等）一律不掷点。
+        // 其余中间流程（出行/探索/返程/守夜等）一律不掷点。
         Assert.False(TrapLogic.RollsOnPhase(DayPhase.DayPrep));
         Assert.False(TrapLogic.RollsOnPhase(DayPhase.DayTravel));
         Assert.False(TrapLogic.RollsOnPhase(DayPhase.DayExplore));
