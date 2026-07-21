@@ -7,7 +7,7 @@ namespace DeadSignal.Godot;
 /// </summary>
 public static class SurvivorCardVisuals
 {
-    /// <summary>可用头像张数（OpenGameArt Survivor Portraits，7 女 + 6 男）。见 assets/portraits/CREDITS.md。</summary>
+    /// <summary>泛用头像池张数（OpenGameArt Survivor Portraits，7 女 + 6 男）；七名具名角色另走专属派生头像。</summary>
     public const int PortraitCount = 13;
 
     /// <summary>
@@ -27,6 +27,19 @@ public static class SurvivorCardVisuals
 
     /// <summary>Id → 头像文件名（稳定）。</summary>
     public static string PortraitFileForId(int id) => PortraitFiles[PortraitIndexForId(id)];
+
+    /// <summary>七名 authored 角色优先使用专属头像；其他幸存者继续按 Id 稳定落泛用头像池。</summary>
+    public static string PortraitFileFor(string? displayName, int id) => displayName switch
+    {
+        "山姆" => "named/sam.png",
+        "诺蒂" => "named/notty.png",
+        "克莉丝汀" => "named/christine.png",
+        "耗子" => "named/rat.png",
+        "道格" => "named/doug.png",
+        "南丁格尔" => "named/nightingale.png",
+        "皮特" => "named/pete.png",
+        _ => PortraitFileForId(id),
+    };
 
     /// <summary>
     /// Id → 稳定占位色（RGB 0..1）。用黄金分割角散布色相，固定饱和/明度，保证相邻 Id 也颜色分明、

@@ -245,7 +245,7 @@ public sealed partial class SurvivorCardBar : Control
     /// <summary>头像块：优先 res://assets/portraits 下按 Id 稳定映射的图；无导入则用稳定色块占位（留 TextureRect 结构）。</summary>
     private static Control BuildPortrait(Pawn pawn, Color placeholder)
     {
-        string file = SurvivorCardVisuals.PortraitFileForId(pawn.Id);
+        string file = SurvivorCardVisuals.PortraitFileFor(pawn.DisplayName, pawn.Id);
         string path = $"res://assets/portraits/{file}";
 
         Texture2D? tex = ResourceLoader.Exists(path) ? ResourceLoader.Load<Texture2D>(path) : null;

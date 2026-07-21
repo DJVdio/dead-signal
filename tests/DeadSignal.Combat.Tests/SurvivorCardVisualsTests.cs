@@ -67,6 +67,21 @@ public class SurvivorCardVisualsTests
         Assert.Equal(SurvivorCardVisuals.PortraitFiles[3 % SurvivorCardVisuals.PortraitCount], file);
     }
 
+    [Theory]
+    [InlineData("山姆", "named/sam.png")]
+    [InlineData("诺蒂", "named/notty.png")]
+    [InlineData("克莉丝汀", "named/christine.png")]
+    [InlineData("耗子", "named/rat.png")]
+    [InlineData("道格", "named/doug.png")]
+    [InlineData("南丁格尔", "named/nightingale.png")]
+    [InlineData("皮特", "named/pete.png")]
+    public void AuthoredSurvivor_UsesNamedPortrait(string displayName, string expected)
+        => Assert.Equal(expected, SurvivorCardVisuals.PortraitFileFor(displayName, 999));
+
+    [Fact]
+    public void GenericSurvivor_StillUsesStableIdPool()
+        => Assert.Equal(SurvivorCardVisuals.PortraitFileForId(5), SurvivorCardVisuals.PortraitFileFor("随机幸存者", 5));
+
     [Fact]
     public void StableColor_IsDeterministic()
     {

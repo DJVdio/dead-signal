@@ -69,6 +69,21 @@ public sealed class VisualProductionAssetTests
     }
 
     [Fact]
+    public void EveryAuthoredSurvivorHasANamedCardPortrait()
+    {
+        foreach (string name in new[] { "山姆", "诺蒂", "克莉丝汀", "耗子", "道格", "南丁格尔", "皮特" })
+        {
+            string relative = SurvivorCardVisuals.PortraitFileFor(name, 999);
+            string path = Path.Combine(RepoRoot(), "godot", "assets", "portraits", relative.Replace('/', Path.DirectorySeparatorChar));
+            using var stream = File.OpenRead(path);
+            using var reader = new BinaryReader(stream);
+            stream.Position = 16;
+            Assert.Equal(365, ReadBigEndianInt32(reader));
+            Assert.Equal(564, ReadBigEndianInt32(reader));
+        }
+    }
+
+    [Fact]
     public void RuntimeWiresFrameAtlasEnvironmentPropsAndEndingBackgrounds()
     {
         string actor = Read("godot/scripts/ActorSprite.cs");

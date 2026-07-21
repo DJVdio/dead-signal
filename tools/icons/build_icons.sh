@@ -60,7 +60,7 @@ for e in "${ENTRIES[@]}"; do
     # Clash 链路偶发 SSL_ERROR_SYSCALL，重试三次
     for i in 1 2 3; do curl -fsS --max-time 25 -o "$svg" "$REPO/$source.svg" && break; sleep 2; done
   fi
-  if [ ! -s "$svg" ]; then echo "  ✗ $slug（拉不到 $source）"; failed=$((failed+1)); continue; fi
+  if [ ! -s "$svg" ]; then echo "  ✗ ${slug}（拉不到 ${source}）"; failed=$((failed+1)); continue; fi
 
   # game-icons 的 SVG 自带一整块黑色底板（首个 path 就是 512×512 的方块），
   # 直接渲染会得到一张黑底方图——先把它剥掉，才剩下真正的图形。

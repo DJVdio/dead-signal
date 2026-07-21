@@ -137,19 +137,19 @@ public static class ItemIcons
         // [T68] 用户在 wiki 上新加的三件。
         ["恐怖装甲"] = new(Armor, "horror_armor", "lorc/bone-knife"),   // 骨片缝在皮衬上的胸甲——取骨系剪影
         ["墨镜"] = new(Armor, "sunglasses", "delapouite/sunglasses"),
-        ["平光眼镜"] = new(Armor, "plain_glasses", "delapouite/spectacles"),
+        ["平光眼镜"] = new(Armor, "plain_glasses", "lorc/spectacles"),
         // [T71] 自制简易墨镜（木缝雪镜）——护目镜剪影
-        ["自制简易墨镜"] = new(Armor, "snow_goggles", "delapouite/goggles"),
+        ["自制简易墨镜"] = new(Armor, "snow_goggles", "delapouite/steampunk-goggles"),
         // [A2/T72] 护踝鞋具（高帮硬底，护脚踝到小腿）——护胫/护腿剪影
         ["护踝鞋具"] = new(Armor, "ankle_guard", "delapouite/leg-armor"),
         ["厚重裤子"] = new(Armor, "heavy_trousers", "irongamer/armored-pants"),
-        ["厚重披风"] = new(Armor, "heavy_cape", "lorc/hooded-cloak"),
-        ["雪地靴"] = new(Armor, "snow_boots", "delapouite/winter-boot"),
-        ["牛仔帽"] = new(Armor, "cowboy_hat", "delapouite/cowboy-hat"),
-        ["马靴"] = new(Armor, "riding_boots", "delapouite/riding-boot"),
+        ["厚重披风"] = new(Armor, "heavy_cape", "lucasms/cloak"),
+        ["雪地靴"] = new(Armor, "snow_boots", "lorc/boots"),
+        ["牛仔帽"] = new(Armor, "cowboy_hat", "delapouite/western-hat"),
+        ["马靴"] = new(Armor, "riding_boots", "delapouite/cowboy-boot"),
         ["简易装甲"] = new(Armor, "simple_armor", "lorc/armor-vest"),
-        ["cowboy_hat"] = new(Armor, "cowboy_hat_output", "delapouite/cowboy-hat"),
-        ["riding_boots"] = new(Armor, "riding_boots_output", "delapouite/riding-boot"),
+        ["cowboy_hat"] = new(Armor, "cowboy_hat_output", "delapouite/western-hat"),
+        ["riding_boots"] = new(Armor, "riding_boots_output", "delapouite/cowboy-boot"),
         ["simple_armor"] = new(Armor, "simple_armor_output", "lorc/armor-vest"),
 
         // —— 护甲：布鲁斯的狗装五件套（DogGearCatalog；口袋狗衣不提供防护，只加负重）——
@@ -190,7 +190,7 @@ public static class ItemIcons
         ["antibiotics"] = new(Mats, "antibiotics", "delapouite/medicine-pills"),
         ["dandelion"] = new(Mats, "dandelion", "delapouite/dandelion-flower"),
         ["rosehip"] = new(Mats, "rosehip", "delapouite/raspberry"),
-        ["kudzu_root"] = new(Mats, "kudzu_root", "delapouite/roots"),
+        ["kudzu_root"] = new(Mats, "kudzu_root", "lorc/root-tip"),
         ["rhubarb"] = new(Mats, "rhubarb", "delapouite/herbs-bundle"),
         ["laojunxu"] = new(Mats, "laojunxu", "delapouite/herbs-bundle"),
         ["herbal_salve"] = new(Mats, "herbal_salve", "delapouite/covered-jar"),
@@ -273,8 +273,8 @@ public static class ItemIcons
         // —— [T67] 采集/种植/诱捕支柱的三件设施 ——
         ["bird_trap"] = new(Furniture, "bird_trap", "delapouite/bird-cage"),        // 捕鸟陷阱（→ 鸟 → 宰杀 → 羽毛 → 箭）
         ["crop_plot"] = new(Furniture, "crop_plot", "delapouite/plant-seed"),       // 菜园（种土豆）
-        ["butcher_point"] = new(Furniture, "butcher_point", "delapouite/meat-hook"),// 简易宰杀点
-        ["butcher_table"] = new(Furniture, "butcher_table", "delapouite/meat-cleaver"), // 宰杀台（升级）
+        ["butcher_point"] = new(Furniture, "butcher_point", "lorc/meat-hook"),// 简易宰杀点
+        ["butcher_table"] = new(Furniture, "butcher_table", "lorc/meat-cleaver"), // 宰杀台（升级）
 
         // —— 食材（MaterialCategory.Food，烹饪系统的原料；与那张泛化的「口粮份数」图标 FoodRefKey 不是一回事）——
         // 注意：材料键 "ration"（军用单兵口粮）与泛化口粮图标的 slug "ration" 撞名，故它的 slug 取 ration_military。
@@ -290,9 +290,9 @@ public static class ItemIcons
 
         // —— [T67] 宰杀链的四样新材料（**追加末尾不插队**）——
         // 「鸟」（键仍是 pigeon）图标不变：它还是那只鸽子，只是换了个名字。
-        ["rat_meat"] = new(Food, "rat_meat", "delapouite/meat"),                 // 老鼠肉
-        ["bird_meat"] = new(Food, "bird_meat", "delapouite/chicken-leg"),        // 鸟肉
-        ["rabbit_meat"] = new(Food, "rabbit_meat", "delapouite/meat"),           // 兔子肉
+        ["rat_meat"] = new(Food, "rat_meat", "lorc/meat"),                       // 老鼠肉
+        ["bird_meat"] = new(Food, "bird_meat", "lorc/chicken-leg"),               // 鸟肉
+        ["rabbit_meat"] = new(Food, "rabbit_meat", "delapouite/steak"),           // 兔子肉
         ["feather"] = new(Mats, "feather", "lorc/feather"),                      // 羽毛（三种箭的共同料）
         ["leather_scrap"] = new(Mats, "leather_scrap", "delapouite/rolled-cloth"), // 碎皮革（缝合成生皮）
 

@@ -60,4 +60,14 @@ public class CreditsContentTests
         Assert.Contains("OpenGameArt", text);
         Assert.Contains("CC0", text);
     }
+
+    [Fact]
+    public void 署名数量与当前图标和头像目录一致()
+    {
+        string text = AllText();
+
+        Assert.Contains("物品图标（180 张）", text);
+        Assert.Contains("泛用幸存者头像（13 张）", text);
+        Assert.Contains("具名幸存者头像（7 张）", text);
+    }
 }

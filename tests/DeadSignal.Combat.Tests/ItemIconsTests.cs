@@ -1,5 +1,7 @@
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using DeadSignal.Combat;
 using DeadSignal.Godot;
 using Xunit;
@@ -104,4 +106,30 @@ public class ItemIconsTests
             missing.Count == 0,
             $"这些物品还没配图标（在 godot/scripts/ItemIcons.cs 的映射表里各加一行，再跑 tools/icons/build_icons.sh）：{string.Join("、", missing)}");
     }
+
+    [Fact]
+    public void 已登记图标_Png文件全部存在且为32像素()
+    {
+        foreach (IconDef def in ItemIcons.All.Values)
+        {
+            string path = Path.Combine(RepoRoot(), "godot", "assets", "items", def.Category, def.Slug + ".png");
+            Assert.True(File.Exists(path), path);
+            using var stream = File.OpenRead(path);
+            using var reader = new BinaryReader(stream);
+            stream.Position = 16;
+            Assert.Equal(32, ReadBigEndianInt32(reader));
+            Assert.Equal(32, ReadBigEndianInt32(reader));
+        }
+    }
+
+    private static int ReadBigEndianInt32(BinaryReader reader)
+    {
+        byte[] bytes = reader.ReadBytes(4);
+        if (System.BitConverter.IsLittleEndian)
+            System.Array.Reverse(bytes);
+        return System.BitConverter.ToInt32(bytes, 0);
+    }
+
+    private static string RepoRoot([CallerFilePath] string here = "")
+        => Path.GetFullPath(Path.Combine(Path.GetDirectoryName(here)!, "..", ".."));
 }

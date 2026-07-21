@@ -39,7 +39,7 @@ public static class CreditsContent
     private static readonly IReadOnlyList<CreditsSection> _sections = new[]
     {
         new CreditsSection(
-            "物品图标（全部 100 余张）",
+            "物品图标（180 张）",
             "CC BY 3.0 —— 可自由使用与修改，但必须署名。以下即为署名。",
             new[]
             {
@@ -52,11 +52,20 @@ public static class CreditsContent
             }),
 
         new CreditsSection(
-            "幸存者头像（13 张）",
+            "泛用幸存者头像（13 张）",
             "CC0 1.0（公共领域捐赠）—— 无署名义务；此处列出只为留个出处。",
             new[]
             {
                 "来源：OpenGameArt.org —— Survivor Portraits (Post-Apocalyptic Survival)",
+            }),
+
+        new CreditsSection(
+            "具名幸存者头像（7 张）",
+            "项目原创素材 —— 从对应角色的项目内逐帧动画确定性派生。",
+            new[]
+            {
+                "山姆、诺蒂、克莉丝汀、耗子、道格、南丁格尔、皮特各一张。",
+                "生成脚本：tools/build_named_portraits.py",
             }),
 
         new CreditsSection(

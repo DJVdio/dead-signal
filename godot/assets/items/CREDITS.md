@@ -27,5 +27,5 @@ available on https://game-icons.net — licensed under CC BY 3.0.
 2. 跑 `tools/icons/build_icons.sh`（默认只补缺；`--all` 全量重建）。
 3. PNG 落在 `godot/assets/items/<分区>/<slug>.png`，UI 侧无需改代码——`ItemIconTextures` 按路径自动加载。
 
-映射表已覆盖全部 103 件物品，但 PNG 只按需生成；**没有 PNG 的物品会显示占位图**（`placeholder.png`），
-不会报错、不会空白。
+映射表当前登记 180 个稳定图标 slug，PNG 已于 2026-07-21 全量补齐；测试会逐张验证文件存在且为
+32×32。未来新增物品若尚未生成 PNG，运行时仍会安全显示 `placeholder.png`，但资源完整性测试会明确报出缺图路径。
