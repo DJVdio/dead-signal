@@ -1,5 +1,5 @@
-<!-- sim-provenance commit=55c77ef98138b15d92ab45e51326f1961aa30e8f commit-date=2026-07-21T08:55:49-04:00 settlement=clean input-sha256=52e1e853a269f93d2af4d140bf11588c8196230f32985800b14a231fff3fd939 report-sha256=97b335e3e64528cc6177297fa8e37eee7257249e63b0b68b2bd3a4cf2ce5f49d -->
-> 📌 本报告由 commit `55c77ef`（2026-07-21）生成，**Sim 结算路径干净**（src/ + godot/scripts/ + godot/data/ 无未提交改动；docs/ 与 .tabb/ 脏不影响 Sim 输出） ⇒ `git checkout 55c77ef` 后重跑即可**原样复现**；对不上就是引擎变了、该重跑并复核结论。
+<!-- sim-provenance commit=8b0d0a7cda29039238713ddc54c9e4bbbbf36aec commit-date=2026-07-22T09:50:08-04:00 settlement=clean input-sha256=52e1e853a269f93d2af4d140bf11588c8196230f32985800b14a231fff3fd939 report-sha256=97b335e3e64528cc6177297fa8e37eee7257249e63b0b68b2bd3a4cf2ce5f49d -->
+> 📌 本报告由 commit `8b0d0a7`（2026-07-22）生成，**Sim 结算路径干净**（src/ + godot/scripts/ + godot/data/ 无未提交改动；docs/ 与 .tabb/ 脏不影响 Sim 输出） ⇒ `git checkout 8b0d0a7` 后重跑即可**原样复现**；对不上就是引擎变了、该重跑并复核结论。
 # 武器 × 甲组失衡诊断（护甲整表重做后·武器未动）
 
 样本：每单元 200,000 次命中 + 1,000 场击杀计时　武器 27 把 × 甲组 7 组

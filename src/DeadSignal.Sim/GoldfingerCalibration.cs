@@ -6,16 +6,16 @@ using DeadSignal.Godot; // GoldfingerGang（编制表 Link 自 godot/scripts —
 /// 「金手指帮之战」校准（<c>dotnet run --project src/DeadSignal.Sim goldfinger</c>）。
 ///
 /// <para><b>这份 harness 回答的不是"打不打得赢"，而是"赢下来要付什么代价"。</b>
-/// 用户纠正过一次框架错误——「战斗难道不是成本吗？」——所以这里<b>不出"胜率 × 8 件战利品"</b>那种账：
+/// 用户纠正过一次框架错误——「战斗难道不是成本吗？」——所以这里<b>不出"胜率 × 敌人数件战利品"</b>那种账：
 /// 每一波都把队员<b>身上还剩什么</b>捞出来（死了几个、永久少了什么、骨折几处），<b>并且带进下一波</b>。
 /// 赢了但断一只手 / 躺三个人 / 烧光医疗物资，跟毫发无伤地赢，在这个游戏里根本不是一回事。</para>
 ///
 /// <para>🔴 <b>三个场景对应三种打法，差别是这一关的全部内容</b>：
 /// <list type="bullet">
-/// <item><b>惊动全据点</b>（3v8 一次性）——<b>开枪的后果</b>。枪声半径 350~700（战斗声不分阵营），
+/// <item><b>惊动全据点</b>（3v4 一次性）——<b>开枪的后果</b>。枪声半径 350~700（战斗声不分阵营），
 /// 一枪就是把整个据点叫醒。</item>
-/// <item><b>逐波推进</b>（3v2 → 3v3 → 3v3，伤累积）——正常推进：他们分三个纵深布防（近入口 / 中段 / 深处）。</item>
-/// <item><b>逐个清哨</b>（3v1 ×8，伤累积）——弓（噪音 70）/ 匕首（90）潜行，绕开哨兵扫视的端点停顿一个个摸掉。</item>
+/// <item><b>逐波推进</b>（3v1 → 3v1 → 3v2，伤累积）——正常推进：他们分三个纵深布防（近入口 / 中段 / 深处）。</item>
+/// <item><b>逐个清哨</b>（3v1 ×4，伤累积）——弓（噪音 70）/ 匕首（90）潜行，绕开哨兵扫视的端点停顿一个个摸掉。</item>
 /// </list></para>
 ///
 /// <para>⚠️ <b>Sim 测不了什么</b>：<see cref="Arena"/> 无空间——无距离、无走位、无掩体、无先手、不建模弹药
@@ -297,8 +297,8 @@ public static class GoldfingerCalibration
         foreach ((string name, Weapon w) in kits)
         {
             sb.AppendLine($"### {name}");
-            Scenario(sb, "vs 8 残兵", w, pushWaves, injured: true);
-            Scenario(sb, "vs 8 满状态", w, pushWaves, injured: false);
+            Scenario(sb, "vs 4 残兵", w, pushWaves, injured: true);
+            Scenario(sb, "vs 4 满状态", w, pushWaves, injured: false);
         }
 
         string report = sb.ToString();

@@ -83,7 +83,7 @@ public class GoldfingerCalibrationDocTests
     /// <summary>
     /// 🔴 <b>[T57] 依据①「潜行清哨才是那条可行的路」</b>：报告里这一行必须与引擎实跑逐字一致。
     /// </summary>
-    [Fact(Skip = "用户已将金手指帮守备从 8 人改为 4 人；机器生成研究报告暂不改，待重跑后恢复该门禁。")]
+    [Fact]
     public void 报告的消防斧逐个清哨行必须与引擎实跑逐字一致()
     {
         string expected = GoldfingerCalibration.Row(
@@ -99,7 +99,7 @@ public class GoldfingerCalibrationDocTests
     /// <para>⚠️ 读这一行时记住 §2 通则③<b>「胜率不是成本」</b>：胜率只说"能不能站着走出这一场"，
     /// 同一行右边的<b>阵亡 / 永久残缺 / 惨胜 / 全身而退</b>才是账单。</para>
     /// </summary>
-    [Fact(Skip = "用户已将金手指帮守备从 8 人改为 4 人；机器生成研究报告暂不改，待重跑后恢复该门禁。")]
+    [Fact]
     public void 报告的消防斧逐波推进行必须与引擎实跑逐字一致()
     {
         string expected = GoldfingerCalibration.Row(
@@ -111,10 +111,10 @@ public class GoldfingerCalibrationDocTests
     }
 
     /// <summary>
-    /// 🔴 <b>[T57] 依据③＝authored 红线「枪一响还是死」</b>：惊动全据点必须仍是近乎必死。
-    /// <para>这一格塌了（比如涨到几十个百分点）就意味着"开枪没代价"，整关的噪音设计失去意义 ⇒ <b>必须上抛用户，不是改期望值。</b></para>
+    /// 🔴 <b>[T57] 依据③＝惊动全据点的当前账单</b>。四人编制推翻了旧八人报告的难度结论，
+    /// 这里仅锁住报告与当前规则逐字一致；是否需要重调敌人数、装备或空间布防必须上抛用户，不能在测试里藏阈值。
     /// </summary>
-    [Fact(Skip = "用户已将金手指帮守备从 8 人改为 4 人；机器生成研究报告暂不改，待重跑后恢复该门禁。")]
+    [Fact]
     public void 报告的消防斧惊动全据点行必须与引擎实跑逐字一致()
     {
         string expected = GoldfingerCalibration.Row(
