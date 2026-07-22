@@ -85,6 +85,11 @@ public abstract partial class Actor : CharacterBody2D
     /// </summary>
     protected double CarryLoadAttackSpeedMult = 1.0;
 
+    /// <summary>
+    /// 真实穿戴品提供的移动速度乘子。基类单位没有人类穿戴表，恒 1.0；<see cref="Pawn"/> 覆盖为目录效果汇总。
+    /// </summary>
+    protected virtual double ApparelMoveSpeedMultiplier => 1.0;
+
     // ---- authored 移速乘子（皮特·青春期田径队；具体值见 Wiki 配置表）----
     /// <summary>
     /// authored 专属移速乘子（1.0 = 无加成）。<b>乘算</b>进移动能力链（残缺 × 饥饿 × 骨折 × 战斗减速 × 家具 × 负重 × <b>authored</b>），
@@ -587,6 +592,10 @@ public abstract partial class Actor : CharacterBody2D
         // 负重与残疾/骨折/家具彼此独立叠乘；基类使用中性系数 ⇒ 丧尸/劫掠者零回归。
         // 修复前这一行不存在 ⇒ Loadout.SpeedMultiplier 算出来的数字**没有任何人读它**。
         mobility *= CarryLoadSpeedMult;
+
+        // 穿戴移速效果：从 Pawn 的真实装备名经 ApparelCatalog 汇总，和残缺/骨折/负重彼此独立连乘。
+        // 非 Pawn 单位走基类中性值，丧尸/劫掠者/狗逐位零回归。
+        mobility *= ApparelMoveSpeedMultiplier;
 
         // authored 移速乘子（具体值见 Wiki 配置表）：**乘算**进本链，与残缺/骨折/家具/负重彼此独立叠乘。
         // 未注入（非皮特）⇒ null ⇒ 不乘 ⇒ 零回归。

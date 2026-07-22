@@ -3,14 +3,9 @@
   "rows": 459,
   "rowsWithIcon": 286,
   "uniqueIcons": 146,
-  "availableIcons": 125,
+  "availableIcons": 135,
   "pendingIcons": [
-    "armor/plain_glasses",
-    "armor/snow_goggles",
-    "armor/sunglasses",
     "characters/bruce",
-    "characters/christine",
-    "characters/doug",
     "characters/elite_riot_police",
     "characters/elite_soldier",
     "characters/goldfinger_member",
@@ -18,12 +13,7 @@
     "characters/grandmother",
     "characters/merchant_first",
     "characters/merchant_second",
-    "characters/nightingale",
-    "characters/nordi",
-    "characters/pete",
     "characters/raider",
-    "characters/rat",
-    "characters/sam",
     "characters/supermarket_survivors",
     "characters/zombie"
   ]

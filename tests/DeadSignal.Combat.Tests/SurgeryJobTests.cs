@@ -146,25 +146,11 @@ public sealed class SurgeryJobTests
     }
 
     [Fact]
-    public void SaveCodec_RoundTripsActiveSurgeryWithoutObjectReferences()
+    public void CampSave不伪装成能恢复缺少空间上下文的手术()
     {
-        SurgeryJob job = SurgeryJob.ForProsthetic(
-            surgeonId: 5, patientId: 8, bodyPartKey: "左手",
-            BodyRegion.Hand, ProstheticGrade.Simple, Array.Empty<string>(), 1.0);
-        Arrive(job);
-        job.Advance(9, clockPaused: false, patientAlive: true, targetExists: true);
-        SaveData data = new();
-        data.Camp.SurgeryJob = job.Snapshot();
-
-        SaveData restored = SaveCodec.Deserialize(SaveCodec.Serialize(data)).Data!;
-        SurgeryJob back = SurgeryJob.Restore(restored.Camp.SurgeryJob!);
-
-        Assert.Equal(5, back.SurgeonId);
-        Assert.Equal(8, back.PatientId);
-        Assert.Equal("左手", back.BodyPartKey);
-        Assert.Equal(BodyRegion.Hand, back.ProstheticRegion);
-        Assert.Equal(ProstheticGrade.Simple, back.ProstheticGrade);
-        Assert.Equal(9, back.ElapsedMinutes);
+        // 运行时读档明确中断手术，因为医生站位、病人锁定位置和床位空间上下文不进档。
+        // DTO 若仍保存一份永远不消费的 Snapshot，会虚假承诺手术可以跨档续做。
+        Assert.Null(typeof(CampSave).GetProperty("SurgeryJob"));
     }
 
     [Fact]

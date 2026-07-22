@@ -43,8 +43,8 @@ public class GunsmithRepairTests
     [Fact]
     public void RepairSniperRifleRecipe_Exists()
     {
-        RecipeData recipe = RecipeBook.All.SingleOrDefault(r => r.Id == "repair_sniper_rifle");
-        Assert.NotNull(recipe);
+        RecipeData recipe = Assert.IsType<RecipeData>(
+            RecipeBook.All.SingleOrDefault(r => r.Id == "repair_sniper_rifle"));
         Assert.Equal("狙击枪", recipe.DisplayName);
     }
 

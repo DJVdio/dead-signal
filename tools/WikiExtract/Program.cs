@@ -309,9 +309,8 @@ internal static class Program
     /// </summary>
     private static readonly IReadOnlySet<string> KnownPendingWikiIcons = new HashSet<string>(StringComparer.Ordinal)
     {
-        "armor/sunglasses", "armor/plain_glasses", "armor/snow_goggles",
-        "characters/sam", "characters/nordi", "characters/doug", "characters/nightingale",
-        "characters/christine", "characters/pete", "characters/rat", "characters/bruce",
+        // 七名具名幸存者直接复用游戏现有全身肖像的 Wiki 缩略副本，不再列为待绘。
+        "characters/bruce",
         "characters/merchant_first", "characters/merchant_second", "characters/gordon",
         "characters/grandmother", "characters/goldfinger_member", "characters/zombie",
         "characters/raider", "characters/supermarket_survivors",
@@ -1105,6 +1104,8 @@ internal static class Program
             new("sharpDefense", "锐防", "number", ConfigKey: "SharpDefense"),
             new("bluntDefense", "钝防", "number", ConfigKey: "BluntDefense"),
             new("weight", "重量(公斤)", "number", ConfigKey: "Weight"),
+            new("effects", "能力效果",
+                Hint: "穿上后真正进入玩法结算的效果；多项效果彼此乘算。空白表示只有防护/重量，没有额外能力效果。此列由穿戴目录生成，只读。"),
             new("description", "说明", "longtext"),
             new("_id", "内部 id", Internal: true),
             new("_configId", "config 键", Internal: true),
@@ -1122,6 +1123,7 @@ internal static class Program
             "人穿的衣服与护甲。**「穿在哪」和「护到哪」是两回事**：板甲占「装甲层 + 裤子」两个槽，护的是胸腹双臂双腿。"
             + "没被护到的部位，命中时一点也不挡。"
             + "手套和鞋子是**成对装备**——一件只护一只手（脚），要护全得做两件。"
+            + "「能力效果」来自真实穿戴目录，所有百分比与其它来源独立乘算。"
             + "「腐皮」是丧尸天生的，不是能穿的衣服。",
             cols, rows, ConfigFile: "armor.json");
     }
@@ -1154,6 +1156,9 @@ internal static class Program
             ["sharpDefense"] = a.SharpDefense,
             ["bluntDefense"] = a.BluntDefense,
             ["weight"] = a.Weight,
+            ["effects"] = def?.Effects is { Count: > 0 } effects
+                ? string.Join('、', effects.Select(ArmorEffectLabel))
+                : "",
             ["description"] = a.Description,
             ["_id"] = member,
             // config 联动 join 键：PascalCase 成员名 → snake_case（= godot/data/config/armor.json 的条目键）。
@@ -1161,6 +1166,23 @@ internal static class Program
             ["_anchor"] = $"src/DeadSignal.Combat/ArmorTable.cs :: ArmorTable.{member}()"
                           + "（数值）；godot/scripts/ApparelSlots.cs :: ApparelCatalog（装备槽/保护部位）",
         };
+    }
+
+    private static string ArmorEffectLabel(ApparelCatalog.EquipEffect effect)
+    {
+        string label = effect.Kind switch
+        {
+            ApparelCatalog.EquipEffectKind.ReadingSpeed => "阅读速度",
+            ApparelCatalog.EquipEffectKind.ExplorationStealth => "被发现距离",
+            ApparelCatalog.EquipEffectKind.ActionNoise => "动作噪音半径",
+            ApparelCatalog.EquipEffectKind.MovementSpeed => "移动速度",
+            _ => effect.Kind.ToString(),
+        };
+        double pct = (effect.Multiplier - 1.0) * 100.0;
+        string value = pct >= 0
+            ? FormattableString.Invariant($"+{pct:0.##}%")
+            : FormattableString.Invariant($"{pct:0.##}%");
+        return $"{label} {value}";
     }
 
     /// <summary>

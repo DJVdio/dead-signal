@@ -46,6 +46,7 @@ public sealed partial class CampMain
 
         _southEscapeActive = true; // 复用南逃走廊相位停摆守卫（OnGamePhaseChanged 最前）
         _gameOver = true;          // 好结局终局：停掉全灭/围攻/其它路由
+        RecordPlaytestEvent(PlaytestEventKind.Ending, "举家南逃", "营地", $"好结局：全营 {family.Count} 人启程");
 
         // 全营存活者 = 举家南逃名单（全员延续到第二幕「峡谷营地」）。
         var roster = family

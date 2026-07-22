@@ -116,6 +116,10 @@ public sealed partial class Pawn : Actor
             CarryLoadSpeedMult)
            * RatPerk.ActionNoiseMultiplier(Perks.IsRat, RatLevelNow);
 
+    /// <summary>人类穿戴品的实时移速乘子；每帧从真实装备名汇总，穿脱后无需缓存失效处理。</summary>
+    protected override double ApparelMoveSpeedMultiplier
+        => ApparelCatalog.ApparelEffectMultiplier(EquippedApparel, ApparelCatalog.EquipEffectKind.MovementSpeed);
+
     /// <summary>耗子等级提供者（由 CampMain 注入实时 StoryFlags 派生值）；未注入按 L1，保证独立创建零回归。</summary>
     private System.Func<int>? _ratLevelProvider;
 
@@ -714,13 +718,14 @@ public sealed partial class Pawn : Actor
         else if (name == ChristinePerk.ChristineName)
             p.Perks.GrantChristine(); // 克莉丝汀：教学关反水后收留入队（等级**不存在 Pawn 上**，由在营存活天数 + 灭金手指帮旗标派生，见 ChristinePerk）
 
-        // 初始主手武器（authored「自带装备」，逐角色）：无=空手入队 / 手枪→远程 / 匕首·棍棒→近战。
+        // 初始主手武器（authored「自带装备」，逐角色）：无=空手入队 / 手枪→远程 / 匕首·棍棒·刺剑→近战。
         // EquipToHand 自动按 TwoHanded 分流；StartingWeapon.None 不发主手武器（多数幸存者 + 皮特空手入队）。
         Weapon? primary = weapon switch
         {
             StartingWeapon.Pistol => CombatData.Pistol(),
             StartingWeapon.Dagger => CombatData.Dagger(),
             StartingWeapon.Club => CombatData.Club(),
+            StartingWeapon.Rapier => WeaponTable.Rapier(),
             _ => null,
         };
         if (primary is not null)

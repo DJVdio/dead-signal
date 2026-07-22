@@ -259,6 +259,7 @@
     <Compile Include="..\..\godot\scripts\NightEventSchedule.cs" Link="Consumed\NightEventSchedule.cs" />
     <!-- 存档系统（无 Godot 依赖）：SaveData 状态树 DTO / SaveCodec 编解码+版本闸门（版本不符即拒读，不做迁移）/ SaveMapper 纯逻辑状态⇄DTO 双向映射。磁盘侧在 SaveManager（Godot 层，不 Link）。 -->
     <Compile Include="..\..\godot\scripts\SaveData.cs" Link="Consumed\SaveData.cs" />
+    <Compile Include="..\..\godot\scripts\PlaytestTelemetry.cs" Link="Consumed\PlaytestTelemetry.cs" />
     <Compile Include="..\..\godot\scripts\SaveCodec.cs" Link="Consumed\SaveCodec.cs" />
     <!-- [批次25·impl-iron] SaveMigration：SaveCodec.cs:93/95/188 引用它。**门禁抓不到这里** ——
          WikiExtract 不在 DeadSignal.sln 里，dotnet build/test 全绿也不代表抽取器能跑（impl-cooking 踩过同一个坑）。

@@ -113,7 +113,20 @@ public class StartingLoadoutTests
     public void Rat_StartsWith_Rapier()
     {
         string camp = Camp();
+        string pawn = Pawn();
         Assert.Contains("Pawn.Create(RatPerk.RatName, StartingWeapon.Rapier", camp);
+        // 不能只把枚举传进去：Pawn.Create 必须真的把刺剑构造成主手武器。
+        Assert.Contains("StartingWeapon.Rapier => WeaponTable.Rapier()", pawn);
+    }
+
+    [Fact]
+    public void Rat_Has_A_Dedicated_Design_Entry_Without_Invented_Backstory()
+    {
+        string design = Source(Path.Combine("docs", "superpowers", "specs", "2026-07-04-dead-signal-design.md"));
+        Assert.Contains("### 可招募角色：耗子（已确认事实与 authored 留白）", design);
+        Assert.Contains("累计搜出 **75 件**升到 2 级、**250 件**升到 3 级", design);
+        Assert.Contains("前史、性格、为什么会在下水道、与其他角色的既有关系", design);
+        Assert.Contains("全部留白，等待用户手写", design);
     }
 
     [Fact]

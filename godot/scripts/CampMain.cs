@@ -467,11 +467,11 @@ public sealed partial class CampMain : Node2D
     private Dog? _bruce;   // 布鲁斯（Dog），身故即置 null
     private bool _bruceExpedition; // 本次探索是否带上布鲁斯（须道格同队；决定关卡 CompanionDog 注入与回收）
     // 羁绊升级推进：道格&布鲁斯共同存活天数（每昼夜两者皆活 +1；任一死即停累加=冻结，见 AdvanceBondDay）。
-    // 运行时态——本工程尚无存档系统，故不持久化（有存档后随现有状态模式落盘）。等级经 DougBruceBond.EvaluateLevel 现算。
+    // 累积态——随 BondSave 落盘；等级经 DougBruceBond.EvaluateLevel 现算，不另存派生等级。
     private int _bondDaysBothAlive;
 
     // 克莉丝汀「巧舌如簧」升级轴：她入队后**在营存活天数**（每昼夜她在营存活 +1；死/离营天然停累加=冻结，见 AdvanceChristineDay）。
-    // 运行时态——同羁绊天数不持久化（有存档后随现有状态模式落盘）。等级经 ChristinePerk.EvaluateLevel（+灭金手指帮旗标）现算。
+    // 累积态——与羁绊天数一同落 BondSave；等级经 ChristinePerk.EvaluateLevel（+灭金手指帮旗标）现算，不另存派生等级。
     private int _christineDaysInCamp;
     private bool _raidActive;
     private float _raidIntensity = 1f;
@@ -2923,7 +2923,7 @@ public sealed partial class CampMain : Node2D
         _bruce = bruce;
 
         // 聚餐气泡门控用（draft·待用户细化）：布鲁斯在营存活旗标。日常/旁观气泡读它（meal_bubbles.json bruce_present）；
-        // 布鲁斯身故清除 + 置 bruce_dead（见 OnActorDied 犬类分支）。运行时态，无存档故不持久化（同羁绊天数）。
+        // 布鲁斯身故清除 + 置 bruce_dead（见 OnActorDied 犬类分支）。旗标在 StoryFlags 中随档持久化。
         _storyFlags.Set("bruce_present", "true");
 
         // 羁绊技能接线（synergy-wiring，批次5）：
@@ -3457,6 +3457,10 @@ public sealed partial class CampMain : Node2D
             _explorationCorpses, _corpseYard.PhaseTick);
         foreach (ExplorationCorpseSave corpse in expired)
         {
+            RecordPlaytestEvent(PlaytestEventKind.CorpseRecovery, "遗体腐化", corpse.Destination,
+                corpse.HasTransmitter
+                    ? $"{corpse.ContainerId} 消失；关键设备回到原位"
+                    : $"{corpse.ContainerId} 消失；未取回遗物永久损失");
             GD.Print(corpse.HasTransmitter
                 ? $"[探索遗体] {corpse.ContainerId} 已腐烂；关键设备回到广播站原位。"
                 : $"[探索遗体] {corpse.ContainerId} 已腐烂；未取回遗物消失。");
@@ -3486,6 +3490,8 @@ public sealed partial class CampMain : Node2D
         if (actor is Pawn p)
         {
             _survivors.Remove(p);
+            RecordPlaytestEvent(PlaytestEventKind.SurvivorDied, "幸存者死亡",
+                _currentLevel?.DestinationName ?? "营地", p.DisplayName);
             if (_doug == p)
             {
                 _doug = null; // 道格身故：布鲁斯失去主人 → 原地待命（跟随 provider 返回 null）
@@ -3511,6 +3517,7 @@ public sealed partial class CampMain : Node2D
             if (!_gameOver && GameOverCondition.AllSurvivorsDead(_survivors.Count(s => s.Alive)))
             {
                 _gameOver = true;
+                RecordPlaytestEvent(PlaytestEventKind.Ending, "普通全灭", "营地", "营地无人生还");
                 // 全灭 → 普通全灭面板「营地无人生还」。
                 // 🔴 两条"全灭走 CG"路由（CG② 军袭 / CG① 尸潮）均**不经此判定**：它们各走强制终局南逃谢幕序列
                 // （TryTriggerMilitaryRaid / TryTriggerHordeSiegeEnding → BeginSouthEscapeEnding，序列内先置 _gameOver）。
@@ -5462,6 +5469,7 @@ public sealed partial class CampMain : Node2D
     /// <summary>聚餐结束后的流程推进（黎明→白天备战；黄昏→睡眠过渡）。抉择面板延迟场景亦复用它收尾。</summary>
     private void AdvanceAfterMeal()
     {
+        RecordPlaytestHalfDay();
         switch (_clock.CurrentPhase)
         {
             case DayPhase.DawnMeal:
@@ -5939,6 +5947,8 @@ public sealed partial class CampMain : Node2D
             if (recoveredTransmitter)
             {
                 _expeditionHasTransmitter = true;
+                RecordPlaytestEvent(PlaytestEventKind.CorpseRecovery, "遗体找回",
+                    _currentLevel?.DestinationName ?? "探索关", $"从 {discoveryId} 找回关键设备");
                 _campToast.Show("从遗体上找回了关键设备——得有人活着把它带回营地。", CampToast.Ok);
             }
             if (_containerLoot.IsSearched(discoveryId))
@@ -5949,6 +5959,9 @@ public sealed partial class CampMain : Node2D
             }
             if (finder is { Alive: true } looter)
             {
+                RecordPlaytestEvent(PlaytestEventKind.CorpseRecovery, "开始搜刮遗体",
+                    _currentLevel?.DestinationName ?? "探索关",
+                    $"{discoveryId}；剩余 {_containerLoot.RemainingCount(discoveryId)} 件");
                 BeginLootSession(looter, discoveryId);
             }
             return;
@@ -6267,6 +6280,7 @@ public sealed partial class CampMain : Node2D
         // 🔴 [T45] **出门这一刻就把装备灌进账**（修复前这里是个空包 ⇒ 负重 0kg，身上的枪和甲一克都不算）。
         // 同时把逐人的负重 debuff 落到 Pawn 上——「一出门就进入负重 debuff」从这一行开始成立。
         SyncExpeditionLoad();
+        RecordPlaytestExpeditionStart(destinationName);
         GD.Print($"[负重] 探索队出发，本趟运力 {_bag.CapacityKg:0.0}kg，"
                  + $"身上装备已占 {_bag.GearKg:0.0}kg（{CarryCapacity.TierLabel(_bag.Tier)}）。");
 
@@ -6297,6 +6311,7 @@ public sealed partial class CampMain : Node2D
         // 先把逐件搜刮后的剩余物同步回尸体账本；全灭时背包与关键设备再挂到最后倒下的队员尸体上。
         SyncLevelCorpseLoot();
         bool expeditionSurvived = _survivors.Any(p => p.Alive && _todaysExpeditionIds.Contains(p.Id));
+        RecordPlaytestExpeditionReturn(_currentLevel.DestinationName, expeditionSurvived);
         if (expeditionSurvived)
         {
             DumpExpeditionBag();
@@ -9952,6 +9967,13 @@ public sealed partial class CampMain : Node2D
 
     /// <summary>在制任务完工：产物按 <see cref="CraftOutputFactory"/> 分类入库、提示、清空任务、刷新面板。</summary>
     private void CompleteFacilityJob(FacilityJobSlot completed)
+    {
+        PlaytestResourceSnapshot before = BeginPlaytestProductionSnapshot();
+        CompleteFacilityJobCore(completed);
+        RecordPlaytestProduction(completed.Job.RecipeId, before);
+    }
+
+    private void CompleteFacilityJobCore(FacilityJobSlot completed)
     {
         CraftingJob job = completed.Job;
         Pawn? completingWorker = _survivors.FirstOrDefault(p => p.Id == completed.WorkerId);

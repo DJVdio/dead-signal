@@ -14,6 +14,40 @@ namespace DeadSignal.Combat.Tests;
 public class ExplorationCacheTests
 {
     [Fact]
+    public void EveryAuthoredSilverDrop_UsesCentsInsteadOfRawWholeSilver()
+    {
+        string json = File.ReadAllText(Path.Combine(RepoRoot(), "godot/data/world_graph.json"));
+        WorldGraph graph = WorldGraph.FromJson(json);
+
+        var silverDrops = graph.Nodes
+            .SelectMany(node => ExplorationCache.CacheIdsFor(node.Name))
+            .Distinct()
+            .Select(id => ExplorationCache.Resolve(id, new StoryFlags()))
+            .Where(result => result.HasValue)
+            .SelectMany(result => result!.Value.Loot)
+            .Where(loot => loot.Kind == LootKind.Material && loot.RefId == Materials.CurrencyKey)
+            .ToArray();
+
+        Assert.NotEmpty(silverDrops);
+        Assert.All(silverDrops, loot =>
+        {
+            Assert.True(loot.Quantity >= Silver.CentsPerSilver,
+                $"白银掉落 {loot.Quantity} 分小于 1.00 银，疑似把整银字面量直接写进了分制库存");
+            Assert.Equal(0, loot.Quantity % Silver.CentsPerSilver);
+        });
+    }
+
+    private static string RepoRoot()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "DeadSignal.sln")))
+        {
+            dir = dir.Parent;
+        }
+        return dir?.FullName ?? throw new DirectoryNotFoundException("找不到 DeadSignal 仓库根目录");
+    }
+
+    [Fact]
     public void UnknownCacheId_ReturnsNull()
     {
         Assert.Null(ExplorationCache.Resolve("no_such_cache", new StoryFlags()));

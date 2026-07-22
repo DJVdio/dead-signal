@@ -98,8 +98,8 @@ public sealed class WeaponModTests
     /// <para>🔴 <b>加算是 CLAUDE.md 乘算铁律的唯一例外，用户亲自点名的</b>：
     /// 「钉子强化：穿透 +0.03 是因为**棍棒原本是 0 穿透**」——乘算在零上永远是零（零陷阱）。
     /// 谁把它改成 <c>Mul</c>，这条改装当场变成废件，本测试红。</para>
-    /// <para>⚠️ [T47] 用户把它的**伤害加成删掉了**（改成"25% 几率造成小流血"，那条是引擎新轴、尚未落地）。
-    /// 故不再断言伤害↑ —— 它现在只加穿透。</para>
+    /// <para>[T47] 用户把它的**伤害加成删掉了**，改成「25% 几率造成小流血」；该轴现已由
+    /// <c>Weapon.BleedOnHitChance</c> 接入。此测试只钉穿透，流血另由下方专测覆盖。</para>
     /// </summary>
     [Fact]
     public void NailStuds_OnClub_AddsPenetration()

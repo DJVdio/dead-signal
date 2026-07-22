@@ -71,6 +71,12 @@ public sealed class SaveData
 
     /// <summary>authored 羁绊与专属效果的累积量（等级是派生的，只存累积量）。</summary>
     public BondSave Bonds { get; set; } = new();
+
+    /// <summary>
+    /// 本局实机验收账本。它只观察玩法状态、不参与判定；随档保存是为了读档后继续写入同一会话。
+    /// 老档缺字段自然得到空账本，不撞版本号。
+    /// </summary>
+    public PlaytestTelemetrySave Telemetry { get; set; } = new();
 }
 
 /// <summary>存档摘要：存档列表直接读它，不必反序列化整棵树。</summary>
@@ -141,19 +147,11 @@ public sealed class CampSave
     /// <summary>各真实设施的独立在制任务，按稳定槽键排序保存。</summary>
     public List<FacilityJobSave> FacilityJobs { get; set; } = new();
 
-    /// <summary>
-    /// 进行中的手术（没有就 null）。只保存角色 id、伤情/部位稳定键与工时；旧档缺字段自然等于没有手术，语义无损。
-    /// </summary>
-    public SurgeryJobSnapshot? SurgeryJob { get; set; }
-
     /// <summary>围栏/大门/门——<b>按格</b>逐个存（血量 + 档位 + 门的开关闩锁）。</summary>
     public List<StructureSave> Structures { get; set; } = new();
 
     /// <summary>还在场的家具（被拆掉的就不在列表里）。</summary>
     public List<string> Furniture { get; set; } = new();
-
-    /// <summary>玩家摆的沙袋。</summary>
-    public List<SandbagSave> Sandbags { get; set; } = new();
 
     /// <summary>沙袋命名序号（不存的话读档后新沙袋会和旧的重名）。</summary>
     public int SandbagSeq { get; set; }
@@ -204,7 +202,10 @@ public sealed class CampSave
     /// </summary>
     public List<ModdedWeaponSave> ModdedWeapons { get; set; } = new();
 
-    /// <summary>[批次21·impl-gunmod] 玩家自己摆到地上的家具（改装台…）：不存位置就找不回来了。</summary>
+    /// <summary>
+    /// 玩家自己摆到地上的家具（改装台、床、沙袋、陷阱、桌子、菜园等）：逐实例保存位置。
+    /// 沙袋只走这张通用表，不再保留一张永远为空的平行 <c>Sandbags</c> 表。
+    /// </summary>
     public List<PlacedFurnitureSave> PlacedFurniture { get; set; } = new();
 }
 
@@ -214,8 +215,7 @@ public sealed class CampSave
 /// camp.json 预置的家具（工作台/柜子）不需要这张表——它们每次建图都在原地长出来，存档只需记"拆没拆"。
 /// 而玩家摆的家具**位置是玩家定的**，不存就找不回来了。
 /// </para>
-/// ⚠️ 沙袋目前**没有**走这条路（<see cref="CampSave.Sandbags"/> 字段存在但 CaptureCamp 从未填过 ⇒
-/// 摆好的沙袋读档后会消失）——那是本任务之前就有的缺口，已在 journal 记为遗留。
+/// 沙袋、床、陷阱等按实例名逐件走这条通路；类型级配置与命名流水号另存，不复制坐标状态。
 /// </summary>
 public sealed class PlacedFurnitureSave
 {
@@ -322,18 +322,6 @@ public sealed class StructureSave
     public LockTier LockTier { get; set; }
 }
 
-/// <summary>一个沙袋（玩家自由摆放的半身掩体）。</summary>
-public sealed class SandbagSave
-{
-    public string Id { get; set; } = "";
-
-    /// <summary>cartesian 世界坐标（<b>不是</b> iso 屏幕坐标——那是画出来的，不是世界的真相）。</summary>
-    public double X { get; set; }
-    public double Y { get; set; }
-    public double W { get; set; }
-    public double H { get; set; }
-}
-
 /// <summary>一个幸存者。存档里最重的一棵子树。</summary>
 public sealed class PawnSave
 {
@@ -351,9 +339,6 @@ public sealed class PawnSave
 
     /// <summary>饥饿值（0=饿死线）。</summary>
     public int Hunger { get; set; }
-
-    /// <summary>饥饿上限（吃撑过的人上限不同）。</summary>
-    public int HungerCap { get; set; }
 
     /// <summary>伤病/感染。</summary>
     public List<ConditionSave> Conditions { get; set; } = new();
@@ -534,9 +519,6 @@ public sealed class MerchantSave
     /// <summary>下次来访日。<b>不能重滚</b>——存档时商人后天来，读回来必须还是后天来，否则 S/L 成了刷商人日程的作弊器。</summary>
     public int NextVisitDay { get; set; }
 
-    /// <summary>此刻商人是否就在营地里。</summary>
-    public bool Present { get; set; }
-
     /// <summary>
     /// 在场商人的货架（他这趟带了什么、卖多少、还剩几件）。
     /// <b>库存要存</b>——不然 S/L 就能把买空的货架刷回满货。
@@ -599,4 +581,10 @@ public sealed class BondSave
 {
     /// <summary>道格与布鲁斯"两个都活着"的天数（羁绊等级由它推）。</summary>
     public int BondDaysBothAlive { get; set; }
+
+    /// <summary>
+    /// 克莉丝汀入队后在营存活的累计天数（「巧舌如簧」2 级由它派生）。
+    /// 老档没有此字段时自然为 0；这是累积量而非等级，必须落盘，不能在读档后凭空倒退。
+    /// </summary>
+    public int ChristineDaysInCamp { get; set; }
 }

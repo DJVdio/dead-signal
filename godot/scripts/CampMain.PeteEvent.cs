@@ -35,7 +35,7 @@ public sealed partial class CampMain
     // ---------------- 皮特事件字段（第 7 夜脚本敲门救援，自成一路）----------------
     private const string PeteBoyName = "男孩";                 // 救援前门外男孩的显示名（获救后转生为 Pawn.Create(PetePerk.PeteName)）
     private const string PeteEventDoneFlag = "pete_event_done"; // 事件已结算（三分支任一 resolve 后置位；NightAct 据此防重触发）
-    private const string PeteRescuedFlag = "pete_rescued";      // 开门救援成功、皮特入营（供后续叙事/气泡识别）
+    private const string PeteRescuedFlag = "pete_rescued";      // 三尸全歼且男孩存活、皮特真正入营（供后续叙事/气泡识别）
     private const string PeteIgnoredFlag = "pete_ignored";      // 置之不理：男孩被丧尸杀死（CG 占位，待 pete-cg-engine）
     private const string PeteAttackedFlag = "pete_attacked";    // 攻击他：男孩不还手被打死（CG 占位，待 pete-cg-engine）
     private const int PeteRescueZombieCount = 3;                // 开门救援固定三只普通丧尸（authored，非 RaidWave 概率、非精英）
@@ -133,7 +133,6 @@ public sealed partial class CampMain
     /// </summary>
     private void BeginPeteRescueFight()
     {
-        _storyFlags.Set(PeteRescuedFlag, "true"); // 已择"开门救援"（成败在战后：全歼三尸=皮特入营，男孩战死=救援失败无入营）
         _peteEventActive = true;
 
         Rect2 wander = new(
@@ -252,6 +251,7 @@ public sealed partial class CampMain
         AddActor(pawn);
         _survivors.Add(pawn);
         _cardBar?.SetSurvivors(_survivors); // 入营：卡牌栏新增他的卡
+        _storyFlags.Set(PeteRescuedFlag, "true"); // 只有三尸全歼且男孩存活、正式入营后才叫“已救下”
 
         GD.Print($"[皮特事件] 开门救援成功：男孩获救，作为幸存者「{PetePerk.PeteName}」入营（田径队大男孩，perk 按名自动接通）。");
     }

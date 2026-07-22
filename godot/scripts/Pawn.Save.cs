@@ -29,7 +29,6 @@ public sealed partial class Pawn
         Body = Body.Capture(),
 
         Hunger = Hunger.Value,
-        HungerCap = Hunger.Cap,
 
         Conditions = SaveMapper.ToSave(Health),
         HealthDead = Health.IsDead,

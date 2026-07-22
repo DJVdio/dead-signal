@@ -420,7 +420,8 @@ internal static class Characters
                         + $"累计 {ChristineRequestLogic.DeclinesToLeave} 次「暂不」→ 她在下一次昼夜交替时自己离开营地去复仇，"
                         + "日后你会在金手指帮根据地发现她的尸体。\n\n"
                         + "⚠️ 她在教学关里不受任何特殊保护——她可能当场战死；一旦战死，整条支线不触发。（黑暗向，有意为之。）",
-        ["notes"] = "没有专属效果。反水阈值：任一劫掠者血量掉到 50% 以下，或她自己掉血（满血即触发）。",
+        ["notes"] = "专属效果数值为用户拍板值；L1 与 L3 的不掉饥饿概率是同一专属效果内的加算例外，合计 35%。"
+                    + "买入折扣和卖出价率都要求她仍在营存活。反水阈值：任一劫掠者血量掉到 50% 以下，或她自己掉血（满血即触发）。",
         ["draft"] = true,
         ["_id"] = "christine",
         ["_anchor"] = "godot/scripts/ChristineRequestLogic.cs + TutorialRaidLogic.cs + GoldfingerDiscovery.cs",
@@ -439,9 +440,9 @@ internal static class Characters
                        + $"· L2→L3「饿着还出门」：出发瞬间饥饿 ≤{PetePerk.DepartureHungerCeiling} 计一次（单调累计只增不减），累计 {PetePerk.Level3DepartureCount} 次 → L3。",
         ["perkL1"] = $"入队即得。移速 {PetePerk.Level1MoveSpeedMultiplier:0.##} 倍。\n"
                      + $"且不论几级都常驻：大男孩代谢快，每相位 {Pct(PetePerk.ExtraHungerDropChance)}% 概率额外掉 1 饥饿（合计一相位掉 2）。",
-        ["perkL2"] = $"连续 5 天饥饿 ≥{PetePerk.HungerThresholdForStreak}。移速升到 {PetePerk.Level2MoveSpeedMultiplier:0.##} 倍；他的动作快到能躲子弹，被攻击击中时，有{Pct(PetePerk.DodgeChanceValue)}%的几率判定为闪避使该次攻击失效。",
+        ["perkL2"] = $"连续 5 天饥饿 ≥{PetePerk.HungerThresholdForStreak}。移速升到 {PetePerk.Level2MoveSpeedMultiplier:0.##} 倍；操作能力 *{1 + PetePerk.OperationCapabilityBonus:0.##}（+{Pct(PetePerk.OperationCapabilityBonus)}%，与残疾、饥饿、骨折及其他来源乘算）。",
         ["perkL3"] = $"达 L2 后饥饿 ≤{PetePerk.DepartureHungerCeiling} 出发累计 {PetePerk.Level3DepartureCount} 次。移速升到 {PetePerk.Level3MoveSpeedMultiplier:0.##} 倍；"
-                     + $"负重 小于 {PetePerk.DodgeMaxCarriedKg:0}kg 时受击额外 {Pct(PetePerk.DodgeChanceValue)}% 概率闪避（整次攻击无效，背太重就闪不动）。",
+                     + $"保留 2 级操作加成；负重小于 {PetePerk.DodgeMaxCarriedKg:0}kg 时，受击有 {Pct(PetePerk.DodgeChanceValue)}% 概率闪避（整次攻击无效，背太重就闪不动）。",
         ["join"] = $"第 7 天夜一开局，一个男孩跑到大门外拍门大喊求救，弹三选一：开门救援 / 置之不理 / 攻击他。\n"
                    + $"· 开门救援 → 追在他身后的三只普通丧尸（非精英）一起涌到门口；三尸全歼且男孩存活 → 他作为「{PetePerk.PeteName}」入营；男孩战死 → 救援失败（不入营）。\n"
                    + "· 置之不理 / 攻击他 → 男孩死亡、事件结束（整条招募不再触发）。",

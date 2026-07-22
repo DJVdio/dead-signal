@@ -63,6 +63,50 @@ public sealed class CharacterWiringTests
     }
 
     [Fact]
+    public void PeteWiki_Describes_L2Operation_And_L3Dodge_AtTheRightLevels()
+    {
+        JsonElement pete = WikiRow("docs/wiki/data/characters.json", "皮特");
+        string l2 = pete.GetProperty("perkL2").GetString()!;
+        string l3 = pete.GetProperty("perkL3").GetString()!;
+        Assert.Contains("操作能力 *1.05", l2);
+        Assert.DoesNotContain("闪避", l2);
+        Assert.Contains("15% 概率闪避", l3);
+    }
+
+    [Fact]
+    public void ChristineWiki_NoLongerClaimsSheHasNoPerk()
+    {
+        JsonElement christine = WikiRow("docs/wiki/data/characters.json", "克莉丝汀");
+        string notes = christine.GetProperty("notes").GetString()!;
+        Assert.DoesNotContain("没有专属效果", notes);
+        Assert.Contains("合计 35%", notes);
+        Assert.Contains("仍在营存活", notes);
+    }
+
+    [Fact]
+    public void PeteRescuedFlag_IsWrittenOnlyAfterSuccessfulRecruitment()
+    {
+        string source = Source("godot/scripts/CampMain.PeteEvent.cs");
+        int fightStart = source.IndexOf("private void BeginPeteRescueFight()", System.StringComparison.Ordinal);
+        int targetsStart = source.IndexOf("private IEnumerable<Actor> PeteZombieTargets()", System.StringComparison.Ordinal);
+        int recruitStart = source.IndexOf("private void RecruitPete()", System.StringComparison.Ordinal);
+        int removeStart = source.IndexOf("private void RemovePeteBoy()", System.StringComparison.Ordinal);
+        Assert.True(fightStart >= 0 && targetsStart > fightStart && recruitStart >= 0 && removeStart > recruitStart);
+        Assert.DoesNotContain("_storyFlags.Set(PeteRescuedFlag", source[fightStart..targetsStart]);
+        Assert.Contains("_storyFlags.Set(PeteRescuedFlag", source[recruitStart..removeStart]);
+    }
+
+    [Fact]
+    public void Pete_Has_A_Dedicated_Design_Entry_Without_Invented_Backstory()
+    {
+        string design = Source("docs/superpowers/specs/2026-07-04-dead-signal-design.md");
+        Assert.Contains("### 可招募角色：皮特（已确认事实与 authored 留白）", design);
+        Assert.Contains("移动速度改为 ×1.25，操作能力 ×1.05", design);
+        Assert.Contains("前史、性格、关系", design);
+        Assert.Contains("全部等待用户手写", design);
+    }
+
+    [Fact]
     public void CampMain_WiresCharacterEffectsAndRecruitmentLoadouts()
     {
         string camp = Source("godot/scripts/CampMain.cs");
@@ -78,6 +122,8 @@ public sealed class CharacterWiringTests
         Assert.Contains("StartingWeapon.Rapier", camp);
         Assert.Contains("StartingWeapon.Dagger", camp);
         Assert.Contains("皮革胸甲", camp);
+        Assert.Contains("ChristineDaysInCamp = _christineDaysInCamp", Source("godot/scripts/CampMain.Save.cs"));
+        Assert.Contains("_christineDaysInCamp = s.Bonds.ChristineDaysInCamp", Source("godot/scripts/CampMain.Save.cs"));
     }
 
     [Fact]

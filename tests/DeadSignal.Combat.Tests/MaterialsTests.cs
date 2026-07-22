@@ -226,7 +226,8 @@ public class MaterialsTests
             MerchantShelf shelf = MerchantShelf.Default(new SequenceRandomSource(roll));
             foreach (MerchantOffer offer in shelf.Offers.Where(o => o.Good.Category == ItemCategory.Material))
             {
-                obtainable.Add(offer.Good.RefKey);
+                string key = Assert.IsType<string>(offer.Good.RefKey);
+                obtainable.Add(key);
             }
         }
         foreach (StructureTier tier in Enum.GetValues<StructureTier>().Where(SalvageLogic.CanSalvageStructure))

@@ -1,3 +1,5 @@
+using DeadSignal.Godot;
+
 namespace DeadSignal.Combat.Tests;
 
 public sealed class SurgerySpatialWiringTests
@@ -41,6 +43,8 @@ public sealed class SurgerySpatialWiringTests
         string save = File.ReadAllText(Path.Combine(dir!.FullName, "godot", "scripts", "CampMain.Save.cs"));
         Assert.Contains("_surgeryJob = null;", save);
         Assert.DoesNotContain("SurgeryJob.Restore(camp.SurgeryJob)", save);
+        Assert.DoesNotContain("SurgeryJob = _surgeryJob?.Snapshot()", save);
+        Assert.Null(typeof(CampSave).GetProperty("SurgeryJob"));
     }
 
     [Fact]

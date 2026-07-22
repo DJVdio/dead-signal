@@ -70,7 +70,6 @@ public sealed partial class CampMain
             Merchant = new MerchantSave
             {
                 NextVisitDay = _merchantSchedule.NextVisitDay,
-                Present = _merchant is not null,
                 Shelf = CaptureMerchantShelf(),
             },
             Expedition = new ExpeditionSave
@@ -96,7 +95,9 @@ public sealed partial class CampMain
             Bonds = new BondSave
             {
                 BondDaysBothAlive = _bondDaysBothAlive,
+                ChristineDaysInCamp = _christineDaysInCamp,
             },
+            Telemetry = _playtestTelemetry.Snapshot(),
         };
 
         data.Camp = CaptureCamp();
@@ -114,7 +115,6 @@ public sealed partial class CampMain
             ButcherKnife = _butcherStation.Slotted,   // [T67] 宰杀设施刀槽里那把刀（刀已离库，不存就凭空蒸发）
             CraftingJob = null,
             FacilityJobs = SaveMapper.ToSave(_facilityJobs),
-            SurgeryJob = _surgeryJob?.Snapshot(),
             SandbagSeq = _sandbagSeq,
             TrapSeq = _trapSeq,   // [批次21·T26] 陷阱命名序号（数量不存——从 PlacedFurniture 数出来，见 SaveData.TrapSeq）
             BirdTrapSeq = _birdTrapSeq,   // [T75] 捕鸟陷阱命名序号（同圈套：数量从 PlacedFurniture 数出来，只存序号防重名）
@@ -207,9 +207,8 @@ public sealed partial class CampMain
         // [批次21·impl-bedrest] 玩家造的床（"床#3" 起）。开局那两张（床#1/床#2）在 camp.json 里，建图自会长出来，
         // 故按**序号**过滤而非按名字：Key 存实例名（床位占用表 CampSave.BedOccupancy 按它对号入座）。
         //
-        // [批次21·impl-modbench] 玩家垒的沙袋（"沙袋#N"）。**此前是漏的**：CampSave.Sandbags 那个字段虽然一直存在，
-        // 但 CaptureCamp 从没往里填过 ⇒ 摆好的沙袋读档后**整片消失**（只剩 _sandbagSeq 这个空号）。
-        // 沙袋和床、改装台一样是"位置由玩家定"的东西，走同一张 PlacedFurniture 表即可，不必再开一张。
+        // [批次21·impl-modbench] 玩家垒的沙袋（"沙袋#N"）。曾经因为位置未进存档而在读档后整片消失；
+        // 现在和床、改装台一样统一走 PlacedFurniture。不要再为沙袋另开平行位置表。
         //
         // [批次21·T26·impl-traps] 玩家摆的陷阱（"陷阱#N"）。同沙袋/床：位置由玩家定 ⇒ 必须存。
         // ⚠️ **陷阱的"数量"不必单独存**：捕获几率按"场上第 n 个"递减（TrapLogic.ChanceOf），
@@ -465,6 +464,12 @@ public sealed partial class CampMain
         _levelCorpseSeq = System.Math.Max(s.Expedition.NextCorpseId, _explorationCorpses.Count);
         _expeditionHasTransmitter = false; // 自动存档只落在营地聚餐，不存在“探索途中携带态”。
         _bondDaysBothAlive = s.Bonds.BondDaysBothAlive;
+        _christineDaysInCamp = s.Bonds.ChristineDaysInCamp;
+        // 老档没有会话 id：为这次继续游玩新开一份独立账本，不能让所有老档都写进同一个 unknown-session 相互覆盖。
+        _playtestTelemetry = string.IsNullOrWhiteSpace(s.Telemetry?.SessionId)
+            ? new PlaytestTelemetryLedger(NewPlaytestSessionId())
+            : PlaytestTelemetryLedger.Restore(s.Telemetry);
+        TryExportPlaytestTelemetry();
 
         // 8) 派生量重建（不进存档的那些）：掩体场从结构+沙袋、导航从地图、护甲层已在 Pawn.ApplySave 里重建。
         RebuildDerivedAfterLoad();

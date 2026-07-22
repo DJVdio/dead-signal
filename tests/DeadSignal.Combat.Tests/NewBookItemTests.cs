@@ -32,18 +32,15 @@ public sealed class NewBookItemTests
     {
         var spanish = BookLibrary.SpanishChronicleId;
 
-        RecipeData pistol = RecipeBook.Find("improvised_pistol");
-        Assert.NotNull(pistol);
-        Assert.Contains(spanish, pistol!.RequiredBookIds);
+        RecipeData pistol = Assert.IsType<RecipeData>(RecipeBook.Find("improvised_pistol"));
+        Assert.Contains(spanish, pistol.RequiredBookIds);
 
-        RecipeData huntingGun = RecipeBook.Find("improvised_hunting_gun");
-        Assert.NotNull(huntingGun);
-        Assert.Contains(spanish, huntingGun!.RequiredBookIds);
+        RecipeData huntingGun = Assert.IsType<RecipeData>(RecipeBook.Find("improvised_hunting_gun"));
+        Assert.Contains(spanish, huntingGun.RequiredBookIds);
         Assert.DoesNotContain(RecipeBook.FolkChemistryNotesBookId, huntingGun.RequiredBookIds);
 
-        RecipeData shotgun = RecipeBook.Find("improvised_shotgun");
-        Assert.NotNull(shotgun);
-        Assert.Contains(spanish, shotgun!.RequiredBookIds);
+        RecipeData shotgun = Assert.IsType<RecipeData>(RecipeBook.Find("improvised_shotgun"));
+        Assert.Contains(spanish, shotgun.RequiredBookIds);
         Assert.DoesNotContain(RecipeBook.FolkChemistryNotesBookId, shotgun.RequiredBookIds);
     }
 
@@ -52,17 +49,14 @@ public sealed class NewBookItemTests
     {
         var django = BookLibrary.DjangoUnchainedId;
 
-        RecipeData dentist = RecipeBook.Find("dentist_pistol");
-        Assert.NotNull(dentist);
-        Assert.Contains(django, dentist!.RequiredBookIds);
+        RecipeData dentist = Assert.IsType<RecipeData>(RecipeBook.Find("dentist_pistol"));
+        Assert.Contains(django, dentist.RequiredBookIds);
 
-        RecipeData hat = RecipeBook.Find("cowboy_hat");
-        Assert.NotNull(hat);
-        Assert.Contains(django, hat!.RequiredBookIds);
+        RecipeData hat = Assert.IsType<RecipeData>(RecipeBook.Find("cowboy_hat"));
+        Assert.Contains(django, hat.RequiredBookIds);
 
-        RecipeData boots = RecipeBook.Find("riding_boots");
-        Assert.NotNull(boots);
-        Assert.Contains(django, boots!.RequiredBookIds);
+        RecipeData boots = Assert.IsType<RecipeData>(RecipeBook.Find("riding_boots"));
+        Assert.Contains(django, boots.RequiredBookIds);
     }
 
     [Fact]
@@ -70,9 +64,8 @@ public sealed class NewBookItemTests
     {
         var viet = BookLibrary.VietnameseChronicleId;
 
-        RecipeData armor = RecipeBook.Find("simple_armor");
-        Assert.NotNull(armor);
-        Assert.Contains(viet, armor!.RequiredBookIds);
+        RecipeData armor = Assert.IsType<RecipeData>(RecipeBook.Find("simple_armor"));
+        Assert.Contains(viet, armor.RequiredBookIds);
     }
 
     [Fact]
@@ -80,9 +73,8 @@ public sealed class NewBookItemTests
     {
         var british = BookLibrary.BritishChronicleId;
 
-        RecipeData longbow = RecipeBook.Find("longbow");
-        Assert.NotNull(longbow);
-        Assert.Contains(british, longbow!.RequiredBookIds);
+        RecipeData longbow = Assert.IsType<RecipeData>(RecipeBook.Find("longbow"));
+        Assert.Contains(british, longbow.RequiredBookIds);
         Assert.DoesNotContain(RecipeBook.BowCraftingGuideBookId, longbow.RequiredBookIds);
     }
 

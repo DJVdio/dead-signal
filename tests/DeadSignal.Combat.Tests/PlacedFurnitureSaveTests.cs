@@ -8,10 +8,10 @@ namespace DeadSignal.Combat.Tests;
 /// <summary>
 /// <b>玩家摆下的家具，读档后必须一件不少、一件不多、一寸不挪。</b>
 ///
-/// <para><b>这里修的是什么</b>：<c>CampSave.PlacedFurniture</c> 这张表原本只装改装台和床——
-/// <b>沙袋是漏的</b>。<c>CampSave.Sandbags</c> 那个字段虽然一直在，但 <c>CaptureCamp</c> 从没往里填过 ⇒
+/// <para><b>这里修的是什么</b>：<c>CampSave.PlacedFurniture</c> 这张表原本只装改装台和床，
+/// 沙袋曾经漏存；当时那张平行 <c>Sandbags</c> 表从未被写入，导致
 /// 玩家垒的沙袋读档后**整片消失**（只剩一个空的流水号）。沙袋要布 + 石料、要工时，
-/// 还是玩家唯一能自己经营的防御工事——把它读没了，等于把玩家的布防白白抹掉。</para>
+/// 还是玩家唯一能自己经营的防御工事——现已统一并入 <c>PlacedFurniture</c>，旧空表已删除。</para>
 ///
 /// <para><b>还有对称的一半</b>：读档是**就地覆盖世界**（<c>ApplySave</c>），不是重载场景。
 /// 所以不清场就复原的话，本局摆下、而存档里并没有的家具会**赖在场上不走**——
@@ -24,6 +24,13 @@ namespace DeadSignal.Combat.Tests;
 /// </summary>
 public class PlacedFurnitureSaveTests
 {
+    [Fact]
+    public void 沙袋只有PlacedFurniture一张位置表_禁止平行空表复活()
+    {
+        Assert.Null(typeof(CampSave).GetProperty("Sandbags"));
+        Assert.NotNull(typeof(CampSave).GetProperty(nameof(CampSave.PlacedFurniture)));
+    }
+
     // ———————————————————————————— 谁该进存档：分类判定 ————————————————————————————
 
     [Theory]

@@ -12,6 +12,25 @@ namespace DeadSignal.Combat.Tests;
 public class SaveCodecTests
 {
     [Fact]
+    public void 幸存者饥饿上限不制造伪持久化字段()
+    {
+        // 当前所有 Pawn 都固定使用 HungerState.DefaultCap；运行时没有任何改变上限的机制。
+        // 旧 HungerCap 只有写入、没有恢复消费者，保留它会虚假承诺“大胃袋”已经能跨档。
+        Assert.Null(typeof(PawnSave).GetProperty("HungerCap"));
+        Assert.NotNull(typeof(PawnSave).GetProperty(nameof(PawnSave.Hunger)));
+    }
+
+    [Fact]
+    public void 商人在场态不进存档_自动存档边界只保存日程与货架()
+    {
+        // 自动存档只发生在黎明/黄昏聚餐：黎明先 DismissMerchant，黄昏尚未 TryMerchantVisit。
+        // 因而“此刻在场”永远不会为真；保留一个只写不读的字段会制造虚假的持久化承诺。
+        Assert.Null(typeof(MerchantSave).GetProperty("Present"));
+        Assert.NotNull(typeof(MerchantSave).GetProperty(nameof(MerchantSave.NextVisitDay)));
+        Assert.NotNull(typeof(MerchantSave).GetProperty(nameof(MerchantSave.Shelf)));
+    }
+
+    [Fact]
     public void 旧版本的存档被明确拒绝而不是勉强读进来()
     {
         var data = new SaveData();
@@ -158,6 +177,31 @@ public class SaveCodecTests
         Assert.Equal(StructureTier.FenceSheetMetal, back.Camp.Structures[0].Tier);
         Assert.Equal(312.5, back.Camp.Structures[0].Hp, 6);
         Assert.Equal(17, back.Merchant.NextVisitDay);
+    }
+
+    [Fact]
+    public void 克莉丝汀在营存活天数读档后不会归零降级()
+    {
+        var data = new SaveData();
+        data.Bonds.ChristineDaysInCamp = 3;
+
+        SaveData back = SaveCodec.Deserialize(SaveCodec.Serialize(data)).Data!;
+
+        Assert.Equal(3, back.Bonds.ChristineDaysInCamp);
+        Assert.Equal(2, ChristinePerk.EvaluateLevel(back.Bonds.ChristineDaysInCamp, goldfingerGangCleared: false));
+    }
+
+    [Fact]
+    public void 老档缺克莉丝汀天数字段时按零读取而不报损坏()
+    {
+        var data = new SaveData();
+        string json = SaveCodec.Serialize(data)
+            .Replace("\n    \"ChristineDaysInCamp\": 0", "", System.StringComparison.Ordinal);
+
+        SaveLoadResult result = SaveCodec.Deserialize(json);
+
+        Assert.True(result.Ok);
+        Assert.Equal(0, result.Data!.Bonds.ChristineDaysInCamp);
     }
 
     [Fact]

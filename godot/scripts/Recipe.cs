@@ -69,8 +69,8 @@ public static class RecipeBook
     /// 都要出门搜刮（<c>ExplorationCache</c>）。往这本书上挂配方＝<b>放宽</b>，往那三本上挂＝<b>收紧</b>，别弄反。
     /// </para>
     /// <para>
-    /// ⚠️ 用户表里还写着「削减木箭」（＝削尖的木箭 <c>ammo_arrow_stick</c>）——<b>暂未落地</b>：
-    /// 它是全项目<b>唯一一条零门槛配方</b>，加书门槛是真实的开局节奏改动，已 [DECISION] 上抛待拍板。
+    /// 用户表里的「削减木箭」（＝削尖的木箭 <c>ammo_arrow_stick</c>）已按表赢代码接入本书门槛；
+    /// 它仍无工具门槛，但必须读完开局库存里的本书才能制作。
     /// </para>
     /// </summary>
     public const string WildernessSurvivalGuideBookId = "wilderness_survival_guide";

@@ -133,6 +133,8 @@ export DOTNET_ROOT=$HOME/.dotnet
 /Applications/Godot_mono.app/Contents/MacOS/Godot --path godot      # 加 -e 进编辑器
 ```
 
+实机游玩会静默生成验收账本，不弹窗也不改变玩法：每次半天结算、探索出发/返程、生产完工、遗体处理、角色死亡和终局都会写入同一会话。CSV 与中文 Markdown 位于 Godot 用户数据目录下的 `playtest-telemetry/`；账本随存档保存，读档后继续写原会话。记录包含完整库存快照、人口/食物/白银/床位、远征时长与负重、弹药消耗和返程伤病，供后续调参与静态经济报告对照。
+
 试玩操控：左键选人 / 右键指令 / 空格暂停 / 1·2·3 变速 / M 医疗面板 / F5 存档读档 / F1 素材署名 / Esc 关闭当前面板。（Debug 构建另挂几个验证用调试键，见 `CampMain.cs` 键位表——那里是唯一事实源。）
 
 ## 数值表：本地 wiki

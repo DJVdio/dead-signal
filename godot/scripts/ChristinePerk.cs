@@ -26,7 +26,7 @@ namespace DeadSignal.Godot;
 /// <para>🔴 <b>[Q2·主 agent 拍板] 商人折扣/卖价加成均需她在营存活</b>（沿用南丁格尔 L2「卫生意识需她在营维持」、
 /// 山姆光环「只要山姆还活着」先例）：她死/离营 → 折扣与卖价加成即失。</para>
 ///
-/// **无实例状态**：等级由「在营存活天数」（调用方运行时态，同道格羁绊天数不持久）+「灭帮旗标」（<c>StoryFlags</c>）派生，
+/// **无实例等级字段**：等级由「在营存活天数」（调用方运行时累积、随 <c>BondSave</c> 落盘）+「灭帮旗标」（<c>StoryFlags</c>）派生，
 /// 身份标记＝<see cref="SurvivorPerks.IsChristine"/>。效果应用（相位饥饿钩子 <see cref="ResolveHungerPhase"/>、
 /// 商人买卖价率 <see cref="MerchantBuyDiscount"/>/<see cref="MerchantSellRatePercent"/>）皆在消费层接线，本类只出**纯函数常量/派生/判定**。
 /// </summary>

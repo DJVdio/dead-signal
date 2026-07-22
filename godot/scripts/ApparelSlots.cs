@@ -313,8 +313,10 @@ public static class ApparelCatalog
         /// <summary>脚步/动作噪音半径倍率；与负重移速倍率在实时消费层连乘。</summary>
         ActionNoise,
 
-        // 扩展位（后续，"通路第二消费者"）：DaylightVision——墨镜/雪镜白天视野效果，接 VisionLogic 链、且仅白天。
-        // 本轮（范围A）只做 ReadingSpeed；视野是另一条链、更难测，待单独立项。
+        /// <summary>实时移动速度乘子；从真实穿戴品汇总后乘进 Actor 的移动能力链。</summary>
+        MovementSpeed,
+
+        // 扩展位：DaylightVision——墨镜/雪镜白天视野效果；“视野”指视距还是视距+锥角仍待用户确认。
     }
 
     /// <summary>
@@ -332,6 +334,9 @@ public static class ApparelCatalog
         /// <summary>动作噪音效果工厂：与探索潜行共用同一服饰倍率。</summary>
         public static EquipEffect ActionNoise(double apparelStealthScore)
             => new(EquipEffectKind.ActionNoise, StealthLogic.EquipmentNoiseMultiplier(apparelStealthScore));
+
+        /// <summary>移动速度效果工厂：百分点按项目通则转换为乘子（如 -10% ⇒ ×0.90）。</summary>
+        public static EquipEffect MovementSpeed(double pct) => new(EquipEffectKind.MovementSpeed, 1.0 + pct);
     }
 
     /// <summary>
@@ -378,9 +383,14 @@ public static class ApparelCatalog
         void Add(ArmorLayer l, params EquipSlot[] slots)
             => d[l.Name] = new ApparelDef(l.Name, S(slots), l.CoversParts, l.Slot);
 
-        // [装备→能力加成] 带穿戴效果的登记（单槽）：如平光眼镜挂读速 ×1.05。
-        void AddFx(ArmorLayer l, EquipSlot slot, params EquipEffect[] effects)
-            => d[l.Name] = new ApparelDef(l.Name, S(slot), l.CoversParts, l.Slot, Effects: effects);
+        // 在已登记定义上追加效果，保留原槽集合（板甲这类多槽装备不能用“单槽效果”捷径重建定义）。
+        void AddEffect(string name, EquipEffect effect)
+        {
+            ApparelDef def = d[name];
+            List<EquipEffect> effects = def.Effects?.ToList() ?? new List<EquipEffect>();
+            effects.Add(effect);
+            d[name] = def with { Effects = effects };
+        }
 
         // 成对品（[SPEC-B18-补]）：一个 def 不分左右，一件占一只手/脚槽——两件才护全。
         void AddPaired(ArmorLayer l, EquipSlot left, EquipSlot right, string leftPart, string rightPart)
@@ -413,6 +423,10 @@ public static class ApparelCatalog
         Add(ArmorTable.ChestPlate(), EquipSlot.PlateLayer);
         Add(ArmorTable.Leather(), EquipSlot.PlateLayer);
         Add(ArmorTable.Plate(), EquipSlot.PlateLayer, EquipSlot.Pants);
+        // Wiki authored：越重的装甲越拖慢行动。效果从真实穿戴表进入统一乘算链；板甲的双槽定义保持不变。
+        AddEffect("皮革胸甲", EquipEffect.MovementSpeed(-0.01));
+        AddEffect("皮甲", EquipEffect.MovementSpeed(-0.03));
+        AddEffect("板甲", EquipEffect.MovementSpeed(-0.10));
         // 头盔两件（[SPEC-B19]，同占头槽互斥）：
         //   军用头盔 → 只占头槽 ⇒ 眼/面还空着，能再扣一张防毒面具；脸也因此完全裸露（挖眼照旧有效）。
         //   防暴头盔 → 头 + 眼镜 + 面部三槽（面罩罩住整张脸）⇒ 与防毒面具互斥（戴着面罩没法再扣面具）。
@@ -455,7 +469,8 @@ public static class ApparelCatalog
         Add(ArmorTable.Sunglasses(), EquipSlot.Eyes);
         //   平光眼镜：[装备→能力加成] 挂阅读效果（用户 authored，wiki 护甲表）。这是本引擎第一件"穿戴给能力供数"的装备。
         //   效果经 ApparelEffectMultiplier 汇总入 ReadingSpeed.Effective 的 apparelMult。墨镜的"白天视野"是另一条链、后续。
-        AddFx(ArmorTable.PlainGlasses(), EquipSlot.Eyes, EquipEffect.ReadingSpeed(0.05));
+        Add(ArmorTable.PlainGlasses(), EquipSlot.Eyes);
+        AddEffect("平光眼镜", EquipEffect.ReadingSpeed(0.05));
         //   [T71] 自制简易墨镜（木缝雪镜）→ 同占眼镜槽，与墨镜/平光眼镜/防暴盔/战争面具/防毒面具互斥。
         //   它是墨镜的**可制作对应物**（读《尖峰时刻》解锁），护双眼数值见 Wiki 配置表。
         Add(ArmorTable.SelfMadeSnowGoggles(), EquipSlot.Eyes);
@@ -465,7 +480,7 @@ public static class ApparelCatalog
         // 不与装甲层三件(皮革胸甲/皮甲/板甲)互斥。护胸+腹，数值见 ArmorTable.BallisticVest（拟定待 Sim 校准）。
         Add(ArmorTable.BallisticVest(), EquipSlot.SkinLayer);
 
-        // [Wiki 新增] 厚重裤子 / 厚重披风 / 雪地靴。userNote 中的移动速度效果暂作备注，不在本轮接线。
+        // [Wiki 新增] 厚重裤子 / 厚重披风 / 雪地靴；当前 Wiki 只登记防护、重量与覆盖。
         Add(ArmorTable.HeavyTrousers(), EquipSlot.Pants);
         // 披风只占装甲层；即使保护部位显示包含双大腿，也不抢裤装槽。
         Add(ArmorTable.HeavyCape(), EquipSlot.PlateLayer);

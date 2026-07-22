@@ -56,6 +56,9 @@ public sealed partial class CampMain
             return;
         _southEscapeActive = true;
         _gameOver = true; // 强制终局：停掉全灭/围攻/其它路由（本序列不经全灭判定，末尾直接 EndingPanel.Show）
+        RecordPlaytestEvent(PlaytestEventKind.Ending,
+            trigger == SouthEscapeTrigger.MilitaryRaid ? "军袭终局" : "尸潮终局",
+            "营地", $"南逃者：{escapee.DisplayName}；触发源：{trigger}");
 
         // 持久化南逃者身份（随存档往返 → 第二幕「峡谷营地」桥梁角色接口）。
         SouthEscapeEnding.RecordEscapee(_storyFlags, escapee.DisplayName, escapee.Id.ToString(), trigger);

@@ -2810,7 +2810,7 @@ public static class ExplorationCache
             //    这一关真正的回报是告解亭里那本烧了一半的忏悔录、和侧廊墙上那些血字（叙事点，不在这张表里）。
             ChurchOfferingBoxId when NotYet(flags, ChurchOfferingBoxFlag) => new CacheResult(
                 ChurchOfferingBoxFlag,
-                new[] { LootItem.Material("silver", 6), LootItem.Material("iron", 1) },
+                new[] { LootItem.Material("silver", Silver.FromWhole(6)), LootItem.Material("iron", 1) },
                 ChurchOfferingBoxTitle, ChurchOfferingBoxNarrative),
 
             ChurchCloakroomId when NotYet(flags, ChurchCloakroomFlag) => new CacheResult(
@@ -2845,12 +2845,12 @@ public static class ExplorationCache
 
             ChurchAltarId when NotYet(flags, ChurchAltarFlag) => new CacheResult(
                 ChurchAltarFlag,
-                new[] { LootItem.Material("silver", 14), LootItem.Material("cloth", 2) },
+                new[] { LootItem.Material("silver", Silver.FromWhole(14)), LootItem.Material("cloth", 2) },
                 ChurchAltarTitle, ChurchAltarNarrative),
 
             ChurchSacristyCabinetId when NotYet(flags, ChurchSacristyCabinetFlag) => new CacheResult(
                 ChurchSacristyCabinetFlag,
-                new[] { LootItem.Material("silver", 10), LootItem.Material("cloth", 3), LootItem.Material("needle_thread", 1) },
+                new[] { LootItem.Material("silver", Silver.FromWhole(10)), LootItem.Material("cloth", 3), LootItem.Material("needle_thread", 1) },
                 ChurchSacristyCabinetTitle, ChurchSacristyCabinetNarrative),
 
             ChurchChoirLockerId when NotYet(flags, ChurchChoirLockerFlag) => new CacheResult(
@@ -2866,7 +2866,7 @@ public static class ExplorationCache
 
             ChurchCryptId when NotYet(flags, ChurchCryptFlag) => new CacheResult(
                 ChurchCryptFlag,
-                new[] { LootItem.Material("silver", 18), LootItem.Material("bone", 2) },
+                new[] { LootItem.Material("silver", Silver.FromWhole(18)), LootItem.Material("bone", 2) },
                 ChurchCryptTitle, ChurchCryptNarrative),
 
             // ══════════ [SPEC-T60] 难民营地（14 处）══════════
@@ -2879,7 +2879,7 @@ public static class ExplorationCache
 
             RefugeeLuggagePileId when NotYet(flags, RefugeeLuggagePileFlag) => new CacheResult(
                 RefugeeLuggagePileFlag,
-                new[] { LootItem.Material("cloth", 2), LootItem.Material("leather", 2), LootItem.Material("silver", 5) },
+                new[] { LootItem.Material("cloth", 2), LootItem.Material("leather", 2), LootItem.Material("silver", Silver.FromWhole(5)) },
                 RefugeeLuggagePileTitle, RefugeeLuggagePileNarrative),
 
             RefugeeStoveId when NotYet(flags, RefugeeStoveFlag) => new CacheResult(
@@ -2919,12 +2919,12 @@ public static class ExplorationCache
 
             RefugeeSuitcaseId when NotYet(flags, RefugeeSuitcaseFlag) => new CacheResult(
                 RefugeeSuitcaseFlag,
-                new[] { LootItem.Material("cloth", 2), LootItem.Material("silver", 8), LootItem.Material("needle_thread", 1) },
+                new[] { LootItem.Material("cloth", 2), LootItem.Material("silver", Silver.FromWhole(8)), LootItem.Material("needle_thread", 1) },
                 RefugeeSuitcaseTitle, RefugeeSuitcaseNarrative),
 
             RefugeeRegistryDeskId when NotYet(flags, RefugeeRegistryDeskFlag) => new CacheResult(
                 RefugeeRegistryDeskFlag,
-                new[] { LootItem.Material("silver", 6), LootItem.Material("scrap_wood", 1) },
+                new[] { LootItem.Material("silver", Silver.FromWhole(6)), LootItem.Material("scrap_wood", 1) },
                 RefugeeRegistryDeskTitle, RefugeeRegistryDeskNarrative),
 
             RefugeeStorageRoomId when NotYet(flags, RefugeeStorageRoomFlag) => new CacheResult(

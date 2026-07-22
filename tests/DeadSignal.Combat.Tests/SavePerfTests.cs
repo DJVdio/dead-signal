@@ -79,7 +79,6 @@ public class SavePerfTests
                 DisplayName = $"幸存者{i}",
                 Body = body.Capture(),
                 Hunger = 4,
-                HungerCap = 5,
             };
             for (int k = 0; k < 11; k++)   // 11 个穿戴槽塞满
             {
