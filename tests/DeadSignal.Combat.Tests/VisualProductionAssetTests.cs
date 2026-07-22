@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using DeadSignal.Godot;
 using Xunit;
@@ -16,6 +17,12 @@ public sealed class VisualProductionAssetTests
             AssertAsset(ActorFrameCatalog.PathFor(name, "survivor"));
         foreach (string kind in new[] { "survivor", "raider", "zombie", "dog" })
             AssertAsset(ActorFrameCatalog.PathFor(null, kind));
+
+        for (int model = 0; model < EnemyVisualModels.Count; model++)
+        {
+            AssertAsset(ActorFrameCatalog.PathFor(null, "zombie", model));
+            AssertAsset(ActorFrameCatalog.PathFor(null, "raider", model));
+        }
     }
 
     [Fact]
@@ -35,6 +42,12 @@ public sealed class VisualProductionAssetTests
             AssertPngGrid(ActorFrameCatalog.PathFor(name, "survivor"));
         foreach (string kind in new[] { "survivor", "raider", "zombie", "dog" })
             AssertPngGrid(ActorFrameCatalog.PathFor(null, kind));
+
+        for (int model = 0; model < EnemyVisualModels.Count; model++)
+        {
+            AssertPngGrid(ActorFrameCatalog.PathFor(null, "zombie", model));
+            AssertPngGrid(ActorFrameCatalog.PathFor(null, "raider", model));
+        }
     }
 
     [Fact]
@@ -45,6 +58,8 @@ public sealed class VisualProductionAssetTests
             AssertAttackPngGrid(ActorAttackFrameCatalog.PathFor(name, "survivor"));
         foreach (string kind in new[] { "survivor", "raider" })
             AssertAttackPngGrid(ActorAttackFrameCatalog.PathFor(null, kind));
+        for (int model = 0; model < EnemyVisualModels.Count; model++)
+            AssertAttackPngGrid(ActorAttackFrameCatalog.PathFor(null, "raider", model));
 
         Assert.Equal(0, ActorAttackFrameCatalog.FrameFor(0f));
         Assert.Equal(0, ActorAttackFrameCatalog.FrameFor(0.279f));
@@ -57,6 +72,53 @@ public sealed class VisualProductionAssetTests
             if (pose == WeaponAttackPose.None) continue;
             Assert.InRange(ActorAttackFrameCatalog.ColumnFor(pose, 0.45f), 0, ActorAttackFrameCatalog.Columns - 1);
         }
+    }
+
+    [Fact]
+    public void EnemyModelsAreEightUniformlyAddressableVariants()
+    {
+        Assert.Equal(8, EnemyVisualModels.Count);
+        Assert.Equal(0, EnemyVisualModels.Pick(new SequenceRandomSource(0)));
+        Assert.Equal(0, EnemyVisualModels.Pick(new SequenceRandomSource(0.999)));
+        Assert.Equal(1, EnemyVisualModels.Pick(new SequenceRandomSource(1.0)));
+        Assert.Equal(7, EnemyVisualModels.Pick(new SequenceRandomSource(7.999)));
+        Assert.Equal(7, EnemyVisualModels.Normalize(999));
+        Assert.Equal(0, EnemyVisualModels.Normalize(-1));
+        Assert.Equal(4, Enumerable.Range(0, EnemyVisualModels.Count).Count(EnemyVisualModels.IsFemale));
+        Assert.Equal(4, Enumerable.Range(0, EnemyVisualModels.Count).Count(i => !EnemyVisualModels.IsFemale(i)));
+    }
+
+    [Fact]
+    public void EnemyFactoriesAndRendererWireRandomModelsAndRealRaiderGear()
+    {
+        string zombie = Read("godot/scripts/Zombie.cs");
+        string raider = Read("godot/scripts/Raider.cs");
+        string sprite = Read("godot/scripts/ActorSprite.cs");
+        Assert.Contains("VisualModelIndex = EnemyVisualModels.Pick", zombie);
+        Assert.Contains("VisualModelIndex = EnemyVisualModels.Pick", raider);
+        Assert.Contains("_actor.VisualModelIndex", sprite);
+        Assert.Contains("raider.CurrentAttackWeapon", sprite);
+        Assert.Contains("foreach (ArmorLayer armor in raider.WornArmor)", sprite);
+    }
+
+    [Fact]
+    public void EveryPaperDollAtlasReferencedByTheFormalCatalogExists()
+    {
+        string[] paths = EquipmentVisualCatalog.WeaponNames
+            .Select(name => EquipmentVisualCatalog.ResolveWeapon(name)!.AtlasPath)
+            .Concat(EquipmentVisualCatalog.ApparelNames.Select(name => EquipmentVisualCatalog.ResolveApparel(name)!.AtlasPath))
+            .Concat(EquipmentVisualCatalog.DogApparelNames.Select(name => EquipmentVisualCatalog.ResolveDogApparel(name)!.AtlasPath))
+            .Concat(new[]
+            {
+                EquipmentVisualCatalog.ResolveLight(LightSource.FlashlightKey)!.AtlasPath,
+                EquipmentVisualCatalog.ResolveLight(LightSource.TorchKey)!.AtlasPath,
+            })
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.NotEmpty(paths);
+        foreach (string path in paths)
+            AssertAsset(path);
     }
 
     [Fact]

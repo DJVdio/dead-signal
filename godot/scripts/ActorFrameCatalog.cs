@@ -1,4 +1,5 @@
 using System;
+using DeadSignal.Combat;
 
 namespace DeadSignal.Godot;
 
@@ -9,7 +10,10 @@ public static class ActorFrameCatalog
     public const int Rows = 8;
     public const string Root = "res://assets/world/animations";
 
-    public static string PathFor(string? displayName, string actorKind) => displayName switch
+    public static string PathFor(string? displayName, string actorKind)
+        => PathFor(displayName, actorKind, -1);
+
+    public static string PathFor(string? displayName, string actorKind, int modelIndex) => displayName switch
     {
         "山姆" => $"{Root}/sam.png",
         "诺蒂" => $"{Root}/notty.png",
@@ -19,6 +23,8 @@ public static class ActorFrameCatalog
         "南丁格尔" => $"{Root}/nightingale.png",
         "皮特" => $"{Root}/pete.png",
         "布鲁斯" => $"{Root}/bruce.png",
+        _ when modelIndex >= 0 && actorKind is "zombie" or "raider"
+            => $"{Root}/{actorKind}-{EnemyVisualModels.Normalize(modelIndex) + 1:00}.png",
         _ => $"{Root}/{actorKind}.png",
     };
 
@@ -48,7 +54,10 @@ public static class ActorAttackFrameCatalog
     public const int Rows = 8;
     public const string Root = "res://assets/world/attacks";
 
-    public static string PathFor(string? displayName, string actorKind) => displayName switch
+    public static string PathFor(string? displayName, string actorKind)
+        => PathFor(displayName, actorKind, -1);
+
+    public static string PathFor(string? displayName, string actorKind, int modelIndex) => displayName switch
     {
         "山姆" => $"{Root}/sam.png",
         "诺蒂" => $"{Root}/notty.png",
@@ -57,6 +66,8 @@ public static class ActorAttackFrameCatalog
         "道格" => $"{Root}/doug.png",
         "南丁格尔" => $"{Root}/nightingale.png",
         "皮特" => $"{Root}/pete.png",
+        _ when modelIndex >= 0 && actorKind == "raider"
+            => $"{Root}/{actorKind}-{EnemyVisualModels.Normalize(modelIndex) + 1:00}.png",
         _ => $"{Root}/{actorKind}.png",
     };
 
@@ -85,4 +96,21 @@ public static class ActorAttackFrameCatalog
 
     public static int ColumnFor(WeaponAttackPose pose, float progress)
         => ActionFor(pose) * FramesPerAction + FrameFor(progress);
+}
+
+/// <summary>普通丧尸/袭击者共享的八模型编号规则；只决定外观，不参与战斗、掉落或 authored 身份。</summary>
+public static class EnemyVisualModels
+{
+    public const int Count = 8;
+
+    public static int Pick(IRandomSource rng)
+    {
+        ArgumentNullException.ThrowIfNull(rng);
+        return Normalize((int)Math.Floor(rng.Range(0, Count)));
+    }
+
+    public static int Normalize(int modelIndex) => Math.Clamp(modelIndex, 0, Count - 1);
+
+    /// <summary>资产行按男/女交替登记，保证模型池固定为四男四女。</summary>
+    public static bool IsFemale(int modelIndex) => Normalize(modelIndex) % 2 == 1;
 }

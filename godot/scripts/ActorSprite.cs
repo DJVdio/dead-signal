@@ -380,6 +380,7 @@ public sealed partial class ActorSprite : Node2D
     private int EquipmentStateHash()
     {
         var hash = new HashCode();
+        hash.Add(_actor.VisualModelIndex);
         if (_actor is Pawn pawn)
         {
             hash.Add(pawn.WeaponInHand(Hand.Left)?.Name);
@@ -395,6 +396,12 @@ public sealed partial class ActorSprite : Node2D
         {
             foreach (DogEquipSlot slot in Enum.GetValues<DogEquipSlot>())
                 hash.Add(dog.Apparel.ItemAt(slot));
+        }
+        else if (_actor is Raider raider)
+        {
+            hash.Add(raider.CurrentAttackWeapon.Name);
+            foreach (ArmorLayer armor in raider.WornArmor)
+                hash.Add(armor.Name);
         }
         return hash.ToHashCode();
     }
@@ -538,8 +545,8 @@ public sealed partial class ActorSprite : Node2D
             && _attackPose != WeaponAttackPose.None
             && _actor is Pawn or Raider;
         string path = useWeaponPose
-            ? ActorAttackFrameCatalog.PathFor(displayName, kind)
-            : ActorFrameCatalog.PathFor(displayName, kind);
+            ? ActorAttackFrameCatalog.PathFor(displayName, kind, _actor.VisualModelIndex)
+            : ActorFrameCatalog.PathFor(displayName, kind, _actor.VisualModelIndex);
         if (!AnimationAtlases.TryGetValue(path, out Texture2D? atlas))
         {
             atlas = GD.Load<Texture2D>(path);
@@ -724,8 +731,17 @@ public sealed partial class ActorSprite : Node2D
     /// </summary>
     private void DrawHeldEquipmentPass(float r, int directionColumn, bool behindBody)
     {
-        if (_actor is not Pawn pawn
-            || EquipmentVisualCatalog.DrawHeldBehindBody(directionColumn) != behindBody)
+        if (EquipmentVisualCatalog.DrawHeldBehindBody(directionColumn) != behindBody)
+            return;
+
+        if (_actor is Raider raider)
+        {
+            Weapon weapon = raider.CurrentAttackWeapon;
+            DrawHeldWeaponVisual(weapon, Hand.Right, r, directionColumn, weapon.TwoHanded);
+            return;
+        }
+
+        if (_actor is not Pawn pawn)
             return;
 
         Weapon? left = pawn.WeaponInHand(Hand.Left);
@@ -851,6 +867,33 @@ public sealed partial class ActorSprite : Node2D
                     if (!sideSpecific && !drawn.Add(visual.ItemKey))
                         continue;
                     DrawWornCell(visual, r, directionColumn, slot);
+                }
+            }
+        }
+        else if (_actor is Raider raider)
+        {
+            PaperDollLayer[] layers =
+            {
+                PaperDollLayer.Skin,
+                PaperDollLayer.Pants,
+                PaperDollLayer.Feet,
+                PaperDollLayer.Outer,
+                PaperDollLayer.Plate,
+                PaperDollLayer.Hands,
+                PaperDollLayer.Head,
+                PaperDollLayer.Eyes,
+                PaperDollLayer.Face,
+            };
+            var drawn = new HashSet<string>(StringComparer.Ordinal);
+            foreach (PaperDollLayer layer in layers)
+            {
+                foreach (ArmorLayer armor in raider.WornArmor)
+                {
+                    if (EquipmentVisualCatalog.ResolveApparel(armor.Name) is not { } visual
+                        || visual.Layer != layer
+                        || !drawn.Add(visual.ItemKey))
+                        continue;
+                    DrawWornCell(visual, r, directionColumn, null);
                 }
             }
         }

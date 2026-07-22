@@ -351,6 +351,7 @@ internal static class CampaignEconomyReport
             .Where(path => !path.EndsWith(".schema.json", StringComparison.Ordinal))
             .Select(path => Path.GetRelativePath(root, path)));
         files.AddRange(Directory.EnumerateFiles(Path.Combine(root, "src/DeadSignal.Combat"), "*.cs", SearchOption.AllDirectories)
+            .Where(path => !path.Split(Path.DirectorySeparatorChar).Any(part => part is "bin" or "obj"))
             .Select(path => Path.GetRelativePath(root, path)));
 
         using var sha = SHA256.Create();

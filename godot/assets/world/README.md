@@ -30,6 +30,16 @@
 
   > Revise the generic 4-row by 8-column actor direction atlas so every human figure uses realistic anatomy. Rows 1–3 (generic survivor, hostile raider, ordinary civilian zombie) must be natural approximately 7 to 7.5 heads tall, with smaller heads, longer torsos and legs, realistic shoulder widths; absolutely no chibi, bobblehead or oversized-head proportions. Row 4 remains a generic dog fallback with realistic canine anatomy and consistent scale. Preserve exactly 4 rows and 8 equal columns; columns south, southwest, west, northwest, north, northeast, east, southeast. Preserve each row's identity and restrained gritty clothing palette, empty hands, identical foot anchors. Crisp faux-isometric hand-authored pixel art, solid flat #ff00ff background. No text, labels, borders, grid lines, weapons, props, cast shadows, watermark, extra figures, rows or columns.
 
+## enemy model variants
+
+- 用途：普通丧尸与袭击者各 8 套随机身体，顺序固定为男/女交替，共四男四女。`EnemyVisualModels` 只抽外观编号，不影响战斗、掉落、丧尸着装或 authored 身份。
+- 文件：`animations/zombie-01..08.png`、`animations/raider-01..08.png`、`attacks/raider-01..08.png`。常规动作单格 128×147、12 列×8 方向；袭击者持械动作 21 列×8 方向。
+- 运行时：`Zombie.Create` / `Raider.Create` 使用独立可注入随机源等概率选 0..7；`ActorSprite` 按编号读取身体/动作图。袭击者的 `CurrentAttackWeapon` 与 `WornArmor` 再从正式装备图集叠加，因而换武器、换衣服会真实改变形象。
+- 来源：身体设计使用 OpenAI 内置 image generation 做四男四女方向母版探索；精确逐帧成品由项目已有原创完整动作母版经 `tools/art/build_enemy_variants.py` 派生，以保持网格、脚点和动作列绝对一致。整表生成曾连续漏第八行，未通过验收的输出没有入库；最终第八名女性另以单行 8 方向生成作视觉参考。
+- 丧尸母版 prompt：8 行×8 方向、男/女交替、现实 7~7.5 头身、普通平民丧尸、日常破损衣物、禁止 chibi/变异/精英/武器，纯 `#ff00ff` 色键背景。
+- 第八名女性丧尸补行 prompt：中年东亚女性、黑色短波波头、暗青开衫与炭灰长裤、现实比例、单行 8 方向、纯 `#ff00ff` 色键背景。
+- 袭击者母版 prompt：8 行×8 方向、男/女交替、现实比例、空手紧身深色底衣，武器/外套/装甲/帽子全部留给运行时 paper doll，纯 `#ff00ff` 色键背景。
+
 ## named-actors-a.png / named-actors-b.png
 
 - 用途：7 名 authored 幸存者的正式 8 方向站立图集。A 图依次为山姆、诺蒂、克莉丝汀、耗子；B 图依次为道格、南丁格尔、皮特。

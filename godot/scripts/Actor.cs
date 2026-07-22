@@ -123,6 +123,9 @@ public abstract partial class Actor : CharacterBody2D
     /// <summary>人形主色调（丧尸昼夜会改 <see cref="BodyColor"/>，sprite 每帧取用自动跟随）。</summary>
     public Color BodyTint => BodyColor;
 
+    /// <summary>普通敌人的外观模型编号（0..7）；只供表现层选图，不进入战斗与掉落。</summary>
+    public int VisualModelIndex { get; protected set; }
+
     /// <summary>是否远程持械（sprite 据此画枪管指示 vs 近战短刃）。</summary>
     public bool RangedArmed => IsRanged;
 

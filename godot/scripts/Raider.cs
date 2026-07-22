@@ -85,12 +85,14 @@ public sealed partial class Raider : Actor
         bool usePistol = true,
         string displayName = "劫掠者",
         Weapon? weapon = null,
-        IReadOnlyList<ArmorLayer>? outfit = null)
+        IReadOnlyList<ArmorLayer>? outfit = null,
+        IRandomSource? visualRng = null)
     {
         var r = new Raider
         {
             DisplayName = displayName,
             BodyColor = new Color(0.72f, 0.26f, 0.22f), // 暗红：与幸存者（自定义色）、丧尸（绿）一眼区分
+            VisualModelIndex = EnemyVisualModels.Pick(visualRng ?? new SystemRandomSource()),
             _wanderBounds = wanderBounds,
             _targetProvider = targetProvider,
         };

@@ -100,11 +100,13 @@ public sealed partial class Zombie : Actor
         Rect2 wanderBounds,
         Func<IEnumerable<Actor>> survivorProvider,
         IRandomSource? outfitRng = null,
-        string? outfitName = null)
+        string? outfitName = null,
+        IRandomSource? visualRng = null)
     {
         var z = new Zombie
         {
             BodyColor = new Color(0.45f, 0.6f, 0.35f),
+            VisualModelIndex = EnemyVisualModels.Pick(visualRng ?? new SystemRandomSource()),
             _wanderBounds = wanderBounds,
             _survivorProvider = survivorProvider,
         };
