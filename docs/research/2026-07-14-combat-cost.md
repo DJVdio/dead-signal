@@ -1,5 +1,5 @@
-<!-- sim-provenance commit=8b0d0a7cda29039238713ddc54c9e4bbbbf36aec commit-date=2026-07-22T09:50:08-04:00 settlement=clean input-sha256=52e1e853a269f93d2af4d140bf11588c8196230f32985800b14a231fff3fd939 report-sha256=8b54eb1c0c22d3be175aba3b7a5cb0aa5f9a013249de72411b7d19c908d780a5 -->
-> 📌 本报告由 commit `8b0d0a7`（2026-07-22）生成，**Sim 结算路径干净**（src/ + godot/scripts/ + godot/data/ 无未提交改动；docs/ 与 .tabb/ 脏不影响 Sim 输出） ⇒ `git checkout 8b0d0a7` 后重跑即可**原样复现**；对不上就是引擎变了、该重跑并复核结论。
+<!-- sim-provenance commit=633d8bb1ab6bd5bbec252c81c6a70ee72ac3ba76 commit-date=2026-07-22T09:58:59-04:00 settlement=clean input-sha256=ac9adcd5b3640e3f23da9aa466daff7da76d08dba8876f38f8c869819a6f3b02 report-sha256=8b54eb1c0c22d3be175aba3b7a5cb0aa5f9a013249de72411b7d19c908d780a5 -->
+> 📌 本报告由 commit `633d8bb`（2026-07-22）生成，**Sim 结算路径干净**（src/ + godot/scripts/ + godot/data/ 无未提交改动；docs/ 与 .tabb/ 脏不影响 Sim 输出） ⇒ `git checkout 633d8bb` 后重跑即可**原样复现**；对不上就是引擎变了、该重跑并复核结论。
 # 战斗的真实成本（Sim `cost` 模式，机器生成——勿手改）
 
 > **胜率不是成本。** 这份表回答的是「打赢之后你还剩什么」，不是「你能不能打赢」。

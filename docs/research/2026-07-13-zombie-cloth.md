@@ -1,5 +1,5 @@
-<!-- sim-provenance commit=55c77ef98138b15d92ab45e51326f1961aa30e8f commit-date=2026-07-21T08:55:49-04:00 settlement=clean input-sha256=52e1e853a269f93d2af4d140bf11588c8196230f32985800b14a231fff3fd939 report-sha256=102c6790376377492f3ce0d2fddbec0aebc6ca79d09e103f15944fcedc622e8a -->
-> 📌 本报告由 commit `55c77ef`（2026-07-21）生成，**Sim 结算路径干净**（src/ + godot/scripts/ + godot/data/ 无未提交改动；docs/ 与 .tabb/ 脏不影响 Sim 输出） ⇒ `git checkout 55c77ef` 后重跑即可**原样复现**；对不上就是引擎变了、该重跑并复核结论。
+<!-- sim-provenance commit=633d8bb1ab6bd5bbec252c81c6a70ee72ac3ba76 commit-date=2026-07-22T09:58:59-04:00 settlement=clean input-sha256=ac9adcd5b3640e3f23da9aa466daff7da76d08dba8876f38f8c869819a6f3b02 report-sha256=102c6790376377492f3ce0d2fddbec0aebc6ca79d09e103f15944fcedc622e8a -->
+> 📌 本报告由 commit `633d8bb`（2026-07-22）生成，**Sim 结算路径干净**（src/ + godot/scripts/ + godot/data/ 无未提交改动；docs/ 与 .tabb/ 脏不影响 Sim 输出） ⇒ `git checkout 633d8bb` 后重跑即可**原样复现**；对不上就是引擎变了、该重跑并复核结论。
 # 丧尸穿衣（生前的破衣服）前后对比
 
 挡下率样本 200,000 次命中/格　胜率样本 4,000 场/格　玩家 = 开局三件套（长袖布衣+长裤+运动鞋）

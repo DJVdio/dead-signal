@@ -1,5 +1,5 @@
-<!-- sim-provenance commit=55c77ef98138b15d92ab45e51326f1961aa30e8f commit-date=2026-07-21T08:55:49-04:00 settlement=clean input-sha256=52e1e853a269f93d2af4d140bf11588c8196230f32985800b14a231fff3fd939 report-sha256=044257bad83e690fe6784a0f5e7a33fe04c08070442093969980be11c4e64c8b -->
-> 📌 本报告由 commit `55c77ef`（2026-07-21）生成，**Sim 结算路径干净**（src/ + godot/scripts/ + godot/data/ 无未提交改动；docs/ 与 .tabb/ 脏不影响 Sim 输出） ⇒ `git checkout 55c77ef` 后重跑即可**原样复现**；对不上就是引擎变了、该重跑并复核结论。
+<!-- sim-provenance commit=633d8bb1ab6bd5bbec252c81c6a70ee72ac3ba76 commit-date=2026-07-22T09:58:59-04:00 settlement=clean input-sha256=ac9adcd5b3640e3f23da9aa466daff7da76d08dba8876f38f8c869819a6f3b02 report-sha256=044257bad83e690fe6784a0f5e7a33fe04c08070442093969980be11c4e64c8b -->
+> 📌 本报告由 commit `633d8bb`（2026-07-22）生成，**Sim 结算路径干净**（src/ + godot/scripts/ + godot/data/ 无未提交改动；docs/ 与 .tabb/ 脏不影响 Sim 输出） ⇒ `git checkout 633d8bb` 后重跑即可**原样复现**；对不上就是引擎变了、该重跑并复核结论。
 # 自制霰弹枪校准（多弹丸 · 8 颗单独计算）
 
 武器：单颗弹丸 2~10 × 8 颗　穿透 15 %　冷却 4.2s　射程 90　满伤段 18　末端衰减 20 %　扩散 ±18°
