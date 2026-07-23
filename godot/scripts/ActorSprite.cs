@@ -78,6 +78,7 @@ public sealed partial class ActorSprite : Node2D
     private WeaponAttackPose _attackPose = WeaponAttackPose.None;
     private float _hitPoseTime;
     private ActorAnimationState _animationState;
+    private bool _auditHideUi;
 
     // ---- 放逐淡出（modulate alpha→0 后自毁；克莉丝汀放逐时她仍 Alive，故不能靠 !Alive 自毁）----
     private bool _fading;
@@ -134,6 +135,25 @@ public sealed partial class ActorSprite : Node2D
             CombatFeed.Published += OnCombatEvent;
             _subscribed = true;
         }
+    }
+
+    /// <summary>仅供不挂主游戏的装备视觉回归场景固定正面朝向。</summary>
+    internal void SetAuditDirectionColumn(int column)
+    {
+        _drawAngle = Mathf.Pi * 0.5f + Mathf.PosMod(column, 8) * (Mathf.Tau / 8f);
+        _angleInit = true;
+        QueueRedraw();
+    }
+
+    /// <summary>独立武器动作画廊固定某一类动作与关键帧；不进入主游戏状态机。</summary>
+    internal void SetAuditAttackFrame(WeaponAttackPose pose, float progress)
+    {
+        _animationState = ActorAnimationState.Attack;
+        _attackPose = pose;
+        _attackAnimDuration = 1f;
+        _attackAnimTime = 1f - Mathf.Clamp(progress, 0f, 1f);
+        _auditHideUi = true;
+        QueueRedraw();
     }
 
     public override void _ExitTree()
@@ -453,13 +473,13 @@ public sealed partial class ActorSprite : Node2D
             DrawStanding(r, tint, f, p);
         }
 
-        if (atlasStanding)
-            DrawWornEquipment(r, directionColumn);
-
         DrawHeldEquipmentPass(r, directionColumn, behindBody: false);
         if (!animatedFrame)
             DrawActivityProp(r);
         DrawSetTransform(Vector2.Zero, 0f, Vector2.One);
+
+        if (_auditHideUi)
+            return;
 
         if (_animationState == ActorAnimationState.Lie)
             DrawSleepBreath(r);
@@ -784,29 +804,35 @@ public sealed partial class ActorSprite : Node2D
         if (atlas is null)
             return false;
 
+        bool attackingWithWeapon =
+            _animationState == ActorAnimationState.Attack
+            && visual.Kind == EquipmentVisualKind.Weapon;
+        int sourceColumn = HeldSourceColumn(visual, directionColumn);
         var source = new Rect2(
-            directionColumn * visual.CellWidth,
+            sourceColumn * visual.CellWidth,
             visual.AtlasRow * visual.CellHeight,
             visual.CellWidth,
             visual.CellHeight);
         Vector2 f = Vector2.FromAngle(_drawAngle);
         var p = new Vector2(-f.Y, f.X);
         float handSide = hand == Hand.Left ? -1f : 1f;
-        Vector2 center = new Vector2(0f, -r * 2.20f) + f * r * 0.22f;
+        // 正式角色图以脚底为原点，手部基线约在 3 个半径高处。旧值把武器中心
+        // 放在腰以下，再把整张 96px 单元格等比放大，长兵器会穿过脚底和整个人。
+        Vector2 grip = new Vector2(0f, -r * 3.20f) + f * r * 0.15f;
         if (!twoHandGrip)
-            center += p * handSide * r * 0.50f;
-        if (_animationState == ActorAnimationState.Attack && visual.Kind == EquipmentVisualKind.Weapon)
+            grip += p * handSide * r * 0.34f;
+        if (attackingWithWeapon)
         {
             // 身体已换成对应持械关键帧，真实装备图也随手部向出手方向移动；只改绘制锚点，不碰命中/射程。
             Vector2 deliveryOffset = _attackPose switch
             {
-                WeaponAttackPose.OneHandSwing => f * r * 0.25f + p * handSide * r * 0.10f,
-                WeaponAttackPose.OneHandThrust => f * r * 0.70f,
-                WeaponAttackPose.OneHandShot => f * r * 0.58f + Vector2.Up * r * 0.10f,
-                WeaponAttackPose.TwoHandSwing => f * r * 0.24f + Vector2.Up * r * 0.20f,
-                WeaponAttackPose.TwoHandThrust => f * r * 0.82f,
-                WeaponAttackPose.TwoHandShot => f * r * 0.62f + Vector2.Up * r * 0.12f,
-                WeaponAttackPose.BowShot => f * r * 0.28f + Vector2.Up * r * 0.08f,
+                WeaponAttackPose.OneHandSwing => f * r * 1.15f + p * handSide * r * 0.10f,
+                WeaponAttackPose.OneHandThrust => f * r * 2.05f,
+                WeaponAttackPose.OneHandShot => f * r * 1.95f + Vector2.Up * r * 0.16f,
+                WeaponAttackPose.TwoHandSwing => f * r * 0.55f + Vector2.Up * r * 0.20f,
+                WeaponAttackPose.TwoHandThrust => f * r * 1.45f,
+                WeaponAttackPose.TwoHandShot => f * r * 1.25f + Vector2.Up * r * 0.16f,
+                WeaponAttackPose.BowShot => f * r * 1.55f + Vector2.Up * r * 0.10f,
                 _ => Vector2.Zero,
             };
             float frameFactor = ActorAttackFrameCatalog.FrameFor(AttackProgress()) switch
@@ -815,13 +841,69 @@ public sealed partial class ActorSprite : Node2D
                 1 => 1.00f,  // 出手：抵达最大延伸位置
                 _ => 0.35f,  // 收招：回到常规持握锚点
             };
-            center += deliveryOffset * frameFactor;
+            grip += deliveryOffset * frameFactor;
         }
 
-        float size = r * 4.9f * visual.DisplayScale;
-        var destination = new Rect2(center - new Vector2(size, size) / 2f, new Vector2(size, size));
-        DrawTextureRectRegion(atlas, destination, source);
+        float poseScale = attackingWithWeapon ? _attackPose switch
+        {
+            WeaponAttackPose.OneHandSwing => 1.12f,
+            WeaponAttackPose.OneHandShot => 1.30f,
+            WeaponAttackPose.TwoHandSwing => 0.92f,
+            WeaponAttackPose.TwoHandThrust => 0.88f,
+            WeaponAttackPose.TwoHandShot => 0.82f,
+            WeaponAttackPose.BowShot => 0.94f,
+            _ => 1f,
+        } : 1f;
+        float size = r * 3.25f * visual.DisplayScale * poseScale;
+        Vector2 pivot = HeldSourcePivot(directionColumn, _attackPose);
+        DrawTextureRectRegion(atlas,
+            new Rect2(grip - pivot * size, new Vector2(size, size)),
+            source);
         return true;
+    }
+
+    private static int HeldSourceColumn(EquipmentVisualDef visual, int directionColumn)
+    {
+        int normalized = Mathf.PosMod(directionColumn, 8);
+        // Most held-item sheets were authored S, SE, E, NE, N, NW, W, SW,
+        // while ActorSprite consumes S, SW, W, NW, N, NE, E, SE. Rapier and
+        // fire-axe replacement sheets were already exported in runtime order.
+        if (visual.AtlasPath is EquipmentVisualCatalog.HeldRapierPath
+            or EquipmentVisualCatalog.HeldFireAxePath)
+            return normalized;
+        return normalized switch
+        {
+            0 => 0,
+            1 => 7,
+            2 => 6,
+            3 => 5,
+            4 => 4,
+            5 => 3,
+            6 => 2,
+            _ => 1,
+        };
+    }
+
+    private static Vector2 HeldSourcePivot(int directionColumn, WeaponAttackPose pose)
+    {
+        // 枪械的扳机和弓把位于图元中央；刀剑、棍棒和长柄武器则要以握把末端
+        // 对准手掌。八方向分别登记握把位置，避免把透明单元格中心误当成手的位置。
+        if (pose is WeaponAttackPose.OneHandShot
+            or WeaponAttackPose.TwoHandShot
+            or WeaponAttackPose.BowShot)
+            return new Vector2(0.50f, 0.52f);
+
+        return Mathf.PosMod(directionColumn, 8) switch
+        {
+            0 => new Vector2(0.64f, 0.80f),
+            1 => new Vector2(0.65f, 0.80f),
+            2 => new Vector2(0.82f, 0.52f),
+            3 => new Vector2(0.65f, 0.80f),
+            4 => new Vector2(0.50f, 0.80f),
+            5 => new Vector2(0.35f, 0.80f),
+            6 => new Vector2(0.18f, 0.52f),
+            _ => new Vector2(0.35f, 0.80f),
+        };
     }
 
     private static Texture2D? EquipmentAtlas(string path)
@@ -832,142 +914,6 @@ public sealed partial class ActorSprite : Node2D
             EquipmentAtlases[path] = atlas;
         }
         return atlas;
-    }
-
-    /// <summary>
-    /// 只读真实穿戴槽绘制纸娃娃。多槽装备只画一次；成对手套/鞋按左右槽各画一件，单只穿戴不会冒出一整双。
-    /// 面具/眼镜固定走 Face 锚点，绝不覆盖角色发型；板甲整件走 Plate 层并自带腿甲，但不画手脚。
-    /// </summary>
-    private void DrawWornEquipment(float r, int directionColumn)
-    {
-        if (_actor is Pawn pawn)
-        {
-            PaperDollLayer[] layers =
-            {
-                PaperDollLayer.Skin,
-                PaperDollLayer.Pants,
-                PaperDollLayer.Feet,
-                PaperDollLayer.Outer,
-                PaperDollLayer.Plate,
-                PaperDollLayer.Hands,
-                PaperDollLayer.Head,
-                PaperDollLayer.Eyes,
-                PaperDollLayer.Face,
-            };
-            var drawn = new HashSet<string>(StringComparer.Ordinal);
-            foreach (PaperDollLayer layer in layers)
-            {
-                foreach (EquipSlot slot in Enum.GetValues<EquipSlot>())
-                {
-                    string? item = pawn.ApparelAt(slot);
-                    if (EquipmentVisualCatalog.ResolveApparel(item) is not { } visual || visual.Layer != layer)
-                        continue;
-
-                    bool sideSpecific = visual.Anchor is EquipmentVisualAnchor.Hand or EquipmentVisualAnchor.Foot;
-                    if (!sideSpecific && !drawn.Add(visual.ItemKey))
-                        continue;
-                    DrawWornCell(visual, r, directionColumn, slot);
-                }
-            }
-        }
-        else if (_actor is Raider raider)
-        {
-            PaperDollLayer[] layers =
-            {
-                PaperDollLayer.Skin,
-                PaperDollLayer.Pants,
-                PaperDollLayer.Feet,
-                PaperDollLayer.Outer,
-                PaperDollLayer.Plate,
-                PaperDollLayer.Hands,
-                PaperDollLayer.Head,
-                PaperDollLayer.Eyes,
-                PaperDollLayer.Face,
-            };
-            var drawn = new HashSet<string>(StringComparer.Ordinal);
-            foreach (PaperDollLayer layer in layers)
-            {
-                foreach (ArmorLayer armor in raider.WornArmor)
-                {
-                    if (EquipmentVisualCatalog.ResolveApparel(armor.Name) is not { } visual
-                        || visual.Layer != layer
-                        || !drawn.Add(visual.ItemKey))
-                        continue;
-                    DrawWornCell(visual, r, directionColumn, null);
-                }
-            }
-        }
-        else if (_actor is Dog dog)
-        {
-            foreach (DogEquipSlot slot in new[] { DogEquipSlot.Body, DogEquipSlot.Head })
-            {
-                if (EquipmentVisualCatalog.ResolveDogApparel(dog.Apparel.ItemAt(slot)) is { } visual)
-                    DrawWornCell(visual, r, directionColumn, null);
-            }
-        }
-    }
-
-    private void DrawWornCell(EquipmentVisualDef visual, float r, int directionColumn, EquipSlot? slot)
-    {
-        Texture2D? atlas = EquipmentAtlas(visual.AtlasPath);
-        if (atlas is null)
-            return;
-
-        var source = new Rect2(
-            directionColumn * visual.CellWidth,
-            visual.AtlasRow * visual.CellHeight,
-            visual.CellWidth,
-            visual.CellHeight);
-        Rect2 destination;
-        switch (visual.Anchor)
-        {
-            case EquipmentVisualAnchor.Body:
-            case EquipmentVisualAnchor.DogBody:
-            {
-                float height = r * (visual.Anchor == EquipmentVisualAnchor.DogBody ? 5.0f : 5.5f);
-                float width = height * (64f / 96f);
-                destination = new Rect2(-width / 2f, -height, width, height);
-                break;
-            }
-            case EquipmentVisualAnchor.Head:
-            {
-                float size = r * 2.15f * visual.DisplayScale;
-                Vector2 center = new(0f, -r * 4.48f);
-                destination = new Rect2(center - Vector2.One * size / 2f, Vector2.One * size);
-                break;
-            }
-            case EquipmentVisualAnchor.Face:
-            {
-                // 比 Head 锚点低：恐怖面具/墨镜只能盖脸，不得压住发际线与发型。
-                float size = r * 1.72f * visual.DisplayScale;
-                Vector2 center = new(0f, -r * 4.18f);
-                destination = new Rect2(center - Vector2.One * size / 2f, Vector2.One * size);
-                break;
-            }
-            case EquipmentVisualAnchor.Hand:
-            {
-                Vector2 f = Vector2.FromAngle(_drawAngle);
-                Vector2 p = new(-f.Y, f.X);
-                float side = slot == EquipSlot.LeftHand ? -1f : 1f;
-                Vector2 center = new Vector2(0f, -r * 2.42f) + p * side * r * 0.62f + f * r * 0.10f;
-                float size = r * 1.22f * visual.DisplayScale;
-                destination = new Rect2(center - Vector2.One * size / 2f, Vector2.One * size);
-                break;
-            }
-            case EquipmentVisualAnchor.Foot:
-            {
-                Vector2 f = Vector2.FromAngle(_drawAngle);
-                Vector2 p = new(-f.Y, f.X);
-                float side = slot == EquipSlot.LeftFoot ? -1f : 1f;
-                Vector2 center = new Vector2(0f, -r * 0.34f) + p * side * r * 0.30f + f * r * 0.05f;
-                float size = r * 1.36f * visual.DisplayScale;
-                destination = new Rect2(center - Vector2.One * size / 2f, Vector2.One * size);
-                break;
-            }
-            default:
-                return;
-        }
-        DrawTextureRectRegion(atlas, destination, source);
     }
 
     private void DrawFallbackHeldItem(float r, Hand hand, bool ranged, bool twoHandGrip, Color color)

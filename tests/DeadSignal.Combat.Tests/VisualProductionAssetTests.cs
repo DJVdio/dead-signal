@@ -122,6 +122,44 @@ public sealed class VisualProductionAssetTests
     }
 
     [Fact]
+    public void WorldActorsUseAuthoredFixedOutfitsAndNeverDrawWornApparel()
+    {
+        string sprite = Read("godot/scripts/ActorSprite.cs");
+        Assert.Contains("ActorFrameCatalog.PathFor", sprite);
+        Assert.Contains("ActorAttackFrameCatalog.PathFor", sprite);
+        Assert.Contains("DrawHeldEquipmentPass", sprite);
+        Assert.DoesNotContain("DrawWornEquipment", sprite);
+        Assert.DoesNotContain("DrawWornCell", sprite);
+        Assert.DoesNotContain("ResolveApparel", sprite);
+        Assert.DoesNotContain("PaperDollPrototype", sprite);
+    }
+
+    [Fact]
+    public void WeaponActionAuditCoversEveryPoseDirectionAndKeyFrame()
+    {
+        string audit = Read("godot/scripts/WeaponActionAudit.cs");
+        foreach (string character in new[]
+                 {
+                     "山姆", "诺蒂", "克莉丝汀", "耗子", "道格", "南丁格尔", "皮特",
+                     "袭击者 01", "袭击者 02", "袭击者 03", "袭击者 04",
+                     "袭击者 05", "袭击者 06", "袭击者 07", "袭击者 08",
+                 })
+            Assert.Contains($"\"{character}\"", audit);
+        Assert.Contains("DEAD_SIGNAL_AUDIT_CHARACTER", audit);
+        Assert.Contains("DEAD_SIGNAL_AUDIT_PHASE", audit);
+        Assert.Contains("DEAD_SIGNAL_AUDIT_SCREENSHOT", audit);
+        foreach (string pose in new[]
+                 {
+                     "OneHandSwing", "OneHandThrust", "OneHandShot",
+                     "TwoHandSwing", "TwoHandThrust", "TwoHandShot", "BowShot",
+                 })
+            Assert.Contains($"WeaponAttackPose.{pose}", audit);
+        Assert.Contains("for (int direction = 0; direction < 8; direction++)", audit);
+        Assert.Contains("float[] keyFrames = { 0.12f, 0.45f, 0.82f };", audit);
+        Assert.Contains("SetAuditAttackFrame", audit);
+    }
+
+    [Fact]
     public void ExplorationAndAllThreeEndingBackgroundsExist()
     {
         AssertAsset("res://assets/world/exploration-props.png");

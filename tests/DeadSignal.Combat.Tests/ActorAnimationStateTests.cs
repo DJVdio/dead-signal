@@ -149,11 +149,14 @@ public sealed class ActorAnimationStateTests
         Assert.True(actor.IndexOf("VisualAttackSequence++;", StringComparison.Ordinal)
                     < actor.IndexOf("OnAttackDelivered(AttackWeapon);", StringComparison.Ordinal));
         Assert.Contains("DrawSetTransform(pose.Offset, pose.Rotation, pose.Scale);", sprite);
-        Assert.Contains("DrawWornEquipment(r, directionColumn);", sprite);
+        Assert.DoesNotContain("DrawWornEquipment", sprite);
+        Assert.Contains("DrawHeldEquipmentPass(r, directionColumn, behindBody: true);", sprite);
+        Assert.Contains("DrawHeldEquipmentPass(r, directionColumn, behindBody: false);", sprite);
         Assert.Contains("DrawHeldEquipmentPass(r, directionColumn, behindBody: false);", sprite);
         Assert.Contains("ActorAttackFrameCatalog.PathFor", sprite);
         Assert.Contains("visual.Kind == EquipmentVisualKind.Weapon", sprite);
-        Assert.Contains("WeaponAttackPose.TwoHandThrust => f * r * 0.82f", sprite);
+        Assert.Contains("WeaponAttackPose.TwoHandThrust => f * r * 1.45f", sprite);
+        Assert.Contains("HeldSourceColumn(visual, directionColumn)", sprite);
         Assert.Contains("ActorAttackFrameCatalog.FrameFor(AttackProgress())", sprite);
     }
 
